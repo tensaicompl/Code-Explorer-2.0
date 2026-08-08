@@ -1,0 +1,154 @@
+PRAXEVIA EXPLORER — PROPRIETARY SOFTWARE LICENCE
+================================================
+
+Copyright (c) 2026 Praxevia. All rights reserved.
+
+PRAXEVIA EXPLORER IS THE CONFIDENTIAL AND PROPRIETARY INTELLECTUAL PROPERTY OF
+PRAXEVIA. IT IS NOT OPEN SOURCE, NOT FREE SOFTWARE, AND NOT PUBLICLY LICENSED.
+NO RIGHT TO USE IT IS GRANTED BY POSSESSION OF A COPY.
+
+
+1. DEFINITIONS
+--------------
+"Praxevia" means Praxevia and its successors and assigns.
+
+"The Software" means Praxevia Explorer: the source code, object code, build
+artefacts, container images, database schemas, graph-construction algorithms,
+prompts, design tokens, documentation, specifications and test suites contained
+in this repository, together with any modification, adaptation, translation or
+derivative work of any of them.
+
+"You" means the individual or legal entity in possession of the Software.
+
+"Authorised Use" means use expressly permitted by a written licence agreement
+signed by an authorised representative of Praxevia, and only within the scope,
+term and territory that agreement states.
+
+
+2. OWNERSHIP
+------------
+The Software is licensed, never sold. Praxevia retains all right, title and
+interest in and to the Software, including all copyright, database rights, trade
+secrets, trade marks and any other intellectual property rights subsisting in it
+anywhere in the world.
+
+This includes, without limitation, the deterministic graph-construction pipeline,
+the level-of-detail graph API, the extraction and resolution logic, the analytical
+methods they embody, and the Praxevia name, wordmark and design language.
+
+Nothing in this licence transfers ownership of anything to You.
+
+
+3. NO GRANT WITHOUT WRITTEN APPROVAL
+------------------------------------
+YOU HAVE NO LICENCE TO THE SOFTWARE UNLESS PRAXEVIA HAS GRANTED YOU ONE IN
+WRITING. Absent Authorised Use, You must not, in whole or in part:
+
+  (a) use, execute, run, deploy or host the Software, for Your own purposes or
+      for any third party, whether or not for a fee;
+  (b) copy, reproduce, publish, transmit, disclose, distribute, sell, resell,
+      rent, lease, lend, sublicense or otherwise make it available to anyone;
+  (c) modify, adapt, translate, or create derivative works of it;
+  (d) reverse engineer, decompile, disassemble, or otherwise attempt to derive
+      its source code, algorithms or internal structure, except to the minimum
+      extent that applicable law expressly permits notwithstanding this clause;
+  (e) use it to provide a service, product, benchmark or analysis to any third
+      party, including any managed, hosted or "as-a-service" offering;
+  (f) use it, or any part of it, to develop or train any competing product,
+      service, dataset, model or machine-learning system;
+  (g) remove, obscure or alter any copyright, trade mark, confidentiality or
+      attribution notice appearing in or on it.
+
+Receiving a copy — by any means, including inadvertent disclosure, a
+misconfigured repository, a forwarded archive or a shared filesystem — does NOT
+grant any right under (a) to (g). If You have obtained a copy without a written
+licence from Praxevia, You must cease all use and destroy every copy in Your
+possession or control, and notify Praxevia.
+
+
+4. CONFIDENTIALITY
+------------------
+The Software is confidential information and a trade secret of Praxevia. You
+must protect it with at least the care You apply to Your own confidential
+information of comparable importance, and never less than a reasonable standard
+of care. You must not disclose it to any person who is not covered by Authorised
+Use and bound by confidentiality obligations at least as protective as these.
+
+
+5. FEEDBACK
+-----------
+If You provide Praxevia with suggestions, corrections or ideas concerning the
+Software, Praxevia may use them without restriction, obligation or compensation.
+This does not give You any right in the Software.
+
+
+6. TERM AND TERMINATION
+-----------------------
+Any Authorised Use terminates immediately and automatically upon breach of this
+licence, without notice. On termination, or on Praxevia's written request, You
+must cease all use, destroy every copy of the Software in Your possession or
+control, and confirm in writing that You have done so.
+
+Sections 2, 4, 5, 7, 8, 9 and 10 survive termination.
+
+
+7. NO WARRANTY
+--------------
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, ACCURACY, AND NON-INFRINGEMENT.
+
+The Software analyses source code and produces a graph and generated commentary
+that MAY BE INCOMPLETE OR INCORRECT. It is a tool for understanding a codebase,
+not an authority on one. Do not rely on its output for any safety-related,
+security-related, regulatory, financial or otherwise consequential decision
+without independent verification.
+
+
+8. LIMITATION OF LIABILITY
+--------------------------
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, PRAXEVIA SHALL NOT BE LIABLE
+FOR ANY INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY OR CONSEQUENTIAL DAMAGES, NOR
+FOR ANY LOSS OF PROFITS, REVENUE, DATA, GOODWILL OR ANTICIPATED SAVINGS, ARISING
+OUT OF OR RELATED TO THE SOFTWARE OR THIS LICENCE, ON ANY THEORY OF LIABILITY,
+EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+Nothing in this licence excludes or limits liability that cannot lawfully be
+excluded or limited.
+
+
+9. ENFORCEMENT
+--------------
+You acknowledge that any breach of sections 3 or 4 would cause Praxevia harm not
+adequately remedied by damages alone, and that Praxevia is entitled to seek
+injunctive relief in addition to any other remedy, without posting security.
+
+
+10. GENERAL
+-----------
+Governing law and jurisdiction: [PRAXEVIA TO COMPLETE — insert the governing law
+and the exclusive jurisdiction before issuing this licence to anyone.]
+
+This licence is the entire agreement concerning the Software absent a signed
+agreement to the contrary. If any provision is held unenforceable, the remainder
+stays in force. Praxevia's failure to enforce a provision is not a waiver of it.
+
+
+11. SCOPE, AND THIRD-PARTY DEPENDENCIES
+---------------------------------------
+Every first-party component of the Software — the dashboard, the graph data
+model, the backend, the indexer and its graph builder, the MCP surface and the
+test suites — is Praxevia's own work and is fully covered by this licence.
+
+The Software additionally DEPENDS ON third-party open-source components which
+Praxevia neither wrote nor owns. This licence does not purport to govern them;
+their own terms apply to them. They are listed in the accompanying NOTICE file.
+
+The NOTICE file forms part of this licence and MUST be distributed with any
+authorised copy of the Software. Section 3(g) applies to it.
+
+
+CONTACT
+-------
+Licensing, permissions and infringement reports: Praxevia.
+[PRAXEVIA TO COMPLETE — insert the contact address used for licence requests.]

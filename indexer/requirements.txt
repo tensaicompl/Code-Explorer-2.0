@@ -1,0 +1,15 @@
+sentence-transformers>=3.3.0,<5.0.0
+psycopg2-binary>=2.9.9
+numpy
+tree-sitter>=0.23.0
+tree-sitter-python
+tree-sitter-java
+tree-sitter-c
+tree-sitter-cpp
+tree-sitter-javascript
+tree-sitter-typescript
+tree-sitter-bash
+tree-sitter-kotlin
+tree-sitter-ruby
+tree-sitter-scala
+tree-sitter-rust

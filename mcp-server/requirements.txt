@@ -1,0 +1,5 @@
+# The SDK's server API changed shape at 2.0 (mcp.server.fastmcp.FastMCP became
+# mcp.server.mcpserver.MCPServer), so the major version is a real constraint
+# here, not caution: an unpinned `mcp>=1.0.0` installs 2.x and fails on import.
+mcp>=2.0.0,<3
+httpx>=0.27.0

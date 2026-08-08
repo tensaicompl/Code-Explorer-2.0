@@ -1,0 +1,1117 @@
+{
+ "version": "1.0.0",
+ "project": {
+  "name": "shop/develop",
+  "languages": [
+   "json",
+   "md",
+   "proto",
+   "py",
+   "sql",
+   "ts",
+   "tsx",
+   "yml"
+  ],
+  "frameworks": [],
+  "description": "Business flows derived from the codebase graph.",
+  "analyzedAt": "2026-01-01T00:00:00+00:00",
+  "gitCommitHash": "718abaa2acb8dd1b712dad367ea0d77c2e186b2b"
+ },
+ "nodes": [
+  {
+   "id": "domain:layer:api",
+   "type": "domain",
+   "name": "api",
+   "summary": "182 nodes in this area of the codebase.",
+   "tags": [
+    "layer-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entities": [],
+    "businessRules": [],
+    "crossDomainInteractions": []
+   }
+  },
+  {
+   "id": "domain:layer:web",
+   "type": "domain",
+   "name": "web",
+   "summary": "104 nodes in this area of the codebase.",
+   "tags": [
+    "layer-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entities": [],
+    "businessRules": [],
+    "crossDomainInteractions": []
+   }
+  },
+  {
+   "id": "domain:layer:e2e",
+   "type": "domain",
+   "name": "e2e",
+   "summary": "15 nodes in this area of the codebase.",
+   "tags": [
+    "layer-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entities": [],
+    "businessRules": [],
+    "crossDomainInteractions": []
+   }
+  },
+  {
+   "id": "domain:layer:db",
+   "type": "domain",
+   "name": "db",
+   "summary": "14 nodes in this area of the codebase.",
+   "tags": [
+    "layer-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entities": [],
+    "businessRules": [],
+    "crossDomainInteractions": []
+   }
+  },
+  {
+   "id": "domain:layer:root",
+   "type": "domain",
+   "name": "Repository root",
+   "summary": "13 nodes in this area of the codebase.",
+   "tags": [
+    "layer-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entities": [],
+    "businessRules": [],
+    "crossDomainInteractions": []
+   }
+  },
+  {
+   "id": "flow:endpoint:api/shop.proto:CartService.AddItem",
+   "type": "flow",
+   "name": "AddItem",
+   "summary": "Starts at AddItem and reaches 0 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "AddItem",
+    "entryType": "http"
+   }
+  },
+  {
+   "id": "step:endpoint:api/shop.proto:CartService.AddItem:endpoint:api/shop.proto:CartService.AddItem",
+   "type": "step",
+   "name": "AddItem",
+   "summary": "AddItem",
+   "tags": [
+    "endpoint"
+   ],
+   "complexity": "moderate",
+   "filePath": "api/shop.proto",
+   "lineRange": [
+    39,
+    39
+   ]
+  },
+  {
+   "id": "flow:endpoint:api/shop.proto:CartService.ClearCart",
+   "type": "flow",
+   "name": "ClearCart",
+   "summary": "Starts at ClearCart and reaches 0 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "ClearCart",
+    "entryType": "http"
+   }
+  },
+  {
+   "id": "step:endpoint:api/shop.proto:CartService.ClearCart:endpoint:api/shop.proto:CartService.ClearCart",
+   "type": "step",
+   "name": "ClearCart",
+   "summary": "ClearCart",
+   "tags": [
+    "endpoint"
+   ],
+   "complexity": "moderate",
+   "filePath": "api/shop.proto",
+   "lineRange": [
+    43,
+    43
+   ]
+  },
+  {
+   "id": "flow:endpoint:api/shop.proto:CartService.GetCart",
+   "type": "flow",
+   "name": "GetCart",
+   "summary": "Starts at GetCart and reaches 0 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "GetCart",
+    "entryType": "http"
+   }
+  },
+  {
+   "id": "step:endpoint:api/shop.proto:CartService.GetCart:endpoint:api/shop.proto:CartService.GetCart",
+   "type": "step",
+   "name": "GetCart",
+   "summary": "GetCart",
+   "tags": [
+    "endpoint"
+   ],
+   "complexity": "moderate",
+   "filePath": "api/shop.proto",
+   "lineRange": [
+    38,
+    38
+   ]
+  },
+  {
+   "id": "flow:endpoint:api/shop.proto:CartService.SetItemQuantity",
+   "type": "flow",
+   "name": "SetItemQuantity",
+   "summary": "Starts at SetItemQuantity and reaches 0 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "SetItemQuantity",
+    "entryType": "http"
+   }
+  },
+  {
+   "id": "step:endpoint:api/shop.proto:CartService.SetItemQuantity:endpoint:api/shop.proto:CartService.SetItemQuantity",
+   "type": "step",
+   "name": "SetItemQuantity",
+   "summary": "Absolute quantity, not a delta. Zero removes the line.",
+   "tags": [
+    "endpoint"
+   ],
+   "complexity": "moderate",
+   "filePath": "api/shop.proto",
+   "lineRange": [
+    42,
+    42
+   ]
+  },
+  {
+   "id": "flow:endpoint:api/shop.proto:CatalogService.GetProduct",
+   "type": "flow",
+   "name": "GetProduct",
+   "summary": "Starts at GetProduct and reaches 0 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "GetProduct",
+    "entryType": "http"
+   }
+  },
+  {
+   "id": "step:endpoint:api/shop.proto:CatalogService.GetProduct:endpoint:api/shop.proto:CatalogService.GetProduct",
+   "type": "step",
+   "name": "GetProduct",
+   "summary": "Everything the detail page shows, variants included.",
+   "tags": [
+    "endpoint"
+   ],
+   "complexity": "moderate",
+   "filePath": "api/shop.proto",
+   "lineRange": [
+    29,
+    29
+   ]
+  },
+  {
+   "id": "flow:endpoint:api/shop.proto:CatalogService.ListCategories",
+   "type": "flow",
+   "name": "ListCategories",
+   "summary": "Starts at ListCategories and reaches 0 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "ListCategories",
+    "entryType": "http"
+   }
+  },
+  {
+   "id": "step:endpoint:api/shop.proto:CatalogService.ListCategories:endpoint:api/shop.proto:CatalogService.ListCategories",
+   "type": "step",
+   "name": "ListCategories",
+   "summary": "The category rail.",
+   "tags": [
+    "endpoint"
+   ],
+   "complexity": "moderate",
+   "filePath": "api/shop.proto",
+   "lineRange": [
+    32,
+    32
+   ]
+  },
+  {
+   "id": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "type": "flow",
+   "name": "CheckoutPage",
+   "summary": "Starts at CheckoutPage and reaches 8 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "CheckoutPage",
+    "entryType": "manual"
+   }
+  },
+  {
+   "id": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "type": "step",
+   "name": "CheckoutPage",
+   "summary": "CheckoutPage",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/pages/CheckoutPage.tsx",
+   "lineRange": [
+    62,
+    449
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:formatCardNumber",
+   "type": "step",
+   "name": "formatCardNumber",
+   "summary": "Group a card number into fours as it is typed.",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    50,
+    53
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:formatExpiry",
+   "type": "step",
+   "name": "formatExpiry",
+   "summary": "formatExpiry",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    55,
+    59
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:money",
+   "type": "step",
+   "name": "money",
+   "summary": "money",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    28,
+    30
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:parseExpiry",
+   "type": "step",
+   "name": "parseExpiry",
+   "summary": "parseExpiry",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    61,
+    70
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:pluralise",
+   "type": "step",
+   "name": "pluralise",
+   "summary": "pluralise",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    42,
+    44
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/state/CartContext.tsx:useCart",
+   "type": "step",
+   "name": "useCart",
+   "summary": "useCart",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/state/CartContext.tsx",
+   "lineRange": [
+    184,
+    190
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/state/ToastContext.tsx:useToast",
+   "type": "step",
+   "name": "useToast",
+   "summary": "useToast",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/state/ToastContext.tsx",
+   "lineRange": [
+    70,
+    76
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:formatterFor",
+   "type": "step",
+   "name": "formatterFor",
+   "summary": "formatterFor",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    12,
+    26
+   ]
+  },
+  {
+   "id": "flow:function:web/src/components/CartDrawer.tsx:CartDrawer",
+   "type": "flow",
+   "name": "CartDrawer",
+   "summary": "Starts at CartDrawer and reaches 4 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "CartDrawer",
+    "entryType": "manual"
+   }
+  },
+  {
+   "id": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/components/CartDrawer.tsx:CartDrawer",
+   "type": "step",
+   "name": "CartDrawer",
+   "summary": "CartDrawer",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/components/CartDrawer.tsx",
+   "lineRange": [
+    22,
+    238
+   ]
+  },
+  {
+   "id": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/lib/format.ts:money",
+   "type": "step",
+   "name": "money",
+   "summary": "money",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    28,
+    30
+   ]
+  },
+  {
+   "id": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/lib/format.ts:pluralise",
+   "type": "step",
+   "name": "pluralise",
+   "summary": "pluralise",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    42,
+    44
+   ]
+  },
+  {
+   "id": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/state/CartContext.tsx:useCart",
+   "type": "step",
+   "name": "useCart",
+   "summary": "useCart",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/state/CartContext.tsx",
+   "lineRange": [
+    184,
+    190
+   ]
+  },
+  {
+   "id": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/lib/format.ts:formatterFor",
+   "type": "step",
+   "name": "formatterFor",
+   "summary": "formatterFor",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    12,
+    26
+   ]
+  },
+  {
+   "id": "flow:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage",
+   "type": "flow",
+   "name": "ConfirmationPage",
+   "summary": "Starts at ConfirmationPage and reaches 4 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "ConfirmationPage",
+    "entryType": "manual"
+   }
+  },
+  {
+   "id": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage",
+   "type": "step",
+   "name": "ConfirmationPage",
+   "summary": "ConfirmationPage",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/pages/ConfirmationPage.tsx",
+   "lineRange": [
+    18,
+    208
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/lib/format.ts:formatDate",
+   "type": "step",
+   "name": "formatDate",
+   "summary": "formatDate",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    72,
+    80
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/lib/format.ts:money",
+   "type": "step",
+   "name": "money",
+   "summary": "money",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    28,
+    30
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/lib/format.ts:pluralise",
+   "type": "step",
+   "name": "pluralise",
+   "summary": "pluralise",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    42,
+    44
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/lib/format.ts:formatterFor",
+   "type": "step",
+   "name": "formatterFor",
+   "summary": "formatterFor",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    12,
+    26
+   ]
+  },
+  {
+   "id": "flow:function:web/src/pages/ProductPage.tsx:ProductPage",
+   "type": "flow",
+   "name": "ProductPage",
+   "summary": "Starts at ProductPage and reaches 4 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "ProductPage",
+    "entryType": "manual"
+   }
+  },
+  {
+   "id": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/pages/ProductPage.tsx:ProductPage",
+   "type": "step",
+   "name": "ProductPage",
+   "summary": "ProductPage",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/pages/ProductPage.tsx",
+   "lineRange": [
+    36,
+    391
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/lib/format.ts:money",
+   "type": "step",
+   "name": "money",
+   "summary": "money",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    28,
+    30
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/lib/format.ts:weight",
+   "type": "step",
+   "name": "weight",
+   "summary": "weight",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    32,
+    35
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/state/CartContext.tsx:useCart",
+   "type": "step",
+   "name": "useCart",
+   "summary": "useCart",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/state/CartContext.tsx",
+   "lineRange": [
+    184,
+    190
+   ]
+  },
+  {
+   "id": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/lib/format.ts:formatterFor",
+   "type": "step",
+   "name": "formatterFor",
+   "summary": "formatterFor",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/lib/format.ts",
+   "lineRange": [
+    12,
+    26
+   ]
+  },
+  {
+   "id": "flow:function:web/src/api/client.ts:keepToken",
+   "type": "flow",
+   "name": "keepToken",
+   "summary": "Starts at keepToken and reaches 1 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "keepToken",
+    "entryType": "manual"
+   }
+  },
+  {
+   "id": "step:function:web/src/api/client.ts:keepToken:function:web/src/api/client.ts:keepToken",
+   "type": "step",
+   "name": "keepToken",
+   "summary": "Every cart response carries the authoritative token.",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/api/client.ts",
+   "lineRange": [
+    149,
+    154
+   ]
+  },
+  {
+   "id": "step:function:web/src/api/client.ts:keepToken:function:web/src/api/client.ts:writeCartToken",
+   "type": "step",
+   "name": "writeCartToken",
+   "summary": "writeCartToken",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/api/client.ts",
+   "lineRange": [
+    57,
+    63
+   ]
+  },
+  {
+   "id": "flow:function:web/src/components/ProductArt.tsx:ProductArt",
+   "type": "flow",
+   "name": "ProductArt",
+   "summary": "Starts at ProductArt and reaches 1 further step(s).",
+   "tags": [
+    "call-derived"
+   ],
+   "complexity": "moderate",
+   "domainMeta": {
+    "entryPoint": "ProductArt",
+    "entryType": "manual"
+   }
+  },
+  {
+   "id": "step:function:web/src/components/ProductArt.tsx:ProductArt:function:web/src/components/ProductArt.tsx:ProductArt",
+   "type": "step",
+   "name": "ProductArt",
+   "summary": "ProductArt",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/components/ProductArt.tsx",
+   "lineRange": [
+    511,
+    546
+   ]
+  },
+  {
+   "id": "step:function:web/src/components/ProductArt.tsx:ProductArt:function:web/src/components/ProductArt.tsx:palette",
+   "type": "step",
+   "name": "palette",
+   "summary": "palette",
+   "tags": [
+    "function"
+   ],
+   "complexity": "moderate",
+   "filePath": "web/src/components/ProductArt.tsx",
+   "lineRange": [
+    71,
+    79
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "source": "domain:layer:api",
+   "target": "flow:endpoint:api/shop.proto:CartService.AddItem",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:endpoint:api/shop.proto:CartService.AddItem",
+   "target": "step:endpoint:api/shop.proto:CartService.AddItem:endpoint:api/shop.proto:CartService.AddItem",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "domain:layer:api",
+   "target": "flow:endpoint:api/shop.proto:CartService.ClearCart",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:endpoint:api/shop.proto:CartService.ClearCart",
+   "target": "step:endpoint:api/shop.proto:CartService.ClearCart:endpoint:api/shop.proto:CartService.ClearCart",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "domain:layer:api",
+   "target": "flow:endpoint:api/shop.proto:CartService.GetCart",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:endpoint:api/shop.proto:CartService.GetCart",
+   "target": "step:endpoint:api/shop.proto:CartService.GetCart:endpoint:api/shop.proto:CartService.GetCart",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "domain:layer:api",
+   "target": "flow:endpoint:api/shop.proto:CartService.SetItemQuantity",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:endpoint:api/shop.proto:CartService.SetItemQuantity",
+   "target": "step:endpoint:api/shop.proto:CartService.SetItemQuantity:endpoint:api/shop.proto:CartService.SetItemQuantity",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "domain:layer:api",
+   "target": "flow:endpoint:api/shop.proto:CatalogService.GetProduct",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:endpoint:api/shop.proto:CatalogService.GetProduct",
+   "target": "step:endpoint:api/shop.proto:CatalogService.GetProduct:endpoint:api/shop.proto:CatalogService.GetProduct",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "domain:layer:api",
+   "target": "flow:endpoint:api/shop.proto:CatalogService.ListCategories",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:endpoint:api/shop.proto:CatalogService.ListCategories",
+   "target": "step:endpoint:api/shop.proto:CatalogService.ListCategories:endpoint:api/shop.proto:CatalogService.ListCategories",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "domain:layer:web",
+   "target": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "target": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.1
+  },
+  {
+   "source": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "target": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:formatCardNumber",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.2
+  },
+  {
+   "source": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "target": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:formatExpiry",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.3
+  },
+  {
+   "source": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "target": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:money",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.4
+  },
+  {
+   "source": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "target": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:parseExpiry",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "target": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:pluralise",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.6
+  },
+  {
+   "source": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "target": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/state/CartContext.tsx:useCart",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.7
+  },
+  {
+   "source": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "target": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/state/ToastContext.tsx:useToast",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.8
+  },
+  {
+   "source": "flow:function:web/src/pages/CheckoutPage.tsx:CheckoutPage",
+   "target": "step:function:web/src/pages/CheckoutPage.tsx:CheckoutPage:function:web/src/lib/format.ts:formatterFor",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.9
+  },
+  {
+   "source": "domain:layer:web",
+   "target": "flow:function:web/src/components/CartDrawer.tsx:CartDrawer",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:function:web/src/components/CartDrawer.tsx:CartDrawer",
+   "target": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/components/CartDrawer.tsx:CartDrawer",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.16666666666666666
+  },
+  {
+   "source": "flow:function:web/src/components/CartDrawer.tsx:CartDrawer",
+   "target": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/lib/format.ts:money",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.3333333333333333
+  },
+  {
+   "source": "flow:function:web/src/components/CartDrawer.tsx:CartDrawer",
+   "target": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/lib/format.ts:pluralise",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "flow:function:web/src/components/CartDrawer.tsx:CartDrawer",
+   "target": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/state/CartContext.tsx:useCart",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.6666666666666666
+  },
+  {
+   "source": "flow:function:web/src/components/CartDrawer.tsx:CartDrawer",
+   "target": "step:function:web/src/components/CartDrawer.tsx:CartDrawer:function:web/src/lib/format.ts:formatterFor",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.8333333333333334
+  },
+  {
+   "source": "domain:layer:web",
+   "target": "flow:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage",
+   "target": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.16666666666666666
+  },
+  {
+   "source": "flow:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage",
+   "target": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/lib/format.ts:formatDate",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.3333333333333333
+  },
+  {
+   "source": "flow:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage",
+   "target": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/lib/format.ts:money",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "flow:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage",
+   "target": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/lib/format.ts:pluralise",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.6666666666666666
+  },
+  {
+   "source": "flow:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage",
+   "target": "step:function:web/src/pages/ConfirmationPage.tsx:ConfirmationPage:function:web/src/lib/format.ts:formatterFor",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.8333333333333334
+  },
+  {
+   "source": "domain:layer:web",
+   "target": "flow:function:web/src/pages/ProductPage.tsx:ProductPage",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:function:web/src/pages/ProductPage.tsx:ProductPage",
+   "target": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/pages/ProductPage.tsx:ProductPage",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.16666666666666666
+  },
+  {
+   "source": "flow:function:web/src/pages/ProductPage.tsx:ProductPage",
+   "target": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/lib/format.ts:money",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.3333333333333333
+  },
+  {
+   "source": "flow:function:web/src/pages/ProductPage.tsx:ProductPage",
+   "target": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/lib/format.ts:weight",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.5
+  },
+  {
+   "source": "flow:function:web/src/pages/ProductPage.tsx:ProductPage",
+   "target": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/state/CartContext.tsx:useCart",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.6666666666666666
+  },
+  {
+   "source": "flow:function:web/src/pages/ProductPage.tsx:ProductPage",
+   "target": "step:function:web/src/pages/ProductPage.tsx:ProductPage:function:web/src/lib/format.ts:formatterFor",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.8333333333333334
+  },
+  {
+   "source": "domain:layer:web",
+   "target": "flow:function:web/src/api/client.ts:keepToken",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:function:web/src/api/client.ts:keepToken",
+   "target": "step:function:web/src/api/client.ts:keepToken:function:web/src/api/client.ts:keepToken",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.3333333333333333
+  },
+  {
+   "source": "flow:function:web/src/api/client.ts:keepToken",
+   "target": "step:function:web/src/api/client.ts:keepToken:function:web/src/api/client.ts:writeCartToken",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.6666666666666666
+  },
+  {
+   "source": "domain:layer:web",
+   "target": "flow:function:web/src/components/ProductArt.tsx:ProductArt",
+   "type": "contains_flow",
+   "direction": "forward",
+   "weight": 1.0
+  },
+  {
+   "source": "flow:function:web/src/components/ProductArt.tsx:ProductArt",
+   "target": "step:function:web/src/components/ProductArt.tsx:ProductArt:function:web/src/components/ProductArt.tsx:ProductArt",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.3333333333333333
+  },
+  {
+   "source": "flow:function:web/src/components/ProductArt.tsx:ProductArt",
+   "target": "step:function:web/src/components/ProductArt.tsx:ProductArt:function:web/src/components/ProductArt.tsx:palette",
+   "type": "flow_step",
+   "direction": "forward",
+   "weight": 0.6666666666666666
+  },
+  {
+   "source": "domain:layer:api",
+   "target": "domain:layer:web",
+   "type": "cross_domain",
+   "direction": "forward",
+   "weight": 1.0,
+   "description": "6 call(s)"
+  },
+  {
+   "source": "domain:layer:e2e",
+   "target": "domain:layer:web",
+   "type": "cross_domain",
+   "direction": "forward",
+   "weight": 0.1667,
+   "description": "1 call(s)"
+  }
+ ],
+ "layers": [],
+ "tour": []
+}

@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package shop.api.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Order lifecycle for the storefront.
+// Two RPCs, one of them server-streaming.
+service OrderService {
+    // Place a single order and get its confirmation.
+    rpc PlaceOrder(PlaceOrderRequest) returns (Order);
+
+    // Follow an order's status until it is delivered.
+    rpc WatchOrder(WatchOrderRequest) returns (stream OrderEvent);
+}
+
+// A customer order. The `payment` oneof is here on purpose: its fields must be
+// attributed to Order, not to a node of their own.
+message Order {
+    string id = 1;
+    string customer_email = 2;
+    repeated LineItem items = 3;
+    OrderStatus status = 4;
+    map<string, string> metadata = 5;
+
+    oneof payment {
+        string card_token = 6;
+        string invoice_ref = 7;
+    }
+
+    // A nested message — invisible to a `^message`-anchored regex.
+    message Shipping {
+        string address = 1;
+        string carrier = 2;
+    }
+}
+
+message LineItem {
+    string sku = 1;
+    int32 quantity = 2;
+}
+
+enum OrderStatus {
+    ORDER_STATUS_UNSPECIFIED = 0;
+    ORDER_STATUS_PLACED = 1;
+    ORDER_STATUS_SHIPPED = 2;
+    ORDER_STATUS_DELIVERED = 3;
+}
+
+message PlaceOrderRequest {
+    string customer_email = 1;
+    repeated LineItem items = 2;
+}
+
+message WatchOrderRequest {
+    string order_id = 1;
+}
+
+message OrderEvent {
+    string order_id = 1;
+    OrderStatus status = 2;
+}
+
+// A single-line block, which must still close its own frame.
+message Empty {}

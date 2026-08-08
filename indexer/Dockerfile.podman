@@ -1,0 +1,25 @@
+FROM python:3.12-slim
+
+# tree-sitter grammars are compiled from C during install, so a toolchain is
+# required in the build stage.
+RUN apt-get update && apt-get install -y build-essential && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# CPU-only torch first, so the CUDA build and its driver libraries are never
+# pulled in.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Bake in the embedding model rather than downloading it per container.
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('Alibaba-NLP/gte-base-en-v1.5', trust_remote_code=True)"
+
+# The whole tree, not just build_corpus.py: `graph_pass/` is imported by the indexer's
+# declarative extractors and run directly by the sidecar after each index
+# (`python3 -m graph_pass.builder`). Copying only build_corpus.py left this image
+# unable to build a graph at all, silently diverging from Dockerfile.
+COPY . .
+
+CMD ["python", "build_corpus.py"]

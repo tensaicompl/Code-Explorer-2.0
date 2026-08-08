@@ -1,0 +1,11 @@
+{
+  // Same rules as the app, applied to everything including the tests the app
+  // project excludes. Split out so `pnpm typecheck` still covers test files
+  // while `pnpm build` cannot be blocked by them.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsBuildInfoFile"
+  },
+  "include": ["src"],
+  "exclude": []
+}

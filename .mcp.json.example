@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "praxevia": {
+      "command": "/absolute/path/to/praxevia-explorer/.venv/bin/python",
+      "args": ["/absolute/path/to/praxevia-explorer/mcp-server/praxevia_mcp_server.py"],
+      "env": {
+        "PRAXEVIA_BACKEND_URL": "http://127.0.0.1:3006",
+        "PRAXEVIA_API_KEY": "${PRAXEVIA_API_KEY}",
+        "PRAXEVIA_PROJECT": "",
+        "PRAXEVIA_STREAM": ""
+      }
+    }
+  }
+}

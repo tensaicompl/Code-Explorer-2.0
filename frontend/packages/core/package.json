@@ -1,0 +1,30 @@
+{
+  "name": "@prx/core",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Browser-safe subset of Architecture Insight's core: the graph type model, its zod schema, and the Fuse.js search index. See README.md for what was removed and why.",
+  "exports": {
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
+    },
+    "./search": {
+      "types": "./dist/search.d.ts",
+      "default": "./dist/search.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "fuse.js": "^7.1.0",
+    "zod": "^4.3.6"
+  }
+}

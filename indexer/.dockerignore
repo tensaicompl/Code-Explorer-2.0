@@ -1,0 +1,18 @@
+# Keep build context to what actually ships.
+#
+# Both Dockerfiles in this directory do `COPY . .`, so anything left here is
+# baked into the image. Without this file the working tree's bytecode caches,
+# test caches and generated graph output were all being copied in -- larger
+# images, stale .pyc files shadowing edited sources, and generated artefacts
+# shipped to production for no reason.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Generated graph output, sometimes hundreds of megabytes.
+out/
+
+.venv/
+.DS_Store

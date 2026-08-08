@@ -1,0 +1,6 @@
+{
+  "files": [],
+  // Both, so editors and a bare `tsc -b` still see test files. The build
+  // targets tsconfig.app.json explicitly and never picks up the test project.
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.test.json" }]
+}

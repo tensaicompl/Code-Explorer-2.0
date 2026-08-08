@@ -1,0 +1,346 @@
+@import "tailwindcss";
+@source "./**/*.{ts,tsx,js,jsx,html}";
+@source "../index.html";
+
+/*
+ * Praxevia design tokens.
+ *
+ * Values are taken from the Praxevia brand site (praxevia-website.vercel.app):
+ * deep teal prx-900 #071D24 through prx-500 sage #76C0A1, a cool blue-grey
+ * neutral ramp, and orange #F26224 reserved for primary actions.
+ *
+ * These are the *initial* values. `themes/theme-engine.ts` overwrites the same
+ * custom properties on <html> once the active preset hydrates.
+ */
+@theme {
+  /* Base — Praxevia dark (site hero/footer surfaces) */
+  --color-root: #071D24;
+  --color-surface: #0D2831;
+  --color-elevated: #1A3F4D;
+  --color-panel: #11313C;
+
+  /* Accent — prx-500 sage. Carries every interactive/label surface. */
+  --color-accent: #76C0A1;
+  --color-accent-dim: #5FA88A;
+  --color-accent-bright: #98D0B8;
+
+  /* Primary action — brand orange. Kept out of the accent derivation chain. */
+  --color-cta: #F26224;
+  --color-cta-hover: #D9551E;
+  --color-cta-fg: #FFFFFF;
+
+  /* Text — neutral ramp */
+  --color-text-primary: #EEF3F5;
+  --color-text-secondary: #9AABB3;
+  --color-text-muted: #748B94;
+
+  /* Borders */
+  --color-border-subtle: rgba(118, 192, 161, 0.12);
+  --color-border-medium: rgba(118, 192, 161, 0.25);
+
+  /*
+   * Node types — semantic type-coding, so all 13 stay visually distinct.
+   * Hues are spread across the wheel but held to a common lightness and
+   * saturation band so they read as one system on the prx-900 canvas.
+   */
+  --color-node-file: #6BA8CC;
+  --color-node-function: #76C0A1;
+  --color-node-class: #A38FCB;
+  --color-node-module: #C9A97A;
+  --color-node-concept: #CE8FA5;
+  --color-node-config: #5FC8C0;
+  --color-node-document: #A9C6DE;
+  --color-node-service: #8496CE;
+  --color-node-table: #93D3A6;
+  --color-node-endpoint: #EE9A63;
+  --color-node-pipeline: #DE93AE;
+  --color-node-schema: #D9C177;
+  --color-node-resource: #B7AEDC;
+
+  /* Knowledge node types */
+  --color-node-article: #F2A277;
+  --color-node-entity: #7FB2CE;
+  --color-node-topic: #D9C177;
+  --color-node-claim: #76C0A1;
+  --color-node-source: #8FA0A8;
+
+  /* Severity semantics, tuned into the Praxevia saturation band. Named for the
+     diff overlay that first used them; the overlay is gone but complexity
+     badges, contradiction edges and the warning banner still key off these. */
+  --color-diff-changed: #DB5F52;
+  --color-diff-affected: #DDA044;
+  --color-diff-changed-dim: rgba(219, 95, 82, 0.25);
+  --color-diff-affected-dim: rgba(221, 160, 68, 0.25);
+
+  /* Glass */
+  --glass-bg: rgba(7, 29, 36, 0.8);
+  --glass-bg-heavy: rgba(7, 29, 36, 0.95);
+  --glass-border: rgba(118, 192, 161, 0.1);
+  --glass-border-heavy: rgba(118, 192, 161, 0.15);
+
+  /* Scrollbar */
+  --scrollbar-thumb: rgba(118, 192, 161, 0.2);
+  --scrollbar-thumb-hover: rgba(118, 192, 161, 0.35);
+
+  /* Glow */
+  --glow-accent: rgba(118, 192, 161, 0.15);
+  --glow-accent-strong: rgba(118, 192, 161, 0.4);
+  --glow-accent-pulse: rgba(118, 192, 161, 0.6);
+
+  /* Edges */
+  --color-edge: rgba(118, 192, 161, 0.3);
+  --color-edge-dim: rgba(118, 192, 161, 0.08);
+  --color-edge-dot: rgba(118, 192, 161, 0.15);
+
+  /* Accent overlays */
+  --color-accent-overlay-bg: rgba(118, 192, 161, 0.05);
+  --color-accent-overlay-border: rgba(118, 192, 161, 0.25);
+
+  /* Kbd */
+  --kbd-bg: rgba(118, 192, 161, 0.1);
+
+  /* Typography */
+  --font-serif: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', ui-monospace, monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: var(--font-sans);
+}
+
+/*
+ * Shape and motion — the Praxevia bevel cuts the top-left and bottom-right
+ * corners at 45 degrees. It replaces rounded corners on every container;
+ * border-radius survives only for dots and status indicators.
+ */
+:root {
+  --bevel: 16px;
+  --bevel-sm: 8px;
+  --bevel-xs: 3px;
+  --ease-prx: cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.bevel {
+  clip-path: polygon(
+    var(--bevel) 0,
+    100% 0,
+    100% calc(100% - var(--bevel)),
+    calc(100% - var(--bevel)) 100%,
+    0 100%,
+    0 var(--bevel)
+  );
+}
+
+.bevel-sm {
+  clip-path: polygon(
+    var(--bevel-sm) 0,
+    100% 0,
+    100% calc(100% - var(--bevel-sm)),
+    calc(100% - var(--bevel-sm)) 100%,
+    0 100%,
+    0 var(--bevel-sm)
+  );
+}
+
+/*
+ * Depth for floating bevelled surfaces (menus, modals, tooltips).
+ *
+ * `box-shadow` is painted inside the element's own rendering and is therefore
+ * clipped away by `clip-path` — a bevelled panel with `shadow-xl` shows no
+ * shadow at all. `filter: drop-shadow` is applied to the already-clipped
+ * result, so it traces the bevelled silhouette instead of vanishing.
+ *
+ * Static bevelled surfaces (cards, nodes, chips) deliberately carry no shadow:
+ * the brand separates surfaces with a hairline, not elevation.
+ */
+.bevel-elevate {
+  filter: drop-shadow(0 8px 24px rgba(7, 29, 36, 0.35));
+}
+
+/* For elements under ~20px, where an 8px cut would consume most of the box. */
+.bevel-xs {
+  clip-path: polygon(
+    var(--bevel-xs) 0,
+    100% 0,
+    100% calc(100% - var(--bevel-xs)),
+    calc(100% - var(--bevel-xs)) 100%,
+    0 100%,
+    0 var(--bevel-xs)
+  );
+}
+
+.font-heading { font-family: var(--font-heading); }
+
+/*
+ * Praxevia heading treatment: light weight, uppercase, tight tracking.
+ * The single most recognisable typographic signal of the brand.
+ */
+.prx-heading {
+  font-family: var(--font-heading);
+  font-weight: 300;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+/* Uppercase micro-label used for eyebrows, section headers and badges. */
+.prx-label {
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+/* Base styles */
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-root);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle noise texture overlay */
+.noise-overlay::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 9999;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+/* Glass utility */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.glass-heavy {
+  background: var(--glass-bg-heavy);
+  border: 1px solid var(--glass-border-heavy);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Keyboard shortcut key styling */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: var(--kbd-bg);
+  border: 1px solid var(--color-border-medium);
+  border-radius: 0;
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  box-shadow: 0 1px 0 var(--scrollbar-thumb);
+}
+
+/* Animation keyframes */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes accentPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--glow-accent-strong);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--glow-accent-pulse);
+  }
+}
+
+/* Animation utilities */
+.animate-fade-slide-in {
+  animation: fadeSlideIn 0.3s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+.animate-accent-pulse {
+  animation: accentPulse 2s ease-in-out infinite;
+}
+
+/* Node selection glow */
+.node-glow {
+  box-shadow: 0 0 20px var(--glow-accent);
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Custom scrollbar for dark luxury theme */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Override React Flow dark theme */
+.react-flow__background {
+  background-color: var(--color-root) !important;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+  color-scheme: light;
+}
+
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .warning-banner {
+  background: var(--color-diff-affected-dim);
+  border-color: var(--color-diff-affected);
+  color: #8A5F14;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}

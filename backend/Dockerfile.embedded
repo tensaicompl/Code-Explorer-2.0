@@ -1,0 +1,40 @@
+FROM python:3.12-slim
+
+# Build-time system packages: libpq and a compiler for psycopg2, a toolchain
+# for the embedding stack, openssl for the dev certificate, git for cloning.
+RUN apt-get update && apt-get install -y build-essential libpq-dev openssl git && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# CPU-only torch, installed before anything that would pull the default build.
+# The default drags in the CUDA runtime -- around two gigabytes of driver
+# libraries that are dead weight without an NVIDIA card.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+# The rest of the Python requirements.
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Bake the embedding model into the image, so a cold start does not begin
+# with a large download.
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('Alibaba-NLP/gte-base-en-v1.5', trust_remote_code=True)"
+
+# Self-signed certificate for local use. Mount real ones over this path
+# anywhere a client has to trust the service.
+RUN mkdir -p /app/certs && \
+    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+      -keyout /app/certs/selfsigned.key \
+      -out /app/certs/selfsigned.crt \
+      -subj "/C=XX/ST=Dev/L=Dev/O=Dev/CN=localhost"
+
+# Application code last: it changes most often, so everything above stays
+# cached between builds.
+COPY backend/app/ ./app/
+COPY backend/docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+ENV CODEBASE_DIR=/data/codebase
+
+EXPOSE 8000
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

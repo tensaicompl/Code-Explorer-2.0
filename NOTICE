@@ -1,0 +1,74 @@
+Praxevia Explorer
+=================
+
+Copyright (c) 2026 Praxevia. All rights reserved.
+
+PROPRIETARY AND CONFIDENTIAL. Governed by the LICENSE file in this repository:
+no use, copying, deployment or distribution without Praxevia's written approval.
+
+**Never add a publish step.** No npm, no marketplace, no public container
+registry, no public release workflow. See "Distribution" below.
+
+
+-------------------------------------------------------------------------------
+1. Praxevia's work — all of it
+-------------------------------------------------------------------------------
+Every component of this application, other than the open-source dependencies
+listed in section 2, is the intellectual property of Praxevia and is covered by
+LICENSE:
+
+  frontend/packages/dashboard/   The graph canvas, layer and container views,
+                                 chat dock, panels, search, export, and the
+                                 Praxevia design language.
+  frontend/packages/core/        The graph data model, schema and search engine.
+  backend/                       The API and its routers, the agentic chat and
+                                 its search tools, the level-of-detail graph
+                                 API, identity and access control, credential
+                                 and conversation storage, repository
+                                 provisioning, and the refresh cadence.
+  indexer/                       Extraction, chunking, embedding, and
+                                 graph_pass/ — the deterministic graph builder:
+                                 node identity, edge resolution and its
+                                 confidence policy, layer assignment, and the
+                                 SQL / protobuf / markdown / dotenv extractors.
+  mcp-server/                    The MCP surface.
+  e2e/                           The browser verification suite.
+
+The Praxevia name, wordmark and visual identity are trade marks of Praxevia.
+
+
+-------------------------------------------------------------------------------
+2. Third-party dependencies
+-------------------------------------------------------------------------------
+Not written by Praxevia, not owned by Praxevia, and not covered by LICENSE.
+Their own terms apply to them, and this attribution must be retained.
+
+    PostgreSQL                     PostgreSQL License
+    pgvector                       PostgreSQL License
+    sentence-transformers          Apache-2.0
+    Alibaba-NLP/gte-base-en-v1.5   Apache-2.0
+    tree-sitter + grammars         MIT / Apache-2.0
+    React, Vite, TailwindCSS       MIT
+    @xyflow/react                  MIT
+    elkjs                          EPL-2.0
+    zod, react-markdown, remark    MIT
+    FastAPI, Uvicorn, Pydantic     MIT / BSD
+    psycopg2                       LGPL-3.0-with-exceptions
+    Anthropic SDK                  MIT
+
+These are dependencies, not incorporated source: their licences are satisfied by
+ordinary use plus this attribution. If the Software is ever shipped as a
+self-contained bundle that embeds their source or object code, review each
+licence's redistribution terms first — elkjs (EPL-2.0) and psycopg2 (LGPL) carry
+obligations that ordinary dependency use does not trigger.
+
+
+-------------------------------------------------------------------------------
+3. Distribution
+-------------------------------------------------------------------------------
+  * Keep this repository PRIVATE.
+  * Do NOT add a publish step — no npm, no VS Code marketplace, no public
+    container registry, no public release workflow.
+  * No copy goes to anyone — customer, contractor, third-party-operated host or
+    code host — without Praxevia's written approval. LICENSE section 3.
+  * Every authorised copy must include LICENSE and this NOTICE.

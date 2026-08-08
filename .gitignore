@@ -1,0 +1,41 @@
+# Data — never commit
+pgdata/
+codebase/
+*.tar.gz
+
+# Secrets
+.env
+.env.local
+*.pem
+*.key
+certs/
+# Holds a backend token — copy .mcp.json.example, never commit the result.
+.mcp.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Tooling
+.DS_Store
+.idea/
+.vscode/
+coverage/
+.pytest_cache/
+
+# Generated graphs — regenerate with graph_pass.builder
+indexer/out/
+
+# Local verification venv
+.venv/
+.verify-graphs/
+.graphs/

@@ -1,0 +1,12 @@
+{
+  "name": "praxevia-explorer-frontend",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "build:core": "pnpm --filter @prx/core build",
+    "dev": "pnpm --filter @prx/dashboard dev",
+    "build": "pnpm --filter @prx/core build && pnpm --filter @prx/dashboard build",
+    "test": "pnpm -r test"
+  }
+}
