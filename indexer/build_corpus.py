@@ -57,7 +57,13 @@ from persistence import (
     purge_files_from_index,
     purge_symbols_for_files,
 )
-from symbol_extractors import _extract_file_symbols, _redact_for_storage
+from symbol_extractors import (
+    ADA_EXTENSIONS,
+    DDL_EXTENSIONS,
+    SKIP_SYMBOL_EXTENSIONS,
+    _extract_file_symbols,
+    _redact_for_storage,
+)
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("indexer")
@@ -417,13 +423,17 @@ def main():
     model = SentenceTransformer(EMBEDDING_MODEL, trust_remote_code=True, device=device)
     logger.info("Model loaded in %.1fs", time.time() - t0)
 
+    failed = []
     for project, stream in combos:
         logger.info("=== Indexing project: %s / stream: %s ===", project, stream)
         try:
             index_project_stream(model, project, stream)
         except Exception:
+            failed.append((project, stream))
             logger.exception("Failed to index project: %s / stream: %s", project, stream)
 
+    if failed:
+        raise SystemExit(f"Indexing failed for {len(failed)} project/stream combo(s): {failed}")
     logger.info("All project/stream combos indexed.")
 
 

@@ -13,6 +13,22 @@ import re
 
 logger = logging.getLogger("indexer.symbols.treesitter")
 
+TS_LANGUAGE_MAP = {
+    '.py': 'python',
+    '.c': 'c', '.h': 'c', '.cpp': 'cpp', '.hpp': 'cpp',
+    '.hh': 'cpp', '.cc': 'cpp',
+    '.rb': 'ruby',
+    '.java': 'java', '.kt': 'kotlin',
+    '.js': 'javascript', '.jsx': 'javascript',
+    '.ts': 'typescript', '.tsx': 'tsx',
+    '.sh': 'bash', '.bash': 'bash', '.ksh': 'bash',
+    '.scala': 'scala',
+    '.rs': 'rust',
+}
+
+# Cache belongs to the loader module, not to the package importing it.
+_TS_PARSERS = {}
+
 def _load_treesitter_parser(ext):
     """Get a cached tree-sitter parser for the given extension, or None."""
     lang_name = TS_LANGUAGE_MAP.get(ext)
@@ -402,5 +418,4 @@ def _scan_treesitter_symbols(content, ext, filename):
 
     walk(tree.root_node, [])
     return symbols, calls, imports
-
 

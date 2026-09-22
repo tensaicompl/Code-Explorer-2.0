@@ -19,9 +19,21 @@ from __future__ import annotations
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import List
+from typing import Dict, List
+
+import psycopg2.extras
 
 from .catalog import CORPUS_REGISTRY, ensure_corpus_registry, project_label
+from .db import get_pooled_connection, load_embedding_model, release_pooled_connection
+from .search import (
+    browse_source_tree,
+    find_files_by_name,
+    find_subsystem_dependencies,
+    lookup_symbol_usage,
+    read_source_excerpt,
+    regex_search_source,
+    walk_call_chain,
+)
 from . import search as _single
 
 logger = logging.getLogger("praxevia.corpus.cross_project")
@@ -329,5 +341,4 @@ def run_tool_cross_project(permitted_keys: List[str], tool_name: str, tool_input
         result = {"error": f"Unknown tool: {tool_name}"}
 
     return json.dumps(result, ensure_ascii=False)
-
 

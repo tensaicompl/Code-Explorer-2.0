@@ -183,7 +183,9 @@ function humanizeAnswer(answer: string, index: RefIndex): string {
  * wider — it still accepts the 4.x ids so an existing CLAUDE_MODEL setting
  * keeps working — but only these are worth choosing for new questions.
  */
-const MODELS = [
+const MODELS = import.meta.env.VITE_CHAT_MODEL ? [
+  { id: import.meta.env.VITE_CHAT_MODEL, label: import.meta.env.VITE_CHAT_MODEL, hint: "Configured model" },
+] : [
   { id: "claude-opus-5", label: "Opus 5", hint: "Deepest reasoning" },
   { id: "claude-sonnet-5", label: "Sonnet 5", hint: "Balanced, faster" },
   { id: "claude-haiku-4-5-20251001", label: "Haiku 4.5", hint: "Quick lookups" },
@@ -300,7 +302,10 @@ export default function InsightAdvisor({ accessToken }: { accessToken: string })
   // Chat settings, persisted per browser. They map 1:1 onto fields ChatRequest
   // (backend/app/models.py:13) already accepts, so none of this needed new
   // backend surface — the dock simply never sent them.
-  const [model, setModel] = useState(() => localStorage.getItem("prx-chat-model") ?? MODELS[0].id);
+  const [model, setModel] = useState(() => {
+    const saved = localStorage.getItem("prx-chat-model");
+    return MODELS.some((option) => option.id === saved) ? saved! : MODELS[0].id;
+  });
   const [userRole, setUserRole] = useState(() => localStorage.getItem("prx-chat-role") ?? "general");
   const [reasoning, setReasoning] = useState(() => localStorage.getItem("prx-chat-reasoning") ?? "strict");
   const [diagrams, setDiagrams] = useState(() => localStorage.getItem("prx-chat-diagrams") ?? "mermaid");

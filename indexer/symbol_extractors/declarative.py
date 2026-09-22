@@ -6,6 +6,7 @@ separately because what counts as a symbol differs per format, and because these
 files are the ones most likely to contain a secret -- see the redaction step,
 which runs before anything is stored.
 """
+import importlib
 import logging
 import re
 
@@ -95,5 +96,4 @@ def _extract_symbols_sql(content, filename):
     except Exception as e:
         logger.warning("SQL extraction failed for %s: %s", filename, e)
         return []
-
 

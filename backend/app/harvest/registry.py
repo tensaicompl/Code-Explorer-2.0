@@ -157,14 +157,15 @@ def _indexed_keys(cur) -> set[str]:
         "SELECT table_name FROM information_schema.tables WHERE table_name LIKE %s",
         (_CHUNK_TABLE_PREFIX + "%",),
     )
-    return {row[0][len(_CHUNK_TABLE_PREFIX):] for row in cur.fetchall()}
+    return {row["table_name"][len(_CHUNK_TABLE_PREFIX):] for row in cur.fetchall()}
 
 
 def _chunk_count(cur, registry_key: str) -> int:
     """How many chunks are indexed for one stream, or 0 if unreadable."""
     try:
-        cur.execute(f'SELECT COUNT(*) FROM "{_CHUNK_TABLE_PREFIX}{registry_key}"')
-        return cur.fetchone()[0]
+        cur.execute(f'SELECT COUNT(*) AS chunk_count FROM "{_CHUNK_TABLE_PREFIX}{registry_key}"')
+        row = cur.fetchone()
+        return row["chunk_count"] if isinstance(row, dict) else row[0]
     except Exception:
         return 0
 

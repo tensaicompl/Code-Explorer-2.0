@@ -14,28 +14,16 @@ import logging
 # dispatcher below calling names that are not bound.
 from .ada import _scan_ada_symbols
 from .declarative import (
+    DECLARATIVE_EXTRACTORS,
     _extract_route_symbols,
     _extract_symbols_declarative,
     _extract_symbols_sql,
     _redact_for_storage,
 )
 from .perl import _scan_perl_symbols
-from .treesitter import _load_treesitter_parser, _scan_treesitter_symbols
+from .treesitter import TS_LANGUAGE_MAP, _load_treesitter_parser, _scan_treesitter_symbols
 
 logger = logging.getLogger("indexer.symbols")
-
-TS_LANGUAGE_MAP = {
-    '.py': 'python',
-    '.c': 'c', '.h': 'c', '.cpp': 'cpp', '.hpp': 'cpp',
-    '.hh': 'cpp', '.cc': 'cpp',
-    '.rb': 'ruby',
-    '.java': 'java', '.kt': 'kotlin',
-    '.js': 'javascript', '.jsx': 'javascript',
-    '.ts': 'typescript', '.tsx': 'tsx',
-    '.sh': 'bash', '.bash': 'bash', '.ksh': 'bash',
-    '.scala': 'scala',
-    '.rs': 'rust',
-}
 
 # Extensions handled by regex extractors (not in tree-sitter-languages)
 ADA_EXTENSIONS = {'.ads', '.adb', '.ada'}
@@ -61,9 +49,6 @@ SKIP_SYMBOL_EXTENSIONS = {'.json', '.yaml', '.yml',
 # embedding. Separating "parse but do not embed" needs the two paths split, which
 # is more invasive than this phase warrants. The 5 MB ceiling bounds the cost.
 DDL_EXTENSIONS = {'.sql'}
-
-# Cached tree-sitter parsers
-_TS_PARSERS = {}
 
 # Ada keywords to filter out of call extraction
 

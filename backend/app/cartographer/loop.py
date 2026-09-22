@@ -16,7 +16,10 @@ import logging
 import time
 from typing import AsyncGenerator, Dict, List
 
+import anthropic
+
 from ..config import (
+    CLAUDE_API_TIMEOUT_SECONDS,
     CLAUDE_MODEL,
     MAX_TOKENS,
     MAX_TOOL_ITERATIONS,
