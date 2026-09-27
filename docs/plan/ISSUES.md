@@ -16,6 +16,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
 | 1 | 2026-09-27 | P0-01 | ambiguity | open | The replaced NOTICE carried a standing directive never to publish and to keep the repository private; the plan's open-core split and release pipeline contradict it | Plan followed (it is the later authority and P0-01 publishes nothing). Needs human confirmation before P9-03 makes it irreversible |
+| 3 | 2026-09-27 | P0-02 | third-party | resolved | The C golden repository relicensed away from BSD-3: Redis 8 and later are tri-licensed RSALv2 / SSPLv1 / AGPLv3, and the allow list forbids all three | Replaced with the language matrix's stated fallback under D5; decision 1 |
 | 2 | 2026-09-27 | P0-01, P0-02 | ambiguity | open | Both tasks' acceptance tests need infrastructure that later tasks create: the Rust test harness (P0-03) and `scripts/licence-scan.sh` (P0-04). The tests cannot fail-then-pass within their own task | Deliverables verified by inspection now; the named tests are written when the harness exists and are a G0 criterion |
 
 ## Entries
@@ -38,6 +39,28 @@ files inside a private repository. The point of no return is the release pipelin
 so a human decision is recorded as required before that task runs.
 
 State: open until confirmed. Blocks nothing before P9-03.
+
+### 3 — C golden repository is no longer permissively licensed
+
+The plan names a repository as the C golden corpus that was BSD-3 when the plan
+was written. Its licence has since changed: release 8 and later are tri-licensed
+under a source-available licence, a server-side public licence and a strong
+copyleft licence. The allow list forbids all three, and the benchmark corpus that
+is committed to this repository takes files from the golden repositories, so this
+is not merely a question of what we index.
+
+Resolved by the decision rule for exactly this case: replaced with the fallback
+repository the language matrix names for that language, which is permissively
+licensed (its code under MIT; its manual and two bundled components under other
+permissive terms). Pinned in `bench/repos.lock` with the replacement and the
+reason recorded next to it.
+
+Recall and precision numbers for C are therefore measured against a different
+corpus than the plan assumed. The gate threshold for C is the lowest of any
+language, and nothing in the plan depends on the identity of that repository
+beyond its language and comparable size.
+
+State: resolved.
 
 ### 2 — First two tasks cannot run their own acceptance tests
 

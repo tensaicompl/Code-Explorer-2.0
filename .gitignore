@@ -32,8 +32,8 @@ dist/
 coverage/
 .pytest_cache/
 
-# Generated graphs — regenerate with graph_pass.builder
-indexer/out/
+# Generated graphs of the superseded indexer
+legacy/indexer/out/
 
 # Local verification venv
 .venv/

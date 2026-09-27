@@ -1,0 +1,113 @@
+# Benchmark repository lock file
+#
+# Golden repositories are indexed on every benchmark run and their expected
+# graphs are committed. Scale repositories are indexed nightly only, for timing
+# and memory, and no source is ever copied out of them.
+#
+# Pinned to the commit observed as the default-branch head at the fetch date, so
+# that accuracy numbers are comparable across releases.
+
+lock_version = 1
+fetch_date = "2026-09-27"
+
+[[golden]]
+language = "ada"
+url = "github.com/AdaCore/Ada_Drivers_Library"
+default_branch = "master"
+commit = "d331ed4f6d6a5edca2e9bcfd01f13d608d9d1537"
+licence = "BSD-3-Clause"
+fetch_date = "2026-09-27"
+
+[[golden]]
+language = "c"
+url = "github.com/jqlang/jq"
+default_branch = "master"
+commit = "9a75bb0d4318bb6f6509635d89319ff40ee9ecac"
+licence = "MIT"
+fetch_date = "2026-09-27"
+replaces = "redis/redis"
+replacement_reason = "decision rule D5: golden licence not permissive"
+licence_source = "LICENSE read at fetch time; manual under CC-BY-3.0 and two bundled components under Lucent and ICU terms, all permissive"
+
+[[golden]]
+language = "cpp"
+url = "github.com/fmtlib/fmt"
+default_branch = "main"
+commit = "5da4e9a3fb15626ba92969199061e0169ebc8a00"
+licence = "MIT"
+fetch_date = "2026-09-27"
+
+[[golden]]
+language = "csharp"
+url = "github.com/dotnet/eShop"
+default_branch = "main"
+commit = "b4a40872005d4bb29e5b1fa1ff7e244143d39215"
+licence = "MIT"
+fetch_date = "2026-09-27"
+
+[[golden]]
+language = "go"
+url = "github.com/gin-gonic/gin"
+default_branch = "master"
+commit = "1bd0ecf2d3e08da37efa270bb7be20c1eddb0d68"
+licence = "MIT"
+fetch_date = "2026-09-27"
+
+[[golden]]
+language = "java"
+url = "github.com/spring-projects/spring-petclinic"
+default_branch = "main"
+commit = "818c4136ea971c21674525f9053de0d9c7ad8cfe"
+licence = "Apache-2.0"
+fetch_date = "2026-09-27"
+
+[[golden]]
+language = "kotlin"
+url = "github.com/JetBrains/Exposed"
+default_branch = "main"
+commit = "023a6a3a73c5a3717b824a152b506edc28b662f0"
+licence = "Apache-2.0"
+fetch_date = "2026-09-27"
+
+[[golden]]
+language = "python"
+url = "github.com/pallets/flask"
+default_branch = "main"
+commit = "d73fa1cdcbd8b1465c151db8924ba58b1dd14e35"
+licence = "BSD-3-Clause"
+fetch_date = "2026-09-27"
+
+[[golden]]
+language = "rust"
+url = "github.com/tokio-rs/axum"
+default_branch = "main"
+commit = "bc8d4912435204a4a073cea70355ae0328d263fe"
+licence = "MIT"
+fetch_date = "2026-09-27"
+
+[[golden]]
+language = "typescript"
+url = "github.com/honojs/hono"
+default_branch = "main"
+commit = "52f6c7ec865b31001a14eed9b323a0235f0a3156"
+licence = "MIT"
+fetch_date = "2026-09-27"
+
+[[scale]]
+name = "kubernetes"
+url = "github.com/kubernetes/kubernetes"
+default_branch = "master"
+commit = "6c1c7702cf2052245ef10e699d45f071af306f59"
+licence = "Apache-2.0"
+fetch_date = "2026-09-27"
+indexed_only = true   # never redistributed, no corpus files taken from it
+
+[[scale]]
+name = "linux"
+url = "github.com/torvalds/linux"
+default_branch = "master"
+commit = "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e"
+licence = "GPL-2.0-only"
+fetch_date = "2026-09-27"
+indexed_only = true   # never redistributed, no corpus files taken from it
+licence_source = "COPYING read at fetch time"

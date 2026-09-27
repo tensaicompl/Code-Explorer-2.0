@@ -7,6 +7,8 @@ and belongs in `ISSUES.md`.
 
 | # | Date | Task | Rule | Decision taken |
 |---|---|---|---|---|
+| 1 | 2026-09-27 | P0-02 | D5 | The C golden repository's licence is no longer permissive (tri-licensed RSALv2 / SSPLv1 / AGPLv3, none on the allow list). Replaced with the fallback named for that language in the language matrix, pinned in `bench/repos.lock` with the reason recorded |
+| 2 | 2026-09-27 | P0-02 | D1 | Lock files are TOML: the format is unspecified, TOML is what the rest of the toolchain reads, and both files parse under a standard parser |
 
 ## Rule reference (extracted from `PDX-2.0-PLAN-v1.3.3.md` Part 8)
 
