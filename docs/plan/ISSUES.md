@@ -15,6 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 7 | 2026-09-28 | P0-06 | ambiguity | open | The importance formula's test penalty is given as 0.3 for test nodes; the factor for a non-test node is never stated | The mirror records the source as written rather than filling the silence. To be settled when the metric is implemented, by a specification change request if the answer is not the identity |
+| 6 | 2026-09-28 | P0-06 | ambiguity | resolved | The source's band table carries a stray blank line between its first and second rows, which in this markup would split one table into two | The mirror emits one contiguous table of eleven rows, which is what the source's own closing sentence states. The source is not edited |
 | 5 | 2026-09-28 | P0-05 | blocker | resolved | The constants task merged with the gate red: its invariant assertions were rejected by the linter under all targets, which the test run does not exercise | Invariants converted to compile-time assertions, which are stronger than the tests they replace. The linter added to the pre-commit subset so the class is caught before a commit exists |
 | 1 | 2026-09-27 | P0-01 | ambiguity | resolved | The replaced NOTICE carried a standing directive never to publish and to keep the repository private; the plan's open-core split and release pipeline contradict it | Owner confirmed the open-core split on 2026-09-28: the plan stands, the old directive is superseded, publishing at P9 is intended |
 | 4 | 2026-09-28 | P0-04 | third-party | resolved | Three build-only interface dependencies carry licences outside the allow list: a permissive model licence, a documentation licence on a browser-support data file, and an old permissive licence on a small parser | Owner confirmed on 2026-09-28 that the allow list governs shipped code only. Enforcement stays strict on shipped dependencies and reports build-only ones; no specification change |
@@ -47,6 +49,35 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 7 — The importance formula is silent on non-test nodes
+
+The per-symbol importance formula multiplies three factors, and the source states
+the third as 0.3 for a test node. It never states the value for a node that is not
+a test. Read as a penalty, the factor is the identity for everything else, which
+makes 1.0 the only sensible reading, and that is almost certainly what is meant.
+
+A mirror does not settle it. Filling a silence inside a normative document creates
+a constant nobody chose, in the one place an implementer will treat as authority.
+The document therefore records the factor exactly as the source gives it, and the
+question is recorded here instead.
+
+To be settled when the metric is implemented. If the answer is not the identity,
+that is a specification change request with a measurement behind it.
+
+State: open. Blocks nothing until the metric is built.
+
+### 6 — The source's band table is split by a stray blank line
+
+In the source, a blank line sits between the first and the second row of the
+confidence band table. Rendered, that is two tables rather than one, the second
+without a header. The source's own closing sentence states that there are eleven
+bands, so the intent is unambiguous.
+
+The mirror emits one contiguous table of eleven rows. The source document is not
+edited: it is delivered from outside the repository and is not ours to change.
 
 State: resolved.
 
