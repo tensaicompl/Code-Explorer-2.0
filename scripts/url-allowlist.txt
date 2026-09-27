@@ -1,0 +1,33 @@
+# URL prefixes permitted in this tree.
+#
+# Anything else fails the provenance scan: an outbound address in the source is
+# either a documentation pointer, which belongs here, or an undeclared network
+# dependency, which is forbidden. This file is the scanner's own input and is
+# excluded from the scan.
+#
+# One prefix per line, matched from the start of the URL.
+
+# Our own repository.
+https://github.com/tensaicompl/Code-Explorer-2.0
+
+# Package registry indexes, as written into lock files by the tooling.
+https://github.com/rust-lang/crates.io-index
+https://registry.npmjs.org
+
+# Licence texts and identifier registries.
+http://www.apache.org/licenses/
+https://www.apache.org/licenses/
+https://opensource.org/licenses/
+https://spdx.org/licenses/
+
+# Documentation referenced from comments and configuration.
+https://doc.rust-lang.org/
+https://rust-lang.github.io/
+https://eslint.org/
+https://typescript-eslint.io/
+https://vite.dev/
+https://vitest.dev/
+https://react.dev/
+https://developer.mozilla.org/
+https://www.postgresql.org/docs/
+https://sqlite.org/

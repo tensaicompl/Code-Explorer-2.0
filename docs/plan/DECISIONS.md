@@ -8,6 +8,9 @@ and belongs in `ISSUES.md`.
 | # | Date | Task | Rule | Decision taken |
 |---|---|---|---|---|
 | 1 | 2026-09-27 | P0-02 | D5 | The C golden repository's licence is no longer permissive (tri-licensed RSALv2 / SSPLv1 / AGPLv3, none on the allow list). Replaced with the fallback named for that language in the language matrix, pinned in `bench/repos.lock` with the reason recorded |
+| 3 | 2026-09-28 | P0-04 | D17 | The licence allow list is enforced on dependencies that ship and reported on those that only build. The bundle contains production dependencies alone, and "forbidden for inclusion" is about what reaches a user; a build tool that never does is surfaced as a note so an outlier stays visible |
+| 4 | 2026-09-28 | P0-04 | D12 | The superseded tree is excluded from the provenance scan. It is itself the third-party-derived code, attributed in the notices file, and the rule exists to keep upstream names out of what we write. The exclusion is removed by the retirement task, which deletes that tree |
+| 5 | 2026-09-28 | P0-04 | D1 | Continuous integration uses the runners' own toolchain manager, which honours the pinned toolchain file, rather than a third-party action, keeping the supply chain of the build itself small |
 | 2 | 2026-09-27 | P0-02 | D1 | Lock files are TOML: the format is unspecified, TOML is what the rest of the toolchain reads, and both files parse under a standard parser |
 
 ## Rule reference (extracted from `PDX-2.0-PLAN-v1.3.3.md` Part 8)

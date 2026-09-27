@@ -22,9 +22,7 @@ all: check
 
 # --- the gate every task passes -------------------------------------------
 
-# The scanner task adds licence-scan, provenance-scan and bundle-budget here; the
-# targets exist already so that task only supplies the scripts.
-check: fmt-check lint build test open-binary-check ui-lint ui-test
+check: fmt-check lint build test open-binary-check licence-scan provenance-scan ui-lint ui-test bundle-budget
 
 check-full: check golden oracle e2e asan determinism engine-differential perf
 

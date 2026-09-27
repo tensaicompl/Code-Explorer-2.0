@@ -1,0 +1,44 @@
+# Dependency policy. Run by scripts/licence-scan.sh, which make check calls.
+
+[graph]
+all-features = true
+
+[licenses]
+# The allow list. Anything outside it is forbidden for inclusion or as a
+# dependency; copyleft software may only be invoked as a separate process through
+# a documented interface, never linked.
+allow = [
+  "MIT",
+  "ISC",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "Apache-2.0",
+  "Zlib",
+  "MPL-2.0",
+  "Unlicense",
+  "CC0-1.0",
+  "0BSD",
+]
+confidence-threshold = 0.93
+# Our own crates are not published and carry our own identifier.
+private = { ignore = true }
+
+[[licenses.exceptions]]
+# Unicode's own terms, permissive and required by the character-table crates.
+allow = ["Unicode-3.0"]
+crate = "unicode-ident"
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Path dependencies inside the workspace are the one legitimate wildcard.
+allow-wildcard-paths = true
+
+[advisories]
+version = 2
+yanked = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

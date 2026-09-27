@@ -50,25 +50,21 @@ GATE_AFTER = {
 }
 
 
-# The provenance deny-list lives in a data file, not in this source file: a
-# literal reference name here would itself fail the provenance scan. Prefer the
-# scanner's own list once P0-04 has created it.
-DENYLIST_CANDIDATES = (
-    "scripts/provenance-denylist.txt",
-    "scripts/plan/redactions.txt",
-)
+# The deny-list lives in a data file, not in this source file: a literal reference
+# name here would itself fail the provenance scan. It is the same file the scanner
+# enforces, so there is one definition of what counts as provenance.
+DENYLIST_CANDIDATE = "scripts/provenance-denylist.txt"
 
 
 def load_denylist(root: Path) -> list[str]:
-    for rel in DENYLIST_CANDIDATES:
-        path = root / rel
-        if path.exists():
-            return [
-                line.strip()
-                for line in path.read_text().splitlines()
-                if line.strip() and not line.lstrip().startswith("#")
-            ]
-    sys.exit("no provenance deny-list found: " + " or ".join(DENYLIST_CANDIDATES))
+    path = root / DENYLIST_CANDIDATE
+    if not path.exists():
+        sys.exit(f"no provenance deny-list at {DENYLIST_CANDIDATE}")
+    return [
+        line.strip()
+        for line in path.read_text().splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
 
 
 REDACTION_MARK = "(attribution details in the plan)"

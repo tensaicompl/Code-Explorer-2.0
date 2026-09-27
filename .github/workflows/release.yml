@@ -1,0 +1,44 @@
+name: release
+
+# Skeleton. The release task fills in the build matrix, the bills of material, the
+# provenance attestations, the signatures, the checksums, the container images, the
+# chart package and the accuracy page. Until then this workflow only verifies that
+# a tag builds and passes the full suite, so a tag is never published untested.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build the artefacts without publishing them
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  verify:
+    name: verify the tag
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show toolchain
+        run: rustup show
+      - name: Install the dependency policy checker
+        run: cargo install --locked cargo-deny
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ui/.nvmrc
+      - name: Enable the pinned package manager
+        run: corepack enable && corepack prepare --activate
+      - name: Install interface dependencies
+        run: make ui-install
+      - name: check
+        run: make check

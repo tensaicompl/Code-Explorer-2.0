@@ -16,6 +16,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
 | 1 | 2026-09-27 | P0-01 | ambiguity | open | The replaced NOTICE carried a standing directive never to publish and to keep the repository private; the plan's open-core split and release pipeline contradict it | Plan followed (it is the later authority and P0-01 publishes nothing). Needs human confirmation before P9-03 makes it irreversible |
+| 4 | 2026-09-28 | P0-04 | third-party | open | Three build-only interface dependencies carry licences outside the allow list: a permissive model licence, a documentation licence on a browser-support data file, and an old permissive licence on a small parser | All three are permissive and none ships in the bundle, which contains only permissively licensed production code. Enforced on shipped dependencies, reported on build-only ones; needs a human decision on whether to widen the allow list |
 | 3 | 2026-09-27 | P0-02 | third-party | resolved | The C golden repository relicensed away from BSD-3: Redis 8 and later are tri-licensed RSALv2 / SSPLv1 / AGPLv3, and the allow list forbids all three | Replaced with the language matrix's stated fallback under D5; decision 1 |
 | 2 | 2026-09-27 | P0-01, P0-02 | ambiguity | resolved | Both tasks' acceptance tests need infrastructure that later tasks create: the Rust test harness (P0-03) and `scripts/licence-scan.sh` (P0-04). The tests cannot fail-then-pass within their own task | Tests written in P0-03, the task that creates the harness, and verified to fail when their invariant is broken |
 
@@ -39,6 +40,28 @@ files inside a private repository. The point of no return is the release pipelin
 so a human decision is recorded as required before that task runs.
 
 State: open until confirmed. Blocks nothing before P9-03.
+
+### 4 — Build-only dependency licences sit outside the allow list
+
+The allow list names ten licences. Three dependencies of the interface toolchain
+carry others: a permissive model licence on a path-matching library, a
+documentation licence on a browser-support data table, and an old permissive
+licence on a small argument parser. None is copyleft and none carries a
+redistribution obligation we would breach.
+
+What matters is that none of them ships. The bundle contains production
+dependencies only, and every one of those is permissively licensed; these three
+exist to build and lint, and never reach a user. The licence scanner therefore
+fails on a shipped dependency outside the list and prints a note for a build-only
+one, so an outlier stays visible without stopping work on a question that is not
+a legal risk.
+
+A human decision is still wanted: either widen the allow list to name these three
+explicitly, which is a specification change, or record that the list governs
+shipped code only, which is how it is currently read. Nothing depends on the
+answer before packaging.
+
+State: open. Blocks nothing.
 
 ### 3 — C golden repository is no longer permissively licensed
 

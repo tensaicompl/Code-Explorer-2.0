@@ -1,0 +1,12 @@
+# Words that may not appear in committed non-test code.
+#
+# Unfinished work is recorded in docs/plan/ISSUES.md against a task, never as a
+# marker in the source, so that nothing is lost when a file is forgotten. This
+# file is the scanner's own input and is excluded from the scan.
+#
+# Matched case-sensitively as whole words.
+
+TODO
+FIXME
+XXX
+HACK

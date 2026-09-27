@@ -1,4 +1,8 @@
-# Provenance deny-list used to redact extracted plan prose.
+# Provenance deny-list.
+#
+# The canonical list of strings that may not appear in this tree. Used by
+# scripts/provenance-scan.sh to fail the build, and by scripts/plan/extract-plan.py
+# to redact prose extracted from the plan document.
 #
 # One regular expression per line, case-insensitive; blank lines and lines
 # starting with # are ignored. These are the identifiers of the vendored and
@@ -7,11 +11,7 @@
 # appear anywhere in this tree except THIRD_PARTY_NOTICES.md and the LICENSE
 # files inside vendored directories.
 #
-# This file is the scanner's own input, so it must be on the exclusion list of
-# scripts/provenance-scan.sh when P0-04 creates it, exactly as that task's own
-# deny-list file is. When P0-04 lands, point extract-plan.py at
-# scripts/provenance-denylist.txt instead and delete this file: one source of
-# truth for what counts as provenance.
+# This file is the scanner's own input and is therefore excluded from the scan.
 #
 # Extend, never shorten: when unsure whether a string is provenance, treat it as
 # provenance.

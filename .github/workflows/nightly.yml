@@ -1,0 +1,61 @@
+name: nightly
+
+on:
+  schedule:
+    # Early enough that the results are waiting at the start of the day.
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  check-full:
+    name: check-full
+    runs-on: ubuntu-24.04
+    # The accuracy and scale suites are long; they are why this is not on push.
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: rustup show
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-deny
+            target
+            bench/.cache
+          key: nightly-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'bench/repos.lock') }}
+          restore-keys: nightly-
+
+      - name: Install the dependency policy checker
+        run: command -v cargo-deny >/dev/null || cargo install --locked cargo-deny
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ui/.nvmrc
+
+      - name: Enable the pinned package manager
+        run: corepack enable && corepack prepare --activate
+
+      - name: Install interface dependencies
+        run: make ui-install
+
+      - name: check-full
+        run: make check-full
+
+      - name: Publish the results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: bench/results/
+          if-no-files-found: ignore
