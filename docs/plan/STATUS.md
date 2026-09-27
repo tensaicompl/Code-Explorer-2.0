@@ -13,7 +13,7 @@ Regenerate the roll-up after editing: `python3 scripts/plan/plan-progress.py`
 
 | Task | Status | Commit | Deviations |
 |---|---|---|---|
-| P0-01 | todo | | |
+| P0-01 | done | 45dbca0 | Proprietary text scoped to the enterprise components instead of copied verbatim, so it cannot over-claim the Apache-2.0 parts; the replaced NOTICE's dependency list was carried into THIRD_PARTY_NOTICES.md rather than dropped; acceptance tests deferred per issue 2; see issue 1 |
 | P0-02 | todo | | |
 | P0-03 | todo | | |
 | P0-04 | todo | | |
