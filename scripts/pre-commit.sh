@@ -25,8 +25,12 @@ step() {
 echo "pre-commit:"
 if command -v cargo >/dev/null 2>&1; then
   step "formatting" cargo fmt --all -- --check
+  # The linter runs here, not only in the gate: a lint that fails only under
+  # --all-targets is invisible to cargo test, and one such failure has already
+  # reached the trunk.
+  step "lints" cargo clippy --all-targets --all-features -- -D warnings
 else
-  echo "  skipped formatting: cargo not on PATH"
+  echo "  skipped formatting and lints: cargo not on PATH"
 fi
 step "provenance" ./scripts/provenance-scan.sh
 step "licences" ./scripts/licence-scan.sh

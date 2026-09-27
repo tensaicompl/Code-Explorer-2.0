@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 5 | 2026-09-28 | P0-05 | blocker | resolved | The constants task merged with the gate red: its invariant assertions were rejected by the linter under all targets, which the test run does not exercise | Invariants converted to compile-time assertions, which are stronger than the tests they replace. The linter added to the pre-commit subset so the class is caught before a commit exists |
 | 1 | 2026-09-27 | P0-01 | ambiguity | resolved | The replaced NOTICE carried a standing directive never to publish and to keep the repository private; the plan's open-core split and release pipeline contradict it | Owner confirmed the open-core split on 2026-09-28: the plan stands, the old directive is superseded, publishing at P9 is intended |
 | 4 | 2026-09-28 | P0-04 | third-party | resolved | Three build-only interface dependencies carry licences outside the allow list: a permissive model licence, a documentation licence on a browser-support data file, and an old permissive licence on a small parser | Owner confirmed on 2026-09-28 that the allow list governs shipped code only. Enforcement stays strict on shipped dependencies and reports build-only ones; no specification change |
 | 3 | 2026-09-27 | P0-02 | third-party | resolved | The C golden repository relicensed away from BSD-3: Redis 8 and later are tri-licensed RSALv2 / SSPLv1 / AGPLv3, and the allow list forbids all three | Replaced with the language matrix's stated fallback under D5; decision 1 |
@@ -46,6 +47,28 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 5 — A commit with a red gate reached the trunk
+
+The constants task asserted its invariants in unit tests. Those tests pass under
+the test runner, but the linter rejects an assertion whose operands are all
+constants, and the linter only sees it when run across all targets. So the task's
+own verification was green and the gate was red.
+
+It merged anyway, which is the part that matters. The command that ran the gate and
+the command that committed were joined by a newline rather than by a conjunction,
+so the commit ran despite the gate having failed. The task protocol says the gate
+passes before a merge; here the check ran and its result was discarded.
+
+Fixed on both counts. The invariants are now compile-time assertions, which is
+strictly stronger: a violation stops any build anywhere rather than waiting for a
+test run, and each one names the rule it broke. Verified by setting a value that
+breaks one and watching the build refuse it. The linter is now part of the
+pre-commit subset, so a lint failure cannot reach a commit, let alone the trunk.
+
+The gate is green on the trunk again as of the fixing commit.
 
 State: resolved.
 

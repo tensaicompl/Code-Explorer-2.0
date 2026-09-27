@@ -153,44 +153,46 @@ pub const COCHANGE_MAX_FILES: u32 = 20;
 /// Fewest shared commits before two files are called co-changing.
 pub const COCHANGE_MIN: u32 = 3;
 
-#[cfg(test)]
-mod tests {
-    //! The specification's own invariants, asserted so a careless edit fails.
+// --- invariants -----------------------------------------------------------
+//
+// Asserted at compile time rather than in a test: these are properties of the
+// values themselves, so a violation should stop the build wherever it is built,
+// not wait for a test run. A failing assertion here names the rule it broke.
 
-    use super::*;
+const _: () = assert!(
+    TYPED_MIN_SCORE > 0.0 && TYPED_MIN_SCORE <= 1.0,
+    "a score threshold outside zero to one could never be reached"
+);
 
-    #[test]
-    fn typed_min_score_is_a_probability() {
-        assert!(
-            TYPED_MIN_SCORE > 0.0 && TYPED_MIN_SCORE <= 1.0,
-            "a score threshold outside zero to one cannot be reached"
-        );
-    }
+const _: () = assert!(
+    FRAME_BUDGET_LINES > FRAME_BUDGET_POINTS,
+    "the renderer assumes a graph has more edges to draw than nodes"
+);
 
-    #[test]
-    fn budgets_are_ordered_as_the_renderer_assumes() {
-        // More lines than points, far fewer labels than either.
-        assert!(FRAME_BUDGET_LINES > FRAME_BUDGET_POINTS);
-        assert!(FRAME_BUDGET_LABELS < FRAME_BUDGET_POINTS);
-    }
+const _: () = assert!(
+    FRAME_BUDGET_LABELS < FRAME_BUDGET_POINTS,
+    "labels are the scarcest primitive; more of them than nodes is meaningless"
+);
 
-    #[test]
-    fn a_container_opens_well_above_the_size_at_which_a_label_appears() {
-        assert!(
-            CONTAINER_OPEN_PX > LABEL_MIN_PX * 2,
-            "a container that opens before its label is legible cannot be navigated"
-        );
-    }
+const _: () = assert!(
+    CONTAINER_OPEN_PX > LABEL_MIN_PX * 2,
+    "a container that opens before its own label is legible cannot be navigated"
+);
 
-    #[test]
-    fn retention_keeps_something() {
-        assert!(MANIFEST_RETENTION > 0 && MANIFEST_RETENTION_DAYS > 0);
-        assert!(
-            AUDIT_RETENTION_DAYS >= 365,
-            "audit retention is a year at least"
-        );
-    }
-}
+const _: () = assert!(
+    MANIFEST_RETENTION > 0 && MANIFEST_RETENTION_DAYS > 0,
+    "retention must keep something"
+);
+
+const _: () = assert!(
+    AUDIT_RETENTION_DAYS >= 365,
+    "an audit trail is kept for a year at least"
+);
+
+const _: () = assert!(
+    MAX_FILE_BYTES > 0,
+    "a maximum file size of zero would skip every file"
+);
 
 #[cfg(test)]
 mod doc_tests {
