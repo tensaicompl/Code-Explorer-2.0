@@ -8,23 +8,36 @@ to AI agents over MCP and to a GPU-rendered architecture map.
 **Remote:** `tensaicompl/Code-Explorer-2.0` (private, `origin`). The predecessor
 repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 
-## State: pre-P0
+## State: P0 in progress
 
-The tree is still the as-is predecessor codebase (Python indexer, FastAPI
-backend, pnpm/React frontend, Python MCP proxy). None of the 2.0 architecture
-exists yet. The first task of the plan (P0-02) moves all of it to `legacy/` as
-read-only reference; P9-01 deletes it. Do not build new features into the
-directories below — they are on their way out.
+3 of 98 tasks done. The restructuring has happened: the previous implementation is
+in `legacy/`, read-only until the retirement task removes it. The Rust workspace,
+the interface scaffold and `make check` exist; there is no engine, no pipeline and
+no product behaviour yet.
 
-| Path | Disposition |
+Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
+this paragraph.
+
+| Path | State |
 |---|---|
-| `indexer/`, `backend/`, `frontend/`, `mcp-server/`, `e2e/` | to `legacy/` in P0-02, deleted in P9-01 |
-| `enrichment/` | deleted in P0-02 |
-| `docs/plan/`, `scripts/plan/` | the plan tracker (below) |
+| `crates/` | Ten crate skeletons, licence split enforced by `scripts/open-binary-check.sh` |
+| `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
+| `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot |
+| `ada-indexer/`, `deploy/` | Skeleton and placeholder; contents arrive in their phases |
+| `legacy/` | The previous implementation. Do not fix, extend or import from it |
 
-Target layout after P0: `engine/` (vendored C extraction and type resolution),
-`crates/` (Rust workspace), `ui/` (Vite + React + deck.gl), `ada-indexer/`,
-`deploy/`, `bench/`, `docs/`, `legacy/`, `scripts/`.
+Target layout adds `engine/` when the extraction engine is vendored.
+
+## Build
+
+```
+make check        # format, lint, build both feature sets, test, open-binary check, interface lint and tests
+make check-full   # adds accuracy, determinism, sanitizers, browser suites
+```
+
+Requires Rust 1.98.1 (pinned in `rust-toolchain.toml`), gcc 13 or clang 17+,
+cmake 3.25+, Node 22 and pnpm 10. Put `~/.cargo/bin` and
+`~/.local/share/pnpm` on PATH.
 
 ## The plan is not in the repository
 
