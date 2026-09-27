@@ -12,7 +12,7 @@ CARGO ?= cargo
 PNPM  ?= pnpm
 UI    := ui
 
-.PHONY: all check check-full fmt fmt-check lint build test \
+.PHONY: all check check-full fmt fmt-check lint build test consts-sync \
         ui-install ui-lint ui-test ui-build bundle-budget \
         licence-scan provenance-scan open-binary-check \
         golden oracle e2e asan determinism engine-differential perf \
@@ -22,7 +22,7 @@ all: check
 
 # --- the gate every task passes -------------------------------------------
 
-check: fmt-check lint build test open-binary-check licence-scan provenance-scan ui-lint ui-test bundle-budget
+check: fmt-check lint build test consts-sync open-binary-check licence-scan provenance-scan ui-lint ui-test bundle-budget
 
 check-full: check golden oracle e2e asan determinism engine-differential perf
 
@@ -43,6 +43,10 @@ build:
 
 test:
 	$(CARGO) test --workspace --all-features
+
+# The two constant definitions must agree.
+consts-sync:
+	@python3 scripts/consts-sync.py --root .
 
 # The public binary must not link an enterprise crate.
 open-binary-check:

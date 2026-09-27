@@ -1,0 +1,19 @@
+# Constants that must exist in both definitions with the same value.
+#
+# The Rust module is the source of truth; the interface mirrors this subset.
+# scripts/consts-sync.py fails the build when one side is missing an entry or the
+# values differ. Add a name here when the interface starts needing it.
+#
+# One name per line.
+
+TILE_FORMAT_VERSION
+SEGMENT_SCHEMA_VERSION
+MCP_TOOLS_VERSION
+FRAME_BUDGET_POINTS
+FRAME_BUDGET_LINES
+FRAME_BUDGET_LABELS
+LABEL_MIN_PX
+FADE_BAND_PX
+CONTAINER_OPEN_PX
+NEIGHBOURHOOD_MAX_NODES
+MCP_DEFAULT_BUDGET
