@@ -1,0 +1,27 @@
+# Provenance deny-list used to redact extracted plan prose.
+#
+# One regular expression per line, case-insensitive; blank lines and lines
+# starting with # are ignored. These are the identifiers of the vendored and
+# ported references: names, URLs, product names, maintainer handles and upstream
+# symbol prefixes. They may appear in the external plan document; they may not
+# appear anywhere in this tree except THIRD_PARTY_NOTICES.md and the LICENSE
+# files inside vendored directories.
+#
+# This file is the scanner's own input, so it must be on the exclusion list of
+# scripts/provenance-scan.sh when P0-04 creates it, exactly as that task's own
+# deny-list file is. When P0-04 lands, point extract-plan.py at
+# scripts/provenance-denylist.txt instead and delete this file: one source of
+# truth for what counts as provenance.
+#
+# Extend, never shorten: when unsure whether a string is provenance, treat it as
+# provenance.
+
+Understand[- ]Anything
+Lum1104
+Egonex[- ]?AI
+codebase[- ]memory(?:[- ]mcp)?
+DeusData
+graphology
+d3[- ]hierarchy
+\bCBM\b
+\bcbm_

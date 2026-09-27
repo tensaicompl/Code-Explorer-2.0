@@ -39,3 +39,8 @@ indexer/out/
 .venv/
 .verify-graphs/
 .graphs/
+
+# Implementation plan — delivered outside the repository and never committed:
+# it names the reference repositories, which the provenance scanner forbids
+# anywhere in the tree. Its trackable projection lives in docs/plan/.
+\! Version 2.0/

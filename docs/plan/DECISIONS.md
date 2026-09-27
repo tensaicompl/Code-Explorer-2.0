@@ -1,0 +1,48 @@
+# Decisions
+
+One line per decision taken under the plan's decision table, with the rule
+applied. Append only; never rewrite an earlier entry. A decision that changes a
+normative specification is not a decision — it is a specification change request
+and belongs in `ISSUES.md`.
+
+| # | Date | Task | Rule | Decision taken |
+|---|---|---|---|---|
+
+## Rule reference (extracted from `PDX-2.0-PLAN-v1.3.3.md` Part 8)
+
+When something is not specified, apply the first matching rule, record it above,
+and continue.
+
+| Rule | Situation | Decision |
+|---|---|---|
+| D1 | A named third-party crate/package version is not given | Use the latest stable version compatible with the pinned toolchain; pin it in the lockfile |
+| D2 | Two Part 4 statements conflict | The more specific one wins; if equal, the one appearing later in Part 4 wins; record an SCR |
+| D3 | A test in a task cannot be written as named because the interface differs | Keep the test *intent*, adjust the name to `<given_name>_v2`, note in STATUS |
+| D4 | The engine reference does not expose a fact the plan assumes (e.g. cognitive complexity) | Implement it in Rust from the AST facts the engine does expose (Appendix D.4); if impossible, drop the metric, record an SCR, keep the metric name reserved |
+| D5 | A golden repo cannot be fetched or its licence is not permissive | Replace with the next public repo of the same language and comparable size listed in Appendix A "fallback golden repos"; update `bench/repos.lock` |
+| D6 | A language in the Language Matrix has no engine typed support | It is tier `structural`; resolution uses the Rust stages only |
+| D7 | Performance thresholds cannot be met on CI hardware | Record numbers; CI enforces only the non-regression rule (10%); absolute thresholds are evaluated on the reference machine described in `bench/README.md` |
+| D8 | An MCP client's config format changed since Appendix E | Follow the client's current documentation; keep the adapter's tests aligned; record the change |
+| D9 | The OIDC provider lacks Dynamic Client Registration | Use the static client id from settings; document per provider |
+| D10 | Object storage is unavailable in a deployment | Use `FsStore` on a `ReadWriteMany` PVC; document the trade-off |
+| D11 | A vendored file fails to compile after rename/strip | Prefer deleting the file if nothing references it; else patch minimally in `engine/patches/` |
+| D12 | Unsure whether a string is "provenance" | Treat it as provenance and remove it; the scanner's deny-list may be extended, never shortened |
+| D13 | A feature would need an outbound network call not listed in 4.14.4 | Do not implement the call; make the feature depend on a configured internal endpoint |
+| D14 | The plan's estimate says S but the work is L | Split into subtasks `P<phase>-<nn>a/b/c` in STATUS; do not skip deliverables |
+| D15 | Uncertain whether a band applies | Choose the lower (less confident) band; never the higher |
+| D16 | A UI interaction is unspecified | Follow the pattern of the architecture map view (click selects, double-click drills down, hover previews, `Esc` clears) |
+| D17 | A limit/threshold is unspecified | Define a constant in `consts.rs` with the most conservative plausible value and a doc comment; it becomes part of the spec |
+| D18 | Where to put a new module | Follow Part 5.2; enterprise-only behaviour never goes into open crates |
+| D19 | A vendored grammar's licence is not on the allow-list | Do not vendor it; the language is removed from the matrix by an SCR (it becomes `unknown` in discovery) |
+| D20 | The engine's typed resolution needs data the extraction cache does not hold | Extend the ABI and cache with the JSON surface export/import (P1-03); re-parsing for typed resolution is parse-only and permitted, silent re-extraction is not |
+| D21 | A task's acceptance test needs a large public repository that CI cannot fetch | Use a committed sub-tree fixture (≤ 5 MB) with the same shape and mark the full-repo test nightly-only |
+| D22 | Gate G1a fails because the vendored typed-resolution layer cannot be isolated from its upstream pipeline within two further attempts (each attempt recorded as an issue) | Fall back to *Plan B*: keep the vendored engine for extraction only (`pdxe_extract_file`), drop D.3 typed resolution for 2.0, treat every language as tier `structural`, and record an SCR that removes the `typed` band's engine source (the Rust stages remain). Gate G4's `typed` precision criterion is then waived and the `precise` band becomes the only compiler-grade source. This is a development fallback only: G7 still requires the `typed` floor of G4, so Plan B cannot ship as 2.0 without an SCR approved by a human |
+| D23 | Two precise providers disagree on one site | Retain both as `conflict` evidence; draw neither as `precise`; the structural band stands |
+| D24 | An optional provider (precise indexer, OTel, zoekt, embeddings) is absent | Return `provider_unavailable` in `_meta`; never report absence as zero results |
+| D25 | A compiler occurrence cannot be mapped uniquely to a site or node | No `precise` fact; record the ambiguity in coverage/evidence |
+| D26 | Runtime evidence disagrees with the static graph | Keep both; observation never changes a band; report in topology findings |
+| D28 | A cross-repo contract lacks authority/broker/datasource identity | Keep it `candidate` and unmatched, even if the key is unique in the estate |
+| D29 | The active local repo differs from remote trunk | The full local segment replaces the remote repo; row-level mixing is forbidden |
+| D30 | An aggregate would reveal denied-repo metadata | Omit it in strict mode; only `aggregate` mode may return anonymous counts |
+| D32 | A correctness or security floor in G1/G3/G4 is missed | Continue independent development; G7 blocks release; the agent may not waive or redefine the floor |
+| D34 | A precise/build job needs the sandbox and the cluster cannot provide it | Mark the job `blocked` with reason `sandbox_unavailable`; structural indexing continues |

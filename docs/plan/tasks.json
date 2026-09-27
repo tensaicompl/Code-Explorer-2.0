@@ -1,0 +1,2202 @@
+{
+  "source_document": "PDX-2.0-PLAN-v1.3.3.md",
+  "source_committed": false,
+  "task_count": 98,
+  "phases": [
+    {
+      "id": "P0",
+      "name": "Foundations and repository restructuring"
+    },
+    {
+      "id": "P1",
+      "name": "Engine vendoring and FFI"
+    },
+    {
+      "id": "P2",
+      "name": "Core graph: identity, resolution, segments, `pdx index`"
+    },
+    {
+      "id": "P3",
+      "name": "Local agent surface"
+    },
+    {
+      "id": "P4",
+      "name": "Enterprise server"
+    },
+    {
+      "id": "P5",
+      "name": "Precise band"
+    },
+    {
+      "id": "P6",
+      "name": "Contracts, links, architecture model, overlay merge"
+    },
+    {
+      "id": "P7",
+      "name": "UI"
+    },
+    {
+      "id": "P8",
+      "name": "Analytics and trust page"
+    },
+    {
+      "id": "P9",
+      "name": "Retirement, packaging, release"
+    }
+  ],
+  "gates": [
+    {
+      "id": "G0",
+      "after": "P0-06",
+      "after_raw": "P0-06",
+      "criteria": [
+        "`make check` green on Linux+macOS",
+        "provenance and licence scans green",
+        "`legacy/` snapshot matches",
+        "lock files complete",
+        "`THIRD_PARTY_NOTICES.md` lists the dashboard attribution"
+      ]
+    },
+    {
+      "id": "G1a",
+      "after": "P1-07",
+      "after_raw": "P1-07",
+      "criteria": [
+        "Engine builds with `-Werror` on clang and gcc",
+        "`abi_smoke` passes for every typed language",
+        "ASan corpus run clean",
+        "no upstream-prefixed symbols"
+      ]
+    },
+    {
+      "id": "G1",
+      "after": "P2-16",
+      "after_raw": "P2-16",
+      "criteria": [
+        "`pdx index` succeeds on all 10 golden repos with `status \u2208 {ready}` (no `degraded`)",
+        "determinism 100%",
+        "golden snapshots committed",
+        "performance baseline recorded: \u2265 400 files/s single-node for the structural profile (extraction plus typed resolution) on `kubernetes` (nightly), peak RSS \u2264 4 GiB on `kubernetes`",
+        "coverage rows sum to call sites",
+        "`bench/results/legacy-compare.md` exists"
+      ]
+    },
+    {
+      "id": "G2",
+      "after": "P3-09",
+      "after_raw": "P3-09",
+      "criteria": [
+        "MCP conformance suite green for all 18 tools locally",
+        "`pdx install`/`uninstall` idempotent for the 6 clients",
+        "hook fail-open verified",
+        "`pdx serve` loopback-only",
+        "budget, cursor and view-handle tests green"
+      ]
+    },
+    {
+      "id": "G3",
+      "after": "P4-14",
+      "after_raw": "P4-14",
+      "criteria": [
+        "Compose smoke: 3 fixture repos indexed and published within 5 min of webhook",
+        "`publish_is_transactional`",
+        "permission filtering tests green",
+        "remote MCP e2e green with OIDC mock and PAT",
+        "Helm lint/template/kubeconform green",
+        "p95 `pdx_callers` latency < 300 ms at 100 concurrent sessions on the compose stack (k6 script `bench/load/mcp.js` against a 20-repo synthetic manifest)"
+      ]
+    },
+    {
+      "id": "G4",
+      "after": "P6-08",
+      "after_raw": "P6-08 (+P5-06)",
+      "criteria": [
+        "Structural accuracy published for all golden repos (4.13.1): `typed` precision \u2265 97% and union of drawn bands precision \u2265 95% on oracle-verifiable sites, oracle-verifiable fraction reported",
+        "recall \u2265 85% for Java/TS/Python/Go/C#/Rust/Kotlin, \u2265 80% Ada (on the subset), \u2265 70% C/C++",
+        "ingestion fidelity reported",
+        "precise sample review \u2265 99% where `truth.jsonl` exists (otherwise reported as `unreviewed`)",
+        "three-repo link fixture green including the collision fixtures (`/health` in three repos not linked without identity)",
+        "PR overlay tests green",
+        "overlay conformance suite green (whole-repo replacement against a clean full index for changed definitions, deleted targets, changed inheritance, new overloads, imports, contracts and config)"
+      ]
+    },
+    {
+      "id": "G5",
+      "after": "P7-14",
+      "after_raw": "P7-14",
+      "criteria": [
+        "Playwright suites green",
+        "`map_frame_budget` on the 1M-node fixture: points \u2264 200k, lines \u2264 300k, labels \u2264 2k, fps \u2265 55",
+        "bundle \u2264 2.5 MB gzipped",
+        "axe: no critical violations",
+        "tile leak test: tiles served to a restricted principal contain no identifier, label or count from a denied repo"
+      ]
+    },
+    {
+      "id": "G6",
+      "after": "P8-11",
+      "after_raw": "P8-11",
+      "criteria": [
+        "All analytics fixtures green",
+        "trust page generated",
+        "freshness and agent-usage metrics visible in `/api/v2/trust`",
+        "`docs/trust` published in a dry-run release"
+      ]
+    },
+    {
+      "id": "G7",
+      "after": "P9-07",
+      "after_raw": "P9-07",
+      "criteria": [
+        "Release-scale benchmark (P9-07, nightly/release only, on the reference hardware of `bench/README.md`) meets the Part 1.5 claims on a synthetic 200-repo estate of \u2265 20 M lines: structural update \u2192 published trunk view p95 \u2264 5 min over 50 merges",
+        "precise update p95 \u2264 60 min on the precise-enabled subset",
+        "bounded MCP query p95 < 300 ms at 100 concurrent sessions",
+        "the 10M-node estate completes layout and tile generation and root\u2192L5 navigation stays within the 4.11.3 budgets",
+        "`legacy/` removed",
+        "release dry-run artefacts verified (cosign, attestation, checksums)",
+        "docs link check green",
+        "`STATUS.md` complete",
+        "vendor refresh reproducible",
+        "`bench/precise-sample/<lang>/truth.jsonl` present and \u2265 99% for every precise-capable language",
+        "**all G1, G3 and G4 correctness and security floors meet their stated values \u2014 no small-miss waiver at release**"
+      ]
+    }
+  ],
+  "execution_order": [
+    "P0-01",
+    "P0-02",
+    "P0-03",
+    "P0-04",
+    "P0-05",
+    "P0-06",
+    "P1-01",
+    "P1-02",
+    "P1-03",
+    "P1-04",
+    "P1-05",
+    "P1-06",
+    "P1-07",
+    "P2-01",
+    "P2-02",
+    "P2-03",
+    "P2-04",
+    "P2-05",
+    "P2-06",
+    "P2-07",
+    "P2-08",
+    "P2-09",
+    "P2-10",
+    "P2-11",
+    "P2-12",
+    "P2-13",
+    "P2-14",
+    "P2-16",
+    "P3-01",
+    "P3-02",
+    "P3-03",
+    "P3-04",
+    "P3-05",
+    "P3-06",
+    "P3-07",
+    "P3-08",
+    "P3-09",
+    "P4-01",
+    "P4-02",
+    "P4-03",
+    "P4-04",
+    "P4-05",
+    "P4-06",
+    "P4-07",
+    "P4-08",
+    "P4-09",
+    "P4-10",
+    "P4-11",
+    "P4-12",
+    "P4-13",
+    "P4-14",
+    "P5-01",
+    "P5-02",
+    "P5-03",
+    "P5-04",
+    "P5-05",
+    "P5-06",
+    "P5-07",
+    "P5-08",
+    "P6-01",
+    "P6-02",
+    "P6-03",
+    "P6-04",
+    "P6-05",
+    "P6-06",
+    "P6-07",
+    "P6-08",
+    "P7-01",
+    "P7-02",
+    "P7-03",
+    "P7-04",
+    "P7-05",
+    "P7-06",
+    "P8-01",
+    "P8-02",
+    "P8-03",
+    "P8-04",
+    "P8-05",
+    "P8-06",
+    "P8-07",
+    "P8-08",
+    "P8-09",
+    "P8-10",
+    "P7-07",
+    "P7-08",
+    "P7-09",
+    "P7-10",
+    "P7-11",
+    "P7-12",
+    "P7-14",
+    "P8-11",
+    "P9-01",
+    "P9-02",
+    "P9-03",
+    "P9-04",
+    "P9-05",
+    "P9-06",
+    "P9-07"
+  ],
+  "tasks": [
+    {
+      "id": "P0-01",
+      "phase": "P0",
+      "title": "Legal baseline",
+      "size": "S",
+      "depends_raw": "\u2014",
+      "depends": [],
+      "deliverables": "(1) `THIRD_PARTY_NOTICES.md` created with the MIT attribution owed for the dashboard code currently in `frontend/packages/dashboard` (the dashboard was ported from the MIT-licensed `the upstream reference named in the plan` project (attribution details in the plan); the agent fetches that repository's `LICENSE` file, records the copyright line, and adds the entry; if the fetch is impossible offli\u2026",
+      "acceptance": "`scripts/licence-scan.sh` (P0-04) passes; a test `legal_files_present` checks the four files exist and `THIRD_PARTY_NOTICES.md` has \u2265 1 entry.",
+      "acceptance_tests": [
+        "legal_files_present"
+      ],
+      "order": 1,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P0-02",
+      "phase": "P0",
+      "title": "Move as-is code to `legacy/` and lock references",
+      "size": "S",
+      "depends_raw": "\u2014",
+      "depends": [],
+      "deliverables": "`git mv` of `indexer/`, `backend/`, `frontend/`, `mcp-server/`, `e2e/` into `legacy/`; delete `enrichment/`; `legacy/README.md` stating the directory is read-only reference until P9; `bench/references.lock` with name, URL, commit SHA, licence SPDX id, fetch date for every row of Part 3.1 and for the pinned libadalang release (agent fetches each into `/tmp/ref/<name>` and records `git rev-parse HE\u2026",
+      "acceptance": "`legacy/` tree equals the previous top-level tree (test `legacy_tree_snapshot` compares file lists); lock files parse (`bench/src/lock.rs` test).",
+      "acceptance_tests": [
+        "legacy_tree_snapshot"
+      ],
+      "order": 2,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P0-03",
+      "phase": "P0",
+      "title": "Toolchain and workspace skeleton",
+      "size": "M",
+      "depends_raw": "P0-02",
+      "depends": [
+        "P0-02"
+      ],
+      "deliverables": "`rust-toolchain.toml`; root `Cargo.toml` workspace with all crates of 5.2 created as empty libs/bins with `README.md`; `Cargo.lock`; `Makefile` with targets `fmt`, `fmt-check`, `lint`, `build`, `test`, `check`, `check-full`; `.gitattributes` marking `engine/grammars/**/parser.c` as `linguist-generated` and `-diff`; `.editorconfig`; `ui/` scaffold (Vite + React + TS strict, empty app); `ada-indexe\u2026",
+      "acceptance": "`make check` passes on the empty workspace; `cargo tree -p pdx` (without features) contains no proprietary crate (test `open_binary_has_no_enterprise_deps` implemented as a script in `scripts/`).",
+      "acceptance_tests": [
+        "open_binary_has_no_enterprise_deps"
+      ],
+      "order": 3,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P0-04",
+      "phase": "P0",
+      "title": "Scanners and CI",
+      "size": "M",
+      "depends_raw": "P0-03",
+      "depends": [
+        "P0-03"
+      ],
+      "deliverables": "`scripts/provenance-scan.sh` and `scripts/provenance-denylist.txt` (Part 5.10); `scripts/licence-scan.sh`; `deny.toml` for `cargo deny` with the Part 3.4 allow-list; GitHub Actions workflows `ci.yml` (`make check` on Linux and macOS; Windows builds `pdx` only), `nightly.yml` (`make check-full`), `release.yml` (skeleton, completed in P9-03); pre-commit hook script.",
+      "acceptance": "a fixture file containing a denied string makes `provenance-scan.sh` exit non-zero (test `provenance_scan_detects`); the scan of the current tree passes.",
+      "acceptance_tests": [
+        "provenance_scan_detects"
+      ],
+      "order": 4,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P0-05",
+      "phase": "P0",
+      "title": "Constants and schema versions",
+      "size": "S",
+      "depends_raw": "P0-03",
+      "depends": [
+        "P0-03"
+      ],
+      "deliverables": "`crates/pdx-core/src/consts.rs` with every `CAPITALS` constant named in Part 4 and their values (constants are defaults; where Appendix F lists a `PDX_*` key of the same meaning, the environment overrides the default at runtime); `ui/src/consts.ts` mirror; `scripts/consts-sync.py` that fails if the two differ.",
+      "acceptance": "`consts_sync` script passes; unit test `consts_have_docs` asserts each constant has a doc comment.",
+      "acceptance_tests": [
+        "consts_sync",
+        "consts_have_docs"
+      ],
+      "order": 5,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P0-06",
+      "phase": "P0",
+      "title": "Specification documents",
+      "size": "S",
+      "depends_raw": "P0-03",
+      "depends": [
+        "P0-03"
+      ],
+      "deliverables": "`docs/spec/` files mirroring 4.2\u20134.14 (one file per section), copied from this plan and marked \"normative; changes require an SCR\".",
+      "acceptance": "`docs/spec/` contains 13 files; the provenance scan passes.",
+      "acceptance_tests": [],
+      "order": 6,
+      "execution": "fan-out-eligible",
+      "gate_after": "G0"
+    },
+    {
+      "id": "P1-01",
+      "phase": "P1",
+      "title": "Vendor scripts",
+      "size": "M",
+      "depends_raw": "P0-04",
+      "depends": [
+        "P0-04"
+      ],
+      "deliverables": "`scripts/vendor/fetch-engine.sh` (clones `engine-ref` at the locked commit into `/tmp/ref/engine-ref`); `scripts/vendor/copy-engine.sh` (copies only the paths of Appendix I.1 into `engine/src/`, `engine/lsp/`, `engine/grammars/<lang>/` for the Language Matrix languages of Appendix A, `engine/vendored/{ts_runtime,common,...}`, and the upstream `LICENSE` to `engine/LICENSE-ENGINE` and each grammar'\u2026",
+      "acceptance": "running the four scripts in sequence on a clean tree produces `engine/` with no file containing a denied string (provenance scan passes); `engine/LICENSE-ENGINE` present; every `engine/grammars/*` has `LICENSE`.",
+      "acceptance_tests": [],
+      "order": 7,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P1-02",
+      "phase": "P1",
+      "title": "Engine build",
+      "size": "L",
+      "depends_raw": "P1-01",
+      "depends": [
+        "P1-01"
+      ],
+      "deliverables": "`engine/CMakeLists.txt` building `libpdxe.a` from `engine/src`, `engine/lsp`, `engine/grammars/*`, `engine/vendored/*` with the flags of Part 5.1; removal (in `strip-engine.sh`, not by hand) of every source file whose symbols are unreferenced after the strip; `engine/README.md` (build instructions only, no provenance).",
+      "acceptance": "`cmake --build` succeeds on Linux (clang, gcc) and macOS with `-Werror`; `nm libpdxe.a` contains no symbol starting with the upstream prefix (test `engine_symbols_renamed`).",
+      "acceptance_tests": [
+        "engine_symbols_renamed"
+      ],
+      "order": 8,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P1-03",
+      "phase": "P1",
+      "title": "ABI layer",
+      "size": "L",
+      "depends_raw": "P1-02",
+      "depends": [
+        "P1-02"
+      ],
+      "deliverables": "`engine/include/pdxe.h` and `engine/api/pdxe.c` implementing Appendix D exactly: `pdxe_init`, `pdxe_shutdown`, `pdxe_extract_file`, `pdxe_result_free`, `pdxe_resolve_project_begin/add_file/run/end` (typed resolution across files), `pdxe_version`, `pdxe_language_id`; all results as flat, caller-owned arrays of C structs with UTF-8 byte offsets; error codes; no stdout/stderr output. Known from the\u2026",
+      "acceptance": "C test `engine/tests/abi_smoke.c` extracts one fixture per Language Matrix language and asserts non-zero definitions; `abi_result_build_roundtrip`; `abi_no_output` test runs extraction with stdout/stderr captured and asserts they are empty.",
+      "acceptance_tests": [
+        "abi_result_build_roundtrip",
+        "abi_no_output"
+      ],
+      "order": 9,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P1-04",
+      "phase": "P1",
+      "title": "`pdx-engine-sys`",
+      "size": "M",
+      "depends_raw": "P1-03",
+      "depends": [
+        "P1-03"
+      ],
+      "deliverables": "`build.rs` invoking CMake (via `cmake` crate) and linking `libpdxe.a`; `bindgen` generated bindings for `pdxe.h` committed under `src/bindings.rs` (regenerated by `make bindgen`); feature `regenerate-bindings`.",
+      "acceptance": "`cargo test -p pdx-engine-sys` runs `abi_smoke` through the bindings on all three OSes in CI.",
+      "acceptance_tests": [
+        "abi_smoke"
+      ],
+      "order": 10,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P1-05",
+      "phase": "P1",
+      "title": "`pdx-engine` safe wrapper",
+      "size": "M",
+      "depends_raw": "P1-04",
+      "depends": [
+        "P1-04"
+      ],
+      "deliverables": "`Engine` (one per thread, `!Send`), `FileExtract { definitions, calls, imports, usages, type_refs, throws, read_writes, diagnostics }` as owned Rust structs; `ProjectResolver` wrapping the cross-file typed resolution with `add_file`/`run` returning `TypedResolution { site_ref, target_qn, score, strategy, candidates }`; crash isolation mode: when `PDX_ENGINE_ISOLATE=1`, batches run in a child proc\u2026",
+      "acceptance": "`engine_isolate_recovers` test feeds a fixture that triggers a deliberate engine abort (`PDXE_TEST_ABORT_ON` env var honoured only in test builds) and asserts the remaining files are extracted; property test `extract_is_deterministic`.",
+      "acceptance_tests": [
+        "engine_isolate_recovers",
+        "extract_is_deterministic"
+      ],
+      "order": 11,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P1-06",
+      "phase": "P1",
+      "title": "Engine ASan job and corpus",
+      "size": "S",
+      "depends_raw": "P1-05",
+      "depends": [
+        "P1-05"
+      ],
+      "deliverables": "`make check-asan` building the engine with sanitizers and running extraction over `bench/corpus/` (a committed corpus of \u2264 200 small files across the Language Matrix, taken from the golden repos' permissively licensed sources or written by the agent).",
+      "acceptance": "nightly CI job green.",
+      "acceptance_tests": [],
+      "order": 12,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P1-07",
+      "phase": "P1",
+      "title": "Language matrix registry",
+      "size": "S",
+      "depends_raw": "P1-05",
+      "depends": [
+        "P1-05"
+      ],
+      "deliverables": "`pdx-core/src/languages.rs` implementing Appendix A: id, extensions, shebangs, tier (`typed` or `structural`), module-naming rule, test-detection rule; `LANGUAGE_MATRIX_VERSION` = 1.",
+      "acceptance": "table-driven test `language_detection` for every extension in Appendix A; test `every_typed_language_has_engine_support` calls `pdxe_language_id` for each tier-typed language.",
+      "acceptance_tests": [
+        "language_detection",
+        "every_typed_language_has_engine_support",
+        "pdxe_language_id"
+      ],
+      "order": 13,
+      "execution": "single-agent",
+      "gate_after": "G1a"
+    },
+    {
+      "id": "P2-01",
+      "phase": "P2",
+      "title": "Model",
+      "size": "M",
+      "depends_raw": "P0-05, P1-07",
+      "depends": [
+        "P0-05",
+        "P1-07"
+      ],
+      "deliverables": "`ids.rs` (4.2.1, with `repo_id_from_url`, `node_id`, `site_id`, `edge_id`), `bands.rs` (4.2.2 enum, ordering, `is_drawn`, `from_engine(score, strategy, candidates)` mapping), `kinds.rs` (4.2.3/4.2.4 enums), `model.rs` (`Node`, `Edge`, `CandidateSite`, `Contract`, `Metric`, `Coverage`).",
+      "acceptance": "`proptest` `node_id_ignores_lines`, `site_id_ignores_lines`, `site_id_changes_with_ast_path`, `overload_insert_does_not_renumber` (same qn/path/kind, different lines \u2192 same id); `band_order_total`; snapshot tests of serialised forms; `from_engine` table test covering every engine strategy string listed in Appendix D.3.",
+      "acceptance_tests": [
+        "node_id_ignores_lines",
+        "site_id_ignores_lines",
+        "site_id_changes_with_ast_path",
+        "overload_insert_does_not_renumber",
+        "band_order_total",
+        "from_engine"
+      ],
+      "order": 14,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-02",
+      "phase": "P2",
+      "title": "Segment writer and reader",
+      "size": "L",
+      "depends_raw": "P2-01",
+      "depends": [
+        "P2-01"
+      ],
+      "deliverables": "`segment/schema.sql` (4.3 verbatim); `SegmentWriter` (temp file, sorted batch inserts, FTS build, `VACUUM INTO`, read-only, `content_sha256`); `SegmentReader` (immutable open, typed queries in `queries.rs`: node by id, children, edges by src/dst with band filter, candidates by src, contracts by kind/key, coverage, fts search, snippet spans); `segment/verify.rs` (schema version check, foreign-key\u2026",
+      "acceptance": "round-trip test `segment_roundtrip`; `segment_is_byte_identical_across_builds`; `reader_refuses_wrong_schema_version`; `fts_finds_qualified_names`.",
+      "acceptance_tests": [
+        "segment_roundtrip",
+        "segment_is_byte_identical_across_builds",
+        "reader_refuses_wrong_schema_version",
+        "fts_finds_qualified_names"
+      ],
+      "order": 15,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-03",
+      "phase": "P2",
+      "title": "Discover stage",
+      "size": "M",
+      "depends_raw": "P2-01",
+      "depends": [
+        "P2-01"
+      ],
+      "deliverables": "`index/discover.rs` per 4.5 Stage 1; `pdx.toml` parser (`config.rs`) with the `[discover]`, `[languages]`, `[layers]`, `[rules]`, `[precise.*]`, `[secrets]` sections and defaults.",
+      "acceptance": "fixture repo tests `discover_honours_gitignore`, `discover_skips_symlinks`, `discover_marks_binary_and_large`, `pdx_toml_defaults`.",
+      "acceptance_tests": [
+        "discover_honours_gitignore",
+        "discover_skips_symlinks",
+        "discover_marks_binary_and_large",
+        "pdx_toml_defaults"
+      ],
+      "order": 16,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-04",
+      "phase": "P2",
+      "title": "Extract stage with cache",
+      "size": "M",
+      "depends_raw": "P1-05, P2-03",
+      "depends": [
+        "P1-05",
+        "P2-03"
+      ],
+      "deliverables": "`index/extract.rs` running `pdx-engine` over discovered files in `rayon` batches with the memory budget of 4.5; extraction cache trait `ExtractCache` with `FsCache` (local) keyed by `(engine_version, language_matrix_version, blob_sha)`, `bincode`-serialised `FileExtract`; `blob_sha` computed as git blob hash (`sha1(\"blob <len>\\0\" + bytes)`) so it matches `git ls-files -s`.",
+      "acceptance": "`cache_hit_skips_engine` (engine call counter), `blob_sha_matches_git`, `memory_budget_batches`, `secret_policy_change_invalidates_cache`.",
+      "acceptance_tests": [
+        "cache_hit_skips_engine",
+        "blob_sha_matches_git",
+        "memory_budget_batches",
+        "secret_policy_change_invalidates_cache"
+      ],
+      "order": 17,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-05",
+      "phase": "P2",
+      "title": "Symbol registry",
+      "size": "M",
+      "depends_raw": "P2-04",
+      "depends": [
+        "P2-04"
+      ],
+      "deliverables": "`resolve/registry.rs`: definitions by name, by qualified name, by file; import graph per file (resolved to files/modules via Appendix A module rules); class hierarchies; module membership; external-name detection (names only defined in imports of external packages).",
+      "acceptance": "fixture tests per typed language (`registry_<lang>`), `external_detection_python_stdlib`.",
+      "acceptance_tests": [
+        "external_detection_python_stdlib"
+      ],
+      "order": 18,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-06",
+      "phase": "P2",
+      "title": "Resolution stages",
+      "size": "L",
+      "depends_raw": "P2-05",
+      "depends": [
+        "P2-05"
+      ],
+      "deliverables": "`resolve/stages.rs` implementing 4.5 Stage 3 exactly (blocklist \u2192 engine typed \u2192 import-guided \u2192 inheritance-guided \u2192 exact \u2192 scoped \u2192 candidate/external/unresolved; narrowing semantics); per-site output `Resolution { band, target?, candidates, engine_score, engine_strategy }`; `resolve/blocklist.rs` (Appendix B.4, per-language extensions).",
+      "acceptance": "table-driven `resolution_stage_matrix` covering all 9 stage outcomes (`typed`, `import-guided`, `inheritance-guided`, `exact`, `scoped`, `candidate`, `external`, `blocked`, `unresolved`; `precise`, `observed`, `contradicted` are produced elsewhere); `narrowing_keeps_narrowest_set`; `blocklist_precedes_all`; `typed_requires_lsp_typed_single_candidate_and_min_score`; `engine_hints_never_restrict_ca\u2026",
+      "acceptance_tests": [
+        "resolution_stage_matrix",
+        "narrowing_keeps_narrowest_set",
+        "blocklist_precedes_all",
+        "typed_requires_lsp_typed_single_candidate_and_min_score",
+        "engine_hints_never_restrict_candidate_universe"
+      ],
+      "order": 19,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-07",
+      "phase": "P2",
+      "title": "Derive stage: containment, modules, routes, tests",
+      "size": "L",
+      "depends_raw": "P2-06",
+      "depends": [
+        "P2-06"
+      ],
+      "deliverables": "`index/derive/{containment,modules,routes,tests}.rs` per Appendix A/B: `Repo/Folder/File/Module` nodes, parent links, `Route` nodes and `DEFINES_ROUTE`, `Test` nodes and `TESTS` edges, entry-point flags (`main`, framework bootstrap classes, `Route` handlers) in `props.is_entry_point`.",
+      "acceptance": "golden fixture `derive_<lang>` for every typed-tier language and for `ada` (insta snapshots of node kinds and counts); `routes_spring`, `routes_fastapi`, `routes_express`, `tests_junit`, `tests_pytest`.",
+      "acceptance_tests": [
+        "routes_spring",
+        "routes_fastapi",
+        "routes_express",
+        "tests_junit",
+        "tests_pytest"
+      ],
+      "order": 20,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P2-08",
+      "phase": "P2",
+      "title": "Derive stage: contracts",
+      "size": "L",
+      "depends_raw": "P2-07",
+      "depends": [
+        "P2-07"
+      ],
+      "deliverables": "`contracts/{openapi,routes,proto,channels,tables,artifacts}.rs` implementing 4.7.1 with key normalisation (channel producers/consumers come from the engine's `channels` array, Appendix D.2, supplemented by the annotation rules of 4.7.1); `props` include the raw form; placeholder resolution from `application*.yml|properties` and `.env` keys.",
+      "acceptance": "fixtures `contracts_openapi`, `contracts_proto`, `contracts_kafka_literal`, `contracts_kafka_placeholder_unresolved`, `contracts_jpa_table`, `contracts_maven_artifact`, `contract_key_normalisation` (table of raw \u2192 key).",
+      "acceptance_tests": [
+        "contracts_openapi",
+        "contracts_proto",
+        "contracts_kafka_literal",
+        "contracts_kafka_placeholder_unresolved",
+        "contracts_jpa_table",
+        "contracts_maven_artifact",
+        "contract_key_normalisation"
+      ],
+      "order": 21,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P2-09",
+      "phase": "P2",
+      "title": "Derive stage: layer roles and metrics",
+      "size": "M",
+      "depends_raw": "P2-07",
+      "depends": [
+        "P2-07"
+      ],
+      "deliverables": "`layers/roles.rs` (4.8.3 precedence), `metrics/{complexity,importance,fanio}.rs` (4.12.1; cyclomatic and cognitive from engine AST facts exposed by Appendix D.4).",
+      "acceptance": "`layer_role_precedence` (config beats annotation beats path), `cyclomatic_known_values` (fixtures with hand-computed values), `importance_formula`.",
+      "acceptance_tests": [
+        "layer_role_precedence",
+        "cyclomatic_known_values",
+        "importance_formula"
+      ],
+      "order": 22,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P2-10",
+      "phase": "P2",
+      "title": "Coverage and write",
+      "size": "M",
+      "depends_raw": "P2-08, P2-09, P2-02",
+      "depends": [
+        "P2-08",
+        "P2-09",
+        "P2-02"
+      ],
+      "deliverables": "`coverage/mod.rs` producing rows per language with all 11 bands; `index/write.rs` (Stage 5); `index/mod.rs` `build_segment(IndexRequest) -> SegmentReport` orchestrating Stages 1\u20135 with `tracing` spans and a progress callback.",
+      "acceptance": "`coverage_counts_sum_to_call_sites`; `build_segment_end_to_end` on a fixture repo; `degraded_when_failed_over_threshold`.",
+      "acceptance_tests": [
+        "coverage_counts_sum_to_call_sites",
+        "build_segment_end_to_end",
+        "degraded_when_failed_over_threshold"
+      ],
+      "order": 23,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-11",
+      "phase": "P2",
+      "title": "`pdx index` CLI",
+      "size": "M",
+      "depends_raw": "P2-10",
+      "depends": [
+        "P2-10"
+      ],
+      "deliverables": "`pdx index [path] [--out .pdx/segment.db] [--profile structural] [--json report]`; `pdx version` (prints `pdx`, engine, schema and matrix versions); `pdx coverage [--json]`; exit codes: 0 ok, 2 degraded, 1 error; progress on stderr when a TTY.",
+      "acceptance": "`cli_index_fixture` (snapshot of `--json` report); `cli_exit_code_degraded`; `cli_help_snapshot`.",
+      "acceptance_tests": [
+        "cli_index_fixture",
+        "cli_exit_code_degraded",
+        "cli_help_snapshot"
+      ],
+      "order": 24,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-12",
+      "phase": "P2",
+      "title": "Golden harness v0",
+      "size": "M",
+      "depends_raw": "P2-11",
+      "depends": [
+        "P2-11"
+      ],
+      "deliverables": "`pdx-bench` skeleton: fetch golden repos from `bench/repos.lock` into `bench/.cache/`, run `pdx index`, emit `expected.json` per 5.7 with `--accept`; `bench/golden/` populated for all golden repos.",
+      "acceptance": "`make golden` passes on a clean checkout; `golden_files_sorted` test.",
+      "acceptance_tests": [
+        "golden_files_sorted"
+      ],
+      "order": 25,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P2-13",
+      "phase": "P2",
+      "title": "Legacy comparison (triage only)",
+      "size": "M",
+      "depends_raw": "P2-12",
+      "depends": [
+        "P2-12"
+      ],
+      "deliverables": "`scripts/compare-legacy.py` that runs `legacy/indexer/graph_pass` on the Python golden repo (`flask`) and diffs drawn `calls` edges against the new segment; report committed to `bench/results/legacy-compare.md` with counts of: same, only-legacy, only-new, and 20 sampled explanations written by the agent after reading the evidence lines. The legacy indexer needs PostgreSQL and its embedding model;\u2026",
+      "acceptance": "the report exists (or the task is `blocked` with an issue); no test threshold (this is triage input for tuning `TYPED_MIN_SCORE` through an SCR if warranted).",
+      "acceptance_tests": [],
+      "order": 26,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-14",
+      "phase": "P2",
+      "title": "Determinism and performance baselines",
+      "size": "S",
+      "depends_raw": "P2-12",
+      "depends": [
+        "P2-12"
+      ],
+      "deliverables": "`pdx bench --determinism` and `--perf` producing `bench/results/<version>/`; `criterion` benches for `resolve` and `segment write`.",
+      "acceptance": "byte-identical segments on all golden repos; perf numbers recorded (no threshold yet; thresholds are set at G1).",
+      "acceptance_tests": [],
+      "order": 27,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-16",
+      "phase": "P2",
+      "title": "Engine differential harness (nightly)",
+      "size": "M",
+      "depends_raw": "P2-12, P1-07",
+      "depends": [
+        "P2-12",
+        "P1-07"
+      ],
+      "deliverables": "`make engine-differential`: builds the pinned, unmodified reference engine from `/tmp/ref/engine-ref` (never committed; referred to in code and docs only as \"the reference engine\"), runs it and the vendored engine over the committed fixtures and golden subsets, canonicalises both outputs (sorted rows of definitions, calls, imports, surfaces and typed resolutions with our kind mapping applied to b\u2026",
+      "acceptance": "`engine_differential_identical` for every typed-tier language fixture; runs in `check-full`, not `check`.",
+      "acceptance_tests": [
+        "engine_differential_identical"
+      ],
+      "order": 28,
+      "execution": "single-agent",
+      "gate_after": "G1"
+    },
+    {
+      "id": "P3-01",
+      "phase": "P3",
+      "title": "MCP tool definitions",
+      "size": "M",
+      "depends_raw": "P2-11",
+      "depends": [
+        "P2-11"
+      ],
+      "deliverables": "`pdx-mcp/src/tools/*.rs` with `serde`+`schemars` input/output types for every tool in 4.9.2; generated JSON schemas committed under `docs/spec/mcp-schemas/`; `MCP_TOOLS_VERSION` = 1; budget enforcement (`budget.rs`: byte ceiling, whole-row truncation, `has_more`), cursor encoding/decoding (`cursor.rs`: `(view_handle, query_hash, offset)`); view handles per 4.9.3 (`view.rs`: mint, verify, permissi\u2026",
+      "acceptance": "`schemas_snapshot`; `budget_drops_whole_rows`; `cursor_rejects_other_view`; `view_handle_rejects_changed_permissions`; `view_handle_expires`.",
+      "acceptance_tests": [
+        "schemas_snapshot",
+        "budget_drops_whole_rows",
+        "cursor_rejects_other_view",
+        "view_handle_rejects_changed_permissions",
+        "view_handle_expires"
+      ],
+      "order": 29,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P3-02",
+      "phase": "P3",
+      "title": "Local query backend",
+      "size": "L",
+      "depends_raw": "P3-01, P2-02",
+      "depends": [
+        "P3-01",
+        "P2-02"
+      ],
+      "deliverables": "`QueryBackend` trait (`manifest`, `search`, `symbol`, `callers`, `callees`, `trace`, `blast_radius`, `coverage`, `candidates`, `snippet`, `definition`, `references`, `implementations`, `contracts`, `architecture` (locally only levels `layer` and `module`; `system`/`context`/`service` return an empty result with `_meta.unsupported_locally = true`), `findings` (empty locally until P8)); locally the\u2026",
+      "acceptance": "per-tool tests listed in Part 5.7 \"MCP conformance\" against a fixture segment; `trace_paths_are_shortest_first`; `blast_radius_counts_unresolved_touched`.",
+      "acceptance_tests": [
+        "trace_paths_are_shortest_first",
+        "blast_radius_counts_unresolved_touched"
+      ],
+      "order": 30,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P3-03",
+      "phase": "P3",
+      "title": "`pdx mcp` stdio server",
+      "size": "M",
+      "depends_raw": "P3-02",
+      "depends": [
+        "P3-02"
+      ],
+      "deliverables": "`pdx mcp` using `rmcp` stdio transport; view handles bound to the local segment set (4.9.3); `_meta` fields per 4.9.3; structured logs to stderr only.",
+      "acceptance": "`mcp_stdio_roundtrip` using an `rmcp` client; `mcp_stdout_is_json_rpc_only`.",
+      "acceptance_tests": [
+        "mcp_stdio_roundtrip",
+        "mcp_stdout_is_json_rpc_only"
+      ],
+      "order": 31,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P3-04",
+      "phase": "P3",
+      "title": "Working-tree overlay (standalone)",
+      "size": "M",
+      "depends_raw": "P3-03",
+      "depends": [
+        "P3-03"
+      ],
+      "deliverables": "`pdx mcp` and `pdx diff` index the working tree (respecting `.gitignore`) into `.pdx/worktree.db` on start and on file change (notify-based watcher, debounced 500 ms, incremental via extraction cache); `pdx diff [--base <ref>]` prints changed symbols and blast radius (single repo) as text or `--json`.",
+      "acceptance": "`overlay_reflects_uncommitted_edit` (edit a fixture file, query callers, see new edge); `diff_json_snapshot`.",
+      "acceptance_tests": [
+        "overlay_reflects_uncommitted_edit",
+        "diff_json_snapshot"
+      ],
+      "order": 32,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P3-05",
+      "phase": "P3",
+      "title": "Lexical index (tantivy)",
+      "size": "M",
+      "depends_raw": "P2-10",
+      "depends": [
+        "P2-10"
+      ],
+      "deliverables": "`lexical/` building a tantivy index next to the segment (`.pdx/lexical/`) over file contents with camel/snake-aware tokenizer; `pdx_search` falls back to lexical hits (file, line, preview) when FTS has < 5 hits; server uses zoekt instead (P4-12).",
+      "acceptance": "`lexical_camel_split`, `search_merges_fts_and_lexical`.",
+      "acceptance_tests": [
+        "lexical_camel_split",
+        "search_merges_fts_and_lexical"
+      ],
+      "order": 33,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P3-06",
+      "phase": "P3",
+      "title": "Optional embeddings",
+      "size": "M",
+      "depends_raw": "P3-05",
+      "depends": [
+        "P3-05"
+      ],
+      "deliverables": "`pdx asset install embeddings` downloads the ONNX model listed in Part 3.1 from `PDX_ASSET_BASE_URL` (default: Praxevia release bucket; air-gapped sites set it to an internal mirror) and verifies SHA-256 from a committed manifest; `ort`-based embedding of node `signature + doc + name`; `pdx_search {semantic:true}` uses HNSW (`usearch` crate) with RRF fusion against FTS.",
+      "acceptance": "`embeddings_absent_degrades_gracefully`; `semantic_search_rrf` on a fixture with a tiny test model committed under `bench/fixtures/tiny-embed.onnx` (generated by the agent with random weights, 8 dimensions).",
+      "acceptance_tests": [
+        "embeddings_absent_degrades_gracefully",
+        "semantic_search_rrf"
+      ],
+      "order": 34,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P3-07",
+      "phase": "P3",
+      "title": "`pdx install` / `pdx uninstall`",
+      "size": "M",
+      "depends_raw": "P3-03",
+      "depends": [
+        "P3-03"
+      ],
+      "deliverables": "client adapters for Appendix E writing MCP config, hooks and instruction snippets; idempotent; backup of each modified file to `~/.config/pdx/backups/<timestamp>/`; `--dry-run` prints the diff.",
+      "acceptance": "per-client tests on temp home directories (`install_claude_code`, `install_codex`, `install_cursor`, `install_vscode`, `install_gemini`, `install_opencode`), `uninstall_restores_exact_bytes`, `install_is_idempotent`.",
+      "acceptance_tests": [
+        "install_claude_code",
+        "install_codex",
+        "install_cursor",
+        "install_vscode",
+        "install_gemini",
+        "install_opencode",
+        "uninstall_restores_exact_bytes",
+        "install_is_idempotent"
+      ],
+      "order": 35,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P3-08",
+      "phase": "P3",
+      "title": "Hooks",
+      "size": "M",
+      "depends_raw": "P3-07",
+      "depends": [
+        "P3-07"
+      ],
+      "deliverables": "`pdx hook <event>` subcommand reading the client's JSON on stdin and writing `additionalContext` per 4.9.4; 10-symbol cap; 300 ms internal timeout (returns empty context on timeout).",
+      "acceptance": "`hook_grep_injects_symbols`, `hook_timeout_is_fail_open`, `hook_read_adds_coverage_note`.",
+      "acceptance_tests": [
+        "hook_grep_injects_symbols",
+        "hook_timeout_is_fail_open",
+        "hook_read_adds_coverage_note"
+      ],
+      "order": 36,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P3-09",
+      "phase": "P3",
+      "title": "`pdx serve` (local API)",
+      "size": "M",
+      "depends_raw": "P3-02",
+      "depends": [
+        "P3-02"
+      ],
+      "deliverables": "`pdx serve --port 7311` (manifest id `local` in all URLs) exposing `/api/v2/{manifest,search,symbol,callers,callees,trace,blast_radius,coverage,candidates,snippet}` (JSON mirrors of the MCP tools) and `/api/v2/tiles/...` (P7-02) bound to `127.0.0.1`; serves the UI bundle from embedded assets (empty placeholder until P7).",
+      "acceptance": "`serve_binds_loopback_only`, `serve_api_matches_mcp_outputs` (same fixture, same JSON modulo `_meta`).",
+      "acceptance_tests": [
+        "serve_binds_loopback_only",
+        "serve_api_matches_mcp_outputs"
+      ],
+      "order": 37,
+      "execution": "single-agent",
+      "gate_after": "G2"
+    },
+    {
+      "id": "P4-01",
+      "phase": "P4",
+      "title": "Server skeleton",
+      "size": "M",
+      "depends_raw": "P3-02",
+      "depends": [
+        "P3-02"
+      ],
+      "deliverables": "`pdx-server` crate with axum app, config from env/`pdx-server.toml` (all keys in Appendix F), `/healthz`, `/readyz`, structured logging, graceful shutdown; `pdx server run|migrate|worker|admin ...` subcommands behind `--features enterprise`.",
+      "acceptance": "`server_boots_with_postgres` (testcontainers), `readyz_reports_migrations_pending`.",
+      "acceptance_tests": [
+        "server_boots_with_postgres",
+        "readyz_reports_migrations_pending"
+      ],
+      "order": 38,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-02",
+      "phase": "P4",
+      "title": "Migrations and control-plane data access",
+      "size": "M",
+      "depends_raw": "P4-01",
+      "depends": [
+        "P4-01"
+      ],
+      "deliverables": "`migrations/0001_init.sql` = 4.4 DDL; `db/` module with typed functions for every table; `sqlx` offline metadata.",
+      "acceptance": "`migration_0001_applies_clean`; `db_roundtrip_all_tables`.",
+      "acceptance_tests": [
+        "migration_0001_applies_clean",
+        "db_roundtrip_all_tables"
+      ],
+      "order": 39,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-03",
+      "phase": "P4",
+      "title": "Segment store",
+      "size": "M",
+      "depends_raw": "P4-02",
+      "depends": [
+        "P4-02"
+      ],
+      "deliverables": "`SegmentStore` trait with `S3Store` (`aws-sdk-s3`, path-style, works with MinIO/Ceph RGW) and `FsStore` (PVC); local read cache with LRU by bytes (`SEGMENT_CACHE_BYTES`, default 20 GiB); `storage_key` convention of 4.3.",
+      "acceptance": "both implementations pass the same test suite (`store_contract_tests`) using MinIO in testcontainers and a temp dir.",
+      "acceptance_tests": [
+        "store_contract_tests"
+      ],
+      "order": 40,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-04",
+      "phase": "P4",
+      "title": "Job runner",
+      "size": "L",
+      "depends_raw": "P4-02",
+      "depends": [
+        "P4-02"
+      ],
+      "deliverables": "`jobs/` with `SELECT \u2026 FOR UPDATE SKIP LOCKED` claiming, heartbeats (`started_at` refresh every 30 s; jobs with stale heartbeats > 5 min are re-queued up to 3 attempts), per-kind concurrency limits, dedupe keys, cancellation; worker binary entrypoint `pdx server worker --kinds index,precise,...`.",
+      "acceptance": "`jobs_skip_locked_no_double_claim` (two workers), `jobs_requeue_on_stale_heartbeat`, `jobs_dedupe`.",
+      "acceptance_tests": [
+        "jobs_skip_locked_no_double_claim",
+        "jobs_requeue_on_stale_heartbeat",
+        "jobs_dedupe"
+      ],
+      "order": 41,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-05",
+      "phase": "P4",
+      "title": "Repo sync and webhooks",
+      "size": "L",
+      "depends_raw": "P4-04",
+      "depends": [
+        "P4-04"
+      ],
+      "deliverables": "host adapters (`hosts/{gitlab,github,bitbucket}.rs`) for listing projects, default branches, cloning/fetching (via `git` CLI with credential helper from `settings`), repo registration assigning `repo_id` and maintaining `repo_aliases` on URL change (`GET /api/v2/repos/resolve?url=` for the local binary), webhook receivers (`POST /webhooks/{host}` with secret verification) for push/merge/member ev\u2026",
+      "acceptance": "adapters tested against recorded HTTP fixtures (`wiremock`); `webhook_push_enqueues_index`; `poll_detects_new_head`, `repo_url_change_keeps_repo_id`.",
+      "acceptance_tests": [
+        "webhook_push_enqueues_index",
+        "poll_detects_new_head",
+        "repo_url_change_keeps_repo_id"
+      ],
+      "order": 42,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-06",
+      "phase": "P4",
+      "title": "Index job and publication",
+      "size": "L",
+      "depends_raw": "P4-05, P4-03, P2-10",
+      "depends": [
+        "P4-05",
+        "P4-03",
+        "P2-10"
+      ],
+      "deliverables": "`index` job: checkout (worktree from mirror), `build_segment` with `ObjectStoreCache` for extraction, upload under the `build_key` path, `segments` row, and publication transaction (4.4) producing a new trunk manifest version; enqueue `links`, `layout`, `estate`, `analytics` jobs; `gc` job for retention.",
+      "acceptance": "`publish_is_transactional` (failure between steps leaves `manifest_current` unchanged), `manifest_copies_unchanged_repos`, `gc_keeps_retention_window`, `reindex_after_engine_upgrade_does_not_overwrite`.",
+      "acceptance_tests": [
+        "publish_is_transactional",
+        "manifest_current",
+        "manifest_copies_unchanged_repos",
+        "gc_keeps_retention_window",
+        "reindex_after_engine_upgrade_does_not_overwrite"
+      ],
+      "order": 43,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-07",
+      "phase": "P4",
+      "title": "Query service and `RemoteBackend`",
+      "size": "L",
+      "depends_raw": "P4-06, P3-02",
+      "depends": [
+        "P4-06",
+        "P3-02"
+      ],
+      "deliverables": "`QueryBackend` implementation over a manifest: opens the permitted segments (LRU-cached handles), fans out per-repo queries, merges and ranks; link-layer and estate queries read `links.db`/`estate.db` (populated in P6; stubs return empty until then); view-handle verification per 4.9.3.",
+      "acceptance": "`remote_backend_matches_local_on_single_repo`, `view_handle_survives_new_publication`, `fanout_respects_repo_filter`, `strict_mode_omits_denied_counts`.",
+      "acceptance_tests": [
+        "remote_backend_matches_local_on_single_repo",
+        "view_handle_survives_new_publication",
+        "fanout_respects_repo_filter",
+        "strict_mode_omits_denied_counts"
+      ],
+      "order": 44,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-08",
+      "phase": "P4",
+      "title": "Identity: OIDC and PATs",
+      "size": "L",
+      "depends_raw": "P4-01",
+      "depends": [
+        "P4-01"
+      ],
+      "deliverables": "OIDC Authorization Code + PKCE login for the UI (session cookie, `SameSite=Lax`, secure), JWKS validation for bearer tokens, group claims mapping to `principals(kind='group')`, PAT create/list/revoke API with argon2id hashing, `/.well-known/oauth-protected-resource`, optional DCR proxy, CSRF double-submit token on all cookie-authenticated mutating routes.",
+      "acceptance": "tests with a mock OIDC provider (`oidc_mock` fixture): `login_flow`, `bearer_jwks_validation`, `pat_scope_enforced`, `expired_pat_rejected`.",
+      "acceptance_tests": [
+        "oidc_mock",
+        "login_flow",
+        "bearer_jwks_validation",
+        "pat_scope_enforced",
+        "expired_pat_rejected"
+      ],
+      "order": 45,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-09",
+      "phase": "P4",
+      "title": "Permission sync and enforcement",
+      "size": "L",
+      "depends_raw": "P4-05, P4-08",
+      "depends": [
+        "P4-05",
+        "P4-08"
+      ],
+      "deliverables": "`permsync` job per host (4.10), `permitted_repos(principal)` with group expansion cached 60 s, enforcement in the query planner, link-edge redaction stubs.",
+      "acceptance": "`permsync_gitlab_inherited_groups` (fixture), `query_filters_unpermitted_repos`, `link_edge_redacted_when_one_side_denied`, `admin_manual_grant`.",
+      "acceptance_tests": [
+        "permsync_gitlab_inherited_groups",
+        "query_filters_unpermitted_repos",
+        "link_edge_redacted_when_one_side_denied",
+        "admin_manual_grant"
+      ],
+      "order": 46,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-10",
+      "phase": "P4",
+      "title": "Remote MCP",
+      "size": "M",
+      "depends_raw": "P4-07, P4-08",
+      "depends": [
+        "P4-07",
+        "P4-08"
+      ],
+      "deliverables": "`POST /mcp` Streamable HTTP via `rmcp`, bearer auth, view handles (no transport-session state; any instance can serve any request), rate limit, audit rows per call; the local `pdx mcp` forwards estate questions to this endpoint when `[server] url` is configured (overlay merge lands in P6-08; until then forwarding is pass-through).",
+      "acceptance": "`remote_mcp_end_to_end` with an `rmcp` client over HTTP; `mcp_unauthenticated_401`; `mcp_audit_row_written`; `mcp_stateless_across_two_instances`.",
+      "acceptance_tests": [
+        "remote_mcp_end_to_end",
+        "mcp_unauthenticated_401",
+        "mcp_audit_row_written",
+        "mcp_stateless_across_two_instances"
+      ],
+      "order": 47,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-11",
+      "phase": "P4",
+      "title": "HTTP API v2 and admin API",
+      "size": "L",
+      "depends_raw": "P4-07, P4-09",
+      "depends": [
+        "P4-07",
+        "P4-09"
+      ],
+      "deliverables": "`/api/v2/*` read endpoints mirroring the tools (as in P3-09) plus `/api/v2/trust`, `/api/v2/manifests`; admin endpoints: repos CRUD and enable/disable, principals and roles, tokens, settings, jobs (list/retry/cancel), annotations review, re-index request, permission manual grants, audit export; OpenAPI document generated with `utoipa` and served at `/api/v2/openapi.json`.",
+      "acceptance": "`openapi_snapshot`; per-endpoint authz tests (`reader_cannot_admin`); `audit_export_jsonl`.",
+      "acceptance_tests": [
+        "openapi_snapshot",
+        "reader_cannot_admin",
+        "audit_export_jsonl"
+      ],
+      "order": 48,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-12",
+      "phase": "P4",
+      "title": "zoekt integration",
+      "size": "M",
+      "depends_raw": "P4-06",
+      "depends": [
+        "P4-06"
+      ],
+      "deliverables": "`deploy/images/pdx-zoekt` (upstream image pinned), indexer job that points zoekt-indexserver at `REPO_STORE_DIR`; `pdx_search` lexical fallback calls zoekt's JSON API with repo filters derived from permissions.",
+      "acceptance": "`search_uses_zoekt_when_configured` (zoekt in testcontainers).",
+      "acceptance_tests": [
+        "search_uses_zoekt_when_configured"
+      ],
+      "order": 49,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-13",
+      "phase": "P4",
+      "title": "Helm chart and compose",
+      "size": "L",
+      "depends_raw": "P4-10, P4-12",
+      "depends": [
+        "P4-10",
+        "P4-12"
+      ],
+      "deliverables": "`deploy/helm/pdx` (server, workers, zoekt, optional MinIO/Postgres subcharts, OpenShift-safe defaults per 4.14.1, values documented, including a `ServiceAccount`/`Role`/`RoleBinding` allowing the worker to create and watch `batch/v1 Jobs` in its namespace for `PDX_PRECISE_MODE=k8s`); `deploy/compose/docker-compose.yml`; `docs/ops/install-openshift.md`, `docs/ops/air-gapped.md`, `docs/ops/permissi\u2026",
+      "acceptance": "`helm lint`, `helm template` snapshot test, `kubeconform` against Kubernetes 1.29 schemas; compose smoke test in CI (`docker compose up`, index one fixture repo, query MCP).",
+      "acceptance_tests": [],
+      "order": 50,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P4-14",
+      "phase": "P4",
+      "title": "Retention, GC and operational metrics",
+      "size": "S",
+      "depends_raw": "P4-06",
+      "depends": [
+        "P4-06"
+      ],
+      "deliverables": "`gc` job per 4.4; Prometheus metrics at `/metrics` (jobs, latencies, segment counts, lag per repo); `docs/ops/monitoring.md`; `pdx bench --synthetic-manifest <repos> <files_per_repo>` generating synthetic repositories and publishing them into a running server (used by G3), and `bench/load/mcp.js` (k6) exercising `pdx_callers`, `pdx_search` and `pdx_blast_radius` at a configurable session count.",
+      "acceptance": "`gc_removes_unreferenced_segments`, `metrics_endpoint_lists_lag`.",
+      "acceptance_tests": [
+        "gc_removes_unreferenced_segments",
+        "metrics_endpoint_lists_lag"
+      ],
+      "order": 51,
+      "execution": "single-agent",
+      "gate_after": "G3"
+    },
+    {
+      "id": "P5-01",
+      "phase": "P5",
+      "title": "Precise build images",
+      "size": "M",
+      "depends_raw": "P4-04",
+      "depends": [
+        "P4-04"
+      ],
+      "deliverables": "`deploy/images/precise-{java,ts,python,go,cxx,dotnet,rust}.Dockerfile` with pinned indexer versions and a `pdx-precise-run` entry script that reads `pdx.toml`, runs `build_cmd|install_cmd|compdb_cmd`, then the indexer, and writes `index.scip` to a mounted output dir; no network unless `PDX_PRECISE_ALLOW_NETWORK=1`.",
+      "acceptance": "each image builds in CI; `precise_java_petclinic` produces a non-empty `index.scip`.",
+      "acceptance_tests": [
+        "precise_java_petclinic"
+      ],
+      "order": 52,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P5-02",
+      "phase": "P5",
+      "title": "SCIP loader",
+      "size": "M",
+      "depends_raw": "P2-02",
+      "depends": [
+        "P2-02"
+      ],
+      "deliverables": "`pdx-precise/src/scip.rs` reading `index.scip` with the `scip` crate into `PreciseDoc { path, occurrences }` with symbol parsing and byte-offset conversion honouring the declared position encoding; `symbol_to_qn(lang, scip_symbol) -> qualified_name` implementing Appendix B.1 per language so that new nodes created during merge get ids consistent with 4.2.1.",
+      "acceptance": "`scip_load_fixture` on committed small `index.scip` fixtures per language; `scip_symbol_to_qn_<lang>` for every precise-capable language (generated by the agent from `bench/fixtures/precise/<lang>` with the P5-01 images).",
+      "acceptance_tests": [
+        "scip_load_fixture"
+      ],
+      "order": 53,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P5-03",
+      "phase": "P5",
+      "title": "Merge",
+      "size": "L",
+      "depends_raw": "P5-02, P2-10",
+      "depends": [
+        "P5-02",
+        "P2-10"
+      ],
+      "deliverables": "`merge.rs` implementing 4.6.4 exactly, including the `semantic_occurrences` writer; new segment with `profile='precise'`.",
+      "acceptance": "`merge_upgrades_confirmed_edge`, `merge_contradicts_wrong_edge`, `merge_adds_missing_edge`, `merge_replaces_candidate`, `merge_fails_below_mapping_threshold`, `merge_is_idempotent`, `reference_without_call_site_is_not_a_call`, `ambiguous_definition_mapping_is_withheld`, `utf16_positions_map_to_bytes`, `two_providers_conflict_draws_neither`.",
+      "acceptance_tests": [
+        "merge_upgrades_confirmed_edge",
+        "merge_contradicts_wrong_edge",
+        "merge_adds_missing_edge",
+        "merge_replaces_candidate",
+        "merge_fails_below_mapping_threshold",
+        "merge_is_idempotent",
+        "reference_without_call_site_is_not_a_call",
+        "ambiguous_definition_mapping_is_withheld",
+        "utf16_positions_map_to_bytes",
+        "two_providers_conflict_draws_neither"
+      ],
+      "order": 54,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P5-04",
+      "phase": "P5",
+      "title": "Precise job",
+      "size": "M",
+      "depends_raw": "P5-01, P5-03, P4-06",
+      "depends": [
+        "P5-01",
+        "P5-03",
+        "P4-06"
+      ],
+      "deliverables": "`precise` job: run the language image(s) for a segment's commit as Kubernetes Jobs (`k8s` mode) or local Docker (`compose` mode) with timeouts from `pdx.toml`; on success run the merge and publish the `precise` segment, replacing the repo's entry in a new manifest version.",
+      "acceptance": "`precise_job_publishes_new_manifest` (compose mode in CI), `precise_job_timeout_marks_failed`.",
+      "acceptance_tests": [
+        "precise_job_publishes_new_manifest",
+        "precise_job_timeout_marks_failed"
+      ],
+      "order": 55,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P5-05",
+      "phase": "P5",
+      "title": "Ada indexer",
+      "size": "L",
+      "depends_raw": "P5-02",
+      "depends": [
+        "P5-02"
+      ],
+      "deliverables": "`ada-indexer/` per 4.6.3: CLI, GPR project loading, definition and reference occurrences, diagnostics for unresolved, unit tests with a small GPR fixture; `deploy/images/pdx-ada-indexer.Dockerfile`; `precise-ada` handled by P5-04 with language `ada`.",
+      "acceptance": "`ada_indexer_fixture_scip` (occurrence counts), `ada_merge_end_to_end` on the Ada golden repo subset (`Ada_Drivers_Library/arch/ARM/STM32` only, for time).",
+      "acceptance_tests": [
+        "ada_indexer_fixture_scip",
+        "ada_merge_end_to_end"
+      ],
+      "order": 56,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P5-06",
+      "phase": "P5",
+      "title": "Oracle benchmark",
+      "size": "M",
+      "depends_raw": "P5-04, P2-12",
+      "depends": [
+        "P5-04",
+        "P2-12"
+      ],
+      "deliverables": "`pdx bench --oracle` computing per-band precision/recall per 4.13.1; results committed under `bench/results/<version>/`.",
+      "acceptance": "numbers exist for every golden repo; `oracle_metrics_formula` unit test on a synthetic case.",
+      "acceptance_tests": [
+        "oracle_metrics_formula"
+      ],
+      "order": 57,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P5-07",
+      "phase": "P5",
+      "title": "Local `--precise`",
+      "size": "S",
+      "depends_raw": "P5-03, P2-11",
+      "depends": [
+        "P5-03",
+        "P2-11"
+      ],
+      "deliverables": "`pdx index --precise` detects indexers on `PATH`, runs them, merges; report lists which languages got precise coverage.",
+      "acceptance": "`cli_precise_reports_missing_indexers`.",
+      "acceptance_tests": [
+        "cli_precise_reports_missing_indexers"
+      ],
+      "order": 58,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P5-08",
+      "phase": "P5",
+      "title": "Navigation tool backends",
+      "size": "M",
+      "depends_raw": "P5-03, P3-02",
+      "depends": [
+        "P5-03",
+        "P3-02"
+      ],
+      "deliverables": "`pdx_definition`, `pdx_references`, `pdx_implementations` over the precise-profile segment when present and the structural segment otherwise; provider labelling per 4.9.2; `provider_unavailable` metadata.",
+      "acceptance": "navigation conformance fixtures for Java/TS/Python/Go/C#/Rust; `references_absent_provider_is_not_zero`; `references_enumerate_semantic_occurrences`; `references_structural_fallback_labelled`; `definition_fallback_never_labelled_precise`.",
+      "acceptance_tests": [
+        "references_absent_provider_is_not_zero",
+        "references_enumerate_semantic_occurrences",
+        "references_structural_fallback_labelled",
+        "definition_fallback_never_labelled_precise"
+      ],
+      "order": 59,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P6-01",
+      "phase": "P6",
+      "title": "Link job",
+      "size": "L",
+      "depends_raw": "P4-06, P2-08",
+      "depends": [
+        "P4-06",
+        "P2-08"
+      ],
+      "deliverables": "`pdx-arch/src/links.rs` implementing 4.7.2 over all segments in a manifest; `links.db` writer; unmatched counts in `link_meta`.",
+      "acceptance": "three-repo fixture (`provider-api`, `consumer-web`, `shared-proto`) tests: `links_http_exact`, `links_http_candidate_when_ambiguous`, `links_rpc_precise_with_shared_artifact`, `links_channel_unresolved_counted`, `links_table_shared`, `links_artifact_versions`, `links_health_path_in_three_repos_not_linked_without_identity`, `links_declared_hostnames_give_import_guided`.",
+      "acceptance_tests": [
+        "links_http_exact",
+        "links_http_candidate_when_ambiguous",
+        "links_rpc_precise_with_shared_artifact",
+        "links_channel_unresolved_counted",
+        "links_table_shared",
+        "links_artifact_versions",
+        "links_health_path_in_three_repos_not_linked_without_identity",
+        "links_declared_hostnames_give_import_guided"
+      ],
+      "order": 60,
+      "execution": "mixed",
+      "gate_after": null
+    },
+    {
+      "id": "P6-02",
+      "phase": "P6",
+      "title": "Estate model",
+      "size": "L",
+      "depends_raw": "P6-01",
+      "depends": [
+        "P6-01"
+      ],
+      "deliverables": "`pdx-arch/src/estate.rs` building L0\u2013L2 nodes and `MEMBER_OF`, `DEPLOYED_AS`, `HAS_ROLE`, `LAYER_DEPENDS`, `UPSTREAM_OF` edges per 4.8; `estate.db` writer; `pdx-arch.yaml` parser and validator (`schema/pdx-arch.schema.json`); Backstage import (4.8.2).",
+      "acceptance": "`estate_service_detection`, `estate_default_context_per_repo`, `estate_arch_yaml_overrides`, `estate_backstage_import`, `estate_deployment_by_image`.",
+      "acceptance_tests": [
+        "estate_service_detection",
+        "estate_default_context_per_repo",
+        "estate_arch_yaml_overrides",
+        "estate_backstage_import",
+        "estate_deployment_by_image"
+      ],
+      "order": 61,
+      "execution": "mixed",
+      "gate_after": null
+    },
+    {
+      "id": "P6-03",
+      "phase": "P6",
+      "title": "Annotations API",
+      "size": "M",
+      "depends_raw": "P4-11, P6-02",
+      "depends": [
+        "P4-11",
+        "P6-02"
+      ],
+      "deliverables": "CRUD and review endpoints for `annotations`; `estate` job applies approved annotations; UI-facing list with filters.",
+      "acceptance": "`annotation_requires_maintainer_to_approve`, `estate_applies_only_approved`.",
+      "acceptance_tests": [
+        "annotation_requires_maintainer_to_approve",
+        "estate_applies_only_approved"
+      ],
+      "order": 62,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P6-04",
+      "phase": "P6",
+      "title": "Architecture and contracts tools",
+      "size": "M",
+      "depends_raw": "P4-07, P6-02",
+      "depends": [
+        "P4-07",
+        "P6-02"
+      ],
+      "deliverables": "`pdx_architecture` at all levels, `pdx_contracts`, cross-repo `pdx_blast_radius`, `pdx_diff_impact` for a repo in a manifest; aggregated edges carry `worst_band` and counts; drill-down endpoint `/api/v2/edges/{agg_edge_id}/evidence`.",
+      "acceptance": "`architecture_levels_fixture`, `blast_radius_crosses_repos_via_contract`, `agg_edge_evidence_lists_l5_edges`.",
+      "acceptance_tests": [
+        "architecture_levels_fixture",
+        "blast_radius_crosses_repos_via_contract",
+        "agg_edge_evidence_lists_l5_edges"
+      ],
+      "order": 63,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P6-05",
+      "phase": "P6",
+      "title": "PR overlays",
+      "size": "L",
+      "depends_raw": "P4-06, P6-04",
+      "depends": [
+        "P4-06",
+        "P6-04"
+      ],
+      "deliverables": "webhook on PR/MR open/update enqueues an `index` job for the PR head with `manifest_name = pr:<repo_id>:<number>`, whose manifest copies trunk and replaces that repo; `pdx_diff_impact {repo, base, head}` resolves against it; PR manifests are GC'd 7 days after close; optional PR comment poster (`settings.pr_comments = true`) summarising blast radius, contracts touched and rule violations.",
+      "acceptance": "`pr_manifest_created_and_gced`, `pr_comment_snapshot`.",
+      "acceptance_tests": [
+        "pr_manifest_created_and_gced",
+        "pr_comment_snapshot"
+      ],
+      "order": 64,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P6-06",
+      "phase": "P6",
+      "title": "Coverage tool (estate)",
+      "size": "S",
+      "depends_raw": "P4-07",
+      "depends": [
+        "P4-07"
+      ],
+      "deliverables": "`pdx_coverage` over a manifest with per-path detail and link-layer unmatched counts; documentation text embedded in the tool description per 4.9.2.",
+      "acceptance": "`coverage_paths_report_reason`.",
+      "acceptance_tests": [
+        "coverage_paths_report_reason"
+      ],
+      "order": 65,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P6-07",
+      "phase": "P6",
+      "title": "Analytics stubs and findings plumbing",
+      "size": "S",
+      "depends_raw": "P4-07",
+      "depends": [
+        "P4-07"
+      ],
+      "deliverables": "`findings.db` schema (`findings(finding_id, kind, severity, scope_kind, scope_id, repo_id, title, evidence TEXT JSON)`), `pdx_findings` tool reading it (empty until P8).",
+      "acceptance": "`findings_tool_pagination`.",
+      "acceptance_tests": [
+        "findings_tool_pagination"
+      ],
+      "order": 66,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P6-08",
+      "phase": "P6",
+      "title": "Local overlay merge with server",
+      "size": "L",
+      "depends_raw": "P4-10, P3-04",
+      "depends": [
+        "P4-10",
+        "P3-04"
+      ],
+      "deliverables": "4.9.5 in `pdx mcp`: config `[server] url, token_ref`, merge-base detection, remote view at merge-base (server endpoint `GET /api/v2/manifests/nearest?repo=&sha=` returns the manifest and `overlay_distance`), whole-repo replacement, local recomputation of links touching the active repo, `origin` marking, `overlay_hash` in the view handle, offline fallback; overlay conformance suite (`bench/overlay\u2026",
+      "acceptance": "`overlay_replaces_active_repo_entirely`, `overlay_no_stale_inbound_edge_to_deleted_symbol`, `overlay_recomputes_links_for_active_repo`, `overlay_offline_falls_back_to_local`, `nearest_manifest_distance`, and the conformance suite green for changed definitions, deleted targets, changed inheritance, new overloads, imports, contracts and config.",
+      "acceptance_tests": [
+        "overlay_replaces_active_repo_entirely",
+        "overlay_no_stale_inbound_edge_to_deleted_symbol",
+        "overlay_recomputes_links_for_active_repo",
+        "overlay_offline_falls_back_to_local",
+        "nearest_manifest_distance"
+      ],
+      "order": 67,
+      "execution": "single-agent",
+      "gate_after": "G4"
+    },
+    {
+      "id": "P7-01",
+      "phase": "P7",
+      "title": "UI foundation",
+      "size": "M",
+      "depends_raw": "P0-03, P3-09",
+      "depends": [
+        "P0-03",
+        "P3-09"
+      ],
+      "deliverables": "`ui/` app shell: routing with URL state (4.11.2), auth handling (cookie session or local mode), API client generated from `/api/v2/openapi.json` (`openapi-typescript`), Zustand stores, theme, layout with left navigation, details panel, band legend component, i18n scaffold.",
+      "acceptance": "Vitest `router_state_roundtrip`; Playwright `shell_loads_local_mode`.",
+      "acceptance_tests": [
+        "router_state_roundtrip",
+        "shell_loads_local_mode"
+      ],
+      "order": 68,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P7-02",
+      "phase": "P7",
+      "title": "Layout job and tiles",
+      "size": "L",
+      "depends_raw": "P4-06, P2-02",
+      "depends": [
+        "P4-06",
+        "P2-02"
+      ],
+      "deliverables": "`pdx-core/src/layout/{treemap,fa2,aggregate,tiles}.rs` implementing 4.11.5 (Rust ports of the squarified treemap and ForceAtlas2 with Barnes\u2013Hut); `layout` job (server) and `pdx serve` local computation; tiles writer (MessagePack per 4.11.4); `/api/v2/tiles/...` endpoint with ETag; `TILE_FORMAT_VERSION` = 1.",
+      "acceptance": "`treemap_areas_sum`, `fa2_converges_fixture`, `layout_is_deterministic`, `layout_anchoring_keeps_positions` (moving one node in the input moves only its subtree), `tiles_roundtrip`, `agg_edges_project_to_visible_level`.",
+      "acceptance_tests": [
+        "treemap_areas_sum",
+        "fa2_converges_fixture",
+        "layout_is_deterministic",
+        "layout_anchoring_keeps_positions",
+        "tiles_roundtrip",
+        "agg_edges_project_to_visible_level"
+      ],
+      "order": 69,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P7-03",
+      "phase": "P7",
+      "title": "Renderer core",
+      "size": "L",
+      "depends_raw": "P7-01, P7-02",
+      "depends": [
+        "P7-01",
+        "P7-02"
+      ],
+      "deliverables": "`ui/src/render/` with `ContainerLayer`, `NodeLayer`, `AggEdgeLayer`, `LabelLayer` (deck.gl custom/instanced layers), tile loader with viewport-driven requests and prefetch of `children`, budget arbitration per 4.11.3, fade transitions, picking; `window.__pdx.stats()`.",
+      "acceptance": "Vitest `budget_arbitration_drops_deepest_first`, `edges_routed_to_visible_ancestor`; Playwright `map_frame_budget` (fixture with 1M nodes, asserts stats within budgets and fps \u2265 55 in headless with `--use-gl=egl`).",
+      "acceptance_tests": [
+        "budget_arbitration_drops_deepest_first",
+        "edges_routed_to_visible_ancestor",
+        "map_frame_budget"
+      ],
+      "order": 70,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P7-04",
+      "phase": "P7",
+      "title": "Architecture map view",
+      "size": "L",
+      "depends_raw": "P7-03",
+      "depends": [
+        "P7-03"
+      ],
+      "deliverables": "default view wired to tiles; click/hover details; fly-to; breadcrumb of containment; band filter; ghost nodes; \"why is this here?\" drill-down via `/api/v2/edges/{id}/evidence`.",
+      "acceptance": "Playwright `map_drilldown_to_symbol`, `map_ghost_nodes_visible`, `map_evidence_panel`.",
+      "acceptance_tests": [
+        "map_drilldown_to_symbol",
+        "map_ghost_nodes_visible",
+        "map_evidence_panel"
+      ],
+      "order": 71,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P7-05",
+      "phase": "P7",
+      "title": "Search and details",
+      "size": "M",
+      "depends_raw": "P7-04",
+      "depends": [
+        "P7-04"
+      ],
+      "deliverables": "search box with chips (FTS/lexical/semantic), results fly-to, details panel with callers/callees (band chips), coverage note, snippet viewer.",
+      "acceptance": "Playwright `search_flies_to_node`, `details_shows_bands`.",
+      "acceptance_tests": [
+        "search_flies_to_node",
+        "details_shows_bands"
+      ],
+      "order": 72,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P7-06",
+      "phase": "P7",
+      "title": "Neighbourhood view",
+      "size": "M",
+      "depends_raw": "P7-05",
+      "depends": [
+        "P7-05"
+      ],
+      "deliverables": "cosmos.gl view for `GET /api/v2/neighbourhood?node=&depth=&bands=` (server computes the subgraph \u2264 `NEIGHBOURHOOD_MAX_NODES`), band colouring, pin/unpin, back-to-map.",
+      "acceptance": "Playwright `neighbourhood_renders_20k` (fixture) with fps \u2265 30.",
+      "acceptance_tests": [
+        "neighbourhood_renders_20k"
+      ],
+      "order": 73,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P8-01",
+      "phase": "P8",
+      "title": "Analytics job and `metrics_ts`",
+      "size": "M",
+      "depends_raw": "P4-06, P6-07",
+      "depends": [
+        "P4-06",
+        "P6-07"
+      ],
+      "deliverables": "`pdx-analytics` job skeleton per manifest: loads segments and links, writes `findings.db` and `metrics_ts` rows; `pdx analyze` local subset (single repo: metrics, cycles, duplication, rules from `pdx.toml`).",
+      "acceptance": "`analytics_job_writes_metrics_ts`.",
+      "acceptance_tests": [
+        "analytics_job_writes_metrics_ts"
+      ],
+      "order": 74,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P8-02",
+      "phase": "P8",
+      "title": "Architecture rules",
+      "size": "M",
+      "depends_raw": "P8-01, P6-02",
+      "depends": [
+        "P8-01",
+        "P6-02"
+      ],
+      "deliverables": "4.12.2 evaluator; `VIOLATES` edges in `estate.db`; findings with evidence.",
+      "acceptance": "`rule_forbid_role_edge`, `rule_forbid_context_cycle`, `rule_require`.",
+      "acceptance_tests": [
+        "rule_forbid_role_edge",
+        "rule_forbid_context_cycle",
+        "rule_require"
+      ],
+      "order": 75,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P8-03",
+      "phase": "P8",
+      "title": "Cycles",
+      "size": "S",
+      "depends_raw": "P8-01",
+      "depends": [
+        "P8-01"
+      ],
+      "deliverables": "Tarjan SCC at module/service/context; minimum feedback edge set approximation (greedy by weight).",
+      "acceptance": "`scc_known_graph`, `feedback_set_breaks_cycle`.",
+      "acceptance_tests": [
+        "scc_known_graph",
+        "feedback_set_breaks_cycle"
+      ],
+      "order": 76,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P8-04",
+      "phase": "P8",
+      "title": "Contract drift",
+      "size": "M",
+      "depends_raw": "P8-01, P6-01",
+      "depends": [
+        "P8-01",
+        "P6-01"
+      ],
+      "deliverables": "4.12.5 findings.",
+      "acceptance": "`drift_undocumented`, `drift_unimplemented`, `drift_orphan_consumer`, `drift_version_skew`.",
+      "acceptance_tests": [
+        "drift_undocumented",
+        "drift_unimplemented",
+        "drift_orphan_consumer",
+        "drift_version_skew"
+      ],
+      "order": 77,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P8-05",
+      "phase": "P8",
+      "title": "Hotspots and co-change",
+      "size": "M",
+      "depends_raw": "P8-01, P4-05",
+      "depends": [
+        "P8-01",
+        "P4-05"
+      ],
+      "deliverables": "4.12.6 from the server mirror (`git log --numstat`), `CHANGES_WITH` edges written to `links.db` (cross-repo) and per-repo analytics tables; `pdx analyze` computes the single-repo variant from the local clone.",
+      "acceptance": "`churn_from_numstat_fixture`, `cochange_thresholds`, `hotspot_score_percentiles`, `cross_repo_cochange_by_issue_key`.",
+      "acceptance_tests": [
+        "churn_from_numstat_fixture",
+        "cochange_thresholds",
+        "hotspot_score_percentiles",
+        "cross_repo_cochange_by_issue_key"
+      ],
+      "order": 78,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P8-06",
+      "phase": "P8",
+      "title": "Ownership",
+      "size": "S",
+      "depends_raw": "P8-05",
+      "depends": [
+        "P8-05"
+      ],
+      "deliverables": "4.12.7 with CODEOWNERS parsing (GitHub and GitLab syntax).",
+      "acceptance": "`bus_factor_fixture`, `codeowners_parse`.",
+      "acceptance_tests": [
+        "bus_factor_fixture",
+        "codeowners_parse"
+      ],
+      "order": 79,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P8-07",
+      "phase": "P8",
+      "title": "Duplication",
+      "size": "M",
+      "depends_raw": "P8-01",
+      "depends": [
+        "P8-01"
+      ],
+      "deliverables": "4.12.8 MinHash/LSH; `SIMILAR_TO` in analytics tables.",
+      "acceptance": "`minhash_jaccard_estimate_within_0_05`, `lsh_finds_planted_clone`.",
+      "acceptance_tests": [
+        "minhash_jaccard_estimate_within_0_05",
+        "lsh_finds_planted_clone"
+      ],
+      "order": 80,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P8-08",
+      "phase": "P8",
+      "title": "Observed edges",
+      "size": "M",
+      "depends_raw": "P6-01",
+      "depends": [
+        "P6-01"
+      ],
+      "deliverables": "OTLP/HTTP JSON ingestion (4.12.9), hostname mapping, `observed` flags on link edges and runtime-only link rows, topology diff findings.",
+      "acceptance": "`otlp_span_creates_observed_edge`, `topology_diff_findings`.",
+      "acceptance_tests": [
+        "otlp_span_creates_observed_edge",
+        "topology_diff_findings"
+      ],
+      "order": 81,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P8-09",
+      "phase": "P8",
+      "title": "Freshness and agent-usage analytics",
+      "size": "M",
+      "depends_raw": "P4-14, P4-10",
+      "depends": [
+        "P4-14",
+        "P4-10"
+      ],
+      "deliverables": "4.12.10 and 4.12.11 computations into `metrics_ts`; `/api/v2/trust` payload. Deliverables also include the `POST /api/v2/events` endpoint (authenticated, rate-limited, body \u2264 8 KiB) and the `report_hook_events` option in `pdx hook`.",
+      "acceptance": "`lag_seconds_computation`, `followup_grep_rate`, `events_endpoint_requires_optin`.",
+      "acceptance_tests": [
+        "lag_seconds_computation",
+        "followup_grep_rate",
+        "events_endpoint_requires_optin"
+      ],
+      "order": 82,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P8-10",
+      "phase": "P8",
+      "title": "Findings tool and API completion",
+      "size": "S",
+      "depends_raw": "P8-02..P8-09",
+      "depends": [
+        "P8-02",
+        "P8-03",
+        "P8-04",
+        "P8-05",
+        "P8-06",
+        "P8-07",
+        "P8-08",
+        "P8-09"
+      ],
+      "deliverables": "`pdx_findings` populated; severity filters; evidence links to `/api/v2/edges/.../evidence` and snippets.",
+      "acceptance": "`findings_end_to_end_fixture`.",
+      "acceptance_tests": [
+        "findings_end_to_end_fixture"
+      ],
+      "order": 83,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P7-07",
+      "phase": "P7",
+      "title": "DSM view",
+      "size": "M",
+      "depends_raw": "P7-05, P8-03 (cycles)",
+      "depends": [
+        "P7-05",
+        "P8-03"
+      ],
+      "deliverables": "`GET /api/v2/dsm?level=&scope=` returns ordered matrix (rows/cols sorted by SCC and dependency order) as MessagePack; canvas renderer with virtualisation, cell click shows evidence, cycle highlighting.",
+      "acceptance": "Playwright `dsm_highlights_cycle`.",
+      "acceptance_tests": [
+        "dsm_highlights_cycle"
+      ],
+      "order": 84,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P7-08",
+      "phase": "P7",
+      "title": "Hotspot treemap",
+      "size": "S",
+      "depends_raw": "P7-05, P8-05",
+      "depends": [
+        "P7-05",
+        "P8-05"
+      ],
+      "deliverables": "treemap view with metric selector (`hotspot`, `churn`, `cyclomatic`, `importance`, `bus_factor`).",
+      "acceptance": "Playwright `treemap_metric_switch`.",
+      "acceptance_tests": [
+        "treemap_metric_switch"
+      ],
+      "order": 85,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P7-09",
+      "phase": "P7",
+      "title": "Contract flow view",
+      "size": "M",
+      "depends_raw": "P6-04, P7-05",
+      "depends": [
+        "P6-04",
+        "P7-05"
+      ],
+      "deliverables": "server-side Sugiyama layout (`layout/sugiyama.rs`, port of the classic layered algorithm: cycle removal, longest-path layering, barycentre ordering, straight-line coordinates) for services and contracts; view with drill-down to evidence.",
+      "acceptance": "`sugiyama_no_edge_crossings_on_tree_fixture`; Playwright `contract_flow_drilldown`.",
+      "acceptance_tests": [
+        "sugiyama_no_edge_crossings_on_tree_fixture",
+        "contract_flow_drilldown"
+      ],
+      "order": 86,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P7-10",
+      "phase": "P7",
+      "title": "Findings and trust views",
+      "size": "M",
+      "depends_raw": "P8-10, P7-05",
+      "depends": [
+        "P8-10",
+        "P7-05"
+      ],
+      "deliverables": "findings table with filters and evidence links; trust view with lag per repo, band coverage, degraded segments, benchmark numbers from `/api/v2/trust`.",
+      "acceptance": "Playwright `findings_filter_and_open_evidence`, `trust_shows_lag`.",
+      "acceptance_tests": [
+        "findings_filter_and_open_evidence",
+        "trust_shows_lag"
+      ],
+      "order": 87,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P7-11",
+      "phase": "P7",
+      "title": "Chat dock",
+      "size": "M",
+      "depends_raw": "P7-05, P4-11",
+      "depends": [
+        "P7-05",
+        "P4-11"
+      ],
+      "deliverables": "`POST /api/v2/chat` streaming endpoint: server-side loop that calls the configured model (endpoint and model name in `settings.model_provider`; the API key only from the deployment secret `PDX_MODEL_API_KEY`, never stored in `settings`; disabled when either is absent) with the MCP tools as functions and returns evidence chips; snippets sent to the model pass the secret filter of 5.12 and are audi\u2026",
+      "acceptance": "`chat_tool_loop_uses_backend` with a mocked provider; Playwright `chat_disabled_without_provider`.",
+      "acceptance_tests": [
+        "chat_tool_loop_uses_backend",
+        "chat_disabled_without_provider"
+      ],
+      "order": 88,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P7-12",
+      "phase": "P7",
+      "title": "UI e2e fixtures and budgets",
+      "size": "M",
+      "depends_raw": "P7-10",
+      "depends": [
+        "P7-10"
+      ],
+      "deliverables": "`ui/e2e/fixtures/` generator (`pdx bench --ui-fixture`) producing manifests of 10k, 100k and 1M nodes; bundle-size check; accessibility pass (axe) on all views.",
+      "acceptance": "all Playwright suites green in CI; bundle \u2264 2.5 MB gzipped.",
+      "acceptance_tests": [],
+      "order": 89,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P7-14",
+      "phase": "P7",
+      "title": "Permission-aware tiles and leak test",
+      "size": "M",
+      "depends_raw": "P7-02, P4-09",
+      "depends": [
+        "P7-02",
+        "P4-09"
+      ],
+      "deliverables": "tile materialisation per `permission_set_hash` (4.11.4), strict-mode omission of denied containers, cache keying and `ETag`; a synthetic estate fixture with three principals of different permissions; `pdx bench --synthetic-manifest` extended to 10M nodes for a nightly server/layout/tile timing report.",
+      "acceptance": "`tile_bytes_contain_no_denied_repo_strings` (byte-level scan of every tile served to the restricted principal against the denied repos' identifiers and labels); `tile_cache_separates_permission_sets`; 1M browser fixture still \u2265 55 fps; 10M timing recorded.",
+      "acceptance_tests": [
+        "tile_bytes_contain_no_denied_repo_strings",
+        "tile_cache_separates_permission_sets"
+      ],
+      "order": 90,
+      "execution": "single-agent",
+      "gate_after": "G5"
+    },
+    {
+      "id": "P8-11",
+      "phase": "P8",
+      "title": "Trust page",
+      "size": "M",
+      "depends_raw": "P5-06, P8-09, P2-14",
+      "depends": [
+        "P5-06",
+        "P8-09",
+        "P2-14"
+      ],
+      "deliverables": "`scripts/trust-page.py` generating `docs/trust/index.html` from `bench/results`; CI publishes on tags; page sections: per-language per-band precision/recall, timing, determinism, rebuild equivalence, methodology text (4.13).",
+      "acceptance": "`trust_page_generates_from_fixture_results`.",
+      "acceptance_tests": [
+        "trust_page_generates_from_fixture_results"
+      ],
+      "order": 91,
+      "execution": "single-agent",
+      "gate_after": "G6"
+    },
+    {
+      "id": "P9-01",
+      "phase": "P9",
+      "title": "Delete legacy",
+      "size": "S",
+      "depends_raw": "G5, G6",
+      "depends": [
+        "G5",
+        "G6"
+      ],
+      "deliverables": "remove `legacy/`; update `THIRD_PARTY_NOTICES.md` (the dashboard attribution entry is removed only if no code from it survives; the agent verifies by grepping `ui/` for the original copyright line and distinctive component names from `legacy/frontend`); update `README.md`.",
+      "acceptance": "provenance and licence scans pass; `legacy/` absent.",
+      "acceptance_tests": [],
+      "order": 92,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P9-02",
+      "phase": "P9",
+      "title": "Installers and packaging",
+      "size": "M",
+      "depends_raw": "P3-07",
+      "depends": [
+        "P3-07"
+      ],
+      "deliverables": "`install.sh`, `install.ps1` (checksum verification), Homebrew formula in `deploy/homebrew/`, npm wrapper package `deploy/npm/`, `cargo install` metadata; macOS ad-hoc signing in the installer; Windows unsigned-binary note in docs.",
+      "acceptance": "installer tests in CI containers (Debian, Alpine musl, macOS), PowerShell test on Windows runner.",
+      "acceptance_tests": [],
+      "order": 93,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P9-03",
+      "phase": "P9",
+      "title": "Release pipeline",
+      "size": "M",
+      "depends_raw": "P9-02, P4-13",
+      "depends": [
+        "P9-02",
+        "P4-13"
+      ],
+      "deliverables": "`release.yml`: build matrix, SBOMs, SLSA provenance, cosign signatures, `checksums.txt`, container images to the configured registry, Helm chart package, trust page publish; release notes template.",
+      "acceptance": "dry-run release on a `v0.0.0-test` tag produces all artefacts; `cosign verify` and `gh attestation verify` succeed in a post-release job.",
+      "acceptance_tests": [],
+      "order": 94,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P9-04",
+      "phase": "P9",
+      "title": "Documentation completion",
+      "size": "M",
+      "depends_raw": "P9-01",
+      "depends": [
+        "P9-01"
+      ],
+      "deliverables": "`docs/user/*` and `docs/ops/*` per Part 5.8 complete; CLI reference generated; `README.md` with quick start for both tiers.",
+      "acceptance": "`docs_links_valid` (link checker), `cli_reference_matches_help` snapshot.",
+      "acceptance_tests": [
+        "docs_links_valid",
+        "cli_reference_matches_help"
+      ],
+      "order": 95,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P9-05",
+      "phase": "P9",
+      "title": "Upgrade and migration path",
+      "size": "M",
+      "depends_raw": "P9-03",
+      "depends": [
+        "P9-03"
+      ],
+      "deliverables": "`pdx server migrate` handles schema bumps; segment re-index on `SEGMENT_SCHEMA_VERSION` change; `docs/ops/upgrade.md`; `pdx export --team-artifact` writing `.pdx/segment.db.zst` (zstd 9) with `.gitattributes merge=ours` and `pdx index` importing it when present and the blob set matches (extraction cache warm-up from the artifact).",
+      "acceptance": "`team_artifact_roundtrip`, `migrate_from_v1_fixture`.",
+      "acceptance_tests": [
+        "team_artifact_roundtrip",
+        "migrate_from_v1_fixture"
+      ],
+      "order": 96,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P9-06",
+      "phase": "P9",
+      "title": "Vendor refresh procedure",
+      "size": "S",
+      "depends_raw": "P1-01",
+      "depends": [
+        "P1-01"
+      ],
+      "deliverables": "`docs/dev/vendor-refresh.md`; `make vendor-refresh` running fetch \u2192 copy \u2192 rename \u2192 strip \u2192 apply-patches \u2192 build \u2192 golden; CI job that runs it against the locked commit to prove reproducibility.",
+      "acceptance": "refresh at the locked commit yields a zero-diff tree (`vendor_refresh_reproducible`).",
+      "acceptance_tests": [
+        "vendor_refresh_reproducible"
+      ],
+      "order": 97,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P9-07",
+      "phase": "P9",
+      "title": "Final gates and 2.0 release",
+      "size": "S",
+      "depends_raw": "all",
+      "depends": [],
+      "deliverables": "`pdx bench --release-scale` (generates the 200-repo synthetic estate with the P4-14/P7-14 generator, sized to \u2265 20 M lines with a language mix matching Appendix A's typed tier, publishes it into a compose or Helm deployment, drives 50 merges and the precise subset, runs the k6 MCP load script, and the layout/tile/navigation benchmark; results under `bench/results/<version>/release-scale.json`); `\u2026",
+      "acceptance": "`release_scale_report_complete` (every Part 1.5 claim has a measured value); G7 passes.",
+      "acceptance_tests": [
+        "release_scale_report_complete"
+      ],
+      "order": 98,
+      "execution": "single-agent",
+      "gate_after": "G7"
+    }
+  ]
+}
