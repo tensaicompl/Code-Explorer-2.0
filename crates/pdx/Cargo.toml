@@ -1,0 +1,23 @@
+[package]
+name = "pdx"
+description = "The command-line interface."
+license = "Apache-2.0"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = true
+
+[lints]
+workspace = true
+
+[features]
+default = []
+# Links the enterprise crates. The public binary is built without it.
+enterprise = ["dep:pdx-arch", "dep:pdx-analytics", "dep:pdx-server"]
+
+[dependencies]
+pdx-arch = { path = "../pdx-arch", optional = true }
+pdx-analytics = { path = "../pdx-analytics", optional = true }
+pdx-server = { path = "../pdx-server", optional = true }

@@ -17,7 +17,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 |---|---|---|---|---|---|---|
 | 1 | 2026-09-27 | P0-01 | ambiguity | open | The replaced NOTICE carried a standing directive never to publish and to keep the repository private; the plan's open-core split and release pipeline contradict it | Plan followed (it is the later authority and P0-01 publishes nothing). Needs human confirmation before P9-03 makes it irreversible |
 | 3 | 2026-09-27 | P0-02 | third-party | resolved | The C golden repository relicensed away from BSD-3: Redis 8 and later are tri-licensed RSALv2 / SSPLv1 / AGPLv3, and the allow list forbids all three | Replaced with the language matrix's stated fallback under D5; decision 1 |
-| 2 | 2026-09-27 | P0-01, P0-02 | ambiguity | open | Both tasks' acceptance tests need infrastructure that later tasks create: the Rust test harness (P0-03) and `scripts/licence-scan.sh` (P0-04). The tests cannot fail-then-pass within their own task | Deliverables verified by inspection now; the named tests are written when the harness exists and are a G0 criterion |
+| 2 | 2026-09-27 | P0-01, P0-02 | ambiguity | resolved | Both tasks' acceptance tests need infrastructure that later tasks create: the Rust test harness (P0-03) and `scripts/licence-scan.sh` (P0-04). The tests cannot fail-then-pass within their own task | Tests written in P0-03, the task that creates the harness, and verified to fail when their invariant is broken |
 
 ## Entries
 
@@ -71,9 +71,12 @@ which P0-03 and P0-04 create. The task protocol's fail-first-then-pass sequence 
 therefore not achievable inside these two tasks without implementing later tasks'
 deliverables early, which the protocol forbids.
 
-Handling: the deliverables are verified by inspection when the task is done, the
-named tests are written as part of the tasks that create the harness, and G0
-requires both scans and the snapshot to be green before P1 begins. No
-specification change is needed.
+Handling: the deliverables were verified by inspection when each task was done,
+and the tests were written in the task that created the test harness, which is
+the first point at which they can exist. They live in the benchmark crate:
+`tests/lock_files.rs` covers the lock files, and `tests/repository_invariants.rs`
+covers the legal baseline and the move. Both were checked against a broken tree —
+removing the notice file and removing a moved directory each make them fail — so
+they are not passing vacuously. No specification change was needed.
 
-State: open until G0.
+State: resolved.

@@ -1,0 +1,22 @@
+[package]
+name = "pdx-bench"
+description = "The benchmark harness: accuracy, timing and determinism."
+license = "Apache-2.0"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "pdx-bench"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2.0.21"
+toml = "1.1.6"

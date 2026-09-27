@@ -1,0 +1,13 @@
+[package]
+name = "pdx-analytics"
+description = "Estate-level analytics across repositories."
+license = "LicenseRef-Praxevia-Enterprise"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true

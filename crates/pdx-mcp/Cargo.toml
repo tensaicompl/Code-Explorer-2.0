@@ -1,0 +1,13 @@
+[package]
+name = "pdx-mcp"
+description = "Tool definitions, budgets, cursors, view handles and the agent transports."
+license = "Apache-2.0"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = true
+
+[lints]
+workspace = true

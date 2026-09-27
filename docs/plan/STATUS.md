@@ -15,7 +15,7 @@ Regenerate the roll-up after editing: `python3 scripts/plan/plan-progress.py`
 |---|---|---|---|
 | P0-01 | done | e0c0159 | Proprietary text scoped to the enterprise components instead of copied verbatim, so it cannot over-claim the Apache-2.0 parts; the replaced NOTICE's dependency list was carried into THIRD_PARTY_NOTICES.md rather than dropped; acceptance tests deferred per issue 2; see issue 1 |
 | P0-02 | done | ba0b458 | The superseded stack's own compose file and two example configs moved with it: their build contexts broke on the move and a later task expects the compose file inside `legacy/`. C golden repository replaced under D5, see issue 3. Acceptance tests deferred per issue 2 |
-| P0-03 | todo | | |
+| P0-03 | done | PENDING | The scanner steps are defined as targets but not yet wired into `check`; the scanner task adds them with its scripts. Also carries the acceptance tests the first two tasks could not run, closing issue 2, and a lock-file reader in the benchmark crate to support them |
 | P0-04 | todo | | |
 | P0-05 | todo | | |
 | P0-06 | todo | | |

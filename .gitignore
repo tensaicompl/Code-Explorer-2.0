@@ -44,3 +44,10 @@ legacy/indexer/out/
 # it names the reference repositories, which the provenance scanner forbids
 # anywhere in the tree. Its trackable projection lives in docs/plan/.
 \! Version 2.0/
+
+# Build output of the 2.0 tree
+/target/
+ui/node_modules/
+ui/dist/
+ui/coverage/
+bench/.cache/

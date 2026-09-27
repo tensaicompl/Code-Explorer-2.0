@@ -1,0 +1,13 @@
+[package]
+name = "pdx-core"
+description = "The graph model, the indexing pipeline, resolution, segments and layout."
+license = "Apache-2.0"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = true
+
+[lints]
+workspace = true
