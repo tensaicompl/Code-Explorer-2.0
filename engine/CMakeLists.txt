@@ -121,6 +121,16 @@ if(WIN32)
   target_compile_definitions(pdxe PRIVATE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_DEPRECATE)
 endif()
 
+# Microsoft's C runtime lacks some POSIX names and headers the vendored sources use
+# outside their Windows branches; the reference builds for Windows against a runtime
+# that has them. api/windows supplies the names (a header included ahead of every
+# source) and stands in for the missing headers, so the sources compile unchanged.
+if(WIN32 AND NOT MINGW)
+  target_include_directories(pdxe PRIVATE ${PDXE_ROOT}/api/windows)
+  target_compile_options(pdxe PRIVATE
+    "SHELL:-include \"${PDXE_ROOT}/api/windows/posix_names.h\"")
+endif()
+
 # Some diagnostics are defects wherever they occur, vendored or not: a function
 # called without a declaration is assumed to return int, which truncates a pointer on
 # a 64-bit target, and the conversions below corrupt values silently. These are

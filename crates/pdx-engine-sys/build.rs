@@ -100,7 +100,9 @@ fn link_engine(engine: &Path) {
             .define("CMAKE_C_COMPILER_TARGET", &target)
             .define("CMAKE_CXX_COMPILER_TARGET", &target);
         if env::var_os("CMAKE_GENERATOR").is_none() {
-            config.generator("Ninja");
+            // Keep going after a failed compile, so a build that fails reports every
+            // failure at once rather than the first.
+            config.generator("Ninja").build_arg("-k").build_arg("0");
         }
     }
     if target_os == "macos" {
