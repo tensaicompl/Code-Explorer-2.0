@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 24 | 2026-09-28 | P1-04 | ambiguity | resolved | The engine had never been built for Windows. The reuse map's foundation list omits a Windows-only header the kept sources include, and the vendored sources rely on POSIX names that the reference's Windows runtime provides and Microsoft's, which Rust links against, does not | The header is vendored like the others; the missing names are supplied at the build boundary for Microsoft's runtime only, with no vendored source changed. Found by the first Windows builds of P1-04 |
 | 23 | 2026-09-28 | P9-02 | ambiguity | open | `pdx-engine-sys` is marked publishable, but its build script builds the engine from `../../engine`, which a crate packaged on its own does not contain | Owned by P9-02: either the engine sources travel inside the packaged crate, or the crate stops being publishable. Nothing in P1 publishes a crate |
 | 22 | 2026-09-28 | P0-04 | blocker | resolved | The nightly run failed on targets that belong to later tasks: the browser suite has no browser installed and the engine differential has no script yet, while four other targets reported success without checking anything. A red nightly could not be told from a regression | Each unfinished target now says it is skipped and names the task that brings it, and succeeds. The progress check fails once that task is done while its target still skips |
 | 21 | 2026-09-28 | P1-05 | ambiguity | open | The cross-file pass reports success whatever happens inside it: an allocation failure yields no typed answers at all, and a file whose source cannot be supplied is skipped and counted, and its log goes to a sink that discards it. A caller cannot tell no typed answer from a degraded run | Owned by P1-05: before the safe wrapper becomes the engine interface, resolution must report an explicit degraded or failed status, distinct from an empty result |
@@ -65,6 +66,33 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 24 — The engine had never been built for Windows
+
+P1-04 is the first task to build the engine on Windows, and the first builds found
+two gaps, both invisible to a build on Linux or macOS.
+
+- **A header the reuse map leaves out.** The kept foundation sources include a
+  header-only set of UTF-8 path conversions inside their Windows branches. The map's
+  foundation list names only what a build elsewhere needs, so the header was never
+  copied. It is now copied with the other foundation headers.
+- **Names a different C runtime provides.** The reference builds for Windows against
+  a runtime that has `strcasecmp`, `strncasecmp`, `strtok_r`, `ssize_t` and the
+  headers `<strings.h>`, `<unistd.h>` and `<pthread.h>`. Rust links against
+  Microsoft's runtime, which has the functions under other names and neither the
+  type nor the headers. Several vendored sources use them outside their Windows
+  branches. `engine/api/windows` supplies them for that runtime only: a header
+  included ahead of every source maps the names, and stand-ins let the includes
+  resolve. The thread and system-call stand-ins declare nothing, since the engine's
+  Windows branches use the operating system's own threads; a real use would fail to
+  compile. No vendored source is changed.
+
+Two defects in the build itself surfaced at the same time and are fixed in the build
+script (`crates/pdx-engine-sys`): a verbatim engine path that broke the sources'
+relative includes, and base flags from the build tooling that switched all warnings
+off on every system. A test now holds each engine build to the warning policy.
 
 State: resolved.
 

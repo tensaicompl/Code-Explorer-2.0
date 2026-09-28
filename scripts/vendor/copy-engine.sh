@@ -186,8 +186,12 @@ FOUNDATION=(
   str_util str_intern
 )
 FOUNDATION_HEADERS=(
-  constants.h dyn_array.h limits.h sanitized.h recursion_whitelist.h
+  constants.h dyn_array.h limits.h sanitized.h
   platform_internal.h compat_fs_internal.h
+  # Windows only, and header only: the UTF-8 path conversions the kept sources above
+  # include in their Windows branches. Invisible to a trial build on any other
+  # system, which is how the reuse map came to leave it out.
+  win_utf8.h
   # The memory-instrumentation header, without its implementation, which is on the
   # list of sources never to take. Its hooks compile to nothing unless the feature
   # flags are defined, and they are not defined here, so the header is inert and the

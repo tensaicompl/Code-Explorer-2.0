@@ -36,13 +36,13 @@ engine/vendored/mimalloc/src
 # interface still reaches none of.
 #
 # Headers of subsystems the copy step already leaves out (the stores that spill or
-# compress results, the XML export), and a list of approved recursion for parsers
-# that are not vendored. Nothing includes any of them.
+# compress results, the XML export). Nothing includes any of them. (A list of
+# approved recursion for parsers that are not vendored was also found unincluded;
+# it is no longer copied at all.)
 engine/src/iris_export_xml.h
 engine/src/lz4_store.h
 engine/src/sqlite_writer.h
 engine/src/zstd_store.h
-engine/src/foundation/recursion_whitelist.h
 # Libraries nothing uses. Compression was reached only through a helper of the
 # stripped allocator setup's era, which the interface no longer defines; the other
 # two were never included by a kept source.
