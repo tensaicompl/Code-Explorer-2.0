@@ -229,6 +229,34 @@ fn interface_functions() -> Vec<String> {
     names
 }
 
+/// The member named right after an archive's path in a link map: `(member.o)` as GNU
+/// ld writes it, or `[index](member.o)` as Apple's current linker does.
+fn archive_member(after_path: &str) -> Option<String> {
+    let rest = match after_path.strip_prefix('[') {
+        Some(indexed) => {
+            let close = indexed.find(']')?;
+            indexed[..close]
+                .chars()
+                .all(|c| c.is_ascii_digit())
+                .then_some(&indexed[close + 1..])?
+        }
+        None => after_path,
+    };
+    let member = rest.strip_prefix('(')?;
+    member.find(')').map(|end| member[..end].to_owned())
+}
+
+#[test]
+fn a_link_map_names_members_in_either_linkers_form() {
+    assert_eq!(archive_member("(pdxe.c.o)\n").as_deref(), Some("pdxe.c.o"));
+    assert_eq!(
+        archive_member("[12](pdxe.c.o)\n").as_deref(),
+        Some("pdxe.c.o")
+    );
+    assert_eq!(archive_member(":\n"), None);
+    assert_eq!(archive_member("[x](pdxe.c.o)"), None);
+}
+
 #[test]
 fn every_archive_member_is_reachable_from_the_interface() {
     let Some(archive) = archive() else {
@@ -287,11 +315,8 @@ fn every_archive_member_is_reachable_from_the_interface() {
     let map_text = std::fs::read_to_string(&map).expect("the link map reads");
     let _ = std::fs::remove_dir_all(&dir);
     let pulled: std::collections::BTreeSet<String> = map_text
-        .match_indices("libpdxe.a(")
-        .filter_map(|(i, m)| {
-            let rest = &map_text[i + m.len()..];
-            rest.find(')').map(|end| rest[..end].to_owned())
-        })
+        .match_indices("libpdxe.a")
+        .filter_map(|(i, m)| archive_member(&map_text[i + m.len()..]))
         .collect();
     let members = Command::new("ar").arg("t").arg(&archive).output();
     let Ok(members) = members else {
@@ -306,6 +331,13 @@ fn every_archive_member_is_reachable_from_the_interface() {
     assert!(
         unreached.is_empty(),
         "archive members nothing in the interface reaches, candidates for \
-         scripts/vendor/strip-list.txt: {unreached:?}"
+         scripts/vendor/strip-list.txt: {unreached:?}\n\
+         the link map named the archive on these lines, in case its format is new:\n{}",
+        map_text
+            .lines()
+            .filter(|l| l.contains("libpdxe.a"))
+            .take(8)
+            .collect::<Vec<_>>()
+            .join("\n")
     );
 }
