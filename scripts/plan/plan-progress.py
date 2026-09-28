@@ -23,6 +23,25 @@ VALID = ("todo", "in-progress", "done", "blocked")
 ROW_RE = re.compile(r"^\|\s*(?P<id>P\d-\d{2})\s*\|\s*(?P<status>[a-z-]*)\s*\|(?P<rest>.*)\|\s*$")
 
 
+GATE_ROW = re.compile(r"^\|\s*(?P<id>G\d+a?)\s*\|[^|]*\|\s*(?P<state>[a-z ]+?)\s*\|")
+
+
+def read_gate_verdicts(path: Path) -> set[str]:
+    """Gates whose recorded verdict is passed.
+
+    Read from the gate log rather than inferred from task status: a gate is a
+    deliberate act with an evaluation behind it.
+    """
+    if not path.is_file():
+        return set()
+    passed: set[str] = set()
+    for line in path.read_text().splitlines():
+        m = GATE_ROW.match(line)
+        if m and m.group("state").strip() == "passed":
+            passed.add(m.group("id"))
+    return passed
+
+
 def read_status(path: Path) -> dict[str, dict[str, str]]:
     rows: dict[str, dict[str, str]] = {}
     for line in path.read_text().splitlines():
@@ -51,7 +70,6 @@ def main() -> None:
     gates = data["gates"]
     order = data["execution_order"]
     status = read_status(plan_dir / "STATUS.md")
-
     errors: list[str] = []
     for t in tasks:
         if t["id"] not in status:
@@ -66,8 +84,16 @@ def main() -> None:
             errors.append(f"{tid}: done with no commit recorded")
 
     done = {tid for tid, r in status.items() if r["status"] == "done"}
-    gate_done = {g["id"] for g in gates
-                 if g["after"] in done and g["after"] in status}
+
+    # A gate is passed only when it has been evaluated and the verdict recorded in
+    # GATES.md. Finishing the task before a gate is not passing the gate: the whole
+    # point of a gate is that someone ran its criteria and wrote down what happened.
+    gate_done = read_gate_verdicts(plan_dir / "GATES.md")
+    for g in gates:
+        if g["id"] in gate_done and g["after"] not in done:
+            errors.append(
+                f"{g['id']}: recorded as passed, but {g['after']} is not done"
+            )
     for t in tasks:
         if status.get(t["id"], {}).get("status") != "done":
             continue

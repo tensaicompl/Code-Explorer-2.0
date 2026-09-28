@@ -13,7 +13,7 @@ are never redefined — G7 blocks the release until they hold.
 
 | Gate | After | Status | Evaluated |
 |---|---|---|---|
-| G0 | `P0-06` | pending | |
+| G0 | `P0-06` | pending (4 of 5 met) | 2026-09-28 |
 | G1a | `P1-07` | pending | |
 | G1 | `P2-16` | pending | |
 | G2 | `P3-09` | pending | |
@@ -25,19 +25,73 @@ are never redefined — G7 blocks the release until they hold.
 
 ## G0 — after `P0-06`
 
-Status: **pending**
+Status: **pending**, four of five criteria met. The outstanding one cannot be
+evaluated on this machine and needs a continuous integration run.
+
+Evaluated 2026-09-28 at `ccb711c` on Linux.
 
 Criteria:
 
-- [ ] `make check` green on Linux+macOS
-- [ ] provenance and licence scans green
-- [ ] `legacy/` snapshot matches
-- [ ] lock files complete
-- [ ] `THIRD_PARTY_NOTICES.md` lists the dashboard attribution
+- [~] `make check` green on Linux+macOS: **green on Linux**, macOS not evaluated (no macOS host available; the continuous integration workflow runs it)
+- [x] provenance and licence scans green
+- [x] `legacy/` snapshot matches
+- [x] lock files complete
+- [x] `THIRD_PARTY_NOTICES.md` lists the dashboard attribution
 
 Evaluation log:
 
-_not yet evaluated_
+Evaluated on Linux at `ccb711c`. Commands and their output, verbatim.
+
+```
+$ uname -s
+Linux
+
+$ make check; echo "exit=$?"
+exit=0
+
+$ ./scripts/provenance-scan.sh
+provenance scan: clean (110 files)
+
+$ ./scripts/licence-scan.sh
+    licenses ok
+licence scan: rust dependencies clean
+licence scan: note, build-only dependency outside the allow list: BlueOak-1.0.0 (minimatch)
+licence scan: note, build-only dependency outside the allow list: CC-BY-4.0 (caniuse-lite)
+licence scan: note, build-only dependency outside the allow list: Python-2.0 (argparse)
+licence scan: interface dependencies checked
+licence scan: no vendored directories yet, skipped
+licence scan: clean
+
+$ cargo test -p pdx-bench
+test legacy_tree_snapshot ... ok
+test legal_files_present ... ok
+test lock_files_parse ... ok
+test every_pin_is_a_full_commit_sha ... ok
+test allow_list_matches_the_one_compiled_in ... ok
+test every_vendored_or_ported_licence_is_allowed ... ok
+test golden_repositories_are_permissively_licensed ... ok
+test a_replacement_records_why ... ok
+
+$ grep -o 'Yuxiang Lin' THIRD_PARTY_NOTICES.md | head -1
+Yuxiang Lin
+```
+
+Notes on what each criterion means here:
+
+- The three build-only licence notes are informational by decision 3, not failures:
+  the allow list governs shipped code, and every shipped dependency is permissive.
+- The legacy snapshot test checks all 240 moved paths against the pre-move tree
+  recorded at the commit before the restructuring, and asserts the deleted
+  directory is gone and no moved directory remains at the top level.
+- The notices criterion is met by the attribution entry carrying both upstream
+  copyright holders and the full licence text.
+
+Outstanding: macOS. This machine is Linux and no macOS host is available, so the
+first criterion is met on one of its two platforms. The workflow that runs the gate
+on macOS exists and will run on the first push to the remote. Recorded as issue 8.
+Under the plan's own precedent for an unavailable environment, work continues on the
+next phase while the criterion stays outstanding; it does not become a waiver, and
+G0 is not marked passed until macOS is green.
 
 ## G1a — after `P1-07`
 

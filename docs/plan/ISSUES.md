@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 8 | 2026-09-28 | G0 | blocker | open | Gate G0 requires the gate green on Linux and macOS. No macOS host is available, so one criterion of five cannot be evaluated locally | The other four are met and recorded with their output. The continuous integration workflow runs macOS and closes the criterion on the first push to the remote; until then G0 stays pending and is not waived |
 | 7 | 2026-09-28 | P0-06 | ambiguity | open | The importance formula's test penalty is given as 0.3 for test nodes; the factor for a non-test node is never stated | The mirror records the source as written rather than filling the silence. To be settled when the metric is implemented, by a specification change request if the answer is not the identity |
 | 6 | 2026-09-28 | P0-06 | ambiguity | resolved | The source's band table carries a stray blank line between its first and second rows, which in this markup would split one table into two | The mirror emits one contiguous table of eleven rows, which is what the source's own closing sentence states. The source is not edited |
 | 5 | 2026-09-28 | P0-05 | blocker | resolved | The constants task merged with the gate red: its invariant assertions were rejected by the linter under all targets, which the test run does not exercise | Invariants converted to compile-time assertions, which are stronger than the tests they replace. The linter added to the pre-commit subset so the class is caught before a commit exists |
@@ -51,6 +52,26 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 8 — Gate G0 cannot be fully evaluated without a macOS host
+
+G0's first criterion is the gate green on Linux and macOS. This machine is Linux.
+The other four criteria are met and their output is recorded verbatim in
+`docs/plan/GATES.md`.
+
+The continuous integration workflow already runs the gate on both platforms, so the
+criterion is closed by the first push to the remote rather than by any further work
+here. Nothing about the code is in doubt; what is missing is evidence from a platform
+this machine cannot provide.
+
+Handling follows the plan's own rule for an environment the agent does not have: the
+affected check is recorded as outstanding, work continues where it does not depend on
+it, and the criterion remains a gate requirement rather than becoming a waiver. G0 is
+not marked passed until macOS is green, and the first phase that depends on
+platform-specific behaviour is the one that vendors and compiles the engine, which is
+next.
+
+State: open. Closed by a push that runs the workflow.
 
 ### 7 — The importance formula is silent on non-test nodes
 
