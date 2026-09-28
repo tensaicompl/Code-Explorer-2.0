@@ -37,6 +37,9 @@ jobs:
         with:
           node-version-file: ui/.nvmrc
       - name: Enable the pinned package manager
+        # The pinned version is declared in the interface's own manifest, so
+        # corepack has to read it from there rather than from the repository root.
+        working-directory: ui
         run: corepack enable && corepack prepare --activate
       - name: Install interface dependencies
         run: make ui-install

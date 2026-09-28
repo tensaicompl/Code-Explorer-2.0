@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 9 | 2026-09-28 | P0-04 | blocker | resolved | The first continuous integration run failed on both platforms: the step activating the pinned package manager ran at the repository root, where there is no manifest declaring it | Step moved to the interface directory in all three workflows. The Rust build passed on all three platforms, including Windows, so only this step was at fault |
 | 8 | 2026-09-28 | G0 | blocker | open | Gate G0 requires the gate green on Linux and macOS. No macOS host is available, so one criterion of five cannot be evaluated locally | The other four are met and recorded with their output. The continuous integration workflow runs macOS and closes the criterion on the first push to the remote; until then G0 stays pending and is not waived |
 | 7 | 2026-09-28 | P0-06 | ambiguity | open | The importance formula's test penalty is given as 0.3 for test nodes; the factor for a non-test node is never stated | The mirror records the source as written rather than filling the silence. To be settled when the metric is implemented, by a specification change request if the answer is not the identity |
 | 6 | 2026-09-28 | P0-06 | ambiguity | resolved | The source's band table carries a stray blank line between its first and second rows, which in this markup would split one table into two | The mirror emits one contiguous table of eleven rows, which is what the source's own closing sentence states. The source is not edited |
@@ -50,6 +51,26 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 9 — The first continuous integration run failed on a configuration defect
+
+Both gate jobs failed at the step that activates the pinned package manager, with
+"Couldn't find a project in the local directory". The pinned version is declared in
+the interface's own manifest, and the step ran at the repository root, where there is
+no manifest at all. The workspace root deliberately has no package file, so this
+would have failed on the first run whatever the platform.
+
+The Rust half was unaffected: the Windows job, which builds and tests the binary and
+touches none of this, passed.
+
+This is the class of defect that no local check could have caught, because the task
+that wrote the workflows cannot run them; the acceptance tests for that task covered
+the scanners it also delivered, not the workflows. The first push is the first
+execution, which is why it came now rather than later.
+
+Fixed in all three workflows by running the step in the interface directory.
 
 State: resolved.
 
