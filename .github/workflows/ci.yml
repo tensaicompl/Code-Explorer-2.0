@@ -84,3 +84,13 @@ jobs:
         run: cargo build -p pdx --no-default-features
       - name: Test
         run: cargo test -p pdx --no-default-features
+      # The engine is built with clang on Windows, never Microsoft's compiler, and
+      # with Ninja, since the Visual Studio generators always drive that compiler.
+      - name: Show the engine toolchain
+        shell: bash
+        run: |
+          clang --version
+          cmake --version
+          ninja --version || { pip install ninja && ninja --version; }
+      - name: Test the engine through its bindings
+        run: cargo test -p pdx-engine-sys

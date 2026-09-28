@@ -8,6 +8,20 @@ rust-version.workspace = true
 authors.workspace = true
 repository.workspace = true
 publish = true
+# One crate in a build links the engine; Cargo refuses a second.
+links = "pdxe"
+build = "build.rs"
+
+[build-dependencies]
+cmake = "0.1.58"
+# Chooses clang for the engine on Windows, through the configuration CMake is given.
+cc = "1.2"
+bindgen = { version = "0.73.2", optional = true }
+
+[features]
+# Regenerates src/bindings.rs from engine/include/pdxe.h (`make bindgen`). Needs
+# libclang. Without it the committed bindings are used and libclang is not needed.
+regenerate-bindings = ["dep:bindgen"]
 
 [lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

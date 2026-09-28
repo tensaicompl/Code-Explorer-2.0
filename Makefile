@@ -131,8 +131,10 @@ perf:
 
 # --- maintenance -----------------------------------------------------------
 
+# Regenerates crates/pdx-engine-sys/src/bindings.rs from engine/include/pdxe.h.
+# Needs libclang. Any other build with the feature checks the file is current.
 bindgen:
-	$(CARGO) build -p pdx-engine-sys --features regenerate-bindings
+	PDX_WRITE_BINDINGS=1 $(CARGO) build -p pdx-engine-sys --features regenerate-bindings
 
 # Re-runs the vendoring at the pinned commit and fails unless it reproduces the
 # committed engine exactly. Needs the pinned reference checkout.
