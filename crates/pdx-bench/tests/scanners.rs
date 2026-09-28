@@ -47,7 +47,9 @@ fn a_denied_literal() -> String {
     let list = std::fs::read_to_string(repo_root().join("scripts/provenance-denylist.txt"))
         .expect("the deny list is readable");
     list.lines()
-        .map(str::trim)
+        // A line may carry a replacement after a tab, used when sanitising
+        // vendored sources. Only the pattern is a string to plant.
+        .map(|l| l.split('\t').next().unwrap_or("").trim())
         .filter(|l| !l.is_empty() && !l.starts_with('#'))
         // Plain literals only: an entry carrying regular-expression syntax is not
         // a string we can plant as it stands.

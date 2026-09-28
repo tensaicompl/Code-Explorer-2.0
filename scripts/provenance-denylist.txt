@@ -15,13 +15,20 @@
 #
 # Extend, never shorten: when unsure whether a string is provenance, treat it as
 # provenance.
+#
+# A line is a regular expression, optionally followed by a tab and the text that
+# replaces it when vendored sources are sanitised. The scanner reads the pattern and
+# ignores the replacement; the vendoring rename step uses both, so that what the scan
+# forbids and what the rename removes cannot drift apart. Without a replacement the
+# rename step substitutes a neutral placeholder.
 
-Understand[- ]Anything
-Lum1104
-Egonex[- ]?AI
-codebase[- ]memory(?:[- ]mcp)?
-DeusData
-graphology
-d3[- ]hierarchy
-\bCBM\b
-\bcbm_
+Understand[- ]Anything	the superseded interface
+Lum1104	the upstream author
+Egonex[- ]?AI	the upstream organisation
+codebase[-_ ]memory(?:[- ]mcp)?	pdx-engine
+DeusData	the upstream maintainer
+graphology	the layout reference
+d3[- ]hierarchy	the treemap reference
+CBM[A-Z_]	@identifier-mapping
+CBM\b	@identifier-mapping
+cbm_	@identifier-mapping

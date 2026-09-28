@@ -1,0 +1,20 @@
+# Where each part of the engine lives inside the reference checkout.
+#
+# These are upstream paths, and a path carries the upstream's name, so they live in
+# a data file excluded from the provenance scan rather than inside the script. The
+# script reads keys from here, which also means a reference that reorganises its
+# tree is fixed in one place.
+#
+# One entry per line: key, tab, path relative to the reference checkout.
+
+core_dir	internal/cbm
+resolver_dir	internal/cbm/lsp
+resolver_generated_dir	internal/cbm/lsp/generated
+preprocessor_source	internal/cbm/preprocessor.cpp
+preprocessor_header	internal/cbm/preprocessor.h
+vendored_dir	internal/cbm/vendored
+grammars_dir	internal/cbm/vendored/grammars
+top_vendored_dir	vendored
+foundation_dir	src/foundation
+pipeline_dir	src/pipeline
+licence_file	LICENSE

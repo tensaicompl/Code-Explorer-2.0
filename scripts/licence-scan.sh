@@ -69,13 +69,24 @@ found=0
 for dir in "${vendored[@]}"; do
   [ -d "$dir" ] || continue
   found=1
-  licence_file=("$dir"/LICENSE*)
-  if [ "${#licence_file[@]}" -eq 0 ]; then
+  licence_file=("$dir"/LICENSE* "$dir"/COPYING*)
+  found_licence=""
+  for candidate in "${licence_file[@]}"; do
+    [ -f "$candidate" ] && { found_licence="$candidate"; break; }
+  done
+  if [ -z "$found_licence" ]; then
     report "vendored directory without a licence file: $dir"
     continue
   fi
   if ! grep -q "$dir" THIRD_PARTY_NOTICES.md 2>/dev/null; then
     report "vendored directory absent from the notices file: $dir"
+  fi
+  # The licence recorded for it in the notices must be one we allow. Vendored code
+  # under anything else may not be in the tree at all, whatever the notices say.
+  recorded="$(grep -A6 -F "\`${dir}/\`" THIRD_PARTY_NOTICES.md 2>/dev/null \
+              | grep -m1 -oE '\*\*Licence\*\*: .*' | sed 's/^\*\*Licence\*\*: //')"
+  if [ -n "$recorded" ]; then
+    allowed "$recorded" || report "vendored directory under a licence we do not allow: $dir ($recorded)"
   fi
 done
 if [ "$found" -eq 0 ]; then

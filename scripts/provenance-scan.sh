@@ -20,12 +20,18 @@ done
 # Reads a data file: strips comments and blank lines.
 patterns_of() { grep -vE '^\s*(#|$)' "$1"; }
 
+# The deny list may carry a replacement after a tab, used by the vendoring rename
+# step. Only the pattern concerns the scan.
+denied_patterns() { patterns_of "$1" | cut -f1; }
+
 # Paths the scan does not read, and why.
 #
 #   THIRD_PARTY_NOTICES.md      the legal document; naming upstreams is its purpose
 #   engine/**/LICENSE*          vendored licence texts, kept verbatim
 #   bench/references.lock       the pinned reference list; naming them is its purpose
 #   scripts/*-denylist.txt etc  this scanner's own inputs
+#   engine/LICENSE*             the vendored engine's own licence, kept verbatim
+#   scripts/vendor/*-map.txt    the vendoring scripts' own inputs
 #   legacy/                     third-party-derived code awaiting removal, already
 #                               attributed in the notices file; the exclusion goes
 #                               away when the retirement task deletes it
@@ -34,7 +40,10 @@ EXCLUDES=(
   ':(exclude)engine/**/LICENSE*'
   ':(exclude)engine/grammars/**/LICENSE*'
   ':(exclude)bench/references.lock'
+  ':(exclude)engine/LICENSE*'
   ':(exclude)scripts/provenance-denylist.txt'
+  ':(exclude)scripts/vendor/rename-map.txt'
+  ':(exclude)scripts/vendor/copy-map.txt'
   ':(exclude)scripts/marker-words.txt'
   ':(exclude)scripts/url-allowlist.txt'
   ':(exclude)legacy/**'
@@ -101,12 +110,13 @@ while IFS= read -r pattern; do
     report "denied string /$pattern/ found:"
     sed 's/^/    /' <<<"$hits" >&2
   fi
-done < <(patterns_of "$DENYLIST")
+done < <(denied_patterns "$DENYLIST")
 
-# 2. Marker words, in non-test files only.
+# 2. Marker words, in non-test files we author.
 while IFS= read -r word; do
   hits="$(grep -rnHE -- "\\b${word}\\b" "${TEXT[@]}" 2>/dev/null \
-          | grep -vE '(^|/)(tests?|__tests__)/|_test\.|\.test\.|\.spec\.' | head -20)"
+          | grep -vE '(^|/)(tests?|__tests__)/|_test\.|\.test\.|\.spec\.' \
+          | grep -vE '^\.?/?engine/' | head -20)"
   if [ -n "$hits" ]; then
     report "marker word ${word} in non-test code; record it in docs/plan/ISSUES.md instead:"
     sed 's/^/    /' <<<"$hits" >&2
@@ -114,6 +124,22 @@ while IFS= read -r word; do
 done < <(patterns_of "$MARKERS")
 
 # 3. URLs that are not on the allow list.
+#
+# The vendored engine is exempt from this rule and from the marker rule, but never
+# from the deny list. Both of those rules govern code we author: an address we wrote
+# is either documentation or an undeclared network call, and a marker we wrote is
+# work that belongs in the issue log. Neither is true of third-party source we keep
+# as close to upstream as we can, where a comment citing a library's own
+# documentation is part of the file we are licensed to redistribute, and editing
+# hundreds of files to remove upstream's markers would create a diff against the
+# reference for no gain. What may never appear there, and is still checked, is
+# anything naming where the code came from.
+vendored_path() {
+  case "$1" in
+    ./engine/*|engine/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
 ALLOWED=()
 while IFS= read -r allowed_prefix; do
   [ -n "$allowed_prefix" ] && ALLOWED+=("$allowed_prefix")
@@ -122,6 +148,7 @@ while IFS= read -r line; do
   [ -n "$line" ] || continue
   file="${line%%:*}"
   url="${line#*:}"
+  vendored_path "$file" && continue
   ok=0
   for prefix in "${ALLOWED[@]}"; do
     case "$url" in "$prefix"*) ok=1; break ;; esac

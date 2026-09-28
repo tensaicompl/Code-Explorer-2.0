@@ -1,0 +1,10 @@
+# Copied engine sources that nothing needs, removed by scripts/vendor/strip-engine.sh.
+#
+# One repository-relative path per line. Each entry is here because a trial build
+# showed nothing references it once the excluded subsystems are gone, and because a
+# person then agreed. Run strip-engine.sh --report for candidates; do not paste the
+# report in wholesale, since a file reached only through a macro or only on another
+# platform looks unused to it.
+#
+# Empty until the engine builds and its undefined symbols can be read, which is the
+# next task.

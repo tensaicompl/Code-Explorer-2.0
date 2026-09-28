@@ -15,6 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 12 | 2026-09-28 | P1-01 | ambiguity | resolved | The file-level reuse map lists the service-pattern sources under the pipeline directory; they are in the extraction directory, and the wildcard that copies it already takes them | Copied by the wildcard, landing beside the extraction core rather than the resolution sources. Recorded as decision 10; the map's intent is met |
+| 11 | 2026-09-28 | P0-04 | blocker | resolved | The deny list's prefix patterns required a word boundary, so the prefix survived in a script where it followed a word character. The scan passed while a stricter test failed | Boundary dropped from the prefix patterns, and the pattern for the type prefix widened. Verified against a planted fixture |
 | 10 | 2026-09-28 | P0-04 | blocker | resolved | The provenance scanner used a bash 4 builtin to read its file list, and macOS ships bash 3.2, so every scanner test failed there while passing on Linux and Windows | Replaced with portable read loops and an explicit counter, since an empty array also expands inconsistently under set -u across those versions. Verified against bash 3.2.57 in a container. The non-git exclusions were fixed at the same time |
 | 9 | 2026-09-28 | P0-04 | blocker | resolved | The first continuous integration run failed on both platforms: the step activating the pinned package manager ran at the repository root, where there is no manifest declaring it | Step moved to the interface directory in all three workflows. The Rust build passed on all three platforms, including Windows, so only this step was at fault |
 | 8 | 2026-09-28 | G0 | blocker | resolved | Gate G0 requires the gate green on Linux and macOS. No macOS host is available, so one criterion of five cannot be evaluated locally | Closed by continuous integration run 36361547926: the gate is green on Linux and macOS, and the binary builds on Windows. Two real defects had to be fixed first, issues 9 and 10 |
@@ -52,6 +54,39 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 12 — The reuse map misplaces the service-pattern sources
+
+The map is authoritative for what is copied and from where, and it lists the
+service-pattern header under the pipeline directory. It is not there: both the
+header and its source are in the extraction directory, which the map's first rule
+copies wholesale. They are therefore already taken, and land beside the extraction
+core rather than beside the resolution sources.
+
+Nothing is lost and nothing needs inventing: the reason the map calls for them, that
+the call driver's service-pattern strategy needs them, is satisfied either way.
+Recorded rather than corrected in place, because the map is delivered from outside
+the repository.
+
+State: resolved.
+
+### 11 — The prefix could hide behind a word character
+
+The deny list matched the upstream symbol prefix only at a word boundary. In a
+script that quoted the pattern as a regular expression, the prefix followed a `b`,
+so there was no boundary and the scan passed. A test written with a plain substring
+check failed on the same file, which is how it came to light.
+
+The boundary is gone from the lowercase prefix pattern and the pattern for the type
+prefix is widened, so the prefix is now rejected wherever it appears. Verified by
+planting it in a fixture. The literal that triggered this is gone from the script,
+which now recognises those patterns by a marker in the deny list rather than by
+repeating them.
+
+Worth noting for the rules themselves: a stricter check found what the scan missed,
+so the scan is a floor and not a ceiling.
 
 State: resolved.
 
