@@ -13,7 +13,7 @@ are never redefined — G7 blocks the release until they hold.
 
 | Gate | After | Status | Evaluated |
 |---|---|---|---|
-| G0 | `P0-06` | pending (4 of 5 met) | 2026-09-28 |
+| G0 | `P0-06` | passed | 2026-09-28 |
 | G1a | `P1-07` | pending | |
 | G1 | `P2-16` | pending | |
 | G2 | `P3-09` | pending | |
@@ -25,14 +25,15 @@ are never redefined — G7 blocks the release until they hold.
 
 ## G0 — after `P0-06`
 
-Status: **pending**, four of five criteria met. The outstanding one cannot be
-evaluated on this machine and needs a continuous integration run.
+Status: **passed**. Four criteria were met locally on Linux; the fifth needed
+macOS and was closed by a continuous integration run, which found two real defects
+before it went green.
 
 Evaluated 2026-09-28 at `ccb711c` on Linux.
 
 Criteria:
 
-- [~] `make check` green on Linux+macOS: **green on Linux**, macOS not evaluated (no macOS host available; the continuous integration workflow runs it)
+- [x] `make check` green on Linux+macOS: green on both, plus the binary built and tested on Windows
 - [x] provenance and licence scans green
 - [x] `legacy/` snapshot matches
 - [x] lock files complete
@@ -86,12 +87,29 @@ Notes on what each criterion means here:
 - The notices criterion is met by the attribution entry carrying both upstream
   copyright holders and the full licence text.
 
-Outstanding: macOS. This machine is Linux and no macOS host is available, so the
-first criterion is met on one of its two platforms. The workflow that runs the gate
-on macOS exists and will run on the first push to the remote. Recorded as issue 8.
-Under the plan's own precedent for an unavailable environment, work continues on the
-next phase while the criterion stays outstanding; it does not become a waiver, and
-G0 is not marked passed until macOS is green.
+macOS, closed by continuous integration. Run 36361547926 at `c5ee14c`:
+
+```
+check (ubuntu-24.04): success
+check (macos-14):     success
+build the binary (windows): success
+```
+
+It took three runs, and the two failures were both real:
+
+- The step activating the pinned package manager ran where no manifest declares it,
+  so both gate jobs failed before reaching the gate. Issue 9.
+- The provenance scanner read its file list with a builtin that arrives in bash 4,
+  and macOS ships bash 3.2, so the scanner failed there before reading a file and
+  six of its seven tests failed with it. Issue 10. Verified against bash 3.2.57 in a
+  container before the fix was pushed.
+
+Neither was findable on this machine: one can only fail on a workflow's first
+execution, the other only on a platform not available here. This is the criterion
+earning its place in the gate.
+
+Windows is not a criterion of this gate, and is recorded because the run covers it:
+the binary builds and its tests pass there, which the next phase depends on.
 
 ## G1a — after `P1-07`
 

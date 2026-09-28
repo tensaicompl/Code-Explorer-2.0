@@ -17,7 +17,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 |---|---|---|---|---|---|---|
 | 10 | 2026-09-28 | P0-04 | blocker | resolved | The provenance scanner used a bash 4 builtin to read its file list, and macOS ships bash 3.2, so every scanner test failed there while passing on Linux and Windows | Replaced with portable read loops and an explicit counter, since an empty array also expands inconsistently under set -u across those versions. Verified against bash 3.2.57 in a container. The non-git exclusions were fixed at the same time |
 | 9 | 2026-09-28 | P0-04 | blocker | resolved | The first continuous integration run failed on both platforms: the step activating the pinned package manager ran at the repository root, where there is no manifest declaring it | Step moved to the interface directory in all three workflows. The Rust build passed on all three platforms, including Windows, so only this step was at fault |
-| 8 | 2026-09-28 | G0 | blocker | open | Gate G0 requires the gate green on Linux and macOS. No macOS host is available, so one criterion of five cannot be evaluated locally | The other four are met and recorded with their output. The continuous integration workflow runs macOS and closes the criterion on the first push to the remote; until then G0 stays pending and is not waived |
+| 8 | 2026-09-28 | G0 | blocker | resolved | Gate G0 requires the gate green on Linux and macOS. No macOS host is available, so one criterion of five cannot be evaluated locally | Closed by continuous integration run 36361547926: the gate is green on Linux and macOS, and the binary builds on Windows. Two real defects had to be fixed first, issues 9 and 10 |
 | 7 | 2026-09-28 | P0-06 | ambiguity | open | The importance formula's test penalty is given as 0.3 for test nodes; the factor for a non-test node is never stated | The mirror records the source as written rather than filling the silence. To be settled when the metric is implemented, by a specification change request if the answer is not the identity |
 | 6 | 2026-09-28 | P0-06 | ambiguity | resolved | The source's band table carries a stray blank line between its first and second rows, which in this markup would split one table into two | The mirror emits one contiguous table of eleven rows, which is what the source's own closing sentence states. The source is not edited |
 | 5 | 2026-09-28 | P0-05 | blocker | resolved | The constants task merged with the gate red: its invariant assertions were rejected by the linter under all targets, which the test run does not exercise | Invariants converted to compile-time assertions, which are stronger than the tests they replace. The linter added to the pre-commit subset so the class is caught before a commit exists |
@@ -117,7 +117,12 @@ not marked passed until macOS is green, and the first phase that depends on
 platform-specific behaviour is the one that vendors and compiles the engine, which is
 next.
 
-State: open. Closed by a push that runs the workflow.
+Closed. The gate is green on both platforms, at run 36361547926. Getting there took
+three runs and fixed two defects that no local check could have caught, recorded as
+issues 9 and 10. G0 is marked passed with the job results recorded in
+`docs/plan/GATES.md`.
+
+State: resolved.
 
 ### 7 — The importance formula is silent on non-test nodes
 
