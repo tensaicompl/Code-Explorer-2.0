@@ -1,7 +1,7 @@
 #ifndef PDXE_HELPERS_H
 #define PDXE_HELPERS_H
 
-#include "pdxe.h"
+#include "pdxe_core.h"
 
 // Portable memmem: find first occurrence of `needle` (needle_len bytes) within
 // `haystack` (haystack_len bytes). Returns a pointer into haystack, or NULL.

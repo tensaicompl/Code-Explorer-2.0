@@ -1,4 +1,4 @@
-#include "pdxe.h"
+#include "pdxe_core.h"
 #include "arena.h" // PDXEArena, pdxe_arena_sprintf
 #include "helpers.h"
 #include "lang_specs.h"

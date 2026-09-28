@@ -34,7 +34,7 @@
 
 #include "rust_rustdoc.h"
 #include "type_rep.h"
-#include "../../../vendored/yyjson/yyjson.h"
+#include "yyjson/yyjson.h"
 #include <string.h>
 #include <stdio.h>
 

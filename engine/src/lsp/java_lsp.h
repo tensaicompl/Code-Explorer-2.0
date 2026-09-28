@@ -32,7 +32,7 @@
 #include "type_rep.h"
 #include "scope.h"
 #include "type_registry.h"
-#include "../pdxe.h"
+#include "../pdxe_core.h"
 #include "go_lsp.h" /* PDXELSPDef, PDXEResolvedCallArray reused across languages */
 
 /* Java `use`-style import kinds. Mirrors PHP's enum with Java semantics. */

@@ -4,7 +4,7 @@
 #include "type_rep.h"
 #include "scope.h"
 #include "type_registry.h"
-#include "../pdxe.h"
+#include "../pdxe_core.h"
 #include "go_lsp.h" // for PDXELSPDef, PDXEResolvedCallArray (shared cross-language)
 
 // TSLSPContext holds state for TypeScript / JavaScript / JSX / TSX expression type

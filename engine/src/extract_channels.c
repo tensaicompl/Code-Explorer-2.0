@@ -20,7 +20,7 @@
  * config-driven names stay unresolved (acceptable — those require real
  * data-flow analysis).
  */
-#include "pdxe.h"
+#include "pdxe_core.h"
 #include "arena.h"
 #include "helpers.h"
 #include "foundation/constants.h"

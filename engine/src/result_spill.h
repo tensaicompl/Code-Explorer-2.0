@@ -13,7 +13,7 @@
 #ifndef PDXE_RESULT_SPILL_H
 #define PDXE_RESULT_SPILL_H
 
-#include "pdxe.h"
+#include "pdxe_core.h"
 
 #include <stdbool.h>
 #include <stddef.h>

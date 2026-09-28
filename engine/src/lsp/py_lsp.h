@@ -4,7 +4,7 @@
 #include "type_rep.h"
 #include "scope.h"
 #include "type_registry.h"
-#include "../pdxe.h"
+#include "../pdxe_core.h"
 #include "go_lsp.h" // PDXELSPDef, PDXEResolvedCallArray reused across languages
 
 // Lambda body record. When a lambda is assigned to a name (`fn =

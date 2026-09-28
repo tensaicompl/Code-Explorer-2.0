@@ -1,3 +1,3 @@
 // Vendored tree-sitter grammar: ada
 // Each grammar compiled as separate unit (conflicting static symbols).
-#include "vendored/grammars/ada/parser.c"
+#include "grammars/ada/parser.c"

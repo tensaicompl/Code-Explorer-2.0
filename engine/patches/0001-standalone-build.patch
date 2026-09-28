@@ -1,0 +1,34 @@
+--- a/engine/src/arena.c
++++ b/engine/src/arena.c
+@@ -1,4 +1,5 @@
+ #include "arena.h"
++#include "foundation/constants.h"
+ #include <stdlib.h>
+ #include <string.h>
+ #include <stdarg.h>
+--- a/engine/src/lsp/kotlin_builtins.c
++++ b/engine/src/lsp/kotlin_builtins.c
+@@ -1,3 +1,5 @@
++#include "../pdxe_core.h"
++#include <string.h>
+ /*
+  * kotlin_builtins.c — Minimal Kotlin universal builtins as real graph nodes.
+  *
+--- a/engine/src/lsp/py_builtins.c
++++ b/engine/src/lsp/py_builtins.c
+@@ -1,3 +1,5 @@
++#include "../pdxe_core.h"
++#include <string.h>
+ /*
+  * py_builtins.c — Minimal Python builtins as real graph nodes.
+  *
+--- a/engine/src/lsp/ts_lsp.c
++++ b/engine/src/lsp/ts_lsp.c
+@@ -27,6 +27,7 @@
+  */
+ 
+ #include "ts_lsp.h"
++#include "../helpers.h"
+ #include <stdatomic.h>
+ #include <stdio.h>
+ #include <stdlib.h>

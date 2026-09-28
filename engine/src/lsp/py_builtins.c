@@ -1,3 +1,5 @@
+#include "../pdxe_core.h"
+#include <string.h>
 /*
  * py_builtins.c — Minimal Python builtins as real graph nodes.
  *

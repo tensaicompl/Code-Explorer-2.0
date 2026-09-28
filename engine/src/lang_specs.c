@@ -1,5 +1,5 @@
 #include "lang_specs.h"
-#include "pdxe.h"             // PDXELanguage, PDXE_LANG_*
+#include "pdxe_core.h"             // PDXELanguage, PDXE_LANG_*
 #include "tree_sitter/api.h" // TSLanguage
 
 // -- Extern declarations for tree-sitter grammar functions --

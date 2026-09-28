@@ -37,8 +37,29 @@ PIPELINE_DIR="$(upstream pipeline_dir)"
 
 [ "${1:-}" = "--force" ] || [ ! -d "$DEST" ] ||
   die "engine/ exists; pass --force to replace it"
-rm -rf "$DEST"
+
+# Replace only what this script produces. Everything else under engine/ is ours:
+# the build definition, the interface layer, the patches and the tests. A refresh
+# that deleted those would take the engine's only connection to this project with
+# it, and would do so silently.
+for vendored in src grammars vendored LICENSE-ENGINE; do
+  rm -rf "${DEST:?}/$vendored"
+done
 mkdir -p "$DEST"
+
+# The matrix's identifiers, plus the one extra that the typescript identifier needs
+# for its own dialect.
+GRAMMARS=(
+  ada bash c cpp c_sharp dockerfile go graphql groovy hcl java javascript json
+  kotlin lua markdown objc perl php properties protobuf python ruby rust scala sql
+  swift toml tsx typescript xml yaml
+)
+
+is_matrix_grammar() {
+  local want="$1" id
+  for id in "${GRAMMARS[@]}"; do [ "$id" = "$want" ] && return 0; done
+  return 1
+}
 
 # --- extraction core -------------------------------------------------------
 #
@@ -56,8 +77,25 @@ for f in "$CORE_DIR"/*.c "$CORE_DIR"/*.h; do
   skip=0
   for x in "${EXCLUDE_CORE[@]}"; do [ "$base" = "$x" ] && skip=1 && break; done
   [ "$skip" -eq 1 ] && continue
+  # A grammar wrapper exists for every language the reference supports. Taking one
+  # for a language we do not carry would include a parser that was never copied.
+  case "$base" in
+    grammar_*.c)
+      wrapper_id="${base#grammar_}"
+      wrapper_id="${wrapper_id%.c}"
+      is_matrix_grammar "$wrapper_id" || continue
+      ;;
+  esac
   mkdir -p "$DEST/src"
-  cp "$f" "$DEST/src/$base"
+  case "$base" in
+    grammar_*.c)
+      # The reference nests the grammars under its own source root; we keep them at
+      # the engine root, so the include is rewritten to match the layout the reuse
+      # map asks for.
+      sed 's|"vendored/grammars/|"grammars/|g' "$f" > "$DEST/src/$base"
+      ;;
+    *) cp "$f" "$DEST/src/$base" ;;
+  esac
   core_copied=$((core_copied + 1))
 done
 note "extraction core: $core_copied files"
@@ -103,22 +141,20 @@ note "vendored libraries: $(ls "$DEST/vendored" | wc -l) directories"
 #
 # The matrix's identifiers, plus the one extra that the typescript identifier needs
 # for its own dialect. Parser tables only: no queries, no bindings, no tests.
-GRAMMARS=(
-  ada bash c cpp c_sharp dockerfile go graphql groovy hcl java javascript json
-  kotlin lua markdown objc perl php properties protobuf python ruby rust scala sql
-  swift toml tsx typescript xml yaml
-)
+
 for id in "${GRAMMARS[@]}"; do
   gsrc="$GRAMMARS_DIR/$id"
   gdest="$DEST/grammars/$id"
   [ -d "$gsrc" ] || die "grammar absent from the reference: $id"
   mkdir -p "$gdest"
-  copy_file "$gsrc/parser.c" "$gdest/parser.c"
-  copy_file "$gsrc/scanner.c" "$gdest/scanner.c" optional
-  copy_file "$gsrc/_common_scanner.h" "$gdest/_common_scanner.h" optional
-  if [ -d "$gsrc/tree_sitter" ]; then
-    copy_glob "$gsrc/tree_sitter" '*.h' "$gdest/tree_sitter" >/dev/null
-  fi
+  # The whole directory. A grammar's scanner may include a helper of any name and
+  # any extension: two include headers, and one includes further source fragments.
+  # These directories hold the compilation inputs and nothing else, so naming a
+  # subset only invites the next omission. What is compiled is decided by the build
+  # definition, not by what is present.
+  cp -R "$gsrc/." "$gdest/"
+  [ -f "$gdest/parser.c" ] || die "grammar $id has no parser"
+
   licence_found=0
   for c in LICENSE LICENSE.txt LICENSE.md COPYING; do
     if [ -f "$gsrc/$c" ]; then cp "$gsrc/$c" "$gdest/LICENSE"; licence_found=1; break; fi
@@ -140,6 +176,17 @@ FOUNDATION=(
 FOUNDATION_HEADERS=(
   constants.h dyn_array.h limits.h sanitized.h recursion_whitelist.h
   platform_internal.h compat_fs_internal.h
+  # The memory-instrumentation header, without its implementation, which is on the
+  # list of sources never to take. Its hooks compile to nothing unless the feature
+  # flags are defined, and they are not defined here, so the header is inert and the
+  # foundation sources that include it need nothing linked.
+  mem_events.h
+  # Declarations only, again. This one's two functions are real and are called by
+  # the foundation, but its implementation reaches for the operating system in ways
+  # this project supplies itself: our own layer defines them, exactly as it does for
+  # the lookups the resolution sources expect. Until it does they are undefined
+  # symbols in the archive, which is what an archive is for.
+  secure_random.h
 )
 for unit in "${FOUNDATION[@]}"; do
   copy_file "$FOUNDATION_DIR/$unit.c" "$DEST/src/foundation/$unit.c" optional

@@ -1,9 +1,9 @@
 // Unity build: include simplecpp implementation directly since CGo only
 // compiles .cpp files from the immediate package directory, not subdirs.
-#include "vendored/simplecpp/simplecpp.cpp"
+#include "simplecpp/simplecpp.cpp"
 
 #include "preprocessor.h"
-#include "vendored/simplecpp/simplecpp.h"
+#include "simplecpp/simplecpp.h"
 
 #include <sstream>
 #include <string>

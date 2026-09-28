@@ -1,4 +1,5 @@
 #include "arena.h"
+#include "foundation/constants.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>

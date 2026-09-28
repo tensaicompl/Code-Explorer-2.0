@@ -14,6 +14,8 @@ and belongs in `ISSUES.md`.
 | 8 | 2026-09-28 | P1-01 | D12 | Upstream paths and the clone address live in data files the scan excludes, not in the vendoring scripts, because a path names the upstream and the scripts are scanned like any other source |
 | 9 | 2026-09-28 | P1-01 | D17 | The marker-word and address rules apply to code we author, not to the vendored engine. Both exist to catch what we write; editing hundreds of licensed third-party files to remove upstream's own comments would create a diff against the reference for no gain. The deny list still applies there in full |
 | 10 | 2026-09-28 | P1-01 | D11 | The file-level map places the service-pattern sources under the pipeline directory, where they are not; the wildcard that copies the extraction core already takes them. Copied by that rule, to the extraction directory rather than the resolution one |
+| 11 | 2026-09-28 | P1-02 | D17 | Warnings are fatal for the interface layer we write and visible but not fatal for the vendored sources. Holding third-party code we do not edit to warnings-as-errors means a compiler upgrade can stop the build of something nobody touched. A switch turns it on |
+| 12 | 2026-09-28 | P1-02 | D11 | The foundation carries headers whose names match the standard library's, so its directory is kept off the include path and its headers are reached through their prefix. On the path, one of ours shadowed a system header for every file compiled, including the grammars |
 | 2 | 2026-09-27 | P0-02 | D1 | Lock files are TOML: the format is unspecified, TOML is what the rest of the toolchain reads, and both files parse under a standard parser |
 
 ## Rule reference (extracted from `PDX-2.0-PLAN-v1.3.3.md` Part 8)

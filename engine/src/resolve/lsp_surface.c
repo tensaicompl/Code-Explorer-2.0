@@ -23,7 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "pdxe.h" /* pdxe_label_is_relation — reg-only surface membership */
+#include "pdxe_core.h" /* pdxe_label_is_relation — reg-only surface membership */
 #include "foundation/log.h"
 #include "foundation/sha256.h"
 #include "pipeline/worker_pool.h"

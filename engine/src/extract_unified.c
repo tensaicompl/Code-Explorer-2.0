@@ -1,6 +1,6 @@
 #include "extract_unified.h"
 #include "arena.h" // pdxe_arena_sprintf
-#include "pdxe.h"   // PDXEExtractCtx
+#include "pdxe_core.h"   // PDXEExtractCtx
 #include "helpers.h"
 #include "lang_specs.h"      // PDXELangSpec, pdxe_lang_spec, PDXE_LANG_*
 #include "tree_sitter/api.h" // TSNode, TSTreeCursor, ts_tree_cursor_*, ts_node_*

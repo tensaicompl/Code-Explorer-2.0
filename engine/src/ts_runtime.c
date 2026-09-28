@@ -3,4 +3,4 @@
 //
 // lib.c internally #includes all other runtime .c files, so we only
 // need this one entry point. The runtime headers are at vendored/ts_runtime/src/.
-#include "vendored/ts_runtime/src/lib.c"
+#include "ts_runtime/src/lib.c"

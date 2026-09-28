@@ -27,6 +27,7 @@
  */
 
 #include "ts_lsp.h"
+#include "../helpers.h"
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>

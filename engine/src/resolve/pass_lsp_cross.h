@@ -26,7 +26,7 @@
 #ifndef PDXE_PIPELINE_PASS_LSP_CROSS_H
 #define PDXE_PIPELINE_PASS_LSP_CROSS_H
 
-#include "pdxe.h"
+#include "pdxe_core.h"
 /* PDXELSPDef historically lives in lsp/go_lsp.h (not lsp/type_rep.h)
  * — type_rep.h covers the type-representation primitives while
  * go_lsp.h was where the project-wide def descriptor landed first. */

@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 13 | 2026-09-28 | P1-02 | ambiguity | resolved | The reuse map's grammar rule names the files to copy, and misses three kinds the build needs: headers of other names, source fragments a scanner includes, and the per-language wrappers that actually compile the tables | The copy rule now takes the grammar directory whole, and the wrappers only for the matrix's languages. Naming a subset invites the next omission |
 | 12 | 2026-09-28 | P1-01 | ambiguity | resolved | The file-level reuse map lists the service-pattern sources under the pipeline directory; they are in the extraction directory, and the wildcard that copies it already takes them | Copied by the wildcard, landing beside the extraction core rather than the resolution sources. Recorded as decision 10; the map's intent is met |
 | 11 | 2026-09-28 | P0-04 | blocker | resolved | The deny list's prefix patterns required a word boundary, so the prefix survived in a script where it followed a word character. The scan passed while a stricter test failed | Boundary dropped from the prefix patterns, and the pattern for the type prefix widened. Verified against a planted fixture |
 | 10 | 2026-09-28 | P0-04 | blocker | resolved | The provenance scanner used a bash 4 builtin to read its file list, and macOS ships bash 3.2, so every scanner test failed there while passing on Linux and Windows | Replaced with portable read loops and an explicit counter, since an empty array also expands inconsistently under set -u across those versions. Verified against bash 3.2.57 in a container. The non-git exclusions were fixed at the same time |
@@ -54,6 +55,32 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 13 — The reuse map's grammar rule is not closed
+
+The map lists what to copy from a grammar directory: the parser, the scanner, one
+named header and the parser interface headers. Three things the build needs are
+outside that list.
+
+A scanner may include a header of any name, and two do. One grammar's scanner
+includes further source fragments, which are not headers at all. And the tables are
+not compiled directly: each language has a wrapper among the engine sources that
+includes its parser and scanner, which is how generated tables declaring static
+symbols of the same names are kept in separate translation units. The reference
+carries a wrapper for every language it supports, 162 of them, and copying the
+extraction core wholesale brought all of them, each reaching for a parser that was
+never copied.
+
+The copy rule now takes a grammar directory whole, since these directories hold the
+compilation inputs and nothing else, and takes wrappers only for the matrix's
+languages. What is compiled is decided by the build definition rather than by what
+happens to be present.
+
+The wrappers also address the grammars where the reference nests them. The map puts
+them one level higher, so that path is rewritten as they are copied, and the same
+normalisation now applies to any include reaching into the vendored tree.
 
 State: resolved.
 

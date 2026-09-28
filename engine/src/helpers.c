@@ -1,6 +1,6 @@
 #include "helpers.h"
 #include "arena.h" // PDXEArena, pdxe_arena_alloc/strdup/strndup/sprintf
-#include "pdxe.h"   // PDXEExtractCtx, PDXELanguage, PDXE_LANG_*, EFCEntry, EFC_SIZE
+#include "pdxe_core.h"   // PDXEExtractCtx, PDXELanguage, PDXE_LANG_*, EFCEntry, EFC_SIZE
 #include "lang_specs.h"
 #include "tree_sitter/api.h" // TSNode, ts_node_*
 #include "foundation/constants.h"

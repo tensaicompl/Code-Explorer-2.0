@@ -21,7 +21,7 @@
 #ifndef PDXE_PIPELINE_LSP_RESOLVE_H
 #define PDXE_PIPELINE_LSP_RESOLVE_H
 
-#include "pdxe.h"
+#include "pdxe_core.h"
 #include "graph_buffer/graph_buffer.h"
 #include "foundation/constants.h"
 

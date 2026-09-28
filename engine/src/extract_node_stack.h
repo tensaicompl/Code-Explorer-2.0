@@ -19,7 +19,7 @@
 #ifndef PDXE_EXTRACT_NODE_STACK_H
 #define PDXE_EXTRACT_NODE_STACK_H
 
-#include "pdxe.h" /* PDXEExtractCtx: a stack draws from ctx->scratch */
+#include "pdxe_core.h" /* PDXEExtractCtx: a stack draws from ctx->scratch */
 #include "arena.h"
 #include "tree_sitter/api.h"
 #include <string.h> /* memcpy */

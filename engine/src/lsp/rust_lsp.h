@@ -28,7 +28,7 @@
 #include "scope.h"
 #include "type_registry.h"
 #include "lsp_neg_memo.h"
-#include "../pdxe.h"
+#include "../pdxe_core.h"
 #include "go_lsp.h" // for PDXELSPDef (pipeline def), used by the Tier-2 builder
 
 /* Forward declaration — defined in rust_cargo.h. We keep it forward

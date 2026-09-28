@@ -48,7 +48,7 @@ static void ht_free_in(void *ptr, size_t size, pdxe_mem_class_t *cls) {
 #define CTX_TY pdxe_mem_class_t
 #define MALLOC_FN ht_alloc_in
 #define FREE_FN ht_free_in
-#include "../../internal/pdxe/vendored/verstable/verstable.h"
+#include "verstable/verstable.h"
 
 /* The opaque PDXEHashTable struct holds the Verstable instance + a
  * count cache (Verstable's _size traversal is O(buckets) so we keep

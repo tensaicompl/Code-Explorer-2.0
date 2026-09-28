@@ -85,13 +85,59 @@ map_path.write_text(
     + "".join(f"{old}\t{new}\n" for old, new in mapping.items())
 )
 
-# 3. Apply. Longest first, so a shorter token never eats part of a longer one.
+# 3. Work out the file renames first, so the includes that name those files can be
+#    rewritten to what the rename actually produces. The token rule alone would
+#    rewrite the name inside an include to something no file is ever called.
+file_renames: dict[str, str] = {}
+for path in engine.rglob("*"):
+    if not path.is_file():
+        continue
+    stem, suffix = path.stem, path.suffix
+    if re.fullmatch(PREFIX, stem):
+        file_renames[path.name] = "pdxe_core" + suffix
+    elif IDENT.match(path.name):
+        m = IDENT.match(path.name)
+        file_renames[path.name] = target(m.group(0)) + path.name[m.end():]
+
+# An include may reach a renamed file through any path, so the rewrite matches on
+# the file name within the directive and leaves the path around it alone.
+INCLUDE = re.compile(r'(#include\s+")([^"]*?)([^"/]+)(")')
+
+
+def rewrite_includes(text: str) -> tuple[str, int]:
+    count = 0
+
+    def replace(match: re.Match[str]) -> str:
+        nonlocal count
+        opening, directory, name, closing = match.groups()
+        changed = False
+        # The reference nests its vendored libraries inside its own source tree and
+        # reaches them by climbing out of it. We keep them at the engine root, so
+        # anything addressed through that nesting is reduced to the part below it.
+        marker = "vendored/"
+        if marker in directory:
+            directory = directory[directory.rindex(marker) + len(marker):]
+            changed = True
+        if name in file_renames:
+            name = file_renames[name]
+            changed = True
+        if changed:
+            count += 1
+            return f"{opening}{directory}{name}{closing}"
+        return match.group(0)
+
+    return INCLUDE.sub(replace, text), count
+
+# 4. Apply. Includes first, then identifiers longest first so that a shorter token
+#    never eats part of a longer one.
 pattern = re.compile("|".join(re.escape(t) for t in sorted(mapping, key=len, reverse=True)))
 changed_files = 0
 changed_tokens = 0
 for path in files():
     text = path.read_text(encoding="utf-8", errors="replace")
-    new_text, n = pattern.subn(lambda m: mapping[m.group(0)], text)
+    text, n = rewrite_includes(text)
+    new_text, k = pattern.subn(lambda m: mapping[m.group(0)], text)
+    n += k
     for rx, repl in LITERALS:
         new_text, k = rx.subn(repl, new_text)
         n += k
@@ -104,16 +150,9 @@ for path in files():
 #    carrying the prefix is renamed by the same rule as its identifiers.
 renamed = 0
 for path in sorted(engine.rglob("*"), key=lambda p: -len(p.parts)):
-    if not path.is_file():
+    if not path.is_file() or path.name not in file_renames:
         continue
-    stem, suffix = path.stem, path.suffix
-    if re.fullmatch(PREFIX, stem):
-        new_name = "pdxe_core" + suffix
-    elif IDENT.match(path.name):
-        new_name = target(IDENT.match(path.name).group(0)) + path.name[IDENT.match(path.name).end():]
-    else:
-        continue
-    path.rename(path.with_name(new_name))
+    path.rename(path.with_name(file_renames[path.name]))
     renamed += 1
 
 print(f"identifiers mapped: {len(mapping)}")

@@ -12,7 +12,7 @@ CARGO ?= cargo
 PNPM  ?= pnpm
 UI    := ui
 
-.PHONY: all check check-full fmt fmt-check lint build test consts-sync \
+.PHONY: all check check-full fmt fmt-check lint build test consts-sync engine engine-clean \
         ui-install ui-lint ui-test ui-build bundle-budget \
         licence-scan provenance-scan open-binary-check \
         golden oracle e2e asan determinism engine-differential perf \
@@ -37,9 +37,20 @@ fmt-check:
 lint:
 	$(CARGO) clippy --all-targets --all-features -- -D warnings
 
-build:
+build: engine
 	$(CARGO) build --workspace --all-targets
 	$(CARGO) build -p pdx --features enterprise
+
+# The engine is C and is built by CMake. It joins the Rust build in the task that
+# adds its bindings; until then it is built here so that every platform compiles it.
+ENGINE_BUILD ?= target/engine
+engine:
+	@cmake -S engine -B $(ENGINE_BUILD) -DCMAKE_BUILD_TYPE=Release > /dev/null
+	@cmake --build $(ENGINE_BUILD) -j
+	@echo "engine: built $(ENGINE_BUILD)/libpdxe.a"
+
+engine-clean:
+	rm -rf $(ENGINE_BUILD)
 
 test:
 	$(CARGO) test --workspace --all-features
@@ -115,6 +126,6 @@ vendor-refresh:
 	@scripts/vendor/apply-patches.sh
 	$(MAKE) build golden
 
-clean:
+clean: engine-clean
 	$(CARGO) clean
 	rm -rf $(UI)/node_modules $(UI)/dist

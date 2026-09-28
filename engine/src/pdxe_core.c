@@ -5,7 +5,7 @@
 #include "foundation/mem_core.h"   // class accounting for the bound allocators
 #include "foundation/mem_events.h" // waste sanitizer: the bound allocators bypass every observer
 #include "foundation/log.h"        // pdxe_log_warn -- extract.lsp.skipped
-#include "pdxe.h"
+#include "pdxe_core.h"
 #include "arena.h" // PDXEArena, pdxe_arena_init/alloc/strdup/destroy
 #include "helpers.h"
 #include "lang_specs.h"

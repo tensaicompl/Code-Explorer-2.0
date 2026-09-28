@@ -1,7 +1,7 @@
 #ifndef PDXE_EXTRACT_UNIFIED_H
 #define PDXE_EXTRACT_UNIFIED_H
 
-#include "pdxe.h"
+#include "pdxe_core.h"
 #include "lang_specs.h"
 
 // Scope kinds for the walk state stack.

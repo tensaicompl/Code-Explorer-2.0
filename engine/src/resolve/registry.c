@@ -25,7 +25,7 @@ enum { REG_MAX_CANDIDATES = 256 };
 
 #define DEFAULT_CONFIDENCE 0.5
 #include "pipeline/pipeline.h"
-#include "pdxe.h"               /* pdxe_label_is_relation — the resolve-time relation veto */
+#include "pdxe_core.h"               /* pdxe_label_is_relation — the resolve-time relation veto */
 #include "foundation/compat.h" /* PDXE_TLS */
 #include "foundation/hash_table.h"
 #include "foundation/dyn_array.h"

@@ -11,7 +11,7 @@
  *                                          resolved_calls entries
  */
 #include "py_lsp.h"
-#include "../pdxe.h"
+#include "../pdxe_core.h"
 #include "../helpers.h"
 #include "tree_sitter/api.h"
 #include <ctype.h>

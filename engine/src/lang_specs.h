@@ -1,7 +1,7 @@
 #ifndef PDXE_LANG_SPECS_H
 #define PDXE_LANG_SPECS_H
 
-#include "pdxe.h"
+#include "pdxe_core.h"
 
 // PDXEEmbeddedLangSpec describes a sub-language embedded inside a host AST.
 // Used by host grammars whose tree-sitter parser does not recurse into the

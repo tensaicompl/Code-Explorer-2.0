@@ -1,4 +1,4 @@
-#include "pdxe.h"
+#include "pdxe_core.h"
 #include "arena.h" // PDXEArena, pdxe_arena_alloc/strdup/sprintf
 #include "helpers.h"
 #include "lang_specs.h"
@@ -6,8 +6,6 @@
 #include "foundation/platform.h" // safe_realloc (frees old on failure)
 #include "foundation/log.h"      // pdxe_log_warn
 #include "extract_node_stack.h"
-#include "simhash/minhash.h"
-#include "semantic/ast_profile.h"
 #include "tree_sitter/api.h" // TSNode, ts_node_*
 #include <stdint.h>          // uint32_t
 #include <stdio.h>           // snprintf (ObjectScript storage/trigger sidecars)
@@ -144,33 +142,14 @@ static void compute_fingerprint(PDXEExtractCtx *ctx, PDXEDefinition *def, TSNode
      * so short functions still get body_tokens even without a fingerprint. */
     def->body_tokens = extract_body_ident_tokens(ctx, body);
 
-    pdxe_minhash_t result;
-    if (!pdxe_minhash_compute(body, ctx->source, (int)ctx->language, &result)) {
-        return; /* Too short or empty — no fingerprint */
-    }
-    /* Arena-allocate the fingerprint array */
-    uint32_t *fp = pdxe_arena_alloc(ctx->arena, PDXE_MINHASH_K * sizeof(uint32_t));
-    if (!fp) {
-        return;
-    }
-    memcpy(fp, result.values, PDXE_MINHASH_K * sizeof(uint32_t));
-    def->fingerprint = fp;
-    def->fingerprint_k = PDXE_MINHASH_K;
+    /* No similarity fingerprint is computed here. Near-duplicate detection is an
+     * analysis performed outside this engine, over its own token stream, so the
+     * subsystem that produced this fingerprint is not vendored. The definition's
+     * body tokens above are still produced, since search depends on them. */
 
-    /* AST structural profile (signals 8, 9, 11) — rides the same body node */
-    pdxe_ast_profile_t profile;
-    int pc = 0;
-    if (def->param_names) {
-        while (def->param_names[pc]) {
-            pc++;
-        }
-    }
-    if (pdxe_ast_profile_compute(body, ctx->source, def->param_names, pc, &profile)) {
-        profile.body_lines = (uint16_t)def->lines;
-        char sp_buf[PDXE_AST_PROFILE_BUF];
-        pdxe_ast_profile_to_str(&profile, sp_buf, sizeof(sp_buf));
-        def->structural_profile = pdxe_arena_strdup(ctx->arena, sp_buf);
-    }
+    /* No structural profile is computed here either. Like the similarity
+     * fingerprint above, it belongs to an analysis performed outside this engine,
+     * and the subsystem that produced it is not vendored. */
 }
 
 // Tree-sitter row is 0-based; lines are 1-based.

@@ -1,3 +1,5 @@
+#include "../pdxe_core.h"
+#include <string.h>
 /*
  * kotlin_builtins.c — Minimal Kotlin universal builtins as real graph nodes.
  *
