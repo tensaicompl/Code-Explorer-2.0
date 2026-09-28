@@ -24,9 +24,20 @@ ones and fails if they differ.
 ## Build
 
 `build.rs` builds the engine with the same `CMake` project `make engine` uses and
-links it statically, with the C++ runtime its macro preprocessor needs. On Windows
-the engine is compiled by clang for the MSVC ABI, through Ninja; Microsoft's
-compiler is not supported for it.
+links it statically, with the C++ runtime its macro preprocessor needs.
+
+The project owns every compiler flag, its warning policy included: the build gives
+`CMake` empty base flags, because the cmake crate otherwise passes its own, and those
+switch every warning off. The test `engine_flags` reads how the engine this crate
+built was compiled and holds it to the policy on every system.
+
+On Windows the engine is compiled by clang for the MSVC ABI, with the target stated,
+through Ninja; Microsoft's compiler is not supported for it. The engine's path is
+built from its parts rather than asked of the filesystem, because Windows answers
+with a verbatim path under which the engine's relative includes do not resolve; the
+build refuses one.
+
+The crate builds from the repository, not from a packaged copy of itself (issue 23).
 
 ## Tests
 
@@ -36,4 +47,5 @@ cargo test -p pdx-engine-sys
 
 `abi_smoke` runs the C test of the same name through the bindings, over every
 language of the matrix. `typed_resolution_crosses_the_boundary` resolves a call
-across two files through the project interface.
+across two files through the project interface. `engine_flags` checks how the
+engine was compiled, as above.

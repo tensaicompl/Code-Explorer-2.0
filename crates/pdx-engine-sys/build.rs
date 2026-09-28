@@ -11,14 +11,11 @@
 //! header cannot go unnoticed.
 
 use std::env;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("set by cargo"));
-    let engine = manifest
-        .join("../../engine")
-        .canonicalize()
-        .expect("the engine directory sits two levels above this crate");
+    let engine = engine_dir(&manifest);
 
     for watched in [
         "CMakeLists.txt",
@@ -31,11 +28,8 @@ fn main() {
         println!("cargo:rerun-if-changed={}", engine.join(watched).display());
     }
     for var in [
-        "CC",
-        "CXX",
-        "CFLAGS",
-        "CXXFLAGS",
         "CMAKE_GENERATOR",
+        "MACOSX_DEPLOYMENT_TARGET",
         "PDX_WRITE_BINDINGS",
     ] {
         println!("cargo:rerun-if-env-changed={var}");
@@ -47,24 +41,86 @@ fn main() {
     regenerate_bindings(&engine, &manifest);
 }
 
+/// The engine's directory, two levels above this crate, as a plain absolute path.
+///
+/// Built from the parts of the path rather than asked of the filesystem: on Windows
+/// the filesystem's own answer is a verbatim path (`\\?\D:\...`), which `CMake` passes
+/// to the compiler as `//?/D:/...`, and under that spelling the engine's sources
+/// cannot reach each other through the relative includes they are written with.
+fn engine_dir(manifest: &Path) -> PathBuf {
+    let mut dir = PathBuf::new();
+    for part in manifest.join("../../engine").components() {
+        match part {
+            Component::ParentDir => {
+                dir.pop();
+            }
+            Component::CurDir => {}
+            other => dir.push(other),
+        }
+    }
+    let spelled = dir.to_string_lossy();
+    assert!(
+        !spelled.starts_with(r"\\?\") && !spelled.starts_with("//?/"),
+        "the engine's path is a verbatim path ({spelled}); its sources' relative \
+         includes do not resolve under one"
+    );
+    assert!(
+        dir.join("CMakeLists.txt").is_file(),
+        "no engine at {}; this crate builds from the repository",
+        dir.display()
+    );
+    dir
+}
+
 /// Builds `libpdxe` with `CMake` and tells rustc how to link it.
 fn link_engine(engine: &Path) {
+    let target = env::var("TARGET").expect("set by cargo");
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
 
     let mut config = cmake::Config::new(engine);
+    // The engine's `CMake` project owns every compiler flag, its warning policy
+    // included. Left to itself, the cmake crate passes the flags of its own compiler
+    // probe as the base flags of every compile, and those switch all warnings off
+    // (`-w`). Defining the base flags, empty, is what keeps them out.
+    config
+        .define("CMAKE_C_FLAGS", "")
+        .define("CMAKE_CXX_FLAGS", "");
+
     if target_os == "windows" && target_env == "msvc" {
         // On Windows the engine is built with clang, for the MSVC ABI Rust uses;
-        // Microsoft's own compiler is not a supported engine compiler. Ninja, because
-        // the Visual Studio generators always drive Microsoft's compiler.
-        let mut c = cc::Build::new();
-        c.compiler("clang");
-        let mut cxx = cc::Build::new();
-        cxx.cpp(true).compiler("clang++");
-        config.init_c_cfg(c).init_cxx_cfg(cxx);
+        // Microsoft's own compiler is not a supported engine compiler. Named to
+        // `CMake` directly, with the target stated rather than left to the default of
+        // whichever clang is installed. Ninja, because the Visual Studio generators
+        // always drive Microsoft's compiler.
+        config
+            .define("CMAKE_C_COMPILER", "clang")
+            .define("CMAKE_CXX_COMPILER", "clang++")
+            .define("CMAKE_C_COMPILER_TARGET", &target)
+            .define("CMAKE_CXX_COMPILER_TARGET", &target);
         if env::var_os("CMAKE_GENERATOR").is_none() {
             config.generator("Ninja");
         }
+    }
+    if target_os == "macos" {
+        // The architecture and the oldest system are Rust's, so the objects link into
+        // what rustc produces without a mismatch.
+        let arch = if target_arch == "aarch64" {
+            "arm64"
+        } else {
+            target_arch.as_str()
+        };
+        config.define("CMAKE_OSX_ARCHITECTURES", arch);
+        let deployment = env::var("MACOSX_DEPLOYMENT_TARGET").unwrap_or_else(|_| {
+            if target_arch == "aarch64" {
+                "11.0"
+            } else {
+                "10.12"
+            }
+            .to_owned()
+        });
+        config.define("CMAKE_OSX_DEPLOYMENT_TARGET", deployment);
     }
     let dst = config
         .define("PDXE_BUILD_TESTS", "OFF")
@@ -83,6 +139,9 @@ fn link_engine(engine: &Path) {
         .unwrap_or_else(|| panic!("the engine built, but no library is in {}", build.display()));
     println!("cargo:rustc-link-search=native={}", dir.display());
     println!("cargo:rustc-link-lib=static=pdxe");
+
+    // Where the build is, for the test that reads how the engine was compiled.
+    println!("cargo:rustc-env=PDXE_ENGINE_BUILD_DIR={}", build.display());
 
     // One translation unit is C++, the macro preprocessor, so the C++ runtime is
     // needed. With the MSVC toolchain the objects name their runtime themselves.

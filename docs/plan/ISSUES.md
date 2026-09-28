@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 23 | 2026-09-28 | P9-02 | ambiguity | open | `pdx-engine-sys` is marked publishable, but its build script builds the engine from `../../engine`, which a crate packaged on its own does not contain | Owned by P9-02: either the engine sources travel inside the packaged crate, or the crate stops being publishable. Nothing in P1 publishes a crate |
 | 22 | 2026-09-28 | P0-04 | blocker | resolved | The nightly run failed on targets that belong to later tasks: the browser suite has no browser installed and the engine differential has no script yet, while four other targets reported success without checking anything. A red nightly could not be told from a regression | Each unfinished target now says it is skipped and names the task that brings it, and succeeds. The progress check fails once that task is done while its target still skips |
 | 21 | 2026-09-28 | P1-05 | ambiguity | open | The cross-file pass reports success whatever happens inside it: an allocation failure yields no typed answers at all, and a file whose source cannot be supplied is skipped and counted, and its log goes to a sink that discards it. A caller cannot tell no typed answer from a degraded run | Owned by P1-05: before the safe wrapper becomes the engine interface, resolution must report an explicit degraded or failed status, distinct from an empty result |
 | 20 | 2026-09-28 | P1-03 | ambiguity | resolved | Appendix I.2 states the shim's semantics in a line each, and four of those lines differ from what the reference actually does: its store keeps one node per qualified name by a content rule, its short-name lists move a renamed node, the import edges come from its import resolver rather than from extraction's import list, and its language lookup is a table of its own, not the language matrix | The shim reproduces the reference, not the summary, and the language lookup is vendored verbatim rather than rewritten. Differential fixtures against the reference confirm it |
@@ -66,6 +67,21 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 23 — A publishable crate that builds from outside itself
+
+`pdx-engine-sys` carries `publish = true`, from the workspace skeleton, and its build
+script builds the engine from `engine/`, two directories above the crate. A crate
+packaged for a registry contains only its own directory, so as it stands a published
+copy could not build: the script stops with a message saying it builds from the
+repository.
+
+Nothing in P1 publishes anything, so this does not block the bindings. It belongs to
+the packaging task: either the engine's sources travel inside the packaged crate
+(copied in by the packaging step, with their licences and notices), or the crate is
+marked unpublishable and the engine ships only inside the binaries.
+
+State: open, owned by P9-02.
 
 ### 22 — The nightly run failed on work not yet due
 
