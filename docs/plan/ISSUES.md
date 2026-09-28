@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 10 | 2026-09-28 | P0-04 | blocker | resolved | The provenance scanner used a bash 4 builtin to read its file list, and macOS ships bash 3.2, so every scanner test failed there while passing on Linux and Windows | Replaced with portable read loops and an explicit counter, since an empty array also expands inconsistently under set -u across those versions. Verified against bash 3.2.57 in a container. The non-git exclusions were fixed at the same time |
 | 9 | 2026-09-28 | P0-04 | blocker | resolved | The first continuous integration run failed on both platforms: the step activating the pinned package manager ran at the repository root, where there is no manifest declaring it | Step moved to the interface directory in all three workflows. The Rust build passed on all three platforms, including Windows, so only this step was at fault |
 | 8 | 2026-09-28 | G0 | blocker | open | Gate G0 requires the gate green on Linux and macOS. No macOS host is available, so one criterion of five cannot be evaluated locally | The other four are met and recorded with their output. The continuous integration workflow runs macOS and closes the criterion on the first push to the remote; until then G0 stays pending and is not waived |
 | 7 | 2026-09-28 | P0-06 | ambiguity | open | The importance formula's test penalty is given as 0.3 for test nodes; the factor for a non-test node is never stated | The mirror records the source as written rather than filling the silence. To be settled when the metric is implemented, by a specification change request if the answer is not the identity |
@@ -51,6 +52,30 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 10 — The provenance scanner did not run on macOS
+
+The scanner read its file list with `mapfile`, a builtin introduced in bash 4.
+macOS ships bash 3.2, so on that platform the scanner failed before reading a
+single file, and six of its seven tests failed with it. Linux and Windows were
+unaffected, which is why local work never saw it.
+
+Replaced with a read loop that works on both. An explicit counter is kept rather
+than querying the array's length, because an empty array expands inconsistently
+under `set -u` between those bash versions, and the scanner would then fail on an
+empty tree instead of reporting one.
+
+Verified against bash 3.2.57 in a container, which is the version macOS ships: a
+clean fixture passes and a planted denied term is caught, with the same exit codes
+as on Linux.
+
+Fixing it surfaced a second defect in the same script. The exclusions are expressed
+as git pathspecs, so outside a repository nothing was excluded and the scanner read
+its own deny list, reporting every term in it as a finding. The non-git path now
+applies the same exclusions by path. This affected the fixture tests' mode of
+operation, not the repository scan.
 
 State: resolved.
 

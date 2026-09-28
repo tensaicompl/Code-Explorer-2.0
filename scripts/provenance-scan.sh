@@ -45,21 +45,51 @@ cd "$ROOT" || exit 2
 # The file set: inside a repository, tracked files plus new ones that are not
 # ignored, so that a file escapes the scan only by being ignored, never by being
 # unstaged. Outside a repository, every file, so a fixture directory works too.
+#
+# Read with a loop rather than mapfile: mapfile arrives in bash 4, and macOS still
+# ships bash 3.2. A counter is kept alongside because an empty array expands
+# inconsistently under set -u across those versions.
+FILES=()
+file_count=0
+collect() {
+  while IFS= read -r -d '' entry; do
+    FILES+=("$entry")
+    file_count=$((file_count + 1))
+  done
+}
+
 if git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-  mapfile -d '' FILES < <(git -C "$ROOT" ls-files -z --cached --others \
+  collect < <(git -C "$ROOT" ls-files -z --cached --others \
     --exclude-standard -- . "${EXCLUDES[@]}")
 else
-  mapfile -d '' FILES < <(find . -type f -not -path './.git/*' -print0)
+  # Outside a repository the git pathspecs above do not apply, so the same
+  # exclusions are applied by path here. Without this the scanner reads its own
+  # deny list and reports every term in it.
+  collect < <(find . -type f -not -path './.git/*' \
+    -not -path './legacy/*' \
+    -not -name 'THIRD_PARTY_NOTICES.md' \
+    -not -name 'references.lock' \
+    -not -name 'provenance-denylist.txt' \
+    -not -name 'marker-words.txt' \
+    -not -name 'url-allowlist.txt' \
+    -not -path '*/engine/*/LICENSE*' \
+    -print0)
 fi
 
-[ "${#FILES[@]}" -gt 0 ] || { echo "provenance scan: no files to scan" >&2; exit 2; }
+[ "$file_count" -gt 0 ] || { echo "provenance scan: no files to scan" >&2; exit 2; }
 
 # Text files only: a grep over a parser table or a model is noise.
 TEXT=()
+text_count=0
 for f in "${FILES[@]}"; do
   [ -f "$f" ] || continue
-  if LC_ALL=C grep -qI '' "$f" 2>/dev/null; then TEXT+=("$f"); fi
+  if LC_ALL=C grep -qI '' "$f" 2>/dev/null; then
+    TEXT+=("$f")
+    text_count=$((text_count + 1))
+  fi
 done
+
+[ "$text_count" -gt 0 ] || { echo "provenance scan: no text files to scan" >&2; exit 2; }
 
 status=0
 report() { echo "provenance scan: $*" >&2; status=1; }
@@ -84,7 +114,10 @@ while IFS= read -r word; do
 done < <(patterns_of "$MARKERS")
 
 # 3. URLs that are not on the allow list.
-mapfile -t ALLOWED < <(patterns_of "$URLS")
+ALLOWED=()
+while IFS= read -r allowed_prefix; do
+  [ -n "$allowed_prefix" ] && ALLOWED+=("$allowed_prefix")
+done < <(patterns_of "$URLS")
 while IFS= read -r line; do
   [ -n "$line" ] || continue
   file="${line%%:*}"
@@ -97,6 +130,6 @@ while IFS= read -r line; do
 done < <(grep -roHE 'https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%-]+' "${TEXT[@]}" 2>/dev/null)
 
 if [ "$status" -eq 0 ]; then
-  echo "provenance scan: clean (${#TEXT[@]} files)"
+  echo "provenance scan: clean ($text_count files)"
 fi
 exit "$status"
