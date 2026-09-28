@@ -5,3 +5,4 @@ CALLS	other.other	pkg_a.tools.helper	lsp_callable_alias
 IMPORTS	FILE:main.py	pkg_b.tools.helper	helper
 IMPORTS	FILE:other.py	pkg_a.tools.helper	helper
 IMPORTS	FILE:third.py	pkg_a.tools.helper	helper
+TEXTUAL	third.third	pkg_a.tools.helper	import_map

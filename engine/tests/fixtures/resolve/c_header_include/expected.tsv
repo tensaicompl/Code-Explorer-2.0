@@ -3,3 +3,5 @@
 CALLS	src.util.point_norm	src.util.util_add	lsp_direct
 IMPORTS	FILE:src/main.c	src.util	h
 IMPORTS	FILE:src/util.c	include.util.h.__file__	h
+TEXTUAL	src.main.main	src.util.point_norm	unique_name
+TEXTUAL	src.main.main	src.util.util_add	unique_name

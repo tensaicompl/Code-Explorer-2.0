@@ -114,6 +114,14 @@ def main() -> None:
         if row["status"] == "blocked" and tid not in issues_text:
             errors.append(f"{tid}: blocked with no entry in ISSUES.md")
 
+    # A make target standing in for unfinished work must be replaced by the task that
+    # owns it; once that task is done, the stand-in is a check that silently skips.
+    makefile = plan_dir.parent.parent / "Makefile"
+    if makefile.exists():
+        for target, owner in re.findall(r"pending-target\.sh\s+(\S+)\s+(P\d-\d{2})", makefile.read_text()):
+            if status.get(owner, {}).get("status") == "done":
+                errors.append(f"{owner}: done, but make {target} still skips as not yet implemented")
+
     if errors:
         for e in errors:
             print(f"error: {e}", file=sys.stderr)

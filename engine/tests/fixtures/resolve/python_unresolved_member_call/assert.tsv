@@ -1,0 +1,12 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything. TEXTUAL rows are the reference engine's own
+# textual edges, as recorded in expected.tsv; SITE rows are the interface's facts.
+# The member call's receiver is a parameter, so the reference does not bind it to
+# the only refresh_cache in the project, though a bare call to the same name binds
+# by unique name. The interface marks the member call so the guard can apply.
+-	TEXTUAL	app.service.run	*	*
++	TEXTUAL	app.service.control	lib.tools.refresh_cache	unique_name
++	SITE	app.service.run	client.refresh_cache	unresolved_member
+-	SITE	app.service.control	*	*
+-	CALLS	app.service.run	*	*

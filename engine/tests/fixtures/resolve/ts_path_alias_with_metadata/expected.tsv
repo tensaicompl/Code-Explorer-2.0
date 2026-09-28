@@ -2,3 +2,4 @@
 # scripts/engine/typed-differential.py --reference --update; do not edit.
 CALLS	src.app.show.show	src.lib.format.formatName	lsp_ts_import
 IMPORTS	FILE:src/app/show.ts	src.lib.format	Box,formatName
+TEXTUAL	src.app.show.show	src.lib.format.Box	import_map

@@ -13,6 +13,11 @@
  * And surfaces that are not what the encoder writes are refused: truncated, of
  * another version, with a field missing, a field extra, a field of the wrong type,
  * or a counted array whose count disagrees with it.
+ *
+ * And for every resolution fixture (a directory holding expected.tsv), resolving the
+ * files as one project leaves each file's surface byte for byte as it was: a surface
+ * holds only what extraction found in the file itself, never anything a resolution
+ * over other files computed.
  */
 
 #include <dirent.h>
@@ -200,6 +205,92 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
     free(bytes);
 }
 
+/* Every source file under `dir`, relative to it. */
+static void collect_sources(const char *root, const char *rel, char ***paths, size_t *n) {
+    char dir[4096];
+    snprintf(dir, sizeof(dir), "%s%s%s", root, rel[0] ? "/" : "", rel);
+    DIR *d = opendir(dir);
+    if (!d) {
+        return;
+    }
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (e->d_name[0] == '.') {
+            continue;
+        }
+        char child[4096];
+        snprintf(child, sizeof(child), "%s%s%s", rel, rel[0] ? "/" : "", e->d_name);
+        char full[8200];
+        snprintf(full, sizeof(full), "%s/%s", root, child);
+        struct stat st;
+        if (stat(full, &st) != 0) {
+            continue;
+        }
+        if (S_ISDIR(st.st_mode)) {
+            collect_sources(root, child, paths, n);
+        } else if (language_of(child)) {
+            *paths = realloc(*paths, (*n + 1) * sizeof(char *));
+            (*paths)[(*n)++] = strdup(child);
+        }
+    }
+    closedir(d);
+}
+
+static int projects_checked = 0;
+
+static void check_resolution_leaves_surfaces_alone(pdxe_ctx *ctx, const char *dir) {
+    char **paths = NULL;
+    size_t n = 0;
+    collect_sources(dir, "", &paths, &n);
+    pdxe_file_result **results = calloc(n ? n : 1, sizeof(*results));
+    unsigned char **sources = calloc(n ? n : 1, sizeof(*sources));
+    size_t *lens = calloc(n ? n : 1, sizeof(*lens));
+    uint8_t **before = calloc(n ? n : 1, sizeof(*before));
+    size_t *before_len = calloc(n ? n : 1, sizeof(*before_len));
+    pdxe_project *p = NULL;
+    CHECK(pdxe_resolve_project_begin(ctx, &p) == PDXE_OK, "%s: cannot begin a project", dir);
+    for (size_t i = 0; p && i < n; i++) {
+        char full[8200];
+        snprintf(full, sizeof(full), "%s/%s", dir, paths[i]);
+        sources[i] = read_all(full, &lens[i]);
+        int lang = language_of(paths[i]);
+        CHECK(sources[i] && pdxe_extract_file(ctx, lang, paths[i], sources[i], lens[i],
+                                              &results[i]) == PDXE_OK &&
+                  pdxe_surface_export(results[i], paths[i], &before[i], &before_len[i]) ==
+                      PDXE_OK &&
+                  pdxe_resolve_project_add_file(p, lang, paths[i], sources[i], lens[i],
+                                                results[i]) == PDXE_OK,
+              "%s/%s: cannot prepare", dir, paths[i]);
+        uint8_t *during = NULL;
+        size_t during_len = 0;
+        CHECK(pdxe_surface_export(results[i], paths[i], &during, &during_len) == PDXE_E_INVALID,
+              "%s/%s: a surface was given while a project held the result", dir, paths[i]);
+        pdxe_surface_free(during);
+    }
+    CHECK(p && pdxe_resolve_project_run(p) == PDXE_OK, "%s: resolution failed", dir);
+    pdxe_resolve_project_end(p);
+    for (size_t i = 0; i < n; i++) {
+        uint8_t *after = NULL;
+        size_t after_len = 0;
+        CHECK(results[i] &&
+                  pdxe_surface_export(results[i], paths[i], &after, &after_len) == PDXE_OK &&
+                  after_len == before_len[i] && memcmp(after, before[i], after_len) == 0,
+              "%s/%s: resolving the project changed the file's surface", dir, paths[i]);
+        pdxe_surface_free(after);
+        pdxe_surface_free(before[i]);
+        pdxe_result_free(ctx, results[i]);
+        free(sources[i]);
+        free(paths[i]);
+    }
+    free(results);
+    free(sources);
+    free(lens);
+    free(before);
+    free(before_len);
+    free(paths);
+    projects_checked++;
+}
+
 static void walk(pdxe_ctx *ctx, const char *dir) {
     DIR *d = opendir(dir);
     if (!d) {
@@ -217,6 +308,11 @@ static void walk(pdxe_ctx *ctx, const char *dir) {
             continue;
         }
         if (S_ISDIR(st.st_mode)) {
+            char expected[8200];
+            snprintf(expected, sizeof(expected), "%s/expected.tsv", path);
+            if (stat(expected, &st) == 0) {
+                check_resolution_leaves_surfaces_alone(ctx, path);
+            }
             walk(ctx, path);
         } else {
             check_file(ctx, path);
@@ -310,6 +406,7 @@ int main(int argc, char **argv) {
     }
     check_refusals(ctx);
     pdxe_shutdown(ctx);
-    printf("%s: %d files, %d failures\n", failures ? "FAIL" : "ok", files_checked, failures);
+    printf("%s: %d files, %d projects, %d failures\n", failures ? "FAIL" : "ok", files_checked,
+           projects_checked, failures);
     return failures || files_checked == 0 ? 1 : 0;
 }

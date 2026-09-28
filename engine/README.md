@@ -38,7 +38,7 @@ collide. The typed-resolution layer is likewise one translation unit,
 
 | Option | Default | Effect |
 |---|---|---|
-| `PDXE_VENDORED_WERROR` | `ON` | Warnings are errors in the vendored sources, as everywhere else. A short list of dead-code and style warning classes stays visible but non-fatal in vendored code (issue 19). Turn it off only to let an untested newer compiler finish while its warnings are looked at |
+| `PDXE_VENDORED_WERROR` | `ON` | Warnings are errors in the vendored sources, as everywhere else. A short list of dead-code and style warning classes stays visible but non-fatal in vendored files only; the interface layer has no exemption, which the test `api_warnings_are_errors` checks (issue 19). Turn it off only to let an untested newer compiler finish while its warnings are looked at |
 | `PDXE_BUILD_TESTS` | `OFF` | Builds the test programs in `tests/` and registers them with ctest. `make engine` turns it on |
 
 Whatever the switch, four warning classes are always errors, because each is a
@@ -85,7 +85,8 @@ Nothing in the interface writes to standard output or standard error.
 |---|---|
 | `abi_smoke` | Every language of the matrix extracts, parses and yields definitions of its own |
 | `abi_no_output` | Extraction, resolution and the cache path write nothing to either output stream, with the engine's log level raised as far as it goes |
-| `abi_result_build_roundtrip` | A rebuilt result equals the original field by field; a surface decodes and re-encodes to the same bytes; malformed surfaces are refused |
+| `abi_result_build_roundtrip` | A rebuilt result equals the original field by field; a surface decodes and re-encodes to the same bytes; malformed surfaces are refused; resolving a project leaves every file's surface as it was |
+| `api_warnings_are_errors` | Each warning class exempt in vendored code is still an error in the interface layer, compiled with the build's own flags |
 | one per `tests/fixtures/resolve/<name>` | Typed resolution on that fixture matches the reference engine's recorded answer, the fixture's own assertions hold, and neither the order files are added in nor resolving them from a cache changes the answer |
 
 The Rust tests in `crates/pdx-bench/tests/` check the archive: no symbol carries the
@@ -96,7 +97,9 @@ covers every field the engine records.
 ### The reference differential
 
 Each resolution fixture's `expected.tsv` is the reference engine's answer for it,
-recorded by `make engine-typed-reference`. That builds the pinned, unmodified
+recorded by `make engine-typed-reference`: its typed edges, which ours must equal,
+and its textual edges, which this project's own stages must reproduce and which the
+fixtures' assertions read. That builds the pinned, unmodified
 reference outside the tree (`scripts/engine/reference-build.sh`), indexes the fixture
 with it, and reads the typed edges from the graph it builds. The recorded files let
 the comparison run anywhere without the reference; re-recording is how a change on
@@ -111,6 +114,15 @@ passes (P2) means reproducing what they do next. From the reference:
 - **A call with a typed answer** is drawn to that target. A call without one goes to
   the textual stages, unless it is `typed_only`, in which case it is dropped: it has
   no text to match.
+- **The weak-call guards.** A textual match by a short name alone (`suffix_match`,
+  `unique_name`, `field_type_hint`, `fuzzy`) is not drawn as a call when:
+  the call has `PDXE_LEX_UNRESOLVED_MEMBER` in Python, JavaScript or TypeScript,
+  unless it is Python, has `PDXE_LEX_SELF_ROOTED`, matched by `unique_name`, and its
+  name is not a method of a builtin type (the reference's list, which the port takes
+  over); or the call has `PDXE_LEX_LOCALLY_BOUND` (Python). In Perl, a call with
+  `PDXE_LEX_UNRESOLVED_MEMBER` or to a builtin keeps only same-module and import
+  matches. The fixtures `*_unresolved_member_call`, `python_locally_bound_call` and
+  `python_self_rooted_member_call` hold the reference's answers for each case.
 - **A reference** (`is_reference`) with a typed answer is a call reference when its
   target is callable, meaning a definition whose engine kind is `Function`, `Method`,
   `Constructor` or `Class`, and a plain use otherwise. A typed answer whose target is

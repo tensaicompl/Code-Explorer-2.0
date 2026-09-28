@@ -1,0 +1,14 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything. TEXTUAL rows are the reference engine's own
+# textual edges, as recorded in expected.tsv; SITE rows are the interface's facts.
+# The member guard's one exemption: a receiver rooted at self (an object the class
+# owns) keeps a unique-name binding. A receiver passed in does not, nor does a
+# self-rooted call to a name that is a builtin type's own method. The interface keeps
+# the two facts apart, so the exemption can be applied exactly.
++	TEXTUAL	app.query.Query.run_owned	lib.conv.Compiler.apply_converters	unique_name
++	SITE	app.query.Query.run_owned	self.compiler.apply_converters	unresolved_member+self_rooted
+-	TEXTUAL	app.query.Query.run_passed_in	*	*
++	SITE	app.query.Query.run_passed_in	other.apply_converters	unresolved_member
+-	TEXTUAL	app.query.Query.run_builtin_name	*	*
++	SITE	app.query.Query.run_builtin_name	self.parts.extend	unresolved_member+self_rooted

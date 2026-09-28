@@ -459,6 +459,23 @@ static uint32_t count_reference_sites(const PDXEUsageArray *usages) {
     return n;
 }
 
+/* What the extractor saw around a call, as the interface's lexical bits. */
+static uint16_t call_lexical_of(const PDXECall *c) {
+    return (uint16_t)((c->is_method ? PDXE_LEX_UNRESOLVED_MEMBER : 0) |
+                      (c->callee_is_locally_bound ? PDXE_LEX_LOCALLY_BOUND : 0) |
+                      (c->receiver_is_self_attribute ? PDXE_LEX_SELF_ROOTED : 0));
+}
+
+/* What the extractor saw around a usage, as the interface's lexical bits. */
+static uint16_t lexical_of(const PDXEUsage *u) {
+    return (uint16_t)((u->kind == PDXE_USAGE_CALL_REFERENCE ? PDXE_LEX_EXPLICIT_REFERENCE : 0) |
+                     (u->is_member_access ? PDXE_LEX_MEMBER_ACCESS : 0) |
+                     (u->semantic_reference_blocked ? PDXE_LEX_BLOCKED : 0) |
+                     (u->semantic_reference_blocked && u->semantic_reference_local_shadow
+                          ? PDXE_LEX_BLOCKED_LOCALLY
+                          : 0));
+}
+
 /* The interface's description of an engine call. */
 static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const PDXECall *c) {
     pdxe_call o = {0};
@@ -472,17 +489,8 @@ static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const P
     o.span = site_span(li, c->source_origin, c->site_start_byte, c->site_end_byte, c->start_line);
     o.is_reference = 0;
     o.typed_only = c->requires_lsp_resolution ? 1 : 0;
+    o.lexical = call_lexical_of(c);
     return o;
-}
-
-/* What the extractor saw around a usage, as the interface's lexical bits. */
-static uint8_t lexical_of(const PDXEUsage *u) {
-    return (uint8_t)((u->kind == PDXE_USAGE_CALL_REFERENCE ? PDXE_LEX_EXPLICIT_REFERENCE : 0) |
-                     (u->is_member_access ? PDXE_LEX_MEMBER_ACCESS : 0) |
-                     (u->semantic_reference_blocked ? PDXE_LEX_BLOCKED : 0) |
-                     (u->semantic_reference_blocked && u->semantic_reference_local_shadow
-                          ? PDXE_LEX_BLOCKED_LOCALLY
-                          : 0));
 }
 
 /* The interface's description of a usage that may be a call reference. */

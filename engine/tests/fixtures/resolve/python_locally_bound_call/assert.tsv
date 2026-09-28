@@ -1,0 +1,11 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything. TEXTUAL rows are the reference engine's own
+# textual edges, as recorded in expected.tsv; SITE rows are the interface's facts.
+# execute_job is a parameter of with_slot, so the call inside it cannot be the
+# module-level execute_job and the reference does not bind it; the same name called
+# where nothing shadows it binds by unique name.
+-	TEXTUAL	app.runner.with_slot	*	*
++	TEXTUAL	app.runner.control	lib.jobs.execute_job	unique_name
++	SITE	app.runner.with_slot	execute_job	locally_bound
+-	SITE	app.runner.control	*	*

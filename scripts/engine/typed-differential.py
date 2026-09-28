@@ -23,6 +23,15 @@ What is compared, per fixture:
   CALL_REFERENCE  callables passed as values, which only typed resolution produces
   IMPORTS         import edges: importing file, target and the local name bound
 
+Two more kinds of row are recorded, and are not compared between the two sides,
+because each exists on one side only; the fixtures' assertions read them:
+
+  TEXTUAL         call edges the reference's textual stages drew, with their strategy:
+                  what resolving by name produced, which this project's own stages
+                  must reproduce
+  SITE            ours: a call carrying a fact that decides how it may be resolved by
+                  name (unresolved_member, locally_bound, self_rooted)
+
 Both sides collapse to one row per (kind, source, target), as the reference's graph
 does, and neither side keeps an edge from a definition to itself, which the reference
 never draws. Edges the reference's textual stages drew are not compared: resolving
@@ -76,8 +85,8 @@ def ours(dump, fixture, reverse=False, cached=False):
     rows = {}
     for line in out.stdout.splitlines():
         f = line.split("\t")
-        if f[0] == "IMPORTS":
-            rows.setdefault(("IMPORTS", f[1], f[2]), set()).add(f[3])
+        if f[0] in ("IMPORTS", "SITE"):
+            rows.setdefault((f[0], f[1], f[2]), set()).add(f[3])
         elif f[1] != f[2]:
             rows.setdefault((f[0], f[1], f[2]), set()).add(f[3] if f[0] == "CALLS" else "-")
     return rows
@@ -117,9 +126,11 @@ def reference(binary, fixture):
             if kind == "IMPORTS":
                 rows.setdefault(("IMPORTS", f"FILE:{spath}", target), set()).add(local or "")
                 continue
-            if kind == "CALLS" and (strategy is None or strategy in TEXTUAL):
-                continue
             src = source(slabel, sqn, spath)
+            if kind == "CALLS" and (strategy is None or strategy in TEXTUAL):
+                if src != target:
+                    rows.setdefault(("TEXTUAL", src, target), set()).add(strategy or "")
+                continue
             if src != target:
                 rows.setdefault((kind, src, target), set()).add(strategy if kind == "CALLS" else "-")
         db.close()
@@ -139,8 +150,13 @@ def from_lines(text):
     return rows
 
 
+ONE_SIDED = ("TEXTUAL", "SITE")
+
+
 def compare(label, expected, actual):
     """Differences between an expected and an actual row set, as readable lines."""
+    expected = {k: v for k, v in expected.items() if k[0] not in ONE_SIDED}
+    actual = {k: v for k, v in actual.items() if k[0] not in ONE_SIDED}
     problems = []
     for key in sorted(expected.keys() - actual.keys()):
         problems.append(f"  missing  {' '.join(key)}  ({label} has it, we do not)")
@@ -208,7 +224,8 @@ def main():
     for fixture in (pathlib.Path(f).resolve() for f in a.fixtures):
         expected_file = fixture / "expected.tsv"
         mine = ours(a.dump, fixture)
-        problems = check_asserts(fixture, mine)
+        recorded = from_lines(expected_file.read_text()) if expected_file.exists() else {}
+        problems = []
         if ours(a.dump, fixture, reverse=True) != mine:
             problems.append("  the answers change when the files are added in reverse order")
         if ours(a.dump, fixture, cached=True) != mine:
@@ -217,14 +234,19 @@ def main():
             theirs = reference(binary, fixture)
             if a.update:
                 expected_file.write_text(HEADER + "\n".join(to_lines(theirs)) + "\n")
-            elif expected_file.exists() and from_lines(expected_file.read_text()) != theirs:
+                recorded = theirs
+            elif expected_file.exists() and recorded != theirs:
                 problems.append("  expected.tsv is stale: the reference now answers differently")
             problems += compare("the reference", theirs, mine)
+            recorded = theirs
         else:
             if not expected_file.exists():
                 problems.append("  no expected.tsv: generate it with --reference --update")
             else:
-                problems += compare("expected.tsv", from_lines(expected_file.read_text()), mine)
+                problems += compare("expected.tsv", recorded, mine)
+        # The assertions read our rows and the reference's recorded textual edges.
+        problems += check_asserts(fixture, {**mine, **{k: v for k, v in recorded.items()
+                                                        if k[0] == "TEXTUAL"}})
         name = fixture.relative_to(REPO) if fixture.is_relative_to(REPO) else fixture
         if problems:
             failed += 1

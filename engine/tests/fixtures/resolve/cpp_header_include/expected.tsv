@@ -3,3 +3,5 @@
 CALLS	main.main	shapes.geo.Square.area	lsp_base_dispatch
 IMPORTS	FILE:main.cpp	shapes.hpp.__file__	hpp
 IMPORTS	FILE:shapes.cpp	shapes.hpp.__file__	hpp
+TEXTUAL	main.main	shapes.geo.total	unique_name
+TEXTUAL	shapes.geo.total	shapes.geo.Square.area	unique_name

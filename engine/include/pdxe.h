@@ -148,7 +148,9 @@ typedef struct {
  */
 /*
  * What the extractor saw of a name in its surroundings, for resolving it by name when
- * typed resolution has no answer. Bits of `lexical` on calls and usages:
+ * typed resolution has no answer. Each bit is one fact; none is a summary of others.
+ *
+ * On references and usages:
  *
  *   PDXE_LEX_EXPLICIT_REFERENCE  the source spells a callable reference as such
  *                                (a method reference, an address-of), rather than
@@ -161,13 +163,31 @@ typedef struct {
  *   PDXE_LEX_BLOCKED_LOCALLY     that binding is in a local scope; resolving it by
  *                                name must not reach anything
  *
+ * On calls:
+ *
+ *   PDXE_LEX_UNRESOLVED_MEMBER   a member call whose receiver the extractor could not
+ *                                tie to anything: in Python, not self, cls or super()
+ *                                and not rooted in an imported name; in JavaScript
+ *                                and TypeScript, not this or super; in Perl, any
+ *                                method call. Resolving it by a short name alone
+ *                                fabricates edges, so the reference does not
+ *   PDXE_LEX_LOCALLY_BOUND       a bare call whose callee name is a parameter of an
+ *                                enclosing function, so it cannot be the module-level
+ *                                definition of that name (Python)
+ *   PDXE_LEX_SELF_ROOTED         a member call whose receiver is an attribute chain
+ *                                rooted at self or cls but is not self or cls itself,
+ *                                an object the class owns (Python)
+ *
  * Appended by a specification change; see docs/plan/ISSUES.md, issue 17.
  */
 enum {
     PDXE_LEX_EXPLICIT_REFERENCE = 1,
     PDXE_LEX_MEMBER_ACCESS = 2,
     PDXE_LEX_BLOCKED = 4,
-    PDXE_LEX_BLOCKED_LOCALLY = 8
+    PDXE_LEX_BLOCKED_LOCALLY = 8,
+    PDXE_LEX_UNRESOLVED_MEMBER = 16,
+    PDXE_LEX_LOCALLY_BOUND = 32,
+    PDXE_LEX_SELF_ROOTED = 64
 };
 
 typedef struct {
@@ -177,7 +197,7 @@ typedef struct {
     pdxe_span span;
     uint8_t is_reference;
     uint8_t typed_only;
-    uint8_t lexical;
+    uint16_t lexical;
 } pdxe_call;
 
 typedef struct {
@@ -192,7 +212,7 @@ typedef struct {
     const char *name;
     uint32_t scope_index;
     pdxe_span span;
-    uint8_t lexical;
+    uint16_t lexical;
 } pdxe_usage;
 
 typedef struct {

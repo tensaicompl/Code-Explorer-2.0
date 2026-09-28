@@ -3,3 +3,5 @@
 CALLS	src.main.main	src.util.Greeter.greet	lsp_ts_method
 CALLS	src.main.main	src.util.makeGreeter	lsp_ts_import
 IMPORTS	FILE:src/main.ts	src.util	Greeter,makeGreeter
+TEXTUAL	src.main.main	src.util.Greeter	import_map
+TEXTUAL	src.util.makeGreeter	src.util.Greeter	same_module

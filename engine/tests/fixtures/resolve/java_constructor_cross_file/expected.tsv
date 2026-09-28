@@ -3,3 +3,6 @@
 CALLS	src.main.java.com.acme.app.Service.run	src.main.java.com.acme.core.Repo.Repo	lsp_constructor_synth
 CALLS	src.main.java.com.acme.core.Repo.create	src.main.java.com.acme.core.Repo.Repo	lsp_constructor
 IMPORTS	FILE:src/main/java/com/acme/app/Service.java	src.main.java.com.acme.core.Repo.java.__file__	Repo
+TEXTUAL	FILE:src/main/java/com/acme/app/Service.java	src.main.java.com.acme.core.Repo	import_map
+TEXTUAL	src.main.java.com.acme.app.Service.run	src.main.java.com.acme.core.Repo.create	import_map
+TEXTUAL	src.main.java.com.acme.app.Service.run	src.main.java.com.acme.core.Repo.find	unique_name

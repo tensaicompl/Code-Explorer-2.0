@@ -33,6 +33,10 @@ option(PDXE_VENDORED_WERROR "Treat warnings in vendored sources as errors" ON)
 
 set(PDXE_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
+# The exact flags each source is built with, for tests that compile probes the same
+# way (tests/warning_scope.py) and for editors.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # --- source sets -----------------------------------------------------------
 
 file(GLOB PDXE_CORE_SOURCES CONFIGURE_DEPENDS ${PDXE_ROOT}/src/*.c)
@@ -134,12 +138,21 @@ file(GLOB PDXE_GRAMMAR_WRAPPERS CONFIGURE_DEPENDS ${PDXE_ROOT}/src/grammar_*.c)
 if(PDXE_GRAMMAR_WRAPPERS)
   set_source_files_properties(${PDXE_GRAMMAR_WRAPPERS} PROPERTIES COMPILE_OPTIONS "-w")
 endif()
+# Every source that is not the interface layer: the vendored engine, its libraries
+# and the preprocessor. The exemptions below attach to these files and nothing else.
+set(PDXE_VENDORED_ALL
+  ${PDXE_CORE_SOURCES} ${PDXE_FOUNDATION_SOURCES} ${PDXE_RESOLVER_SOURCES}
+  ${PDXE_CROSS_SOURCES} ${PDXE_VENDORED_SOURCES} ${PDXE_ROOT}/src/preprocessor.cpp)
+
 if(PDXE_VENDORED_WERROR)
   target_compile_options(pdxe PRIVATE -Werror)
 
-  # Exempt for vendored code: warnings that report code nobody calls, a parameter or
-  # value nobody reads, a comment that nests a comment opener, and a sign mismatch in
-  # a comparison. They stay visible in the build log; they are not errors.
+  # Exempt in vendored code only: warnings that report code nobody calls, a parameter
+  # or value nobody reads, a comment that nests a comment opener, and a sign mismatch
+  # in a comparison. They stay visible in the build log; they are not errors. Set on
+  # the vendored files rather than the target, because a specific -Wno-error outranks
+  # a general -Werror wherever both appear, so on the target it would reach the
+  # interface layer too. tests/warning_scope.py checks it does not.
   include(CheckCCompilerFlag)
   set(PDXE_VENDORED_EXEMPT
     unused-function unused-parameter unused-variable unused-but-set-variable
@@ -151,7 +164,8 @@ if(PDXE_VENDORED_WERROR)
     string(MAKE_C_IDENTIFIER "PDXE_HAS_W_${warning}" flag_var)
     check_c_compiler_flag(-W${warning} ${flag_var})
     if(${flag_var})
-      target_compile_options(pdxe PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wno-error=${warning}>)
+      set_property(SOURCE ${PDXE_VENDORED_ALL} APPEND PROPERTY
+        COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:C>:-Wno-error=${warning}>)
     endif()
   endforeach()
 
@@ -160,8 +174,8 @@ if(PDXE_VENDORED_WERROR)
   # though nothing reads what it points to. The class stays an error everywhere else.
   check_c_compiler_flag(-Wmaybe-uninitialized PDXE_HAS_W_MAYBE_UNINITIALIZED)
   if(PDXE_HAS_W_MAYBE_UNINITIALIZED)
-    set_source_files_properties(${PDXE_ROOT}/src/foundation/mem_core.c PROPERTIES
-      COMPILE_OPTIONS "-Wno-error=maybe-uninitialized")
+    set_property(SOURCE ${PDXE_ROOT}/src/foundation/mem_core.c APPEND PROPERTY
+      COMPILE_OPTIONS -Wno-error=maybe-uninitialized)
   endif()
 endif()
 
@@ -206,10 +220,14 @@ if(PDXE_BUILD_TESTS)
   add_test(NAME abi_no_output
     COMMAND abi_no_output ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_DIRS})
 
+  # The warning exemptions reach vendored sources and never the interface layer.
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME api_warnings_are_errors
+    COMMAND ${Python3_EXECUTABLE} ${PDXE_ROOT}/tests/warning_scope.py ${CMAKE_BINARY_DIR})
+
   # Typed resolution, one test per fixture, named after it: our answers against the
   # reference's recorded ones, the fixture's own assertions, and independence from
   # the order files are added. See scripts/engine/typed-differential.py.
-  find_package(Python3 REQUIRED COMPONENTS Interpreter)
   file(GLOB PDXE_RESOLVE_FIXTURES LIST_DIRECTORIES true ${PDXE_ROOT}/tests/fixtures/resolve/*)
   foreach(fixture ${PDXE_RESOLVE_FIXTURES})
     if(IS_DIRECTORY ${fixture})

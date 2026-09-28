@@ -17,6 +17,12 @@
  *     CALLS           <source> <target> <engine strategy> <score>
  *     CALL_REFERENCE  <source> <target> <engine strategy> <score>
  *     IMPORTS         <file>   <target> <local name>
+ *     SITE            <source> <callee text> <facts>
+ *
+ * A SITE row is printed for each call extraction marked with a fact that decides
+ * how it may be resolved by name: unresolved_member, locally_bound, self_rooted,
+ * joined by '+'. The reference engine has no such rows; they are checked by the
+ * fixtures' own assertions.
  *
  * A source is the qualified name of the calling definition, or FILE:<path> for a call
  * at file or module scope, which is how the reference attributes those. Targets are
@@ -283,6 +289,41 @@ static void print_source(const corpus *c, const pdxe_resolution *res) {
     }
 }
 
+/* The facts on a call that decide how it may be resolved by name, as names. */
+static void print_sites(const corpus *c) {
+    for (size_t i = 0; i < c->files->count; i++) {
+        const pdxe_file_result *r = c->results[i];
+        for (uint32_t k = 0; r && k < r->n_calls; k++) {
+            const pdxe_call *call = &r->calls[k];
+            uint16_t facts = call->lexical & (PDXE_LEX_UNRESOLVED_MEMBER | PDXE_LEX_LOCALLY_BOUND |
+                                              PDXE_LEX_SELF_ROOTED);
+            if (call->is_reference || !facts) {
+                continue;
+            }
+            uint32_t ci = call->caller_index;
+            if (ci != PDXE_NO_PARENT && ci < r->n_defs && strcmp(r->defs[ci].kind, "module") != 0) {
+                printf("SITE\t%s\t", r->defs[ci].qualified_name);
+            } else {
+                printf("SITE\tFILE:%s\t", c->files->items[i]);
+            }
+            const char *sep = "";
+            printf("%s\t", call->callee_text ? call->callee_text : "-");
+            if (facts & PDXE_LEX_UNRESOLVED_MEMBER) {
+                printf("%sunresolved_member", sep);
+                sep = "+";
+            }
+            if (facts & PDXE_LEX_LOCALLY_BOUND) {
+                printf("%slocally_bound", sep);
+                sep = "+";
+            }
+            if (facts & PDXE_LEX_SELF_ROOTED) {
+                printf("%sself_rooted", sep);
+            }
+            printf("\n");
+        }
+    }
+}
+
 static void print_import(const char *rel, const char *local, const char *target, const char *label,
                          void *ud) {
     (void)ud;
@@ -396,6 +437,7 @@ int main(int argc, char **argv) {
                res[i].engine_strategy ? res[i].engine_strategy : "-", res[i].score);
     }
     pdxe_project_debug_imports(p, print_import, NULL);
+    print_sites(&c);
 
     pdxe_resolve_project_end(p);
     for (size_t i = 0; i < files.count; i++) {

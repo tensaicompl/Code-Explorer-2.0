@@ -1,0 +1,10 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything. TEXTUAL rows are the reference engine's own
+# textual edges, as recorded in expected.tsv; SITE rows are the interface's facts.
+# The same guard in the JavaScript and TypeScript family.
+-	TEXTUAL	app.service.run	*	*
++	TEXTUAL	app.service.control	lib.tools.refreshCache	unique_name
++	SITE	app.service.run	client.refreshCache	unresolved_member
+-	SITE	app.service.control	*	*
+-	CALLS	app.service.run	*	*

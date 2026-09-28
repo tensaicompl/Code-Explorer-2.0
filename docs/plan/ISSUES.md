@@ -15,10 +15,12 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 22 | 2026-09-28 | P0-04 | blocker | resolved | The nightly run failed on targets that belong to later tasks: the browser suite has no browser installed and the engine differential has no script yet, while four other targets reported success without checking anything. A red nightly could not be told from a regression | Each unfinished target now says it is skipped and names the task that brings it, and succeeds. The progress check fails once that task is done while its target still skips |
+| 21 | 2026-09-28 | P1-05 | ambiguity | open | The cross-file pass reports success whatever happens inside it: an allocation failure yields no typed answers at all, and a file whose source cannot be supplied is skipped and counted, and its log goes to a sink that discards it. A caller cannot tell no typed answer from a degraded run | Owned by P1-05: before the safe wrapper becomes the engine interface, resolution must report an explicit degraded or failed status, distinct from an empty result |
 | 20 | 2026-09-28 | P1-03 | ambiguity | resolved | Appendix I.2 states the shim's semantics in a line each, and four of those lines differ from what the reference actually does: its store keeps one node per qualified name by a content rule, its short-name lists move a renamed node, the import edges come from its import resolver rather than from extraction's import list, and its language lookup is a table of its own, not the language matrix | The shim reproduces the reference, not the summary, and the language lookup is vendored verbatim rather than rewritten. Differential fixtures against the reference confirm it |
-| 19 | 2026-09-28 | P1-03 | scr | open | Part 5.1 requires `-Wall -Wextra -Werror` for the engine, with no exemption. Measured: the vendored typed-resolution layer, which the reference compiles with every warning suppressed, carries dead code and style warnings under both compilers, so a literal reading does not build | Warnings are now errors across the engine by default, replacing decision 11. Nine warning classes that report dead code or style stay visible but non-fatal in vendored code only, plus one gcc false positive in one file. The interface layer has no exemption. Awaiting approval of the exemption list |
-| 18 | 2026-09-28 | P1-03 | scr | open | The plan's premise that the cross-file surface can be cached (Part 9.5, D20, 4.5 Stage 2) does not hold for the surface the reference builds: its definition rows are computed through the project's registry and import map, so they depend on other files, and they omit what the resolver reads to resolve the file's own calls | A file's surface is the context-free snapshot of every fact the engine records for it, minus the tree. A cache hit resolves from it with a re-parse and no re-extraction, and gives the same answers as a fresh extraction, which a test checks on every fixture. Awaiting approval of the corrected definition |
-| 17 | 2026-09-28 | P1-03 | scr | open | Appendix D.2 and D.3 cannot express what the typed pass answers: calls that exist only for typed resolution, callables passed as values, and call sites the pass itself adds; and nothing tells a caller which answers must not be followed by a guess | Appended fields: `typed_only` and lexical bits on each call, lexical bits on each usage, and the site's description on each resolution. References are reported as calls with `is_reference` set, as D.2 already defines. The reporting rules follow the reference's own calls and usages passes. Awaiting approval |
+| 19 | 2026-09-28 | P1-03 | scr | resolved | Part 5.1 requires `-Wall -Wextra -Werror` for the engine, with no exemption. Measured: the vendored typed-resolution layer, which the reference compiles with every warning suppressed, carries dead code and style warnings under both compilers, so a literal reading does not build | Approved 2026-09-28: warnings are errors by default; a named set of harmless classes stays non-fatal in vendored sources only; the interface layer has none; defect-class diagnostics are fatal everywhere. The exemptions first reached the interface layer through the target; now attached to vendored files only, with a test that each class still fails in `engine/api` |
+| 18 | 2026-09-28 | P1-03 | scr | resolved | The plan's premise that the cross-file surface can be cached (Part 9.5, D20, 4.5 Stage 2) does not hold for the surface the reference builds: its definition rows are computed through the project's registry and import map, so they depend on other files, and they omit what the resolver reads to resolve the file's own calls | Approved 2026-09-28 as implemented: a surface holds the file-local facts typed resolution reads and no cross-file state; unchanged files re-parse, never re-extract; cross-file state is recomputed every resolution; fresh, cached and reverse-order resolution are equivalent. Section 4.5 updated |
+| 17 | 2026-09-28 | P1-03 | scr | resolved | Appendix D.2 and D.3 cannot express what the typed pass answers: calls that exist only for typed resolution, callables passed as values, and call sites the pass itself adds; and nothing tells a caller which answers must not be followed by a guess | Appended: `typed_only` and lexical facts on calls, lexical facts on usages, the site's description on each resolution. The review found the call facts the reference's weak-call guards read were missing; added as three separate facts and proven against the reference by four fixtures |
 | 16 | 2026-09-28 | P1-03 | scr | resolved | Appendix D's typed-resolution strategy vocabulary is exhaustive and normalised, while section 4.2.2 rule 1 requires the engine's strategy string to be kept verbatim for calibration. Normalising alone loses which kind of dispatch resolved a call | Owner decision 2026-09-28: keep the normalised `strategy` exactly as Appendix D specifies, and append an `engine_strategy` field carrying the verbatim string. Implemented; the fixtures check the verbatim strategy against the reference's |
 | 15 | 2026-09-28 | P1-03 | scr | resolved | Appendix I's copy list omits the import-target resolver, which lives in a pipeline source it does not vendor. The typed resolver builds its import map from the edges that resolver creates, so without it TypeScript, JavaScript, Go, Java and C# resolve with an empty import map, contradicting Appendix D's import-map strategies | Owner decisions 2026-09-28: vendor the smallest exact closure of the resolver, and supply repository metadata (packages, path aliases, the root crate manifest) through the interface, produced in Rust with the registry work in P2-05. Implemented, and the vendored subset gives the reference's answer on every differential fixture. Aliased and module-internal imports need that metadata; until P2-05 supplies it from real manifests they resolve as for a repository that declares none, a staged gap with an owner, not an accuracy limit |
 | 14 | 2026-09-28 | P1-02 | ambiguity | resolved | The strip list cannot be built at this task. Deciding what nothing needs requires the interface layer, because that layer is what reaches the extraction entry points and the per-language registration tables; a trial analysis now reports files as unreferenced that demonstrably are not | Decided with the interface in place: a program referring to every interface function, linked against the archive, pulls in all but four objects, which are stripped. A build test now keeps every archive member reachable |
@@ -64,6 +66,59 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 22 — The nightly run failed on work not yet due
+
+The nightly workflow runs `make check-full`, whose targets are the plan's long suites.
+Most belong to tasks far ahead. On its last run, before P1-03, the browser suite
+failed for want of an installed browser, and the engine differential for want of a
+script. Four others (golden, oracle, determinism, performance) printed "not
+implemented" from the harness and exited successfully, which is worse: green for a
+check that checked nothing.
+
+A nightly that is red for work not yet due hides a real regression when one comes. So
+none of that work is started early; instead each unfinished target runs
+`scripts/pending-target.sh`, which prints that it is skipped and which task brings
+it, and succeeds without running anything partial:
+
+| Target | Arrives with |
+|---|---|
+| `golden` | P2-12 |
+| `determinism`, `perf` | P2-14 |
+| `engine-differential` | P2-16 |
+| `oracle` | P5-06 |
+| `e2e` | P7-01 |
+
+`asan` is real: since P1-03 it runs the engine's tests under the sanitizers, and P1-06
+adds its corpus. The progress check (`scripts/plan/plan-progress.py`) reads the
+Makefile and fails when a task is done while a target it owns still skips, so no
+stand-in outlives its task.
+
+State: resolved.
+
+### 21 — Resolution cannot yet say it was degraded
+
+`pdxe_resolve_project_run` runs the vendored cross-file pass and then collects its
+answers. The pass reports success whatever happens inside it, and several of its
+paths degrade rather than fail: an allocation failure at its start returns with no
+typed answers at all; a file whose source the provider cannot supply is skipped and
+counted; allocation failures inside a language's resolver shrink its answers. Its
+error log goes to the sink the interface installs to keep standard error silent, so
+the evidence is discarded too.
+
+To a caller that is indistinguishable from files that simply have no typed answers.
+Once the safe wrapper is the authoritative interface, a degraded run would be read as
+a clean one.
+
+Owned by P1-05: resolution must report a status that distinguishes a legitimate
+absence of typed answers from an engine or provider failure or a degraded run, before
+the wrapper becomes the engine interface. Two routes are visible now: capture the
+engine's own error events through the log sink during a run, rather than discarding
+them, and report them; and count the pass's skipped files, which it already tallies,
+through the interface. Either extends the ABI and belongs to that task, not to a patch
+here.
+
+State: open.
 
 ### 20 — The shim's semantics, as the reference actually has them
 
@@ -129,7 +184,17 @@ Builds clean under gcc 13 and clang 18 with this configuration.
 The specification change requested: Part 5.1's flags read "`-Wall -Wextra -Werror`,
 with the exemptions listed in engine/CMakeLists.txt for vendored code".
 
-State: open, awaiting approval of the exemption list.
+Approved 2026-09-28: the policy stands as proposed. The review found one defect in
+how it was applied: the exemptions were attached to the whole library target, and a
+specific `-Wno-error` outranks a general `-Werror` wherever both appear, so they
+reached the interface layer's sources too. They are now attached to the vendored
+source files only. `engine/tests/warning_scope.py` (ctest `api_warnings_are_errors`)
+compiles a probe for each exempt class with the exact flags an interface source gets,
+from the build's compile commands, and requires an error naming the class; with the
+flags a vendored source gets it requires the warning and no error. Passes under gcc
+13 and clang 18; no interface source's compile command carries an exemption.
+
+State: resolved.
 
 ### 18 — What a cached surface must hold
 
@@ -161,7 +226,18 @@ file's own facts as the typed resolver reads them, independent of every other fi
 and is cached with the extraction result, so that an unchanged file is never
 extracted again."
 
-State: open, awaiting approval of the corrected definition.
+Approved 2026-09-28 as implemented, in these terms: the surface contains the
+file-local extraction facts typed resolution requires and no cross-file-derived
+qualified state; unchanged files may re-parse but never re-extract; cross-file state
+is recomputed in every project resolution; fresh, cached and reverse-order resolution
+must remain equivalent. Section 4.5 of the specification mirror now says so.
+
+A further test makes the second term executable: for every resolution fixture, each
+file's surface is exported, the files are resolved as one project, and the surface
+exported again after the project ends must be the same bytes. A surface cannot be
+exported at all while a project holds the result.
+
+State: resolved.
 
 ### 17 — Call sites the typed pass answers that Appendix D cannot name
 
@@ -205,7 +281,34 @@ What the Rust stages do after that, the textual fallbacks and when a reference
 becomes a call-reference edge rather than a use, is the port of those passes in P2.
 The notes for it are in engine/README.md.
 
-State: open, awaiting approval of the additions to Appendix D.
+Review, 2026-09-28: approved, on one condition. The public header promised lexical
+facts on calls but gave ordinary calls none, while the reference's calls pass reads
+three facts about a call whenever typed resolution has no answer:
+
+- whether it is a member call whose receiver nothing ties down (its weak-member
+  guard, Python and the JavaScript and TypeScript family, and its Perl guard);
+- whether a bare call's name is a parameter of an enclosing function (its
+  local-binding guard, Python);
+- whether a member call's receiver is rooted at self or cls (the member guard's one
+  exemption, Python).
+
+Each is now its own bit, `PDXE_LEX_UNRESOLVED_MEMBER`, `PDXE_LEX_LOCALLY_BOUND` and
+`PDXE_LEX_SELF_ROOTED`, so no fact is folded into another; `lexical` widened to 16
+bits while the header can still change. Four fixtures show both halves: the
+reference's own textual edges (recorded in the goldens) and the facts on each site.
+
+- `python_unresolved_member_call`, `ts_unresolved_member_call`: a member call on a
+  parameter is not bound to the only same-named function in the project, while a
+  bare call to it binds by unique name; only the member call carries the fact.
+- `python_locally_bound_call`: a call to a parameter is not bound to the
+  module-level function of that name; the unshadowed call is.
+- `python_self_rooted_member_call`: a self-rooted receiver keeps its unique-name
+  binding; a parameter receiver does not; a self-rooted call to a builtin type's
+  method name does not either. The facts tell the three apart.
+
+Removing the self-rooted fact from the interface makes the last fixture fail.
+
+State: resolved.
 
 ### 16 — Strategy vocabulary and calibration disagree
 
