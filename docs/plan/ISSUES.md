@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 14 | 2026-09-28 | P1-02 | ambiguity | open | The strip list cannot be built at this task. Deciding what nothing needs requires the interface layer, because that layer is what reaches the extraction entry points and the per-language registration tables; a trial analysis now reports files as unreferenced that demonstrably are not | Deferred to the task that writes the interface layer, and closed before the phase gate, which is the first point where the answer is knowable |
 | 13 | 2026-09-28 | P1-02 | ambiguity | resolved | The reuse map's grammar rule names the files to copy, and misses three kinds the build needs: headers of other names, source fragments a scanner includes, and the per-language wrappers that actually compile the tables | The copy rule now takes the grammar directory whole, and the wrappers only for the matrix's languages. Naming a subset invites the next omission |
 | 12 | 2026-09-28 | P1-01 | ambiguity | resolved | The file-level reuse map lists the service-pattern sources under the pipeline directory; they are in the extraction directory, and the wildcard that copies it already takes them | Copied by the wildcard, landing beside the extraction core rather than the resolution sources. Recorded as decision 10; the map's intent is met |
 | 11 | 2026-09-28 | P0-04 | blocker | resolved | The deny list's prefix patterns required a word boundary, so the prefix survived in a script where it followed a word character. The scan passed while a stricter test failed | Boundary dropped from the prefix patterns, and the pattern for the type prefix widened. Verified against a planted fixture |
@@ -57,6 +58,30 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 14 — The strip list cannot be decided before the interface layer exists
+
+The build task is supposed to remove every copied source whose symbols nothing
+references once the excluded subsystems are gone, and the reuse map is explicit that
+this is decided from a trial build rather than by reading. The build now exists, so
+the analysis can be run. It cannot yet be trusted.
+
+Run against the archive, it reports nine objects as unreferenced. At least one of
+them is plainly needed: the Python standard-library table, whose registration
+function the Python resolver calls by name. Two others are referenced only from the
+cross-file resolution sources, which are not in the build yet. The rest are reached
+either from those same sources or from the interface layer, which does not exist:
+that layer is what will call the extraction entry points and register the per-language
+tables, so from the compiler's point of view they currently have no callers at all.
+
+Stripping on that evidence would delete code the next task wires up, and the deletion
+would look correct right until the moment it did not.
+
+Deferred to the interface-layer task, where the picture is complete, and closed
+before the phase gate rather than carried past it. The script and its list exist and
+are exercised; what is missing is a decision nobody can make yet.
+
+State: open. Blocks the phase gate, not the next task.
 
 ### 13 — The reuse map's grammar rule is not closed
 
