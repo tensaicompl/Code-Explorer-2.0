@@ -31,3 +31,21 @@ engine/src/foundation/str_intern.h
 # allocator setup above. Its public header stays, with its licence: sources that are
 # kept include it for types, behind switches this build leaves off.
 engine/vendored/mimalloc/src
+#
+# Found at P1-04, once the stripping above had removed the last callers: files the
+# interface still reaches none of.
+#
+# Headers of subsystems the copy step already leaves out (the stores that spill or
+# compress results, the XML export), and a list of approved recursion for parsers
+# that are not vendored. Nothing includes any of them.
+engine/src/iris_export_xml.h
+engine/src/lz4_store.h
+engine/src/sqlite_writer.h
+engine/src/zstd_store.h
+engine/src/foundation/recursion_whitelist.h
+# Libraries nothing uses. Compression was reached only through a helper of the
+# stripped allocator setup's era, which the interface no longer defines; the other
+# two were never included by a kept source.
+engine/vendored/lz4
+engine/vendored/zstd
+engine/vendored/wyhash

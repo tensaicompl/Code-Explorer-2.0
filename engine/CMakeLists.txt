@@ -66,8 +66,6 @@ file(GLOB PDXE_API_SOURCES CONFIGURE_DEPENDS ${PDXE_ROOT}/api/*.c)
 # calls it (scripts/vendor/strip-list.txt), and only its header, for types, is kept.
 set(PDXE_VENDORED_SOURCES
   ${PDXE_ROOT}/vendored/yyjson/yyjson.c
-  # Compression, for the matcher's tables.
-  ${PDXE_ROOT}/vendored/lz4/lz4.c
 )
 
 # --- grammars --------------------------------------------------------------
@@ -110,11 +108,18 @@ target_include_directories(pdxe PUBLIC
   ${PDXE_ROOT}/vendored/yyjson
   ${PDXE_ROOT}/vendored/mimalloc/include
   ${PDXE_ROOT}/vendored/verstable
-  ${PDXE_ROOT}/vendored/wyhash
   ${PDXE_ROOT}/vendored/common
 )
 
 target_compile_options(pdxe PRIVATE ${PDXE_COMMON_FLAGS} -Wall -Wextra)
+
+# On Windows the C runtime marks the POSIX names the engine uses (strdup and the
+# like) and its unchecked string functions as deprecated. They are what the sources
+# are written against, so the deprecation is switched off rather than the vendored
+# code rewritten.
+if(WIN32)
+  target_compile_definitions(pdxe PRIVATE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_DEPRECATE)
+endif()
 
 # Some diagnostics are defects wherever they occur, vendored or not: a function
 # called without a declaration is assumed to return int, which truncates a pointer on

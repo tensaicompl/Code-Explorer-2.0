@@ -85,11 +85,14 @@ typedef struct {
 } pdxe_span;
 
 /* Visibility of a definition, as the source declares it. */
-enum {
+enum pdxe_visibility {
     PDXE_VIS_UNKNOWN = 0,
     PDXE_VIS_PUBLIC = 1,
     PDXE_VIS_NON_PUBLIC = 2
 };
+
+/* The index that means "none": a definition at file scope, a call outside any. */
+#define PDXE_NO_PARENT UINT32_MAX
 
 /*
  * A definition: anything the graph gives a node of its own.
@@ -103,8 +106,6 @@ enum {
  * `parent_index` indexes the definition array of the same result, or
  * PDXE_NO_PARENT when the definition is at file scope.
  */
-#define PDXE_NO_PARENT UINT32_MAX
-
 typedef struct {
     const char *name;
     const char *qualified_name;
@@ -123,29 +124,6 @@ typedef struct {
     uint32_t loop_depth;
 } pdxe_definition;
 
-/*
- * A call site.
- *
- * `caller_index` indexes the definition array of the same result, or is
- * PDXE_NO_PARENT for a call at file scope.
- *
- * `is_reference` marks a callable passed as a value rather than invoked: a name the
- * engine saw used as a value where a callable could be meant, such as a function
- * handed to another as an argument. It is a call reference only if typed resolution
- * says so; without a typed resolution it is an ordinary use of a name, and a caller
- * must not turn it into a call. Such a site is reported here and not again among the
- * usages, so that no site is counted twice.
- *
- * `typed_only` marks a site that exists only as a question for typed resolution: an
- * operator the language turns into a method call, a protocol method it invokes
- * implicitly, a call the engine inferred rather than read. It is a call only if a
- * typed resolution names its target. A caller must never resolve it by name, since
- * the name it carries is not text the source contains. Appended by a specification
- * change; see docs/plan/ISSUES.md, issue 17.
- *
- * Calls come first in the order the engine found them, then references in the
- * order their names appear. That order is the index a typed resolution refers to.
- */
 /*
  * What the extractor saw of a name in its surroundings, for resolving it by name when
  * typed resolution has no answer. Each bit is one fact; none is a summary of others.
@@ -180,7 +158,7 @@ typedef struct {
  *
  * Appended by a specification change; see docs/plan/ISSUES.md, issue 17.
  */
-enum {
+enum pdxe_lexical_fact {
     PDXE_LEX_EXPLICIT_REFERENCE = 1,
     PDXE_LEX_MEMBER_ACCESS = 2,
     PDXE_LEX_BLOCKED = 4,
@@ -190,6 +168,29 @@ enum {
     PDXE_LEX_SELF_ROOTED = 64
 };
 
+/*
+ * A call site.
+ *
+ * `caller_index` indexes the definition array of the same result, or is
+ * PDXE_NO_PARENT for a call at file scope.
+ *
+ * `is_reference` marks a callable passed as a value rather than invoked: a name the
+ * engine saw used as a value where a callable could be meant, such as a function
+ * handed to another as an argument. It is a call reference only if typed resolution
+ * says so; without a typed resolution it is an ordinary use of a name, and a caller
+ * must not turn it into a call. Such a site is reported here and not again among the
+ * usages, so that no site is counted twice.
+ *
+ * `typed_only` marks a site that exists only as a question for typed resolution: an
+ * operator the language turns into a method call, a protocol method it invokes
+ * implicitly, a call the engine inferred rather than read. It is a call only if a
+ * typed resolution names its target. A caller must never resolve it by name, since
+ * the name it carries is not text the source contains. Appended by a specification
+ * change; see docs/plan/ISSUES.md, issue 17.
+ *
+ * Calls come first in the order the engine found them, then references in the
+ * order their names appear. That order is the index a typed resolution refers to.
+ */
 typedef struct {
     const char *callee_text;
     const char *receiver_text;
@@ -247,7 +248,7 @@ typedef struct {
 } pdxe_diag;
 
 /* `status`: 0 parsed, 1 partial (the tree carries errors), 2 failed. */
-enum {
+enum pdxe_file_status {
     PDXE_FILE_PARSED = 0,
     PDXE_FILE_PARTIAL = 1,
     PDXE_FILE_FAILED = 2
@@ -295,6 +296,10 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
 
 /* --- typed resolution across files --------------------------------------- */
 
+/*
+ * A set of files resolved together: added one by one, with the repository's
+ * metadata, run once, and read for its resolutions until it ends.
+ */
 typedef struct pdxe_project pdxe_project;
 
 int pdxe_resolve_project_begin(pdxe_ctx *ctx, pdxe_project **out);

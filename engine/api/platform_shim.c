@@ -15,11 +15,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#if defined(__unix__) || defined(__APPLE__)
-#include <unistd.h>
-#endif
-
-#include "lz4/lz4.h"
 #include "pdxe_core.h"
 #include "foundation/platform.h"
 
@@ -77,14 +72,10 @@ void pdxe_result_compact_release_thread(void) {
  * The engine can record where memory goes and flush that record per thread. The
  * header's hooks compile to nothing unless the feature is enabled, and it is not:
  * measuring the engine's allocator is not how this project measures anything.
- * These two are called outside those hooks, so they need a body.
+ * The flush is called outside those hooks, so it needs a body.
  */
 
 void pdxe_memev_flush_thread(void) {
-}
-
-void pdxe_memev_phase(const char *label) {
-    (void)label;
 }
 
 /* --- helpers that reach for the operating system -------------------------- */
@@ -104,54 +95,4 @@ void pdxe_secure_zero(void *buffer, size_t length) {
     while (length-- > 0) {
         *p++ = 0;
     }
-}
-
-/*
- * Physical memory, in bytes, or zero when it cannot be determined.
- *
- * Callers treat zero as unknown and fall back to their own budget, so a platform
- * this does not cover degrades rather than fails.
- */
-size_t pdxe_system_available_ram(void) {
-#if defined(_SC_PHYS_PAGES) && defined(_SC_PAGESIZE)
-    long pages = sysconf(_SC_PHYS_PAGES);
-    long page_size = sysconf(_SC_PAGESIZE);
-    if (pages > 0 && page_size > 0) {
-        return (size_t)pages * (size_t)page_size;
-    }
-#endif
-    return 0;
-}
-
-/*
- * Cores and memory.
- *
- * The distinction between performance and efficiency cores exists for one
- * platform's scheduler. Nothing here schedules by core type, so both counts are
- * the same number, and the field keeps its meaning for a caller that checks it.
- */
-pdxe_system_info_t pdxe_system_info(void) {
-    pdxe_system_info_t info;
-    memset(&info, 0, sizeof(info));
-    info.total_cores = pdxe_nprocs();
-    if (info.total_cores < 1) {
-        info.total_cores = 1;
-    }
-    info.perf_cores = info.total_cores;
-    info.total_ram = pdxe_system_available_ram();
-    return info;
-}
-
-/* --- compression ---------------------------------------------------------- */
-/*
- * The matcher keeps its tables compressed. The compression library is vendored
- * alongside the engine, so this is a thin call through to it rather than a
- * decision: the engine's own wrapper lived in the store, which is not vendored.
- */
-
-int pdxe_lz4_decompress(const char *src, int src_len, char *dst, int original_len) {
-    if (src == NULL || dst == NULL || src_len <= 0 || original_len <= 0) {
-        return -1;
-    }
-    return LZ4_decompress_safe(src, dst, src_len, original_len);
 }

@@ -19,6 +19,7 @@
 
 #include "pdxe.h"
 #include "pdxe_core.h"
+#include "foundation/compat.h"
 #include "foundation/hash_table.h"
 #include "foundation/log.h"
 #include "foundation/str_util.h"
@@ -1494,7 +1495,7 @@ static int build_structure(pdxe_project *p) {
 
         /* The directories above the file, from the nearest up to the first seen. */
         const char *slash = strrchr(rel, '/');
-        char *walk = slash ? strndup(rel, (size_t)(slash - rel)) : strdup("");
+        char *walk = slash ? pdxe_strndup(rel, (size_t)(slash - rel)) : strdup("");
         if (!walk) {
             rc = PDXE_E_NOMEM;
             break;
