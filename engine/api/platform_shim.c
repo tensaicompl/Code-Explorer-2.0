@@ -16,7 +16,18 @@
 #include <string.h>
 
 #include "pdxe_core.h"
+#include "foundation/mem_events.h"
 #include "foundation/platform.h"
+#include "foundation/secure_random.h"
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <bcrypt.h> /* BCryptGenRandom */
+#include <limits.h> /* ULONG_MAX */
+#endif
 
 /* --- extractors performed elsewhere -------------------------------------- */
 /*
@@ -72,11 +83,17 @@ void pdxe_result_compact_release_thread(void) {
  * The engine can record where memory goes and flush that record per thread. The
  * header's hooks compile to nothing unless the feature is enabled, and it is not:
  * measuring the engine's allocator is not how this project measures anything.
- * The flush is called outside those hooks, so it needs a body.
+ * Two of its calls sit outside those hooks, so they need a body: the flush, and the
+ * end of a thread, which only the Windows thread-exit callback reports.
  */
 
 void pdxe_memev_flush_thread(void) {
 }
+
+#ifdef _WIN32
+void pdxe_memev_thread_end(void) {
+}
+#endif
 
 /* --- helpers that reach for the operating system -------------------------- */
 
@@ -96,3 +113,32 @@ void pdxe_secure_zero(void *buffer, size_t length) {
         *p++ = 0;
     }
 }
+
+#ifdef _WIN32
+/*
+ * Fills a buffer from the operating system's cryptographic random source.
+ *
+ * Only Windows asks: there the foundation names the temporary directories and
+ * files it creates itself, from random characters, where other systems have
+ * mkdtemp and mkstemp do it. A name drawn from a predictable source could be
+ * claimed by another process first, so it must come from this one. Returns false,
+ * with the buffer unspecified, if the source fails.
+ */
+bool pdxe_secure_random(void *buffer, size_t length) {
+    if (buffer == NULL && length != 0) {
+        return false;
+    }
+    unsigned char *cursor = (unsigned char *)buffer;
+    while (length > 0) {
+        /* The call takes a 32-bit length; a larger request is filled in parts. A
+         * negative status is a failure. */
+        ULONG chunk = length > ULONG_MAX ? ULONG_MAX : (ULONG)length;
+        if (BCryptGenRandom(NULL, cursor, chunk, BCRYPT_USE_SYSTEM_PREFERRED_RNG) < 0) {
+            return false;
+        }
+        cursor += chunk;
+        length -= chunk;
+    }
+    return true;
+}
+#endif

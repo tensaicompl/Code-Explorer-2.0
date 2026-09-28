@@ -24,7 +24,9 @@ ones and fails if they differ.
 ## Build
 
 `build.rs` builds the engine with the same `CMake` project `make engine` uses and
-links it statically, with the C++ runtime its macro preprocessor needs.
+links it statically, with the C++ runtime its macro preprocessor needs and, on
+Windows, the system libraries its Windows code calls (`advapi32`, `bcrypt`); the
+project names the same libraries for what it links itself.
 
 The project owns every compiler flag, its warning policy included: the build gives
 `CMake` empty base flags, because the cmake crate otherwise passes its own, and those

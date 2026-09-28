@@ -29,7 +29,8 @@ engine/src/foundation/str_intern.c
 engine/src/foundation/str_intern.h
 # engine/vendored/mimalloc/src: the allocator's implementation, reached only from the
 # allocator setup above. Its public header stays, with its licence: sources that are
-# kept include it for types, behind switches this build leaves off.
+# kept include it for types, behind switches this build leaves off (on Windows, once
+# engine/patches/0005 puts the thread source's one unguarded use behind them too).
 engine/vendored/mimalloc/src
 #
 # Found at P1-04, once the stripping above had removed the last callers: files the

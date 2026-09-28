@@ -1,0 +1,54 @@
+--- a/engine/src/foundation/compat_thread.c
++++ b/engine/src/foundation/compat_thread.c
+@@ -11,7 +11,15 @@
+ #include "foundation/platform.h"
+ #include "foundation/sanitized.h" /* PDXE_SANITIZED — diagnostic stack floor */
+ 
++/* Whether anything allocates from the allocator: as the process allocator, or
++ * bound directly to the parsers. A build that sets neither does not link it. */
++#if (defined(PDXE_MEM_GLOBAL_OVERRIDE) && PDXE_MEM_GLOBAL_OVERRIDE) || \
++    (defined(PDXE_BIND_TS_ALLOCATOR) && PDXE_BIND_TS_ALLOCATOR)
++#define PDXE_ALLOCATOR_IN_USE 1
+ #include <mimalloc.h> /* mi_thread_done at thread exit */
++#else
++#define PDXE_ALLOCATOR_IN_USE 0
++#endif
+ 
+ #include <errno.h> /* EINVAL — a refused stack-size hint, see pdxe_thread_create */
+ #include <pthread.h>
+@@ -80,6 +88,7 @@ typedef struct {
+  *
+  * PDXE_MI_THREAD_DONE=0 disables it, so one binary can demonstrate both
+  * behaviours rather than requiring a rebuild to establish causality. */
++#if PDXE_ALLOCATOR_IN_USE
+ static bool thread_release_heap_enabled(void) {
+     static int state = -1;
+     if (state < 0) {
+@@ -91,6 +100,7 @@ static bool thread_release_heap_enabled(void) {
+     }
+     return state == 1;
+ }
++#endif
+ 
+ static void NTAPI pdxe_thread_detach_callback(PVOID handle, DWORD reason, PVOID reserved) {
+     (void)handle;
+@@ -98,16 +108,18 @@ static void NTAPI pdxe_thread_detach_callback(PVOID handle, DWORD reason, PVOID
+     if (reason == DLL_THREAD_DETACH) {
+         pdxe_memev_thread_end(); /* waste-sanitizer thread state; no-op outside that build */
+     }
++#if PDXE_ALLOCATOR_IN_USE
+     if (reason == DLL_THREAD_DETACH && thread_release_heap_enabled()) {
+         mi_thread_done();
+     }
++#endif
+ }
+ 
+ /* Park the callback in .CRT$XLB, the table the loader walks. The linker only
+  * emits a TLS directory when _tls_used is referenced, so anchor it. */
+ extern const IMAGE_TLS_DIRECTORY64 _tls_used;
+ static const void *const pdxe_tls_anchor __attribute__((used)) = &_tls_used;
+-__attribute__((section(".CRT$XLB"), used)) PIMAGE_TLS_CALLBACK pdxe_thread_detach_tls_cb =
++__attribute__((section(".CRT$XLB"), used)) const PIMAGE_TLS_CALLBACK pdxe_thread_detach_tls_cb =
+     pdxe_thread_detach_callback;
+ 
+ static DWORD WINAPI win_thread_wrapper(LPVOID lpParam) {

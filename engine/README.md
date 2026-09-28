@@ -28,6 +28,11 @@ Requires CMake 3.25 or later and a C17 and C++17 compiler. Built and tested with
 gcc 13 and clang 18. One translation unit is C++ (macro preprocessing); everything
 else is C.
 
+On Windows the engine is built by clang for the MSVC ABI, through Ninja, as
+`crates/pdx-engine-sys` does; Microsoft's own compiler is not supported. `api/windows`
+supplies what that runtime lacks, and the project names the system libraries the
+engine's Windows code calls (issue 24).
+
 The grammars are not compiled directly. Each language has a wrapper in `src/` that
 includes its parser and scanner, which is how the generated tables are kept apart:
 they declare static symbols of the same names, so two in one translation unit would
@@ -54,6 +59,7 @@ and return-type mismatches.
 | `grammars/<language>/` | Generated parser tables, one directory per language, each with its own licence |
 | `vendored/<library>/` | Third-party libraries, each with its own licence |
 | `api/` | The interface this project presents to the rest of the system, and the shim the resolver's sources call into. Ours, and held to warnings-as-errors with no exemption |
+| `api/windows/` | For Microsoft's C runtime only: the POSIX names the vendored sources use, in a header included ahead of every source, and stand-ins for three headers that runtime lacks |
 | `include/pdxe.h` | The public header, and the contract: read it before calling anything |
 | `patches/` | Local changes, applied after copying. See `patches/README.md` |
 | `tests/` | The interface's tests and their fixtures |

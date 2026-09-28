@@ -125,10 +125,17 @@ endif()
 # outside their Windows branches; the reference builds for Windows against a runtime
 # that has them. api/windows supplies the names (a header included ahead of every
 # source) and stands in for the missing headers, so the sources compile unchanged.
+#
+# The POSIX names that runtime does declare (strdup and the like) are resolved at link
+# time by its oldnames library. Microsoft's compilers name that library in every
+# object they produce; clang names it only when it chooses the runtime itself, and
+# here CMake chooses it. The objects name it here, so whatever links the archive,
+# CMake or rustc, resolves those names without being told.
 if(WIN32 AND NOT MINGW)
   target_include_directories(pdxe PRIVATE ${PDXE_ROOT}/api/windows)
   target_compile_options(pdxe PRIVATE
-    "SHELL:-include \"${PDXE_ROOT}/api/windows/posix_names.h\"")
+    "SHELL:-include \"${PDXE_ROOT}/api/windows/posix_names.h\""
+    "SHELL:-Xclang --dependent-lib=oldnames")
 endif()
 
 # Some diagnostics are defects wherever they occur, vendored or not: a function
@@ -198,6 +205,12 @@ find_package(Threads REQUIRED)
 target_link_libraries(pdxe PUBLIC Threads::Threads)
 if(UNIX AND NOT APPLE)
   target_link_libraries(pdxe PUBLIC m)
+endif()
+# The system libraries the engine calls on Windows: advapi32 for the access control
+# the foundation puts on the directories it creates, bcrypt for the random names it
+# gives them. crates/pdx-engine-sys/build.rs names the same for rustc.
+if(WIN32)
+  target_link_libraries(pdxe PUBLIC advapi32 bcrypt)
 endif()
 
 set_target_properties(pdxe PROPERTIES

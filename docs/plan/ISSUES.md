@@ -15,7 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 24 | 2026-09-28 | P1-04 | ambiguity | resolved | The engine had never been built for Windows. The reuse map's foundation list omits a Windows-only header the kept sources include, and the vendored sources rely on POSIX names that the reference's Windows runtime provides and Microsoft's, which Rust links against, does not | The header is vendored like the others; the missing names are supplied at the build boundary for Microsoft's runtime only, with no vendored source changed. Found by the first Windows builds of P1-04 |
+| 24 | 2026-09-28 | P1-04 | ambiguity | resolved | The engine had never been built for Windows. The reuse map's foundation list omits a Windows-only header the kept sources include, and the vendored sources rely on POSIX names that the reference's Windows runtime provides and Microsoft's, which Rust links against, does not | The header is vendored like the others; the missing names are supplied at the build boundary for Microsoft's runtime only; the libraries a Windows link needs are named; one Windows-only use of the unlinked allocator is put behind its switches by a patch. Found by the first Windows builds of P1-04 |
 | 23 | 2026-09-28 | P9-02 | ambiguity | open | `pdx-engine-sys` is marked publishable, but its build script builds the engine from `../../engine`, which a crate packaged on its own does not contain | Owned by P9-02: either the engine sources travel inside the packaged crate, or the crate stops being publishable. Nothing in P1 publishes a crate |
 | 22 | 2026-09-28 | P0-04 | blocker | resolved | The nightly run failed on targets that belong to later tasks: the browser suite has no browser installed and the engine differential has no script yet, while four other targets reported success without checking anything. A red nightly could not be told from a regression | Each unfinished target now says it is skipped and names the task that brings it, and succeeds. The progress check fails once that task is done while its target still skips |
 | 21 | 2026-09-28 | P1-05 | ambiguity | open | The cross-file pass reports success whatever happens inside it: an allocation failure yields no typed answers at all, and a file whose source cannot be supplied is skipped and counted, and its log goes to a sink that discards it. A caller cannot tell no typed answer from a degraded run | Owned by P1-05: before the safe wrapper becomes the engine interface, resolution must report an explicit degraded or failed status, distinct from an empty result |
@@ -72,7 +72,7 @@ State: resolved.
 ### 24 — The engine had never been built for Windows
 
 P1-04 is the first task to build the engine on Windows, and the first builds found
-two gaps, both invisible to a build on Linux or macOS.
+three gaps, all invisible to a build on Linux or macOS.
 
 - **A header the reuse map leaves out.** The kept foundation sources include a
   header-only set of UTF-8 path conversions inside their Windows branches. The map's
@@ -87,7 +87,22 @@ two gaps, both invisible to a build on Linux or macOS.
   included ahead of every source maps the names, and stand-ins let the includes
   resolve. The thread and system-call stand-ins declare nothing, since the engine's
   Windows branches use the operating system's own threads; a real use would fail to
-  compile. No vendored source is changed.
+  compile.
+- **What a Windows link needs.** Once the engine compiled, linking it into a Rust
+  program left names unresolved. The POSIX names Microsoft's runtime does declare
+  are resolved by its `oldnames` library, which Microsoft's compilers name in every
+  object and clang, with CMake choosing the runtime, does not; the objects now name
+  it. The foundation's Windows branches call `advapi32` (access control on the
+  directories it creates) and need random names for them; the libraries are named
+  in the engine's CMake project and in the build script, and the random source is
+  defined by our own layer, as the vendoring always intended. The thread source
+  releases each exiting thread's heap in the allocator, which is not linked here, and
+  reports the thread's end to the memory instrumentation, which is not built;
+  `engine/patches/0005-windows-thread-exit.patch` puts the release behind the
+  allocator's switches, where every other use of it already is, and our layer answers
+  the report as it answers the instrumentation's other call. The same patch makes
+  the callback's slot in the loader's table read-only, which clears a linker warning.
+  No vendored source is changed in place.
 
 Two defects in the build itself surfaced at the same time and are fixed in the build
 script (`crates/pdx-engine-sys`): a verbatim engine path that broke the sources'

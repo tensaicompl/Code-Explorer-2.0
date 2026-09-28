@@ -194,14 +194,16 @@ FOUNDATION_HEADERS=(
   win_utf8.h
   # The memory-instrumentation header, without its implementation, which is on the
   # list of sources never to take. Its hooks compile to nothing unless the feature
-  # flags are defined, and they are not defined here, so the header is inert and the
-  # foundation sources that include it need nothing linked.
+  # flags are defined, and they are not defined here, so the header is inert. The
+  # two calls the foundation makes outside those hooks, a per-thread flush and, on
+  # Windows, the end of a thread, are answered by our own layer
+  # (engine/api/platform_shim.c).
   mem_events.h
   # Declarations only, again. This one's two functions are real and are called by
   # the foundation, but its implementation reaches for the operating system in ways
   # this project supplies itself: our own layer defines them, exactly as it does for
-  # the lookups the resolution sources expect. Until it does they are undefined
-  # symbols in the archive, which is what an archive is for.
+  # the lookups the resolution sources expect. The erasure is called everywhere; the
+  # random source only on Windows, which is the only system our layer defines it for.
   secure_random.h
 )
 for unit in "${FOUNDATION[@]}"; do

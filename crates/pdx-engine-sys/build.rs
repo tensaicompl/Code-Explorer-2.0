@@ -145,11 +145,18 @@ fn link_engine(engine: &Path) {
     // Where the build is, for the test that reads how the engine was compiled.
     println!("cargo:rustc-env=PDXE_ENGINE_BUILD_DIR={}", build.display());
 
-    // One translation unit is C++, the macro preprocessor, so the C++ runtime is
-    // needed. With the MSVC toolchain the objects name their runtime themselves.
+    // What the engine's `CMake` project links it with, named again for rustc, which
+    // cannot read that project. One translation unit is C++, the macro preprocessor,
+    // so the C++ runtime is needed; with the MSVC toolchain the objects name their
+    // runtimes themselves, and what remains are the system libraries the engine
+    // calls on Windows: advapi32 for the access control the foundation puts on the
+    // directories it creates, bcrypt for the random names it gives them.
     match (target_os.as_str(), target_env.as_str()) {
         ("macos" | "ios", _) => println!("cargo:rustc-link-lib=dylib=c++"),
-        ("windows", "msvc") => {}
+        ("windows", "msvc") => {
+            println!("cargo:rustc-link-lib=dylib=advapi32");
+            println!("cargo:rustc-link-lib=dylib=bcrypt");
+        }
         ("linux" | "android", _) => {
             println!("cargo:rustc-link-lib=dylib=stdc++");
             println!("cargo:rustc-link-lib=dylib=m");
