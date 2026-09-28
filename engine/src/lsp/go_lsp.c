@@ -1,6 +1,6 @@
 #include "go_lsp.h"
 #include "lsp_node_iter.h"
-#include "../../../src/foundation/hash_table.h"
+#include "foundation/hash_table.h"
 #include "../helpers.h"
 #include <string.h>
 #include <stdio.h>
@@ -47,7 +47,7 @@ void go_lsp_init(GoLSPContext *ctx, PDXEArena *arena, const char *source, int so
     ctx->current_scope = pdxe_scope_push(arena, NULL); // root scope
 
     {
-        const char *debug_env = getenv("PDXE_LSP_DEBUG");
+        const char *debug_env = getenv("PDX_ENGINE_LSP_DEBUG");
         ctx->debug = (debug_env && debug_env[0]);
     }
 }

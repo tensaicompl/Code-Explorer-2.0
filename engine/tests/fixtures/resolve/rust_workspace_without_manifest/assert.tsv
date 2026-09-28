@@ -1,0 +1,6 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
+# Without a manifest the same call resolves only because its name is unique.
++	CALLS	crates.beta.src.main.main	crates.alpha.src.lib.compute	lsp_short_name_unique
+-	CALLS	*	*	lsp_cross_crate

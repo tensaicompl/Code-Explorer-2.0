@@ -97,7 +97,7 @@ const PDXERegisteredFunc *perl_lookup_method(PerlLSPContext *ctx, const char *pa
                                             const char *method_name);
 
 /* Entry point: build registry from file defs + stdlib, then run resolution.
- * Called from pdxe_extract_file() via the language dispatch in pdxe.c. */
+ * Called from pdxe_engine_extract_file() via the language dispatch in pdxe.c. */
 void pdxe_run_perl_lsp(PDXEArena *arena, PDXEFileResult *result, const char *source, int source_len,
                       TSNode root);
 

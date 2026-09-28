@@ -62,7 +62,7 @@ const PDXERegisteredFunc* go_lookup_field_or_method(GoLSPContext* ctx,
     const char* type_qn, const char* member_name);
 
 // Entry point: build registry from file's own defs + run LSP resolution.
-// Called from pdxe_extract_file() after definitions and imports are extracted.
+// Called from pdxe_engine_extract_file() after definitions and imports are extracted.
 void pdxe_run_go_lsp(PDXEArena* arena, PDXEFileResult* result,
     const char* source, int source_len, TSNode root);
 

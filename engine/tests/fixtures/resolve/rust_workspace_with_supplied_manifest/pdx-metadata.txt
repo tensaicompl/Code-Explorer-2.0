@@ -1,0 +1,4 @@
+# The workspace the Cargo.toml beside this file declares, as the caller would supply it.
+crate-workspace
+crate-member	crates/alpha
+crate-member	crates/beta

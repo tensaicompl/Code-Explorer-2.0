@@ -89,7 +89,7 @@ const PDXERegisteredFunc *php_lookup_method(PHPLSPContext *ctx, const char *clas
                                             const char *method_name);
 
 /* Entry point: build registry from file defs + stdlib + composer (if present),
- * then run resolution. Called from pdxe_extract_file(). */
+ * then run resolution. Called from pdxe_engine_extract_file(). */
 void pdxe_run_php_lsp(PDXEArena *arena, PDXEFileResult *result, const char *source, int source_len,
                     TSNode root);
 

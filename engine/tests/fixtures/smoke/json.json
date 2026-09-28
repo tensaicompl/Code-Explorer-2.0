@@ -1,0 +1,4 @@
+{
+  "service": { "name": "greeter", "port": 8080 },
+  "database": { "url": "postgres://localhost/demo" }
+}

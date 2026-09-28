@@ -10,7 +10,7 @@
  *
  * One Export file may contain multiple <Class> blocks. Each produces a
  * separate UDL string. The caller iterates the returned array and calls
- * pdxe_extract_file(..., PDXE_LANG_OBJECTSCRIPT_UDL, ...) for each entry.
+ * pdxe_engine_extract_file(..., PDXE_LANG_OBJECTSCRIPT_UDL, ...) for each entry.
  *
  * Returns arena-allocated array of NUL-terminated UDL strings, or NULL
  * if the file is not an Export file or parsing fails gracefully.

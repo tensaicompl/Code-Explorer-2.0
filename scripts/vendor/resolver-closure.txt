@@ -1,0 +1,54 @@
+# Functions vendored from the reference's package-map source: the import-target
+# resolver and exactly what it calls there, plus the namespace-map builders that
+# produce one of its inputs from extraction results.
+#
+# Determined by a call-graph walk over the pinned reference, not by reading; see
+# docs/plan/ISSUES.md, issue 15. Manifest scanning and package discovery in the same
+# source are deliberately absent. The list names upstream functions, so it is this
+# vendoring step's input and is excluded from the provenance scan.
+#
+# One function name per line. Extracted verbatim, in the order the source defines them.
+
+header Vendored subset: the import-target resolver and what it calls, extracted
+header verbatim from the reference's package-map source by
+header scripts/vendor/extract-functions.py. The rest of that source, which scans
+header manifests and discovers packages, is deliberately not here.
+
+cbm_import_symbol_fallback_allowed
+cbm_pipeline_namespace_map_build
+cbm_pipeline_namespace_map_build_names
+cbm_pipeline_namespace_map_free
+cbm_pipeline_resolve_import_node
+cbm_pipeline_resolve_module
+ends_with
+import_candidate_symbol
+import_last_segment
+import_targetable_label
+include_path_depth
+include_target_outranks
+is_c_family_source
+is_header_include
+ns_map_free_entry
+path_dirname
+path_leaf
+resolve_backslash_prefix
+resolve_dot_prefix
+resolve_exact_file_node
+resolve_header_include
+resolve_sibling_file
+resolve_slash_prefix
+
+# Includes the source carries only for the manifest scanning that is not extracted.
+# The resolver needs none of them: the one thing it takes from discovery, the
+# language of a file name, is declared by the shim's pipeline header.
+drop-include discover/discover.h
+drop-include foundation/win_utf8.h
+drop-include foundation/yaml.h
+
+# The source's includes for its filesystem, platform and JSON work, which serve the
+# manifest scanning left behind; none of the functions above use them.
+drop-include foundation/compat_fs.h
+drop-include foundation/platform.h
+drop-include foundation/log.h
+drop-include yyjson/yyjson.h
+drop-include sys/stat.h

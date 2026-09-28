@@ -1,0 +1,17 @@
+# How to build and run the reference engine, for differential tests only.
+#
+# The reference's build file, target, binary and environment carry its name, so
+# they live in this data file, excluded from the provenance scan, and the scripts
+# read keys from here. Nothing built from these is committed or shipped: the
+# reference is built outside the tree, from the pinned checkout, and only its
+# output is compared with ours.
+#
+# One entry per line: key, tab, value.
+
+build_file	Makefile.cbm
+build_target	cbm
+build_dir_variable	BUILD_DIR
+extra_flags_variable	CFLAGS_EXTRA
+binary	codebase-memory-mcp
+cache_variable	CBM_CACHE_DIR
+index_arguments	cli --quiet index_repository

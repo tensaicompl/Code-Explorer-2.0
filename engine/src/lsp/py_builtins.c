@@ -16,7 +16,7 @@
  * so the resolved call is dropped and the strategy never lands on an edge.
  *
  * Fix: inject a small, fixed set of builtin definitions into result->defs
- * during the per-file Python LSP run (which executes inside pdxe_extract_file,
+ * during the per-file Python LSP run (which executes inside pdxe_engine_extract_file,
  * BEFORE the parallel pipeline mints def nodes from result->defs). The graph
  * therefore gains real "builtins.*" nodes that the LSP-emitted edges target.
  * The QNs here MUST match what the typeshed registry emits as callee_qn.

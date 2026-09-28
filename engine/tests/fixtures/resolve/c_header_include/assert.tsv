@@ -1,0 +1,5 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
++	IMPORTS	FILE:src/util.c	include.util.h.__file__	h
++	CALLS	src.util.point_norm	src.util.util_add	lsp_direct

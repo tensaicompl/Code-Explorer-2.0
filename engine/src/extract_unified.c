@@ -2605,7 +2605,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
      * has to stand in for a mechanism of its own. */
     uint32_t budget_nodes = ctx->walk_budget_nodes;
     {
-        const char *seam = getenv("PDXE_TEST_WALK_BUDGET_NODES");
+        const char *seam = getenv("PDX_ENGINE_TEST_WALK_BUDGET_NODES");
         if (seam && seam[0]) {
             budget_nodes = (uint32_t)strtoul(seam, NULL, 10);
         }

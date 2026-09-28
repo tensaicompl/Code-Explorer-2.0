@@ -61,7 +61,7 @@ static _Thread_local long g_ts_type_budget = -1;
 static _Thread_local bool g_ts_type_budget_warned;
 
 static void ts_type_budget_reset(size_t source_len) {
-    const char *e = getenv("PDXE_TS_TYPE_BUDGET");
+    const char *e = getenv("PDX_ENGINE_TS_TYPE_BUDGET");
     if (e && e[0]) {
         long v = atol(e);
         g_ts_type_budget = (v > 0) ? v : -1;
@@ -3804,7 +3804,7 @@ void ts_lsp_init(TSLSPContext *ctx, PDXEArena *arena, const char *source, int so
     ctx->dts_mode = dts_mode;
     ctx->current_scope = arena ? pdxe_scope_push(arena, NULL) : NULL;
 
-    const char *debug_env = getenv("PDXE_LSP_DEBUG");
+    const char *debug_env = getenv("PDX_ENGINE_LSP_DEBUG");
     ctx->debug = (debug_env && debug_env[0]);
 }
 
@@ -5527,7 +5527,7 @@ void pdxe_run_ts_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sourc
     // Diagnostic / benchmarking knob: setting `PDXE_LSP_DISABLED=1` skips the resolver.
     // This is used by the baseline-vs-LSP comparison tests to measure how many calls
     // the LSP-augmented path adds over plain tree-sitter extraction.
-    const char *disabled = getenv("PDXE_LSP_DISABLED");
+    const char *disabled = getenv("PDX_ENGINE_LSP_DISABLED");
     if (disabled && disabled[0] && disabled[0] != '0')
         return;
 

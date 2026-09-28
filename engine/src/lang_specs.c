@@ -20,156 +20,26 @@ extern const TSLanguage *tree_sitter_kotlin(void);
 extern const TSLanguage *tree_sitter_ruby(void);
 extern const TSLanguage *tree_sitter_c(void);
 extern const TSLanguage *tree_sitter_bash(void);
-extern const TSLanguage *tree_sitter_zig(void);
-extern const TSLanguage *tree_sitter_elixir(void);
-extern const TSLanguage *tree_sitter_haskell(void);
-extern const TSLanguage *tree_sitter_ocaml(void);
 extern const TSLanguage *tree_sitter_objc(void);
 extern const TSLanguage *tree_sitter_swift(void);
-extern const TSLanguage *tree_sitter_dart(void);
 extern const TSLanguage *tree_sitter_perl(void);
 extern const TSLanguage *tree_sitter_groovy(void);
-extern const TSLanguage *tree_sitter_erlang(void);
-extern const TSLanguage *tree_sitter_r(void);
-extern const TSLanguage *tree_sitter_html(void);
-extern const TSLanguage *tree_sitter_css(void);
-extern const TSLanguage *tree_sitter_scss(void);
 extern const TSLanguage *tree_sitter_yaml(void);
 extern const TSLanguage *tree_sitter_toml(void);
 extern const TSLanguage *tree_sitter_hcl(void);
 extern const TSLanguage *tree_sitter_sql(void);
 extern const TSLanguage *tree_sitter_dockerfile(void);
 // New languages (v0.5 expansion)
-extern const TSLanguage *tree_sitter_clojure(void);
-extern const TSLanguage *tree_sitter_fsharp(void);
-extern const TSLanguage *tree_sitter_julia(void);
-extern const TSLanguage *tree_sitter_vim(void);
-extern const TSLanguage *tree_sitter_nix(void);
-extern const TSLanguage *tree_sitter_commonlisp(void);
-extern const TSLanguage *tree_sitter_elm(void);
-extern const TSLanguage *tree_sitter_fortran(void);
-extern const TSLanguage *tree_sitter_cuda(void);
-extern const TSLanguage *tree_sitter_COBOL(void);
-extern const TSLanguage *tree_sitter_verilog(void);
-extern const TSLanguage *tree_sitter_elisp(void);
 extern const TSLanguage *tree_sitter_json(void);
 extern const TSLanguage *tree_sitter_xml(void);
 extern const TSLanguage *tree_sitter_markdown(void);
-extern const TSLanguage *tree_sitter_make(void);
-extern const TSLanguage *tree_sitter_cmake(void);
 extern const TSLanguage *tree_sitter_proto(void);
 extern const TSLanguage *tree_sitter_graphql(void);
-extern const TSLanguage *tree_sitter_vue(void);
-extern const TSLanguage *tree_sitter_svelte(void);
-extern const TSLanguage *tree_sitter_meson(void);
-extern const TSLanguage *tree_sitter_glsl(void);
-extern const TSLanguage *tree_sitter_ini(void);
 // Scientific/math languages
-extern const TSLanguage *tree_sitter_matlab(void);
-extern const TSLanguage *tree_sitter_lean(void);
-extern const TSLanguage *tree_sitter_form(void);
-extern const TSLanguage *tree_sitter_magma(void);
-extern const TSLanguage *tree_sitter_wolfram(void);
 
 // New languages
-extern const TSLanguage *tree_sitter_solidity(void);
-extern const TSLanguage *tree_sitter_typst(void);
-extern const TSLanguage *tree_sitter_gdscript(void);
-extern const TSLanguage *tree_sitter_gleam(void);
-extern const TSLanguage *tree_sitter_powershell(void);
-extern const TSLanguage *tree_sitter_pascal(void);
-extern const TSLanguage *tree_sitter_d(void);
-extern const TSLanguage *tree_sitter_scheme(void);
-extern const TSLanguage *tree_sitter_chialisp(void);
-extern const TSLanguage *tree_sitter_fennel(void);
-extern const TSLanguage *tree_sitter_fish(void);
-extern const TSLanguage *tree_sitter_awk(void);
-extern const TSLanguage *tree_sitter_zsh(void);
-extern const TSLanguage *tree_sitter_tcl(void);
 extern const TSLanguage *tree_sitter_ada(void);
-extern const TSLanguage *tree_sitter_agda(void);
-extern const TSLanguage *tree_sitter_racket(void);
-extern const TSLanguage *tree_sitter_odin(void);
-extern const TSLanguage *tree_sitter_rescript(void);
-extern const TSLanguage *tree_sitter_purescript(void);
-extern const TSLanguage *tree_sitter_nickel(void);
-extern const TSLanguage *tree_sitter_crystal(void);
-extern const TSLanguage *tree_sitter_teal(void);
-extern const TSLanguage *tree_sitter_hare(void);
-extern const TSLanguage *tree_sitter_pony(void);
-extern const TSLanguage *tree_sitter_luau(void);
-extern const TSLanguage *tree_sitter_qmljs(void);
-extern const TSLanguage *tree_sitter_cfscript(void);
-extern const TSLanguage *tree_sitter_cfml(void);
-extern const TSLanguage *tree_sitter_janet_simple(void);
-extern const TSLanguage *tree_sitter_sway(void);
-extern const TSLanguage *tree_sitter_nasm(void);
-extern const TSLanguage *tree_sitter_asm(void);
-extern const TSLanguage *tree_sitter_astro(void);
-extern const TSLanguage *tree_sitter_blade(void);
-extern const TSLanguage *tree_sitter_just(void);
-extern const TSLanguage *tree_sitter_gotmpl(void);
-extern const TSLanguage *tree_sitter_templ(void);
-extern const TSLanguage *tree_sitter_liquid(void);
-extern const TSLanguage *tree_sitter_jinja2(void);
-extern const TSLanguage *tree_sitter_prisma(void);
-extern const TSLanguage *tree_sitter_hyprlang(void);
-extern const TSLanguage *tree_sitter_dotenv(void);
-extern const TSLanguage *tree_sitter_diff(void);
-extern const TSLanguage *tree_sitter_wgsl(void);
-extern const TSLanguage *tree_sitter_kdl(void);
-extern const TSLanguage *tree_sitter_json5(void);
-extern const TSLanguage *tree_sitter_jsonnet(void);
-extern const TSLanguage *tree_sitter_ron(void);
-extern const TSLanguage *tree_sitter_thrift(void);
-extern const TSLanguage *tree_sitter_capnp(void);
 extern const TSLanguage *tree_sitter_properties(void);
-extern const TSLanguage *tree_sitter_ssh_config(void);
-extern const TSLanguage *tree_sitter_bibtex(void);
-extern const TSLanguage *tree_sitter_starlark(void);
-extern const TSLanguage *tree_sitter_bicep(void);
-extern const TSLanguage *tree_sitter_csv(void);
-extern const TSLanguage *tree_sitter_requirements(void);
-extern const TSLanguage *tree_sitter_hlsl(void);
-extern const TSLanguage *tree_sitter_vhdl(void);
-extern const TSLanguage *tree_sitter_systemverilog(void);
-extern const TSLanguage *tree_sitter_devicetree(void);
-extern const TSLanguage *tree_sitter_linkerscript(void);
-extern const TSLanguage *tree_sitter_gn(void);
-extern const TSLanguage *tree_sitter_kconfig(void);
-extern const TSLanguage *tree_sitter_bitbake(void);
-extern const TSLanguage *tree_sitter_smali(void);
-extern const TSLanguage *tree_sitter_tablegen(void);
-extern const TSLanguage *tree_sitter_ispc(void);
-extern const TSLanguage *tree_sitter_cairo(void);
-extern const TSLanguage *tree_sitter_move(void);
-extern const TSLanguage *tree_sitter_squirrel(void);
-extern const TSLanguage *tree_sitter_func(void);
-extern const TSLanguage *tree_sitter_regex(void);
-extern const TSLanguage *tree_sitter_jsdoc(void);
-extern const TSLanguage *tree_sitter_rst(void);
-extern const TSLanguage *tree_sitter_beancount(void);
-extern const TSLanguage *tree_sitter_mermaid(void);
-extern const TSLanguage *tree_sitter_puppet(void);
-extern const TSLanguage *tree_sitter_po(void);
-extern const TSLanguage *tree_sitter_gitattributes(void);
-extern const TSLanguage *tree_sitter_gitignore(void);
-extern const TSLanguage *tree_sitter_slang(void);
-extern const TSLanguage *tree_sitter_llvm(void);
-extern const TSLanguage *tree_sitter_smithy(void);
-extern const TSLanguage *tree_sitter_wit(void);
-extern const TSLanguage *tree_sitter_tlaplus(void);
-extern const TSLanguage *tree_sitter_pkl(void);
-extern const TSLanguage *tree_sitter_gomod(void);
-extern const TSLanguage *tree_sitter_apex(void);
-extern const TSLanguage *tree_sitter_soql(void);
-extern const TSLanguage *tree_sitter_sosl(void);
-extern const TSLanguage *tree_sitter_pine(void);
-extern const TSLanguage *tree_sitter_mojo(void);
-extern const TSLanguage *tree_sitter_objectscript_udl(void);
-extern const TSLanguage *tree_sitter_objectscript_routine(void);
-extern const TSLanguage *tree_sitter_arkts(void);
-extern const TSLanguage *tree_sitter_plsql(void);
 
 // -- Empty sentinel --
 static const char *empty_types[] = {NULL};
@@ -1820,26 +1690,26 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
     [PDXE_LANG_ZIG] = {PDXE_LANG_ZIG, zig_func_types, zig_class_types, zig_field_types,
                       zig_module_types, zig_call_types, zig_import_types, empty_types,
                       zig_branch_types, zig_var_types, zig_assign_types, empty_types, NULL,
-                      empty_types, zig_env_funcs, NULL, tree_sitter_zig, NULL},
+                      empty_types, zig_env_funcs, NULL, NULL, NULL},
 
     // PDXE_LANG_ELIXIR
     [PDXE_LANG_ELIXIR] = {PDXE_LANG_ELIXIR, elixir_func_types, empty_types, empty_types,
                          elixir_module_types, elixir_call_types, elixir_import_types, empty_types,
                          elixir_branch_types, elixir_var_types, elixir_var_types, empty_types, NULL,
-                         empty_types, elixir_env_funcs, NULL, tree_sitter_elixir, NULL},
+                         empty_types, elixir_env_funcs, NULL, NULL, NULL},
 
     // PDXE_LANG_HASKELL
     [PDXE_LANG_HASKELL] = {PDXE_LANG_HASKELL, haskell_func_types, haskell_class_types, empty_types,
                           haskell_module_types, haskell_call_types, haskell_import_types,
                           empty_types, haskell_branch_types, haskell_var_types, haskell_var_types,
                           empty_types, NULL, empty_types, haskell_env_funcs, NULL,
-                          tree_sitter_haskell, NULL},
+                          NULL, NULL},
 
     // PDXE_LANG_OCAML
     [PDXE_LANG_OCAML] = {PDXE_LANG_OCAML, ocaml_func_types, ocaml_class_types, empty_types,
                         ocaml_module_types, ocaml_call_types, ocaml_import_types, empty_types,
                         ocaml_branch_types, ocaml_var_types, ocaml_var_types, empty_types, NULL,
-                        empty_types, ocaml_env_funcs, NULL, tree_sitter_ocaml, NULL},
+                        empty_types, ocaml_env_funcs, NULL, NULL, NULL},
 
     // PDXE_LANG_OBJC
     [PDXE_LANG_OBJC] = {PDXE_LANG_OBJC, objc_func_types, objc_class_types, objc_field_types,
@@ -1857,7 +1727,7 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
     [PDXE_LANG_DART] = {PDXE_LANG_DART, dart_func_types, dart_class_types, dart_field_types,
                        dart_module_types, dart_call_types, dart_import_types, empty_types,
                        dart_branch_types, dart_var_types, dart_assign_types, dart_throw_types, NULL,
-                       dart_decorator_types, NULL, NULL, tree_sitter_dart, NULL},
+                       dart_decorator_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_PERL
     [PDXE_LANG_PERL] = {PDXE_LANG_PERL, perl_func_types, empty_types, empty_types, perl_module_types,
@@ -1876,32 +1746,32 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
     [PDXE_LANG_ERLANG] = {PDXE_LANG_ERLANG, erlang_func_types, erlang_class_types, empty_types,
                          erlang_module_types, erlang_call_types, erlang_import_types, empty_types,
                          erlang_branch_types, erlang_var_types, erlang_assign_types,
-                         erlang_throw_types, NULL, empty_types, NULL, NULL, tree_sitter_erlang,
+                         erlang_throw_types, NULL, empty_types, NULL, NULL, NULL,
                          NULL},
 
     // PDXE_LANG_R
     [PDXE_LANG_R] = {PDXE_LANG_R, r_func_types, empty_types, empty_types, r_module_types,
                     r_call_types, r_import_types, empty_types, r_branch_types, r_var_types,
-                    r_var_types, empty_types, NULL, empty_types, r_env_funcs, NULL, tree_sitter_r,
+                    r_var_types, empty_types, NULL, empty_types, r_env_funcs, NULL, NULL,
                     NULL},
 
     // PDXE_LANG_HTML
     [PDXE_LANG_HTML] = {PDXE_LANG_HTML, empty_types, empty_types, empty_types, html_module_types,
                        empty_types, empty_types, empty_types, empty_types, empty_types, empty_types,
-                       empty_types, NULL, empty_types, NULL, NULL, tree_sitter_html,
+                       empty_types, NULL, empty_types, NULL, NULL, NULL,
                        html_embedded_imports},
 
     // PDXE_LANG_CSS
     [PDXE_LANG_CSS] = {PDXE_LANG_CSS, empty_types, empty_types, empty_types, css_module_types,
                       css_call_types, css_import_types, empty_types, empty_types, empty_types,
-                      empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_css,
+                      empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                       NULL},
 
     // PDXE_LANG_SCSS
     [PDXE_LANG_SCSS] = {PDXE_LANG_SCSS, scss_func_types, empty_types, empty_types, scss_module_types,
                        scss_call_types, scss_import_types, empty_types, scss_branch_types,
                        scss_var_types, empty_types, empty_types, NULL, empty_types, NULL, NULL,
-                       tree_sitter_scss, NULL},
+                       NULL, NULL},
 
     // PDXE_LANG_YAML
     [PDXE_LANG_YAML] = {PDXE_LANG_YAML, empty_types, empty_types, empty_types, yaml_module_types,
@@ -1937,43 +1807,43 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
     [PDXE_LANG_CLOJURE] = {PDXE_LANG_CLOJURE, clojure_func_types, empty_types, empty_types,
                           clojure_module_types, clojure_call_types, empty_types, empty_types,
                           empty_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                          NULL, NULL, tree_sitter_clojure, NULL},
+                          NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_FSHARP
     [PDXE_LANG_FSHARP] = {PDXE_LANG_FSHARP, fsharp_func_types, fsharp_class_types, empty_types,
                          fsharp_module_types, fsharp_call_types, fsharp_import_types, empty_types,
                          fsharp_branch_types, fsharp_var_types, fsharp_var_types, empty_types, NULL,
-                         empty_types, fsharp_env_funcs, NULL, tree_sitter_fsharp, NULL},
+                         empty_types, fsharp_env_funcs, NULL, NULL, NULL},
 
     // PDXE_LANG_JULIA
     [PDXE_LANG_JULIA] = {PDXE_LANG_JULIA, julia_func_types, julia_class_types, empty_types,
                         julia_module_types, julia_call_types, julia_import_types, empty_types,
                         julia_branch_types, julia_var_types, julia_assign_types, julia_throw_types,
-                        NULL, empty_types, julia_env_funcs, NULL, tree_sitter_julia, NULL},
+                        NULL, empty_types, julia_env_funcs, NULL, NULL, NULL},
 
     // PDXE_LANG_VIMSCRIPT
     [PDXE_LANG_VIMSCRIPT] = {PDXE_LANG_VIMSCRIPT, vim_func_types, empty_types, empty_types,
                             vim_module_types, vim_call_types, vim_import_types, empty_types,
                             vim_branch_types, vim_var_types, vim_var_types, empty_types, NULL,
-                            empty_types, NULL, NULL, tree_sitter_vim, NULL},
+                            empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_NIX
     [PDXE_LANG_NIX] = {PDXE_LANG_NIX, nix_func_types, empty_types, empty_types, nix_module_types,
                       nix_call_types, empty_types, empty_types, nix_branch_types, nix_var_types,
                       nix_var_types, empty_types, NULL, empty_types, nix_env_funcs, NULL,
-                      tree_sitter_nix, NULL},
+                      NULL, NULL},
 
     // PDXE_LANG_COMMONLISP
     [PDXE_LANG_COMMONLISP] = {PDXE_LANG_COMMONLISP, commonlisp_func_types, empty_types, empty_types,
                              commonlisp_module_types, commonlisp_call_types,
                              commonlisp_import_types, empty_types, empty_types, empty_types,
                              empty_types, empty_types, NULL, empty_types, NULL, NULL,
-                             tree_sitter_commonlisp, NULL},
+                             NULL, NULL},
 
     // PDXE_LANG_ELM
     [PDXE_LANG_ELM] = {PDXE_LANG_ELM, elm_func_types, elm_class_types, empty_types, elm_module_types,
                       elm_call_types, elm_import_types, empty_types, elm_branch_types, empty_types,
-                      empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_elm,
+                      empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                       NULL},
 
     // PDXE_LANG_FORTRAN
@@ -1981,32 +1851,32 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
                           fortran_module_types, fortran_call_types, fortran_import_types,
                           empty_types, fortran_branch_types, fortran_var_types,
                           fortran_assign_types, empty_types, NULL, empty_types, fortran_env_funcs,
-                          NULL, tree_sitter_fortran, NULL},
+                          NULL, NULL, NULL},
 
     // PDXE_LANG_CUDA (reuses C++ node types)
     [PDXE_LANG_CUDA] = {PDXE_LANG_CUDA, cpp_func_types, cpp_class_types, cpp_field_types,
                        cpp_module_types, cpp_call_types, cpp_import_types, cpp_import_types,
                        cpp_branch_types, cpp_var_types, cpp_assign_types, cpp_throw_types, NULL,
-                       empty_types, cpp_env_funcs, NULL, tree_sitter_cuda, NULL},
+                       empty_types, cpp_env_funcs, NULL, NULL, NULL},
 
     // PDXE_LANG_COBOL
     [PDXE_LANG_COBOL] = {PDXE_LANG_COBOL, cobol_func_types, empty_types, empty_types,
                         cobol_module_types, cobol_call_types, cobol_import_types, empty_types,
                         cobol_branch_types, cobol_var_types, empty_types, empty_types, NULL,
-                        empty_types, NULL, NULL, tree_sitter_COBOL, NULL},
+                        empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_VERILOG
     [PDXE_LANG_VERILOG] = {PDXE_LANG_VERILOG, verilog_func_types, verilog_class_types, empty_types,
                           verilog_module_types, verilog_call_types, verilog_import_types,
                           empty_types, verilog_branch_types, verilog_var_types,
                           verilog_assign_types, empty_types, NULL, empty_types, NULL, NULL,
-                          tree_sitter_verilog, NULL},
+                          NULL, NULL},
 
     // PDXE_LANG_EMACSLISP
     [PDXE_LANG_EMACSLISP] = {PDXE_LANG_EMACSLISP, elisp_func_types, empty_types, empty_types,
                             elisp_module_types, elisp_call_types, empty_types, empty_types,
                             empty_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                            NULL, NULL, tree_sitter_elisp, NULL},
+                            NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_JSON
     [PDXE_LANG_JSON] = {PDXE_LANG_JSON, empty_types, empty_types, empty_types, json_module_types,
@@ -2029,13 +1899,13 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
     [PDXE_LANG_MAKEFILE] = {PDXE_LANG_MAKEFILE, makefile_func_types, empty_types, empty_types,
                            makefile_module_types, makefile_call_types, makefile_import_types,
                            empty_types, empty_types, makefile_var_types, empty_types, empty_types,
-                           NULL, empty_types, NULL, NULL, tree_sitter_make, NULL},
+                           NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_CMAKE
     [PDXE_LANG_CMAKE] = {PDXE_LANG_CMAKE, cmake_func_types, empty_types, empty_types,
                         cmake_module_types, cmake_call_types, make_import_types, empty_types,
                         empty_types, empty_types, empty_types, empty_types, NULL, empty_types, NULL,
-                        NULL, tree_sitter_cmake, NULL},
+                        NULL, NULL, NULL},
 
     // PDXE_LANG_PROTOBUF
     [PDXE_LANG_PROTOBUF] = {PDXE_LANG_PROTOBUF, protobuf_func_types, protobuf_class_types,
@@ -2053,169 +1923,169 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
     // PDXE_LANG_VUE
     [PDXE_LANG_VUE] = {PDXE_LANG_VUE, empty_types, empty_types, empty_types, vue_module_types,
                       empty_types, empty_types, empty_types, empty_types, empty_types, empty_types,
-                      empty_types, NULL, empty_types, NULL, NULL, tree_sitter_vue,
+                      empty_types, NULL, empty_types, NULL, NULL, NULL,
                       vue_embedded_imports},
 
     // PDXE_LANG_SVELTE
     [PDXE_LANG_SVELTE] = {PDXE_LANG_SVELTE, empty_types, empty_types, empty_types,
                          svelte_module_types, empty_types, empty_types, empty_types,
                          svelte_branch_types, empty_types, empty_types, empty_types, NULL,
-                         empty_types, NULL, NULL, tree_sitter_svelte, svelte_embedded_imports},
+                         empty_types, NULL, NULL, NULL, svelte_embedded_imports},
 
     // PDXE_LANG_MESON
     [PDXE_LANG_MESON] = {PDXE_LANG_MESON, meson_func_types, empty_types, empty_types,
                         meson_module_types, meson_call_types, empty_types, empty_types,
                         meson_branch_types, meson_var_types, meson_var_types, empty_types, NULL,
-                        empty_types, NULL, NULL, tree_sitter_meson, NULL},
+                        empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_GLSL (reuses C node types)
     [PDXE_LANG_GLSL] = {PDXE_LANG_GLSL, c_func_types, c_class_types, c_field_types, c_module_types,
                        c_call_types, c_import_types, empty_types, c_branch_types, c_var_types,
-                       c_assign_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_glsl,
+                       c_assign_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                        NULL},
 
     // PDXE_LANG_INI
     [PDXE_LANG_INI] = {PDXE_LANG_INI, empty_types, ini_class_types, empty_types, ini_module_types,
                       empty_types, empty_types, empty_types, empty_types, ini_var_types,
-                      empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_ini,
+                      empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                       NULL},
 
     // PDXE_LANG_MATLAB
     [PDXE_LANG_MATLAB] = {PDXE_LANG_MATLAB, matlab_func_types, matlab_class_types, empty_types,
                          matlab_module_types, matlab_call_types, empty_types, empty_types,
                          matlab_branch_types, matlab_var_types, matlab_var_types, empty_types, NULL,
-                         empty_types, NULL, NULL, tree_sitter_matlab, NULL},
+                         empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_LEAN
     [PDXE_LANG_LEAN] = {PDXE_LANG_LEAN, lean_func_types, lean_class_types, empty_types,
                        lean_module_types, lean_call_types, lean_import_types, empty_types,
                        lean_branch_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                       NULL, NULL, tree_sitter_lean, NULL},
+                       NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_FORM
     [PDXE_LANG_FORM] = {PDXE_LANG_FORM, form_func_types, empty_types, empty_types, form_module_types,
                        form_call_types, form_import_types, empty_types, form_branch_types,
                        form_var_types, form_assign_types, empty_types, NULL, empty_types, NULL,
-                       NULL, tree_sitter_form, NULL},
+                       NULL, NULL, NULL},
 
     // PDXE_LANG_MAGMA
     [PDXE_LANG_MAGMA] = {PDXE_LANG_MAGMA, magma_func_types, empty_types, empty_types,
                         magma_module_types, magma_call_types, magma_import_types, empty_types,
                         magma_branch_types, magma_var_types, magma_var_types, empty_types, NULL,
-                        empty_types, NULL, NULL, tree_sitter_magma, NULL},
+                        empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_WOLFRAM
     [PDXE_LANG_WOLFRAM] = {PDXE_LANG_WOLFRAM, wolfram_func_types, empty_types, empty_types,
                           wolfram_module_types, wolfram_call_types, wolfram_import_types,
                           empty_types, empty_types, empty_types, empty_types, empty_types, NULL,
-                          empty_types, NULL, NULL, tree_sitter_wolfram, NULL},
+                          empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_SOLIDITY
     [PDXE_LANG_SOLIDITY] = {PDXE_LANG_SOLIDITY, solidity_func_types, solidity_class_types,
                            solidity_field_types, solidity_module_types, solidity_call_types,
                            solidity_import_types, empty_types, solidity_branch_types,
                            solidity_var_types, solidity_assign_types, solidity_throw_types, NULL,
-                           empty_types, NULL, NULL, tree_sitter_solidity, NULL},
+                           empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_TYPST
     [PDXE_LANG_TYPST] = {PDXE_LANG_TYPST, typst_func_types, empty_types, empty_types,
                         typst_module_types, typst_call_types, typst_import_types, empty_types,
                         typst_branch_types, typst_var_types, typst_assign_types, empty_types, NULL,
-                        empty_types, NULL, NULL, tree_sitter_typst, NULL},
+                        empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_GDSCRIPT
     [PDXE_LANG_GDSCRIPT] = {PDXE_LANG_GDSCRIPT, gdscript_func_types, gdscript_class_types,
                            gdscript_field_types, gdscript_module_types, gdscript_call_types,
                            gdscript_import_types, empty_types, gdscript_branch_types,
                            gdscript_var_types, gdscript_assign_types, empty_types, NULL,
-                           gdscript_decorator_types, NULL, NULL, tree_sitter_gdscript, NULL},
+                           gdscript_decorator_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_QML
     [PDXE_LANG_QML] =
         {PDXE_LANG_QML, ts_func_types, qml_class_types, qml_field_types, js_module_types,
          js_call_types, qml_import_types, qml_import_types, js_branch_types, js_var_types,
          (const char *[]){"assignment_expression", "augmented_assignment_expression", NULL},
-         js_throw_types, NULL, ts_decorator_types, NULL, NULL, tree_sitter_qmljs, NULL},
+         js_throw_types, NULL, ts_decorator_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_CFSCRIPT
     [PDXE_LANG_CFSCRIPT] =
         {PDXE_LANG_CFSCRIPT, cfscript_func_types, empty_types, cfscript_field_types, js_module_types,
          js_call_types, cfscript_import_types, cfscript_import_types, js_branch_types, js_var_types,
          (const char *[]){"assignment_expression", "augmented_assignment_expression", NULL},
-         js_throw_types, NULL, empty_types, NULL, NULL, tree_sitter_cfscript, NULL},
+         js_throw_types, NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_CFML
     [PDXE_LANG_CFML] = {PDXE_LANG_CFML, cfml_func_types, empty_types, empty_types, cfml_module_types,
                        cfml_call_types, empty_types, empty_types, cfml_branch_types, empty_types,
-                       empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_cfml,
+                       empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                        cfml_embedded_imports},
 
     // PDXE_LANG_GLEAM
     [PDXE_LANG_GLEAM] = {PDXE_LANG_GLEAM, gleam_func_types, gleam_class_types, gleam_field_types,
                         gleam_module_types, gleam_call_types, gleam_import_types, empty_types,
                         gleam_branch_types, gleam_var_types, gleam_assign_types, empty_types, NULL,
-                        empty_types, NULL, NULL, tree_sitter_gleam, NULL},
+                        empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_POWERSHELL
     [PDXE_LANG_POWERSHELL] = {PDXE_LANG_POWERSHELL, powershell_func_types, powershell_class_types,
                              empty_types, powershell_module_types, powershell_call_types,
                              powershell_import_types, empty_types, powershell_branch_types,
                              powershell_var_types, powershell_assign_types, powershell_throw_types,
-                             NULL, empty_types, NULL, NULL, tree_sitter_powershell, NULL},
+                             NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_PASCAL
     [PDXE_LANG_PASCAL] = {PDXE_LANG_PASCAL, pascal_func_types, pascal_class_types, pascal_field_types,
                          pascal_module_types, pascal_call_types, pascal_import_types, empty_types,
                          pascal_branch_types, pascal_var_types, pascal_assign_types,
-                         pascal_throw_types, NULL, empty_types, NULL, NULL, tree_sitter_pascal,
+                         pascal_throw_types, NULL, empty_types, NULL, NULL, NULL,
                          NULL},
 
     // PDXE_LANG_DLANG
     [PDXE_LANG_DLANG] = {PDXE_LANG_DLANG, d_func_types, d_class_types, d_field_types, d_module_types,
                         d_call_types, d_import_types, empty_types, d_branch_types, d_var_types,
-                        d_assign_types, d_throw_types, NULL, empty_types, NULL, NULL, tree_sitter_d,
+                        d_assign_types, d_throw_types, NULL, empty_types, NULL, NULL, NULL,
                         NULL},
 
     // PDXE_LANG_SCHEME
     [PDXE_LANG_SCHEME] = {PDXE_LANG_SCHEME, scheme_func_types, empty_types, empty_types,
                          scheme_module_types, scheme_call_types, empty_types, empty_types,
                          empty_types, scheme_var_types, empty_types, empty_types, NULL, empty_types,
-                         NULL, NULL, tree_sitter_scheme, NULL},
+                         NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_CHIALISP — lisp-family shape (generic list/symbol nodes)
     [PDXE_LANG_CHIALISP] = {PDXE_LANG_CHIALISP, chialisp_func_types, empty_types, empty_types,
                            chialisp_module_types, chialisp_call_types, empty_types, empty_types,
                            empty_types, chialisp_var_types, empty_types, empty_types, NULL,
-                           empty_types, NULL, NULL, tree_sitter_chialisp, NULL},
+                           empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_FENNEL
     [PDXE_LANG_FENNEL] = {PDXE_LANG_FENNEL, fennel_func_types, empty_types, empty_types,
                          fennel_module_types, fennel_call_types, empty_types, empty_types,
                          fennel_branch_types, fennel_var_types, fennel_assign_types, empty_types,
-                         NULL, empty_types, NULL, NULL, tree_sitter_fennel, NULL},
+                         NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_FISH
     [PDXE_LANG_FISH] = {PDXE_LANG_FISH, fish_func_types, empty_types, empty_types, fish_module_types,
                        fish_call_types, empty_types, empty_types, fish_branch_types, fish_var_types,
-                       empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_fish,
+                       empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                        NULL},
 
     // PDXE_LANG_AWK
     [PDXE_LANG_AWK] = {PDXE_LANG_AWK, awk_func_types, empty_types, empty_types, awk_module_types,
                       awk_call_types, empty_types, empty_types, awk_branch_types, awk_var_types,
-                      awk_assign_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_awk,
+                      awk_assign_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                       NULL},
 
     // PDXE_LANG_ZSH
     [PDXE_LANG_ZSH] = {PDXE_LANG_ZSH, zsh_func_types, empty_types, empty_types, zsh_module_types,
                       zsh_call_types, empty_types, empty_types, zsh_branch_types, zsh_var_types,
-                      zsh_assign_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_zsh,
+                      zsh_assign_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                       NULL},
 
     // PDXE_LANG_TCL
     [PDXE_LANG_TCL] = {PDXE_LANG_TCL, tcl_func_types, tcl_class_types, empty_types, tcl_module_types,
                       tcl_call_types, empty_types, empty_types, tcl_branch_types, tcl_var_types,
-                      empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_tcl,
+                      empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                       NULL},
 
     // PDXE_LANG_ADA
@@ -2228,200 +2098,200 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
     [PDXE_LANG_AGDA] = {PDXE_LANG_AGDA, agda_func_types, agda_class_types, empty_types,
                        agda_module_types, agda_call_types, agda_import_types, empty_types,
                        agda_branch_types, agda_var_types, empty_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_agda, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_RACKET
     [PDXE_LANG_RACKET] = {PDXE_LANG_RACKET, racket_func_types, racket_class_types, empty_types,
                          racket_module_types, racket_call_types, empty_types, empty_types,
                          empty_types, racket_var_types, empty_types, empty_types, NULL, empty_types,
-                         NULL, NULL, tree_sitter_racket, NULL},
+                         NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_ODIN
     [PDXE_LANG_ODIN] = {PDXE_LANG_ODIN, odin_func_types, odin_class_types, odin_field_types,
                        odin_module_types, odin_call_types, odin_import_types, empty_types,
                        odin_branch_types, odin_var_types, odin_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_odin, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_RESCRIPT
     [PDXE_LANG_RESCRIPT] = {PDXE_LANG_RESCRIPT, rescript_func_types, rescript_class_types,
                            empty_types, rescript_module_types, rescript_call_types,
                            rescript_import_types, empty_types, rescript_branch_types,
                            rescript_var_types, rescript_assign_types, rescript_throw_types, NULL,
-                           rescript_decorator_types, NULL, NULL, tree_sitter_rescript, NULL},
+                           rescript_decorator_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_PURESCRIPT
     [PDXE_LANG_PURESCRIPT] = {PDXE_LANG_PURESCRIPT, purescript_func_types, purescript_class_types,
                              empty_types, purescript_module_types, purescript_call_types,
                              purescript_import_types, empty_types, purescript_branch_types,
                              purescript_var_types, empty_types, empty_types, NULL, empty_types,
-                             NULL, NULL, tree_sitter_purescript, NULL},
+                             NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_NICKEL
     [PDXE_LANG_NICKEL] = {PDXE_LANG_NICKEL, nickel_func_types, empty_types, empty_types,
                          nickel_module_types, nickel_call_types, nickel_import_types, empty_types,
                          nickel_branch_types, nickel_var_types, empty_types, empty_types, NULL,
-                         empty_types, NULL, NULL, tree_sitter_nickel, NULL},
+                         empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_CRYSTAL
     [PDXE_LANG_CRYSTAL] = {PDXE_LANG_CRYSTAL, crystal_func_types, crystal_class_types,
                           crystal_field_types, crystal_module_types, crystal_call_types,
                           crystal_import_types, empty_types, crystal_branch_types,
                           crystal_var_types, crystal_assign_types, empty_types, NULL,
-                          crystal_decorator_types, NULL, NULL, tree_sitter_crystal, NULL},
+                          crystal_decorator_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_TEAL
     [PDXE_LANG_TEAL] = {PDXE_LANG_TEAL, teal_func_types, teal_class_types, empty_types,
                        teal_module_types, teal_call_types, empty_types, empty_types,
                        teal_branch_types, teal_var_types, teal_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_teal, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_HARE
     [PDXE_LANG_HARE] = {PDXE_LANG_HARE, hare_func_types, hare_class_types, empty_types,
                        hare_module_types, hare_call_types, hare_import_types, empty_types,
                        hare_branch_types, hare_var_types, hare_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_hare, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_PONY
     [PDXE_LANG_PONY] = {PDXE_LANG_PONY, pony_func_types, pony_class_types, empty_types,
                        pony_module_types, pony_call_types, pony_import_types, empty_types,
                        pony_branch_types, pony_var_types, pony_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_pony, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_LUAU
     [PDXE_LANG_LUAU] = {PDXE_LANG_LUAU, luau_func_types, luau_class_types, empty_types,
                        luau_module_types, luau_call_types, empty_types, empty_types,
                        luau_branch_types, luau_var_types, luau_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_luau, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_JANET
     [PDXE_LANG_JANET] = {PDXE_LANG_JANET, empty_types, empty_types, empty_types, janet_module_types,
                         empty_types, empty_types, empty_types, empty_types, empty_types,
                         empty_types, empty_types, NULL, empty_types, NULL, NULL,
-                        tree_sitter_janet_simple, NULL},
+                        NULL, NULL},
 
     // PDXE_LANG_SWAY
     [PDXE_LANG_SWAY] = {PDXE_LANG_SWAY, sway_func_types, sway_class_types, empty_types,
                        sway_module_types, sway_call_types, sway_import_types, empty_types,
                        sway_branch_types, sway_var_types, sway_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_sway, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_NASM
     [PDXE_LANG_NASM] = {PDXE_LANG_NASM, nasm_func_types, nasm_class_types, empty_types,
                        nasm_module_types, nasm_call_types, nasm_import_types, empty_types,
                        empty_types, nasm_var_types, empty_types, empty_types, NULL, empty_types,
-                       NULL, NULL, tree_sitter_nasm, NULL},
+                       NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_ASSEMBLY
     [PDXE_LANG_ASSEMBLY] = {PDXE_LANG_ASSEMBLY, assembly_func_types, empty_types, empty_types,
                            assembly_module_types, empty_types, empty_types, empty_types,
                            empty_types, assembly_var_types, empty_types, empty_types, NULL,
-                           empty_types, NULL, NULL, tree_sitter_asm, NULL},
+                           empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_ASTRO
     [PDXE_LANG_ASTRO] = {PDXE_LANG_ASTRO, empty_types, empty_types, empty_types, astro_module_types,
                         empty_types, empty_types, empty_types, empty_types, empty_types,
-                        empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_astro,
+                        empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                         astro_embedded_imports},
 
     // PDXE_LANG_BLADE
     [PDXE_LANG_BLADE] = {PDXE_LANG_BLADE, empty_types, empty_types, empty_types, blade_module_types,
                         empty_types, empty_types, empty_types, empty_types, empty_types,
-                        empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_blade,
+                        empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                         NULL},
 
     // PDXE_LANG_JUST
     [PDXE_LANG_JUST] = {PDXE_LANG_JUST, just_func_types, empty_types, empty_types, just_module_types,
                        just_call_types, just_import_types, empty_types, just_branch_types,
                        empty_types, just_assign_types, empty_types, NULL, empty_types, NULL, NULL,
-                       tree_sitter_just, NULL},
+                       NULL, NULL},
 
     // PDXE_LANG_GOTEMPLATE
     [PDXE_LANG_GOTEMPLATE] = {PDXE_LANG_GOTEMPLATE, gotemplate_func_types, empty_types, empty_types,
                              gotemplate_module_types, gotemplate_call_types, empty_types,
                              empty_types, empty_types, empty_types, empty_types, empty_types, NULL,
-                             empty_types, NULL, NULL, tree_sitter_gotmpl, NULL},
+                             empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_TEMPL
     [PDXE_LANG_TEMPL] = {PDXE_LANG_TEMPL, templ_func_types, templ_class_types, empty_types,
                         templ_module_types, templ_call_types, templ_import_types, empty_types,
                         empty_types, empty_types, empty_types, empty_types, NULL, empty_types, NULL,
-                        NULL, tree_sitter_templ, NULL},
+                        NULL, NULL, NULL},
 
     // PDXE_LANG_LIQUID
     [PDXE_LANG_LIQUID] = {PDXE_LANG_LIQUID, empty_types, empty_types, empty_types,
                          liquid_module_types, empty_types, liquid_import_types, empty_types,
                          empty_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                         NULL, NULL, tree_sitter_liquid, NULL},
+                         NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_JINJA2
     [PDXE_LANG_JINJA2] = {PDXE_LANG_JINJA2, empty_types, empty_types, empty_types,
                          jinja2_module_types, empty_types, empty_types, empty_types, empty_types,
                          empty_types, empty_types, empty_types, NULL, empty_types, NULL, NULL,
-                         tree_sitter_jinja2, NULL},
+                         NULL, NULL},
 
     // PDXE_LANG_PRISMA
     [PDXE_LANG_PRISMA] = {PDXE_LANG_PRISMA, empty_types, prisma_class_types, prisma_field_types,
                          prisma_module_types, prisma_call_types, empty_types, empty_types,
                          empty_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                         NULL, NULL, tree_sitter_prisma, NULL},
+                         NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_HYPRLANG
     [PDXE_LANG_HYPRLANG] = {PDXE_LANG_HYPRLANG, empty_types, empty_types, empty_types,
                            hyprlang_module_types, empty_types, empty_types, empty_types,
                            empty_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                           NULL, NULL, tree_sitter_hyprlang, NULL},
+                           NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_DOTENV
     [PDXE_LANG_DOTENV] = {PDXE_LANG_DOTENV, empty_types, empty_types, empty_types,
                          dotenv_module_types, empty_types, empty_types, empty_types, empty_types,
                          empty_types, empty_types, empty_types, NULL, empty_types, NULL, NULL,
-                         tree_sitter_dotenv, NULL},
+                         NULL, NULL},
 
     // PDXE_LANG_DIFF
     [PDXE_LANG_DIFF] = {PDXE_LANG_DIFF, empty_types, empty_types, empty_types, diff_module_types,
                        diff_call_types, empty_types, empty_types, empty_types, empty_types,
-                       empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_diff,
+                       empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                        NULL},
 
     // PDXE_LANG_WGSL
     [PDXE_LANG_WGSL] = {PDXE_LANG_WGSL, wgsl_func_types, wgsl_class_types, empty_types,
                        wgsl_module_types, wgsl_call_types, wgsl_import_types, empty_types,
                        wgsl_branch_types, wgsl_var_types, wgsl_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_wgsl, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_KDL
     [PDXE_LANG_KDL] = {PDXE_LANG_KDL, empty_types, empty_types, empty_types, kdl_module_types,
                       empty_types, empty_types, empty_types, empty_types, empty_types, empty_types,
-                      empty_types, NULL, empty_types, NULL, NULL, tree_sitter_kdl, NULL},
+                      empty_types, NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_JSON5
     [PDXE_LANG_JSON5] = {PDXE_LANG_JSON5, empty_types, empty_types, empty_types, json5_module_types,
                         empty_types, empty_types, empty_types, empty_types, empty_types,
-                        empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_json5,
+                        empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                         NULL},
 
     // PDXE_LANG_JSONNET
     [PDXE_LANG_JSONNET] = {PDXE_LANG_JSONNET, jsonnet_func_types, empty_types, empty_types,
                           jsonnet_module_types, jsonnet_call_types, jsonnet_import_types,
                           empty_types, jsonnet_branch_types, jsonnet_var_types, empty_types,
-                          empty_types, NULL, empty_types, NULL, NULL, tree_sitter_jsonnet, NULL},
+                          empty_types, NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_RON
     [PDXE_LANG_RON] = {PDXE_LANG_RON, empty_types, empty_types, empty_types, ron_module_types,
                       empty_types, empty_types, empty_types, empty_types, empty_types, empty_types,
-                      empty_types, NULL, empty_types, NULL, NULL, tree_sitter_ron, NULL},
+                      empty_types, NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_THRIFT
     [PDXE_LANG_THRIFT] = {PDXE_LANG_THRIFT, thrift_func_types, thrift_class_types, thrift_field_types,
                          thrift_module_types, empty_types, thrift_import_types, empty_types,
                          empty_types, thrift_var_types, empty_types, empty_types, NULL, empty_types,
-                         NULL, NULL, tree_sitter_thrift, NULL},
+                         NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_CAPNP
     [PDXE_LANG_CAPNP] = {PDXE_LANG_CAPNP, capnp_func_types, capnp_class_types, capnp_field_types,
                         capnp_module_types, empty_types, capnp_import_types, empty_types,
                         empty_types, capnp_var_types, empty_types, empty_types, NULL, empty_types,
-                        NULL, NULL, tree_sitter_capnp, NULL},
+                        NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_PROPERTIES
     [PDXE_LANG_PROPERTIES] = {PDXE_LANG_PROPERTIES, empty_types, empty_types, empty_types,
@@ -2433,49 +2303,49 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
     [PDXE_LANG_SSHCONFIG] = {PDXE_LANG_SSHCONFIG, empty_types, empty_types, empty_types,
                             sshconfig_module_types, empty_types, empty_types, empty_types,
                             empty_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                            NULL, NULL, tree_sitter_ssh_config, NULL},
+                            NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_BIBTEX
     [PDXE_LANG_BIBTEX] = {PDXE_LANG_BIBTEX, empty_types, empty_types, empty_types,
                          bibtex_module_types, bibtex_call_types, empty_types, empty_types,
                          empty_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                         NULL, NULL, tree_sitter_bibtex, NULL},
+                         NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_STARLARK
     [PDXE_LANG_STARLARK] = {PDXE_LANG_STARLARK, starlark_func_types, empty_types, empty_types,
                            starlark_module_types, starlark_call_types, starlark_import_types,
                            empty_types, starlark_branch_types, starlark_var_types,
                            starlark_assign_types, empty_types, NULL, empty_types, NULL, NULL,
-                           tree_sitter_starlark, NULL},
+                           NULL, NULL},
 
     // PDXE_LANG_BICEP
     [PDXE_LANG_BICEP] = {PDXE_LANG_BICEP, bicep_func_types, bicep_class_types, empty_types,
                         bicep_module_types, bicep_call_types, bicep_import_types, empty_types,
                         empty_types, bicep_var_types, empty_types, empty_types, NULL, empty_types,
-                        NULL, NULL, tree_sitter_bicep, NULL},
+                        NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_CSV
     [PDXE_LANG_CSV] = {PDXE_LANG_CSV, empty_types, empty_types, empty_types, csv_module_types,
                       empty_types, empty_types, empty_types, empty_types, empty_types, empty_types,
-                      empty_types, NULL, empty_types, NULL, NULL, tree_sitter_csv, NULL},
+                      empty_types, NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_REQUIREMENTS
     [PDXE_LANG_REQUIREMENTS] = {PDXE_LANG_REQUIREMENTS, empty_types, empty_types, empty_types,
                                requirements_module_types, empty_types, empty_types, empty_types,
                                empty_types, empty_types, empty_types, empty_types, NULL,
-                               empty_types, NULL, NULL, tree_sitter_requirements, NULL},
+                               empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_HLSL
     [PDXE_LANG_HLSL] = {PDXE_LANG_HLSL, hlsl_func_types, hlsl_class_types, empty_types,
                        hlsl_module_types, hlsl_call_types, hlsl_import_types, empty_types,
                        hlsl_branch_types, hlsl_var_types, hlsl_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_hlsl, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_VHDL
     [PDXE_LANG_VHDL] = {PDXE_LANG_VHDL, vhdl_func_types, vhdl_class_types, empty_types,
                        vhdl_module_types, vhdl_call_types, vhdl_import_types, empty_types,
                        vhdl_branch_types, vhdl_var_types, vhdl_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_vhdl, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_SYSTEMVERILOG
     [PDXE_LANG_SYSTEMVERILOG] = {PDXE_LANG_SYSTEMVERILOG, systemverilog_func_types,
@@ -2483,192 +2353,192 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
                                 systemverilog_call_types, systemverilog_import_types, empty_types,
                                 systemverilog_branch_types, systemverilog_var_types, empty_types,
                                 empty_types, NULL, empty_types, NULL, NULL,
-                                tree_sitter_systemverilog, NULL},
+                                NULL, NULL},
 
     // PDXE_LANG_DEVICETREE
     [PDXE_LANG_DEVICETREE] = {PDXE_LANG_DEVICETREE, empty_types, empty_types, empty_types,
                              devicetree_module_types, devicetree_call_types,
                              devicetree_import_types, empty_types, empty_types, empty_types,
                              empty_types, empty_types, NULL, empty_types, NULL, NULL,
-                             tree_sitter_devicetree, NULL},
+                             NULL, NULL},
 
     // PDXE_LANG_LINKERSCRIPT
     [PDXE_LANG_LINKERSCRIPT] = {PDXE_LANG_LINKERSCRIPT, empty_types, empty_types, empty_types,
                                linkerscript_module_types, linkerscript_call_types, empty_types,
                                empty_types, empty_types, empty_types, empty_types, empty_types,
-                               NULL, empty_types, NULL, NULL, tree_sitter_linkerscript, NULL},
+                               NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_GN
     [PDXE_LANG_GN] = {PDXE_LANG_GN, empty_types, empty_types, empty_types, gn_module_types,
                      gn_call_types, gn_import_types, empty_types, gn_branch_types, empty_types,
-                     gn_assign_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_gn,
+                     gn_assign_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                      NULL},
 
     // PDXE_LANG_KCONFIG
     [PDXE_LANG_KCONFIG] = {PDXE_LANG_KCONFIG, empty_types, kconfig_class_types, empty_types,
                           kconfig_module_types, empty_types, kconfig_import_types, empty_types,
                           kconfig_branch_types, empty_types, empty_types, empty_types, NULL,
-                          empty_types, NULL, NULL, tree_sitter_kconfig, NULL},
+                          empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_BITBAKE
     [PDXE_LANG_BITBAKE] = {PDXE_LANG_BITBAKE, bitbake_func_types, empty_types, empty_types,
                           bitbake_module_types, bitbake_call_types, bitbake_import_types,
                           empty_types, empty_types, bitbake_var_types, empty_types, empty_types,
-                          NULL, empty_types, NULL, NULL, tree_sitter_bitbake, NULL},
+                          NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_SMALI
     [PDXE_LANG_SMALI] = {PDXE_LANG_SMALI, smali_func_types, smali_class_types, smali_field_types,
                         smali_module_types, empty_types, smali_import_types, empty_types,
                         empty_types, empty_types, empty_types, empty_types, NULL, empty_types, NULL,
-                        NULL, tree_sitter_smali, NULL},
+                        NULL, NULL, NULL},
 
     // PDXE_LANG_TABLEGEN
     [PDXE_LANG_TABLEGEN] = {PDXE_LANG_TABLEGEN, tablegen_func_types, tablegen_class_types,
                            empty_types, tablegen_module_types, empty_types, tablegen_import_types,
                            empty_types, empty_types, empty_types, empty_types, empty_types, NULL,
-                           empty_types, NULL, NULL, tree_sitter_tablegen, NULL},
+                           empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_ISPC
     [PDXE_LANG_ISPC] = {PDXE_LANG_ISPC, ispc_func_types, ispc_class_types, empty_types,
                        ispc_module_types, ispc_call_types, ispc_import_types, empty_types,
                        ispc_branch_types, ispc_var_types, ispc_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_ispc, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_CAIRO
     [PDXE_LANG_CAIRO] = {PDXE_LANG_CAIRO, cairo_func_types, cairo_class_types, empty_types,
                         cairo_module_types, cairo_call_types, cairo_import_types, empty_types,
                         cairo_branch_types, cairo_var_types, cairo_assign_types, empty_types, NULL,
-                        empty_types, NULL, NULL, tree_sitter_cairo, NULL},
+                        empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_MOVE
     [PDXE_LANG_MOVE] = {PDXE_LANG_MOVE, move_func_types, empty_types, empty_types, move_module_types,
                        move_call_types, move_import_types, empty_types, move_branch_types,
                        move_var_types, move_assign_types, empty_types, NULL, empty_types, NULL,
-                       NULL, tree_sitter_move, NULL},
+                       NULL, NULL, NULL},
 
     // PDXE_LANG_SQUIRREL
     [PDXE_LANG_SQUIRREL] = {PDXE_LANG_SQUIRREL, squirrel_func_types, squirrel_class_types,
                            empty_types, squirrel_module_types, squirrel_call_types,
                            squirrel_import_types, empty_types, squirrel_branch_types,
                            squirrel_var_types, squirrel_assign_types, empty_types, NULL,
-                           empty_types, NULL, NULL, tree_sitter_squirrel, NULL},
+                           empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_FUNC
     [PDXE_LANG_FUNC] = {PDXE_LANG_FUNC, func_func_types, empty_types, empty_types, func_module_types,
                        func_call_types, func_import_types, empty_types, empty_types, empty_types,
-                       empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_func,
+                       empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                        NULL},
 
     // PDXE_LANG_REGEX
     [PDXE_LANG_REGEX] = {PDXE_LANG_REGEX, empty_types, empty_types, empty_types, regex_module_types,
                         empty_types, empty_types, empty_types, empty_types, empty_types,
-                        empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_regex,
+                        empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                         NULL},
 
     // PDXE_LANG_JSDOC
     [PDXE_LANG_JSDOC] = {PDXE_LANG_JSDOC, empty_types, empty_types, empty_types, jsdoc_module_types,
                         empty_types, empty_types, empty_types, empty_types, empty_types,
-                        empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_jsdoc,
+                        empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                         NULL},
 
     // PDXE_LANG_RST
     [PDXE_LANG_RST] = {PDXE_LANG_RST, empty_types, empty_types, empty_types, rst_module_types,
                       empty_types, empty_types, empty_types, empty_types, empty_types, empty_types,
-                      empty_types, NULL, empty_types, NULL, NULL, tree_sitter_rst, NULL},
+                      empty_types, NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_BEANCOUNT
     [PDXE_LANG_BEANCOUNT] = {PDXE_LANG_BEANCOUNT, empty_types, empty_types, empty_types,
                             beancount_module_types, empty_types, beancount_import_types,
                             empty_types, empty_types, empty_types, empty_types, empty_types, NULL,
-                            empty_types, NULL, NULL, tree_sitter_beancount, NULL},
+                            empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_MERMAID
     [PDXE_LANG_MERMAID] = {PDXE_LANG_MERMAID, empty_types, empty_types, empty_types,
                           mermaid_module_types, empty_types, empty_types, empty_types, empty_types,
                           empty_types, empty_types, empty_types, NULL, empty_types, NULL, NULL,
-                          tree_sitter_mermaid, NULL},
+                          NULL, NULL},
 
     // PDXE_LANG_PUPPET
     [PDXE_LANG_PUPPET] = {PDXE_LANG_PUPPET, puppet_func_types, puppet_class_types, empty_types,
                          puppet_module_types, puppet_call_types, puppet_import_types, empty_types,
                          puppet_branch_types, puppet_var_types, puppet_assign_types, empty_types,
-                         NULL, empty_types, NULL, NULL, tree_sitter_puppet, NULL},
+                         NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_PO
     [PDXE_LANG_PO] = {PDXE_LANG_PO, empty_types, empty_types, empty_types, po_module_types,
                      empty_types, empty_types, empty_types, empty_types, empty_types, empty_types,
-                     empty_types, NULL, empty_types, NULL, NULL, tree_sitter_po, NULL},
+                     empty_types, NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_GITATTRIBUTES
     [PDXE_LANG_GITATTRIBUTES] = {PDXE_LANG_GITATTRIBUTES, empty_types, empty_types, empty_types,
                                 gitattributes_module_types, empty_types, empty_types, empty_types,
                                 empty_types, empty_types, empty_types, empty_types, NULL,
-                                empty_types, NULL, NULL, tree_sitter_gitattributes, NULL},
+                                empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_GITIGNORE
     [PDXE_LANG_GITIGNORE] = {PDXE_LANG_GITIGNORE, empty_types, empty_types, empty_types,
                             gitignore_module_types, empty_types, empty_types, empty_types,
                             empty_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                            NULL, NULL, tree_sitter_gitignore, NULL},
+                            NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_SLANG
     [PDXE_LANG_SLANG] = {PDXE_LANG_SLANG, slang_func_types, slang_class_types, empty_types,
                         slang_module_types, slang_call_types, slang_import_types, empty_types,
                         empty_types, empty_types, empty_types, empty_types, NULL, empty_types, NULL,
-                        NULL, tree_sitter_slang, NULL},
+                        NULL, NULL, NULL},
 
     // PDXE_LANG_LLVM_IR
     [PDXE_LANG_LLVM_IR] = {PDXE_LANG_LLVM_IR, llvm_func_types, empty_types, empty_types,
                           llvm_module_types, llvm_call_types, empty_types, empty_types,
                           llvm_branch_types, llvm_var_types, empty_types, empty_types, NULL,
-                          empty_types, NULL, NULL, tree_sitter_llvm, NULL},
+                          empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_SMITHY
     [PDXE_LANG_SMITHY] = {PDXE_LANG_SMITHY, smithy_func_types, smithy_class_types, smithy_field_types,
                          smithy_module_types, empty_types, smithy_import_types, empty_types,
                          empty_types, empty_types, empty_types, empty_types, NULL, empty_types,
-                         NULL, NULL, tree_sitter_smithy, NULL},
+                         NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_WIT
     [PDXE_LANG_WIT] = {PDXE_LANG_WIT, wit_func_types, wit_class_types, wit_field_types,
                       wit_module_types, empty_types, wit_import_types, empty_types, empty_types,
                       empty_types, empty_types, empty_types, NULL, empty_types, NULL, NULL,
-                      tree_sitter_wit, NULL},
+                      NULL, NULL},
 
     // PDXE_LANG_TLAPLUS
     [PDXE_LANG_TLAPLUS] = {PDXE_LANG_TLAPLUS, tlaplus_func_types, empty_types, empty_types,
                           tlaplus_module_types, tlaplus_call_types, tlaplus_import_types,
                           empty_types, tlaplus_branch_types, tlaplus_var_types, empty_types,
-                          empty_types, NULL, empty_types, NULL, NULL, tree_sitter_tlaplus, NULL},
+                          empty_types, NULL, empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_PKL
     [PDXE_LANG_PKL] = {PDXE_LANG_PKL, pkl_func_types, pkl_class_types, empty_types, pkl_module_types,
                       pkl_call_types, pkl_import_types, empty_types, pkl_branch_types,
                       pkl_var_types, empty_types, pkl_throw_types, NULL, pkl_decorator_types, NULL,
-                      NULL, tree_sitter_pkl, NULL},
+                      NULL, NULL, NULL},
 
     // PDXE_LANG_GOMOD
     [PDXE_LANG_GOMOD] = {PDXE_LANG_GOMOD, empty_types, empty_types, empty_types, gomod_module_types,
                         empty_types, gomod_import_types, empty_types, empty_types, gomod_var_types,
-                        empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_gomod,
+                        empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                         NULL},
 
     // PDXE_LANG_APEX
     [PDXE_LANG_APEX] = {PDXE_LANG_APEX, apex_func_types, apex_class_types, apex_field_types,
                        apex_module_types, apex_call_types, apex_import_types, empty_types,
                        apex_branch_types, apex_var_types, apex_assign_types, apex_throw_types, NULL,
-                       apex_decorator_types, NULL, NULL, tree_sitter_apex, NULL},
+                       apex_decorator_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_SOQL
     [PDXE_LANG_SOQL] = {PDXE_LANG_SOQL, empty_types, empty_types, empty_types, soql_module_types,
                        empty_types, soql_import_types, empty_types, empty_types, empty_types,
-                       empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_soql,
+                       empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                        NULL},
 
     // PDXE_LANG_SOSL
     [PDXE_LANG_SOSL] = {PDXE_LANG_SOSL, empty_types, empty_types, empty_types, sosl_module_types,
                        empty_types, sosl_import_types, empty_types, empty_types, empty_types,
-                       empty_types, empty_types, NULL, empty_types, NULL, NULL, tree_sitter_sosl,
+                       empty_types, empty_types, NULL, empty_types, NULL, NULL, NULL,
                        NULL},
 
     // PDXE_LANG_KUSTOMIZE — reuses YAML grammar; semantic extraction via pdxe_extract_k8s()
@@ -2686,13 +2556,13 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
     [PDXE_LANG_PINE] = {PDXE_LANG_PINE, pine_func_types, pine_class_types, empty_types,
                        pine_module_types, pine_call_types, empty_types, empty_types,
                        pine_branch_types, pine_var_types, pine_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_pine, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_MOJO
     [PDXE_LANG_MOJO] = {PDXE_LANG_MOJO, mojo_func_types, mojo_class_types, empty_types,
                        mojo_module_types, mojo_call_types, mojo_import_types, mojo_import_types,
                        mojo_branch_types, mojo_var_types, mojo_assign_types, empty_types, NULL,
-                       empty_types, NULL, NULL, tree_sitter_mojo, NULL},
+                       empty_types, NULL, NULL, NULL, NULL},
 
     // PDXE_LANG_OBJECTSCRIPT_UDL — InterSystems ObjectScript class (.cls) UDL.
     // intersystems/tree-sitter-objectscript.
@@ -2701,7 +2571,7 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
                                    objectscript_udl_module_types, objectscript_udl_call_types,
                                    empty_types, empty_types, objectscript_udl_branch_types,
                                    empty_types, empty_types, empty_types, NULL, empty_types, NULL,
-                                   NULL, tree_sitter_objectscript_udl, NULL},
+                                   NULL, NULL, NULL},
 
     // PDXE_LANG_OBJECTSCRIPT_ROUTINE — InterSystems ObjectScript routine (.mac/.int/.rtn/.inc).
     [PDXE_LANG_OBJECTSCRIPT_ROUTINE] = {PDXE_LANG_OBJECTSCRIPT_ROUTINE,
@@ -2709,7 +2579,7 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
                                        objectscript_routine_module_types,
                                        objectscript_routine_call_types, empty_types, empty_types,
                                        empty_types, empty_types, empty_types, empty_types, NULL,
-                                       empty_types, NULL, NULL, tree_sitter_objectscript_routine,
+                                       empty_types, NULL, NULL, NULL,
                                        NULL},
 
     // PDXE_LANG_OBJECTSCRIPT_EXPORT — Studio Export XML. No grammar row: the
@@ -2724,12 +2594,12 @@ static const PDXELangSpec lang_specs[PDXE_LANG_COUNT] = {
                         (const char *[]){"assignment_expression", "augmented_assignment_expression",
                                          NULL},
                         js_throw_types, NULL, ts_decorator_types, NULL,
-                        ts_env_members, tree_sitter_arkts, NULL},
+                        ts_env_members, NULL, NULL},
     // PDXE_LANG_PLSQL — Oracle PL/SQL. AndreasMaierDe/tree-sitter-plsql (MIT).
     [PDXE_LANG_PLSQL] = {PDXE_LANG_PLSQL, plsql_func_types, plsql_class_types, empty_types,
                         plsql_module_types, plsql_call_types, empty_types, empty_types,
                         plsql_branch_types, empty_types, plsql_assign_types, plsql_throw_types,
-                        NULL, empty_types, NULL, NULL, tree_sitter_plsql, NULL},
+                        NULL, empty_types, NULL, NULL, NULL, NULL},
 
 };
 

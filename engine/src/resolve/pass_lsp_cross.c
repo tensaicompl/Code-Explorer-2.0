@@ -74,7 +74,24 @@ static bool pxc_module_is_dir(PDXELanguage lang) {
 /* Slurp a file into a malloc'd, NUL-terminated buffer. Mirrors the
  * read_file helper in pass_calls.c / pass_parallel.c (kept local so the
  * pipeline doesn't grow a public read-file API just for this pass). */
+/* Where sources come from when they are not on disk. The engine interface hands the
+ * resolver each file's bytes rather than a path to read, so it installs a provider
+ * here and this pass asks it first. Thread-local, because each thread resolves its
+ * own project with its own engine context. The provider must return what this
+ * function returns: a malloc'd buffer the caller frees, padded past the end as below. */
+typedef char *(*pdxe_pxc_source_fn)(const char *path, int *out_len, void *userdata);
+static _Thread_local pdxe_pxc_source_fn pxc_source_fn = NULL;
+static _Thread_local void *pxc_source_userdata = NULL;
+
+void pdxe_pxc_set_source_provider(pdxe_pxc_source_fn fn, void *userdata) {
+    pxc_source_fn = fn;
+    pxc_source_userdata = userdata;
+}
+
 static char *pxc_read_file(const char *path, int *out_len) {
+    if (pxc_source_fn) {
+        return pxc_source_fn(path, out_len, pxc_source_userdata);
+    }
     FILE *f = pdxe_fopen(path, "rb");
     if (!f)
         return NULL;
@@ -1588,8 +1605,20 @@ void pdxe_pxc_dispatch_file(PDXELanguage lang, PDXEFileResult *result, const cha
     free(filtered);
 }
 
+/* A manifest the embedding project supplies already parsed, in place of reading one
+ * from the repository. Set around a pass by the thread that runs it. */
+static _Thread_local const PDXECargoManifest *pxc_supplied_manifest = NULL;
+
+void pdxe_pxc_set_supplied_rust_manifest(const PDXECargoManifest *m) {
+    pxc_supplied_manifest = m;
+}
+
 bool pdxe_pxc_build_rust_manifest(const pdxe_pipeline_ctx_t *ctx, PDXEArena *marena,
                                  PDXECargoManifest *out_m) {
+    if (pxc_supplied_manifest && out_m) {
+        *out_m = *pxc_supplied_manifest;
+        return true;
+    }
     if (!ctx || !ctx->repo_path || !marena || !out_m)
         return false;
     char path[1024];

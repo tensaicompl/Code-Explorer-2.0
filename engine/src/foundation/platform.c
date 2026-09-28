@@ -600,9 +600,9 @@ const char *pdxe_errno_name(int error) {
 const char *pdxe_resolve_cache_dir(void) {
     static PDXE_TLS char buf[PDXE_SZ_4K];
     static const char missing[] = "\x1f"
-                                  "PDXE_CACHE_DIR_MISSING"
+                                  "PDX_ENGINE_CACHE_DIR_MISSING"
                                   "\x1f";
-    const char *configured = pdxe_safe_getenv("PDXE_CACHE_DIR", buf, sizeof(buf), missing);
+    const char *configured = pdxe_safe_getenv("PDX_ENGINE_CACHE_DIR", buf, sizeof(buf), missing);
     if (!configured) {
         /* Present but not representable in the product path bound. */
         return NULL;

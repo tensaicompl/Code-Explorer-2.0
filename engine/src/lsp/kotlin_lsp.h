@@ -187,7 +187,7 @@ const PDXEType *kotlin_lookup_property_type(KotlinLSPContext *ctx, const char *c
                                            const char *prop_name);
 
 /* Entry point: build registry from file defs + stdlib, then run resolution.
- * Called from pdxe_extract_file() after definitions and imports have been
+ * Called from pdxe_engine_extract_file() after definitions and imports have been
  * extracted. */
 void pdxe_run_kotlin_lsp(PDXEArena *arena, PDXEFileResult *result, const char *source, int source_len,
                         TSNode root);

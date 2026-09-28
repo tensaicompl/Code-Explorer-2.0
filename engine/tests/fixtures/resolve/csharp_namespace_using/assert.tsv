@@ -1,0 +1,6 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
++	IMPORTS	FILE:App/Service.cs	Core.Repo.cs.__file__	Core
++	CALLS	App.Service.Service.Run	Core.Repo.Repo.Create	cs_static_typed
++	CALLS	App.Service.Service.Run	Core.Repo.Repo.Find	cs_method_typed

@@ -72,7 +72,7 @@ void c_lsp_init(CLSPContext *ctx, PDXEArena *arena, const char *source, int sour
     ctx->source_origin = PDXE_SOURCE_ORIGIN_RAW;
     ctx->current_scope = pdxe_scope_push(arena, NULL);
 
-    const char *debug_env = getenv("PDXE_LSP_DEBUG");
+    const char *debug_env = getenv("PDX_ENGINE_LSP_DEBUG");
     ctx->debug = (debug_env && debug_env[0]);
 }
 

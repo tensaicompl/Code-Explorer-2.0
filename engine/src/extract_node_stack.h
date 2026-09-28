@@ -6,13 +6,13 @@
  *
  * Traversal stacks are scratch: nothing in a PDXEFileResult ever points into
  * one. They are therefore cut from ctx->scratch, which the enclosing
- * pdxe_extract_file_ex call owns and destroys on the way out, and never from
+ * pdxe_engine_extract_file_ex call owns and destroys on the way out, and never from
  * ctx->arena, which the pipeline holds for every file until the whole result
  * cache is freed (#1997).
  *
  * Growth abandons the old buffer in that scratch arena, which is free because
  * the arena dies with the file. The initial capacities below are unchanged, but
- * they are no longer what a small file costs: pdxe_extract_file_ex hands every
+ * they are no longer what a small file costs: pdxe_engine_extract_file_ex hands every
  * call a lazy scratch arena, whose first block is taken by the first stack
  * built, so a call that builds no stack allocates nothing.
  */

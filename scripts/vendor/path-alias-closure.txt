@@ -1,0 +1,25 @@
+# Functions vendored from the reference's path-alias source: the two that resolve an
+# import through an alias map, and the helper they share. The loader that walks the
+# repository reading build configuration is deliberately absent: alias metadata
+# reaches the engine already resolved, through its interface.
+#
+# Excluded from the provenance scan for the same reason as the other vendoring lists.
+
+header Vendored subset: resolving an import through a build configuration's path
+header aliases, extracted verbatim from the reference's path-alias source by
+header scripts/vendor/extract-functions.py. The loader that walks the repository and
+header reads build configuration is deliberately not here: aliases reach the engine
+header already resolved, through its interface.
+
+strip_resolved_ext
+cbm_path_alias_resolve
+cbm_path_alias_find_for_file
+
+# The source's includes for reading build configuration from disk and parsing it,
+# which only the absent loader uses.
+drop-include foundation/compat.h
+drop-include foundation/compat_fs.h
+drop-include foundation/constants.h
+drop-include foundation/log.h
+drop-include foundation/platform.h
+drop-include yyjson/yyjson.h

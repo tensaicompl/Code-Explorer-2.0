@@ -55,7 +55,7 @@ bool pdxe_log_crash_durable(void) {
 void pdxe_log_init_from_env(void) {
     /* getenv() is safe here: this runs at startup before any thread is created,
      * so there is no concurrent setenv() to race against. */
-    const char *raw = getenv("PDXE_LOG_LEVEL");
+    const char *raw = getenv("PDX_ENGINE_LOG_LEVEL");
     if (raw && raw[0] != '\0') {
         /* Textual form, case-insensitive. Index of each name == its enum value. */
         static const char *const names[] = {"debug", "info", "warn", "error", "none"};
@@ -85,7 +85,7 @@ void pdxe_log_init_from_env(void) {
     /* Unrecognised value: leave the level unchanged (fail-open). */
 
 parse_format:;
-    const char *fmt = getenv("PDXE_LOG_FORMAT");
+    const char *fmt = getenv("PDX_ENGINE_LOG_FORMAT");
     if (fmt && fmt[0] != '\0') {
         char lower_fmt[8];
         size_t i = 0;

@@ -1,0 +1,8 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
+# The module declaration supplied as metadata places the import in the repository.
++	IMPORTS	FILE:cmd/app/main.go	internal.foo	foo
++	CALLS	cmd.app.main	internal.foo.Greeting	lsp_direct
++	CALLS	cmd.app.main	internal.foo.NewStore	lsp_direct
++	CALLS	cmd.app.main	internal.foo.Get	lsp_type_dispatch

@@ -31,7 +31,8 @@ denied_patterns() { patterns_of "$1" | cut -f1; }
 #   bench/references.lock       the pinned reference list; naming them is its purpose
 #   scripts/*-denylist.txt etc  this scanner's own inputs
 #   engine/LICENSE*             the vendored engine's own licence, kept verbatim
-#   scripts/vendor/*-map.txt    the vendoring scripts' own inputs
+#   scripts/vendor/*.txt        the vendoring scripts' own inputs: maps, closure
+#                               lists, how to run the reference for differential tests
 #   legacy/                     third-party-derived code awaiting removal, already
 #                               attributed in the notices file; the exclusion goes
 #                               away when the retirement task deletes it
@@ -44,6 +45,10 @@ EXCLUDES=(
   ':(exclude)scripts/provenance-denylist.txt'
   ':(exclude)scripts/vendor/rename-map.txt'
   ':(exclude)scripts/vendor/copy-map.txt'
+  ':(exclude)scripts/vendor/resolver-closure.txt'
+  ':(exclude)scripts/vendor/path-alias-closure.txt'
+  ':(exclude)scripts/vendor/reference-run.txt'
+  ':(exclude)scripts/vendor/language-closure.txt'
   ':(exclude)scripts/marker-words.txt'
   ':(exclude)scripts/url-allowlist.txt'
   ':(exclude)legacy/**'
@@ -81,6 +86,13 @@ else
     -not -name 'provenance-denylist.txt' \
     -not -name 'marker-words.txt' \
     -not -name 'url-allowlist.txt' \
+    -not -path './scripts/vendor/rename-map.txt' \
+    -not -path './scripts/vendor/copy-map.txt' \
+    -not -path './scripts/vendor/resolver-closure.txt' \
+    -not -path './scripts/vendor/path-alias-closure.txt' \
+    -not -path './scripts/vendor/reference-run.txt' \
+    -not -path './scripts/vendor/language-closure.txt' \
+    -not -path './engine/LICENSE*' \
     -not -path '*/engine/*/LICENSE*' \
     -print0)
 fi

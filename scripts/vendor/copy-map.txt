@@ -18,3 +18,7 @@ top_vendored_dir	vendored
 foundation_dir	src/foundation
 pipeline_dir	src/pipeline
 licence_file	LICENSE
+resolver_source	src/pipeline/pass_pkgmap.c
+path_alias_source	src/pipeline/path_alias.c
+path_alias_header	src/pipeline/path_alias.h
+language_source	src/discover/language.c

@@ -1,0 +1,9 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
+# Two modules define helper. An import naming its module takes that module's; one
+# that names no real module falls back by name and takes the same one every time,
+# whatever order the files arrive in.
++	IMPORTS	FILE:main.py	pkg_b.tools.helper	helper
++	IMPORTS	FILE:other.py	pkg_a.tools.helper	helper
++	IMPORTS	FILE:third.py	pkg_a.tools.helper	helper

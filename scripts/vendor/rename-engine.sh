@@ -17,7 +17,8 @@ ENGINE="$REPO_ROOT/engine"
 MAP="$REPO_ROOT/scripts/vendor/rename-map.txt"
 [ -d "$ENGINE" ] || die "engine/ is absent; run scripts/vendor/copy-engine.sh first"
 
-python3 - "$ENGINE" "$MAP" "$REPO_ROOT/scripts/provenance-denylist.txt" <<'PY'
+python3 - "$ENGINE" "$MAP" "$REPO_ROOT/scripts/provenance-denylist.txt" \
+  "$REPO_ROOT/scripts/vendor/rename-overrides.txt" <<'PY'
 import pathlib, re, sys
 
 engine = pathlib.Path(sys.argv[1])
@@ -47,7 +48,23 @@ for path in files():
     tokens.update(IDENT.findall(text))
     tokens.update(IDENT.findall(path.name))
 
-mapping = {t: target(t) for t in sorted(tokens, key=lambda s: (-len(s), s))}
+# Names the public interface claims for itself, which the engine's own entry points
+# would otherwise take. Read from a file so the reason travels with the decision.
+overrides: dict[str, str] = {}
+override_path = pathlib.Path(sys.argv[4]) if len(sys.argv) > 4 else None
+if override_path and override_path.is_file():
+    for raw in override_path.read_text().splitlines():
+        entry = raw.strip()
+        if not entry or entry.startswith("#"):
+            continue
+        produced, _, instead = entry.partition("\t")
+        if instead.strip():
+            overrides[produced.strip()] = instead.strip()
+
+mapping = {}
+for t in sorted(tokens, key=lambda s: (-len(s), s)):
+    produced = target(t)
+    mapping[t] = overrides.get(produced, produced)
 
 # 2. Everything else the provenance rules forbid: product names, maintainers, the
 #    ignore file, wherever they appear in comments and literals.
@@ -118,6 +135,14 @@ def rewrite_includes(text: str) -> tuple[str, int]:
         if marker in directory:
             directory = directory[directory.rindex(marker) + len(marker):]
             changed = True
+        # A path that climbs out of the tree and back into the reference's source root
+        # names a layout we do not have. It resolved only because some directory on the
+        # include path happened to sit at the right depth. The engine's sources are
+        # reached from its own source root, so the path is reduced to the part below
+        # that root, which resolves by design rather than by coincidence.
+        elif directory.startswith("../") and "src/" in directory:
+            directory = directory[directory.rindex("src/") + len("src/"):]
+            changed = True
         if name in file_renames:
             name = file_renames[name]
             changed = True
@@ -128,14 +153,22 @@ def rewrite_includes(text: str) -> tuple[str, int]:
 
     return INCLUDE.sub(replace, text), count
 
-# 4. Apply. Includes first, then identifiers longest first so that a shorter token
-#    never eats part of a longer one.
+# 4. Apply. Includes first, then the environment variables the engine reads, then
+#    identifiers longest first so that a shorter token never eats part of a longer one.
+#
+#    An environment variable is named by a string literal in the upstream's upper-case
+#    prefix. It gets this project's engine prefix rather than the identifier rule's,
+#    so a variable reads as belonging to the engine of this project: an operator sets
+#    PDX_ENGINE_LOG_LEVEL, not a name that looks like a C macro.
+ENV_NAME = re.compile(r'"[C][B][M]_([A-Z0-9_]*)')
 pattern = re.compile("|".join(re.escape(t) for t in sorted(mapping, key=len, reverse=True)))
 changed_files = 0
 changed_tokens = 0
 for path in files():
     text = path.read_text(encoding="utf-8", errors="replace")
     text, n = rewrite_includes(text)
+    text, k = ENV_NAME.subn(r'"PDX_ENGINE_\1', text)
+    n += k
     new_text, k = pattern.subn(lambda m: mapping[m.group(0)], text)
     n += k
     for rx, repl in LITERALS:

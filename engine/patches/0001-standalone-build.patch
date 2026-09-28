@@ -1,11 +1,3 @@
---- a/engine/src/arena.c
-+++ b/engine/src/arena.c
-@@ -1,4 +1,5 @@
- #include "arena.h"
-+#include "foundation/constants.h"
- #include <stdlib.h>
- #include <string.h>
- #include <stdarg.h>
 --- a/engine/src/lsp/kotlin_builtins.c
 +++ b/engine/src/lsp/kotlin_builtins.c
 @@ -1,3 +1,5 @@

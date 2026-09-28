@@ -68,8 +68,20 @@ is_matrix_grammar() {
 # everything as one translation unit.
 EXCLUDE_CORE=(
   sqlite_writer.c iris_export_xml.c lz4_store.c zstd_store.c
-  extract_semantic.c extract_dbt.c extract_k8s.c result_compact.c lsp_all.c
+  extract_dbt.c extract_k8s.c result_compact.c
 )
+# Not excluded, though the reuse map lists it: the typed resolution layer's unity
+# file. It is how the reference compiles that layer, as one translation unit in a
+# deliberate order, and the order carries meaning: a language's generated standard
+# library defines a macro that turns off the resolver's smaller fallback table, so
+# the generated file must come first. Compiled as separate units, both tables are
+# defined, and a linker that picked the fallback would resolve against a truncated
+# standard library without saying so. See the issue log.
+# Not excluded, though the reuse map lists it: the extraction of thrown exceptions
+# and of field reads and writes. Its name suggests semantic similarity, which is
+# performed elsewhere, but it contains none; it produces the throw and field-access
+# facts the graph needs, and the extraction walk calls it unconditionally. Leaving
+# it out drops those edges silently. See the issue log.
 core_copied=0
 for f in "$CORE_DIR"/*.c "$CORE_DIR"/*.h; do
   [ -f "$f" ] || continue
@@ -211,6 +223,65 @@ copy_file "$PIPELINE_DIR/pass_lsp_cross.h" "$DEST/src/resolve/pass_lsp_cross.h" 
 copy_file "$PIPELINE_DIR/lsp_resolve.h" "$DEST/src/resolve/lsp_resolve.h"
 copy_file "$PIPELINE_DIR/fqn.c" "$DEST/src/resolve/fqn.c"
 note "cross-file resolution: $(ls "$DEST/src/resolve" | wc -l) files"
+
+# --- the import-target resolver -------------------------------------------
+#
+# Taken as a subset of the source it lives in, not whole: that source also scans
+# manifests and discovers packages, which this project does in Rust. The function
+# lists are the closure a call-graph walk found; see docs/plan/ISSUES.md, issue 15.
+VENDOR_DIR="$(dirname "${BASH_SOURCE[0]}")"
+python3 "$VENDOR_DIR/extract-functions.py" "$(upstream resolver_source)" \
+  "$VENDOR_DIR/resolver-closure.txt" "$DEST/src/resolve/import_resolver.c" ||
+  die "the import resolver could not be extracted"
+python3 "$VENDOR_DIR/extract-functions.py" "$(upstream path_alias_source)" \
+  "$VENDOR_DIR/path-alias-closure.txt" "$DEST/src/resolve/path_alias_resolve.c" ||
+  die "the path alias resolver could not be extracted"
+# Its types. The header also declares the loader, which is never defined here;
+# a declaration with no caller costs nothing.
+copy_file "$(upstream path_alias_header)" "$DEST/src/resolve/path_alias.h"
+python3 "$VENDOR_DIR/extract-functions.py" "$(upstream language_source)" \
+  "$VENDOR_DIR/language-closure.txt" "$DEST/src/resolve/language_lookup.c" ||
+  die "the language lookup could not be extracted"
+
+# --- grammars outside the matrix -------------------------------------------
+#
+# The engine's language table names a grammar for every language the reference
+# supports. We compile the matrix's and no others, so the rest would be undefined
+# symbols in any program that links the engine.
+#
+# The table already has a value for a language with no grammar of its own: a null
+# factory, which the engine turns into a null language and treats as unsupported.
+# So the absent ones become exactly that. Which are absent is computed from the
+# grammar sources on every run rather than listed, so a refresh that adds or drops a
+# language cannot leave the table and the build disagreeing.
+python3 - "$DEST" <<'PY'
+import pathlib, re, sys
+
+dest = pathlib.Path(sys.argv[1])
+defined = set()
+for parser in (dest / "grammars").glob("*/parser.c"):
+    defined.update(re.findall(r"TSLanguage \*(tree_sitter_[A-Za-z_0-9]+)\(void\) *\{",
+                              parser.read_text(errors="replace")))
+
+table = dest / "src" / "lang_specs.c"
+text = table.read_text()
+referenced = set(re.findall(r"\btree_sitter_[A-Za-z_0-9]+\b", text))
+absent = sorted(referenced - defined)
+
+lines = []
+for line in text.splitlines(keepends=True):
+    # A declaration of a factory that will not exist goes entirely; a null value
+    # needs no declaration, and "extern ... *NULL(void)" would not compile.
+    m = re.match(r"\s*extern\s+const\s+TSLanguage\s*\*\s*(tree_sitter_[A-Za-z_0-9]+)\s*\(void\)\s*;", line)
+    if m and m.group(1) in absent:
+        continue
+    lines.append(line)
+text = "".join(lines)
+for name in absent:
+    text = re.sub(rf"\b{name}\b", "NULL", text)
+table.write_text(text)
+print(f"grammars: {len(defined)} compiled, {len(absent)} outside the matrix set to a null factory")
+PY
 
 # --- licence ---------------------------------------------------------------
 copy_file "$(upstream licence_file)" "$DEST/LICENSE-ENGINE"

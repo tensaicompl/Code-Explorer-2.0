@@ -12,6 +12,13 @@ a patch already applied is recognised and skipped.
 
 | Patch | Why |
 |---|---|
-| `0001-standalone-build.patch` | The engine is built here as separate translation units. Upstream compiles it as one, which lets a source use declarations it never includes. This adds the include that the separate build needs. |
-| `0003-no-structural-profile.patch` | The structural profile is likewise computed by analysis outside this engine, and its subsystem is not vendored. This removes the call from the same function. |
-| `0002-no-similarity-fingerprint.patch` | Near-duplicate detection is an analysis performed outside this engine, over its own token stream, so the subsystem that computed a fingerprint during extraction is not vendored. This removes the call. The body tokens the same function produces are kept, because search depends on them. |
+| `0001-standalone-build.patch` | The engine is built here as separate translation units. Upstream compiles it as one, which lets a source use declarations it never includes. This adds the includes the separate build needs, including three that clang rejects as implicit declarations where gcc only warns. |
+| `0003-in-memory-sources.patch` | The cross-file resolution pass reads each file's source from disk. The engine interface hands it bytes instead, so this adds a thread-local provider the pass consults before the disk, and changes nothing else in it: the resolution logic runs as it was written. |
+| `0002-no-analysis-subsystems.patch` | Two analyses are performed outside this engine: near-duplicate detection and structural profiling. The subsystems that computed their inputs during extraction are not vendored, so this removes both calls. The body tokens the same function produces are kept, because search depends on them. |
+| `0004-supplied-crate-manifest.patch` | The cross-file pass reads the repository's root crate manifest from disk to learn its workspace members and dependencies. Reading and parsing manifests is the caller's job here, so the interface supplies the manifest already parsed, and this makes the pass take it in place of the file. The manifest's use is unchanged; with none supplied the pass behaves as the reference does for a repository without one. |
+
+Patches must not overlap. Each one is checked on its own for whether it is already
+applied, by trying to reverse it; two patches editing the same lines make that check
+fail for whichever was applied first, and the refresh then stops on a tree that is
+in fact correct. A change that belongs to the same reason as an existing patch is
+merged into it rather than added beside it.

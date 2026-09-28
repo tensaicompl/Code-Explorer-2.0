@@ -17,7 +17,7 @@
  *
  * Fix: inject a small, fixed set of kotlin.Any definitions into result->defs
  * during the per-file Kotlin LSP run (pdxe_run_kotlin_lsp, which executes inside
- * pdxe_extract_file, BEFORE the parallel pipeline mints def nodes from
+ * pdxe_engine_extract_file, BEFORE the parallel pipeline mints def nodes from
  * result->defs). The graph therefore gains real "kotlin.Any[.<method>]" nodes
  * that the lsp_kt_any edges target. The QNs here MUST match what kt_emit_resolved
  * emits as callee_qn ("kotlin.Any.<member>").

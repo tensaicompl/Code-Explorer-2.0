@@ -242,7 +242,7 @@ void py_lsp_init(PyLSPContext *ctx, PDXEArena *arena, const char *source, int so
     ctx->module_qn = module_qn;
     ctx->resolved_calls = out;
     ctx->current_scope = py_scope_push_checked(ctx);
-    const char *dbg = getenv("PDXE_LSP_DEBUG");
+    const char *dbg = getenv("PDX_ENGINE_LSP_DEBUG");
     ctx->debug = dbg && dbg[0] && dbg[0] != '0';
 }
 
@@ -4902,7 +4902,7 @@ void pdxe_run_py_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sourc
      * builtins.str, builtins.str.upper, ...). The typeshed registry already
      * RESOLVES builtin calls (emitting the strategy + a "builtins.*" callee_qn),
      * but pass_calls.c only writes the CALLS edge when that callee_qn maps to a
-     * graph node. We run inside pdxe_extract_file, before the pipeline mints
+     * graph node. We run inside pdxe_engine_extract_file, before the pipeline mints
      * def nodes from result->defs, so these become the target nodes the
      * builtin/constructor/method edges point at. Upsert dedups by QN. */
     py_builtins_inject_defs(result, arena);

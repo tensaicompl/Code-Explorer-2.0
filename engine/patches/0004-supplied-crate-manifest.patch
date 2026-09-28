@@ -1,0 +1,23 @@
+--- a/engine/src/resolve/pass_lsp_cross.c
++++ b/engine/src/resolve/pass_lsp_cross.c
+@@ -1605,8 +1605,20 @@
+     free(filtered);
+ }
+ 
++/* A manifest the embedding project supplies already parsed, in place of reading one
++ * from the repository. Set around a pass by the thread that runs it. */
++static _Thread_local const PDXECargoManifest *pxc_supplied_manifest = NULL;
++
++void pdxe_pxc_set_supplied_rust_manifest(const PDXECargoManifest *m) {
++    pxc_supplied_manifest = m;
++}
++
+ bool pdxe_pxc_build_rust_manifest(const pdxe_pipeline_ctx_t *ctx, PDXEArena *marena,
+                                  PDXECargoManifest *out_m) {
++    if (pxc_supplied_manifest && out_m) {
++        *out_m = *pxc_supplied_manifest;
++        return true;
++    }
+     if (!ctx || !ctx->repo_path || !marena || !out_m)
+         return false;
+     char path[1024];

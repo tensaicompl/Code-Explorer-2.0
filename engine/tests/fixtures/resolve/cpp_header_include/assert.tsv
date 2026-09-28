@@ -1,0 +1,5 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
++	IMPORTS	FILE:main.cpp	shapes.hpp.__file__	hpp
++	CALLS	main.main	shapes.geo.Square.area	lsp_base_dispatch

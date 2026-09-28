@@ -3,5 +3,5 @@
  * translation unit included first won, silently. One definition now. */
 #ifndef PDXE_INTERNAL_ARENA_SHIM_H
 #define PDXE_INTERNAL_ARENA_SHIM_H
-#include "../../src/foundation/arena.h" /* relative: the lsp_all unit has no -Isrc */
+#include "foundation/arena.h" /* relative: the lsp_all unit has no -Isrc */
 #endif                                  /* PDXE_INTERNAL_ARENA_SHIM_H */

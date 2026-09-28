@@ -1,0 +1,27 @@
+--- a/engine/src/resolve/pass_lsp_cross.c
++++ b/engine/src/resolve/pass_lsp_cross.c
+@@ -74,7 +74,24 @@
+ /* Slurp a file into a malloc'd, NUL-terminated buffer. Mirrors the
+  * read_file helper in pass_calls.c / pass_parallel.c (kept local so the
+  * pipeline doesn't grow a public read-file API just for this pass). */
++/* Where sources come from when they are not on disk. The engine interface hands the
++ * resolver each file's bytes rather than a path to read, so it installs a provider
++ * here and this pass asks it first. Thread-local, because each thread resolves its
++ * own project with its own engine context. The provider must return what this
++ * function returns: a malloc'd buffer the caller frees, padded past the end as below. */
++typedef char *(*pdxe_pxc_source_fn)(const char *path, int *out_len, void *userdata);
++static _Thread_local pdxe_pxc_source_fn pxc_source_fn = NULL;
++static _Thread_local void *pxc_source_userdata = NULL;
++
++void pdxe_pxc_set_source_provider(pdxe_pxc_source_fn fn, void *userdata) {
++    pxc_source_fn = fn;
++    pxc_source_userdata = userdata;
++}
++
+ static char *pxc_read_file(const char *path, int *out_len) {
++    if (pxc_source_fn) {
++        return pxc_source_fn(path, out_len, pxc_source_userdata);
++    }
+     FILE *f = pdxe_fopen(path, "rb");
+     if (!f)
+         return NULL;

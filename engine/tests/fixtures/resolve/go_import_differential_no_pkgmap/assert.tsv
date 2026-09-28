@@ -1,0 +1,7 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
+# Without the module declaration the import has no target, as in the reference. This
+# is algorithm parity only: it does not show real Go module resolution.
+-	IMPORTS	FILE:cmd/app/main.go	*	foo
+-	CALLS	cmd.app.main	*	*

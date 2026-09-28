@@ -38,7 +38,7 @@
 #include "../helpers.h"
 /* PDXEHashTable — cross-registry field bucketing. Relative path: the LSP
  * amalgamation compiles with -Iinternal/pdxe only, not -Isrc. */
-#include "../../../src/foundation/hash_table.h"
+#include "foundation/hash_table.h"
 
 /* Growable field list for one receiver type, bucketed per cross-registry call
  * (see pdxe_kotlin_register_lsp_defs). qns carries each field's REAL def QN --
@@ -912,7 +912,7 @@ void kotlin_lsp_init(KotlinLSPContext *ctx, PDXEArena *arena, const char *source
     ctx->import_kinds = (PDXEKotlinUseKind *)pdxe_arena_alloc(arena, sizeof(PDXEKotlinUseKind) *
                                                                        (size_t)ctx->import_cap);
     ctx->import_count = 0;
-    ctx->debug = (getenv("PDXE_LSP_DEBUG") != NULL);
+    ctx->debug = (getenv("PDX_ENGINE_LSP_DEBUG") != NULL);
 
     /* Compute the JVM file class name. The Kotlin convention is that
      * top-level functions/properties live in a synthetic class named
@@ -4508,7 +4508,7 @@ void kotlin_lsp_process_file(KotlinLSPContext *ctx, TSNode root) {
     if (ts_node_is_null(root)) {
         return;
     }
-    if (getenv("PDXE_LSP_KOTLIN_AST")) {
+    if (getenv("PDX_ENGINE_LSP_KOTLIN_AST")) {
         fprintf(stderr, "=== AST for %s ===\n", ctx->rel_path ? ctx->rel_path : "<unknown>");
         kt_debug_dump_ast(root, ctx->source, 0);
         fprintf(stderr, "=== END AST ===\n");
@@ -5036,7 +5036,7 @@ void pdxe_run_kotlin_lsp(PDXEArena *arena, PDXEFileResult *result, const char *s
     TSNode use_root = root;
     const char *use_source = source;
     int use_source_len = source_len;
-    bool debug = (getenv("PDXE_LSP_DEBUG") != NULL);
+    bool debug = (getenv("PDX_ENGINE_LSP_DEBUG") != NULL);
     if (debug && patched_src) {
         fprintf(stderr, "[kotlin_lsp] preprocessed %d → %d bytes\n", source_len, patched_len);
         fprintf(stderr, "[kotlin_lsp] patched source:\n%s\n[end patched]\n", patched_src);

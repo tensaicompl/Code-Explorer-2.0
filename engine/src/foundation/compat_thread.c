@@ -35,7 +35,7 @@
  * binary keeps its fixed, predictable stack sizes. */
 static size_t pdxe_thread_stack_floor(size_t requested) {
 #if PDXE_SANITIZED
-    const char *env = getenv("PDXE_THREAD_STACK_MB");
+    const char *env = getenv("PDX_ENGINE_THREAD_STACK_MB");
     if (env && env[0]) {
         char *end = NULL;
         unsigned long mb = strtoul(env, &end, 10);
@@ -85,7 +85,7 @@ static bool thread_release_heap_enabled(void) {
     if (state < 0) {
         char buf[PDXE_SZ_16];
         state =
-            (pdxe_safe_getenv("PDXE_MI_THREAD_DONE", buf, sizeof(buf), NULL) != NULL && buf[0] == '0')
+            (pdxe_safe_getenv("PDX_ENGINE_MI_THREAD_DONE", buf, sizeof(buf), NULL) != NULL && buf[0] == '0')
                 ? 0
                 : 1;
     }

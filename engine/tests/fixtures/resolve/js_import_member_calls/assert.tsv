@@ -1,0 +1,5 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
++	IMPORTS	FILE:app.js	lib.counter	makeCounter
++	CALLS	app.run	lib.counter.makeCounter	lsp_ts_import

@@ -1,0 +1,6 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
+# The workspace members, supplied as metadata, route the call across the crate
+# boundary by the manifest rather than by a unique short name.
++	CALLS	crates.beta.src.main.main	crates.alpha.src.lib.compute	lsp_cross_crate

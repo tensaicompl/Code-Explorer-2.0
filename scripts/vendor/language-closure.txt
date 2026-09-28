@@ -1,0 +1,25 @@
+# Functions vendored from the reference's language source: the lookup of a file's
+# language by its name and extension, and its tables. The import resolver gates a
+# fallback on the importing file's language and the registry vetoes matches across
+# language families, both through this lookup, so its answer must be the
+# reference's own, extension for extension, rather than a table written here.
+#
+# The rest of that source reads files to tell languages apart by content, which is
+# discovery, done in Rust, and is deliberately absent. The per-user language
+# configuration it consults is never set in this project: the language matrix is
+# fixed (adding a language is a specification change), so the interface supplies
+# none. Excluded from the provenance scan for the same reason as the other lists.
+
+header Vendored subset: the language of a file by its name and extension, extracted
+header verbatim from the reference's language source by
+header scripts/vendor/extract-functions.py, with the tables it reads. Telling languages
+header apart by reading a file's content, which the rest of that source does, is
+header discovery, and is deliberately not here.
+
+cbm_language_for_extension
+cbm_language_for_filename
+
+# Includes the absent content checks need: filesystem access and a case-insensitive
+# substring search.
+drop-include foundation/compat_fs.h
+drop-include foundation/compat.h

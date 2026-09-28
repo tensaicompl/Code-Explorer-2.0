@@ -56,7 +56,7 @@ static inline int pdxe_lsp_max_walk_depth(void) {
     static _Atomic int cached = -1;
     int value = atomic_load_explicit(&cached, memory_order_relaxed);
     if (value < 0) {
-        const char* e = getenv("PDXE_LSP_MAX_WALK_DEPTH");
+        const char* e = getenv("PDX_ENGINE_LSP_MAX_WALK_DEPTH");
         int v = (e && *e) ? atoi(e) : 0;
         value = (v > 0) ? v : PDXE_LSP_MAX_WALK_DEPTH;
         atomic_store_explicit(&cached, value, memory_order_relaxed);

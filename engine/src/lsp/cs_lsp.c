@@ -249,7 +249,7 @@ void cs_lsp_init(CSLSPContext *ctx, PDXEArena *arena, const char *source, int so
      * file's <ImplicitUsings>; we just always include it. */
     cs_lsp_add_using(ctx, PDXE_CS_USING_NAMESPACE, "", "System", false);
 
-    const char *dbg = getenv("PDXE_LSP_DEBUG");
+    const char *dbg = getenv("PDX_ENGINE_LSP_DEBUG");
     ctx->debug = (dbg && dbg[0]);
 }
 

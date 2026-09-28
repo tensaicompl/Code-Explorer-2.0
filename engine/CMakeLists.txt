@@ -22,20 +22,30 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # and honouring it is cheaper than auditing a quarter of a million lines.
 set(PDXE_COMMON_FLAGS -fno-strict-aliasing)
 
-# Warnings are fatal for the interface layer, which we write. They are visible but
-# not fatal for the vendored sources: those are not ours to reshape, and a compiler
-# upgrade must not be able to stop the build of code nobody here edits. Turn this on
-# to see the vendored tree held to the same bar.
-option(PDXE_VENDORED_WERROR "Treat warnings in vendored sources as errors" OFF)
+# Warnings are errors throughout, as the toolchain specification requires. For the
+# vendored sources a few classes are exempt below, named and kept visible: the
+# reference compiles its typed-resolution layer with every warning suppressed, and
+# what that layer carries is dead code and style, not defects. Nothing is exempt in
+# the interface layer, which is ours. The switch exists only to let a compiler newer
+# than the ones this is tested with finish a build while its new warnings are
+# looked at; CI never turns it off.
+option(PDXE_VENDORED_WERROR "Treat warnings in vendored sources as errors" ON)
 
 set(PDXE_ROOT ${CMAKE_CURRENT_SOURCE_DIR})
 
 # --- source sets -----------------------------------------------------------
 
 file(GLOB PDXE_CORE_SOURCES CONFIGURE_DEPENDS ${PDXE_ROOT}/src/*.c)
+# The unity file lives among them but is compiled as the resolver layer, below.
+list(REMOVE_ITEM PDXE_CORE_SOURCES ${PDXE_ROOT}/src/lsp_all.c)
 file(GLOB PDXE_FOUNDATION_SOURCES CONFIGURE_DEPENDS ${PDXE_ROOT}/src/foundation/*.c)
-file(GLOB PDXE_RESOLVER_SOURCES CONFIGURE_DEPENDS ${PDXE_ROOT}/src/lsp/*.c)
-file(GLOB PDXE_RESOLVER_TABLES CONFIGURE_DEPENDS ${PDXE_ROOT}/src/lsp/generated/*.c)
+# The typed resolution layer is one translation unit, compiled through its unity
+# file, never file by file. Its sources rely on being compiled together in a set
+# order: generated tables define macros that switch off fallback definitions, and a
+# file-by-file build defines both, so a program linking them may silently get the
+# fallback. Everything under lsp/ is reached from the unity file.
+set(PDXE_RESOLVER_SOURCES ${PDXE_ROOT}/src/lsp_all.c)
+set(PDXE_RESOLVER_TABLES "")
 
 # The cross-file resolution sources call into a graph store this project does not
 # vendor; the interface layer serves those calls instead. They join the build
@@ -45,11 +55,15 @@ file(GLOB PDXE_CROSS_SOURCES CONFIGURE_DEPENDS ${PDXE_ROOT}/src/resolve/*.c)
 # The interface layer: ours, and held to the strict flags.
 file(GLOB PDXE_API_SOURCES CONFIGURE_DEPENDS ${PDXE_ROOT}/api/*.c)
 
+# The parser runtime and the macro preprocessor are not listed: each is included by
+# a wrapper among the engine sources (src/ts_runtime.c, src/preprocessor.cpp), and
+# compiling them here as well defined every one of their symbols twice.
+# The allocator's implementation is not among them: nothing the interface reaches
+# calls it (scripts/vendor/strip-list.txt), and only its header, for types, is kept.
 set(PDXE_VENDORED_SOURCES
-  ${PDXE_ROOT}/vendored/ts_runtime/src/lib.c
   ${PDXE_ROOT}/vendored/yyjson/yyjson.c
-  # The allocator, built as the single translation unit it provides for the purpose.
-  ${PDXE_ROOT}/vendored/mimalloc/src/static.c
+  # Compression, for the matcher's tables.
+  ${PDXE_ROOT}/vendored/lz4/lz4.c
 )
 
 # --- grammars --------------------------------------------------------------
@@ -70,15 +84,16 @@ add_library(pdxe STATIC
   ${PDXE_FOUNDATION_SOURCES}
   ${PDXE_RESOLVER_SOURCES}
   ${PDXE_RESOLVER_TABLES}
+  ${PDXE_CROSS_SOURCES}
   ${PDXE_VENDORED_SOURCES}
   ${PDXE_API_SOURCES}
   ${PDXE_ROOT}/src/preprocessor.cpp
-  ${PDXE_ROOT}/vendored/simplecpp/simplecpp.cpp
 )
 
 target_include_directories(pdxe PUBLIC
   ${PDXE_ROOT}
   ${PDXE_ROOT}/include
+  ${PDXE_ROOT}/api
   ${PDXE_ROOT}/src
   # Deliberately not src/lsp or src/foundation. The sources reach those through
   # their directory prefix, and the foundation carries headers whose names match
@@ -97,6 +112,23 @@ target_include_directories(pdxe PUBLIC
 
 target_compile_options(pdxe PRIVATE ${PDXE_COMMON_FLAGS} -Wall -Wextra)
 
+# Some diagnostics are defects wherever they occur, vendored or not: a function
+# called without a declaration is assumed to return int, which truncates a pointer on
+# a 64-bit target, and the conversions below corrupt values silently. These are
+# errors always, whatever PDXE_VENDORED_WERROR says.
+target_compile_options(pdxe PRIVATE
+  $<$<COMPILE_LANGUAGE:C>:-Werror=implicit-function-declaration>
+  $<$<COMPILE_LANGUAGE:C>:-Werror=int-conversion>
+  $<$<COMPILE_LANGUAGE:C>:-Werror=incompatible-pointer-types>
+  $<$<COMPILE_LANGUAGE:C>:-Werror=return-type>)
+
+# The interface layer is ours, so its warnings are errors regardless of the switch
+# above: that switch exists for code we did not write.
+if(PDXE_API_SOURCES)
+  set_source_files_properties(${PDXE_API_SOURCES} PROPERTIES
+    COMPILE_OPTIONS "-Wall;-Wextra;-Werror")
+endif()
+
 # The grammar wrappers are generated parser tables by inclusion: silence them.
 file(GLOB PDXE_GRAMMAR_WRAPPERS CONFIGURE_DEPENDS ${PDXE_ROOT}/src/grammar_*.c)
 if(PDXE_GRAMMAR_WRAPPERS)
@@ -104,6 +136,33 @@ if(PDXE_GRAMMAR_WRAPPERS)
 endif()
 if(PDXE_VENDORED_WERROR)
   target_compile_options(pdxe PRIVATE -Werror)
+
+  # Exempt for vendored code: warnings that report code nobody calls, a parameter or
+  # value nobody reads, a comment that nests a comment opener, and a sign mismatch in
+  # a comparison. They stay visible in the build log; they are not errors.
+  include(CheckCCompilerFlag)
+  set(PDXE_VENDORED_EXEMPT
+    unused-function unused-parameter unused-variable unused-but-set-variable
+    unused-const-variable unused-value comment sign-compare
+    # Bounded writes into fixed buffers, truncating by design; the reference exempts
+    # this class for the same reason.
+    format-truncation)
+  foreach(warning ${PDXE_VENDORED_EXEMPT})
+    string(MAKE_C_IDENTIFIER "PDXE_HAS_W_${warning}" flag_var)
+    check_c_compiler_flag(-W${warning} ${flag_var})
+    if(${flag_var})
+      target_compile_options(pdxe PRIVATE $<$<COMPILE_LANGUAGE:C>:-Wno-error=${warning}>)
+    endif()
+  endforeach()
+
+  # One file, one false positive: gcc reports a freshly allocated block, passed on as
+  # a const pointer so its usable size can be asked for, as possibly uninitialised,
+  # though nothing reads what it points to. The class stays an error everywhere else.
+  check_c_compiler_flag(-Wmaybe-uninitialized PDXE_HAS_W_MAYBE_UNINITIALIZED)
+  if(PDXE_HAS_W_MAYBE_UNINITIALIZED)
+    set_source_files_properties(${PDXE_ROOT}/src/foundation/mem_core.c PROPERTIES
+      COMPILE_OPTIONS "-Wno-error=maybe-uninitialized")
+  endif()
 endif()
 
 find_package(Threads REQUIRED)
@@ -116,3 +175,48 @@ set_target_properties(pdxe PROPERTIES
   ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
   OUTPUT_NAME pdxe
 )
+
+# --- the interface's own tests ---------------------------------------------
+#
+# Small C programs that exercise the interface exactly as a caller does, linked
+# against the archive. They see the internal headers too, which a caller does not:
+# some tests compare what the resolver built with what the reference builds.
+option(PDXE_BUILD_TESTS "Build the interface's test programs" OFF)
+if(PDXE_BUILD_TESTS)
+  enable_testing()
+  file(GLOB PDXE_TEST_SOURCES CONFIGURE_DEPENDS ${PDXE_ROOT}/tests/*.c)
+  foreach(test_source ${PDXE_TEST_SOURCES})
+    get_filename_component(test_name ${test_source} NAME_WE)
+    add_executable(${test_name} ${test_source})
+    target_include_directories(${test_name} PRIVATE $<TARGET_PROPERTY:pdxe,INCLUDE_DIRECTORIES>)
+    target_compile_options(${test_name} PRIVATE -Wall -Wextra -Werror)
+    target_link_libraries(${test_name} PRIVATE pdxe)
+    # The archive holds C++ (the preprocessor), so the C++ runtime must be linked.
+    set_target_properties(${test_name} PROPERTIES
+      LINKER_LANGUAGE CXX
+      RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+  endforeach()
+
+  set(PDXE_SMOKE_FIXTURES ${PDXE_ROOT}/tests/fixtures/smoke)
+  set(PDXE_RESOLVE_FIXTURE_ROOT ${PDXE_ROOT}/tests/fixtures/resolve)
+  add_test(NAME abi_smoke COMMAND abi_smoke ${PDXE_SMOKE_FIXTURES})
+  add_test(NAME abi_result_build_roundtrip
+    COMMAND abi_result_build_roundtrip ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_ROOT})
+  file(GLOB PDXE_RESOLVE_FIXTURE_DIRS LIST_DIRECTORIES true ${PDXE_RESOLVE_FIXTURE_ROOT}/*)
+  add_test(NAME abi_no_output
+    COMMAND abi_no_output ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_DIRS})
+
+  # Typed resolution, one test per fixture, named after it: our answers against the
+  # reference's recorded ones, the fixture's own assertions, and independence from
+  # the order files are added. See scripts/engine/typed-differential.py.
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  file(GLOB PDXE_RESOLVE_FIXTURES LIST_DIRECTORIES true ${PDXE_ROOT}/tests/fixtures/resolve/*)
+  foreach(fixture ${PDXE_RESOLVE_FIXTURES})
+    if(IS_DIRECTORY ${fixture})
+      get_filename_component(fixture_name ${fixture} NAME)
+      add_test(NAME ${fixture_name}
+        COMMAND ${Python3_EXECUTABLE} ${PDXE_ROOT}/../scripts/engine/typed-differential.py
+                --dump $<TARGET_FILE:resolve_dump> ${fixture})
+    endif()
+  endforeach()
+endif()

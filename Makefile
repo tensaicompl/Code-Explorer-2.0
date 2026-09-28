@@ -13,16 +13,17 @@ PNPM  ?= pnpm
 UI    := ui
 
 .PHONY: all check check-full fmt fmt-check lint build test consts-sync engine engine-clean \
+        engine-test engine-typed-reference \
         ui-install ui-lint ui-test ui-build bundle-budget \
         licence-scan provenance-scan open-binary-check \
         golden oracle e2e asan determinism engine-differential perf \
-        bindgen vendor-refresh clean
+        bindgen vendor-refresh vendor-verify clean
 
 all: check
 
 # --- the gate every task passes -------------------------------------------
 
-check: fmt-check lint build test consts-sync open-binary-check licence-scan provenance-scan ui-lint ui-test bundle-budget
+check: fmt-check lint build test engine-test consts-sync open-binary-check licence-scan provenance-scan ui-lint ui-test bundle-budget
 
 check-full: check golden oracle e2e asan determinism engine-differential perf
 
@@ -45,15 +46,28 @@ build: engine
 # adds its bindings; until then it is built here so that every platform compiles it.
 ENGINE_BUILD ?= target/engine
 engine:
-	@cmake -S engine -B $(ENGINE_BUILD) -DCMAKE_BUILD_TYPE=Release > /dev/null
+	@cmake -S engine -B $(ENGINE_BUILD) -DCMAKE_BUILD_TYPE=Release -DPDXE_BUILD_TESTS=ON > /dev/null
 	@cmake --build $(ENGINE_BUILD) -j
 	@echo "engine: built $(ENGINE_BUILD)/libpdxe.a"
+
+# The interface's own tests: C programs over the archive, and typed resolution
+# against the reference's recorded answers.
+engine-test: engine
+	@ctest --test-dir $(ENGINE_BUILD) --output-on-failure
+
+# Re-records the reference's answers for every resolution fixture. Needs the pinned
+# reference checkout; builds the reference outside the tree.
+engine-typed-reference: engine
+	@python3 scripts/engine/typed-differential.py --reference --update \
+	  --dump $(ENGINE_BUILD)/tests/resolve_dump engine/tests/fixtures/resolve/*
 
 engine-clean:
 	rm -rf $(ENGINE_BUILD)
 
-test:
-	$(CARGO) test --workspace --all-features
+# The engine is built first, and its archive checks are required rather than
+# skipped: here the archive is expected to exist (crates/pdx-bench/tests/engine_build.rs).
+test: engine
+	PDX_REQUIRE_ENGINE=1 $(CARGO) test --workspace --all-features
 
 # The two constant definitions must agree.
 consts-sync:
@@ -117,6 +131,11 @@ perf:
 
 bindgen:
 	$(CARGO) build -p pdx-engine-sys --features regenerate-bindings
+
+# Re-runs the vendoring at the pinned commit and fails unless it reproduces the
+# committed engine exactly. Needs the pinned reference checkout.
+vendor-verify:
+	@scripts/vendor/verify-refresh.sh
 
 vendor-refresh:
 	@scripts/vendor/fetch-engine.sh

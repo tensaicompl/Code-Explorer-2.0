@@ -1,0 +1,8 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
++	CALLS	app.service.run	app.models.make_user	lsp_callable_alias
++	CALLS	app.service.run	app.models.User	lsp_constructor
++	CALLS	app.service.run	app.models.User.display_name	lsp_method
++	CALL_REFERENCE	app.service.go	app.models.make_user	*
++	IMPORTS	FILE:app/service.py	app.models.make_user	make_user

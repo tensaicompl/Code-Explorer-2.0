@@ -15,7 +15,7 @@
  *
  * Public entry points:
  *   - `pdxe_run_rust_lsp` — single-file resolution invoked from
- *     `pdxe_extract_file()`.
+ *     `pdxe_engine_extract_file()`.
  *   - `pdxe_run_rust_lsp_cross` — cross-file resolution given a list of
  *     `PDXELSPDef`s gathered by the pipeline.
  *   - `pdxe_batch_rust_lsp_cross` — batch wrapper that processes several
@@ -50,7 +50,7 @@ struct PDXECargoManifest;
 #define PDXE_RUST_CONF_OPERATOR 0.88f    /* a+b → T::add (operator trait) */
 
 /* Rust-flavoured LSP context: one per file, lifetime tied to a single
- * `pdxe_extract_file()` invocation (or the cross-file caller's arena). */
+ * `pdxe_engine_extract_file()` invocation (or the cross-file caller's arena). */
 typedef struct {
     PDXEArena *arena;
     const char *source;
@@ -271,7 +271,7 @@ const PDXERegisteredFunc *rust_lookup_method(RustLSPContext *ctx, const char *ty
 void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDXEFileResult *result,
                                    const char *module_qn, TSNode root, const char *source);
 
-/* Entry point — called from `pdxe_extract_file()` after the unified
+/* Entry point — called from `pdxe_engine_extract_file()` after the unified
  * extractor has filled `result->defs`, `result->imports`, and
  * `result->impl_traits`. Builds a per-file registry, parses the `use`
  * graph, and walks every function body emitting PDXEResolvedCall entries. */

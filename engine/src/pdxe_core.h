@@ -567,7 +567,7 @@ typedef struct PDXEFileResult {
     TSTree *cached_tree; // retained parse tree (caller frees via pdxe_free_tree)
     /* The parse alone used more than its share of the per-file budget: the
      * per-file LSP walk and the cross-file resolve skip this file (its
-     * unified-extractor defs stay). Set by pdxe_extract_file_ex, honoured by
+     * unified-extractor defs stay). Set by pdxe_engine_extract_file_ex, honoured by
      * pdxe_pxc_dispatch_file -- one site for every language. */
     bool lsp_skipped;
     /* The unified walk stopped at its CPU budget: defs/calls/usages found up
@@ -646,7 +646,7 @@ typedef struct {
 
 typedef struct {
     PDXEArena *arena;
-    /* Scratch for AST traversal, owned by the pdxe_extract_file_ex call that
+    /* Scratch for AST traversal, owned by the pdxe_engine_extract_file_ex call that
      * built this context and destroyed when it returns. Nothing a
      * PDXEFileResult points at may be allocated here: `arena` is the result's
      * own, and it outlives extraction by the whole pipeline (#1997). NULL in a
@@ -692,7 +692,7 @@ typedef struct {
 // override (#424). MUST be called as the very first statement of main(), before
 // any sqlite3_open*/sqlite3_initialize (SQLITE_CONFIG_MALLOC returns
 // SQLITE_MISUSE once sqlite has initialized).
-// Idempotent (static guard); intended for single-threaded startup. pdxe_init()
+// Idempotent (static guard); intended for single-threaded startup. pdxe_engine_init()
 // also calls it so non-main entry points (pipeline passes) still get the binds.
 // In the test build (no PDXE_BIND_TS_ALLOCATOR) this is a no-op.
 void pdxe_alloc_init(void);
@@ -704,12 +704,12 @@ void pdxe_alloc_init(void);
 void pdxe_sqlite_dedicated_heap(bool on);
 
 // Initialize the library. Call once at startup. Returns 0 on success.
-int pdxe_init(void);
+int pdxe_engine_init(void);
 
 // True when rel_path is in the crash-quarantine set — the newline-delimited list
 // of files (PDXE_INDEX_QUARANTINE_FILE) the crash supervisor pinned as crashers
 // during its single-threaded recovery re-run. Loaded once, lazily; read-only
-// after load. pdxe_extract_file short-circuits such files to an empty result so no
+// after load. pdxe_engine_extract_file short-circuits such files to an empty result so no
 // pass can crash on them; the pipeline extract loops call this to also REPORT the
 // skip as phase="crash". Always false (cheap no-op) when the env var is unset.
 bool pdxe_index_is_quarantined(const char *rel_path);
@@ -723,7 +723,7 @@ const char *pdxe_index_quarantine_phase(const char *rel_path);
 // Crash-supervisor marker journal (parallel-safe): appends "S <rel_path>" /
 // "D <rel_path>" to PDXE_INDEX_MARKER_FILE. Files with an S but no D form the
 // parent's crash/hang suspect set. No-ops when the env var is unset.
-// pdxe_extract_file journals its own start/done; long-running per-file phases
+// pdxe_engine_extract_file journals its own start/done; long-running per-file phases
 // (cross-LSP resolve) call these around their per-file work so a hang there
 // is attributed to the RIGHT file instead of a stale extraction marker.
 void pdxe_index_mark_start(const char *rel_path);
@@ -767,16 +767,16 @@ void pdxe_work_arena_keep_begin(void);
 /* Free the compaction scratch this thread kept (pdxe_work_arena_release calls it). */
 void pdxe_result_compact_release_thread(void);
 
-PDXEFileResult *pdxe_extract_file(const char *source, int source_len, PDXELanguage language,
+PDXEFileResult *pdxe_engine_extract_file(const char *source, int source_len, PDXELanguage language,
                                 const char *project, const char *rel_path, int64_t timeout_micros,
                                 const char **extra_defines, // NULL-terminated, or NULL
                                 const char **include_paths  // NULL-terminated, or NULL
 );
 
-// Pipeline-internal variant of pdxe_extract_file() carrying ObjectScript
+// Pipeline-internal variant of pdxe_engine_extract_file() carrying ObjectScript
 // per-project tables (macro table + method-return-type table). The public
-// pdxe_extract_file() is a thin wrapper that passes NULL, NULL for both.
-PDXEFileResult *pdxe_extract_file_ex(
+// pdxe_engine_extract_file() is a thin wrapper that passes NULL, NULL for both.
+PDXEFileResult *pdxe_engine_extract_file_ex(
     const char *source, int source_len, PDXELanguage language, const char *project,
     const char *rel_path, int64_t timeout_micros,
     const char **extra_defines,                 // NULL-terminated, or NULL
@@ -828,7 +828,7 @@ TSTreeCursor *pdxe_cursor_acquire(pdxe_cursor_lease_t *lease, int depth, TSNode 
 void pdxe_cursor_release(pdxe_cursor_lease_t *lease);
 
 // Shutdown the library. Call once at exit.
-void pdxe_shutdown(void);
+void pdxe_engine_shutdown(void);
 
 // Profiling: get accumulated parse/extraction times and file count.
 typedef struct {

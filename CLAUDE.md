@@ -5,15 +5,14 @@ immutable versioned graphs, resolves relationships with an explicit confidence
 band on every edge, links repositories through contracts, and serves the result
 to AI agents over MCP and to a GPU-rendered architecture map.
 
-**Remote:** `tensaicompl/Code-Explorer-2.0` (private, `origin`). The predecessor
+**Remote:** `tensaicompl/Code-Explorer-2.0` (public, `origin`). The predecessor
 repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 
-## State: P0 in progress
+## State: P1 in progress
 
-3 of 98 tasks done. The restructuring has happened: the previous implementation is
-in `legacy/`, read-only until the retirement task removes it. The Rust workspace,
-the interface scaffold and `make check` exist; there is no engine, no pipeline and
-no product behaviour yet.
+P0 is done and gate G0 has passed; P1 has vendored the engine, built it, and given it
+its interface. The previous implementation is in `legacy/`, read-only until the
+retirement task removes it. There is no pipeline and no product behaviour yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.
@@ -21,19 +20,25 @@ this paragraph.
 | Path | State |
 |---|---|
 | `crates/` | Ten crate skeletons, licence split enforced by `scripts/open-binary-check.sh` |
+| `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot |
 | `ada-indexer/`, `deploy/` | Skeleton and placeholder; contents arrive in their phases |
 | `legacy/` | The previous implementation. Do not fix, extend or import from it |
 
-Target layout adds `engine/` when the extraction engine is vendored.
-
 ## Build
 
 ```
-make check        # format, lint, build both feature sets, test, open-binary check, interface lint and tests
+make check        # format, lint, build both feature sets and the engine, test, engine tests,
+                  # open-binary check, interface lint and tests
 make check-full   # adds accuracy, determinism, sanitizers, browser suites
+make asan         # the engine's tests under the address, undefined-behaviour and leak sanitizers
 ```
+
+Engine-specific targets: `make engine-test` (the interface tests),
+`make engine-typed-reference` (re-record the reference engine's answers for the
+typed-resolution fixtures; needs the pinned checkout), `make vendor-verify` (a
+refresh at the pinned commit must reproduce `engine/` exactly), `make vendor-refresh`.
 
 Requires Rust 1.98.1 (pinned in `rust-toolchain.toml`), gcc 13 or clang 17+,
 cmake 3.25+, Node 22 and pnpm 10. Put `~/.cargo/bin` and

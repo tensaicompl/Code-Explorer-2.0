@@ -1,0 +1,315 @@
+/*
+ * What a cache keeps comes back exactly.
+ *
+ *     abi_result_build_roundtrip <fixture dir>...
+ *
+ * For every source file under the directories:
+ *
+ *   - the interface's arrays rebuilt through pdxe_result_build equal the extracted
+ *     ones, field by field, strings by content;
+ *   - a rebuilt result has no surface of its own to give;
+ *   - the file's surface, decoded and encoded again, is the same bytes.
+ *
+ * And surfaces that are not what the encoder writes are refused: truncated, of
+ * another version, with a field missing, a field extra, a field of the wrong type,
+ * or a counted array whose count disagrees with it.
+ */
+
+#include <dirent.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+
+#include "pdxe.h"
+#include "pdxe_core.h"
+#include "shim_internal.h"
+
+static int failures = 0;
+
+#define CHECK(cond, ...)                                                                           \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
+            printf("FAIL ");                                                                       \
+            printf(__VA_ARGS__);                                                                   \
+            printf("\n");                                                                          \
+            failures++;                                                                            \
+        }                                                                                          \
+    } while (0)
+
+static int same_str(const char *a, const char *b) {
+    return (!a && !b) || (a && b && strcmp(a, b) == 0);
+}
+
+static int same_span(pdxe_span a, pdxe_span b) {
+    return memcmp(&a, &b, sizeof(a)) == 0;
+}
+
+static void compare(const char *path, const pdxe_file_result *a, const pdxe_file_result *b) {
+    CHECK(a->n_defs == b->n_defs && a->n_calls == b->n_calls && a->n_imports == b->n_imports &&
+              a->n_usages == b->n_usages && a->n_types == b->n_types && a->n_rws == b->n_rws,
+          "%s: array lengths differ", path);
+    for (uint32_t i = 0; i < a->n_defs && i < b->n_defs; i++) {
+        const pdxe_definition *x = &a->defs[i], *y = &b->defs[i];
+        CHECK(same_str(x->name, y->name) && same_str(x->qualified_name, y->qualified_name) &&
+                  same_str(x->kind, y->kind) && same_str(x->engine_kind, y->engine_kind) &&
+                  same_str(x->signature, y->signature) && same_str(x->doc, y->doc) &&
+                  same_span(x->span, y->span) && same_span(x->body_span, y->body_span) &&
+                  x->parent_index == y->parent_index && x->visibility == y->visibility &&
+                  x->is_test == y->is_test && x->is_entry_point == y->is_entry_point &&
+                  x->cyclomatic == y->cyclomatic && x->cognitive == y->cognitive &&
+                  x->loop_depth == y->loop_depth,
+              "%s: definition %u differs", path, i);
+    }
+    for (uint32_t i = 0; i < a->n_calls && i < b->n_calls; i++) {
+        const pdxe_call *x = &a->calls[i], *y = &b->calls[i];
+        CHECK(same_str(x->callee_text, y->callee_text) &&
+                  same_str(x->receiver_text, y->receiver_text) &&
+                  x->caller_index == y->caller_index && same_span(x->span, y->span) &&
+                  x->is_reference == y->is_reference && x->typed_only == y->typed_only &&
+                  x->lexical == y->lexical,
+              "%s: call %u differs", path, i);
+    }
+    for (uint32_t i = 0; i < a->n_imports && i < b->n_imports; i++) {
+        const pdxe_import *x = &a->imports[i], *y = &b->imports[i];
+        CHECK(same_str(x->module_text, y->module_text) &&
+                  same_str(x->imported_name, y->imported_name) && same_str(x->alias, y->alias) &&
+                  same_span(x->span, y->span),
+              "%s: import %u differs", path, i);
+    }
+    for (uint32_t i = 0; i < a->n_usages && i < b->n_usages; i++) {
+        const pdxe_usage *x = &a->usages[i], *y = &b->usages[i];
+        CHECK(same_str(x->name, y->name) && x->scope_index == y->scope_index &&
+                  same_span(x->span, y->span) && x->lexical == y->lexical,
+              "%s: usage %u differs", path, i);
+    }
+    for (uint32_t i = 0; i < a->n_types && i < b->n_types; i++) {
+        const pdxe_type_ref *x = &a->types[i], *y = &b->types[i];
+        CHECK(same_str(x->type_text, y->type_text) && x->scope_index == y->scope_index &&
+                  same_span(x->span, y->span),
+              "%s: type reference %u differs", path, i);
+    }
+    for (uint32_t i = 0; i < a->n_rws && i < b->n_rws; i++) {
+        const pdxe_rw *x = &a->rws[i], *y = &b->rws[i];
+        CHECK(same_str(x->field_text, y->field_text) && x->scope_index == y->scope_index &&
+                  x->is_write == y->is_write && same_span(x->span, y->span),
+              "%s: field access %u differs", path, i);
+    }
+}
+
+static unsigned char *read_all(const char *path, size_t *len) {
+    FILE *f = fopen(path, "rb");
+    if (!f) {
+        return NULL;
+    }
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    unsigned char *buf = malloc(n > 0 ? (size_t)n : 1);
+    if (buf && n > 0 && fread(buf, 1, (size_t)n, f) != (size_t)n) {
+        free(buf);
+        buf = NULL;
+    }
+    fclose(f);
+    *len = n > 0 ? (size_t)n : 0;
+    return buf;
+}
+
+static const struct {
+    const char *ext;
+    const char *lang;
+} EXTENSIONS[] = {
+    {".py", "python"},   {".ts", "typescript"}, {".tsx", "tsx"},       {".js", "javascript"},
+    {".go", "go"},       {".java", "java"},     {".cs", "csharp"},     {".c", "c"},
+    {".h", "c"},         {".cpp", "cpp"},       {".hpp", "cpp"},       {".rs", "rust"},
+    {".kt", "kotlin"},   {".scala", "scala"},   {".php", "php"},       {".pm", "perl"},
+    {".adb", "ada"},     {".sh", "bash"},       {".rb", "ruby"},       {".swift", "swift"},
+    {".m", "objc"},      {".groovy", "groovy"}, {".lua", "lua"},       {".sql", "sql"},
+    {".proto", "protobuf"}, {".graphql", "graphql"}, {".yaml", "yaml"}, {".json", "json"},
+    {".toml", "toml"},   {".tf", "hcl"},        {".dockerfile", "dockerfile"},
+    {".md", "markdown"}, {".xml", "xml"},       {".properties", "properties"},
+};
+
+static int language_of(const char *name) {
+    const char *dot = strrchr(name, '.');
+    for (size_t i = 0; dot && i < sizeof(EXTENSIONS) / sizeof(EXTENSIONS[0]); i++) {
+        if (strcmp(dot, EXTENSIONS[i].ext) == 0) {
+            return pdxe_language_id(EXTENSIONS[i].lang);
+        }
+    }
+    return 0;
+}
+
+static int files_checked = 0;
+
+static void check_file(pdxe_ctx *ctx, const char *path) {
+    int lang = language_of(path);
+    if (!lang) {
+        return;
+    }
+    size_t len = 0;
+    unsigned char *bytes = read_all(path, &len);
+    pdxe_file_result *r = NULL;
+    if (!bytes || pdxe_extract_file(ctx, lang, path, bytes, len, &r) != PDXE_OK) {
+        CHECK(0, "%s: extraction failed", path);
+        free(bytes);
+        return;
+    }
+    files_checked++;
+
+    pdxe_file_result *rebuilt = NULL;
+    CHECK(pdxe_result_build(ctx, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
+                            r->n_imports, r->usages, r->n_usages, r->types, r->n_types, r->rws,
+                            r->n_rws, &rebuilt) == PDXE_OK,
+          "%s: rebuild failed", path);
+    if (rebuilt) {
+        compare(path, r, rebuilt);
+        uint8_t *none = NULL;
+        size_t none_len = 0;
+        CHECK(pdxe_surface_export(rebuilt, path, &none, &none_len) == PDXE_E_INVALID && !none,
+              "%s: a rebuilt result gave a surface", path);
+    }
+
+    uint8_t *surface = NULL;
+    size_t surface_len = 0;
+    CHECK(pdxe_surface_export(r, path, &surface, &surface_len) == PDXE_OK, "%s: export failed",
+          path);
+    PDXEFileResult *decoded = NULL;
+    char *decoded_path = NULL;
+    int decoded_lang = 0;
+    if (surface &&
+        pdxe_surface_decode(surface, surface_len, &decoded, &decoded_path, &decoded_lang) ==
+            PDXE_OK) {
+        CHECK(strcmp(decoded_path, path) == 0 && decoded_lang == lang,
+              "%s: surface names another file", path);
+        uint8_t *again = NULL;
+        size_t again_len = 0;
+        CHECK(pdxe_surface_encode(decoded, decoded_path, decoded_lang, &again, &again_len) ==
+                      PDXE_OK &&
+                  again_len == surface_len && memcmp(again, surface, surface_len) == 0,
+              "%s: the surface does not survive decoding", path);
+        free(again);
+        pdxe_free_result(decoded);
+        free(decoded_path);
+    } else if (surface) {
+        CHECK(0, "%s: the surface does not decode", path);
+    }
+    pdxe_surface_free(surface);
+    pdxe_result_free(ctx, rebuilt);
+    pdxe_result_free(ctx, r);
+    free(bytes);
+}
+
+static void walk(pdxe_ctx *ctx, const char *dir) {
+    DIR *d = opendir(dir);
+    if (!d) {
+        return;
+    }
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (e->d_name[0] == '.') {
+            continue;
+        }
+        char path[4096];
+        snprintf(path, sizeof(path), "%s/%s", dir, e->d_name);
+        struct stat st;
+        if (stat(path, &st) != 0) {
+            continue;
+        }
+        if (S_ISDIR(st.st_mode)) {
+            walk(ctx, path);
+        } else {
+            check_file(ctx, path);
+        }
+    }
+    closedir(d);
+}
+
+/* Replaces the first occurrence of `from` in `s` with `to`, into a new string. */
+static char *replace(const char *s, const char *from, const char *to) {
+    const char *at = strstr(s, from);
+    if (!at) {
+        return NULL;
+    }
+    size_t n = strlen(s) - strlen(from) + strlen(to);
+    char *out = malloc(n + 1);
+    size_t head = (size_t)(at - s);
+    memcpy(out, s, head);
+    strcpy(out + head, to);
+    strcat(out, at + strlen(from));
+    return out;
+}
+
+static void expect_refused(const char *what, const char *bytes) {
+    PDXEFileResult *r = NULL;
+    char *path = NULL;
+    int lang = 0;
+    int rc = bytes ? pdxe_surface_decode((const uint8_t *)bytes, strlen(bytes), &r, &path, &lang)
+                   : PDXE_E_INVALID;
+    CHECK(bytes && rc == PDXE_E_INVALID && !r && !path, "a surface %s was accepted", what);
+    if (r) {
+        pdxe_free_result(r);
+    }
+    free(path);
+}
+
+static void check_refusals(pdxe_ctx *ctx) {
+    static const char source[] = "class A:\n    def m(self, x: int) -> int:\n        return x\n";
+    pdxe_file_result *r = NULL;
+    uint8_t *surface = NULL;
+    size_t len = 0;
+    if (pdxe_extract_file(ctx, pdxe_language_id("python"), "a.py", (const uint8_t *)source,
+                          sizeof(source) - 1, &r) != PDXE_OK ||
+        pdxe_surface_export(r, "a.py", &surface, &len) != PDXE_OK) {
+        CHECK(0, "cannot make a surface to corrupt");
+        pdxe_result_free(ctx, r);
+        return;
+    }
+    char *good = malloc(len + 1);
+    memcpy(good, surface, len);
+    good[len] = '\0';
+
+    char *truncated = strdup(good);
+    truncated[len / 2] = '\0';
+    expect_refused("cut short", truncated);
+    free(truncated);
+
+    char *m;
+    expect_refused("of another version", m = replace(good, "\"v\":1", "\"v\":2"));
+    free(m);
+    expect_refused("without a field", m = replace(good, "\"lsp_skipped\":false,", ""));
+    free(m);
+    expect_refused("with an extra field", m = replace(good, "\"lsp_skipped\":false",
+                                                      "\"lsp_skipped\":false,\"extra\":1"));
+    free(m);
+    expect_refused("with a field of the wrong type",
+                   m = replace(good, "\"lsp_skipped\":false", "\"lsp_skipped\":0"));
+    free(m);
+    expect_refused("with an extra top-level key", m = replace(good, "\"v\":1", "\"v\":1,\"x\":0"));
+    free(m);
+    expect_refused("whose count disagrees with its array",
+                   m = replace(good, "\"signature_param_count\":1", "\"signature_param_count\":2"));
+    free(m);
+
+    free(good);
+    pdxe_surface_free(surface);
+    pdxe_result_free(ctx, r);
+}
+
+int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "usage: abi_result_build_roundtrip <fixture dir>...\n");
+        return 2;
+    }
+    pdxe_ctx *ctx = NULL;
+    if (pdxe_init(&ctx) != PDXE_OK) {
+        return 1;
+    }
+    for (int a = 1; a < argc; a++) {
+        walk(ctx, argv[a]);
+    }
+    check_refusals(ctx);
+    pdxe_shutdown(ctx);
+    printf("%s: %d files, %d failures\n", failures ? "FAIL" : "ok", files_checked, failures);
+    return failures || files_checked == 0 ? 1 : 0;
+}

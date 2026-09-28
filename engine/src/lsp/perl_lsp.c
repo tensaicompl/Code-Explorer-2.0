@@ -228,7 +228,7 @@ void perl_lsp_init(PerlLSPContext *ctx, PDXEArena *arena, const char *source, in
     ctx->resolved_calls = out;
     ctx->current_scope = pdxe_scope_push(arena, NULL);
 
-    const char *dbg = getenv("PDXE_LSP_DEBUG");
+    const char *dbg = getenv("PDX_ENGINE_LSP_DEBUG");
     ctx->debug = (dbg && dbg[0]);
 }
 

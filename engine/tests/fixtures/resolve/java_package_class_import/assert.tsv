@@ -1,0 +1,4 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
++	IMPORTS	FILE:src/main/java/com/acme/app/Service.java	src.main.java.com.acme.core.Repo.java.__file__	Repo

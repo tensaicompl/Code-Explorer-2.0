@@ -324,7 +324,7 @@ static const char *pdxe_string_read(void *payload, uint32_t byte, TSPoint point,
 /* Read fresh each call, like pdxe_max_file_bytes: cheap next to a file walk, and
  * no memoized copy to go stale between runs in the same process. */
 static uint32_t pdxe_walk_max_nodes(void) {
-    const char *raw = getenv("PDXE_WALK_MAX_NODES");
+    const char *raw = getenv("PDX_ENGINE_WALK_MAX_NODES");
     if (raw && raw[0]) {
         errno = 0;
         char *end = NULL;
@@ -351,7 +351,7 @@ typedef struct {
 
 #ifdef PDXE_ENABLE_TEST_SEAMS
 /* Deterministic RED-repro seam (armed by PDXE_TEST_WALL_STALL_ON in
- * pdxe_extract_file_ex): when set, the timeout callback reads the WALL clock this
+ * pdxe_engine_extract_file_ex): when set, the timeout callback reads the WALL clock this
  * many ns ahead of reality while CPU time is untouched — emulating a worker
  * descheduled long enough for the old wall-only budget to elapse against
  * near-zero CPU. With the CPU-time budget the parse still completes; a wall-only
@@ -576,7 +576,7 @@ void pdxe_alloc_init(void) {
     }
     alloc_bound = 1;
 
-    /* tree-sitter runtime (was previously bound in pdxe_init; consolidated here). */
+    /* tree-sitter runtime (was previously bound in pdxe_engine_init; consolidated here). */
     ts_set_allocator(pdxe_ts_malloc, pdxe_ts_calloc, pdxe_ts_realloc, pdxe_ts_free);
 
     /* sqlite3. SQLITE_CONFIG_MALLOC MUST run before sqlite3_initialize / the
@@ -603,14 +603,14 @@ void pdxe_alloc_init(void) {
 
 static int pdxe_initialized = 0;
 
-int pdxe_init(void) {
+int pdxe_engine_init(void) {
     if (pdxe_initialized) {
         return 0;
     }
     enum { PDXE_INIT_DONE = 1 };
     pdxe_initialized = PDXE_INIT_DONE;
     /* Defense-in-depth allocator binds (idempotent). main() calls pdxe_alloc_init
-     * first; this covers non-main entry points (pipeline passes call pdxe_init).
+     * first; this covers non-main entry points (pipeline passes call pdxe_engine_init).
      * For sqlite the SQLITE_CONFIG_MALLOC bind only takes effect if it runs
      * before sqlite initializes — main() guarantees that ordering; here it is a
      * best-effort idempotent re-assert for paths that never hit main(). */
@@ -773,7 +773,7 @@ void pdxe_destroy_thread_parser(void) {
     pdxe_ts_field_cache_release_thread();
 }
 
-void pdxe_shutdown(void) {
+void pdxe_engine_shutdown(void) {
     // Clean up thread-local parser for the calling thread.
     // Note: other threads' TLS parsers are freed when those threads exit.
     pdxe_destroy_thread_parser();
@@ -969,7 +969,7 @@ static int count_params_from_signature(const char *sig) {
  * unlucky in-flight file is never quarantined alone. The env var is set
  * solely by the supervisor during recovery — a no-op on normal runs. */
 static void pdxe_index_mark(const char *rel_path, char event) {
-    const char *mf = getenv("PDXE_INDEX_MARKER_FILE");
+    const char *mf = getenv("PDX_ENGINE_INDEX_MARKER_FILE");
     if (!mf || !mf[0] || !rel_path || !rel_path[0]) {
         return;
     }
@@ -994,7 +994,7 @@ void pdxe_index_mark_done(const char *rel_path) {
  * that already crashed the indexer and MUST NOT be extracted again. Owned here,
  * next to the other env-driven extract hooks (marker + fault injector), so the
  * single hard guard lives at the one choke point every pass funnels through
- * (pdxe_extract_file): whether a pass re-extracts from disk on a cache miss
+ * (pdxe_engine_extract_file): whether a pass re-extracts from disk on a cache miss
  * (sequential pass_calls/usages/semantic) or extracts fresh, a quarantined file
  * short-circuits to an empty result and never reaches the parser/crash. The
  * pipeline extract loops separately REPORT the skip as phase="crash" via
@@ -1006,7 +1006,7 @@ enum { PDXE_QSET_UNINIT = 0, PDXE_QSET_INITING = 1, PDXE_QSET_INITED = 2 };
 static atomic_int g_quarantine_state = PDXE_QSET_UNINIT;
 
 static void pdxe_quarantine_load(void) {
-    const char *qf = getenv("PDXE_INDEX_QUARANTINE_FILE");
+    const char *qf = getenv("PDX_ENGINE_INDEX_QUARANTINE_FILE");
     if (!qf || !qf[0]) {
         return; /* normal path: empty set */
     }
@@ -1108,17 +1108,17 @@ static void pdxe_test_fault_inject(const char *rel_path) {
     if (!rel_path || !rel_path[0]) {
         return;
     }
-    const char *crash_on = getenv("PDXE_TEST_CRASH_ON");
+    const char *crash_on = getenv("PDX_ENGINE_TEST_CRASH_ON");
     if (crash_on && crash_on[0] && strstr(rel_path, crash_on)) {
         abort(); /* SIGABRT → WIFSIGNALED → classified as a crash */
     }
-    const char *hang_on = getenv("PDXE_TEST_HANG_ON");
+    const char *hang_on = getenv("PDX_ENGINE_TEST_HANG_ON");
     if (hang_on && hang_on[0] && strstr(rel_path, hang_on)) {
         for (;;) {
             /* Busy-spin: the supervisor's quiet-timeout kills + reports us. */
         }
     }
-    const char *exit_on = getenv("PDXE_TEST_EXIT_ON");
+    const char *exit_on = getenv("PDX_ENGINE_TEST_EXIT_ON");
     if (exit_on && exit_on[0] && strstr(rel_path, exit_on)) {
         exit(1); /* Nonzero exit code → PDXE_PROC_EXIT_NONZERO → classified as "error" */
     }
@@ -2048,11 +2048,11 @@ static const char *pdxe_error_ranges_str(PDXEArena *a, const pdxe_error_regions_
  * every ordinary return (including error/timeout results) tells the crash
  * supervisor this file did NOT kill the worker — only a file whose S has no
  * D is a crash/hang suspect. */
-PDXEFileResult *pdxe_extract_file(const char *source, int source_len, PDXELanguage language,
+PDXEFileResult *pdxe_engine_extract_file(const char *source, int source_len, PDXELanguage language,
                                 const char *project, const char *rel_path, int64_t timeout_micros,
                                 const char **extra_defines, const char **include_paths) {
     PDXEFileResult *r =
-        pdxe_extract_file_ex(source, source_len, language, project, rel_path, timeout_micros,
+        pdxe_engine_extract_file_ex(source, source_len, language, project, rel_path, timeout_micros,
                             extra_defines, include_paths, NULL, NULL);
     return r;
 }
@@ -2170,7 +2170,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
         opts.progress_callback = pdxe_timeout_cb;
 #ifdef PDXE_ENABLE_TEST_SEAMS
         tl_parse_wall_seam_offset_ns = 0;
-        const char *stall_on = getenv("PDXE_TEST_WALL_STALL_ON");
+        const char *stall_on = getenv("PDX_ENGINE_TEST_WALL_STALL_ON");
         if (stall_on && stall_on[0] && rel_path && strstr(rel_path, stall_on)) {
             // Push the wall reading past the 1x budget (the old wall-only budget
             // trips) but well under the generous ceiling (the CPU-time budget
@@ -2221,7 +2221,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
      * skipped-file behaviour itself. */
 #ifdef PDXE_ENABLE_TEST_SEAMS
     {
-        const char *skip_on = getenv("PDXE_TEST_LSP_SKIP_ON");
+        const char *skip_on = getenv("PDX_ENGINE_TEST_LSP_SKIP_ON");
         if (skip_on && skip_on[0] && rel_path && strstr(rel_path, skip_on)) {
             result->lsp_skipped = true; /* the test names the file; no timing involved */
             pdxe_log_warn("extract.lsp.skipped", "reason", "test_seam", "path",
@@ -2960,7 +2960,7 @@ void pdxe_work_arena_give(PDXEArena *from) {
  * 512 KB blocks were never read or written on the Go corpus (waste sanitizer,
  * 2026-09-17). If the block cannot be allocated, the stack's allocation fails
  * and it stops growing, exactly as on any later out-of-memory. */
-PDXEFileResult *pdxe_extract_file_ex(const char *source, int source_len, PDXELanguage language,
+PDXEFileResult *pdxe_engine_extract_file_ex(const char *source, int source_len, PDXELanguage language,
                                    const char *project, const char *rel_path,
                                    int64_t timeout_micros, const char **extra_defines,
                                    const char **include_paths, const PDXEMacroTable *macro_table,

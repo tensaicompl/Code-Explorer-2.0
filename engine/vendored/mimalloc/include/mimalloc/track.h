@@ -82,7 +82,7 @@ defined, undefined, or not accessible at all:
 #define MI_TRACK_HEAP_DESTROY 1
 #define MI_TRACK_TOOL         "ETW"
 
-#include "../src/prim/windows/etw.h"
+#include "prim/windows/etw.h"
 
 #define mi_track_init()                           EventRegistermicrosoft_windows_mimalloc()
 #define mi_track_done()                           EventUnregistermicrosoft_windows_mimalloc()

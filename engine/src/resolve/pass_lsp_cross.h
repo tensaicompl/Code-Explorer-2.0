@@ -2,7 +2,7 @@
  * pass_lsp_cross.h — Cross-file LSP helpers shared with the parallel
  * resolve pass.
  *
- * Per-file LSP (pdxe_run_X_lsp inside pdxe_extract_file) only sees a single
+ * Per-file LSP (pdxe_run_X_lsp inside pdxe_engine_extract_file) only sees a single
  * file's defs in its registry, so callees whose receiver type comes from
  * an imported module stay unresolved. The helpers declared here close
  * that gap: they let the parallel resolve worker (pass_parallel.c) build

@@ -1,0 +1,5 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
++	CALLS	src.main.main	src.util.makeGreeter	lsp_ts_import
++	CALLS	src.main.main	src.util.Greeter.greet	lsp_ts_method

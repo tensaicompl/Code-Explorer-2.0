@@ -1,0 +1,5 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
+# Without the alias the import has no target: algorithm parity only.
+-	IMPORTS	FILE:src/app/show.ts	*	*

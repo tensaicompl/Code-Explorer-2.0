@@ -1,0 +1,3 @@
+# The alias the tsconfig.json beside this file declares, as the caller would supply it.
+scope		.
+alias	@/		src/		1

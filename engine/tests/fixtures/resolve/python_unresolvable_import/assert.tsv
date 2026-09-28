@@ -1,0 +1,8 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything.
+# A name the repository defines is found by the reference's name fallback even from
+# a missing module; a name nothing defines, and a missing module, get no target.
++	IMPORTS	FILE:main.py	local.ghost	ghost
+-	IMPORTS	FILE:main.py	*	no_such_symbol_anywhere
+-	IMPORTS	FILE:main.py	*	also_missing

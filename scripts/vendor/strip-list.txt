@@ -6,5 +6,28 @@
 # report in wholesale, since a file reached only through a macro or only on another
 # platform looks unused to it.
 #
-# Empty until the engine builds and its undefined symbols can be read, which is the
-# next task.
+# engine/src/arena.c: a stale earlier copy of the arena. Its header already forwards
+# to the foundation's arena, whose comment records that the two used to disagree
+# silently; the source remained and defined six of the foundation arena's symbols a
+# second time, which fails to link as soon as a program needs both objects.
+engine/src/arena.c
+#
+# The four below are what the interface cannot reach: a program referring to every
+# function the interface declares, linked against the archive, pulls in every other
+# object but these (the link map is the evidence; the build test keeps it true).
+#
+# engine/src/ac.c, ac.h: a multi-pattern string matcher used only by subsystems that
+# are not vendored.
+engine/src/ac.c
+engine/src/ac.h
+# engine/src/foundation/mem.c: the process-wide allocator setup, used only by the
+# indexing program the reference ships, not by the engine. Its header stays: the
+# memory core includes it.
+engine/src/foundation/mem.c
+# engine/src/foundation/str_intern.c, str_intern.h: a string interner nothing calls.
+engine/src/foundation/str_intern.c
+engine/src/foundation/str_intern.h
+# engine/vendored/mimalloc/src: the allocator's implementation, reached only from the
+# allocator setup above. Its public header stays, with its licence: sources that are
+# kept include it for types, behind switches this build leaves off.
+engine/vendored/mimalloc/src

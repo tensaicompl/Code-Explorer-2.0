@@ -1,0 +1,18 @@
+# Renames applied on top of the generated mapping.
+#
+# The generated mapping turns each upstream identifier into ours by swapping the
+# prefix. Occasionally that lands on a name the public interface needs for itself:
+# the engine has its own lifecycle and extraction entry points, and the interface
+# this project presents declares functions of the same names with different
+# signatures. Two definitions of one name do not link.
+#
+# These entries move the engine's internal ones aside. Both sides keep the prefix,
+# so nothing here names an upstream and this file needs no exemption from the scan.
+#
+# One entry per line: the name the generated mapping would produce, a tab, the name
+# to use instead.
+
+pdxe_init	pdxe_engine_init
+pdxe_shutdown	pdxe_engine_shutdown
+pdxe_extract_file	pdxe_engine_extract_file
+pdxe_extract_file_ex	pdxe_engine_extract_file_ex
