@@ -10,8 +10,9 @@ repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 
 ## State: P1 in progress
 
-P0 is done and gate G0 has passed; P1 has vendored the engine, built it, and given it
-its interface. The previous implementation is in `legacy/`, read-only until the
+P0 is done and gate G0 has passed; P1 has vendored the engine, built it, given it
+its interface, and bound it to Rust (`pdx-engine-sys`, built and tested on Linux,
+macOS and Windows). The previous implementation is in `legacy/`, read-only until the
 retirement task removes it. There is no pipeline and no product behaviour yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
@@ -19,7 +20,7 @@ this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crate skeletons, licence split enforced by `scripts/open-binary-check.sh` |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot |
