@@ -46,7 +46,7 @@ build: engine
 # adds its bindings; until then it is built here so that every platform compiles it.
 ENGINE_BUILD ?= target/engine
 engine:
-	@cmake -S engine -B $(ENGINE_BUILD) -DCMAKE_BUILD_TYPE=Release -DPDXE_BUILD_TESTS=ON > /dev/null
+	@cmake -S engine -B $(ENGINE_BUILD) -DCMAKE_BUILD_TYPE=Release -DPDXE_BUILD_TESTS=ON -DPDXE_TEST_SEAMS=ON > /dev/null
 	@cmake --build $(ENGINE_BUILD) -j
 	@echo "engine: built $(ENGINE_BUILD)/libpdxe.a"
 

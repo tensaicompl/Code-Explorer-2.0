@@ -76,7 +76,9 @@ int pdxe_language_id(const char *lang_id);
  * A position in the file. All zero means the position is not known. That is the case
  * for anything the engine found in C-family source after macro expansion, which is
  * positioned in text the caller never sees; it is reported without a position rather
- * than with a wrong one.
+ * than with a wrong one. It is also the case for every type reference, field access,
+ * channel, configuration read and throw, whose positions the engine does not record:
+ * those are placed by their scope alone.
  */
 typedef struct {
     uint32_t start_byte, end_byte;
@@ -247,6 +249,22 @@ typedef struct {
     pdxe_span span;
 } pdxe_diag;
 
+/*
+ * An exception a definition raises: a throw or raise statement. `exception_text` is
+ * the exception's type as the source spells it; finding the definition it names is
+ * resolution's work, not extraction's. `scope_index` as for usages.
+ *
+ * The engine also reads exceptions a method declares, but only where the language's
+ * grammar names the declaration as a field, which none of the matrix's grammars does:
+ * Java's `throws` clause is not reported. Appended by a specification change; see
+ * docs/plan/ISSUES.md, issue 25.
+ */
+typedef struct {
+    const char *exception_text;
+    uint32_t scope_index;
+    pdxe_span span;
+} pdxe_throw;
+
 /* `status`: 0 parsed, 1 partial (the tree carries errors), 2 failed. */
 enum pdxe_file_status {
     PDXE_FILE_PARSED = 0,
@@ -274,6 +292,16 @@ typedef struct {
     uint32_t n_envs;
     pdxe_diag *diags;
     uint32_t n_diags;
+    /* Appended by a specification change; see docs/plan/ISSUES.md, issue 25. */
+    pdxe_throw *throws;
+    uint32_t n_throws;
+    /*
+     * 1 when the extractor stopped walking the file at its node budget: what it found
+     * up to that point is reported, the rest of the file is not, and typed resolution
+     * skips the file. The budget is off unless the environment sets one. Appended by a
+     * specification change; see docs/plan/ISSUES.md, issue 25.
+     */
+    uint8_t truncated;
 } pdxe_file_result;
 
 int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8_t *bytes,
@@ -286,7 +314,9 @@ void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r);
  * not changed is never extracted again. The arrays are copied, strings included; the
  * caller keeps its own. The rebuilt result describes the file; to resolve the file
  * it is added to a project together with its surface (pdxe_surface_import). Its
- * channel, configuration and diagnostic arrays are empty and its status is parsed.
+ * channel, configuration, diagnostic and throw arrays are empty, its status is parsed
+ * and it is not truncated: those parts are the cache's to keep, and resolution reads
+ * what it needs of them from the surface.
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,
@@ -429,9 +459,65 @@ int pdxe_resolve_project_set_metadata(pdxe_project *p, const pdxe_resolution_met
 /*
  * Resolves every file added, once per project. Fails with PDXE_E_INVALID when a file
  * added with a cache-built result has no surface, when a surface belongs to no file
- * or to a file of another language, and when run a second time.
+ * or to a file of another language, and when run a second time. A run that returns 0
+ * completed; whether it did all its work is pdxe_resolve_project_health's to say.
  */
 int pdxe_resolve_project_run(pdxe_project *p);
+
+/*
+ * How a completed run went.
+ *
+ * Clean: typed resolution did all the work it should have. That includes finding no
+ * answer at all, for files that have none to find.
+ *
+ * Degraded: some of the work was skipped or lost. Every answer reported is sound, but
+ * a site without one may be a site whose question was never asked, so the absence of
+ * an answer is not evidence of anything.
+ *
+ * A run that could not complete is neither: pdxe_resolve_project_run returned an
+ * error instead.
+ */
+enum pdxe_run_status {
+    PDXE_RUN_CLEAN = 0,
+    PDXE_RUN_DEGRADED = 1
+};
+
+/*
+ * What a completed run did with each file, and what it lost.
+ *
+ * Every file is counted once, under the first of these that applies:
+ *
+ *   files_untyped             its language has no typed resolution, by design
+ *   files_empty               it has no source, so there is nothing to resolve
+ *   files_not_reached         typed resolution stopped before it reached the file
+ *   files_source_unavailable  typed resolution could not obtain its source
+ *   files_over_budget         extraction stopped at its node budget, and typed
+ *                             resolution skips such a file
+ *   files_resolved            typed resolution ran on it
+ *
+ * so the six add up to `files`. `pass_failures` counts failures inside typed
+ * resolution that lose answers without skipping a file; today the one such failure is
+ * being unable to collect the project's definitions, which every file resolves
+ * against. Each of the counts from files_not_reached to pass_failures is work lost:
+ * any of them above zero makes the run degraded. All of them are counted from the
+ * run's own state, never from its log.
+ *
+ * Appended by a specification change; see docs/plan/ISSUES.md, issue 21.
+ */
+typedef struct {
+    int status;
+    uint32_t files;
+    uint32_t files_resolved;
+    uint32_t files_untyped;
+    uint32_t files_empty;
+    uint32_t files_over_budget;
+    uint32_t files_source_unavailable;
+    uint32_t files_not_reached;
+    uint32_t pass_failures;
+} pdxe_run_health;
+
+/* The health of a run that returned 0. Fails with PDXE_E_INVALID before then. */
+int pdxe_resolve_project_health(const pdxe_project *p, pdxe_run_health *out);
 
 /*
  * One resolved call site.
@@ -501,7 +587,9 @@ void pdxe_resolve_project_end(pdxe_project *p);
 
 /*
  * A file's surface: everything typed resolution reads from the file's extraction, as
- * JSON bytes the extraction cache keeps beside the file's other parts.
+ * bytes the extraction cache keeps beside the file's other parts. Opaque to the caller.
+ * Its strings are the engine's byte for byte, so it is JSON in shape but not strict
+ * JSON when the file's text is not valid UTF-8.
  *
  * Typed resolution runs over the whole repository on every build, so its answers
  * never depend on an earlier build. A file whose content has not changed is not

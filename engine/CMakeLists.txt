@@ -218,6 +218,19 @@ set_target_properties(pdxe PROPERTIES
   OUTPUT_NAME pdxe
 )
 
+# --- test switches ----------------------------------------------------------
+#
+# The engine has switches its tests use to inject a fault into a named file: abort
+# while extracting it, or mark it as too large for typed resolution. They read the
+# environment, so a release binary must never contain them: an environment variable
+# would then be able to crash the program. Off unless a test build asks for them
+# (`make engine`, and the test-seams feature of crates/pdx-engine-sys, which only
+# dev-dependencies enable).
+option(PDXE_TEST_SEAMS "Compile the engine's fault-injection switches, for tests only" OFF)
+if(PDXE_TEST_SEAMS)
+  target_compile_definitions(pdxe PRIVATE PDXE_ENABLE_TEST_SEAMS)
+endif()
+
 # --- the interface's own tests ---------------------------------------------
 #
 # Small C programs that exercise the interface exactly as a caller does, linked
@@ -242,11 +255,43 @@ if(PDXE_BUILD_TESTS)
   set(PDXE_SMOKE_FIXTURES ${PDXE_ROOT}/tests/fixtures/smoke)
   set(PDXE_RESOLVE_FIXTURE_ROOT ${PDXE_ROOT}/tests/fixtures/resolve)
   add_test(NAME abi_smoke COMMAND abi_smoke ${PDXE_SMOKE_FIXTURES})
+  add_test(NAME abi_inputs_are_copied COMMAND abi_inputs_are_copied ${PDXE_SMOKE_FIXTURES})
+  # The bytes fixtures are source that is not valid UTF-8: a surface keeps it exactly.
   add_test(NAME abi_result_build_roundtrip
-    COMMAND abi_result_build_roundtrip ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_ROOT})
+    COMMAND abi_result_build_roundtrip ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_ROOT}
+            ${PDXE_ROOT}/tests/fixtures/bytes)
   file(GLOB PDXE_RESOLVE_FIXTURE_DIRS LIST_DIRECTORIES true ${PDXE_RESOLVE_FIXTURE_ROOT}/*)
   add_test(NAME abi_no_output
     COMMAND abi_no_output ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_DIRS})
+
+  # Throws, and a walk cut short by the node budget, which the environment sets.
+  set(PDXE_THROWS_FIXTURES ${PDXE_ROOT}/tests/fixtures/throws)
+  add_test(NAME abi_throws COMMAND abi_throws ${PDXE_THROWS_FIXTURES})
+  add_test(NAME abi_truncated COMMAND abi_throws --truncated ${PDXE_THROWS_FIXTURES})
+  set_tests_properties(abi_truncated PROPERTIES ENVIRONMENT PDX_ENGINE_WALK_MAX_NODES=4)
+
+  # Whether a run did all its work, apart from what it found (issue 21). A file is made
+  # to be skipped by the engine's own test switch.
+  set(PDXE_CALLS ${PDXE_RESOLVE_FIXTURE_ROOT}/python_cross_file_calls)
+  add_test(NAME abi_run_health_clean
+    COMMAND abi_run_health clean some ${PDXE_CALLS} files_resolved=2 --
+            app/models.py app/service.py)
+  add_test(NAME abi_run_health_clean_without_answers
+    COMMAND abi_run_health clean none ${PDXE_ROOT}/tests/fixtures/health/quiet
+            files_resolved=1 files_untyped=1 files_empty=1 -- empty.py notes.md plain.py)
+  set(PDXE_ONE_FILE ${PDXE_ROOT}/tests/fixtures/health/one_file)
+  add_test(NAME abi_run_health_one_file_clean
+    COMMAND abi_run_health clean some ${PDXE_ONE_FILE} files_resolved=1 -- calls.py)
+  add_test(NAME abi_run_health_degraded_without_answers
+    COMMAND abi_run_health degraded none ${PDXE_ONE_FILE} files_resolved=0 files_over_budget=1 --
+            calls.py)
+  add_test(NAME abi_run_health_degraded_keeps_answers
+    COMMAND abi_run_health degraded some ${PDXE_CALLS} files_resolved=1 files_over_budget=1 --
+            app/models.py app/service.py)
+  set_tests_properties(abi_run_health_degraded_without_answers PROPERTIES
+    ENVIRONMENT PDX_ENGINE_TEST_LSP_SKIP_ON=calls.py)
+  set_tests_properties(abi_run_health_degraded_keeps_answers PROPERTIES
+    ENVIRONMENT PDX_ENGINE_TEST_LSP_SKIP_ON=app/service.py)
 
   # The warning exemptions reach vendored sources and never the interface layer.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)

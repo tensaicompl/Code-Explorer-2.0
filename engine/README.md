@@ -45,6 +45,7 @@ collide. The typed-resolution layer is likewise one translation unit,
 |---|---|---|
 | `PDXE_VENDORED_WERROR` | `ON` | Warnings are errors in the vendored sources, as everywhere else. A short list of dead-code and style warning classes stays visible but non-fatal in vendored files only; the interface layer has no exemption, which the test `api_warnings_are_errors` checks (issue 19). Turn it off only to let an untested newer compiler finish while its warnings are looked at |
 | `PDXE_BUILD_TESTS` | `OFF` | Builds the test programs in `tests/` and registers them with ctest. `make engine` turns it on |
+| `PDXE_TEST_SEAMS` | `OFF` | Compiles the engine's fault-injection switches, with which a test makes it abort on a named file (`PDX_ENGINE_TEST_CRASH_ON`) or skip one in typed resolution (`PDX_ENGINE_TEST_LSP_SKIP_ON`). Each reads the environment, so a binary built with them can be crashed by an environment variable: tests only. `make engine` turns it on, and the `test-seams` feature of `pdx-engine-sys`, which only dev-dependencies enable; `scripts/no-test-switches.sh` checks a binary has none |
 
 Whatever the switch, four warning classes are always errors, because each is a
 defect rather than style: a call with no declaration in scope, and integer, pointer
@@ -78,6 +79,9 @@ Everything goes through `include/pdxe.h`. In outline:
 - **Repository metadata.** Packages, path aliases and the root crate manifest,
   already found and parsed by the caller. The engine resolves imports; it never
   reads a manifest or the filesystem.
+- **Run health.** `pdxe_resolve_project_health` says whether a completed run did
+  all its work, and counts every file by what typed resolution did with it, so that a
+  run that lost work is never read as one with fewer answers.
 - **Caching.** `pdxe_result_build` rebuilds a result from the parts a cache keeps,
   and `pdxe_surface_export` / `pdxe_surface_import` carry everything the resolver
   reads from a file, so an unchanged file is never extracted again and resolves

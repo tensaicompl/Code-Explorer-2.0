@@ -19,6 +19,13 @@
  *
  * The encoding is JSON with every field written, in a fixed order, with null for an
  * absent string, so equal results always encode to equal bytes.
+ *
+ * Strings are written byte for byte as the engine holds them, and read back the same.
+ * They are often the file's own text, which need not be valid UTF-8, and resolving
+ * from a surface must see exactly what resolving fresh would: a string made valid on
+ * the way through would be a different name. So a surface of such a file is JSON in
+ * shape but not strict JSON, and the same holds for a floating-point value the engine
+ * computed as infinite or not a number. Nothing but this codec reads a surface.
  */
 
 #include <stdbool.h>
@@ -33,6 +40,10 @@
 #include "yyjson/yyjson.h"
 
 enum { SURFACE_VERSION = 1 };
+
+/* The file's bytes, and the engine's numbers, as they are; see the comment above. */
+#define SURFACE_WRITE_FLAGS (YYJSON_WRITE_ALLOW_INVALID_UNICODE | YYJSON_WRITE_ALLOW_INF_AND_NAN)
+#define SURFACE_READ_FLAGS (YYJSON_READ_ALLOW_INVALID_UNICODE | YYJSON_READ_ALLOW_INF_AND_NAN)
 
 /* --- field tables ----------------------------------------------------------- */
 
@@ -409,7 +420,7 @@ int pdxe_surface_encode(const PDXEFileResult *r, const char *rel_path, int abi_l
         yyjson_mut_obj_add_val(doc, root, ARRAYS[a].key, list);
     }
     size_t len = 0;
-    char *json = yyjson_mut_write(doc, 0, &len);
+    char *json = yyjson_mut_write(doc, SURFACE_WRITE_FLAGS, &len);
     yyjson_mut_doc_free(doc);
     if (!json) {
         return PDXE_E_NOMEM;
@@ -581,7 +592,7 @@ int pdxe_surface_decode(const uint8_t *bytes, size_t len, PDXEFileResult **out, 
     }
     *out = NULL;
     *rel_path = NULL;
-    yyjson_doc *doc = yyjson_read((const char *)bytes, len, 0);
+    yyjson_doc *doc = yyjson_read((const char *)bytes, len, SURFACE_READ_FLAGS);
     if (!doc) {
         return PDXE_E_INVALID;
     }

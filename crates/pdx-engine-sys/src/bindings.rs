@@ -29,7 +29,7 @@ unsafe extern "C" {
     #[doc = " Maps a language identifier to the engine's internal language number.\n Returns a positive number for a known language and 0 for an unknown one, which\n is not an error: a file in an unknown language is discovered and counted, not\n parsed."]
     pub fn pdxe_language_id(lang_id: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
-#[doc = " A position in the file. All zero means the position is not known. That is the case\n for anything the engine found in C-family source after macro expansion, which is\n positioned in text the caller never sees; it is reported without a position rather\n than with a wrong one."]
+#[doc = " A position in the file. All zero means the position is not known. That is the case\n for anything the engine found in C-family source after macro expansion, which is\n positioned in text the caller never sees; it is reported without a position rather\n than with a wrong one. It is also the case for every type reference, field access,\n channel, configuration read and throw, whose positions the engine does not record:\n those are placed by their scope alone."]
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
 pub struct pdxe_span {
@@ -353,6 +353,33 @@ impl Default for pdxe_diag {
         }
     }
 }
+#[doc = " An exception a definition raises: a throw or raise statement. `exception_text` is\n the exception's type as the source spells it; finding the definition it names is\n resolution's work, not extraction's. `scope_index` as for usages.\n\n The engine also reads exceptions a method declares, but only where the language's\n grammar names the declaration as a field, which none of the matrix's grammars does:\n Java's `throws` clause is not reported. Appended by a specification change; see\n docs/plan/ISSUES.md, issue 25."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pdxe_throw {
+    pub exception_text: *const ::std::os::raw::c_char,
+    pub scope_index: u32,
+    pub span: pdxe_span,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pdxe_throw"][::std::mem::size_of::<pdxe_throw>() - 40usize];
+    ["Alignment of pdxe_throw"][::std::mem::align_of::<pdxe_throw>() - 8usize];
+    ["Offset of field: pdxe_throw::exception_text"]
+        [::std::mem::offset_of!(pdxe_throw, exception_text) - 0usize];
+    ["Offset of field: pdxe_throw::scope_index"]
+        [::std::mem::offset_of!(pdxe_throw, scope_index) - 8usize];
+    ["Offset of field: pdxe_throw::span"][::std::mem::offset_of!(pdxe_throw, span) - 12usize];
+};
+impl Default for pdxe_throw {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
 pub const PDXE_FILE_PARSED: pdxe_file_status = 0;
 pub const PDXE_FILE_PARTIAL: pdxe_file_status = 1;
 pub const PDXE_FILE_FAILED: pdxe_file_status = 2;
@@ -380,10 +407,15 @@ pub struct pdxe_file_result {
     pub n_envs: u32,
     pub diags: *mut pdxe_diag,
     pub n_diags: u32,
+    #[doc = " Appended by a specification change; see docs/plan/ISSUES.md, issue 25."]
+    pub throws: *mut pdxe_throw,
+    pub n_throws: u32,
+    #[doc = " 1 when the extractor stopped walking the file at its node budget: what it found\n up to that point is reported, the rest of the file is not, and typed resolution\n skips the file. The budget is off unless the environment sets one. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 25."]
+    pub truncated: u8,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 152usize];
+    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 168usize];
     ["Alignment of pdxe_file_result"][::std::mem::align_of::<pdxe_file_result>() - 8usize];
     ["Offset of field: pdxe_file_result::status"]
         [::std::mem::offset_of!(pdxe_file_result, status) - 0usize];
@@ -423,6 +455,12 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_file_result, diags) - 136usize];
     ["Offset of field: pdxe_file_result::n_diags"]
         [::std::mem::offset_of!(pdxe_file_result, n_diags) - 144usize];
+    ["Offset of field: pdxe_file_result::throws"]
+        [::std::mem::offset_of!(pdxe_file_result, throws) - 152usize];
+    ["Offset of field: pdxe_file_result::n_throws"]
+        [::std::mem::offset_of!(pdxe_file_result, n_throws) - 160usize];
+    ["Offset of field: pdxe_file_result::truncated"]
+        [::std::mem::offset_of!(pdxe_file_result, truncated) - 164usize];
 };
 impl Default for pdxe_file_result {
     fn default() -> Self {
@@ -447,7 +485,7 @@ unsafe extern "C" {
     pub fn pdxe_result_free(ctx: *mut pdxe_ctx, r: *mut pdxe_file_result);
 }
 unsafe extern "C" {
-    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration and diagnostic arrays are empty and its status is parsed."]
+    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed\n and it is not truncated: those parts are the cache's to keep, and resolution reads\n what it needs of them from the surface."]
     pub fn pdxe_result_build(
         ctx: *mut pdxe_ctx,
         defs: *const pdxe_definition,
@@ -685,8 +723,56 @@ unsafe extern "C" {
     ) -> ::std::os::raw::c_int;
 }
 unsafe extern "C" {
-    #[doc = " Resolves every file added, once per project. Fails with PDXE_E_INVALID when a file\n added with a cache-built result has no surface, when a surface belongs to no file\n or to a file of another language, and when run a second time."]
+    #[doc = " Resolves every file added, once per project. Fails with PDXE_E_INVALID when a file\n added with a cache-built result has no surface, when a surface belongs to no file\n or to a file of another language, and when run a second time. A run that returns 0\n completed; whether it did all its work is pdxe_resolve_project_health's to say."]
     pub fn pdxe_resolve_project_run(p: *mut pdxe_project) -> ::std::os::raw::c_int;
+}
+pub const PDXE_RUN_CLEAN: pdxe_run_status = 0;
+pub const PDXE_RUN_DEGRADED: pdxe_run_status = 1;
+#[doc = " How a completed run went.\n\n Clean: typed resolution did all the work it should have. That includes finding no\n answer at all, for files that have none to find.\n\n Degraded: some of the work was skipped or lost. Every answer reported is sound, but\n a site without one may be a site whose question was never asked, so the absence of\n an answer is not evidence of anything.\n\n A run that could not complete is neither: pdxe_resolve_project_run returned an\n error instead."]
+pub type pdxe_run_status = u32;
+#[doc = " What a completed run did with each file, and what it lost.\n\n Every file is counted once, under the first of these that applies:\n\n   files_untyped             its language has no typed resolution, by design\n   files_empty               it has no source, so there is nothing to resolve\n   files_not_reached         typed resolution stopped before it reached the file\n   files_source_unavailable  typed resolution could not obtain its source\n   files_over_budget         extraction stopped at its node budget, and typed\n                             resolution skips such a file\n   files_resolved            typed resolution ran on it\n\n so the six add up to `files`. `pass_failures` counts failures inside typed\n resolution that lose answers without skipping a file; today the one such failure is\n being unable to collect the project's definitions, which every file resolves\n against. Each of the counts from files_not_reached to pass_failures is work lost:\n any of them above zero makes the run degraded. All of them are counted from the\n run's own state, never from its log.\n\n Appended by a specification change; see docs/plan/ISSUES.md, issue 21."]
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct pdxe_run_health {
+    pub status: ::std::os::raw::c_int,
+    pub files: u32,
+    pub files_resolved: u32,
+    pub files_untyped: u32,
+    pub files_empty: u32,
+    pub files_over_budget: u32,
+    pub files_source_unavailable: u32,
+    pub files_not_reached: u32,
+    pub pass_failures: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pdxe_run_health"][::std::mem::size_of::<pdxe_run_health>() - 36usize];
+    ["Alignment of pdxe_run_health"][::std::mem::align_of::<pdxe_run_health>() - 4usize];
+    ["Offset of field: pdxe_run_health::status"]
+        [::std::mem::offset_of!(pdxe_run_health, status) - 0usize];
+    ["Offset of field: pdxe_run_health::files"]
+        [::std::mem::offset_of!(pdxe_run_health, files) - 4usize];
+    ["Offset of field: pdxe_run_health::files_resolved"]
+        [::std::mem::offset_of!(pdxe_run_health, files_resolved) - 8usize];
+    ["Offset of field: pdxe_run_health::files_untyped"]
+        [::std::mem::offset_of!(pdxe_run_health, files_untyped) - 12usize];
+    ["Offset of field: pdxe_run_health::files_empty"]
+        [::std::mem::offset_of!(pdxe_run_health, files_empty) - 16usize];
+    ["Offset of field: pdxe_run_health::files_over_budget"]
+        [::std::mem::offset_of!(pdxe_run_health, files_over_budget) - 20usize];
+    ["Offset of field: pdxe_run_health::files_source_unavailable"]
+        [::std::mem::offset_of!(pdxe_run_health, files_source_unavailable) - 24usize];
+    ["Offset of field: pdxe_run_health::files_not_reached"]
+        [::std::mem::offset_of!(pdxe_run_health, files_not_reached) - 28usize];
+    ["Offset of field: pdxe_run_health::pass_failures"]
+        [::std::mem::offset_of!(pdxe_run_health, pass_failures) - 32usize];
+};
+unsafe extern "C" {
+    #[doc = " The health of a run that returned 0. Fails with PDXE_E_INVALID before then."]
+    pub fn pdxe_resolve_project_health(
+        p: *const pdxe_project,
+        out: *mut pdxe_run_health,
+    ) -> ::std::os::raw::c_int;
 }
 #[doc = " One resolved call site.\n\n `strategy` is exhaustive and the caller maps each to a confidence band:\n `import_map`, `import_map_suffix`, `same_module`, `qualified_suffix`,\n `unique_name`, `suffix_match`, `fuzzy_single`, `fuzzy_multi`, `service_pattern`,\n `lsp_typed`, `unknown`. Only `lsp_typed` with a single candidate above the\n threshold is evidence on its own; the rest are hints that seed a search without\n restricting it.\n\n `call_index` indexes the calls of the file's extraction result. Typed resolution\n can also find call sites extraction did not report, such as an operator on a type\n that defines it; those are numbered on from the end of that array, are always\n `typed_only`, and are described only by `site`.\n\n A site is resolved once or not at all, and only when the typed pass gives exactly\n one answer for it, joined to the site the way the reference joins them.\n\n For a call, an answer is reported only when its target is something the project\n knows: a definition in one of its files, or a built-in the engine supplies for the\n language. When the typed pass names anything else, the reference treats the call\n as having no typed answer, and so does this: nothing is reported and the caller\n resolves the call by other means. For a reference, an answer is reported whatever\n it names, because the reference lets a typed answer settle a reference even when\n its target is nowhere in the project.\n\n `target_rel_path` is NULL when the target is in no file of the project: a built-in,\n or, for a reference, something outside it. The site is settled all the same, and\n must not be resolved by name instead."]
 #[repr(C)]
@@ -749,7 +835,7 @@ unsafe extern "C" {
     pub fn pdxe_resolve_project_end(p: *mut pdxe_project);
 }
 unsafe extern "C" {
-    #[doc = " A file's surface: everything typed resolution reads from the file's extraction, as\n JSON bytes the extraction cache keeps beside the file's other parts.\n\n Typed resolution runs over the whole repository on every build, so its answers\n never depend on an earlier build. A file whose content has not changed is not\n extracted again for it: its surface is imported instead and resolution gives the\n same answers it would give from a fresh extraction. The surface therefore holds the\n file's own facts only, never anything computed from other files, and it names the\n path and language it was taken for. Equal extractions give equal bytes.\n\n Export takes a result pdxe_extract_file returned, and only while no project is\n resolving through it; the bytes are the caller's, freed with pdxe_surface_free.\n Import copies what it needs, so the caller may free the bytes on return. It refuses\n bytes this version did not write, and a second surface for one path. Every surface\n imported must belong to a file added to the project, in the same language, by the\n time the project runs."]
+    #[doc = " A file's surface: everything typed resolution reads from the file's extraction, as\n bytes the extraction cache keeps beside the file's other parts. Opaque to the caller.\n Its strings are the engine's byte for byte, so it is JSON in shape but not strict\n JSON when the file's text is not valid UTF-8.\n\n Typed resolution runs over the whole repository on every build, so its answers\n never depend on an earlier build. A file whose content has not changed is not\n extracted again for it: its surface is imported instead and resolution gives the\n same answers it would give from a fresh extraction. The surface therefore holds the\n file's own facts only, never anything computed from other files, and it names the\n path and language it was taken for. Equal extractions give equal bytes.\n\n Export takes a result pdxe_extract_file returned, and only while no project is\n resolving through it; the bytes are the caller's, freed with pdxe_surface_free.\n Import copies what it needs, so the caller may free the bytes on return. It refuses\n bytes this version did not write, and a second surface for one path. Every surface\n imported must belong to a file added to the project, in the same language, by the\n time the project runs."]
     pub fn pdxe_surface_export(
         r: *const pdxe_file_result,
         rel_path: *const ::std::os::raw::c_char,

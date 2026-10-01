@@ -24,6 +24,12 @@ serde_json = "1"
 # Regenerates src/bindings.rs from engine/include/pdxe.h (`make bindgen`). Needs
 # libclang. Without it the committed bindings are used and libclang is not needed.
 regenerate-bindings = ["dep:bindgen"]
+# Compiles the engine's fault-injection switches, with which a test makes the engine
+# abort on a named file or skip one in typed resolution. Each reads the environment,
+# so a binary built with them can be crashed by an environment variable. For tests
+# only: enable it from [dev-dependencies], never from [dependencies], and a release
+# build cannot contain it.
+test-seams = []
 
 [lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

@@ -12,7 +12,8 @@
  * keeps, freed, and the file is added with a result rebuilt from those parts and its
  * surface imported, so nothing is extracted twice. The answers must not change.
  * Every file under <dir> in a language this harness knows is extracted, added to one
- * project in path order, and resolved. Each row is tab-separated:
+ * project in path order, and resolved. A run that is not clean is refused: its rows
+ * would be incomplete without saying so. Each row is tab-separated:
  *
  *     CALLS           <source> <target> <engine strategy> <score>
  *     CALL_REFERENCE  <source> <target> <engine strategy> <score>
@@ -418,6 +419,16 @@ int main(int argc, char **argv) {
 
     if (pdxe_resolve_project_run(p) != PDXE_OK) {
         fprintf(stderr, "resolution failed\n");
+        return 1;
+    }
+    /* A fixture's answers are compared as complete, so its run must be clean: a
+     * degraded run's missing answers would read as the engine's decision. */
+    pdxe_run_health health;
+    if (pdxe_resolve_project_health(p, &health) != PDXE_OK || health.status != PDXE_RUN_CLEAN) {
+        fprintf(stderr, "typed resolution was degraded: %u files not reached, %u without "
+                        "source, %u over budget, %u pass failures\n",
+                health.files_not_reached, health.files_source_unavailable,
+                health.files_over_budget, health.pass_failures);
         return 1;
     }
     corpus c = {results, &files};

@@ -41,6 +41,15 @@ build refuses one.
 
 The crate builds from the repository, not from a packaged copy of itself (issue 23).
 
+## Test switches
+
+The `test-seams` feature compiles the engine's fault-injection switches, with which a
+test makes the engine abort on a file it names or skip one in typed resolution. They
+read the environment, so a binary built with them can be crashed by an environment
+variable. Enable the feature from `[dev-dependencies]` only, as `pdx-engine` and `pdx`
+do; a build without dev-dependencies, which is how a release is built, never has it.
+`scripts/no-test-switches.sh <binary>` checks a binary for the switches' names.
+
 ## Tests
 
 ```
@@ -50,4 +59,5 @@ cargo test -p pdx-engine-sys
 `abi_smoke` runs the C test of the same name through the bindings, over every
 language of the matrix. `typed_resolution_crosses_the_boundary` resolves a call
 across two files through the project interface. `engine_flags` checks how the
-engine was compiled, as above.
+engine was compiled, as above, and that it has the test switches exactly when the
+`test-seams` feature asks for them.

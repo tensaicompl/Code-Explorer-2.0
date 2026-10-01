@@ -25,6 +25,7 @@
 #include "foundation/str_util.h"
 #include "lsp/rust_cargo.h"
 #include "pipeline/lsp_resolve.h"
+#include "pipeline/pass_lsp_cross.h"
 #include "pipeline/pipeline_internal.h"
 #include "shim_internal.h"
 
@@ -360,6 +361,7 @@ static void holder_free(result_holder *h) {
     free(h->pub.channels);
     free(h->pub.envs);
     free(h->pub.diags);
+    free(h->pub.throws);
     if (h->engine) {
         pdxe_free_result(h->engine);
     }
@@ -368,6 +370,21 @@ static void holder_free(result_holder *h) {
     }
     free(h->owned);
     free(h);
+}
+
+/* Hands `s`, already a heap copy, to the holder to free. False when it cannot. */
+static bool adopt(result_holder *h, char *s) {
+    if (h->n_owned == h->cap_owned) {
+        size_t cap = h->cap_owned ? h->cap_owned * 2 : 64;
+        char **grown = (char **)realloc(h->owned, cap * sizeof(*grown));
+        if (!grown) {
+            return false;
+        }
+        h->owned = grown;
+        h->cap_owned = cap;
+    }
+    h->owned[h->n_owned++] = s;
+    return true;
 }
 
 void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r) {
@@ -623,7 +640,8 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
         o->lexical = lexical_of(u);
     }
 
-    /* Type references, field accesses, channels, configuration reads. Positionless. */
+    /* Type references, field accesses, channels, configuration reads, throws.
+     * Positionless: the engine records only the scope each was found in. */
     const PDXETypeRefArray *types = &engine->type_refs;
     r->types = ALLOC_ARRAY(pdxe_type_ref, types->count);
     const PDXERWArray *rws = &engine->rw;
@@ -633,7 +651,9 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
     const PDXEEnvAccessArray *envs = &engine->env_accesses;
     r->envs = ALLOC_ARRAY(pdxe_env_access, envs->count);
     r->diags = ALLOC_ARRAY(pdxe_diag, engine->error_msg ? 1 : 0);
-    if (!r->types || !r->rws || !r->channels || !r->envs || !r->diags) {
+    const PDXEThrowArray *throws = &engine->throws;
+    r->throws = ALLOC_ARRAY(pdxe_throw, throws->count);
+    if (!r->types || !r->rws || !r->channels || !r->envs || !r->diags || !r->throws) {
         holder_free(h);
         return PDXE_E_NOMEM;
     }
@@ -661,6 +681,12 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
         r->diags[0].message = engine->error_msg;
         r->n_diags = 1;
     }
+    for (int i = 0; i < throws->count; i++) {
+        r->throws[i].exception_text = throws->items[i].exception_name;
+        r->throws[i].scope_index = index_of_qn(defs, throws->items[i].enclosing_func_qn);
+    }
+    r->n_throws = (uint32_t)throws->count;
+    r->truncated = engine->walk_truncated ? 1 : 0;
 
     *out = r;
     return PDXE_OK;
@@ -696,25 +722,41 @@ int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8
     }
     memset(source + len, 0, SOURCE_PAD);
 
+    /*
+     * The engine keeps the path it is given: the file's module definition is named by
+     * it. So it is given a copy the result owns, never the caller's string, which the
+     * caller may free as soon as this returns.
+     */
+    char *path = strdup(rel_path ? rel_path : "");
     line_index li;
-    if (line_index_build(&li, (const uint8_t *)source, len) != 0) {
+    if (!path || line_index_build(&li, (const uint8_t *)source, len) != 0) {
+        free(path);
         free(source);
         return PDXE_E_NOMEM;
     }
     PDXEFileResult *engine = pdxe_engine_extract_file(source, (int)len, (PDXELanguage)engine_lang,
-                                                      PROJECT_SENTINEL, rel_path ? rel_path : "",
-                                                      0, NULL, NULL);
+                                                      PROJECT_SENTINEL, path, 0, NULL, NULL);
     free(source);
     if (!engine) {
         line_index_free(&li);
+        free(path);
         return PDXE_E_NOMEM;
     }
     int rc = translate(engine, &li, out);
     line_index_free(&li);
-    if (rc == PDXE_OK) {
-        ((result_holder *)*out)->lang = lang;
+    if (rc != PDXE_OK) {
+        free(path);
+        return rc;
     }
-    return rc;
+    result_holder *h = (result_holder *)*out;
+    if (!adopt(h, path)) {
+        holder_free(h);
+        free(path);
+        *out = NULL;
+        return PDXE_E_NOMEM;
+    }
+    h->lang = lang;
+    return PDXE_OK;
 }
 
 
@@ -725,22 +767,12 @@ static const char *own(result_holder *h, const char *s, bool *failed) {
     if (!s) {
         return NULL;
     }
-    if (h->n_owned == h->cap_owned) {
-        size_t cap = h->cap_owned ? h->cap_owned * 2 : 64;
-        char **grown = (char **)realloc(h->owned, cap * sizeof(*grown));
-        if (!grown) {
-            *failed = true;
-            return NULL;
-        }
-        h->owned = grown;
-        h->cap_owned = cap;
-    }
     char *copy = strdup(s);
-    if (!copy) {
+    if (!copy || !adopt(h, copy)) {
+        free(copy);
         *failed = true;
         return NULL;
     }
-    h->owned[h->n_owned++] = copy;
     return copy;
 }
 
@@ -748,8 +780,9 @@ static const char *own(result_holder *h, const char *s, bool *failed) {
  * A result rebuilt from the parts a cache keeps. Everything is copied, strings
  * included, so the caller's arrays may be freed on return. The rebuilt result has no
  * engine result behind it: it describes the file, and resolving the file takes its
- * surface (pdxe_surface_import). Channel, configuration and diagnostic arrays are not
- * among the parts and come back empty; the status is `parsed`.
+ * surface (pdxe_surface_import). Channel, configuration, diagnostic and throw arrays
+ * are not among the parts and come back empty; the status is `parsed`, and the result
+ * is not truncated.
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,
@@ -778,8 +811,9 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
     r->channels = ALLOC_ARRAY(pdxe_channel, 0);
     r->envs = ALLOC_ARRAY(pdxe_env_access, 0);
     r->diags = ALLOC_ARRAY(pdxe_diag, 0);
+    r->throws = ALLOC_ARRAY(pdxe_throw, 0);
     if (!r->defs || !r->calls || !r->imports || !r->usages || !r->types || !r->rws ||
-        !r->channels || !r->envs || !r->diags) {
+        !r->channels || !r->envs || !r->diags || !r->throws) {
         holder_free(h);
         return PDXE_E_NOMEM;
     }
@@ -905,6 +939,9 @@ typedef struct {
     PDXEResolvedCall *resolved_before;
     int n_resolved_before;
     line_index li;
+    /* Whether the resolver asked for the file's source, and whether it was given it. */
+    bool source_asked;
+    bool source_served;
 } file_state;
 
 struct pdxe_project {
@@ -933,6 +970,9 @@ struct pdxe_project {
 
     pdxe_resolution *results;
     uint32_t n_results;
+    /* The run's health, valid once a run has returned 0. */
+    pdxe_run_health health;
+    bool health_known;
 
     /* Surfaces imported and not yet matched to a file, by path. */
     PDXEFileResult **surfaces;
@@ -958,6 +998,7 @@ static char *project_source(const char *path, int *out_len, void *userdata) {
         if (strcmp(p->files[i].path, path) != 0) {
             continue;
         }
+        p->state[i].source_asked = true;
         int len = p->source_lens[i];
         char *buf = (char *)malloc((size_t)len + SOURCE_PAD);
         if (!buf) {
@@ -966,6 +1007,7 @@ static char *project_source(const char *path, int *out_len, void *userdata) {
         memcpy(buf, p->sources[i], (size_t)len);
         memset(buf + len, 0, SOURCE_PAD);
         *out_len = len;
+        p->state[i].source_served = true;
         return buf;
     }
     return NULL;
@@ -1807,6 +1849,65 @@ static int collect_results(pdxe_project *p) {
     return PDXE_OK;
 }
 
+/*
+ * Classifies every file by what typed resolution did with it, and decides whether the
+ * run was clean (pdxe_run_health in the header). Two accounts are kept and compared:
+ * the pass's own record of what it did, and the interface's, from the sources the pass
+ * asked for and the results it resolved through. Where they disagree, what the run did
+ * is not known, and that is counted as a failure: a run is never called clean on an
+ * account that does not add up.
+ */
+static void compute_health(pdxe_project *p) {
+    pdxe_run_health *h = &p->health;
+    memset(h, 0, sizeof(*h));
+    h->files = (uint32_t)p->n_files;
+    if (p->n_files == 0) {
+        h->status = PDXE_RUN_CLEAN;
+        return;
+    }
+    const pdxe_lsp_cross_record_t *rec = &p->pctx.lsp_cross;
+    uint32_t asked_and_served = 0;
+    bool has_definitions = false;
+    for (int i = 0; i < p->n_files; i++) {
+        const PDXEFileResult *r = p->cache[i];
+        const file_state *st = &p->state[i];
+        if (r && (r->defs.count > 0 || r->impl_traits.count > 0)) {
+            has_definitions = true;
+        }
+        if (!pdxe_pxc_has_cross_lsp(p->files[i].language)) {
+            h->files_untyped++;
+        } else if (p->source_lens[i] == 0) {
+            h->files_empty++;
+        } else if (!rec->completed) {
+            h->files_not_reached++;
+        } else if (!st->source_served) {
+            h->files_source_unavailable++;
+        } else if (r && r->lsp_skipped) {
+            h->files_over_budget++;
+            asked_and_served++;
+        } else {
+            h->files_resolved++;
+            asked_and_served++;
+        }
+    }
+    if (rec->completed) {
+        if (has_definitions && !rec->definitions_collected) {
+            h->pass_failures++;
+        }
+        /* The pass counts empty sources among those it could not obtain. */
+        bool agrees =
+            (uint32_t)rec->files_skipped_no_lsp == h->files_untyped &&
+            (uint32_t)rec->files_skipped_no_source == h->files_empty + h->files_source_unavailable &&
+            (uint32_t)rec->files_dispatched == asked_and_served;
+        if (!agrees) {
+            h->pass_failures++;
+        }
+    }
+    bool lost = h->files_not_reached || h->files_source_unavailable || h->files_over_budget ||
+                h->pass_failures;
+    h->status = lost ? PDXE_RUN_DEGRADED : PDXE_RUN_CLEAN;
+}
+
 int pdxe_resolve_project_run(pdxe_project *p) {
     if (!p || p->ran) {
         return PDXE_E_INVALID;
@@ -1840,11 +1941,23 @@ int pdxe_resolve_project_run(pdxe_project *p) {
         pdxe_pipeline_pass_lsp_cross(&p->pctx, p->files, p->n_files, p->cache);
         rc = collect_results(p);
     }
+    if (rc == PDXE_OK) {
+        compute_health(p);
+        p->health_known = true;
+    }
 
     pdxe_pxc_set_source_provider(NULL, NULL);
     pdxe_pxc_set_supplied_rust_manifest(NULL);
     pdxe_pipeline_set_pkgmap(NULL);
     return rc;
+}
+
+int pdxe_resolve_project_health(const pdxe_project *p, pdxe_run_health *out) {
+    if (!p || !out || !p->health_known) {
+        return PDXE_E_INVALID;
+    }
+    *out = p->health;
+    return PDXE_OK;
 }
 
 int pdxe_resolve_project_results(pdxe_project *p, const pdxe_resolution **out, uint32_t *n) {

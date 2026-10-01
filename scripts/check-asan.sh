@@ -14,7 +14,7 @@ if command -v clang >/dev/null 2>&1; then
 fi
 flags="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all"
 
-cmake -S engine -B "$build" -DCMAKE_BUILD_TYPE=Debug -DPDXE_BUILD_TESTS=ON \
+cmake -S engine -B "$build" -DCMAKE_BUILD_TYPE=Debug -DPDXE_BUILD_TESTS=ON -DPDXE_TEST_SEAMS=ON \
   -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$flags" \
   -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" > /dev/null
 cmake --build "$build" -j

@@ -44,6 +44,21 @@ typedef struct {
 } pdxe_file_info_t;
 
 /*
+ * What the cross-file typed-resolution pass did, in its own words. The reference's
+ * pass reports this only to its log; engine/patches/0006 has it written here too, so
+ * the interface can say whether a run did all its work without reading a log, which
+ * is process-wide while a project is not (docs/plan/ISSUES.md, issue 21). Zero until
+ * the pass writes it.
+ */
+typedef struct {
+    bool completed;              /* the pass reached its end rather than stopping early */
+    bool definitions_collected;  /* it collected the project's definitions */
+    int files_dispatched;        /* files it resolved, or tried to */
+    int files_skipped_no_lsp;    /* files in a language it does not resolve */
+    int files_skipped_no_source; /* files whose source it did not obtain, or had none */
+} pdxe_lsp_cross_record_t;
+
+/*
  * What a pass is given: the project it is working on, the files in it, and the
  * registry and graph built from them.
  */
@@ -94,6 +109,8 @@ typedef struct {
      * use-after-free first observable on the real-repo corpus tier. */
     char **seq_cross_def_modules;
     int seq_cross_def_module_count;
+    /* Written by the cross-file pass; see pdxe_lsp_cross_record_t above. */
+    pdxe_lsp_cross_record_t lsp_cross;
 
     /* ObjectScript $$$macro table built from .inc files in the repo (NULL if
      * no ObjectScript include files were found). Owned by pipeline.c. */

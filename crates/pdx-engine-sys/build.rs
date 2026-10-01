@@ -124,7 +124,15 @@ fn link_engine(engine: &Path) {
         });
         config.define("CMAKE_OSX_DEPLOYMENT_TARGET", deployment);
     }
+    // The fault-injection switches, only when a test build asks (the feature's comment
+    // in Cargo.toml says why).
+    let seams = if cfg!(feature = "test-seams") {
+        "ON"
+    } else {
+        "OFF"
+    };
     let dst = config
+        .define("PDXE_TEST_SEAMS", seams)
         .define("PDXE_BUILD_TESTS", "OFF")
         // Always optimised: the engine is a dependency, not what is being debugged,
         // and an unoptimised parser is slow enough to distort every test above it.

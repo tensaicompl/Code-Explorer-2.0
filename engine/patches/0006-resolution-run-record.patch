@@ -1,0 +1,21 @@
+--- a/engine/src/resolve/pass_lsp_cross.c
++++ b/engine/src/resolve/pass_lsp_cross.c
+@@ -1683,6 +1683,7 @@ int pdxe_pipeline_pass_lsp_cross(pdxe_pipeline_ctx_t *ctx, const pdxe_file_info_
+     PDXELSPDef *all_defs =
+         pdxe_pxc_collect_all_defs(ctx, &ctx->seq_cross_arena, cache, files, file_count,
+                                  ctx->project_name, def_modules, &def_count, def_starts);
++    ctx->lsp_cross.definitions_collected = all_defs != NULL;
+     /* Same seam as the parallel driver: serialize per-file surfaces while the
+      * result cache is alive. Failure only degrades to a full rebuild on the
+      * next incremental run. */
+@@ -1793,6 +1794,10 @@ int pdxe_pipeline_pass_lsp_cross(pdxe_pipeline_ctx_t *ctx, const pdxe_file_info_
+                  "files_skipped_no_lsp", itoa_buf(skipped_no_lsp), "files_skipped_no_source",
+                  itoa_buf(skipped_no_source), "defs_total", itoa_buf(def_count), "lsp_calls",
+                  itoa_buf(per_lang_calls));
++    ctx->lsp_cross.files_dispatched = processed;
++    ctx->lsp_cross.files_skipped_no_lsp = skipped_no_lsp;
++    ctx->lsp_cross.files_skipped_no_source = skipped_no_source;
++    ctx->lsp_cross.completed = true;
+     return 0;
+ }
+ 

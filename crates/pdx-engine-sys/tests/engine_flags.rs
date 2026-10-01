@@ -105,6 +105,27 @@ fn the_engine_is_compiled_with_its_own_warning_policy() {
 }
 
 #[test]
+fn the_engine_has_test_switches_only_when_asked() {
+    // The switches let an environment variable crash the engine, so they are compiled
+    // in by the test-seams feature and by nothing else.
+    let wanted = cfg!(feature = "test-seams");
+    for c in compiles() {
+        let has = c
+            .args
+            .iter()
+            .any(|a| a.trim_start_matches("-D") == "PDXE_ENABLE_TEST_SEAMS");
+        assert_eq!(
+            has,
+            wanted,
+            "{}: test switches {} although the test-seams feature is {}",
+            c.file,
+            if has { "compiled in" } else { "missing" },
+            if wanted { "on" } else { "off" }
+        );
+    }
+}
+
+#[test]
 fn the_engine_is_built_from_a_plain_path() {
     // A verbatim Windows path (\\?\D:\...) reaches the compiler as //?/D:/..., under
     // which the engine's relative includes do not resolve.
