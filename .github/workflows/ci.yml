@@ -80,17 +80,25 @@ jobs:
             ~/.cargo/git
             target
           key: cargo-windows-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
-      - name: Build
-        run: cargo build -p pdx --no-default-features
-      - name: Test
-        run: cargo test -p pdx --no-default-features
       # The engine is built with clang on Windows, never Microsoft's compiler, and
-      # with Ninja, since the Visual Studio generators always drive that compiler.
+      # with Ninja, since the Visual Studio generators always drive that compiler. The
+      # binary links the engine, so this comes before the first build.
       - name: Show the engine toolchain
         shell: bash
         run: |
           clang --version
           cmake --version
           ninja --version || { pip install ninja && ninja --version; }
+      - name: Build
+        run: cargo build -p pdx --no-default-features
+      # Built without dev-dependencies, as a release is: the engine's test switches
+      # must not be in it.
+      - name: The binary carries no test switches
+        shell: bash
+        run: scripts/no-test-switches.sh target/debug/pdx.exe
+      - name: Test
+        run: cargo test -p pdx --no-default-features
       - name: Test the engine through its bindings
         run: cargo test -p pdx-engine-sys
+      - name: Test the safe engine interface
+        run: cargo test -p pdx-engine

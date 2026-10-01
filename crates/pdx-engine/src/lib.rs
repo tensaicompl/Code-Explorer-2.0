@@ -1,1 +1,37 @@
 //! Safe wrapper over the extraction engine, with crash isolation.
+//!
+//! Everything above this crate reaches the engine through it, without `unsafe`:
+//!
+//! - [`Engine`] extracts a file into a [`FileExtract`], which is owned, complete,
+//!   serialisable, and carries the file's resolution surface. One engine per thread;
+//!   it cannot leave the thread that made it.
+//! - [`ProjectResolver`] resolves calls across the files of a project, from fresh
+//!   extractions or from cached ones, and returns each answer as an owned
+//!   [`TypedResolution`] together with the run's [`RunHealth`]: whether typed
+//!   resolution did all its work, so that a degraded run is never read as a clean
+//!   one with fewer answers.
+//! - [`isolate`] runs extraction in a child process when `PDX_ENGINE_ISOLATE=1`, so
+//!   that the engine crashing costs only the file it crashed on.
+//!
+//! Nothing returned borrows from the engine: every string and array is copied out
+//! before the engine's own copy is freed, and the engine objects a project depends on
+//! are owned by the project.
+
+mod convert;
+mod engine;
+mod error;
+pub mod isolate;
+mod model;
+mod resolver;
+
+pub use engine::Engine;
+pub use error::EngineError;
+pub use model::{
+    Call, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
+    FileExtract, FileStatus, Import, LexicalFacts, ReadWrite, Span, Surface, Throw, TypeRef, Usage,
+    Visibility,
+};
+pub use resolver::{
+    AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ProjectResolution,
+    ProjectResolver, ResolutionMetadata, RunHealth, RunStatus, SiteRef, Strategy, TypedResolution,
+};

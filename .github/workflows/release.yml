@@ -45,3 +45,9 @@ jobs:
         run: make ui-install
       - name: check
         run: make check
+      # Built as it ships, without dev-dependencies: the engine's test switches, which
+      # let an environment variable crash it, must not be in it.
+      - name: Build the release binary
+        run: cargo build --release -p pdx --no-default-features
+      - name: The release binary carries no test switches
+        run: scripts/no-test-switches.sh target/release/pdx

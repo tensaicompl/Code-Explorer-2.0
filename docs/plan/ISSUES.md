@@ -15,10 +15,13 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 27 | 2026-10-02 | P2-04 | ambiguity | open | Isolated extraction survives a crashing engine but not a hanging one: the worker protocol bounds what crosses it and how often a worker is restarted, not how long a batch may take, and 4.5 names no failure reason for a file the engine never finishes | Owned by P2-04, which batches extraction: decide whether a batch has a time limit and how a file that exceeds it is recorded, by specification change if it needs a new reason |
+| 26 | 2026-10-02 | P2-04 | ambiguity | open | The extraction cache key in 4.5 is `(engine_version, language_matrix_version, secret_policy_digest, blob_sha)`, but an extraction also depends on the file's path, from which its qualified names and module are built, and on the node budget the environment may set (`PDX_ENGINE_WALK_MAX_NODES`), under which it can come back truncated | Owned by P2-04: the key gains the path, or an entry is used only for the path it names, which every `FileExtract` records; a truncated extraction, which says so, is not cached, or the budget joins the key |
+| 25 | 2026-10-02 | P1-05 | scr | open | Two facts the engine records about a file did not cross the interface: the exceptions each definition raises, which the `THROWS` edge of 4.2.3 is built from, and that the extractor stopped at its node budget. P1-05's `FileExtract` lists `throws`, which Appendix D.2 does not have, and omits channels and configuration reads, which it does | Appended to `pdxe_file_result`: a throw array, positionless like the type references, and a `truncated` flag. `FileExtract` carries all ten arrays of the interface. `THROWS` stays resolution's to derive, as the reference derives it in a pass that is not vendored. Implemented with tests; awaiting approval |
 | 24 | 2026-09-28 | P1-04 | ambiguity | resolved | The engine had never been built for Windows. The reuse map's foundation list omits a Windows-only header the kept sources include, and the vendored sources rely on POSIX names that the reference's Windows runtime provides and Microsoft's, which Rust links against, does not | The header is vendored like the others; the missing names are supplied at the build boundary for Microsoft's runtime only; the libraries a Windows link needs are named; one Windows-only use of the unlinked allocator is put behind its switches by a patch. Found by the first Windows builds of P1-04 |
 | 23 | 2026-09-28 | P9-02 | ambiguity | open | `pdx-engine-sys` is marked publishable, but its build script builds the engine from `../../engine`, which a crate packaged on its own does not contain | Owned by P9-02: either the engine sources travel inside the packaged crate, or the crate stops being publishable. Nothing in P1 publishes a crate |
 | 22 | 2026-09-28 | P0-04 | blocker | resolved | The nightly run failed on targets that belong to later tasks: the browser suite has no browser installed and the engine differential has no script yet, while four other targets reported success without checking anything. A red nightly could not be told from a regression | Each unfinished target now says it is skipped and names the task that brings it, and succeeds. The progress check fails once that task is done while its target still skips |
-| 21 | 2026-09-28 | P1-05 | ambiguity | open | The cross-file pass reports success whatever happens inside it: an allocation failure yields no typed answers at all, and a file whose source cannot be supplied is skipped and counted, and its log goes to a sink that discards it. A caller cannot tell no typed answer from a degraded run | Owned by P1-05: before the safe wrapper becomes the engine interface, resolution must report an explicit degraded or failed status, distinct from an empty result |
+| 21 | 2026-09-28 | P1-05 | ambiguity | resolved | The cross-file pass reports success whatever happens inside it: an allocation failure yields no typed answers at all, and a file whose source cannot be supplied is skipped and counted, and its log goes to a sink that discards it. A caller cannot tell no typed answer from a degraded run | A completed run now reports its health: clean or degraded, with every file counted once by what typed resolution did with it, and the work it lost. Counted from the run's own state, which a patch has the pass record, never from its log. The safe wrapper returns the health with the answers |
 | 20 | 2026-09-28 | P1-03 | ambiguity | resolved | Appendix I.2 states the shim's semantics in a line each, and four of those lines differ from what the reference actually does: its store keeps one node per qualified name by a content rule, its short-name lists move a renamed node, the import edges come from its import resolver rather than from extraction's import list, and its language lookup is a table of its own, not the language matrix | The shim reproduces the reference, not the summary, and the language lookup is vendored verbatim rather than rewritten. Differential fixtures against the reference confirm it |
 | 19 | 2026-09-28 | P1-03 | scr | resolved | Part 5.1 requires `-Wall -Wextra -Werror` for the engine, with no exemption. Measured: the vendored typed-resolution layer, which the reference compiles with every warning suppressed, carries dead code and style warnings under both compilers, so a literal reading does not build | Approved 2026-09-28: warnings are errors by default; a named set of harmless classes stays non-fatal in vendored sources only; the interface layer has none; defect-class diagnostics are fatal everywhere. The exemptions first reached the interface layer through the target; now attached to vendored files only, with a test that each class still fails in `engine/api` |
 | 18 | 2026-09-28 | P1-03 | scr | resolved | The plan's premise that the cross-file surface can be cached (Part 9.5, D20, 4.5 Stage 2) does not hold for the surface the reference builds: its definition rows are computed through the project's registry and import map, so they depend on other files, and they omit what the resolver reads to resolve the file's own calls | Approved 2026-09-28 as implemented: a surface holds the file-local facts typed resolution reads and no cross-file state; unchanged files re-parse, never re-extract; cross-file state is recomputed every resolution; fresh, cached and reverse-order resolution are equivalent. Section 4.5 updated |
@@ -68,6 +71,98 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 27 — A hanging engine hangs isolated extraction
+
+`PDX_ENGINE_ISOLATE=1` runs extraction in a worker process so that an engine abort
+costs one file and not the indexing run (P1-05). The protocol between the two is
+bounded in what it carries: frames have a size limit, an incomplete or malformed
+frame is refused, and a dead worker is replaced. It is not bounded in time. An engine
+that loops forever on a file leaves the parent waiting on that batch for good, in
+isolated mode as in process.
+
+Specification 4.5 names one failure for a file the engine does not survive,
+`engine_crash`; it has no name for a file the engine never finishes, and whether a
+time limit belongs to a batch, a file, or the whole stage is a question about memory
+budgets and batching, which are P2-04's. A wall-clock limit also makes a file's
+outcome depend on the machine, which the determinism rules have to allow for
+explicitly.
+
+Owned by P2-04. Nothing in P1-05 depends on it.
+
+State: open.
+
+### 26 — The extraction cache key leaves out what an extraction depends on
+
+Specification 4.5 keys the extraction cache by
+`(engine_version, language_matrix_version, secret_policy_digest, blob_sha)`. Two
+inputs of an extraction are not in it.
+
+- **The path.** The engine builds every qualified name and the module name from the
+  file's path relative to the repository, and the resolution surface names the path
+  too. Two files with the same content at different paths, or one file moved, have
+  different extractions and the same key.
+- **The node budget.** The environment can set a node budget for the extractor
+  (`PDX_ENGINE_WALK_MAX_NODES`, off by default). A file over it comes back with only
+  what the walk reached, and typed resolution skips it. The interface now says so,
+  in `truncated` (issue 25).
+
+The safe wrapper is built so that neither can do harm silently: a `FileExtract` names
+the path and language it was taken for and the length of its source, resolution adds
+a file under the path its extraction names, and a source of another length is
+refused. But a cache keyed as 4.5 says would still hand a moved file the extraction of
+its old path.
+
+Owned by P2-04: add the path to the key, or use an entry only for the path it names;
+and either keep truncated extractions out of the cache or add the budget to the key.
+
+State: open.
+
+### 25 — Throws and truncation do not cross the interface
+
+**Throws.** Specification 4.2.3 has a structural `THROWS` edge, and P1-05's
+deliverable lists `throws` among `FileExtract`'s fields, but Appendix D.2's result has
+no throw array, and P1-03 implemented D.2 as written. The engine does record throws:
+every result carries the exception each throw or raise statement names and the
+function it is in. The reference turns those into edges in a pipeline pass this
+project does not vendor, resolving the exception's name to a definition. So the facts
+exist at extraction and the edge is resolution's to build, as this project's
+resolution stages in Rust build every other structural edge from extraction facts.
+
+Appended to `pdxe_file_result`, after the existing arrays so no offset moves:
+`pdxe_throw { exception_text, scope_index, span }` and its count. The span is all zero:
+the engine records no position for a throw, as it records none for type references,
+field accesses, channels and configuration reads, which the header now says of all
+five. A result rebuilt from a cache has no throws, like its channels and
+configuration reads; the cache keeps the owned extraction, which has them.
+
+The engine also reads the exceptions a method declares, but only through a grammar
+field named for the declaration, and of the matrix's grammars only Java's is looked
+for and it has no such field: Java's `throws` clause is not reported, and the
+reference behaves the same. The test that covers Java declares an exception and
+counts the throws exactly, so the day the engine reads declarations it fails and
+says so. Whether declared exceptions should produce `THROWS` edges is a question for
+the resolution stages, not for this interface.
+
+**Truncation.** The extractor can stop walking a file at a node budget the
+environment sets, off by default. The file's facts are then those the walk reached and
+typed resolution skips it, while its status still read "parsed". Appended a
+`truncated` flag after the throws.
+
+**The `FileExtract` shape.** P1-05 names `{ definitions, calls, imports, usages,
+type_refs, throws, read_writes, diagnostics }`. The interface's result also carries
+channels and configuration reads, which 4.7 and `READS_CONFIG` need, so `FileExtract`
+carries every array the interface has: definitions, calls, imports, usages, type
+references, throws, reads and writes, channels, configuration reads and diagnostics,
+with the file's status, whether it was truncated, and its resolution surface. The
+wrapper takes every structure of the interface apart field by field, so an array or
+field the interface gains cannot be left out of the safe layer without the build
+failing.
+
+Tests: `abi_throws` and `abi_truncated` (engine), and the safe wrapper's extraction
+tests, which check every array arrives non-empty from sources that have each fact.
+
+State: open, implemented; the appendix change awaits approval.
 
 ### 24 — The engine had never been built for Windows
 
@@ -177,7 +272,42 @@ them, and report them; and count the pass's skipped files, which it already tall
 through the interface. Either extends the ABI and belongs to that task, not to a patch
 here.
 
-State: open.
+**Resolved in P1-05**, by the second route. The log was not used: its sink is
+process-wide while a project is not, and in the resolution code it records one failure
+of the several that lose work. Instead `engine/patches/0006` has the pass write its own
+record into the project's context, which belongs to one project: whether it reached
+its end, whether it collected the project's definitions, and its counts of files
+resolved, of files in languages it does not resolve, and of files whose source it did
+not obtain. The interface keeps its own account beside it, of which files the pass
+asked the source of and was given it, and which files extraction marked over its node
+budget.
+
+`pdxe_resolve_project_health` reports, for a run that completed:
+
+- **clean** or **degraded**. Degraded when any work was lost; clean otherwise, which
+  includes a project whose files have no typed answer to find. A run that could not
+  complete is neither: it returns an error, as before.
+- every file counted once, under the first of: its language has no typed resolution;
+  it is empty; the pass stopped before reaching it; its source could not be obtained;
+  it was over the node budget; it was resolved. The third, fourth and fifth are lost
+  work.
+- `pass_failures`: failures that lose answers without skipping a file. The project's
+  definitions not collected is one; the pass's account and the interface's disagreeing
+  is the other, because a run is never called clean on an account that does not add
+  up.
+
+A degraded run reports every answer it found. The safe wrapper returns the answers and
+the health together, and checks the health is consistent before handing it out. The
+typed-resolution fixtures now refuse a degraded run, so each of them also shows its
+run was clean.
+
+Tests: `abi_run_health_*` (engine) and the safe wrapper's `run_health` tests, which
+prove that a project with nothing to resolve is clean, that a run made to skip a file
+is degraded even when that leaves no answer at all, and that a degraded run keeps the
+answers it found. A file is made to be skipped by the engine's own test switch, which
+marks it exactly as the node budget would.
+
+State: resolved.
 
 ### 20 — The shim's semantics, as the reference actually has them
 

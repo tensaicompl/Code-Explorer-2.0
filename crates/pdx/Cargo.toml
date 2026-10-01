@@ -18,6 +18,12 @@ default = []
 enterprise = ["dep:pdx-arch", "dep:pdx-analytics", "dep:pdx-server"]
 
 [dependencies]
+pdx-engine = { path = "../pdx-engine", version = "0.1.0" }
 pdx-arch = { path = "../pdx-arch", optional = true }
 pdx-analytics = { path = "../pdx-analytics", optional = true }
 pdx-server = { path = "../pdx-server", optional = true }
+
+[dev-dependencies]
+# The engine's fault-injection switches, so the isolation test can make the worker
+# crash. Enabled here only, so no release build contains them.
+pdx-engine-sys = { path = "../pdx-engine-sys", features = ["test-seams"] }

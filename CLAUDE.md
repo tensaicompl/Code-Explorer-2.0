@@ -11,8 +11,10 @@ repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 ## State: P1 in progress
 
 P0 is done and gate G0 has passed; P1 has vendored the engine, built it, given it
-its interface, and bound it to Rust (`pdx-engine-sys`, built and tested on Linux,
-macOS and Windows). The previous implementation is in `legacy/`, read-only until the
+its interface, bound it to Rust (`pdx-engine-sys`), and wrapped it safely
+(`pdx-engine`: owned extractions, typed resolution with run health, crash-isolated
+extraction), built and tested on Linux, macOS and Windows. The previous implementation
+is in `legacy/`, read-only until the
 retirement task removes it. There is no pipeline and no product behaviour yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
@@ -20,7 +22,7 @@ this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot |
@@ -35,6 +37,11 @@ make check        # format, lint, build both feature sets and the engine, test, 
 make check-full   # adds accuracy, determinism, sanitizers, browser suites
 make asan         # the engine's tests under the address, undefined-behaviour and leak sanitizers
 ```
+
+The engine's fault-injection switches (crash or skip a named file) exist only in test
+builds: CMake option `PDXE_TEST_SEAMS`, Cargo feature `test-seams` of
+`pdx-engine-sys`, enabled from `[dev-dependencies]` only, never from
+`[dependencies]`. `scripts/no-test-switches.sh <binary>` checks a binary has none.
 
 Engine-specific targets: `make engine-test` (the interface tests),
 `make engine-typed-reference` (re-record the reference engine's answers for the
