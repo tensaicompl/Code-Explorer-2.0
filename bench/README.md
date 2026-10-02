@@ -19,9 +19,9 @@ The layout is the contract, and the test enforces it:
 - Each top-level directory is named after an engine language ID, and every file
   beneath it is a source in that language. A file at the top level, a directory named
   after no known language, or a hidden entry fails the run; nothing is skipped.
-- Every language the engine's tests cover has at least one file (the list is
-  `engine/tests/matrix_languages.h` until P1-07 builds the project's language
-  registry).
+- Every language the engine's tests cover has at least one file: the language
+  matrix's 31 (`pdx_core::languages`) and the engine's `tsx` grammar, as listed in
+  `engine/tests/matrix_languages.h`, which a Rust test keeps equal to the matrix.
 - The corpus holds at most 200 files. It is meant to stay in the tens: one file per
   shape worth exercising, not size for its own sake.
 - A file's name declares the status extraction must give it: `recovery_*` is source a

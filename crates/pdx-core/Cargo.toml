@@ -9,5 +9,11 @@ authors.workspace = true
 repository.workspace = true
 publish = true
 
+[dev-dependencies]
+# The language matrix's tests ask the engine, through its safe wrapper, whether it has
+# a grammar for each language the matrix declares (tests/languages.rs). Tests only:
+# assigning a language never consults the engine.
+pdx-engine = { path = "../pdx-engine" }
+
 [lints]
 workspace = true

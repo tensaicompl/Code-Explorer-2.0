@@ -15,6 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 31 | 2026-10-02 | P2-07 | ambiguity | open | Appendix A gives `javascript` the test rule "same as TS", and TypeScript's file-name patterns are `*.test.ts` and `*.spec.ts`: read literally, no JavaScript file is a test by its name, and neither is a TypeScript `.tsx`, `.mts` or `.cts` file. Nor does it say where a directory pattern such as `tests/**` applies, at the repository root or at any depth | Owned by P2-07, which derives tests from these rules: decide, by specification change if the answer is not the literal reading. The registry records the rules exactly as Appendix A writes them, the JavaScript rule as TypeScript's by reference, so a reading of them changes no data |
+| 30 | 2026-10-02 | P1-07 | ambiguity | resolved | Appendix A leaves parts of language detection unsaid: it gives `bash` a shebang without naming a form, writes two patterns over a file's name (`Dockerfile*`, `.env*`) beside the extensions without saying which wins when a name matches both kinds, and says nothing of case | Implemented to the letter where Appendix A speaks and narrowly where it is silent: a shebang is a `#!` first line naming `bash`, directly or through `env`, and nothing else, `sh` included; an entry with `*` is a pattern over the name, any other an extension the name ends with; an extension decides before a name pattern, and a name pattern before a shebang; matching is case-sensitive. Each choice has a test, and any can be changed by a specification change that bumps the matrix version |
 | 29 | 2026-10-02 | P1-06 | blocker | resolved | The first sanitizer run over the corpus failed: for a project whose definitions typed resolution keeps none of, building the C# resolver's shared registry takes an offset from a NULL array, which is undefined behaviour in C. A documentation-only project reaches it; no fixture had | Fixed by `engine/patches/0008`, in the C# builder and in the Java one, which has the same shape and no caller yet. The regression `abi_run_health_untyped_only` fails under the sanitizers without the patch. No sanitizer report is suppressed |
 | 28 | 2026-10-02 | P1-06 | ambiguity | resolved | The interface promises it writes nothing to standard output or standard error, but the TypeScript resolver prints a line to standard error when one of its work budgets runs out, whatever the logging switches say. The interface's no-output test does not see it because its fixtures never exhaust a budget | The two unconditional prints are removed through the vendored patch mechanism (`engine/patches/0007`); the lost-work count at both sites remains, and evaluation still degrades to an unknown type. A no-output regression starves the budget and proves every TypeScript run of the corpus exhausted it and was degraded for it, with nothing written; the sanitizer corpus is covered by the no-output contract too |
 | 27 | 2026-10-02 | P2-04 | ambiguity | open | Isolated extraction survives a crashing engine but not a hanging one: the worker protocol bounds what crosses it and how often a worker is restarted, not how long a batch may take, and 4.5 names no failure reason for a file the engine never finishes | Owned by P2-04, which batches extraction: decide whether a batch has a time limit and how a file that exceeds it is recorded, by specification change if it needs a new reason |
@@ -71,6 +73,60 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 31 — JavaScript's test rule is TypeScript's, whose patterns name `.ts`
+
+Appendix A's test rule for `javascript` is "same as TS", and TypeScript's is
+`*.test.ts`, `*.spec.ts` and `__tests__/**`. Read literally, the two file-name patterns
+match only names ending in `.ts`, so no JavaScript file is a test by its name, only by
+its directory; the same reading leaves TypeScript's own `.tsx`, `.mts` and `.cts` files
+out. The likelier intent, `*.test.js` and the like, is not what the row says.
+
+Separately, the directory patterns (`src/test/**`, `tests/**`, `test*/**`, `t/**`,
+`spec/**`, `__tests__/**`) do not say whether the directory must be at the repository
+root or may be at any depth, which decides, for example, whether
+`packages/api/tests/x.py` is a test.
+
+P1-07 records the rules as Appendix A writes them: the patterns exactly, and the
+JavaScript rule as a reference to TypeScript's (`TestDetection::SameAs`), resolved by
+`Language::test_rules`. Applying them is P2-07's, which derives `Test` nodes and
+`TESTS` edges (Appendix B.5 defers to Appendix A), so the reading is P2-07's to settle,
+by specification change if it is not the literal one.
+
+State: open.
+
+### 30 — Language detection where Appendix A is silent
+
+Appendix A assigns languages by extension, then shebang (4.5 Stage 1), and leaves four
+things unsaid:
+
+- **Shebang forms.** The `bash` row lists "shebang" among its extensions and names no
+  form. The registry recognises a first line beginning `#!` whose interpreter is
+  `bash`: the last component of the first word, or, when that is `env`, of the first
+  word after `env`'s options and assignments. `#!/bin/bash`, `#! /bin/bash -e` and
+  `#!/usr/bin/env -S bash -eu` qualify; `#!/bin/sh` does not, because Appendix A does
+  not name it, even though it maps `.sh` to `bash`. No other row has a shebang, so a
+  `#!/usr/bin/env python3` script without an extension has no language.
+- **Patterns over the name.** Most entries are extensions; three contain `*`. Read as
+  patterns over the file's name, `*.dockerfile` is an ending, and `Dockerfile*` and
+  `.env*` are beginnings: `.env*` is `.env`, `.env.local` and the like, not
+  `prod.env`.
+- **Which wins.** No extension of Appendix A ends with another, and only `.h` belongs to
+  two languages, which its own rule decides. A name can still match an extension and a
+  beginning: `Dockerfile.md`, `.env.json`. The extension decides, then a beginning,
+  then the shebang; a shebang never overrides a name. Detection takes the longest
+  matching extension, which matters only once `pdx.toml` adds extensions such as
+  `.blade.php` (P2-03).
+- **Case.** Appendix A writes every entry in one case and never says it may vary, so
+  matching is exact: `README.MD` and `dockerfile` have no language.
+
+The `.h` rule is followed to the letter too: its markers are matched byte for byte,
+so `template <` with a space is not `template<`.
+
+Each choice is tested in `crates/pdx-core/tests/languages.rs`. Any of them can be
+changed by a specification change, which bumps `LANGUAGE_MATRIX_VERSION`.
 
 State: resolved.
 

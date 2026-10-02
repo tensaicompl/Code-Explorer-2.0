@@ -297,6 +297,9 @@ dependencies = [
 [[package]]
 name = "pdx-core"
 version = "0.1.0"
+dependencies = [
+ "pdx-engine",
+]
 
 [[package]]
 name = "pdx-engine"

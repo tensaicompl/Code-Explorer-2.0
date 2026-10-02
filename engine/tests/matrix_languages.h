@@ -3,8 +3,10 @@
  * variant of it (tsx) the interface names separately. One list for every C test, so
  * the tests cannot disagree about what the engine is expected to parse.
  *
- * The project's own registry of the matrix, with each language's extensions and rules,
- * is the language matrix task's (P1-07); this list is the tests' until then.
+ * The matrix itself, with each language's extensions and rules, is pdx_core::languages.
+ * C tests cannot read it, so this list stays: the matrix's ids, and the engine grammars
+ * named otherwise than their language (tsx). A Rust test in that crate keeps the two
+ * equal (engine_test_languages_are_the_matrix_and_its_dialects).
  */
 #ifndef PDXE_TEST_MATRIX_LANGUAGES_H
 #define PDXE_TEST_MATRIX_LANGUAGES_H

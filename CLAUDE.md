@@ -22,7 +22,7 @@ this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants and the language matrix (`languages`); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`) |
@@ -38,6 +38,13 @@ make check-full   # adds accuracy, determinism, sanitizers, browser suites; the 
 make check-asan   # the engine's tests and the sanitizer corpus (bench/corpus) under the
                   # address, undefined-behaviour and leak sanitizers; `make asan` is the same
 ```
+
+The language matrix is `pdx_core::languages`, transcribed from the plan's Appendix A:
+31 languages, each with its tier, extensions, shebangs, module rule and test rule.
+It is not the engine's list: the engine also names a `tsx` grammar, which is how it
+parses TypeScript's `.tsx` files, not a language. Assigning a language never asks the
+engine. Change the matrix only by a specification change that bumps
+`LANGUAGE_MATRIX_VERSION`.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

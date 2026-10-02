@@ -66,7 +66,8 @@ impl Engine {
             .into_owned()
     }
 
-    /// Whether the engine parses `language`, a language matrix identifier.
+    /// Whether the engine parses `language`, an engine language: a language matrix
+    /// identifier, or a grammar the engine names otherwise than its language (`tsx`).
     pub fn knows_language(language: &str) -> bool {
         language_id(language).is_some()
     }
