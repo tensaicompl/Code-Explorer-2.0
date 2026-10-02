@@ -102,3 +102,7 @@ jobs:
         run: cargo test -p pdx-engine-sys
       - name: Test the safe engine interface
         run: cargo test -p pdx-engine
+      # The graph model and segments: a segment's read-only attribute, the URI it is
+      # opened by and the path it is written to all differ on Windows.
+      - name: Test the graph model and segments
+        run: cargo test -p pdx-core

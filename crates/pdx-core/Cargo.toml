@@ -14,8 +14,14 @@ publish = true
 serde = { version = "1.0.229", features = ["derive"] }
 # Free-form row properties (`props`) are JSON values, kept in key order.
 serde_json = "1.0.151"
-# Every identity is a SHA-256 hash (4.2.1).
+# Every identity is a SHA-256 hash (4.2.1), and so is a segment's content hash.
 sha2 = "0.11.0"
+# Segments are SQLite files (4.3). The bundled build compiles one SQLite, the same
+# version with the same options on every platform, which a byte-identical segment needs.
+rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
+# A segment is built in a temporary directory, then written to its final path.
+tempfile = "3.27.0"
+thiserror = "2.0.21"
 
 [dev-dependencies]
 # The language matrix's tests ask the engine, through its safe wrapper, whether it has

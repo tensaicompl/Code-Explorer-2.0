@@ -8,3 +8,4 @@ pub mod ids;
 pub mod kinds;
 pub mod languages;
 pub mod model;
+pub mod segment;

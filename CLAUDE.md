@@ -11,7 +11,8 @@ repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 ## State: P2 in progress
 
 P0 and P1 are done and gates G0 and G1a have passed; P2 has begun with the graph
-model (`pdx_core::ids`, `bands`, `kinds`, `model`). P1 vendored the engine, built it,
+model (`pdx_core::ids`, `bands`, `kinds`, `model`) and the segment file
+(`pdx_core::segment`). P1 vendored the engine, built it,
 gave it its interface, bound it to Rust (`pdx-engine-sys`), and wrapped it safely
 (`pdx-engine`: owned extractions, typed resolution with run health, crash-isolated
 extraction), built and tested on Linux, macOS and Windows, and run nightly under the
@@ -24,7 +25,7 @@ this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), and segments (`segment`: writer and reader); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`) |
@@ -53,6 +54,12 @@ the fields 4.2.1 names and never of a line or offset, and the fixed vectors in
 `crates/pdx-core/tests/ids.rs` must never be regenerated from the code. Changing an
 encoding renames every stored node, so it is a change of stored format: 4.2.1 states
 the byte-level rules and reference vectors (approved in issue 33).
+
+Segments are written only by `SegmentWriter` and read only by `SegmentReader`. The
+schema is `crates/pdx-core/src/segment/schema.sql`, which must stay 4.3's DDL byte for
+byte; every other statement lives, named, in `segment/queries.rs`, and no value is ever
+spliced into SQL. A segment must be byte-identical whenever its rows are: nothing
+time-, path- or order-dependent may reach it.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

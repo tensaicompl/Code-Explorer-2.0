@@ -4,9 +4,9 @@ The graph model, the indexing pipeline, resolution, segments and layout.
 
 Open. Apache-2.0; see `LICENSE` at the repository root.
 
-The graph model's vocabulary, identities and rows exist; the indexing pipeline,
-segments and everything after them are not built yet and arrive with the tasks that
-implement them. What exists is below.
+The graph model's vocabulary, identities and rows exist, and so do segments, the
+files that store them; the indexing pipeline and everything after it are not built yet
+and arrive with the tasks that implement them. What exists is below.
 
 ## Public API
 
@@ -60,6 +60,25 @@ is a map kept in key order. Edges keep the engine's score, strategy and candidat
 verbatim beside the band, and observation as a flag that changes neither band nor id.
 Constructors compute ids from keys; lines and spans are metadata set beside them.
 
+### `segment`
+
+A segment is one repository at one commit under one profile, as an immutable SQLite
+file (specification 4.3). SQLite is the bundled build (`rusqlite` with `bundled`,
+SQLite 3.53.2), the same library on every platform.
+
+| Item | |
+|---|---|
+| `SegmentData` | Every row of a segment, by table: what the pipeline hands the writer. Rows may arrive in any order; keys must be unique |
+| `SegmentMeta`, `SegmentProfile`, `PreciseSource` | The `meta` table's nine keys and no others: no build time and no content hash. `SegmentMeta::new` takes the schema, engine and language matrix versions from `consts` |
+| `SegmentWriter::write(data, destination)` | Builds in a temporary directory: settings stated (page size, encoding, no auto-vacuum, no journal, no sync, foreign keys on), `schema.sql`, every table in its key's order in one transaction through prepared statements, the full-text index rebuilt once and checked, the build verified, then `VACUUM INTO` the destination, which must not exist; connections closed, the file made read-only (0444 on Unix) and hashed. Returns `WrittenSegment { path, content_sha256, size_bytes }` |
+| `SegmentReader::open(path)` | Opens `file:…?mode=ro&immutable=1` and verifies the meta (every key, schema version, well-formed values) and every declared reference before returning |
+| Queries | `node`, `children`, `edges_from`/`edges_to` (with a band filter; empty means every band), `candidates_from`, `contracts(kind, key)`, `metrics`, `coverage`/`coverage_all`, `file`/`file_by_path`, `site`, `node_location` (path and lines, for snippets), `evidence_for`, `occurrences_in_file`, and `search` (FTS5 over name, qualified name and documentation; BM25, then node id) |
+| `SegmentError` | One error type: SQLite, I/O, wrong schema version, missing or malformed meta, broken references, stored values that are not what their column must hold, rows the writer refuses, an existing destination, invalid search syntax |
+
+`schema.sql` is 4.3's DDL byte for byte, and a test holds it so. Every other statement
+is named in `segment/queries.rs`; no value is ever spliced into SQL, and set filters
+bind one JSON array. The same rows always give the same bytes, wherever they are built.
+
 ### `languages`
 
 The language matrix of the specification's Appendix A: the 31 languages PDX indexes,
@@ -105,8 +124,10 @@ cargo test -p pdx-core
 | `ids` | Fixed vectors, computed outside the crate, for every identity; `node_id_ignores_lines`, `site_id_ignores_lines`, `site_id_changes_with_ast_path` and `overload_insert_does_not_renumber` as properties; URL canonicalisation and refusals; NUL refused everywhere |
 | `bands` | `band_order_total`; drawn bands; spellings; `from_engine` over every Appendix D.3 strategy, score edge and candidate count, against a table written from D.3, and D.3's list against the engine's |
 | `model` | Every vocabulary's complete spelling, and the exact JSON of every row type |
+| `segment` | `schema_sql_is_4_3_verbatim`; `segment_roundtrip` over every table; `segment_is_byte_identical_across_builds` from reordered rows in different directories; `reader_refuses_wrong_schema_version`, malformed meta and broken references on damaged copies; `fts_finds_qualified_names` and search semantics; read-only files, untouched by reading; the content hash against the file's bytes; hostile text and paths stay data |
 | `consts` | Every constant is documented, and the interface's mirror is real |
 
 The engine tests need the engine built, which `pdx-engine` does through
 `pdx-engine-sys`; `pdx-engine` is a dev-dependency only. The crate's own dependencies
-are `serde`, `serde_json` and `sha2`.
+are `serde`, `serde_json`, `sha2`, `rusqlite` (bundled SQLite), `tempfile` and
+`thiserror`.

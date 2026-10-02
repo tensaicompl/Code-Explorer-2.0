@@ -262,7 +262,7 @@ pub struct CandidateSite {
     pub callee_name: String,
     /// Why nothing is drawn.
     pub band: CandidateBand,
-    /// The targets that survived.
+    /// The targets that survived: a set, which a segment stores sorted by id.
     pub candidate_ids: Vec<NodeId>,
     /// The engine's score, verbatim.
     pub engine_score: Option<f64>,
@@ -412,4 +412,164 @@ pub struct Coverage {
     pub by_band: BandCounts,
     /// Links observed at run time.
     pub observed_links: u64,
+}
+
+vocabulary! {
+    /// What happened to a file when it was indexed (the `files` table).
+    pub enum FileStatus {
+        /// Parsed without errors.
+        Parsed => "parsed",
+        /// Parsed, with errors in the tree.
+        Partial => "partial",
+        /// Extraction failed.
+        Failed => "failed",
+        /// Not extracted: too large, or excluded.
+        Skipped => "skipped",
+        /// Not text.
+        Binary => "binary",
+        /// Withheld under the secrets policy.
+        Redacted => "redacted",
+    }
+}
+
+/// A file of the repository (the `files` table).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileRecord {
+    /// The id of the file's `File` node.
+    pub file_id: NodeId,
+    /// Its repository-relative POSIX path.
+    pub path: String,
+    /// Its Appendix A language id, or `unknown`.
+    pub language: String,
+    /// What happened to it.
+    pub status: FileStatus,
+    /// Why, when its status needs a reason.
+    pub status_reason: Option<String>,
+    /// Its git blob hash, in hex.
+    pub blob_sha: String,
+    /// Its size.
+    pub size_bytes: u64,
+    /// Its number of lines.
+    pub line_count: u64,
+}
+
+vocabulary! {
+    /// What kind of fact a provider's verdict is about (the `evidence` table).
+    pub enum FactKind {
+        /// An edge.
+        Edge => "edge",
+        /// A node.
+        Node => "node",
+        /// A non-drawn call site.
+        Candidate => "candidate",
+    }
+}
+
+vocabulary! {
+    /// How authoritative a provider is (the `evidence` table).
+    pub enum Authority {
+        /// A compiler-backed index.
+        Compiler => "compiler",
+        /// The engine's typed resolution.
+        EngineTyped => "engine_typed",
+        /// Structural resolution.
+        Structural => "structural",
+        /// A person.
+        Manual => "manual",
+    }
+}
+
+vocabulary! {
+    /// A provider's verdict on a fact (the `evidence` table).
+    pub enum Verdict {
+        /// It confirms the fact.
+        Supports => "supports",
+        /// It resolves the same site elsewhere.
+        Contradicts => "contradicts",
+        /// Providers disagree.
+        Conflict => "conflict",
+    }
+}
+
+/// A provider's verdict on a precise, contradicted or manual fact (the `evidence`
+/// table). Rows are stored as given: deriving them is precise merging's (4.6).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Evidence {
+    /// The verdict's identity, as its producer computed it.
+    pub evidence_id: String,
+    /// What kind of fact it is about.
+    pub fact_kind: FactKind,
+    /// The fact's id: an edge, node or site id, by kind.
+    pub fact_id: String,
+    /// Who gave it.
+    pub provider: String,
+    /// The provider's version.
+    pub provider_version: String,
+    /// How authoritative it is.
+    pub authority: Authority,
+    /// What it says.
+    pub verdict: Verdict,
+    /// The provider's target, when it differs from the fact's.
+    pub target_node_id: Option<NodeId>,
+    /// The file the verdict points into.
+    pub file_id: Option<NodeId>,
+    /// Where in the file it starts.
+    pub start_byte: Option<u32>,
+    /// Where it ends.
+    pub end_byte: Option<u32>,
+    /// Everything else.
+    pub metadata: Props,
+}
+
+vocabulary! {
+    /// What a compiler provider says an occurrence is (the `semantic_occurrences` table).
+    pub enum OccurrenceRole {
+        /// A definition.
+        Definition => "definition",
+        /// A reference.
+        Reference => "reference",
+        /// A read.
+        Read => "read",
+        /// A write.
+        Write => "write",
+        /// An import.
+        Import => "import",
+        /// A reference to a type.
+        TypeReference => "type_reference",
+        /// An implementation.
+        Implementation => "implementation",
+        /// An override.
+        Override => "override",
+    }
+}
+
+/// An occurrence a compiler provider reported, in a precise segment (the
+/// `semantic_occurrences` table). Stored as given: producing them is the precise
+/// band's (4.6).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SemanticOccurrence {
+    /// The occurrence's identity, as its producer computed it.
+    pub occ_id: String,
+    /// Who reported it.
+    pub provider: String,
+    /// The provider's symbol.
+    pub provider_symbol: String,
+    /// The node it maps to, when it maps to one.
+    pub target_node_id: Option<NodeId>,
+    /// The file it is in.
+    pub file_id: NodeId,
+    /// Where it starts.
+    pub start_byte: u32,
+    /// Where it ends.
+    pub end_byte: u32,
+    /// Its first line.
+    pub start_line: u32,
+    /// Its first column.
+    pub start_col: u32,
+    /// What it is.
+    pub role: OccurrenceRole,
+    /// The structural site it falls on, when exactly one does.
+    pub site_id: Option<SiteId>,
+    /// The definition it is in.
+    pub enclosing_node_id: Option<NodeId>,
 }
