@@ -31,6 +31,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/cargo-deny
+            ~/.cargo/bin/cargo-vet
             target
             bench/.cache
           key: nightly-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'bench/repos.lock') }}
@@ -54,6 +55,13 @@ jobs:
 
       - name: check-full
         run: make check-full
+
+      # The same supply-chain check as every push (ci.yml), on what is built tonight.
+      - name: Install the pinned cargo-vet
+        run: scripts/cargo-vet.sh install
+
+      - name: cargo vet
+        run: make vet
 
       - name: Publish the results
         if: always()

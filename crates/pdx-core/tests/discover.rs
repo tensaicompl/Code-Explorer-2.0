@@ -367,7 +367,7 @@ fn secret_paths_are_redacted_without_being_read() {
         Some("properties")
     );
 
-    // Configured patterns replace the defaults, and may name a directory.
+    // Configured patterns add to the mandatory ones, and may name a directory.
     checkout
         .write(
             "pdx.toml",
@@ -376,19 +376,55 @@ fn secret_paths_are_redacted_without_being_read() {
         .write("deploy/db.secret", marker)
         .write("credentials/aws.txt", marker);
     let files = checkout.discover();
-    assert_eq!(
-        find(&files, "deploy/db.secret").disposition,
-        Disposition::Redacted
-    );
-    assert_eq!(
-        find(&files, "credentials/aws.txt").disposition,
-        Disposition::Redacted
-    );
-    assert_eq!(
-        find(&files, ".env").disposition,
-        Disposition::Candidate,
-        "the defaults were replaced"
-    );
+    for path in [
+        "deploy/db.secret",
+        "credentials/aws.txt",
+        ".env",
+        ".env.production",
+        "config/server.pem",
+        "private.key",
+        "home/my_id_rsa_backup",
+    ] {
+        assert_eq!(
+            find(&files, path).disposition,
+            Disposition::Redacted,
+            "{path}: added patterns extend the mandatory ones"
+        );
+    }
+}
+
+#[test]
+fn repository_cannot_disable_default_secret_patterns() {
+    // A repository's configuration is untrusted: an empty list, or a list of anything
+    // else, removes none of the mandatory patterns.
+    let checkout = Checkout::new();
+    let marker = "PDX-SYNTHETIC-SECRET-NOT-A-REAL-CREDENTIAL";
+    let secrets = [
+        ".env",
+        "deploy/.env.local",
+        "tls/server.pem",
+        "tls/server.key",
+        "home/my_id_rsa",
+    ];
+    for path in secrets {
+        checkout.write(path, marker);
+    }
+    for config in [
+        "[secrets]\npatterns = []\n",
+        "[secrets]\npatterns = [\"*.unrelated\"]\n",
+    ] {
+        checkout.write("pdx.toml", config);
+        let guard = unreadable(&checkout.path(".env"));
+        let files = checkout.discover();
+        for path in secrets {
+            assert_eq!(
+                find(&files, path).disposition,
+                Disposition::Redacted,
+                "{config:?}: {path}"
+            );
+        }
+        drop(guard);
+    }
 }
 
 // --- languages, paths, order -----------------------------------------------------------

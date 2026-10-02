@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: ["main", "task/**"]
+    branches: ["main", "task/**", "review/**"]
   pull_request:
     branches: ["main"]
 
@@ -64,6 +64,27 @@ jobs:
 
       - name: check
         run: make check
+
+  # Every third-party crate in Cargo.lock must be covered by supply-chain/ (Part 5.12,
+  # issue 36). One Linux job: the store is the same on every system, so cargo-vet is
+  # built once. It only verifies; nothing here accepts a crate.
+  supply-chain:
+    name: supply chain (cargo vet)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show toolchain
+        run: rustup show
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/bin/cargo-vet
+          key: cargo-vet-${{ hashFiles('scripts/cargo-vet.sh', 'rust-toolchain.toml') }}
+      - name: Install the pinned cargo-vet
+        run: scripts/cargo-vet.sh install
+      - name: cargo vet
+        run: make vet
 
   windows-binary:
     # Windows carries the local binary only: the server is not supported there.

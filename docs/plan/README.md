@@ -34,7 +34,9 @@ Per task:
 3. Write the named acceptance tests; they fail first, pass after. `TASKS.md`
    lists the names the plan mandates for each task.
 4. `make check` green: format, lint, build with warnings as errors, unit and
-   integration tests, licence scan, provenance scan.
+   integration tests, licence scan, provenance scan. A change to `Cargo.lock` also
+   needs `make vet` green, by an audit, an owner-approved import or a recorded
+   exemption, never by regenerating the exemptions (issue 36).
 5. Mark the row in `STATUS.md`: status, merge commit, any deviation with its
    justification.
 6. Commit as `<task-id>: <task title>`, fast-forward onto `main`.

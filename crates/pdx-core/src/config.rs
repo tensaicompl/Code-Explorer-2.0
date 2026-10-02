@@ -24,7 +24,9 @@ use crate::vocabulary::vocabulary;
 /// The configuration file's name, at the repository's root.
 pub const CONFIG_FILE: &str = "pdx.toml";
 
-/// The secret file patterns used when `[secrets] patterns` is not given (5.12).
+/// The mandatory secret file patterns (5.12). Every repository's effective patterns
+/// include them: `[secrets] patterns` can only add to them, never remove one, because
+/// a repository's configuration is itself untrusted.
 pub const DEFAULT_SECRET_PATTERNS: [&str; 4] = ["*.pem", "*.key", ".env*", "*id_rsa*"];
 
 /// `[precise] timeout_minutes` when not given (Appendix C).
@@ -162,10 +164,13 @@ pub struct IdentityConfig {
 /// `[secrets]` (5.12).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SecretsConfig {
-    /// Files whose path matches are indexed as `redacted`, their content never read.
-    /// Gitignore glob syntax, no negation; a pattern without `/` matches a file name in
-    /// any directory. Given, it replaces the default, [`DEFAULT_SECRET_PATTERNS`].
-    pub patterns: Vec<String>,
+    /// The effective secret file patterns: [`DEFAULT_SECRET_PATTERNS`] and every pattern
+    /// `[secrets] patterns` adds, each once, in byte order. Files whose path matches any
+    /// of them are indexed as `redacted`, their content never read. Gitignore glob
+    /// syntax, no negation; a pattern without `/` matches a file name in any directory.
+    /// A set, because matching any one pattern redacts a file and none can undo another:
+    /// order and repetition mean nothing, so equal policies are equal values.
+    pub patterns: BTreeSet<String>,
 }
 
 /// `[layers]`: layer rules for this repository, the schema of `pdx-arch.yaml`'s
@@ -335,7 +340,7 @@ impl Default for PdxConfig {
                 patterns: DEFAULT_SECRET_PATTERNS
                     .iter()
                     .map(|p| (*p).to_owned())
-                    .collect(),
+                    .collect::<BTreeSet<_>>(),
             },
             layers: LayersConfig::default(),
             rules: RulesConfig::default(),
@@ -573,11 +578,13 @@ impl Checker<'_> {
                 None => defaults.discover.max_file_bytes,
             },
         };
+        // The mandatory patterns, and any the repository adds; never fewer.
+        let mut secret_patterns = defaults.secrets.patterns;
+        if let Some(added) = raw.secrets.patterns {
+            secret_patterns.extend(self.patterns("secrets.patterns", added)?);
+        }
         let secrets = SecretsConfig {
-            patterns: match raw.secrets.patterns {
-                Some(patterns) => self.patterns("secrets.patterns", patterns)?,
-                None => defaults.secrets.patterns,
-            },
+            patterns: secret_patterns,
         };
         Ok(PdxConfig {
             discover,

@@ -42,6 +42,7 @@ and verification entry points work today:
 ```
 make check        # format, lint, build, test — green before anything merges
 make check-full   # adds the accuracy, determinism and browser suites
+make vet          # every third-party crate is covered by supply-chain/ (cargo vet)
 ```
 
 ## Layout

@@ -78,6 +78,13 @@ builds: CMake option `PDXE_TEST_SEAMS`, Cargo feature `test-seams` of
 `pdx-engine-sys`, enabled from `[dev-dependencies]` only, never from
 `[dependencies]`. `scripts/no-test-switches.sh <binary>` checks a binary has none.
 
+`make vet` runs `cargo vet --locked` against `supply-chain/` with the cargo-vet version
+pinned in `scripts/cargo-vet.sh` (install it with `scripts/cargo-vet.sh install`); CI,
+nightly and release run it. A new or changed crate needs a real audit, an owner-approved
+import, or a version-specific exemption with an `ISSUES.md` entry; never regenerate the
+exemptions to make it pass. The 95 exemptions recorded when vetting began are not
+audits (issue 36).
+
 Engine-specific targets: `make engine-test` (the interface tests),
 `make engine-typed-reference` (re-record the reference engine's answers for the
 typed-resolution fixtures; needs the pinned checkout), `make vendor-verify` (a

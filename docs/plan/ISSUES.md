@@ -15,8 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 36 | 2026-10-02 | P2-03 | ambiguity | open | Part 5.12 requires `cargo vet` records for new crates in `supply-chain/`, but no task delivers it: there is no `supply-chain/` directory, no audit configuration and no check, and every crate added since P0 is unvetted. Licences are checked (`cargo deny`); provenance of the code itself is not | For the owner to place: a task that sets up `cargo vet`, imports trusted audits and records the existing crates, and a check that fails on an unrecorded one. P2-03 adds crates under the current policy (D1, licence scan) and does not set up vetting on its own |
-| 35 | 2026-10-02 | P2-03 | ambiguity | resolved | Stage 1 and Appendix C leave choices open: no binary-file detector; Appendix C mixes defaults with examples; whether `[secrets] patterns` replaces or extends the 5.12 defaults; where `.pdxignore` applies and how it combines with `.gitignore`; which `[precise.<family>]` tables and keys exist; what the hard-coded excludes match | Implemented as recorded in the entry: a file is binary when it holds a NUL byte (owner-approved); example values are not defaults; `patterns` replaces the defaults; the root `.pdxignore` only, as an independent rule set; the four documented families, each with its documented command and a `timeout_minutes` override; excludes match directories by name at any depth |
+| 36 | 2026-10-02 | P0-04 | ambiguity | resolved | Part 5.12 requires `cargo vet` records for new crates in `supply-chain/`, but no task delivered it: there was no `supply-chain/` directory, no audit configuration and no check, and every crate added since P0 was unvetted. Licences were checked (`cargo deny`); provenance of the code itself was not | P0-04 ownership restored by amendment. cargo-vet 0.10.2 is pinned (`scripts/cargo-vet.sh`). `supply-chain/` records the current `Cargo.lock`: its 95 crates are one-time bootstrap exemptions, explicitly not claimed as audited; no local audits, no imported ones. Normal CI runs `cargo vet --locked` (`make vet`), as do nightly and release, so a new or changed crate is refused until it is audited, imported by an owner's decision, or exempted on the record |
+| 35 | 2026-10-02 | P2-03 | ambiguity | resolved | Stage 1 and Appendix C leave choices open: no binary-file detector; Appendix C mixes defaults with examples; whether `[secrets] patterns` replaces or extends the 5.12 defaults; where `.pdxignore` applies and how it combines with `.gitignore`; which `[precise.<family>]` tables and keys exist; what the hard-coded excludes match | Accepted as implemented: a file is binary when it holds a NUL byte; example values are not defaults; the root `.pdxignore` only, as an independent rule set; ignore sources 4.5 does not name are not read; excludes match directories by name at any depth; the four documented precise families, each with a `timeout_minutes` override. Overridden by the owner on review: `[secrets] patterns` extends a mandatory floor and never replaces it; the effective patterns are the sorted, de-duplicated union of the 5.12 defaults and the configured ones |
 | 34 | 2026-10-02 | P5-03 | ambiguity | open | 4.3 gives `evidence.evidence_id` as the "sha of (fact_id, provider, provider_version, verdict)" and `semantic_occurrences.occ_id` as the "sha of (provider, symbol, file_id, start_byte, end_byte, role)", without the byte encoding issue 33 fixed for the graph's ids: separators, how numbers are written, and the output's form and length. Both are stored keys | Owned by P5-03, which first writes these rows: fix both encodings, by specification change, before a precise segment is published. P2-02 stores and reads the ids exactly as given and computes neither |
 | 33 | 2026-10-02 | P2-01 | scr | resolved | 4.2.1 defines every identity as a hash, but leaves byte-level choices open that two implementations could make differently and so produce different stored ids: how `ast_fingerprint` serialises its node-type path, texts and ordinal, and in what form `site_id` reads it; the case of the base32 output; whether the overload disambiguator is hex text or raw bytes, and how the identical-signature ordinal is written; what an absent enclosing definition or site contributes; which clone URLs `canonical_clone_url` accepts | Approved by the owner on 2026-10-02 exactly as P2-01 implemented them, and written into 4.2.1 with reference vectors. `SEGMENT_SCHEMA_VERSION` stays 1: this completes the initial identity format before the first segment writer, so nothing stored is invalidated |
 | 32 | 2026-10-02 | G1a | blocker | resolved | Evaluating G1a found the local engine build compiled without warnings as errors in vendored sources: its build directory had once been configured with `PDXE_VENDORED_WERROR` off, CMake keeps an option's last value, and neither `make engine` nor `make check-asan` stated it. The continuous integration builds were unaffected, but a local check could pass on a weaker policy than it appeared to | Both targets now state the policy on every configure (`make engine PDXE_VENDORED_WERROR=OFF` remains the explicit way to relax it). Rebuilt locally with gcc 13.3 and clang 18: every non-grammar source carries `-Wall -Wextra -Werror`, and every warning printed is in issue 19's exempt set |
@@ -84,18 +84,47 @@ State: resolved.
 ### 36 — `cargo vet` is required but owned by no task
 
 Part 5.12: "Dependencies: pinned via lockfiles; `cargo vet` recorded for new crates in
-`supply-chain/`." Lockfiles are pinned and every dependency's licence is checked by
-`cargo deny` (`scripts/licence-scan.sh`), but nothing in the repository runs or records
-`cargo vet`: there is no `supply-chain/` directory, and no task in the plan delivers
-one. Every crate added since P0 (serde, sha2, postcard, rusqlite, and now ignore,
-globset and toml) is therefore unvetted.
+`supply-chain/`." Lockfiles were pinned and every dependency's licence was checked by
+`cargo deny` (`scripts/licence-scan.sh`), but nothing in the repository ran or recorded
+`cargo vet`: there was no `supply-chain/` directory, and no task in the plan delivered
+one. Every crate added since P0 (serde, sha2, postcard, rusqlite, ignore, globset,
+toml and the rest) was therefore unvetted.
 
-Setting up vetting is a project-wide decision (which audits to import, how to record
-the existing crates, whether the check gates CI), not discovery's. P2-03 adds its
-crates under the policy in force, D1 and the licence scan, and leaves this for the owner
-to place in the plan.
+Resolved by the P2-03 review closure, at the owner's direction, before P2-04 adds more
+dependencies:
 
-State: open.
+- **Ownership.** Repository-wide scanning and CI policy are P0-04's, so P0-04's
+  deliverables are amended (`docs/plan/amendments.json`) to own the store and its
+  enforcement. No task is added; the plan keeps 98.
+- **The tool.** cargo-vet 0.10.2, installed with the pinned toolchain
+  (`cargo install --locked --version 0.10.2 cargo-vet`). `scripts/cargo-vet.sh` is the
+  one place the version is written; `make vet` checks the installed version and runs
+  `cargo vet --locked`, and installs nothing.
+- **The store.** `supply-chain/config.toml`, `audits.toml` and `imports.lock`, created
+  by `cargo vet init` against the `Cargo.lock` of the time: 95 crates from crates.io,
+  each a bootstrap exemption at the exact version locked (83 `safe-to-deploy`, 12 used
+  only to build or test, `safe-to-run`). **These are exemptions, not audits.** Nobody is
+  claimed to have reviewed those versions; they are the baseline accepted as debt when
+  vetting began. There are no local audits and no imported audits: importing another
+  organisation's audits is a trust decision the owner has not made.
+- **Enforcement.** A dedicated Linux job in `ci.yml` installs the pinned cargo-vet and
+  runs `make vet` on every push and pull request; `nightly.yml` and `release.yml` run the
+  same two steps, so no workflow has a policy of its own. Nothing ever runs
+  `cargo vet init`, regenerates exemptions or certifies automatically, which a test in
+  `crates/pdx-bench/tests/supply_chain.rs` holds, along with the store's presence, the
+  single pinned version and the absence of imports.
+- **The ratchet.** Proven on a scratch change: adding `hex` 0.4.3 to a crate, with its
+  lock file updated, made `cargo vet --locked` fail ("1 unvetted dependencies: hex:0.4.3
+  missing safe-to-deploy"); reverted, it passed.
+
+From now on a new or changed crate is accepted only through one of: a real local audit
+(`cargo vet certify`) by someone who reviewed it; an import of another organisation's
+audits, decided and recorded by the owner; or an exemption for that exact version with
+an entry in this file saying why it is accepted for now. Regenerating the exemptions to
+make a failing check pass is not one of them; the bootstrap exemptions above were the
+one exception.
+
+State: resolved.
 
 ### 35 — Discovery where Stage 1 and Appendix C are silent
 
@@ -116,11 +145,21 @@ readings, each tested in `crates/pdx-core/tests/discover.rs` and `tests/config.r
   `.blade.php`, the `web/**` layer rule and `no-api-to-persistence` are examples.
   `[identity]` and `[server]` are absent by default.
 - **Secret patterns.** 5.12 calls the setting `secret_patterns` and gives its default;
-  Appendix C names it `[secrets] patterns`, which is the key read. A value given
-  replaces the default list, as setting any default does; a repository can therefore
-  narrow it, and the effective list is what `secret_policy_digest` (P2-04) records.
-  Patterns use gitignore glob syntax without negation, matched against the path below
-  the root: a pattern without `/` matches the file name in any directory.
+  Appendix C names it `[secrets] patterns`, which is the key read. P2-03 first read a
+  value given as replacing the default list. The owner rejected that on review: a
+  repository's `pdx.toml` is untrusted, so it must not be able to weaken the baseline,
+  and an empty list would otherwise let a repository's own `.env` and private keys
+  reach extraction, the full-text index, snippets, embeddings and model requests. The
+  four patterns of 5.12 (`*.pem`, `*.key`, `.env*`, `*id_rsa*`) are a mandatory floor,
+  and configured patterns only add to it:
+  `effective = sorted_unique(DEFAULT_SECRET_PATTERNS ∪ configured)`. Since a negation is
+  refused and any one match redacts a file, order and repetition mean nothing, so the
+  effective patterns are a set in byte order, which `secret_policy_digest` (P2-04) can
+  hash as it stands. No repository mechanism removes a mandatory pattern; an exception
+  would need its own security design and specification change. Patterns use gitignore
+  glob syntax without negation, matched against the path below the root: a pattern
+  without `/` matches the file name in any directory, and a directory pattern covers
+  everything below it.
 - **`.pdxignore`.** The root `.pdxignore` only, in gitignore syntax, as a rule set of
   its own: a negation in it can undo another of its rules, never a `.gitignore`,
   hard-coded or `extra_excludes` exclusion, and no `.gitignore` negation can undo it. A
@@ -140,6 +179,11 @@ readings, each tested in `crates/pdx-core/tests/discover.rs` and `tests/config.r
   so each family may set `timeout_minutes`, overriding `[precise] timeout_minutes` for
   that family. 4.6.1's "Maven/Gradle mirrors configured by `[precise.java]`" names no
   keys, so none are accepted; P5 defines them.
+
+Review, 2026-10-02: the owner accepted every reading above but one, the secret
+patterns, which the P2-03 review closure corrected to the mandatory floor described
+there (`repository_cannot_disable_default_secret_patterns`,
+`secret_pattern_order_and_duplicates_do_not_change_effective_policy`).
 
 State: resolved.
 

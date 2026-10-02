@@ -270,7 +270,7 @@ impl Rules {
             include_vendor: config.discover.include_vendor,
             pdxignore,
             extra_excludes: lines(&config.discover.extra_excludes)?,
-            secrets: lines(&config.secrets.patterns)?,
+            secrets: lines(&config.secrets.patterns.iter().cloned().collect::<Vec<_>>())?,
         })
     }
 

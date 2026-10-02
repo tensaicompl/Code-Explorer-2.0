@@ -17,7 +17,7 @@ UI    := ui
         ui-install ui-lint ui-test ui-build bundle-budget \
         licence-scan provenance-scan open-binary-check \
         golden oracle e2e check-asan asan determinism engine-differential perf \
-        bindgen vendor-refresh vendor-verify clean
+        vet bindgen vendor-refresh vendor-verify clean
 
 all: check
 
@@ -73,6 +73,12 @@ engine-clean:
 # skipped: here the archive is expected to exist (crates/pdx-bench/tests/engine_build.rs).
 test: engine
 	PDX_REQUIRE_ENGINE=1 $(CARGO) test --workspace --all-features
+
+# Every third-party crate in Cargo.lock is covered by supply-chain/: audited, imported
+# by an owner's decision, or exempted on the record (Part 5.12, issue 36). Needs the
+# pinned cargo-vet, which this does not install; the message says how.
+vet:
+	@scripts/cargo-vet.sh
 
 # The two constant definitions must agree.
 consts-sync:

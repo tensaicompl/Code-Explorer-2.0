@@ -47,7 +47,8 @@ then P8-11, then P9.
 ### P0-04 — Scanners and CI
 
 - **Size** M · **Depends** P0-03 · **Order** 4 · **Execution** single-agent
-- **Deliverables** `scripts/provenance-scan.sh` and `scripts/provenance-denylist.txt` (Part 5.10); `scripts/licence-scan.sh`; `deny.toml` for `cargo deny` with the Part 3.4 allow-list; GitHub Actions workflows `ci.yml` (`make check` on Linux and macOS; Windows builds `pdx` only), `nightly.yml` (`make check-full`), `release.yml` (skeleton, completed in P9-03); pre-commit hook script.
+- **Deliverables** `scripts/provenance-scan.sh` and `scripts/provenance-denylist.txt` (Part 5.10); `scripts/licence-scan.sh`; `deny.toml` for `cargo deny` with the Part 3.4 allow-list; GitHub Actions workflows `ci.yml` (`make check` on Linux and macOS; Windows builds `pdx` only), `nightly.yml` (`make check-full`), `release.yml` (skeleton, completed in P9-03); pre-commit hook script; the `cargo vet` supply-chain store `supply-chain/` with the tool's version pinned (`scripts/cargo-vet.sh`), checked by `make vet` in `ci.yml`, `nightly.yml` and `release.yml` (Part 5.12, which no task delivered: issue 36).
+- **Amended** from the plan's text by Part 5.12; issue 36
 - **Acceptance** a fixture file containing a denied string makes `provenance-scan.sh` exit non-zero (test `provenance_scan_detects`); the scan of the current tree passes.
 - **Named tests** `provenance_scan_detects`
 

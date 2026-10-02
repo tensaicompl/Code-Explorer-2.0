@@ -92,7 +92,7 @@ default.
 |---|---|
 | `[discover]` | `include_vendor` (false), `extra_excludes` (none; gitignore patterns, no negation), `max_file_bytes` (`MAX_FILE_BYTES`, above 0) |
 | `[languages]` | `extra`: extension → matrix language; adds suffixes Appendix A does not define, never redefines one. `LanguagesConfig::detect` applies them, longest first, before `languages::detect` |
-| `[secrets]` | `patterns` (5.12's `*.pem`, `*.key`, `.env*`, `*id_rsa*`; given, they replace the default) |
+| `[secrets]` | `patterns`: patterns a repository adds to 5.12's mandatory `*.pem`, `*.key`, `.env*`, `*id_rsa*`, which it can never remove. The effective patterns are the sorted, de-duplicated union |
 | `[layers]` | `rules`: `{ match = { path_glob }, role }`, with `role` a `LayerRole` |
 | `[rules]` | `architecture`: rules with an `id` and exactly one of the four forms of 4.12.2, typed (`RuleForm`) |
 | `[precise]` | `enabled` (false), `languages` (none; matrix languages), `timeout_minutes` (60), and `java`, `ts`, `python`, `cxx` with their documented command and a timeout override. Commands are stored, never run here |

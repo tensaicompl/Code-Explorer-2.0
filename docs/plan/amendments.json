@@ -8,6 +8,14 @@
     "text the extraction produces exactly; the generator fails if that text is gone,",
     "so an amendment cannot outlive what it corrects. Live file: edited, not generated."
   ],
+  "P0-04": [
+    {
+      "field": "deliverables",
+      "from": "pre-commit hook script.",
+      "to": "pre-commit hook script; the `cargo vet` supply-chain store `supply-chain/` with the tool's version pinned (`scripts/cargo-vet.sh`), checked by `make vet` in `ci.yml`, `nightly.yml` and `release.yml` (Part 5.12, which no task delivered: issue 36).",
+      "record": "Part 5.12; issue 36"
+    }
+  ],
   "P2-04": [
     {
       "field": "deliverables",

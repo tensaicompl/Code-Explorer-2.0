@@ -43,10 +43,15 @@ fn pdx_toml_defaults() {
     assert_eq!(config.discover.max_file_bytes, 2 * 1024 * 1024);
     // [languages]: nothing added.
     assert!(config.languages.extra.is_empty());
-    // [secrets]: 5.12's patterns.
+    // [secrets]: 5.12's patterns, held as a set in byte order.
     assert_eq!(
-        config.secrets.patterns,
-        ["*.pem", "*.key", ".env*", "*id_rsa*"]
+        config
+            .secrets
+            .patterns
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        ["*.key", "*.pem", "*id_rsa*", ".env*"]
     );
     assert_eq!(
         DEFAULT_SECRET_PATTERNS,
@@ -185,7 +190,10 @@ fn the_appendix_c_reference_parses() {
             datasources: vec!["pg-fdp".to_owned()],
         })
     );
-    assert_eq!(config.secrets.patterns, DEFAULT_SECRET_PATTERNS);
+    assert_eq!(
+        config.secrets.patterns,
+        PdxConfig::default().secrets.patterns
+    );
     assert_eq!(
         config.layers.rules,
         [LayerRule {
@@ -512,4 +520,55 @@ fn a_symlinked_configuration_is_refused() {
         PdxConfig::load(dir.path()),
         Err(ConfigError::NotARegularFile { .. })
     ));
+}
+
+// --- [secrets] ---------------------------------------------------------------------
+
+fn secret_patterns(text: &str) -> Vec<String> {
+    parse(text)
+        .expect("parses")
+        .secrets
+        .patterns
+        .into_iter()
+        .collect()
+}
+
+#[test]
+fn configured_secret_patterns_extend_the_mandatory_ones() {
+    assert_eq!(
+        secret_patterns("[secrets]\npatterns = [\"*.secret\"]\n"),
+        ["*.key", "*.pem", "*.secret", "*id_rsa*", ".env*"]
+    );
+    // An empty list, or one repeating a mandatory pattern, removes nothing.
+    let mandatory = ["*.key", "*.pem", "*id_rsa*", ".env*"];
+    assert_eq!(secret_patterns("[secrets]\npatterns = []\n"), mandatory);
+    assert_eq!(
+        secret_patterns("[secrets]\npatterns = [\".env*\", \"*.pem\"]\n"),
+        mandatory
+    );
+    assert_eq!(secret_patterns(""), mandatory);
+}
+
+#[test]
+fn secret_pattern_order_and_duplicates_do_not_change_effective_policy() {
+    let a = parse("[secrets]\npatterns = [\"*.secret\", \"credentials/**\"]\n").expect("parses");
+    let b = parse("[secrets]\npatterns = [\"credentials/**\", \"*.secret\", \"*.secret\"]\n")
+        .expect("parses");
+    assert_eq!(a.secrets, b.secrets);
+    assert_eq!(a, b);
+    assert_eq!(
+        a.secrets
+            .patterns
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>(),
+        [
+            "*.key",
+            "*.pem",
+            "*.secret",
+            "*id_rsa*",
+            ".env*",
+            "credentials/**"
+        ]
+    );
 }

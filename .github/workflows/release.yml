@@ -45,6 +45,11 @@ jobs:
         run: make ui-install
       - name: check
         run: make check
+      # A tag ships only what the supply-chain store covers, checked as on every push.
+      - name: Install the pinned cargo-vet
+        run: scripts/cargo-vet.sh install
+      - name: cargo vet
+        run: make vet
       # Built as it ships, without dev-dependencies: the engine's test switches, which
       # let an environment variable crash it, must not be in it.
       - name: Build the release binary
