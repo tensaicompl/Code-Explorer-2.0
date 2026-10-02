@@ -8,10 +8,10 @@ to AI agents over MCP and to a GPU-rendered architecture map.
 **Remote:** `tensaicompl/Code-Explorer-2.0` (public, `origin`). The predecessor
 repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 
-## State: P1's tasks done, gate G1a pending
+## State: P2 in progress
 
-P0 is done and gate G0 has passed. P1's tasks are done and its gate, G1a, awaits the
-driver's evaluation; P2 does not start before it. P1 vendored the engine, built it,
+P0 and P1 are done and gates G0 and G1a have passed; P2 has begun with the graph
+model (`pdx_core::ids`, `bands`, `kinds`, `model`). P1 vendored the engine, built it,
 gave it its interface, bound it to Rust (`pdx-engine-sys`), and wrapped it safely
 (`pdx-engine`: owned extractions, typed resolution with run health, crash-isolated
 extraction), built and tested on Linux, macOS and Windows, and run nightly under the
