@@ -15,6 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 36 | 2026-10-02 | P2-03 | ambiguity | open | Part 5.12 requires `cargo vet` records for new crates in `supply-chain/`, but no task delivers it: there is no `supply-chain/` directory, no audit configuration and no check, and every crate added since P0 is unvetted. Licences are checked (`cargo deny`); provenance of the code itself is not | For the owner to place: a task that sets up `cargo vet`, imports trusted audits and records the existing crates, and a check that fails on an unrecorded one. P2-03 adds crates under the current policy (D1, licence scan) and does not set up vetting on its own |
+| 35 | 2026-10-02 | P2-03 | ambiguity | resolved | Stage 1 and Appendix C leave choices open: no binary-file detector; Appendix C mixes defaults with examples; whether `[secrets] patterns` replaces or extends the 5.12 defaults; where `.pdxignore` applies and how it combines with `.gitignore`; which `[precise.<family>]` tables and keys exist; what the hard-coded excludes match | Implemented as recorded in the entry: a file is binary when it holds a NUL byte (owner-approved); example values are not defaults; `patterns` replaces the defaults; the root `.pdxignore` only, as an independent rule set; the four documented families, each with its documented command and a `timeout_minutes` override; excludes match directories by name at any depth |
 | 34 | 2026-10-02 | P5-03 | ambiguity | open | 4.3 gives `evidence.evidence_id` as the "sha of (fact_id, provider, provider_version, verdict)" and `semantic_occurrences.occ_id` as the "sha of (provider, symbol, file_id, start_byte, end_byte, role)", without the byte encoding issue 33 fixed for the graph's ids: separators, how numbers are written, and the output's form and length. Both are stored keys | Owned by P5-03, which first writes these rows: fix both encodings, by specification change, before a precise segment is published. P2-02 stores and reads the ids exactly as given and computes neither |
 | 33 | 2026-10-02 | P2-01 | scr | resolved | 4.2.1 defines every identity as a hash, but leaves byte-level choices open that two implementations could make differently and so produce different stored ids: how `ast_fingerprint` serialises its node-type path, texts and ordinal, and in what form `site_id` reads it; the case of the base32 output; whether the overload disambiguator is hex text or raw bytes, and how the identical-signature ordinal is written; what an absent enclosing definition or site contributes; which clone URLs `canonical_clone_url` accepts | Approved by the owner on 2026-10-02 exactly as P2-01 implemented them, and written into 4.2.1 with reference vectors. `SEGMENT_SCHEMA_VERSION` stays 1: this completes the initial identity format before the first segment writer, so nothing stored is invalidated |
 | 32 | 2026-10-02 | G1a | blocker | resolved | Evaluating G1a found the local engine build compiled without warnings as errors in vendored sources: its build directory had once been configured with `PDXE_VENDORED_WERROR` off, CMake keeps an option's last value, and neither `make engine` nor `make check-asan` stated it. The continuous integration builds were unaffected, but a local check could pass on a weaker policy than it appeared to | Both targets now state the policy on every configure (`make engine PDXE_VENDORED_WERROR=OFF` remains the explicit way to relax it). Rebuilt locally with gcc 13.3 and clang 18: every non-grammar source carries `-Wall -Wextra -Werror`, and every warning printed is in issue 19's exempt set |
@@ -76,6 +78,68 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 36 — `cargo vet` is required but owned by no task
+
+Part 5.12: "Dependencies: pinned via lockfiles; `cargo vet` recorded for new crates in
+`supply-chain/`." Lockfiles are pinned and every dependency's licence is checked by
+`cargo deny` (`scripts/licence-scan.sh`), but nothing in the repository runs or records
+`cargo vet`: there is no `supply-chain/` directory, and no task in the plan delivers
+one. Every crate added since P0 (serde, sha2, postcard, rusqlite, and now ignore,
+globset and toml) is therefore unvetted.
+
+Setting up vetting is a project-wide decision (which audits to import, how to record
+the existing crates, whether the check gates CI), not discovery's. P2-03 adds its
+crates under the policy in force, D1 and the licence scan, and leaves this for the owner
+to place in the plan.
+
+State: open.
+
+### 35 — Discovery where Stage 1 and Appendix C are silent
+
+Stage 1 (4.5) and Appendix C leave several choices open. P2-03 implements these
+readings, each tested in `crates/pdx-core/tests/discover.rs` and `tests/config.rs`:
+
+- **Binary files.** 4.5 says binary files are recorded as `binary` and gives no
+  detector. A file is binary when its bytes contain a NUL (0x00): exact, over the
+  whole file (which is at most `max_file_bytes`), independent of locale and encoding,
+  and not dependent on a sample size. Bytes that are not valid UTF-8 alone do not make a
+  file binary. Approved by the owner for P2-03.
+- **Defaults and examples.** Appendix C shows every key with a value, and some are
+  examples rather than defaults. Defaults are what the specification states:
+  `include_vendor = false` (4.5), `max_file_bytes = MAX_FILE_BYTES`, the secret
+  patterns of 5.12, `[precise] enabled = false`, `languages = []`,
+  `timeout_minutes = 60` (Appendix C, 4.6.2). `extra_excludes`, `[languages] extra`,
+  `[layers] rules` and `[rules] architecture` default to empty: `generated/**`,
+  `.blade.php`, the `web/**` layer rule and `no-api-to-persistence` are examples.
+  `[identity]` and `[server]` are absent by default.
+- **Secret patterns.** 5.12 calls the setting `secret_patterns` and gives its default;
+  Appendix C names it `[secrets] patterns`, which is the key read. A value given
+  replaces the default list, as setting any default does; a repository can therefore
+  narrow it, and the effective list is what `secret_policy_digest` (P2-04) records.
+  Patterns use gitignore glob syntax without negation, matched against the path below
+  the root: a pattern without `/` matches the file name in any directory.
+- **`.pdxignore`.** The root `.pdxignore` only, in gitignore syntax, as a rule set of
+  its own: a negation in it can undo another of its rules, never a `.gitignore`,
+  hard-coded or `extra_excludes` exclusion, and no `.gitignore` negation can undo it. A
+  path is excluded when any source excludes it. `extra_excludes` are gitignore patterns
+  rooted at the repository root, and a negation among them is refused.
+- **Ignore files that are not named.** `.gitignore` files are read at every level
+  below the root, never above it; the user's global ignore file, `.git/info/exclude`
+  and the generic `.ignore` file are not read, so discovery depends on the checkout and
+  `pdx.toml` only. Hidden files are not excluded.
+- **Hard-coded excludes.** Directories named `.git`, `node_modules`, `target`, `build`,
+  `dist` and `vendor` are excluded at any depth and never entered; `.git` is also
+  excluded when it is a file (a worktree's or submodule's pointer). A regular file
+  with one of the other names is a file like any other.
+- **Precise configuration.** The families are those Appendix C and 4.6 document:
+  `java` (`build_cmd`), `ts` (`install_cmd`), `python` (`install_cmd`) and `cxx`
+  (`compdb_cmd`). 4.6.2's example places `timeout_minutes = 90` under `[precise.cxx]`,
+  so each family may set `timeout_minutes`, overriding `[precise] timeout_minutes` for
+  that family. 4.6.1's "Maven/Gradle mirrors configured by `[precise.java]`" names no
+  keys, so none are accepted; P5 defines them.
 
 State: resolved.
 

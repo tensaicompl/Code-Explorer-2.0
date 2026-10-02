@@ -5,8 +5,9 @@ The graph model, the indexing pipeline, resolution, segments and layout.
 Open. Apache-2.0; see `LICENSE` at the repository root.
 
 The graph model's vocabulary, identities and rows exist, and so do segments, the
-files that store them; the indexing pipeline and everything after it are not built yet
-and arrive with the tasks that implement them. What exists is below.
+files that store them, a repository's configuration and the pipeline's first stage,
+discovery; the later stages arrive with the tasks that implement them. What exists is
+below.
 
 ## Public API
 
@@ -79,6 +80,44 @@ SQLite 3.53.2), the same library on every platform.
 is named in `segment/queries.rs`; no value is ever spliced into SQL, and set filters
 bind one JSON array. The same rows always give the same bytes, wherever they are built.
 
+### `config`
+
+A repository's `pdx.toml` (Appendix C), read only from the checkout's root, only if it
+is a regular file of at most `MAX_FILE_BYTES`, and parsed strictly: an unknown section
+or key is an error. `PdxConfig::load(root)` gives the defaults when there is no file;
+`PdxConfig::parse(text, path)` parses one; `PdxConfig::default()` is every documented
+default.
+
+| Section | Fields |
+|---|---|
+| `[discover]` | `include_vendor` (false), `extra_excludes` (none; gitignore patterns, no negation), `max_file_bytes` (`MAX_FILE_BYTES`, above 0) |
+| `[languages]` | `extra`: extension → matrix language; adds suffixes Appendix A does not define, never redefines one. `LanguagesConfig::detect` applies them, longest first, before `languages::detect` |
+| `[secrets]` | `patterns` (5.12's `*.pem`, `*.key`, `.env*`, `*id_rsa*`; given, they replace the default) |
+| `[layers]` | `rules`: `{ match = { path_glob }, role }`, with `role` a `LayerRole` |
+| `[rules]` | `architecture`: rules with an `id` and exactly one of the four forms of 4.12.2, typed (`RuleForm`) |
+| `[precise]` | `enabled` (false), `languages` (none; matrix languages), `timeout_minutes` (60), and `java`, `ts`, `python`, `cxx` with their documented command and a timeout override. Commands are stored, never run here |
+| `[identity]`, `[server]` | Parsed and kept for the tasks that use them |
+
+Nothing in it is evaluated here: layer rules, architecture rules and precise commands
+are applied by their own stages. Readings where Appendix C is silent: issue 35.
+
+### `index::discover`
+
+Stage 1 of 4.5. `discover(root, &config)` walks the checkout and returns every regular
+file no rule excludes, as `DiscoveredFile { path, language, disposition, size_bytes }`,
+sorted by path. A path is relative, `/`-separated and UTF-8 (a name that is not is an
+error). A file is excluded by a hard-coded directory (`.git`, `node_modules`, `target`,
+`build`, `dist`, and `vendor` unless `include_vendor`), the `.gitignore` files, the root
+`.pdxignore` or `extra_excludes`, each applied on its own so no negation in one undoes
+another; hidden files are files, and no other ignore file is read. Symlinks are never
+followed, and the root must be a real directory.
+
+`Disposition` says what discovery found, never that anything was extracted:
+`Redacted` (a secret path; never read), `SkippedSize` (over `max_file_bytes`, reason
+`size`; never read), `Binary` (holds a NUL byte) or `Candidate`. Only candidates and
+binaries are read, at most `max_file_bytes` of them. A file of no language is still
+discovered.
+
 ### `languages`
 
 The language matrix of the specification's Appendix A: the 31 languages PDX indexes,
@@ -125,9 +164,11 @@ cargo test -p pdx-core
 | `bands` | `band_order_total`; drawn bands; spellings; `from_engine` over every Appendix D.3 strategy, score edge and candidate count, against a table written from D.3, and D.3's list against the engine's |
 | `model` | Every vocabulary's complete spelling, and the exact JSON of every row type |
 | `segment` | `schema_sql_is_4_3_verbatim`; `segment_roundtrip` over every table; `segment_is_byte_identical_across_builds` from reordered rows in different directories; `reader_refuses_wrong_schema_version`, malformed meta and broken references on damaged copies; `fts_finds_qualified_names` and search semantics; read-only files, untouched by reading; the content hash against the file's bytes; hostile text and paths stay data |
+| `discover` | `discover_honours_gitignore` (every exclusion source, their independence, hard excludes, `vendor`, `.ignore` and hidden files); `discover_skips_symlinks` (file, directory, outside the root, a loop); `discover_marks_binary_and_large` (the limit inclusive, the file over it never read, NUL is binary, non-UTF-8 is not); secret paths redacted unread; unknown languages kept; configured and header languages; sorted relative paths; root and ignore-file refusals |
+| `config` | `pdx_toml_defaults` field by field; the Appendix C reference with all four rule forms and every precise family, commands never run; global and family timeouts; the `[languages] extra` rules; every refusal, each naming the file and key |
 | `consts` | Every constant is documented, and the interface's mirror is real |
 
 The engine tests need the engine built, which `pdx-engine` does through
 `pdx-engine-sys`; `pdx-engine` is a dev-dependency only. The crate's own dependencies
-are `serde`, `serde_json`, `sha2`, `rusqlite` (bundled SQLite), `tempfile` and
-`thiserror`.
+are `serde`, `serde_json`, `sha2`, `rusqlite` (bundled SQLite), `tempfile`,
+`thiserror`, `ignore` and `globset` (gitignore and glob semantics) and `toml`.
