@@ -51,8 +51,8 @@ engine. Change the matrix only by a specification change that bumps
 Identities (`pdx_core::ids`) are a stored format: a node, site or edge id is a hash of
 the fields 4.2.1 names and never of a line or offset, and the fixed vectors in
 `crates/pdx-core/tests/ids.rs` must never be regenerated from the code. Changing an
-encoding renames every stored node, so it is a specification change (issue 33 holds
-the current proposal).
+encoding renames every stored node, so it is a change of stored format: 4.2.1 states
+the byte-level rules and reference vectors (approved in issue 33).
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

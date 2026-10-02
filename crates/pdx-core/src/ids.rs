@@ -1,5 +1,5 @@
-//! Identities of repositories, nodes, evidence sites and edges (specification 4.2.1,
-//! with the encodings of `docs/plan/ISSUES.md`, issue 33).
+//! Identities of repositories, nodes, evidence sites and edges (specification 4.2.1 and
+//! its byte-level encoding).
 //!
 //! Every identity is a hash of the fields 4.2.1 names and nothing else: no line,
 //! column or byte offset, no position in a file and no order of insertion, so an id
@@ -473,7 +473,7 @@ pub fn overload_disambiguators(signatures_in_file_order: &[&str]) -> Result<Vec<
 // --- sites -------------------------------------------------------------------------
 
 /// Where a site sits in its definition's syntax tree, independently of lines and
-/// offsets: 64 lower-case hex characters (4.2.1, issue 33).
+/// offsets: 64 lower-case hex characters (4.2.1).
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct AstFingerprint(String);

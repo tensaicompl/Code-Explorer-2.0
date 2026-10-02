@@ -18,7 +18,7 @@ and `scripts/consts-sync.py` fails the build when the two disagree.
 
 ### `ids`
 
-Identities (specification 4.2.1, with the byte-level encodings proposed in
+Identities (specification 4.2.1, including its byte-level encoding, approved in
 `docs/plan/ISSUES.md`, issue 33). Every id is a SHA-256 hash of the fields 4.2.1 names
 and nothing else: no line, column, byte offset or insertion order.
 

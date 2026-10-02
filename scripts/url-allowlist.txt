@@ -31,3 +31,9 @@ https://react.dev/
 https://developer.mozilla.org/
 https://www.postgresql.org/docs/
 https://sqlite.org/
+
+# The identity specification's reference vectors (docs/spec/4.2, issue 33): clone URLs
+# on a host reserved for examples (RFC 2606), which no network resolves.
+https://git.example/
+https://git.example:8443/
+https://x-access-token:s3cr3t@Git.Example/

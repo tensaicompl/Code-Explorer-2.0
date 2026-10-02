@@ -1,4 +1,4 @@
-//! Identities (specification 4.2.1, with the encodings of issue 33).
+//! Identities (specification 4.2.1 and its byte-level encoding).
 //!
 //! The fixed vectors were computed outside this crate, by a separate implementation
 //! (Python's `hashlib`, and `base64.b32encode` with its alphabet mapped to Crockford's),
@@ -595,4 +595,47 @@ fn id_types_serialise_as_their_strings() {
         edge
     );
     assert_eq!(format!("{id}"), "FC0C2RXS73G18HY3HRG3C0EX2Z");
+}
+
+#[test]
+fn the_specification_carries_these_vectors() {
+    // 4.2.1 prints reference vectors so that a second implementation can check itself
+    // against the specification alone. Every one of them is one this file checks the
+    // code against, so the two cannot drift apart.
+    let spec = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/spec/4.2-identity-and-bands.md"
+    ))
+    .expect("the identity specification");
+    let vectors = spec
+        .split("Reference vectors")
+        .nth(1)
+        .and_then(|rest| rest.split("\n## ").next())
+        .expect("4.2.1's reference vectors");
+    for value in [
+        "ce63551447285fd4",
+        "2b2f33ba06c16e77",
+        "fe6438f0e0cb550c",
+        "NP5899JPZZTZSSAGDXKHNYR17C",
+        "2M70XN97JJTJTTYPJ2PTZ4GJHP",
+        "FC0C2RXS73G18HY3HRG3C0EX2Z",
+        "5YPXN04A1YH5MRHA8QENTERA8P",
+        "FMXRAER9WFVM1JB93F13E9RTFT",
+        "0517abec",
+        "652bcc3a",
+        "e3b0c442",
+        "b72a1edb5ebc15504aff07917b0760bc15da4cdc57e725700662a10a2d9e755f",
+        "8Q0S4A5X7HM4PN0YV3FCEAFV2V",
+        "VPJH78E48GY402DQW6XET6F6XM",
+        "639NYMS5S3YSVEMV5N1G4T7HEQ",
+        "04K6NBGNS5YV1FH28A5J5KK36A",
+        "DWNCJWMCV866WG7RJNMDFCQRNP",
+    ] {
+        assert!(
+            vectors.contains(&format!("`{value}`")),
+            "4.2.1 does not print {value}"
+        );
+    }
+    let printed = vectors.matches("\n| ").count();
+    assert_eq!(printed, 15, "4.2.1 prints a vector this test does not know");
 }

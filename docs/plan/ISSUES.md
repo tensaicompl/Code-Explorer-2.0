@@ -15,7 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 33 | 2026-10-02 | P2-01 | scr | open | 4.2.1 defines every identity as a hash, but leaves byte-level choices open that two implementations could make differently and so produce different stored ids: how `ast_fingerprint` serialises its node-type path, texts and ordinal, and in what form `site_id` reads it; the case of the base32 output; whether the overload disambiguator is hex text or raw bytes, and how the identical-signature ordinal is written; what an absent enclosing definition or site contributes; which clone URLs `canonical_clone_url` accepts | Proposed and implemented in P2-01, pending approval: the encodings in the entry below, each locked by a fixed vector. 4.2.1 is not edited until the change is approved |
+| 33 | 2026-10-02 | P2-01 | scr | resolved | 4.2.1 defines every identity as a hash, but leaves byte-level choices open that two implementations could make differently and so produce different stored ids: how `ast_fingerprint` serialises its node-type path, texts and ordinal, and in what form `site_id` reads it; the case of the base32 output; whether the overload disambiguator is hex text or raw bytes, and how the identical-signature ordinal is written; what an absent enclosing definition or site contributes; which clone URLs `canonical_clone_url` accepts | Approved by the owner on 2026-10-02 exactly as P2-01 implemented them, and written into 4.2.1 with reference vectors. `SEGMENT_SCHEMA_VERSION` stays 1: this completes the initial identity format before the first segment writer, so nothing stored is invalidated |
 | 32 | 2026-10-02 | G1a | blocker | resolved | Evaluating G1a found the local engine build compiled without warnings as errors in vendored sources: its build directory had once been configured with `PDXE_VENDORED_WERROR` off, CMake keeps an option's last value, and neither `make engine` nor `make check-asan` stated it. The continuous integration builds were unaffected, but a local check could pass on a weaker policy than it appeared to | Both targets now state the policy on every configure (`make engine PDXE_VENDORED_WERROR=OFF` remains the explicit way to relax it). Rebuilt locally with gcc 13.3 and clang 18: every non-grammar source carries `-Wall -Wextra -Werror`, and every warning printed is in issue 19's exempt set |
 | 31 | 2026-10-02 | P2-07 | ambiguity | open | Appendix A gives `javascript` the test rule "same as TS", and TypeScript's file-name patterns are `*.test.ts` and `*.spec.ts`: read literally, no JavaScript file is a test by its name, and neither is a TypeScript `.tsx`, `.mts` or `.cts` file. Nor does it say where a directory pattern such as `tests/**` applies, at the repository root or at any depth | Owned by P2-07, which derives tests from these rules: decide, by specification change if the answer is not the literal reading. The registry records the rules exactly as Appendix A writes them, the JavaScript rule as TypeScript's by reference, so a reading of them changes no data |
 | 30 | 2026-10-02 | P1-07 | ambiguity | resolved | Appendix A leaves parts of language detection unsaid: it gives `bash` a shebang without naming a form, writes two patterns over a file's name (`Dockerfile*`, `.env*`) beside the extensions without saying which wins when a name matches both kinds, and says nothing of case | Implemented to the letter where Appendix A speaks and narrowly where it is silent: a shebang is a `#!` first line naming `bash`, directly or through `env`, and nothing else, `sh` included; an entry with `*` is a pattern over the name, any other an extension the name ends with; an extension decides before a name pattern, and a name pattern before a shebang; matching is case-sensitive. Each choice has a test, and any can be changed by a specification change that bumps the matrix version |
@@ -135,9 +135,20 @@ node-type path of a site. `ids.rs` takes both as inputs; the tasks that build
 definitions and sites from extraction (P2-04, P2-06) supply them, by extending the
 engine interface if they must.
 
-Approval updates 4.2.1 with these encodings, which are then normative.
+Approved by the owner on 2026-10-02, exactly as implemented, including the accepted
+consequence that a callable changes its id once when it gains its first overload.
+4.2.1 now states every rule above at byte level, with reference vectors from
+`tests/ids.rs`, so a second implementation can reproduce the ids from the
+specification alone; the vectors are unchanged.
 
-State: open.
+`SEGMENT_SCHEMA_VERSION` stays 1, and no other version moves: this completes the
+previously unspecified byte encoding of the initial version 1 identity format before
+P2-02 creates the first segment writer, and no version 1 segment has been emitted to
+migrate or invalidate. From P2-02 on, segments store these ids, so an incompatible
+change to any of these encodings is a change of stored format and follows the
+specification and version process.
+
+State: resolved.
 
 ### 32 — A cached build option weakened the local warning policy
 
