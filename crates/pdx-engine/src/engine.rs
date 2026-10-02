@@ -11,6 +11,41 @@ use crate::convert;
 use crate::error::{EngineError, check};
 use crate::model::{FileExtract, Surface};
 
+/// The environment variable that gives the engine's syntax walk a node budget: a file
+/// whose walk would visit more nodes stops early, and its extraction says it was
+/// truncated. Unset, there is no budget.
+pub const NODE_BUDGET_ENV: &str = "PDX_ENGINE_WALK_MAX_NODES";
+
+/// The engine's environment switches that change what an extraction contains, none
+/// of which is set normally: the node budget ([`NODE_BUDGET_ENV`]); the ceiling on the
+/// definition walk's stack (`PDX_ENGINE_WALK_DEFS_MAX`); the TypeScript resolver's
+/// work budget (`PDX_ENGINE_TS_TYPE_BUDGET`) and walk depth
+/// (`PDX_ENGINE_LSP_MAX_WALK_DEPTH`); turning that resolver off
+/// (`PDX_ENGINE_LSP_DISABLED`); and a crash-quarantine list, whose files extract as
+/// empty (`PDX_ENGINE_INDEX_QUARANTINE_FILE`).
+///
+/// No extraction cache key names them, and the engine alone interprets their
+/// values, so a build with any of them set at all neither reads nor writes an
+/// extraction cache (docs/plan/ISSUES.md, issue 26). Every other variable the engine
+/// reads leaves extraction as it is, or exists only in test builds; a test holds the
+/// engine's sources to that.
+pub const EXTRACTION_SWITCHES: [&str; 6] = [
+    NODE_BUDGET_ENV,
+    "PDX_ENGINE_WALK_DEFS_MAX",
+    "PDX_ENGINE_TS_TYPE_BUDGET",
+    "PDX_ENGINE_LSP_MAX_WALK_DEPTH",
+    "PDX_ENGINE_LSP_DISABLED",
+    "PDX_ENGINE_INDEX_QUARANTINE_FILE",
+];
+
+/// The first of [`EXTRACTION_SWITCHES`] set in the environment, whatever its value,
+/// empty included.
+pub fn extraction_switch_set() -> Option<&'static str> {
+    EXTRACTION_SWITCHES
+        .into_iter()
+        .find(|name| std::env::var_os(name).is_some())
+}
+
 thread_local! {
     /// Whether this thread has an engine. The engine keeps parser state per thread.
     static ENGINE_ON_THREAD: Cell<bool> = const { Cell::new(false) };

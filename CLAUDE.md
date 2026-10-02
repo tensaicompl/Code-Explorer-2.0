@@ -12,21 +12,24 @@ repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 
 P0 and P1 are done and gates G0 and G1a have passed; P2 has begun with the graph
 model (`pdx_core::ids`, `bands`, `kinds`, `model`), the segment file
-(`pdx_core::segment`), the repository configuration (`pdx_core::config`) and Stage 1,
-discovery (`pdx_core::index::discover`). P1 vendored the engine, built it,
-gave it its interface, bound it to Rust (`pdx-engine-sys`), and wrapped it safely
-(`pdx-engine`: owned extractions, typed resolution with run health, crash-isolated
-extraction), built and tested on Linux, macOS and Windows, and run nightly under the
-address, undefined-behaviour and leak sanitizers over a committed corpus; it also
-transcribed the language matrix (`pdx_core::languages`). The previous
-implementation is in `legacy/`, read-only until the retirement task removes it. There is no pipeline and no product behaviour yet.
+(`pdx_core::segment`), the repository configuration (`pdx_core::config`), Stage 1,
+discovery (`pdx_core::index::discover`), and Stage 2, extraction with its cache
+(`pdx_core::index::extract`) and content secret normalisation (`pdx_core::secrets`).
+P1 vendored the engine, built it, gave it its interface, bound it to Rust
+(`pdx-engine-sys`), and wrapped it safely (`pdx-engine`: owned extractions, typed
+resolution with run health, crash-isolated extraction), built and tested on Linux,
+macOS and Windows, and run nightly under the address, undefined-behaviour and leak
+sanitizers over a committed corpus; it also transcribed the language matrix
+(`pdx_core::languages`). The previous implementation is in `legacy/`, read-only
+until the retirement task removes it. There is no whole pipeline (`build_segment`)
+and no product behaviour yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`) and the pipeline's stages as they arrive (`index`); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`) and the pipeline's stages as they arrive (`index`: discover, extract); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`) |
@@ -68,13 +71,26 @@ and depends on nothing but the checkout and its root `pdx.toml`: not the environ
 the user's Git settings or the filesystem's listing order. Nothing a repository
 configures (precise commands included) is executed outside the precise sandbox.
 
+Stage 2 reads a file's original bytes once, takes its Git `blob_sha` from them, masks
+secret values in the same buffer and gives the engine only the normalised bytes:
+original bytes never reach the engine, the cache, an error or a log, and a redacted
+file is never opened. Masking preserves length and never touches CR or LF (issue 37);
+a change to what the detectors match bumps `SECRET_DETECTOR_VERSION`. The extraction
+cache key is `(engine_version, language_matrix_version, secret_policy_digest,
+language_id, rel_path, blob_sha)`; only clean extractions (not truncated, no
+`extraction_lost`) are cached; with any `pdx_engine::EXTRACTION_SWITCHES` variable set
+no cache is used; a hit must be this source's exact extraction (issue 26). An isolated
+worker that times out fails the build and is never recorded as `engine_crash` (issue
+27). Test secrets are synthetic and assembled at run time: never write a
+credential-shaped literal into the tree.
+
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file
 named `recovery_*` may parse partially and `failed_*` must fail; anything else must
 parse. Never copy third-party or scale-repository source into it.
 
-The engine's fault-injection switches (crash or skip a named file) exist only in test
-builds: CMake option `PDXE_TEST_SEAMS`, Cargo feature `test-seams` of
+The engine's fault-injection switches (crash on, hang on or skip a named file) exist
+only in test builds: CMake option `PDXE_TEST_SEAMS`, Cargo feature `test-seams` of
 `pdx-engine-sys`, enabled from `[dev-dependencies]` only, never from
 `[dependencies]`. `scripts/no-test-switches.sh <binary>` checks a binary has none.
 
@@ -83,7 +99,7 @@ pinned in `scripts/cargo-vet.sh` (install it with `scripts/cargo-vet.sh install`
 nightly and release run it. A new or changed crate needs a real audit, an owner-approved
 import, or a version-specific exemption with an `ISSUES.md` entry; never regenerate the
 exemptions to make it pass. The 95 exemptions recorded when vetting began are not
-audits (issue 36).
+audits (issue 36), and neither are the four exact-version ones P2-04 added (issue 39).
 
 Engine-specific targets: `make engine-test` (the interface tests),
 `make engine-typed-reference` (re-record the reference engine's answers for the

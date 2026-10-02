@@ -412,10 +412,12 @@ pub struct pdxe_file_result {
     pub n_throws: u32,
     #[doc = " 1 when the extractor stopped walking the file at its node budget: what it found\n up to that point is reported, the rest of the file is not, and typed resolution\n skips the file. The budget is off unless the environment sets one. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 25."]
     pub truncated: u8,
+    #[doc = " Work extraction lost on the file: allocations that failed and work budgets that\n ran out while it was extracted (api/lost_work.h). 0 when nothing was lost. It is\n the count the file's resolution surface carries, which a project resolving the\n file counts as its own loss. A result rebuilt from a cache has 0. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 26."]
+    pub extraction_lost: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 168usize];
+    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 176usize];
     ["Alignment of pdxe_file_result"][::std::mem::align_of::<pdxe_file_result>() - 8usize];
     ["Offset of field: pdxe_file_result::status"]
         [::std::mem::offset_of!(pdxe_file_result, status) - 0usize];
@@ -461,6 +463,8 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_file_result, n_throws) - 160usize];
     ["Offset of field: pdxe_file_result::truncated"]
         [::std::mem::offset_of!(pdxe_file_result, truncated) - 164usize];
+    ["Offset of field: pdxe_file_result::extraction_lost"]
+        [::std::mem::offset_of!(pdxe_file_result, extraction_lost) - 168usize];
 };
 impl Default for pdxe_file_result {
     fn default() -> Self {
@@ -485,7 +489,7 @@ unsafe extern "C" {
     pub fn pdxe_result_free(ctx: *mut pdxe_ctx, r: *mut pdxe_file_result);
 }
 unsafe extern "C" {
-    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed\n and it is not truncated: those parts are the cache's to keep, and resolution reads\n what it needs of them from the surface."]
+    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface."]
     pub fn pdxe_result_build(
         ctx: *mut pdxe_ctx,
         defs: *const pdxe_definition,

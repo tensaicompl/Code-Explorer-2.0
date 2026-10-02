@@ -80,6 +80,11 @@ criteria = "safe-to-deploy"
 version = "0.11.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.either]]
+version = "1.18.0"
+criteria = "safe-to-deploy"
+notes = "Issue 39: required by P2-04 (rayon's dependency). An exemption, not an audit."
+
 [[exemptions.embedded-io]]
 version = "0.4.0"
 criteria = "safe-to-deploy"
@@ -232,6 +237,16 @@ criteria = "safe-to-run"
 version = "0.4.0"
 criteria = "safe-to-run"
 
+[[exemptions.rayon]]
+version = "1.12.0"
+criteria = "safe-to-deploy"
+notes = "Issue 39: required by P2-04 (Stage 2's worker pool). An exemption, not an audit."
+
+[[exemptions.rayon-core]]
+version = "1.13.0"
+criteria = "safe-to-deploy"
+notes = "Issue 39: required by P2-04 (rayon's thread pool). An exemption, not an audit."
+
 [[exemptions.regex]]
 version = "1.13.1"
 criteria = "safe-to-deploy"
@@ -279,6 +294,11 @@ criteria = "safe-to-deploy"
 [[exemptions.serde_spanned]]
 version = "1.1.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.sha1]]
+version = "0.11.0"
+criteria = "safe-to-deploy"
+notes = "Issue 39: required by P2-04 (the Git blob identity). An exemption, not an audit."
 
 [[exemptions.sha2]]
 version = "0.11.0"

@@ -5,9 +5,9 @@ The graph model, the indexing pipeline, resolution, segments and layout.
 Open. Apache-2.0; see `LICENSE` at the repository root.
 
 The graph model's vocabulary, identities and rows exist, and so do segments, the
-files that store them, a repository's configuration and the pipeline's first stage,
-discovery; the later stages arrive with the tasks that implement them. What exists is
-below.
+files that store them, a repository's configuration, content secret normalisation and
+the pipeline's first two stages, discovery and extraction; the later stages arrive
+with the tasks that implement them. What exists is below.
 
 ## Public API
 
@@ -118,6 +118,51 @@ followed, and the root must be a real directory.
 binaries are read, at most `max_file_bytes` of them. A file of no language is still
 discovered.
 
+### `secrets`
+
+Content secret normalisation (5.12), the layer after discovery's redaction by path.
+`normalise_in_place(bytes, language)` masks every secret value the detectors find
+with ASCII `X`, byte for byte: the length never changes, no CR or LF is touched, and
+keys, separators, quotes, PEM markers and indentation stay (issue 37). It works on
+bytes, never requiring UTF-8, with non-backtracking `regex::bytes`.
+
+| Item | |
+|---|---|
+| `Detector` | `PrivateKey` (PEM blocks, base64 masked between the markers), `BearerToken` (16 or more token bytes), `CredentialAssignment` (keys ending in one of `CREDENTIAL_KEYS`, words joined by `_`, `-` or nothing; quoted values everywhere, bare values only in `BARE_VALUE_LANGUAGES`), `UriPassword`, `CloudAccessKeyId`; a value that is wholly a placeholder is left alone |
+| `secret_ranges`, `secret_ranges_with` | The ranges found, sorted and merged: the same in any detector order |
+| `SecretPolicyDigest` | SHA-256 of `{"detector_version":…,"patterns":[…]}`, compact, keys in that order, the effective patterns sorted; `of(&SecretsConfig)` under `SECRET_DETECTOR_VERSION`, `for_policy(version, patterns)` |
+
+### `index::extract`
+
+Stage 2 of 4.5. `ExtractStage::new(root, &secrets, limits)`, optionally
+`.with_cache(&cache)` and `.with_backend(&factory)`, then `.run(&discovered)`, returns
+an `ExtractReport`: one `ExtractedFile { path, language, outcome }` per discovered
+file, in the order given, with `ExtractStats` (cache hits, misses, unusable entries,
+writes, workers, batches, the most source bytes held at once) and `degraded()`.
+
+Only a `Candidate` with a language is extracted. `FileOutcome` is `Extracted
+{ extract, blob_sha }` (the same from the engine or the cache), `EngineFailed`,
+`EngineCrashed`, `SkippedMemory`, or, carried forward unopened, `Binary`, `Redacted`,
+`SkippedSize`, `UnknownLanguage`. A crash, a skip for memory, a truncated extraction or
+lost work degrades the stage. A file changed since discovery (gone, a symlink, not a
+file, another size, now binary), an engine that cannot start, or an isolated worker
+that times out fails it with an `ExtractError`, which names paths and never content.
+
+| Item | |
+|---|---|
+| `prepare_source(root, file)` | The file read (each path component checked without following a link, never more than discovery's size), `BlobSha` over the original bytes, normalised in place, `SourceDigest` over the result. Stage 3 reads a file again through it |
+| `BlobSha` | Git's blob identity of the original bytes, 40 hex; never the `SourceDigest`, which is SHA-256 of the normalised bytes the engine was given |
+| `CacheKey`, `CacheObjectId` | `(engine_version, language_matrix_version, secret_policy_digest, language_id, rel_path, blob_sha)`; the object id is SHA-256 over a tagged, length-prefixed encoding of it, 64 hex |
+| `ExtractCache`, `FsCache::at(root)` | `load` and `store`, usable from every worker at once. `FsCache` keeps `<root>/v1/<2 hex>/<64 hex>`, written to a temporary file and renamed, 0700 directories and 0600 files on Unix |
+| `CacheEnvelope` | `{ format_version, key, extract }` in postcard, decoded exactly; another format, key, trailing bytes or a damaged entry is a `CacheDefect`, a miss |
+| `ExtractLimits`, `plan_batches`, `BatchPlan` | Workers requested and the memory budget, resolved by the caller. A file over the whole budget is skipped; `effective_workers × largest ≤ budget`; each worker's share is `budget / effective_workers`; batches greedy in path order, at most `MAX_BATCH_FILES` |
+| `ExtractBackend`, `default_backend` | One per worker thread: the engine in process, or an isolated worker when `PDX_ENGINE_ISOLATE=1` |
+
+Only clean extractions are stored, and none while an engine extraction switch is set
+(`pdx_engine::EXTRACTION_SWITCHES`); a hit is used only if it is exactly the clean
+extraction of the source now normalised. The budget bounds the source buffers held at
+once; what the engine allocates while extracting is not bounded by it.
+
 ### `languages`
 
 The language matrix of the specification's Appendix A: the 31 languages PDX indexes,
@@ -165,10 +210,13 @@ cargo test -p pdx-core
 | `model` | Every vocabulary's complete spelling, and the exact JSON of every row type |
 | `segment` | `schema_sql_is_4_3_verbatim`; `segment_roundtrip` over every table; `segment_is_byte_identical_across_builds` from reordered rows in different directories; `reader_refuses_wrong_schema_version`, malformed meta and broken references on damaged copies; `fts_finds_qualified_names` and search semantics; read-only files, untouched by reading; the content hash against the file's bytes; hostile text and paths stay data |
 | `discover` | `discover_honours_gitignore` (every exclusion source, their independence, hard excludes, `vendor`, `.ignore` and hidden files); `discover_skips_symlinks` (file, directory, outside the root, a loop); `discover_marks_binary_and_large` (the limit inclusive, the file over it never read, NUL is binary, non-UTF-8 is not); secret paths redacted unread; unknown languages kept; configured and header languages; sorted relative paths; root and ignore-file refusals |
+| `secrets` | `secret_policy_digest_fixed_vector` and `detector_version_enters_secret_policy_digest` against vectors computed outside the crate; every detector's matches and what it keeps; what is not a credential left alone; non-UTF-8; `secret_detector_overlap_is_order_independent` over all 120 orders; `secret_normalisation_preserves_offsets` as a property |
+| `extract` | `cache_hit_skips_engine`, `blob_sha_matches_git` (against `git hash-object` and fixed vectors), `memory_budget_batches`, `secret_policy_change_invalidates_cache`; the key's path and language; `cache_object_id_fixed_vector`; independence of the checkout's location; the node budget and every other extraction switch bypassing the cache; truncated, lossy and unclean entries; wrong digests, corruption and atomic private writes; failures, crashes and timeouts; files carried forward unopened; a changed checkout; order under any workers and batches; `secrets_do_not_reach_engine_or_cache` |
 | `config` | `pdx_toml_defaults` field by field; the Appendix C reference with all four rule forms and every precise family, commands never run; global and family timeouts; the `[languages] extra` rules; every refusal, each naming the file and key |
 | `consts` | Every constant is documented, and the interface's mirror is real |
 
-The engine tests need the engine built, which `pdx-engine` does through
-`pdx-engine-sys`; `pdx-engine` is a dev-dependency only. The crate's own dependencies
-are `serde`, `serde_json`, `sha2`, `rusqlite` (bundled SQLite), `tempfile`,
-`thiserror`, `ignore` and `globset` (gitignore and glob semantics) and `toml`.
+The crate's dependencies are `pdx-engine` (Stage 2 extracts through it), `serde`,
+`serde_json`, `sha2`, `rusqlite` (bundled SQLite), `tempfile`, `thiserror`, `ignore`
+and `globset` (gitignore and glob semantics), `toml`, `postcard` (cache entries),
+`rayon` (Stage 2's workers), `regex` (the secret detectors) and `sha1` (the Git blob
+identity only).

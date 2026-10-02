@@ -24,6 +24,7 @@ engine found in the file, owned, in the engine's order:
 | `source_len`, `source_digest` | The source it was extracted from: its length, and SHA-256 of exactly the bytes extracted. Not a version-control identity, which is computed over other bytes |
 | `status` | `Parsed`, `Partial` (the tree has errors) or `Failed` |
 | `truncated` | The extractor stopped at its node budget, which is off unless the environment sets one |
+| `extraction_lost` | Work lost while the file was extracted: allocations that failed and work budgets that ran out. 0 when nothing was lost; otherwise the extraction is degraded, and its surface carries the same count into every project that resolves it |
 | `definitions` | With normalised kind and the engine's own, spans, parent, visibility, test and entry-point flags, and three complexity metrics |
 | `calls` | Calls, then callables passed as values (`is_reference`); `typed_only` sites; lexical facts |
 | `imports`, `usages` | Usages with their lexical facts |
@@ -36,6 +37,17 @@ is `None`. The wrapper takes every structure of the engine's interface apart fie
 field, so a field the interface gains cannot go missing here without the build
 failing. `FileExtract` is serialisable (serde), for the extraction cache and the
 isolated worker.
+
+### The engine's switches
+
+The engine reads a few environment variables. Six change what an extraction contains,
+and none is set normally: `EXTRACTION_SWITCHES` names them, the node budget
+(`NODE_BUDGET_ENV`, `PDX_ENGINE_WALK_MAX_NODES`) among them, and
+`extraction_switch_set()` says whether any is set, to any value. No extraction cache
+key names them, so a build with one set uses no cache at all
+(`docs/plan/ISSUES.md`, issue 26). Every other variable the engine reads leaves its
+output as it is or exists only in test builds; a test holds the engine's sources to
+that classification.
 
 ### Typed resolution
 
@@ -75,8 +87,20 @@ own is `Failed(EngineCrash)`, reason `engine_crash`, and every other file is
 extracted, exactly as in process. Nothing a dying worker sent is used. Workers are
 ordinary child processes on every system.
 
-The protocol is length-prefixed postcard frames (decision 19), with a size limit; the
-worker names its protocol and engine version first and is refused if they differ.
+The protocol is length-prefixed postcard frames (decision 19), with a size limit, each
+encoded straight into the pipe so a batch's sources are not copied on the way; the
+worker names its protocol (2) and engine version first and is refused if they differ.
+
+Every exchange with a worker, its introduction included, is bounded in time: the
+request written and the response read within `DEFAULT_EXCHANGE_TIMEOUT` (120 s), or
+the timeout given to `IsolatedExtractor::with_timeout`. The exchange runs on a thread
+of its own while the caller waits; past the timeout the worker is killed and reaped,
+which ends the thread, the thread is joined, and whatever the worker sent is
+discarded with it. `extract_batch` then returns `IsolationError::Timeout`, naming the
+timeout and the worker's process id. A timeout is not a crash: nothing is retried and
+no file is recorded as `engine_crash`, because a wall-clock limit depends on the
+machine, and a build that met one fails rather than publish what another machine would
+not. The extractor starts a fresh worker for its next batch.
 
 ### Errors
 
@@ -98,6 +122,12 @@ cargo test -p pdx-engine
 | `run_health` | Clean with no answers; degraded even with no answers; a degraded run keeps the answers it found; `typed_resolution_internal_failure_degrades_run`: an answer lost inside typed resolution degrades the run and the rest remain |
 | `ownership` | `Engine` and `ProjectResolver` are neither `Send` nor `Sync`; one engine per thread; a project frees everything after an error; answers outlive their project |
 | `determinism` | `extract_is_deterministic`: property tests over generated programs and over every matrix language's fixture with arbitrary bytes edited in |
+| `budgets` | Nothing is lost or truncated normally; a starved TypeScript budget is reported in `extraction_lost`; `NODE_BUDGET_ENV` is the variable the engine reads; a switch set to any value counts as set; `every_engine_variable_is_classified` over the engine's sources |
 
-The isolation acceptance test, `engine_isolate_recovers`, is in the `pdx` crate, whose
-binary is the worker.
+The isolation tests are in the `pdx` crate, whose binary is the worker:
+`engine_isolate_recovers`, `isolation_does_not_change_what_is_extracted`,
+`engine_isolate_times_out_and_reaps_worker` (a worker spinning on a file is stopped
+and reaped, the error is a timeout and not a crash, and the extractor works
+afterwards), `a_worker_that_never_introduces_itself_times_out` (Unix), and
+`extraction_lost_is_what_the_surface_carries` (a worker's lost work, resolved in the
+parent, is the run's lost work).

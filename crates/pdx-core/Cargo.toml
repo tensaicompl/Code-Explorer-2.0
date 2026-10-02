@@ -28,12 +28,19 @@ ignore = "0.4.33"
 globset = "0.4.20"
 # The repository's `pdx.toml` (Appendix C).
 toml = "1.1.6"
+# Stage 2 extracts through the engine's safe wrapper (4.5), in process or isolated.
+pdx-engine = { path = "../pdx-engine", version = "0.1.0" }
+# The extraction cache's entries; the same version and features as the engine
+# wrapper's, whose `FileExtract` they hold.
+postcard = { version = "1.1.3", default-features = false, features = ["use-std"] }
+# Stage 2's workers: one engine per thread of a pool sized to the memory budget.
+rayon = "1.12.0"
+# Secret detectors (5.12), whose matching never backtracks over source.
+regex = "1.13.1"
+# A file's Git blob identity, and nothing else: never a security hash.
+sha1 = "0.11.0"
 
 [dev-dependencies]
-# The language matrix's tests ask the engine, through its safe wrapper, whether it has
-# a grammar for each language the matrix declares (tests/languages.rs). Tests only:
-# assigning a language never consults the engine.
-pdx-engine = { path = "../pdx-engine" }
 # The identity properties of 4.2.1 (tests/ids.rs).
 proptest = { version = "1.11.0", default-features = false, features = ["std"] }
 

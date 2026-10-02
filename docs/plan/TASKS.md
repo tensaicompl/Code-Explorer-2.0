@@ -174,7 +174,7 @@ then P8-11, then P9.
 ### P2-04 — Extract stage with cache
 
 - **Size** M · **Depends** P1-05, P2-03 · **Order** 17 · **Execution** single-agent
-- **Deliverables** `index/extract.rs` running `pdx-engine` over discovered files in `rayon` batches with the memory budget of 4.5; extraction cache trait `ExtractCache` with `FsCache` (local) keyed by `(engine_version, language_matrix_version, secret_policy_digest, blob_sha)` as specification 4.5 requires (the extraction also depends on the file's path and the node budget: issue 26, which P2-04 resolves before the key is final), postcard-serialised `FileExtract`; `blob_sha` computed as git blob hash (`sha1("blob <len>\0" + bytes)`) so it matches `git ls-files -s`.
+- **Deliverables** `index/extract.rs` running `pdx-engine` over discovered files in `rayon` batches with the memory budget of 4.5; extraction cache trait `ExtractCache` with `FsCache` (local) keyed by `(engine_version, language_matrix_version, secret_policy_digest, language_id, rel_path, blob_sha)`, `blob_sha` of the original bytes, as specification 4.5 requires; only clean extractions cached (not truncated, no `extraction_lost`), and no cache while an engine extraction switch such as the node budget is set (issue 26, resolved), postcard-serialised `FileExtract`; `blob_sha` computed as git blob hash (`sha1("blob <len>\0" + bytes)`) so it matches `git ls-files -s`.
 - **Amended** from the plan's text by specification 4.5; issue 26; decision 19
 - **Acceptance** `cache_hit_skips_engine` (engine call counter), `blob_sha_matches_git`, `memory_budget_batches`, `secret_policy_change_invalidates_cache`.
 - **Named tests** `cache_hit_skips_engine`, `blob_sha_matches_git`, `memory_budget_batches`, `secret_policy_change_invalidates_cache`

@@ -17,7 +17,10 @@
  * budget too small for any file (PDX_ENGINE_TS_TYPE_BUDGET), and the TypeScript and
  * TSX corpus projects must report the work it cost them: run health degraded, with
  * lost work counted. That proves the budget really ran out, along the path that once
- * printed to standard error, and the streams must still be empty (issue 28).
+ * printed to standard error, and the streams must still be empty (issue 28). The
+ * budget runs out while the files are extracted too, so their results must say so in
+ * extraction_lost, and the run, whose surfaces carry the same counts, must count at
+ * least that much lost work (issue 26). Unstarved, no result reports any.
  *
  * The engine's log level is raised to its most verbose first, so the test shows the
  * interface silences logging whatever the environment asks for. The engine's own
@@ -179,9 +182,10 @@ static void collect_all(const char *root, const char *rel, char ***paths, size_t
 
 /* Resolves the files under `dir` as one project. `corpus_lang` is the language of
  * every file for a corpus directory, 0 for a resolution fixture, whose files are
- * named by extension. The run's health is written to *health when it completes. */
+ * named by extension. The run's health is written to *health when it completes, and
+ * the work the extractions lost, summed over their results, to *lost. */
 static int resolve_all(pdxe_ctx *ctx, const char *dir, int corpus_lang, int through_cache,
-                       pdxe_run_health *health) {
+                       pdxe_run_health *health, uint32_t *lost) {
     char **paths = NULL;
     size_t n = 0;
     if (corpus_lang) {
@@ -201,6 +205,9 @@ static int resolve_all(pdxe_ctx *ctx, const char *dir, int corpus_lang, int thro
         int lang = corpus_lang ? corpus_lang : resolution_language(paths[i]);
         failures += !sources[i] ||
                     pdxe_extract_file(ctx, lang, paths[i], sources[i], len, &results[i]) != PDXE_OK;
+        if (!failures) {
+            *lost += results[i]->extraction_lost;
+        }
         if (!failures && through_cache) {
             uint8_t *surface = NULL;
             size_t surface_len = 0;
@@ -215,6 +222,8 @@ static int resolve_all(pdxe_ctx *ctx, const char *dir, int corpus_lang, int thro
             pdxe_surface_free(surface);
             pdxe_result_free(ctx, results[i]);
             results[i] = rebuilt;
+            /* A rebuilt result lost nothing; the surface carries the loss. */
+            failures += rebuilt && rebuilt->extraction_lost != 0;
         }
         failures += !failures && pdxe_resolve_project_add_file(p, lang, paths[i], sources[i], len,
                                                                results[i]) != PDXE_OK;
@@ -261,9 +270,11 @@ static int cover_corpus(pdxe_ctx *ctx, const char *root, int starved, int *starv
         for (int through_cache = 0; through_cache <= 1; through_cache++) {
             pdxe_run_health health;
             memset(&health, 0, sizeof(health));
-            failures += resolve_all(ctx, dir, lang, through_cache, &health);
+            uint32_t lost = 0;
+            failures += resolve_all(ctx, dir, lang, through_cache, &health, &lost);
             if (starved && typescript) {
-                if (health.status == PDXE_RUN_DEGRADED && health.pass_failures > 0) {
+                if (health.status == PDXE_RUN_DEGRADED && lost > 0 &&
+                    health.pass_failures >= lost) {
                     (*starved_proven)++;
                 } else {
                     failures++;
@@ -271,6 +282,8 @@ static int cover_corpus(pdxe_ctx *ctx, const char *root, int starved, int *starv
             } else if (typescript && health.status != PDXE_RUN_CLEAN) {
                 /* Unstarved, the same projects are clean, so the starved run's loss
                  * is the budget's and nothing else's. */
+                failures++;
+            } else if (!starved && lost != 0) {
                 failures++;
             }
         }
@@ -336,8 +349,9 @@ int main(int argc, char **argv) {
         failures += extract_all(ctx, argv[first]);
         for (int a = first + 1; a < argc; a++) {
             pdxe_run_health health;
-            failures += resolve_all(ctx, argv[a], 0, 0, &health);
-            failures += resolve_all(ctx, argv[a], 0, 1, &health);
+            uint32_t lost = 0;
+            failures += resolve_all(ctx, argv[a], 0, 0, &health, &lost);
+            failures += resolve_all(ctx, argv[a], 0, 1, &health, &lost);
         }
         if (corpus) {
             failures += cover_corpus(ctx, corpus, starved, &starved_proven);

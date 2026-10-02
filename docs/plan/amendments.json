@@ -20,7 +20,7 @@
     {
       "field": "deliverables",
       "from": "keyed by `(engine_version, language_matrix_version, blob_sha)`",
-      "to": "keyed by `(engine_version, language_matrix_version, secret_policy_digest, blob_sha)` as specification 4.5 requires (the extraction also depends on the file's path and the node budget: issue 26, which P2-04 resolves before the key is final)",
+      "to": "keyed by `(engine_version, language_matrix_version, secret_policy_digest, language_id, rel_path, blob_sha)`, `blob_sha` of the original bytes, as specification 4.5 requires; only clean extractions cached (not truncated, no `extraction_lost`), and no cache while an engine extraction switch such as the node budget is set (issue 26, resolved)",
       "record": "specification 4.5; issue 26"
     },
     {

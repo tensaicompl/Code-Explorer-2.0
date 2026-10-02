@@ -129,8 +129,10 @@ int main(int argc, char **argv) {
                                     r->rws, r->n_rws, &rebuilt) == PDXE_OK,
                   "%s: cannot rebuild", fx->file);
             if (rebuilt) {
-                CHECK(rebuilt->n_throws == 0 && rebuilt->throws != NULL && rebuilt->truncated == 0,
-                      "%s: a rebuilt result carries throws or a truncation", fx->file);
+                CHECK(rebuilt->n_throws == 0 && rebuilt->throws != NULL &&
+                          rebuilt->truncated == 0 && rebuilt->extraction_lost == 0,
+                      "%s: a rebuilt result carries throws, a truncation or lost work",
+                      fx->file);
                 pdxe_result_free(ctx, rebuilt);
             }
         }

@@ -379,6 +379,7 @@ pub(crate) unsafe fn file_extract(
         throws,
         n_throws,
         truncated,
+        extraction_lost,
     } = *r;
 
     let status = match u32::try_from(status) {
@@ -402,6 +403,7 @@ pub(crate) unsafe fn file_extract(
             source_digest: SourceDigest::of(source),
             status,
             truncated: truncated != 0,
+            extraction_lost,
             definitions: each(defs, n_defs, "the definitions", |d| definition(d, n_defs))?,
             calls: each(calls, n_calls, "the calls", |c| call(c, Some(n_defs)))?,
             imports: each(imports, n_imports, "the imports", |i| import(i))?,

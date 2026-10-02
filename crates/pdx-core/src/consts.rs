@@ -35,6 +35,17 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 1;
 /// Version of the extraction engine's behaviour, bumped when its output can change.
 pub const ENGINE_VERSION: u32 = 1;
 
+/// Version of secret normalisation (5.12): which content detectors run, what each
+/// matches, and how a match is masked. Bumped when any of the three changes, since the
+/// bytes extracted change with them; it is part of the secret-policy digest, so every
+/// extraction cached under the old behaviour stops matching.
+pub const SECRET_DETECTOR_VERSION: u32 = 1;
+
+/// Layout of an entry of the extraction cache: the envelope that holds a cached
+/// extraction and the key it was stored under. An entry of another version is never
+/// read, only replaced. The cache is disposable and is not a segment.
+pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 1;
+
 // --- resolution ------------------------------------------------------------
 
 /// Least engine score that may yield the `typed` band.
@@ -50,6 +61,22 @@ pub const TYPED_MIN_SCORE: f64 = 0.85;
 ///
 /// Overridden per repository by the discovery configuration.
 pub const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
+
+// --- extraction ------------------------------------------------------------
+
+/// Most files one batch of Stage 2 holds, whatever the memory budget would allow.
+///
+/// Small batches spread over the workers and keep one isolated exchange short beside
+/// its timeout. Fixed, so how files are batched never depends on the machine.
+/// Unspecified by the plan; set under rule D17 (decision 22).
+pub const EXTRACT_BATCH_MAX_FILES: u32 = 16;
+
+/// Largest extraction cache entry that is read, in bytes.
+///
+/// An extraction of the largest file the index parses is far smaller; a larger entry
+/// is not one this program wrote, and is a miss. Unspecified by the plan; set under
+/// rule D17 (decision 23).
+pub const EXTRACT_CACHE_MAX_ENTRY_BYTES: u64 = 1024 * 1024 * 1024;
 
 // --- retention -------------------------------------------------------------
 
@@ -192,6 +219,16 @@ const _: () = assert!(
 const _: () = assert!(
     MAX_FILE_BYTES > 0,
     "a maximum file size of zero would skip every file"
+);
+
+const _: () = assert!(
+    EXTRACT_BATCH_MAX_FILES > 0,
+    "a batch must be able to hold a file"
+);
+
+const _: () = assert!(
+    EXTRACT_CACHE_MAX_ENTRY_BYTES > MAX_FILE_BYTES,
+    "an entry is never refused for being the size of the file it extracts"
 );
 
 #[cfg(test)]

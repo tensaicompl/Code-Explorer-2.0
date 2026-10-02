@@ -1,17 +1,23 @@
 //! Isolated extraction survives the engine aborting: the worker dies, the indexing
-//! process does not, and every other file is extracted.
+//! process does not, and every other file is extracted. A worker that hangs is stopped
+//! and reaped when its exchange times out, and the timeout is reported as itself, not
+//! as a crash.
 //!
 //! The worker is this crate's own binary started with its hidden `engine-worker`
 //! subcommand, exactly as an isolated build starts it. The engine is made to abort on a
-//! named file by its own test switch, `PDX_ENGINE_TEST_CRASH_ON`, which exists only in a
-//! test build and is set for the worker alone.
+//! named file by its own test switch, `PDX_ENGINE_TEST_CRASH_ON`, and to spin forever on
+//! one by `PDX_ENGINE_TEST_HANG_ON`; both exist only in a test build and are set for the
+//! worker alone.
 
 use std::path::Path;
+use std::process::{Command, Stdio};
+use std::time::{Duration, Instant};
 
-use pdx_engine::Engine;
 use pdx_engine::isolate::{
-    ExtractFailure, ExtractOutcome, IsolatedExtractor, SourceFile, WORKER_SUBCOMMAND, WorkerCommand,
+    ExtractFailure, ExtractOutcome, IsolatedExtractor, IsolationError, SourceFile,
+    WORKER_SUBCOMMAND, WorkerCommand,
 };
+use pdx_engine::{Engine, ProjectResolver};
 
 fn worker() -> WorkerCommand {
     WorkerCommand::new(env!("CARGO_BIN_EXE_pdx")).arg(WORKER_SUBCOMMAND)
@@ -119,4 +125,145 @@ fn a_program_that_is_not_a_worker_is_refused() {
     let mut isolated = IsolatedExtractor::new(WorkerCommand::new(env!("CARGO_BIN_EXE_pdx")));
     let err = isolated.extract_batch(&files()[..1]).unwrap_err();
     assert!(err.to_string().contains("did not start"), "{err}");
+}
+
+/// Whether a process with this id exists, a zombie included: an id that is gone was
+/// reaped.
+fn exists(pid: u32) -> bool {
+    #[cfg(unix)]
+    let out = Command::new("sh")
+        .args(["-c", &format!("kill -0 {pid}")])
+        .stderr(Stdio::null())
+        .output()
+        .expect("sh runs");
+    #[cfg(unix)]
+    return out.status.success();
+    #[cfg(windows)]
+    {
+        let out = Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH", "/FO", "CSV"])
+            .stderr(Stdio::null())
+            .output()
+            .expect("tasklist runs");
+        String::from_utf8_lossy(&out.stdout).contains(&format!("\"{pid}\""))
+    }
+}
+
+#[test]
+fn engine_isolate_times_out_and_reaps_worker() {
+    const TIMEOUT: Duration = Duration::from_secs(2);
+    let files = files();
+    let hanger = files
+        .iter()
+        .position(|f| f.rel_path == "python.py")
+        .expect("the python fixture");
+    let others: Vec<SourceFile> = files
+        .iter()
+        .enumerate()
+        .filter(|&(i, _)| i != hanger)
+        .map(|(_, f)| f.clone())
+        .collect();
+
+    let mut isolated = IsolatedExtractor::with_timeout(
+        worker().env("PDX_ENGINE_TEST_HANG_ON", "python.py"),
+        TIMEOUT,
+    );
+    // A worker that answers in time is used as usual.
+    let first = isolated.extract_batch(&others[..1]).expect("a worker");
+    assert!(
+        matches!(first[0], ExtractOutcome::Extracted(_)),
+        "{first:?}"
+    );
+    let hung = isolated.worker_id().expect("a running worker");
+    assert!(exists(hung), "the running worker is visible");
+
+    // The batch with the file the engine spins on: the exchange fails as a whole, as a
+    // timeout, once the timeout has passed and not long after.
+    let started = Instant::now();
+    let err = isolated
+        .extract_batch(&files[hanger - 1..=hanger + 1])
+        .unwrap_err();
+    let took = started.elapsed();
+    let IsolationError::Timeout { after, worker } = err else {
+        panic!("not a timeout: {err}");
+    };
+    assert_eq!(after, TIMEOUT);
+    assert_eq!(worker, hung, "the worker that hung is the one reported");
+    assert!(took >= TIMEOUT, "gave up after {took:?}");
+    assert!(took < TIMEOUT * 15, "took {took:?} to give up");
+    // Not a crash: nothing counted as one, no file failed with its reason, nothing
+    // retried.
+    assert_eq!(isolated.crashes(), 0);
+    assert!(!err.to_string().contains("engine_crash"), "{err}");
+    // The worker was stopped and reaped before the error came back.
+    assert!(isolated.worker_id().is_none());
+    assert!(!exists(hung), "the hung worker {hung} is still there");
+
+    // The extractor still works: a new worker extracts every other file exactly as
+    // the process does.
+    let after_timeout = isolated.extract_batch(&others).expect("a new worker");
+    assert_eq!(after_timeout, in_process(&others));
+    let second = isolated.worker_id().expect("a running worker");
+    drop(isolated);
+    assert!(
+        !exists(second),
+        "a dropped extractor left its worker {second}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_worker_that_never_introduces_itself_times_out() {
+    // The introduction is bounded like every other exchange. `sleep` says nothing.
+    let mut isolated = IsolatedExtractor::with_timeout(
+        WorkerCommand::new("sleep").arg("600"),
+        Duration::from_millis(500),
+    );
+    let err = isolated.extract_batch(&files()[..1]).unwrap_err();
+    let IsolationError::Timeout { worker, .. } = err else {
+        panic!("not a timeout: {err}");
+    };
+    assert!(!exists(worker), "the silent worker {worker} is still there");
+    assert!(isolated.worker_id().is_none());
+}
+
+#[test]
+fn extraction_lost_is_what_the_surface_carries() {
+    // A worker whose TypeScript budget is cut to nothing loses work extracting; the
+    // count it reports is the one its surface carries, so resolving the extraction
+    // here, where the budget is not cut, counts exactly that much lost work.
+    let source = b"interface Item { name: string; qty: number }
+class Store {
+    private items: Map<string, Item> = new Map();
+    add(item: Item): void { this.items.set(item.name, item); }
+    total(): number { let t = 0; for (const i of this.items.values()) { t += i.qty; } return t; }
+}
+export function build(): Store { const s = new Store(); s.add({ name: 'a', qty: 1 }); return s; }
+"
+    .to_vec();
+    let file = SourceFile {
+        language: "typescript".into(),
+        rel_path: "store.ts".into(),
+        source: source.clone(),
+    };
+    let engine = Engine::new().unwrap();
+    let resolve = |outcome: &ExtractOutcome| {
+        let ExtractOutcome::Extracted(extract) = outcome else {
+            panic!("not extracted: {outcome:?}");
+        };
+        let mut project = ProjectResolver::new(&engine).unwrap();
+        project.add_file(extract, &source).unwrap();
+        (extract.extraction_lost, project.run().unwrap().health)
+    };
+
+    let mut starved = IsolatedExtractor::new(worker().env("PDX_ENGINE_TS_TYPE_BUDGET", "1"));
+    let (lost, health) = resolve(&starved.extract_batch(std::slice::from_ref(&file)).unwrap()[0]);
+    assert!(lost > 0, "nothing lost under a starved budget");
+    assert_eq!(health.pass_failures, lost, "{health:?}");
+    assert!(!health.is_clean());
+
+    let (lost, health) = resolve(&engine.extract("typescript", "store.ts", &source).into());
+    assert_eq!(lost, 0);
+    assert_eq!(health.pass_failures, 0, "{health:?}");
+    assert!(health.is_clean());
 }

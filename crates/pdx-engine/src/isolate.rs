@@ -17,12 +17,24 @@
 //! [`MAX_FRAME_BYTES`], one that ends early, one that does not decode exactly, or a
 //! response with the wrong number of outcomes is never accepted, in whole or in part.
 //!
-//! Workers are ordinary child processes on every system; nothing here forks.
+//! Every exchange with a worker, its introduction included, is bounded in time: the
+//! request written and the response read must both be done within the extractor's
+//! timeout ([`DEFAULT_EXCHANGE_TIMEOUT`] unless constructed with another). A worker that
+//! takes longer is stopped and reaped, whatever it sent is discarded, and the batch
+//! fails with [`IsolationError::Timeout`]. A timeout is not a crash: nothing is retried
+//! and no file is recorded as `engine_crash`, because a file that hangs the engine
+//! would hang every retry too. The caller treats it as fatal to the build.
+//!
+//! Workers are ordinary child processes on every system; nothing here forks. A
+//! worker starts no processes of its own, so stopping it closes its end of every
+//! pipe, which is what ends the parent's thread talking to it.
 
 use std::ffi::OsString;
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::mpsc;
+use std::time::Duration;
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -42,8 +54,14 @@ pub const WORKER_SUBCOMMAND: &str = "engine-worker";
 /// and small enough that a corrupt length cannot ask for an absurd allocation.
 pub const MAX_FRAME_BYTES: u64 = 4 << 30;
 
-/// Version of the protocol below; a worker of another version is refused.
-const PROTOCOL: u32 = 1;
+/// How long one exchange with a worker may take, its request written and its response
+/// read, before the worker is stopped: two minutes, far beyond any batch the engine
+/// extracts without hanging.
+pub const DEFAULT_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// Version of the protocol below; a worker of another version is refused. 2 since
+/// `FileExtract` gained `extraction_lost`.
+const PROTOCOL: u32 = 2;
 
 /// Whether the environment asks for isolation.
 pub fn isolation_requested() -> bool {
@@ -101,8 +119,8 @@ impl From<Result<FileExtract, EngineError>> for ExtractOutcome {
     }
 }
 
-/// Isolation could not be had at all: no worker could be started, or the one started
-/// is not a worker this program can talk to.
+/// Isolation failed as a whole: no worker could be started, the one started is not a
+/// worker this program can talk to, or a worker did not answer in time.
 #[derive(Debug, thiserror::Error)]
 pub enum IsolationError {
     /// The worker program could not be started.
@@ -111,6 +129,15 @@ pub enum IsolationError {
     /// The worker did not introduce itself as a worker of this protocol and engine.
     #[error("the engine worker did not start: {0}")]
     Handshake(String),
+    /// The worker did not finish an exchange within the timeout. It has been stopped
+    /// and reaped, and nothing it sent was used.
+    #[error("the engine worker (process {worker}) did not answer within {after:?}; it was stopped")]
+    Timeout {
+        /// The timeout it exceeded.
+        after: Duration,
+        /// Its process id, which no longer names a running process of this program.
+        worker: u32,
+    },
 }
 
 /// How to start a worker: a program, its arguments and extra environment.
@@ -164,8 +191,8 @@ pub enum Extractor {
 }
 
 impl Extractor {
-    /// Isolated when [`ISOLATE_ENV`] is `1`, with workers started by `worker`; in
-    /// process otherwise.
+    /// Isolated when [`ISOLATE_ENV`] is `1`, with workers started by `worker` and the
+    /// default timeout; in process otherwise.
     ///
     /// # Errors
     ///
@@ -182,7 +209,7 @@ impl Extractor {
     ///
     /// # Errors
     ///
-    /// Isolated, when no worker can be started at all.
+    /// Isolated, when no worker can be started at all, or one does not answer in time.
     pub fn extract_batch(
         &mut self,
         files: &[SourceFile],
@@ -200,23 +227,38 @@ impl Extractor {
 /// Extraction in worker processes, restarted after every crash.
 pub struct IsolatedExtractor {
     command: WorkerCommand,
+    timeout: Duration,
     worker: Option<Worker>,
     crashes: u64,
 }
 
 impl IsolatedExtractor {
-    /// Starts workers with `command`, the first when there is something to extract.
+    /// Starts workers with `command`, the first when there is something to extract,
+    /// with the default timeout.
     pub fn new(command: WorkerCommand) -> Self {
+        Self::with_timeout(command, DEFAULT_EXCHANGE_TIMEOUT)
+    }
+
+    /// Starts workers with `command`, stopping one that takes longer than `timeout`
+    /// over an exchange.
+    pub fn with_timeout(command: WorkerCommand, timeout: Duration) -> Self {
         Self {
             command,
+            timeout,
             worker: None,
             crashes: 0,
         }
     }
 
-    /// How many times a worker has died under this extractor.
+    /// How many times a worker has died under this extractor. A worker stopped for
+    /// taking too long did not die, and is not counted.
     pub fn crashes(&self) -> u64 {
         self.crashes
+    }
+
+    /// The running worker's process id, if one is running.
+    pub fn worker_id(&self) -> Option<u32> {
+        self.worker.as_ref().map(|w| w.child.id())
     }
 
     /// Extracts a batch in a worker: one outcome per file, in order. A worker that dies
@@ -224,7 +266,7 @@ impl IsolatedExtractor {
     ///
     /// # Errors
     ///
-    /// When no worker can be started at all.
+    /// When no worker can be started at all, or one does not answer in time.
     pub fn extract_batch(
         &mut self,
         files: &[SourceFile],
@@ -253,16 +295,25 @@ impl IsolatedExtractor {
         files: &[SourceFile],
     ) -> Result<Option<Vec<ExtractOutcome>>, IsolationError> {
         if self.worker.is_none() {
-            self.worker = Some(Worker::start(&self.command)?);
+            self.worker = Some(Worker::start(&self.command, self.timeout)?);
         }
         let worker = self.worker.as_mut().expect("a worker was just started");
-        if let Ok(outcomes) = worker.exchange(files) {
-            return Ok(Some(outcomes));
+        match worker.exchange(files, self.timeout) {
+            Ok(outcomes) => Ok(Some(outcomes)),
+            Err(Exchange::TimedOut) => {
+                let worker = self.worker.take().expect("the worker that timed out");
+                Err(IsolationError::Timeout {
+                    after: self.timeout,
+                    worker: worker.child.id(),
+                })
+            }
+            Err(Exchange::Failed(_)) => {
+                // Dropping the worker kills and reaps it.
+                self.worker = None;
+                self.crashes += 1;
+                Ok(None)
+            }
         }
-        // Dropping the worker kills and reaps it.
-        self.worker = None;
-        self.crashes += 1;
-        Ok(None)
     }
 }
 
@@ -290,6 +341,16 @@ enum Response {
     Extracted(Vec<Result<FileExtract, EngineError>>),
 }
 
+/// Why an exchange with a worker produced nothing.
+#[derive(Debug)]
+enum Exchange {
+    /// The worker did not finish it in time, and has been stopped and reaped.
+    TimedOut,
+    /// The worker's streams failed or carried something that is not the protocol,
+    /// which is what a worker dying looks like.
+    Failed(FrameError),
+}
+
 /// A running worker. Dropping it kills and reaps the process.
 struct Worker {
     child: Child,
@@ -298,7 +359,7 @@ struct Worker {
 }
 
 impl Worker {
-    fn start(command: &WorkerCommand) -> Result<Self, IsolationError> {
+    fn start(command: &WorkerCommand, timeout: Duration) -> Result<Self, IsolationError> {
         let mut child = Command::new(&command.program)
             .args(&command.args)
             .envs(command.envs.iter().map(|(k, v)| (k, v)))
@@ -319,7 +380,12 @@ impl Worker {
             input: BufWriter::new(input),
             output: BufReader::new(output),
         };
-        match read_frame::<Response>(&mut worker.output) {
+        let introduction = worker.bounded(timeout, |_, output| read_frame::<Response>(output));
+        match introduction {
+            Err(Exchange::TimedOut) => Err(IsolationError::Timeout {
+                after: timeout,
+                worker: worker.child.id(),
+            }),
             Ok(Some(Response::Ready {
                 protocol,
                 engine_version,
@@ -336,22 +402,66 @@ impl Worker {
             Ok(_) => Err(IsolationError::Handshake(
                 "it did not introduce itself".into(),
             )),
-            Err(e) => Err(IsolationError::Handshake(e.to_string())),
+            Err(Exchange::Failed(e)) => Err(IsolationError::Handshake(e.to_string())),
         }
     }
 
-    fn exchange(&mut self, files: &[SourceFile]) -> Result<Vec<ExtractOutcome>, FrameError> {
-        write_frame(&mut self.input, &RequestRef::Extract(files))?;
-        self.input.flush()?;
-        match read_frame::<Response>(&mut self.output)? {
+    fn exchange(
+        &mut self,
+        files: &[SourceFile],
+        timeout: Duration,
+    ) -> Result<Vec<ExtractOutcome>, Exchange> {
+        let response = self.bounded(timeout, |input, output| {
+            write_frame(input, &RequestRef::Extract(files))?;
+            input.flush()?;
+            read_frame::<Response>(output)
+        })?;
+        match response {
             Some(Response::Extracted(outcomes)) if outcomes.len() == files.len() => {
                 Ok(outcomes.into_iter().map(ExtractOutcome::from).collect())
             }
-            Some(_) => Err(FrameError::Malformed(
+            Some(_) => Err(Exchange::Failed(FrameError::Malformed(
                 "a response that does not answer the batch".into(),
-            )),
-            None => Err(FrameError::Truncated),
+            ))),
+            None => Err(Exchange::Failed(FrameError::Truncated)),
         }
+    }
+
+    /// Runs `talk` over the worker's streams on a thread of its own, and waits for it
+    /// at most `timeout`. Past that, the worker is killed and reaped, which closes the
+    /// pipes the thread is blocked on, whether writing or reading; the thread then
+    /// ends, and is joined, before this returns. Nothing the thread read is returned
+    /// then: the worker is not used again.
+    fn bounded<T: Send>(
+        &mut self,
+        timeout: Duration,
+        talk: impl FnOnce(
+            &mut BufWriter<ChildStdin>,
+            &mut BufReader<ChildStdout>,
+        ) -> Result<T, FrameError>
+        + Send,
+    ) -> Result<T, Exchange> {
+        let (input, output, child) = (&mut self.input, &mut self.output, &mut self.child);
+        std::thread::scope(|scope| {
+            let (done, result) = mpsc::sync_channel(1);
+            scope.spawn(move || {
+                // The receiver is gone only once the wait below is over, timed out.
+                let _ = done.send(talk(input, output));
+            });
+            match result.recv_timeout(timeout) {
+                Ok(answer) => answer.map_err(Exchange::Failed),
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    Err(Exchange::TimedOut)
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    // The thread ended without an answer: it panicked, which the scope
+                    // passes on when it joins the thread.
+                    Err(Exchange::Failed(FrameError::Truncated))
+                }
+            }
+        })
     }
 }
 
@@ -436,14 +546,24 @@ enum FrameError {
     Io(#[from] io::Error),
 }
 
+/// Writes `value` as one frame. Its length comes from a pass that only counts, and the
+/// value is then encoded straight into `w`, so a batch's sources are never copied into
+/// a buffer of their own on the way.
 fn write_frame<T: Serialize>(w: &mut impl Write, value: &T) -> Result<(), FrameError> {
-    let payload = postcard::to_stdvec(value).map_err(|e| FrameError::Malformed(e.to_string()))?;
-    let len = payload.len() as u64;
+    let malformed = |e: postcard::Error| FrameError::Malformed(e.to_string());
+    let len =
+        postcard::serialize_with_flavor::<T, _, _>(value, postcard::ser_flavors::Size::default())
+            .map_err(malformed)? as u64;
     if len > MAX_FRAME_BYTES {
         return Err(FrameError::TooLarge(len));
     }
     w.write_all(&len.to_le_bytes())?;
-    w.write_all(&payload)?;
+    postcard::to_io(value, &mut *w).map_err(|_| {
+        FrameError::Io(io::Error::new(
+            io::ErrorKind::BrokenPipe,
+            "the stream refused part of a frame",
+        ))
+    })?;
     Ok(())
 }
 

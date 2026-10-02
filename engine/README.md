@@ -72,7 +72,10 @@ Everything goes through `include/pdxe.h`. In outline:
 
 - **Extraction.** `pdxe_extract_file` turns one file's bytes into a result the
   caller owns: definitions, calls, imports, usages and the rest, positioned in the
-  file.
+  file. The result says whether the walk stopped at the node budget (`truncated`) and
+  how much work extraction lost (`extraction_lost`: failed allocations and exhausted
+  budgets, the count the file's surface carries), so a cache never keeps a degraded
+  extraction (issue 26). A result rebuilt from a cache has neither.
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per
@@ -102,8 +105,8 @@ environment variable turns them on.
 | `abi_inputs_are_copied` | A result keeps nothing of the caller's: extracted from a path and source freed as soon as extraction returns, it equals one extracted from buffers kept alive |
 | `corpus_extracts` | Every file of the sanitizer corpus (`bench/corpus`) extracts with the status its name declares; every language is covered, nothing in the corpus is of no known language, and it holds at most 200 files |
 | `abi_no_output` | Extraction, resolution and the cache path write nothing to either output stream, with the engine's log level raised as far as it goes, over the fixtures and every language of the corpus; the corpus's TypeScript resolves clean |
-| `abi_no_output_ts_budget` | The same with the TypeScript resolver's work budget starved: every TypeScript run of the corpus runs it out, is degraded for it, and still writes nothing (issue 28) |
-| `abi_throws`, `abi_truncated` | Throws cross the interface with their exception and definition; a walk cut short by the node budget says so |
+| `abi_no_output_ts_budget` | The same with the TypeScript resolver's work budget starved: every TypeScript run of the corpus runs it out, is degraded for it, and still writes nothing (issue 28); the files' results report the work extraction lost in `extraction_lost`, which the run counts, and a rebuilt result reports none; unstarved, no result reports any |
+| `abi_throws`, `abi_truncated` | Throws cross the interface with their exception and definition; a walk cut short by the node budget says so; a rebuilt result carries no throws, truncation or lost work |
 | `abi_run_health_*` | Whether a run did all its work: clean with no answers to find, and with definitions typed resolution keeps none of; degraded by a skipped file or a lost answer, even with no answers, keeping the answers it found |
 | `abi_result_build_roundtrip` | A rebuilt result equals the original field by field; a surface decodes and re-encodes to the same bytes; malformed surfaces are refused; resolving a project leaves every file's surface as it was |
 | `api_warnings_are_errors` | Each warning class exempt in vendored code is still an error in the interface layer, compiled with the build's own flags |

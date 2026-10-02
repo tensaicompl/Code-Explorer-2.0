@@ -765,6 +765,8 @@ int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8
     h->lang = lang;
     uint64_t lost = (after.allocations - before.allocations) + (after.work - before.work);
     h->lost = lost > UINT32_MAX ? UINT32_MAX : (uint32_t)lost;
+    /* The caller sees the count the surface carries, from the same field. */
+    h->pub.extraction_lost = h->lost;
     return PDXE_OK;
 }
 

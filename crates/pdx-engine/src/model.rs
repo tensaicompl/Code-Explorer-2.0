@@ -438,6 +438,11 @@ pub struct FileExtract {
     /// The extractor stopped walking the file at its node budget: what it found up to
     /// then is here, the rest of the file is not, and typed resolution skips it.
     pub truncated: bool,
+    /// Work extraction lost on the file: allocations that failed and work budgets that
+    /// ran out while it was extracted. 0 when the engine reported no loss; otherwise
+    /// the extraction is degraded, and is the same count its surface carries into any
+    /// project that resolves it.
+    pub extraction_lost: u32,
     /// Definitions.
     pub definitions: Vec<Definition>,
     /// Calls, then callables passed as values.

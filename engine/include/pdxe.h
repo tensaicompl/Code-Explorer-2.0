@@ -302,6 +302,14 @@ typedef struct {
      * specification change; see docs/plan/ISSUES.md, issue 25.
      */
     uint8_t truncated;
+    /*
+     * Work extraction lost on the file: allocations that failed and work budgets that
+     * ran out while it was extracted (api/lost_work.h). 0 when nothing was lost. It is
+     * the count the file's resolution surface carries, which a project resolving the
+     * file counts as its own loss. A result rebuilt from a cache has 0. Appended by a
+     * specification change; see docs/plan/ISSUES.md, issue 26.
+     */
+    uint32_t extraction_lost;
 } pdxe_file_result;
 
 int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8_t *bytes,
@@ -314,9 +322,9 @@ void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r);
  * not changed is never extracted again. The arrays are copied, strings included; the
  * caller keeps its own. The rebuilt result describes the file; to resolve the file
  * it is added to a project together with its surface (pdxe_surface_import). Its
- * channel, configuration, diagnostic and throw arrays are empty, its status is parsed
- * and it is not truncated: those parts are the cache's to keep, and resolution reads
- * what it needs of them from the surface.
+ * channel, configuration, diagnostic and throw arrays are empty, its status is parsed,
+ * it is not truncated and it reports no lost work: those parts are the cache's to keep,
+ * and resolution reads what it needs of them from the surface.
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,

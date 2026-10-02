@@ -27,3 +27,6 @@ pdx-server = { path = "../pdx-server", optional = true }
 # The engine's fault-injection switches, so the isolation test can make the worker
 # crash. Enabled here only, so no release build contains them.
 pdx-engine-sys = { path = "../pdx-engine-sys", features = ["test-seams"] }
+# Stage 2 run with this binary's own isolated workers (tests/extract_isolated.rs).
+pdx-core = { path = "../pdx-core" }
+tempfile = "3.27.0"

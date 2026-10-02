@@ -15,6 +15,9 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 39 | 2026-10-02 | P2-04 | third-party | open | P2-04 adds four packages the supply-chain ratchet refuses until they are recorded: `rayon` 1.12.0, with `rayon-core` 1.13.0 and `either` 1.18.0, for Stage 2's worker pool, and `sha1` 0.11.0 for the Git blob identity. The other packages P2-04 uses directly, `regex` 1.13.1 and `postcard` 1.1.3, and rayon's `crossbeam-*` dependencies, were already locked and recorded | Owner-authorised exact-version exemptions, `safe-to-deploy` because all four ship, each with a note naming this issue: no audit is claimed, none is imported, no version is a wildcard, nothing else changed. `cargo vet --locked` passes with 99 exemptions, 0 audits and 0 imports. To be resolved when CI has proven the ratchet on them |
+| 38 | 2026-10-02 | P2-08 | ambiguity | open | 5.12 redacts `.env*` files and says `.env` files are parsed for keys only, never values; 4.7.1 resolves a contract's placeholders from `.env` when a value exists there. Read literally, both cannot hold: resolving a placeholder from `.env` reads the value 5.12 forbids reading | Owned by P2-08, which decides the secure placeholder semantics by specification change. Until then, and in P2-04, a redacted `.env` is never opened, never reaches the engine and never enters the extraction cache, and no `.env` value is read |
+| 37 | 2026-10-02 | P2-04 | scr | resolved | 5.12 replaces each secret value with `<REDACTED_SECRET>`, but spans, site identities and, later, the merging of compiler occurrences rely on exact byte offsets: a fixed-length marker in place of a value of any other length shifts every offset after it | Approved by the owner on 2026-10-02: normalisation preserves length, masking each byte of a secret value with ASCII `X` and never a carriage return or line feed, and keeps keys, separators, quotes, PEM marker lines and indentation; `<REDACTED_SECRET>` describes a masked value and is never substituted. Written into 4.5; proven by `secret_normalisation_preserves_offsets` and the leak regressions. No stored format changes |
 | 36 | 2026-10-02 | P0-04 | ambiguity | resolved | Part 5.12 requires `cargo vet` records for new crates in `supply-chain/`, but no task delivered it: there was no `supply-chain/` directory, no audit configuration and no check, and every crate added since P0 was unvetted. Licences were checked (`cargo deny`); provenance of the code itself was not | P0-04 ownership restored by amendment. cargo-vet 0.10.2 is pinned (`scripts/cargo-vet.sh`). `supply-chain/` records the current `Cargo.lock`: its 95 crates are one-time bootstrap exemptions, explicitly not claimed as audited; no local audits, no imported ones. Normal CI runs `cargo vet --locked` (`make vet`), as do nightly and release, so a new or changed crate is refused until it is audited, imported by an owner's decision, or exempted on the record |
 | 35 | 2026-10-02 | P2-03 | ambiguity | resolved | Stage 1 and Appendix C leave choices open: no binary-file detector; Appendix C mixes defaults with examples; whether `[secrets] patterns` replaces or extends the 5.12 defaults; where `.pdxignore` applies and how it combines with `.gitignore`; which `[precise.<family>]` tables and keys exist; what the hard-coded excludes match | Accepted as implemented: a file is binary when it holds a NUL byte; example values are not defaults; the root `.pdxignore` only, as an independent rule set; ignore sources 4.5 does not name are not read; excludes match directories by name at any depth; the four documented precise families, each with a `timeout_minutes` override. Overridden by the owner on review: `[secrets] patterns` extends a mandatory floor and never replaces it; the effective patterns are the sorted, de-duplicated union of the 5.12 defaults and the configured ones |
 | 34 | 2026-10-02 | P5-03 | ambiguity | open | 4.3 gives `evidence.evidence_id` as the "sha of (fact_id, provider, provider_version, verdict)" and `semantic_occurrences.occ_id` as the "sha of (provider, symbol, file_id, start_byte, end_byte, role)", without the byte encoding issue 33 fixed for the graph's ids: separators, how numbers are written, and the output's form and length. Both are stored keys | Owned by P5-03, which first writes these rows: fix both encodings, by specification change, before a precise segment is published. P2-02 stores and reads the ids exactly as given and computes neither |
@@ -24,8 +27,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 30 | 2026-10-02 | P1-07 | ambiguity | resolved | Appendix A leaves parts of language detection unsaid: it gives `bash` a shebang without naming a form, writes two patterns over a file's name (`Dockerfile*`, `.env*`) beside the extensions without saying which wins when a name matches both kinds, and says nothing of case | Implemented to the letter where Appendix A speaks and narrowly where it is silent: a shebang is a `#!` first line naming `bash`, directly or through `env`, and nothing else, `sh` included; an entry with `*` is a pattern over the name, any other an extension the name ends with; an extension decides before a name pattern, and a name pattern before a shebang; matching is case-sensitive. Each choice has a test, and any can be changed by a specification change that bumps the matrix version |
 | 29 | 2026-10-02 | P1-06 | blocker | resolved | The first sanitizer run over the corpus failed: for a project whose definitions typed resolution keeps none of, building the C# resolver's shared registry takes an offset from a NULL array, which is undefined behaviour in C. A documentation-only project reaches it; no fixture had | Fixed by `engine/patches/0008`, in the C# builder and in the Java one, which has the same shape and no caller yet. The regression `abi_run_health_untyped_only` fails under the sanitizers without the patch. No sanitizer report is suppressed |
 | 28 | 2026-10-02 | P1-06 | ambiguity | resolved | The interface promises it writes nothing to standard output or standard error, but the TypeScript resolver prints a line to standard error when one of its work budgets runs out, whatever the logging switches say. The interface's no-output test does not see it because its fixtures never exhaust a budget | The two unconditional prints are removed through the vendored patch mechanism (`engine/patches/0007`); the lost-work count at both sites remains, and evaluation still degrades to an unknown type. A no-output regression starves the budget and proves every TypeScript run of the corpus exhausted it and was degraded for it, with nothing written; the sanitizer corpus is covered by the no-output contract too |
-| 27 | 2026-10-02 | P2-04 | ambiguity | open | Isolated extraction survives a crashing engine but not a hanging one: the worker protocol bounds what crosses it and how often a worker is restarted, not how long a batch may take, and 4.5 names no failure reason for a file the engine never finishes | Owned by P2-04, which batches extraction: decide whether a batch has a time limit and how a file that exceeds it is recorded, by specification change if it needs a new reason |
-| 26 | 2026-10-02 | P2-04 | ambiguity | open | The extraction cache key in 4.5 is `(engine_version, language_matrix_version, secret_policy_digest, blob_sha)`, but an extraction also depends on the file's path, from which its qualified names and module are built, and on the node budget the environment may set (`PDX_ENGINE_WALK_MAX_NODES`), under which it can come back truncated | Owned by P2-04: the key gains the path, or an entry is used only for the path it names, which every `FileExtract` records; a truncated extraction, which says so, is not cached, or the budget joins the key |
+| 27 | 2026-10-02 | P2-04 | ambiguity | resolved | Isolated extraction survives a crashing engine but not a hanging one: the worker protocol bounds what crosses it and how often a worker is restarted, not how long a batch may take, and 4.5 names no failure reason for a file the engine never finishes | Decided by the owner on 2026-10-02 and implemented: every exchange with a worker, its introduction included, is bounded (120 s by default, another only through a constructor, no environment variable); a worker past it is killed and reaped, everything it sent is discarded, and Stage 2 fails with a typed timeout, so the build publishes no segment. A timeout is not `engine_crash`, no file status records it, and crashes keep P1-05's semantics. Written into 4.5; proven by `engine_isolate_times_out_and_reaps_worker` |
+| 26 | 2026-10-02 | P2-04 | ambiguity | resolved | The extraction cache key in 4.5 is `(engine_version, language_matrix_version, secret_policy_digest, blob_sha)`, but an extraction also depends on the file's path, from which its qualified names and module are built, and on the node budget the environment may set (`PDX_ENGINE_WALK_MAX_NODES`), under which it can come back truncated | Decided by the owner on 2026-10-02 and implemented: the key is `(engine_version, language_matrix_version, secret_policy_digest, language_id, rel_path, blob_sha)`, `blob_sha` of the original bytes; only a clean extraction is cached (not truncated, and no lost work, which the interface now reports as `extraction_lost`); while the node budget is set no cache is used at all, a rule P2-04 found had to cover five more engine switches; a hit is used only if it is exactly this source's clean extraction. Written into 4.5; no version bumped |
 | 25 | 2026-10-02 | P1-05 | scr | resolved | Two facts the engine records about a file did not cross the interface: the exceptions each definition raises, which the `THROWS` edge of 4.2.3 is built from, and that the extractor stopped at its node budget. P1-05's `FileExtract` lists `throws`, which Appendix D.2 does not have, and omits channels and configuration reads, which it does | Approved by the owner on review, 2026-10-02, as implemented: a throw array, positionless like the type references, and a `truncated` flag appended to `pdxe_file_result`; `FileExtract` carries all ten arrays of the interface; `THROWS` stays resolution's to derive |
 | 24 | 2026-09-28 | P1-04 | ambiguity | resolved | The engine had never been built for Windows. The reuse map's foundation list omits a Windows-only header the kept sources include, and the vendored sources rely on POSIX names that the reference's Windows runtime provides and Microsoft's, which Rust links against, does not | The header is vendored like the others; the missing names are supplied at the build boundary for Microsoft's runtime only; the libraries a Windows link needs are named; one Windows-only use of the unlinked allocator is put behind its switches by a patch. Found by the first Windows builds of P1-04 |
 | 23 | 2026-09-28 | P9-02 | ambiguity | open | `pdx-engine-sys` is marked publishable, but its build script builds the engine from `../../engine`, which a crate packaged on its own does not contain | Owned by P9-02: either the engine sources travel inside the packaged crate, or the crate stops being publishable. Nothing in P1 publishes a crate |
@@ -78,6 +81,84 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 39 — P2-04 dependency exemptions
+
+The supply-chain ratchet of issue 36 refuses a new package until it is audited,
+imported by the owner's decision or exempted on the record. P2-04 added four:
+
+| Package | Version | Criterion | Why P2-04 needs it |
+|---|---|---|---|
+| `rayon` | 1.12.0 | `safe-to-deploy` | Stage 2's worker pool, the executor 4.5 and the task name |
+| `rayon-core` | 1.13.0 | `safe-to-deploy` | `rayon`'s thread pool |
+| `either` | 1.18.0 | `safe-to-deploy` | A dependency of `rayon` |
+| `sha1` | 0.11.0 | `safe-to-deploy` | The Git blob identity, `blob_sha`; never a security hash. 0.11 shares `digest` 0.11 with the `sha2` already in use, so it brings nothing else |
+
+`regex` 1.13.1, which the secret detectors use, and `postcard` 1.1.3, which the cache
+entries use, were already in the lock file and recorded, and `rayon-core`'s
+`crossbeam-deque`, `crossbeam-epoch` and `crossbeam-utils` too; P2-04 uses the locked
+versions. All four new packages ship in the binary, so each is `safe-to-deploy`.
+
+The owner authorised narrow exemptions for the task's own dependency graph. Each is
+for its exact version, carries a note naming this issue, and was added by hand to
+`supply-chain/config.toml`: no exemption was regenerated, no audit imported or
+certified, no wildcard version used, and no other entry changed. **These are
+exemptions, not audits**: nobody is claimed to have reviewed these versions. After
+them `cargo vet --locked` passes, with 99 exemptions (the 95 of issue 36 and these
+four), no local audits and no imports.
+
+State: open until continuous integration proves the ratchet with them.
+
+### 38 — `.env` is both redacted and required for contract placeholders
+
+5.12 makes every file matching `.env*` `redacted`, its content never read, and says
+`.env` files are parsed for keys only, never values. 4.7.1 resolves a contract's
+placeholders from, among other sources, `.env` when a value exists there. Read
+literally, they cannot both be implemented: resolving a placeholder from `.env`
+means reading the value 5.12 says is never read.
+
+P2-04 does not decide it. In P2-04 a redacted `.env` stays as discovery left it: never
+opened, not hashed, not searched for secrets, not given to the engine and not stored
+in the extraction cache, and no `.env` value is read anywhere.
+
+Owned by P2-08, which links contracts and must decide, by specification change, what
+a placeholder may take from `.env`, if anything, without a secret value reaching the
+index.
+
+State: open.
+
+### 37 — Secret replacement must preserve byte offsets
+
+5.12 says a secret value found by the content detectors is replaced with
+`<REDACTED_SECRET>`. Everything downstream of extraction is positioned by byte
+offset: definition and call spans, site identities, and, from P5, the intersection of
+compiler occurrences with sites. A fixed marker in place of a value of any other
+length moves every offset after it, so a file with a secret would be indexed at
+positions that are not the file's.
+
+Approved by the owner on 2026-10-02 and written into 4.5:
+
+- normalisation preserves length: the normalised bytes are as long as the original,
+  and every byte after a secret keeps its offset;
+- each byte of a secret value is masked with ASCII `X`, and no carriage return or line
+  feed is ever masked, so lines keep their numbers and their endings;
+- a key, its separator and quotes, a PEM block's marker lines, line endings and
+  indentation are kept, as each detector's shape allows;
+- `<REDACTED_SECRET>` remains the description of a masked value, never a substitution
+  in the engine's input.
+
+Implemented in `pdx_core::secrets` under `SECRET_DETECTOR_VERSION` 1, on bytes, with
+non-backtracking `regex::bytes` matching: private-key blocks, bearer tokens, credential
+assignments (values masked inside their quotes, and unquoted ones only in YAML,
+properties, shell, Dockerfile and Markdown, where an unquoted value is a literal and
+not code), URI passwords and cloud access key ids. Overlapping ranges are merged
+before masking, so the order detectors run in changes nothing. Proven by
+`secret_normalisation_preserves_offsets` (a property over arbitrary bytes and planted
+secrets, with either line ending), `secret_detector_overlap_is_order_independent`
+over every order of the five detectors, and `secrets_do_not_reach_engine_or_cache`.
+No stored format changes.
 
 State: resolved.
 
@@ -432,7 +513,35 @@ explicitly.
 
 Owned by P2-04. Nothing in P1-05 depends on it.
 
-State: open.
+Decided by the owner on 2026-10-02, implemented by P2-04 and written into 4.5:
+
+- **The bound.** One request and its response, the request's writing included, must
+  finish within 120 seconds by default. Tests choose a shorter timeout through
+  `IsolatedExtractor::with_timeout`; there is no environment variable, since Appendix
+  F names none. The worker's introduction is bounded the same way.
+- **On timeout.** The worker is killed and reaped; everything it sent for the
+  exchange is discarded with it; `extract_batch` returns `IsolationError::Timeout`;
+  Stage 2 fails with it, storing and returning nothing of the batch, so the build
+  publishes no segment.
+- **Not a crash.** A crash still costs the file that causes it (`engine_crash`), the
+  batch's other files extracted again in a fresh worker. A timeout is not recorded as
+  `engine_crash` or as any file status: a wall-clock threshold depends on the
+  machine's load, and a segment that held a file's failure on one machine and its
+  extraction on another would break the build's determinism. It is a liveness guard,
+  failing the build rather than changing the graph.
+- **How.** Each exchange runs on a thread of its own, scoped to the exchange, while
+  the caller waits for its answer with the timeout. Past it the caller kills and reaps
+  the worker, which closes the pipes the thread is blocked on, writing or reading; the
+  thread ends and is joined before the error is returned. Nothing outlives the call: no
+  process and no thread.
+
+Proven by `engine_isolate_times_out_and_reaps_worker` (a worker spinning on a file
+under `PDX_ENGINE_TEST_HANG_ON`, which exists only in test builds; the timeout
+reported, its process gone, no crash counted, the extractor working afterwards), on
+Linux, macOS and Windows; `a_worker_that_never_introduces_itself_times_out`; and, for
+the stage, `an_isolated_worker_timeout_fails_the_stage` with this program's own worker.
+
+State: resolved.
 
 ### 26 — The extraction cache key leaves out what an extraction depends on
 
@@ -464,7 +573,51 @@ is cached, or the interface should say so as it says `truncated`, is P2-04's to
 decide. P2-04's task text now names the key of 4.5 and this issue
 (`docs/plan/amendments.json`).
 
-State: open.
+Decided by the owner on 2026-10-02, implemented by P2-04 and written into 4.5:
+
+- **The key** is `(engine_version, language_matrix_version, secret_policy_digest,
+  language_id, rel_path, blob_sha)`. `blob_sha` is the Git blob identity of the
+  original bytes; `language_id` is there because a repository's `[languages]` can
+  extract the same path and bytes as another language without any version changing;
+  `rel_path` because the extraction is built from it.
+- **The node budget** does not join the key: while `PDX_ENGINE_WALK_MAX_NODES` is set
+  to anything, no cache is read or written. The engine alone interprets the value, the
+  budget is off normally, and it changes what an extraction contains on purpose.
+- **Only clean extractions are cached**: not truncated, and having lost no work. The
+  loss was in the surface and nowhere a caller could read; `pdxe_file_result` now
+  carries it, appended as `extraction_lost`, and `FileExtract` with it, the same count
+  the surface carries. An engine error or crash is never cached; an extraction
+  returned with status `failed` is, being the engine's deterministic answer.
+- **A hit validates itself**: it is used only if its entry decodes exactly, is of the
+  current format, was stored under the same key, is clean, and was taken as the same
+  language at the same path from source of the same length and `source_digest`.
+  Anything else is a miss, extracted afresh and replaced.
+
+P2-04 found that the node budget is not the only switch of the engine's that changes
+what it extracts. Five more do: the definition walk's ceiling
+(`PDX_ENGINE_WALK_DEFS_MAX`), the TypeScript resolver's work budget and walk depth
+(`PDX_ENGINE_TS_TYPE_BUDGET`, `PDX_ENGINE_LSP_MAX_WALK_DEPTH`), turning that resolver
+off (`PDX_ENGINE_LSP_DISABLED`), and a crash-quarantine list whose files extract as
+empty (`PDX_ENGINE_INDEX_QUARANTINE_FILE`). With only the node budget bypassed, a
+build run with the resolver off, or with a file quarantined, would cache an extraction
+missing what a normal build finds, neither truncated nor reporting a loss, and later
+builds would be served it. The owner's rule is applied to all six, for its own
+reasons: `pdx_engine::EXTRACTION_SWITCHES` names them, the node budget's name is
+exposed as `NODE_BUDGET_ENV`, and with any of them set no cache is used. Every other
+variable the engine reads is classified as leaving extraction unchanged or test-only,
+and `every_engine_variable_is_classified` fails on one that is not, so a refreshed
+engine cannot add a switch unnoticed.
+
+No version is bumped: the cache had never been released or persisted, the segment
+format and the engine's extraction are unchanged, and this completes the cache's
+contract before its first implementation. Proven by `cache_key_includes_path`,
+`cache_key_includes_language`, `secret_policy_change_invalidates_cache`,
+`node_budget_disables_cache`, `extraction_switches_disable_cache`,
+`truncated_extraction_is_not_cached`, `lost_work_extraction_is_not_cached`,
+`cache_rejects_unclean_entries`, `cache_rejects_wrong_source_digest`,
+`cache_rejects_corruption` and `extraction_lost_is_what_the_surface_carries`.
+
+State: resolved.
 
 ### 25 — Throws and truncation do not cross the interface
 

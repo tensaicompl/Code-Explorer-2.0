@@ -24,7 +24,7 @@ pub mod isolate;
 mod model;
 mod resolver;
 
-pub use engine::Engine;
+pub use engine::{EXTRACTION_SWITCHES, Engine, NODE_BUDGET_ENV, extraction_switch_set};
 pub use error::{EngineError, SourceDifference};
 pub use model::{
     Call, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
