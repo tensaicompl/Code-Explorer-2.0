@@ -334,10 +334,6 @@ static const PDXEType *parse_ts_type_text(PDXEArena *arena, const char *text, co
             if (!g_ts_type_budget_warned) {
                 g_ts_type_budget_warned = true;
                 pdxe_lost_work(); /* evaluation stops short for the rest of the file */
-                fprintf(stderr,
-                        "  [tslsp] type-text parse budget exhausted (module %s); "
-                        "returning unknown\n",
-                        module_qn ? module_qn : "?");
             }
             return pdxe_type_unknown();
         }
@@ -2108,8 +2104,6 @@ const PDXEType *ts_eval_expr_type(TSLSPContext *ctx, TSNode node) {
             if (!g_ts_type_budget_warned) {
                 g_ts_type_budget_warned = true;
                 pdxe_lost_work(); /* evaluation stops short for the rest of the file */
-                fprintf(stderr, "  [tslsp] expression-eval budget exhausted; degrading to "
-                                "unknown\n");
             }
             g_ts_eval_degraded++;
             return pdxe_type_unknown();

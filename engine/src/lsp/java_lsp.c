@@ -3879,7 +3879,8 @@ PDXETypeRegistry *pdxe_java_build_cross_registry(PDXEArena *arena, PDXELSPDef *d
     }
     pdxe_java_register_lsp_defs(arena, reg, jvm, type_count);
     pdxe_registry_finalize(reg);
-    pdxe_java_register_lsp_defs(arena, reg, jvm + type_count, total - type_count);
+    /* With no definitions there is no array: no offset may be taken from NULL. */
+    pdxe_java_register_lsp_defs(arena, reg, jvm ? jvm + type_count : NULL, total - type_count);
     pdxe_registry_finalize(reg);
     reg->read_only = true; /* seal: shared Tier-2 registry is read-only during resolve */
     return reg;

@@ -1,0 +1,77 @@
+"""Inventory schema: interfaces, unions, enums, inputs and directives."""
+directive @auth(requires: Role = USER) on OBJECT | FIELD_DEFINITION
+
+enum Role {
+  USER
+  ADMIN
+}
+
+interface Node {
+  id: ID!
+}
+
+type Item implements Node @auth {
+  id: ID!
+  sku: String!
+  quantity: Int!
+  price(currency: String = "EUR"): Float
+  tags: [String!]!
+}
+
+type Order implements Node {
+  id: ID!
+  lines: [Line!]!
+  status: Status!
+}
+
+type Line {
+  item: Item!
+  quantity: Int!
+}
+
+enum Status {
+  PENDING
+  DONE
+}
+
+union SearchResult = Item | Order
+
+input ItemFilter {
+  sku: String
+  minQuantity: Int = 0
+  tags: [String!]
+}
+
+type Query {
+  item(id: ID!): Item
+  search(term: String!, first: Int = 10): [SearchResult!]!
+  items(filter: ItemFilter): [Item!]! @auth(requires: ADMIN)
+}
+
+type Mutation {
+  addItem(sku: String!, quantity: Int!): Item!
+}
+
+query Dashboard($term: String!, $first: Int) {
+  search(term: $term, first: $first) {
+    __typename
+    ... on Item {
+      ...ItemFields
+    }
+    ... on Order {
+      id
+      lines {
+        quantity
+        item {
+          ...ItemFields
+        }
+      }
+    }
+  }
+}
+
+fragment ItemFields on Item {
+  id
+  sku
+  price(currency: "€")
+}

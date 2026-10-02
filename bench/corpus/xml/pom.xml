@@ -1,0 +1,13 @@
+<project xmlns="urn:corpus:pom" xmlns:xsi="urn:corpus:schema-instance">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>corpus</groupId>
+  <artifactId>inventory</artifactId>
+  <version>1.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>corpus</groupId>
+      <artifactId>core</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

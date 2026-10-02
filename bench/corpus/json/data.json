@@ -1,0 +1,5 @@
+[
+  {"sku": "A-1", "qty": 2, "tags": ["red", "large"]},
+  {"sku": "B-2", "qty": 0, "tags": []},
+  {"sku": "Ç-3", "qty": 10, "tags": ["ünïcödé"], "meta": {}}
+]

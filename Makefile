@@ -16,7 +16,7 @@ UI    := ui
         engine-test engine-typed-reference \
         ui-install ui-lint ui-test ui-build bundle-budget \
         licence-scan provenance-scan open-binary-check \
-        golden oracle e2e asan determinism engine-differential perf \
+        golden oracle e2e check-asan asan determinism engine-differential perf \
         bindgen vendor-refresh vendor-verify clean
 
 all: check
@@ -25,7 +25,7 @@ all: check
 
 check: fmt-check lint build test engine-test consts-sync open-binary-check licence-scan provenance-scan ui-lint ui-test bundle-budget
 
-check-full: check golden oracle e2e asan determinism engine-differential perf
+check-full: check golden oracle e2e check-asan determinism engine-differential perf
 
 # --- Rust ------------------------------------------------------------------
 
@@ -117,8 +117,13 @@ oracle:
 e2e:
 	@scripts/pending-target.sh e2e P7-01
 
-asan:
+# The engine built with the address, undefined-behaviour and leak sanitizers, its tests
+# and the sanitizer corpus (bench/corpus) run under them. check-full runs it, so the
+# nightly build cannot pass while either fails. `asan` is the earlier name, kept.
+check-asan:
 	@scripts/check-asan.sh
+
+asan: check-asan
 
 determinism:
 	@scripts/pending-target.sh determinism P2-14

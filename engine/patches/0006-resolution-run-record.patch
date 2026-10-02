@@ -114,24 +114,6 @@
      ctx->eval_step_count++;
      const char *kind = ts_node_type(node);
  
---- a/engine/src/lsp/ts_lsp.c
-+++ b/engine/src/lsp/ts_lsp.c
-@@ -333,6 +333,7 @@ static const PDXEType *parse_ts_type_text(PDXEArena *arena, const char *text, co
-         if (g_ts_type_budget < 0) {
-             if (!g_ts_type_budget_warned) {
-                 g_ts_type_budget_warned = true;
-+                pdxe_lost_work(); /* evaluation stops short for the rest of the file */
-                 fprintf(stderr,
-                         "  [tslsp] type-text parse budget exhausted (module %s); "
-                         "returning unknown\n",
-@@ -2106,6 +2107,7 @@ const PDXEType *ts_eval_expr_type(TSLSPContext *ctx, TSNode node) {
-         if (g_ts_type_budget < 0) {
-             if (!g_ts_type_budget_warned) {
-                 g_ts_type_budget_warned = true;
-+                pdxe_lost_work(); /* evaluation stops short for the rest of the file */
-                 fprintf(stderr, "  [tslsp] expression-eval budget exhausted; degrading to "
-                                 "unknown\n");
-             }
 --- a/engine/src/lsp_all.c
 +++ b/engine/src/lsp_all.c
 @@ -2,6 +2,9 @@

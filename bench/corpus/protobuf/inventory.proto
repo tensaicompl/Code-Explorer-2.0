@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package corpus.inventory.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option go_package = "corpus/inventory/v1;inventoryv1";
+
+// Stock keeping messages and the service that serves them.
+enum Status {
+  STATUS_UNSPECIFIED = 0;
+  STATUS_PENDING = 1;
+  STATUS_DONE = 2;
+}
+
+message Item {
+  string sku = 1;
+  int32 quantity = 2;
+  map<string, string> attributes = 3;
+  repeated string tags = 4 [packed = true];
+
+  message Price {
+    int64 units = 1;
+    int32 nanos = 2;
+    string currency = 3;
+  }
+
+  oneof pricing {
+    Price fixed = 5;
+    string formula = 6;
+  }
+
+  google.protobuf.Timestamp updated_at = 7;
+  reserved 8, 9;
+  reserved 10 to 12;
+}
+
+message ListRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListResponse {
+  repeated Item items = 1;
+  string next_page_token = 2;
+}
+
+service InventoryService {
+  rpc List(ListRequest) returns (ListResponse);
+  rpc Watch(ListRequest) returns (stream Item);
+  rpc Upload(stream Item) returns (ListResponse) {
+    option deprecated = true;
+  }
+}

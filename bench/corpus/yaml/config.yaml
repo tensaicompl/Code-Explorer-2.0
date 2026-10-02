@@ -1,0 +1,14 @@
+server:
+  host: localhost
+  port: 8080
+  timeouts: {read: 5s, write: 10s}
+features:
+  - search
+  - map
+? complex key
+: complex value
+"quoted key": 'single ''quoted'' value'
+multiline: |-
+  first line
+  second line
+empty:

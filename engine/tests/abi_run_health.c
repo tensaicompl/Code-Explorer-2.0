@@ -11,6 +11,8 @@
  * The cases this is registered with (engine/CMakeLists.txt) are the point:
  *
  *   - a project with no typed answers to find is clean, not degraded;
+ *   - so is one with definitions none of which typed resolution keeps, whose shared
+ *     registries are then built from nothing (engine/patches/0008);
  *   - a project whose typed resolution was made to skip a file is degraded, even when
  *     the skip leaves no answer at all, so that no answer is never read as clean;
  *   - a degraded project still reports the answers it did find.

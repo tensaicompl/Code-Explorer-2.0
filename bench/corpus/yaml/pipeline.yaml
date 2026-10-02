@@ -1,0 +1,37 @@
+# Anchors, aliases, block scalars, flow collections and multiple documents.
+defaults: &defaults
+  image: corpus/build:1.0
+  retries: 2
+  env:
+    LANG: C.UTF-8
+    GREETING: "héllo \"world\""
+
+stages:
+  - name: build
+    <<: *defaults
+    script: |
+      make build
+      make test
+  - name: deploy
+    <<: *defaults
+    retries: 0
+    when: manual
+    script: >
+      deploy --target production
+      --confirm
+    needs: [build]
+    matrix:
+      - {region: eu, size: large}
+      - {region: us, size: small}
+
+nested:
+  a:
+    b:
+      c:
+        - [1, [2, [3]]]
+        - ~
+        - true
+---
+kind: second-document
+items: []
+...

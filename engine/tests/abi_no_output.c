@@ -1,12 +1,23 @@
 /*
  * Nothing the interface does writes to standard output or standard error.
  *
- *     abi_no_output <smoke fixture dir> <resolution fixture dir>...
+ *     abi_no_output [--corpus <dir>] [--starved-typescript]
+ *                   <smoke fixture dir> <resolution fixture dir>...
  *
  * The process's own output streams are pointed at files, then every file in the
  * smoke directory is extracted, every resolution directory is resolved as one
  * project (through the cache path as well as directly), and the streams are
  * restored. Both files must be empty.
+ *
+ * With --corpus, the sanitizer corpus (bench/corpus) is covered too: every file in it
+ * is extracted, and each language's directory is resolved as one project, directly
+ * and through the cache. The TypeScript and TSX projects must then be clean.
+ *
+ * With --starved-typescript, the environment has given the TypeScript resolver a
+ * budget too small for any file (PDX_ENGINE_TS_TYPE_BUDGET), and the TypeScript and
+ * TSX corpus projects must report the work it cost them: run health degraded, with
+ * lost work counted. That proves the budget really ran out, along the path that once
+ * printed to standard error, and the streams must still be empty (issue 28).
  *
  * The engine's log level is raised to its most verbose first, so the test shows the
  * interface silences logging whatever the environment asks for. The engine's own
@@ -134,10 +145,50 @@ static void collect(const char *root, const char *rel, char ***paths, size_t *n)
     closedir(d);
 }
 
-static int resolve_all(pdxe_ctx *ctx, const char *dir, int through_cache) {
+/* Every file under `dir`, relative to it, whatever its name: a corpus directory's
+ * files are all in the directory's language. */
+static void collect_all(const char *root, const char *rel, char ***paths, size_t *n) {
+    char dir[4096];
+    snprintf(dir, sizeof(dir), "%s%s%s", root, rel[0] ? "/" : "", rel);
+    DIR *d = opendir(dir);
+    if (!d) {
+        return;
+    }
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (e->d_name[0] == '.') {
+            continue;
+        }
+        char child[4096];
+        snprintf(child, sizeof(child), "%s%s%s", rel, rel[0] ? "/" : "", e->d_name);
+        char full[8200];
+        snprintf(full, sizeof(full), "%s/%s", root, child);
+        struct stat st;
+        if (stat(full, &st) != 0) {
+            continue;
+        }
+        if (S_ISDIR(st.st_mode)) {
+            collect_all(root, child, paths, n);
+        } else {
+            *paths = realloc(*paths, (*n + 1) * sizeof(char *));
+            (*paths)[(*n)++] = strdup(child);
+        }
+    }
+    closedir(d);
+}
+
+/* Resolves the files under `dir` as one project. `corpus_lang` is the language of
+ * every file for a corpus directory, 0 for a resolution fixture, whose files are
+ * named by extension. The run's health is written to *health when it completes. */
+static int resolve_all(pdxe_ctx *ctx, const char *dir, int corpus_lang, int through_cache,
+                       pdxe_run_health *health) {
     char **paths = NULL;
     size_t n = 0;
-    collect(dir, "", &paths, &n);
+    if (corpus_lang) {
+        collect_all(dir, "", &paths, &n);
+    } else {
+        collect(dir, "", &paths, &n);
+    }
     pdxe_project *p = NULL;
     int failures = pdxe_resolve_project_begin(ctx, &p) != PDXE_OK;
     pdxe_file_result **results = calloc(n ? n : 1, sizeof(*results));
@@ -147,7 +198,7 @@ static int resolve_all(pdxe_ctx *ctx, const char *dir, int through_cache) {
         snprintf(full, sizeof(full), "%s/%s", dir, paths[i]);
         size_t len = 0;
         sources[i] = read_all(full, &len);
-        int lang = resolution_language(paths[i]);
+        int lang = corpus_lang ? corpus_lang : resolution_language(paths[i]);
         failures += !sources[i] ||
                     pdxe_extract_file(ctx, lang, paths[i], sources[i], len, &results[i]) != PDXE_OK;
         if (!failures && through_cache) {
@@ -171,7 +222,8 @@ static int resolve_all(pdxe_ctx *ctx, const char *dir, int through_cache) {
     const pdxe_resolution *res = NULL;
     uint32_t count = 0;
     failures += !failures && (pdxe_resolve_project_run(p) != PDXE_OK ||
-                              pdxe_resolve_project_results(p, &res, &count) != PDXE_OK);
+                              pdxe_resolve_project_results(p, &res, &count) != PDXE_OK ||
+                              pdxe_resolve_project_health(p, health) != PDXE_OK);
     pdxe_resolve_project_end(p);
     for (size_t i = 0; i < n; i++) {
         pdxe_result_free(ctx, results[i]);
@@ -184,14 +236,73 @@ static int resolve_all(pdxe_ctx *ctx, const char *dir, int through_cache) {
     return failures;
 }
 
+/* The sanitizer corpus: every file extracted, and every language directory resolved,
+ * directly and through the cache. With `starved`, the TypeScript and TSX projects
+ * must have lost work to the budget. */
+static int cover_corpus(pdxe_ctx *ctx, const char *root, int starved, int *starved_proven) {
+    DIR *d = opendir(root);
+    if (!d) {
+        return 1;
+    }
+    int failures = 0;
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (e->d_name[0] == '.') {
+            continue;
+        }
+        int lang = pdxe_language_id(e->d_name);
+        if (!lang) {
+            failures++;
+            continue;
+        }
+        char dir[4096];
+        snprintf(dir, sizeof(dir), "%s/%s", root, e->d_name);
+        int typescript = strcmp(e->d_name, "typescript") == 0 || strcmp(e->d_name, "tsx") == 0;
+        for (int through_cache = 0; through_cache <= 1; through_cache++) {
+            pdxe_run_health health;
+            memset(&health, 0, sizeof(health));
+            failures += resolve_all(ctx, dir, lang, through_cache, &health);
+            if (starved && typescript) {
+                if (health.status == PDXE_RUN_DEGRADED && health.pass_failures > 0) {
+                    (*starved_proven)++;
+                } else {
+                    failures++;
+                }
+            } else if (typescript && health.status != PDXE_RUN_CLEAN) {
+                /* Unstarved, the same projects are clean, so the starved run's loss
+                 * is the budget's and nothing else's. */
+                failures++;
+            }
+        }
+    }
+    closedir(d);
+    return failures;
+}
+
 static long size_of(const char *path) {
     struct stat st;
     return stat(path, &st) == 0 ? (long)st.st_size : -1;
 }
 
 int main(int argc, char **argv) {
-    if (argc < 3) {
-        fprintf(stderr, "usage: abi_no_output <smoke dir> <resolution dir>...\n");
+    const char *corpus = NULL;
+    int starved = 0;
+    int first = 1;
+    while (first < argc && strncmp(argv[first], "--", 2) == 0) {
+        if (strcmp(argv[first], "--corpus") == 0 && first + 1 < argc) {
+            corpus = argv[first + 1];
+            first += 2;
+        } else if (strcmp(argv[first], "--starved-typescript") == 0) {
+            starved = 1;
+            first++;
+        } else {
+            fprintf(stderr, "abi_no_output: unknown option %s\n", argv[first]);
+            return 2;
+        }
+    }
+    if (argc - first < 2 || (starved && !corpus)) {
+        fprintf(stderr, "usage: abi_no_output [--corpus <dir>] [--starved-typescript] "
+                        "<smoke dir> <resolution dir>...\n");
         return 2;
     }
     setenv("PDX_ENGINE_LOG_LEVEL", "debug", 1);
@@ -220,11 +331,16 @@ int main(int argc, char **argv) {
 
     pdxe_ctx *ctx = NULL;
     int failures = pdxe_init(&ctx) != PDXE_OK;
+    int starved_proven = 0;
     if (!failures) {
-        failures += extract_all(ctx, argv[1]);
-        for (int a = 2; a < argc; a++) {
-            failures += resolve_all(ctx, argv[a], 0);
-            failures += resolve_all(ctx, argv[a], 1);
+        failures += extract_all(ctx, argv[first]);
+        for (int a = first + 1; a < argc; a++) {
+            pdxe_run_health health;
+            failures += resolve_all(ctx, argv[a], 0, 0, &health);
+            failures += resolve_all(ctx, argv[a], 0, 1, &health);
+        }
+        if (corpus) {
+            failures += cover_corpus(ctx, corpus, starved, &starved_proven);
         }
         pdxe_shutdown(ctx);
     }
@@ -238,9 +354,15 @@ int main(int argc, char **argv) {
 
     long out_size = size_of(out_path);
     long err_size = size_of(err_path);
-    int ok = failures == 0 && out_size == 0 && err_size == 0;
+    /* Two TypeScript-family directories, each resolved directly and through the cache. */
+    int starved_ok = !starved || starved_proven == 4;
+    int ok = failures == 0 && out_size == 0 && err_size == 0 && starved_ok;
     printf("%s: %d failed operations, %ld bytes on stdout, %ld bytes on stderr\n",
            ok ? "ok" : "FAIL", failures, out_size, err_size);
+    if (starved) {
+        printf("typescript budget exhausted, with the loss counted, in %d of 4 runs\n",
+               starved_proven);
+    }
     if (!ok && err_size > 0) {
         printf("captured stderr is in %s\n", err_path);
     } else {

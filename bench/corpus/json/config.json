@@ -1,0 +1,9 @@
+{
+  "name": "corpus",
+  "version": "1.0.0",
+  "description": "Unicode \u00e9 and escapes \"quoted\" \\ \/ \b\f\n\r\t",
+  "numbers": [0, -1, 3.14, 1e10, -2.5E-3],
+  "flags": {"enabled": true, "deprecated": false, "parent": null},
+  "nested": {"a": {"b": {"c": [1, [2, [3, {"d": []}]]]}}},
+  "emoji": "\ud83d\ude00"
+}

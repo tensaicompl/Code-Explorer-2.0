@@ -25,7 +25,7 @@ this paragraph.
 | `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
-| `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot |
+| `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`) |
 | `ada-indexer/`, `deploy/` | Skeleton and placeholder; contents arrive in their phases |
 | `legacy/` | The previous implementation. Do not fix, extend or import from it |
 
@@ -34,9 +34,15 @@ this paragraph.
 ```
 make check        # format, lint, build both feature sets and the engine, test, engine tests,
                   # open-binary check, interface lint and tests
-make check-full   # adds accuracy, determinism, sanitizers, browser suites
-make asan         # the engine's tests under the address, undefined-behaviour and leak sanitizers
+make check-full   # adds accuracy, determinism, sanitizers, browser suites; the nightly build
+make check-asan   # the engine's tests and the sanitizer corpus (bench/corpus) under the
+                  # address, undefined-behaviour and leak sanitizers; `make asan` is the same
 ```
+
+`bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
+200 small project-authored files, every one extracted by `make check-asan`. A file
+named `recovery_*` may parse partially and `failed_*` must fail; anything else must
+parse. Never copy third-party or scale-repository source into it.
 
 The engine's fault-injection switches (crash or skip a named file) exist only in test
 builds: CMake option `PDXE_TEST_SEAMS`, Cargo feature `test-seams` of

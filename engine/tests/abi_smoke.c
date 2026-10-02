@@ -15,17 +15,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "matrix_languages.h"
 #include "pdxe.h"
 
-/* The language matrix, and the one variant of it the interface names separately. */
-static const char *const LANGUAGES[] = {
-    "java",   "kotlin",   "scala",  "typescript", "tsx",        "javascript", "python",
-    "go",     "c",        "cpp",    "csharp",     "rust",       "php",        "perl",
-    "ada",    "bash",     "ruby",   "swift",      "objc",       "groovy",     "lua",
-    "sql",    "protobuf", "graphql", "yaml",      "json",       "toml",       "hcl",
-    "dockerfile", "markdown", "xml", "properties",
-};
-enum { N_LANGUAGES = sizeof(LANGUAGES) / sizeof(LANGUAGES[0]) };
 
 static unsigned char *read_all(const char *path, size_t *len) {
     FILE *f = fopen(path, "rb");
@@ -56,8 +48,8 @@ int main(int argc, char **argv) {
         return 1;
     }
     int failures = 0;
-    for (int i = 0; i < N_LANGUAGES; i++) {
-        const char *lang = LANGUAGES[i];
+    for (int i = 0; i < N_MATRIX_LANGUAGES; i++) {
+        const char *lang = MATRIX_LANGUAGES[i];
         char path[4096] = "";
         DIR *d = opendir(argv[1]);
         struct dirent *e;

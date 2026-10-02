@@ -13,7 +13,8 @@ refresh silently loses a fix.
 ```
 make engine          # target/engine/libpdxe.a and the test programs
 make engine-test     # the interface's tests (part of make check)
-make asan            # the same tests under the address, undefined-behaviour and leak sanitizers
+make check-asan      # the same tests, and the sanitizer corpus, under the address,
+                     # undefined-behaviour and leak sanitizers (make asan is the same)
 ```
 
 or directly:
@@ -89,14 +90,21 @@ Everything goes through `include/pdxe.h`. In outline:
   reads from a file, so an unchanged file is never extracted again and resolves
   exactly as it would fresh.
 
-Nothing in the interface writes to standard output or standard error.
+Nothing in the interface writes to standard output or standard error. The engine's
+own debugging prints stay behind their switches, which are off unless a debugging
+environment variable turns them on.
 
 ## Tests
 
 | Test | Proves |
 |---|---|
 | `abi_smoke` | Every language of the matrix extracts, parses and yields definitions of its own |
-| `abi_no_output` | Extraction, resolution and the cache path write nothing to either output stream, with the engine's log level raised as far as it goes |
+| `abi_inputs_are_copied` | A result keeps nothing of the caller's: extracted from a path and source freed as soon as extraction returns, it equals one extracted from buffers kept alive |
+| `corpus_extracts` | Every file of the sanitizer corpus (`bench/corpus`) extracts with the status its name declares; every language is covered, nothing in the corpus is of no known language, and it holds at most 200 files |
+| `abi_no_output` | Extraction, resolution and the cache path write nothing to either output stream, with the engine's log level raised as far as it goes, over the fixtures and every language of the corpus; the corpus's TypeScript resolves clean |
+| `abi_no_output_ts_budget` | The same with the TypeScript resolver's work budget starved: every TypeScript run of the corpus runs it out, is degraded for it, and still writes nothing (issue 28) |
+| `abi_throws`, `abi_truncated` | Throws cross the interface with their exception and definition; a walk cut short by the node budget says so |
+| `abi_run_health_*` | Whether a run did all its work: clean with no answers to find, and with definitions typed resolution keeps none of; degraded by a skipped file or a lost answer, even with no answers, keeping the answers it found |
 | `abi_result_build_roundtrip` | A rebuilt result equals the original field by field; a surface decodes and re-encodes to the same bytes; malformed surfaces are refused; resolving a project leaves every file's surface as it was |
 | `api_warnings_are_errors` | Each warning class exempt in vendored code is still an error in the interface layer, compiled with the build's own flags |
 | one per `tests/fixtures/resolve/<name>` | Typed resolution on that fixture matches the reference engine's recorded answer, the fixture's own assertions hold, and neither the order files are added in nor resolving them from a cache changes the answer |

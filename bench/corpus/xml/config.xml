@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE config [
+  <!ENTITY product "corpus">
+]>
+<!-- Namespaces, entities, CDATA, processing instructions and mixed content. -->
+<config xmlns="urn:corpus:config" xmlns:x="urn:corpus:extra" version="2">
+  <?app-render mode="strict"?>
+  <server host="localhost" port="8080">
+    <x:limits maxBody="1048576" ratio="0.75"/>
+  </server>
+  <name>&product; &amp; friends — résumé</name>
+  <script><![CDATA[
+    if (a < b && b > c) { return "<raw>"; }
+  ]]></script>
+  <items>
+    <item sku="A-1" qty="2">First <b>bold</b> item</item>
+    <item sku="B-2" qty="0"/>
+  </items>
+  <nested><a><b><c><d>deep</d></c></b></a></nested>
+</config>

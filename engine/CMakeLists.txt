@@ -256,13 +256,25 @@ if(PDXE_BUILD_TESTS)
   set(PDXE_RESOLVE_FIXTURE_ROOT ${PDXE_ROOT}/tests/fixtures/resolve)
   add_test(NAME abi_smoke COMMAND abi_smoke ${PDXE_SMOKE_FIXTURES})
   add_test(NAME abi_inputs_are_copied COMMAND abi_inputs_are_copied ${PDXE_SMOKE_FIXTURES})
+
+  # The sanitizer corpus: every file extracted, every language covered, at most 200
+  # files (engine/tests/corpus_extracts.c). make check-asan runs it under the sanitizers.
+  set(PDXE_CORPUS ${PDXE_ROOT}/../bench/corpus)
+  add_test(NAME corpus_extracts COMMAND corpus_extracts ${PDXE_CORPUS})
   # The bytes fixtures are source that is not valid UTF-8: a surface keeps it exactly.
   add_test(NAME abi_result_build_roundtrip
     COMMAND abi_result_build_roundtrip ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_ROOT}
             ${PDXE_ROOT}/tests/fixtures/bytes)
   file(GLOB PDXE_RESOLVE_FIXTURE_DIRS LIST_DIRECTORIES true ${PDXE_RESOLVE_FIXTURE_ROOT}/*)
   add_test(NAME abi_no_output
-    COMMAND abi_no_output ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_DIRS})
+    COMMAND abi_no_output --corpus ${PDXE_CORPUS} ${PDXE_SMOKE_FIXTURES}
+            ${PDXE_RESOLVE_FIXTURE_DIRS})
+  # The TypeScript resolver's budget, starved so it runs out on every file: the loss is
+  # counted and nothing is printed (issue 28).
+  add_test(NAME abi_no_output_ts_budget
+    COMMAND abi_no_output --corpus ${PDXE_CORPUS} --starved-typescript ${PDXE_SMOKE_FIXTURES}
+            ${PDXE_RESOLVE_FIXTURE_DIRS})
+  set_tests_properties(abi_no_output_ts_budget PROPERTIES ENVIRONMENT PDX_ENGINE_TS_TYPE_BUDGET=1)
 
   # Throws, and a walk cut short by the node budget, which the environment sets.
   set(PDXE_THROWS_FIXTURES ${PDXE_ROOT}/tests/fixtures/throws)
@@ -276,6 +288,12 @@ if(PDXE_BUILD_TESTS)
   add_test(NAME abi_run_health_clean
     COMMAND abi_run_health clean some ${PDXE_CALLS} files_resolved=2 --
             app/models.py app/service.py)
+  # A project with definitions, none of which typed resolution keeps: the shared
+  # registries are built from no definitions at all. Under the sanitizers this once
+  # failed: an offset was taken from a NULL array (engine/patches/0008).
+  add_test(NAME abi_run_health_untyped_only
+    COMMAND abi_run_health clean none ${PDXE_ROOT}/tests/fixtures/health/quiet
+            files_untyped=1 -- notes.md)
   add_test(NAME abi_run_health_clean_without_answers
     COMMAND abi_run_health clean none ${PDXE_ROOT}/tests/fixtures/health/quiet
             files_resolved=1 files_untyped=1 files_empty=1 -- empty.py notes.md plain.py)

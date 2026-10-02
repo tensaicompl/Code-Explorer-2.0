@@ -1,0 +1,31 @@
+# Tables, arrays of tables, inline tables, multi-line strings and dates.
+title = "Corpus configuration"
+version = 2
+released = 2026-10-02T08:00:00Z
+
+[server]
+host = "localhost"
+ports = [8080, 8081]
+tls = { enabled = false, cert = "" }
+
+[server.limits]
+max_body = 1_048_576
+ratio = 0.75
+
+[[workers]]
+name = "indexer"
+threads = 4
+
+[[workers]]
+name = "resolver"
+threads = 2
+tags = ["typed", "cross-file"]
+
+[messages]
+greeting = """
+Bonjour — "quoted"
+  and \"escaped\""""
+literal = 'C:\path\kept'
+multiline_literal = '''
+raw \n kept
+'''

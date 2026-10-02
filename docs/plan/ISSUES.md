@@ -15,7 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 28 | 2026-10-02 | P1-06 | ambiguity | open | The interface promises it writes nothing to standard output or standard error, but the TypeScript resolver prints a line to standard error when one of its work budgets runs out, whatever the logging switches say. The interface's no-output test does not see it because its fixtures never exhaust a budget | Owned by P1-06, whose corpus is where a budget runs out: silence the two prints, by patch, and extend the no-output check to the corpus |
+| 29 | 2026-10-02 | P1-06 | blocker | resolved | The first sanitizer run over the corpus failed: for a project whose definitions typed resolution keeps none of, building the C# resolver's shared registry takes an offset from a NULL array, which is undefined behaviour in C. A documentation-only project reaches it; no fixture had | Fixed by `engine/patches/0008`, in the C# builder and in the Java one, which has the same shape and no caller yet. The regression `abi_run_health_untyped_only` fails under the sanitizers without the patch. No sanitizer report is suppressed |
+| 28 | 2026-10-02 | P1-06 | ambiguity | resolved | The interface promises it writes nothing to standard output or standard error, but the TypeScript resolver prints a line to standard error when one of its work budgets runs out, whatever the logging switches say. The interface's no-output test does not see it because its fixtures never exhaust a budget | The two unconditional prints are removed through the vendored patch mechanism (`engine/patches/0007`); the lost-work count at both sites remains, and evaluation still degrades to an unknown type. A no-output regression starves the budget and proves every TypeScript run of the corpus exhausted it and was degraded for it, with nothing written; the sanitizer corpus is covered by the no-output contract too |
 | 27 | 2026-10-02 | P2-04 | ambiguity | open | Isolated extraction survives a crashing engine but not a hanging one: the worker protocol bounds what crosses it and how often a worker is restarted, not how long a batch may take, and 4.5 names no failure reason for a file the engine never finishes | Owned by P2-04, which batches extraction: decide whether a batch has a time limit and how a file that exceeds it is recorded, by specification change if it needs a new reason |
 | 26 | 2026-10-02 | P2-04 | ambiguity | open | The extraction cache key in 4.5 is `(engine_version, language_matrix_version, secret_policy_digest, blob_sha)`, but an extraction also depends on the file's path, from which its qualified names and module are built, and on the node budget the environment may set (`PDX_ENGINE_WALK_MAX_NODES`), under which it can come back truncated | Owned by P2-04: the key gains the path, or an entry is used only for the path it names, which every `FileExtract` records; a truncated extraction, which says so, is not cached, or the budget joins the key |
 | 25 | 2026-10-02 | P1-05 | scr | resolved | Two facts the engine records about a file did not cross the interface: the exceptions each definition raises, which the `THROWS` edge of 4.2.3 is built from, and that the extractor stopped at its node budget. P1-05's `FileExtract` lists `throws`, which Appendix D.2 does not have, and omits channels and configuration reads, which it does | Approved by the owner on review, 2026-10-02, as implemented: a throw array, positionless like the type references, and a `truncated` flag appended to `pdxe_file_result`; `FileExtract` carries all ten arrays of the interface; `THROWS` stays resolution's to derive |
@@ -73,6 +74,30 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 29 — Typed resolution takes an offset from a null array
+
+The first run of the sanitizer corpus under `make check-asan` failed with an
+undefined-behaviour report in the C# resolver's builder of its shared registry. The
+builder copies the project's C# definitions into an array, types first, and registers
+the two halves, the second starting at an offset into the array. When the cross-file
+pass has kept no definitions at all, there is no array: the pointer is NULL and the
+offset zero. Nothing is read through it, but an offset from NULL is undefined in C, and
+the sanitizer, which halts on the first report, rejects it.
+
+The pass builds that registry whenever extraction found any definitions, so a project
+whose definitions typed resolution keeps none of reaches it: a documentation-only one,
+the corpus's Markdown directory. None of the fixtures was such a project.
+
+`engine/patches/0008-no-offset-from-null.patch` passes NULL on unchanged when there is
+no array. The Java builder has the same shape and is not called by the pass today; it
+gets the same guard, so the first caller does not meet the defect again. The regression
+`abi_run_health_untyped_only` resolves a project of one Markdown file and requires a
+clean run with the file counted untyped; without the patch it fails under the
+sanitizers. The report was fixed, not suppressed: no sanitizer option or suppression
+list was added.
+
+State: resolved.
+
 ### 28 — The TypeScript resolver writes to standard error
 
 The interface's header promises that nothing in it writes to standard output or
@@ -89,7 +114,23 @@ print was left alone there because the output contract is a separate question.
 Owned by P1-06, whose corpus is where budgets run out: remove the prints by patch, and
 run the no-output check over the corpus as well as the fixtures.
 
-State: open.
+Resolved by P1-06. `engine/patches/0007-typescript-budget-silent.patch` replaces both
+prints, for the type-text budget and the expression budget, with the count of lost work
+the run already relies on (issue 21), through the vendored patch mechanism, so a refresh
+keeps it. The budgets are unchanged, evaluation still degrades to an unknown type when
+one runs out, and a run that ran one out is degraded.
+
+`abi_no_output` now runs over the sanitizer corpus as well as the fixtures, every
+language extracted and resolved both directly and through the cache, and the corpus's
+TypeScript runs must come back clean. `abi_no_output_ts_budget` runs the same with
+`PDX_ENGINE_TS_TYPE_BUDGET=1`, a budget of one unit of work per file, and does not
+take the setting as proof: each of the four TypeScript runs (TypeScript and TSX, direct
+and cached) must report a degraded run with work lost, and nothing may reach either
+output stream. The runs without the setting must be clean, so the degradation is the
+budget's. With the patch reverted the test fails: several kilobytes reach standard
+error, and none of the four runs counts the loss.
+
+State: resolved.
 
 ### 27 — A hanging engine hangs isolated extraction
 

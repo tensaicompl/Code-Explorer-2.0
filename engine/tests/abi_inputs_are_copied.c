@@ -20,14 +20,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "matrix_languages.h"
 #include "pdxe.h"
 
-static const char *LANGUAGES[] = {
-    "java", "kotlin", "scala",  "typescript", "tsx",      "javascript", "python",   "go",
-    "c",    "cpp",    "csharp", "rust",       "php",      "perl",       "ada",      "bash",
-    "ruby", "swift",  "objc",   "groovy",     "lua",      "sql",        "protobuf", "graphql",
-    "yaml", "json",   "toml",   "hcl",        "dockerfile", "markdown", "xml",      "properties",
-};
+
 
 static unsigned char *read_all(const char *path, size_t *len) {
     FILE *f = fopen(path, "rb");
@@ -77,8 +73,8 @@ int main(int argc, char **argv) {
         return 1;
     }
     int failures = 0;
-    for (size_t l = 0; l < sizeof(LANGUAGES) / sizeof(LANGUAGES[0]); l++) {
-        const char *lang = LANGUAGES[l];
+    for (size_t l = 0; l < N_MATRIX_LANGUAGES; l++) {
+        const char *lang = MATRIX_LANGUAGES[l];
         char *name = fixture_for(argv[1], lang);
         if (!name) {
             printf("FAIL %s: no fixture\n", lang);
