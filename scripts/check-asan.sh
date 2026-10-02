@@ -14,7 +14,10 @@ if command -v clang >/dev/null 2>&1; then
 fi
 flags="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all"
 
+# The warning policy is stated, not inherited: CMake would keep an earlier configure's
+# value for it in a reused build directory.
 cmake -S engine -B "$build" -DCMAKE_BUILD_TYPE=Debug -DPDXE_BUILD_TESTS=ON -DPDXE_TEST_SEAMS=ON \
+  -DPDXE_VENDORED_WERROR=ON \
   -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$flags" \
   -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" > /dev/null
 cmake --build "$build" -j

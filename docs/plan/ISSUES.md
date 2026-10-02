@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 32 | 2026-10-02 | G1a | blocker | resolved | Evaluating G1a found the local engine build compiled without warnings as errors in vendored sources: its build directory had once been configured with `PDXE_VENDORED_WERROR` off, CMake keeps an option's last value, and neither `make engine` nor `make check-asan` stated it. The continuous integration builds were unaffected, but a local check could pass on a weaker policy than it appeared to | Both targets now state the policy on every configure (`make engine PDXE_VENDORED_WERROR=OFF` remains the explicit way to relax it). Rebuilt locally with gcc 13.3 and clang 18: every non-grammar source carries `-Wall -Wextra -Werror`, and every warning printed is in issue 19's exempt set |
 | 31 | 2026-10-02 | P2-07 | ambiguity | open | Appendix A gives `javascript` the test rule "same as TS", and TypeScript's file-name patterns are `*.test.ts` and `*.spec.ts`: read literally, no JavaScript file is a test by its name, and neither is a TypeScript `.tsx`, `.mts` or `.cts` file. Nor does it say where a directory pattern such as `tests/**` applies, at the repository root or at any depth | Owned by P2-07, which derives tests from these rules: decide, by specification change if the answer is not the literal reading. The registry records the rules exactly as Appendix A writes them, the JavaScript rule as TypeScript's by reference, so a reading of them changes no data |
 | 30 | 2026-10-02 | P1-07 | ambiguity | resolved | Appendix A leaves parts of language detection unsaid: it gives `bash` a shebang without naming a form, writes two patterns over a file's name (`Dockerfile*`, `.env*`) beside the extensions without saying which wins when a name matches both kinds, and says nothing of case | Implemented to the letter where Appendix A speaks and narrowly where it is silent: a shebang is a `#!` first line naming `bash`, directly or through `env`, and nothing else, `sh` included; an entry with `*` is a pattern over the name, any other an extension the name ends with; an extension decides before a name pattern, and a name pattern before a shebang; matching is case-sensitive. Each choice has a test, and any can be changed by a specification change that bumps the matrix version |
 | 29 | 2026-10-02 | P1-06 | blocker | resolved | The first sanitizer run over the corpus failed: for a project whose definitions typed resolution keeps none of, building the C# resolver's shared registry takes an offset from a NULL array, which is undefined behaviour in C. A documentation-only project reaches it; no fixture had | Fixed by `engine/patches/0008`, in the C# builder and in the Java one, which has the same shape and no caller yet. The regression `abi_run_health_untyped_only` fails under the sanitizers without the patch. No sanitizer report is suppressed |
@@ -73,6 +74,32 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 32 — A cached build option weakened the local warning policy
+
+Gate G1a asks whether the engine builds with warnings as errors on clang and gcc. The
+continuous integration evidence answers it: the engine `pdx-engine-sys` builds, in a
+fresh directory, is checked source by source by `the_engine_is_compiled_with_its_own_warning_policy`
+on Ubuntu (gcc 13.3) and macOS (Apple clang 15).
+
+Checking the same thing locally found a hole. The build `make engine` makes, in
+`target/engine`, had compiled 37 of its 50 non-grammar sources without `-Werror`: its
+CMake cache held `PDXE_VENDORED_WERROR=OFF` from an earlier configure, and CMake keeps an
+option's last value until told otherwise. `make engine` never told it, nor did
+`scripts/check-asan.sh` for its own directory. Nothing in the repository or its
+workflows sets the option off, so no continuous integration build was affected; but any
+reused build directory could run the local checks under a weaker policy than they
+claim, and nothing would say so.
+
+Both now state the policy on every configure: `make engine` passes
+`-DPDXE_VENDORED_WERROR=$(PDXE_VENDORED_WERROR)`, `ON` unless the caller asks
+otherwise, and the sanitizer build passes `ON`. After the change, rebuilt locally with
+gcc 13.3 (Release) and clang 18 (the sanitized build): every non-grammar source carries
+`-Wall -Wextra -Werror`, the build succeeds, and every warning it prints is in the exempt
+set issue 19 approved (unused functions, parameters and variables, comments, a sign
+comparison, format truncation).
 
 State: resolved.
 

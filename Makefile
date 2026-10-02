@@ -45,8 +45,13 @@ build: engine
 # The engine is C and is built by CMake. It joins the Rust build in the task that
 # adds its bindings; until then it is built here so that every platform compiles it.
 ENGINE_BUILD ?= target/engine
+# The engine's warning policy is stated on every configure. CMake keeps an option's
+# last value in its cache, so a build directory once configured with it off would stay
+# off, silently. Turning it off takes asking: make engine PDXE_VENDORED_WERROR=OFF.
+PDXE_VENDORED_WERROR ?= ON
 engine:
-	@cmake -S engine -B $(ENGINE_BUILD) -DCMAKE_BUILD_TYPE=Release -DPDXE_BUILD_TESTS=ON -DPDXE_TEST_SEAMS=ON > /dev/null
+	@cmake -S engine -B $(ENGINE_BUILD) -DCMAKE_BUILD_TYPE=Release -DPDXE_BUILD_TESTS=ON -DPDXE_TEST_SEAMS=ON \
+	  -DPDXE_VENDORED_WERROR=$(PDXE_VENDORED_WERROR) > /dev/null
 	@cmake --build $(ENGINE_BUILD) -j
 	@echo "engine: built $(ENGINE_BUILD)/libpdxe.a"
 
