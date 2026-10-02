@@ -299,6 +299,10 @@ name = "pdx-core"
 version = "0.1.0"
 dependencies = [
  "pdx-engine",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

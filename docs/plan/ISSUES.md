@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 33 | 2026-10-02 | P2-01 | scr | open | 4.2.1 defines every identity as a hash, but leaves byte-level choices open that two implementations could make differently and so produce different stored ids: how `ast_fingerprint` serialises its node-type path, texts and ordinal, and in what form `site_id` reads it; the case of the base32 output; whether the overload disambiguator is hex text or raw bytes, and how the identical-signature ordinal is written; what an absent enclosing definition or site contributes; which clone URLs `canonical_clone_url` accepts | Proposed and implemented in P2-01, pending approval: the encodings in the entry below, each locked by a fixed vector. 4.2.1 is not edited until the change is approved |
 | 32 | 2026-10-02 | G1a | blocker | resolved | Evaluating G1a found the local engine build compiled without warnings as errors in vendored sources: its build directory had once been configured with `PDXE_VENDORED_WERROR` off, CMake keeps an option's last value, and neither `make engine` nor `make check-asan` stated it. The continuous integration builds were unaffected, but a local check could pass on a weaker policy than it appeared to | Both targets now state the policy on every configure (`make engine PDXE_VENDORED_WERROR=OFF` remains the explicit way to relax it). Rebuilt locally with gcc 13.3 and clang 18: every non-grammar source carries `-Wall -Wextra -Werror`, and every warning printed is in issue 19's exempt set |
 | 31 | 2026-10-02 | P2-07 | ambiguity | open | Appendix A gives `javascript` the test rule "same as TS", and TypeScript's file-name patterns are `*.test.ts` and `*.spec.ts`: read literally, no JavaScript file is a test by its name, and neither is a TypeScript `.tsx`, `.mts` or `.cts` file. Nor does it say where a directory pattern such as `tests/**` applies, at the repository root or at any depth | Owned by P2-07, which derives tests from these rules: decide, by specification change if the answer is not the literal reading. The registry records the rules exactly as Appendix A writes them, the JavaScript rule as TypeScript's by reference, so a reading of them changes no data |
 | 30 | 2026-10-02 | P1-07 | ambiguity | resolved | Appendix A leaves parts of language detection unsaid: it gives `bash` a shebang without naming a form, writes two patterns over a file's name (`Dockerfile*`, `.env*`) beside the extensions without saying which wins when a name matches both kinds, and says nothing of case | Implemented to the letter where Appendix A speaks and narrowly where it is silent: a shebang is a `#!` first line naming `bash`, directly or through `env`, and nothing else, `sh` included; an entry with `*` is a pattern over the name, any other an extension the name ends with; an extension decides before a name pattern, and a name pattern before a shebang; matching is case-sensitive. Each choice has a test, and any can be changed by a specification change that bumps the matrix version |
@@ -76,6 +77,67 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 33 — Identity encodings 4.2.1 leaves open
+
+Identities are stored: a segment's rows, a cache's keys and every reference between
+them are keyed by them, and a change of encoding renames every node. 4.2.1 gives each
+as a formula. Where a formula leaves a byte-level choice open, two correct
+implementations could differ, so P2-01 proposes one reading of each, implements it in
+`crates/pdx-core/src/ids.rs`, and locks it with fixed vectors computed outside the code
+under test. Every string is hashed as its UTF-8 bytes, and no input may contain a NUL
+byte, which the formulas use as a separator: the functions refuse one rather than hash
+an ambiguous sequence.
+
+- **`base32-crockford(...)[0..26]`.** The alphabet `0123456789ABCDEFGHJKMNPQRSTVWXYZ`,
+  in upper case, as Crockford's encoding writes it. The digest is read as a bit string,
+  most significant bit first, five bits to a symbol, and the first 26 symbols are kept:
+  the digest's first 130 bits, which is what "26 characters, 130 bits" requires. (An
+  encoding of the digest as one integer would carry a single bit in its first symbol.)
+- **`repo_id` from a URL.** `lowerhex(sha256(canonical_clone_url))[0..16]`: the same
+  form as a registered `repo_id`. `canonical_clone_url` accepts only an `https` URL with
+  a host and a path: the scheme is matched in any case and written `https://`; user
+  information is removed; the host is lowercased; a port is kept as written; the path
+  is kept byte for byte, except that one trailing `.git` is removed. Anything else is
+  refused: another scheme (`http`, `ssh`, the `git@host:path` form), no host, no path,
+  a query or a fragment. 4.2.1 says "the HTTPS clone URL" and nothing about deriving
+  one, so a repository whose remote is an SSH URL has no URL-derived id until the
+  command that indexes it (P2-11) says where its HTTPS URL comes from.
+- **The overload disambiguator.** `lowerhex(sha256(normalised_signature))[0..8]`: eight
+  hex characters, as text, like the other identities. A callable is overloaded when
+  another callable has the same kind, path and qualified name; a callable that is not
+  has the disambiguator `""`. When members of such a group have identical normalised
+  signatures, every one of them gets `-k` appended, `k` counting from 1 in file order
+  among those identical ones only, so `…-1`, `…-2` as 4.2.1 writes it. Inserting an
+  overload with a new signature therefore changes no existing id. One consequence follows
+  from the formula itself: a callable that was alone and gains an overload changes from
+  `""` to its signature hash, once.
+- **`ast_fingerprint`.** Stored in `sites.ast_fingerprint` as
+  `lowerhex(sha256(n || 0x00 || type_1 || 0x00 || … || type_n || 0x00 || callee_text || 0x00 || receiver_text || 0x00 || ordinal))`,
+  64 characters. `n` is the number of node types in the path from the enclosing
+  definition to the site and `ordinal` the position of this (path, text) pair among the
+  definition's sites with the same path and texts, both in decimal ASCII; the ordinal
+  counts from 1, as the overload ordinal does. Node types are non-empty. A site with no
+  receiver has `receiver_text` `""`; a site other than a call carries its text as
+  `callee_text`, which is the `sites` column it is stored in. The count makes the path's
+  end unambiguous whatever the types contain.
+- **`site_id`.** Reads `ast_fingerprint` in its stored form, the 64 hex characters. A
+  site outside every definition (at the top of a file) has `enclosing_node_id` `""`.
+  `site_kind` is one of the `sites` table's values: `call`, `reference`, `import`,
+  `type_ref`, `field_rw`, `route`, `contract`.
+- **`edge_id`.** Concatenated without separators, as 4.2.1 writes it: node and site ids
+  have a fixed length of 26 and the edge kinds are a closed set, so nothing is
+  ambiguous. An edge with no site contributes `""`.
+
+Two inputs are not P2-01's to produce: Appendix B.1 does not spell out signature
+normalisation beyond 4.2.1's sentence, and the engine interface does not report the
+node-type path of a site. `ids.rs` takes both as inputs; the tasks that build
+definitions and sites from extraction (P2-04, P2-06) supply them, by extending the
+engine interface if they must.
+
+Approval updates 4.2.1 with these encodings, which are then normative.
+
+State: open.
 
 ### 32 — A cached build option weakened the local warning policy
 

@@ -9,11 +9,21 @@ authors.workspace = true
 repository.workspace = true
 publish = true
 
+[dependencies]
+# The model's rows and identifiers serialise for segments, caches and the API.
+serde = { version = "1.0.229", features = ["derive"] }
+# Free-form row properties (`props`) are JSON values, kept in key order.
+serde_json = "1.0.151"
+# Every identity is a SHA-256 hash (4.2.1).
+sha2 = "0.11.0"
+
 [dev-dependencies]
 # The language matrix's tests ask the engine, through its safe wrapper, whether it has
 # a grammar for each language the matrix declares (tests/languages.rs). Tests only:
 # assigning a language never consults the engine.
 pdx-engine = { path = "../pdx-engine" }
+# The identity properties of 4.2.1 (tests/ids.rs).
+proptest = { version = "1.11.0", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true
