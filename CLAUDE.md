@@ -13,9 +13,9 @@ repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 P0 is done and gate G0 has passed; P1 has vendored the engine, built it, given it
 its interface, bound it to Rust (`pdx-engine-sys`), and wrapped it safely
 (`pdx-engine`: owned extractions, typed resolution with run health, crash-isolated
-extraction), built and tested on Linux, macOS and Windows. The previous implementation
-is in `legacy/`, read-only until the
-retirement task removes it. There is no pipeline and no product behaviour yet.
+extraction), built and tested on Linux, macOS and Windows, and run nightly under the
+address, undefined-behaviour and leak sanitizers over a committed corpus. The previous
+implementation is in `legacy/`, read-only until the retirement task removes it. There is no pipeline and no product behaviour yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.
