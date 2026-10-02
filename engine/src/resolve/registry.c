@@ -30,6 +30,7 @@ enum { REG_MAX_CANDIDATES = 256 };
 #include "foundation/hash_table.h"
 #include "foundation/dyn_array.h"
 #include "foundation/platform.h"
+#include "lost_work.h" /* allocations whose failure loses work are counted */
 
 #include <math.h>
 #include <stdio.h>
@@ -814,7 +815,7 @@ bool pdxe_go_suppress_bare_field_ref(bool is_go, bool is_member_access, const ch
 /* ── Lifecycle ──────────────────────────────────────────────────── */
 
 pdxe_registry_t *pdxe_registry_new(void) {
-    pdxe_registry_t *r = calloc(PDXE_ALLOC_ONE, sizeof(pdxe_registry_t));
+    pdxe_registry_t *r = pdxe_counted_calloc(PDXE_ALLOC_ONE, sizeof(pdxe_registry_t));
     if (!r) {
         return NULL;
     }
@@ -879,27 +880,50 @@ void pdxe_registry_add(pdxe_registry_t *r, const char *name, const char *qualifi
         }
     }
     if (!interned && r->label_pool_n < (int)(sizeof(r->label_pool) / sizeof(r->label_pool[0]))) {
-        r->label_pool[r->label_pool_n] = strdup(label);
-        interned = r->label_pool[r->label_pool_n];
+        char *copy = pdxe_counted_strdup(label);
+        if (!copy) {
+            return; /* not registered; the failed allocation is counted */
+        }
+        r->label_pool[r->label_pool_n] = copy;
+        interned = copy;
         r->label_pool_n++;
     }
     if (!interned) {
-        return; /* pool exhausted (cannot happen with sane label sets) */
+        pdxe_lost_work(); /* pool exhausted (cannot happen with sane label sets) */
+        return;
     }
 
     /* Store in exact map: QN → interned label. The key is the registry's ONE
      * owned copy of the QN; by_name below borrows it (same lifetime) instead
-     * of a second strdup — this pair of copies was ~280 MB on the kernel. */
-    pdxe_ht_set(r->exact, strdup(qualified_name), (void *)interned);
+     * of a second strdup — this pair of copies was ~280 MB on the kernel. A
+     * definition is registered whole or not at all; any allocation that fails on
+     * the way is counted where it fails. */
+    char *qn_key = pdxe_counted_strdup(qualified_name);
+    if (!qn_key) {
+        return;
+    }
+    pdxe_ht_set(r->exact, qn_key, (void *)interned);
     const char *owned_qn = pdxe_ht_get_key(r->exact, qualified_name);
+    if (owned_qn != qn_key) {
+        free(qn_key); /* the table could not take it */
+        return;
+    }
 
     /* Index by simple name.
      * No array dedup needed: exact-map check above guarantees uniqueness. */
     const char *simple = simple_name(qualified_name);
     qn_array_t *arr = pdxe_ht_get(r->by_name, simple);
     if (!arr) {
-        arr = calloc(PDXE_ALLOC_ONE, sizeof(qn_array_t));
-        pdxe_ht_set(r->by_name, strdup(simple), arr);
+        arr = pdxe_counted_calloc(PDXE_ALLOC_ONE, sizeof(qn_array_t));
+        char *simple_key = arr ? pdxe_counted_strdup(simple) : NULL;
+        if (simple_key) {
+            pdxe_ht_set(r->by_name, simple_key, arr);
+        }
+        if (!simple_key || pdxe_ht_get(r->by_name, simple) != arr) {
+            free(simple_key);
+            free(arr);
+            return; /* reachable by qualified name, not by its simple name */
+        }
     }
     int before = arr->count;
     pdxe_da_push(arr, (char *)owned_qn);
@@ -1530,7 +1554,11 @@ int pdxe_registry_find_ending_with(const pdxe_registry_t *r, const char *suffix,
 
     /* Build ".suffix" target */
     size_t slen = strlen(suffix);
-    char *target = malloc(slen + REG_SUFFIX_ALLOC);
+    char *target = pdxe_counted_malloc(slen + REG_SUFFIX_ALLOC);
+    if (!target) {
+        *out = NULL;
+        return 0; /* no candidates found; the failed allocation is counted */
+    }
     target[0] = '.';
     memcpy(target + SKIP_ONE, suffix, slen + SKIP_ONE);
 

@@ -81,7 +81,9 @@ Everything goes through `include/pdxe.h`. In outline:
   reads a manifest or the filesystem.
 - **Run health.** `pdxe_resolve_project_health` says whether a completed run did
   all its work, and counts every file by what typed resolution did with it, so that a
-  run that lost work is never read as one with fewer answers.
+  run that lost work is never read as one with fewer answers. What a run loses (failed
+  allocations, exhausted work budgets) is counted where it is lost, on the run's
+  thread (`api/lost_work.h`), and kept in the run's record.
 - **Caching.** `pdxe_result_build` rebuilds a result from the parts a cache keeps,
   and `pdxe_surface_export` / `pdxe_surface_import` carry everything the resolver
   reads from a file, so an unchanged file is never extracted again and resolves

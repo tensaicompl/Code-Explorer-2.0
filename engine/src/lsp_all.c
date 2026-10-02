@@ -2,6 +2,9 @@
 // CGo only compiles .c files in the package directory, not subdirectories.
 // This file includes all LSP sources so they compile as part of the pdxe package.
 
+// What resolution loses, counted where it is lost; declared for every source below.
+#include "lost_work.h"
+
 #include "lsp/type_rep.c"
 #include "lsp/scope.c"
 #include "lsp/type_registry.c"

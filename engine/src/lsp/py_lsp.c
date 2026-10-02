@@ -107,7 +107,7 @@ static void py_mark_ambiguous_callable_bindings(PDXETypeRegistry *registry) {
         return;
     size_t count = (size_t)registry->func_count;
     PDXERegisteredFunc **sorted = count <= SIZE_MAX / sizeof(*sorted)
-                                     ? (PDXERegisteredFunc **)malloc(count * sizeof(*sorted))
+                                     ? (PDXERegisteredFunc **)pdxe_counted_malloc(count * sizeof(*sorted))
                                      : NULL;
     if (!sorted) {
         /* Allocation failure must reduce precision, never fabricate it. */
@@ -2171,6 +2171,9 @@ static const PDXEType *py_eval_expr_type(PyLSPContext *ctx, TSNode node) {
      * unknown instead of stalling repository indexing. Only real
      * evaluations consume budget — cache hits above are O(1). */
     if (ctx->eval_steps++ > PY_EVAL_MAX_STEPS_PER_FILE) {
+        if (ctx->eval_steps == PY_EVAL_MAX_STEPS_PER_FILE + 2) {
+            pdxe_lost_work(); /* the budget ran out just now, the first time this file */
+        }
         ctx->eval_truncations++;
         if (ctx->debug && ctx->eval_steps == PY_EVAL_MAX_STEPS_PER_FILE + 2) {
             fprintf(stderr, "  [pylsp] expression eval step budget exhausted; returning unknown\n");

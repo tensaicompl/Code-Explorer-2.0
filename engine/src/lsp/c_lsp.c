@@ -1485,6 +1485,12 @@ const PDXEType *c_eval_expr_type(CLSPContext *ctx, TSNode node) {
      * depth. Keep a generous per-file work budget so pathological expressions
      * degrade to unknown instead of hanging repository indexing. */
     if (ctx->eval_depth > C_EVAL_DEPTH_LIMIT || ctx->eval_steps++ > C_EVAL_MAX_STEPS_PER_FILE) {
+        /* The step budget ran out just now, for the first time in this file (the
+         * depth limit is a recursion guard, not lost work). */
+        if (ctx->eval_depth <= C_EVAL_DEPTH_LIMIT &&
+            ctx->eval_steps == C_EVAL_MAX_STEPS_PER_FILE + 2) {
+            pdxe_lost_work();
+        }
         if (ctx->debug && ctx->eval_steps == C_EVAL_MAX_STEPS_PER_FILE + 2) {
             fprintf(stderr, "  [clsp] expression eval step budget exhausted; returning unknown\n");
         }

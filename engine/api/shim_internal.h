@@ -55,18 +55,6 @@ int pdxe_gbuf_add_edge(pdxe_gbuf_t *gb, int64_t source_id, int64_t target_id, co
 
 uint32_t pdxe_gbuf_node_count(const pdxe_gbuf_t *gb);
 
-/*
- * The object the resolution sources hand surfaces to. The reference's pipeline
- * object carries a great deal more; this carries only what those sources set.
- */
-struct pdxe_pipeline {
-    pdxe_lsp_surface_row_t *surface_rows;
-    int surface_row_count;
-};
-
-struct pdxe_pipeline *pdxe_pipeline_new(void);
-void pdxe_pipeline_free(struct pdxe_pipeline *p);
-
 
 /*
  * Sources come from memory, not disk: installed before resolution runs, removed
@@ -96,13 +84,14 @@ void pdxe_pipeline_set_pkgmap(struct PDXEHashTable *map);
 /*
  * A file's surface, encoded and decoded (engine/api/surface.c). Encoding is canonical:
  * equal results give equal bytes. Decoding gives a result of its own, freed with
- * pdxe_free_result, and the path and interface language the surface was made for.
+ * pdxe_free_result, and the path and interface language the surface was made for, and
+ * how much work extraction lost on it (lost_work.h), which a run counts as its own.
  */
 struct PDXEFileResult;
 int pdxe_surface_encode(const struct PDXEFileResult *r, const char *rel_path, int abi_lang,
-                        uint8_t **out, size_t *out_len);
+                        uint32_t lost, uint8_t **out, size_t *out_len);
 int pdxe_surface_decode(const uint8_t *bytes, size_t len, struct PDXEFileResult **out,
-                        char **rel_path, int *abi_lang);
+                        char **rel_path, int *abi_lang, uint32_t *lost);
 
 /*
  * Every resolution the typed pass wrote, before the interface filters and attributes

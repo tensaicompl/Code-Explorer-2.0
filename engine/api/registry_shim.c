@@ -27,6 +27,7 @@
 #include "pipeline/worker_pool.h"
 #include "shim_internal.h"
 #include "discover/userconfig.h"
+#include "lost_work.h" /* a failed allocation here loses work: counted */
 
 /* --- storage ---------------------------------------------------------------- */
 
@@ -40,7 +41,7 @@ typedef struct {
 static int ptr_list_push(ptr_list *l, const void *item) {
     if (l->count == l->cap) {
         int cap = l->cap ? l->cap * 2 : 4;
-        const void **grown = (const void **)realloc((void *)l->items, (size_t)cap * sizeof(*grown));
+        const void **grown = (const void **)pdxe_counted_realloc((void *)l->items, (size_t)cap * sizeof(*grown));
         if (!grown) {
             return -1;
         }
@@ -75,7 +76,7 @@ struct pdxe_gbuf_t {
 };
 
 static char *dup_or_null(const char *s) {
-    return s ? strdup(s) : NULL;
+    return s ? pdxe_counted_strdup(s) : NULL;
 }
 
 static bool dup_failed(const char *in, const char *out) {
@@ -83,7 +84,7 @@ static bool dup_failed(const char *in, const char *out) {
 }
 
 pdxe_gbuf_t *pdxe_gbuf_new(void) {
-    pdxe_gbuf_t *gb = (pdxe_gbuf_t *)calloc(1, sizeof(*gb));
+    pdxe_gbuf_t *gb = (pdxe_gbuf_t *)pdxe_counted_calloc(1, sizeof(*gb));
     if (!gb) {
         return NULL;
     }
@@ -153,7 +154,7 @@ void pdxe_gbuf_free(pdxe_gbuf_t *gb) {
 
 /* A key the registry keeps for as long as it lives, so a table may borrow it. */
 static const char *own_key(pdxe_gbuf_t *gb, const char *key) {
-    char *copy = strdup(key);
+    char *copy = pdxe_counted_strdup(key);
     if (!copy || ptr_list_push(&gb->owned_keys, copy) != 0) {
         free(copy);
         return NULL;
@@ -171,7 +172,7 @@ static ptr_list *list_for(pdxe_gbuf_t *gb, PDXEHashTable *table, const char *key
     if (!owned) {
         return NULL;
     }
-    l = (ptr_list *)calloc(1, sizeof(*l));
+    l = (ptr_list *)pdxe_counted_calloc(1, sizeof(*l));
     if (!l) {
         return NULL;
     }
@@ -276,20 +277,20 @@ int64_t pdxe_gbuf_upsert_node(pdxe_gbuf_t *gb, const char *label, const char *na
     if (gb->n_nodes == gb->cap_nodes) {
         uint32_t cap = gb->cap_nodes ? gb->cap_nodes * 2 : 64;
         pdxe_gbuf_node_t **grown =
-            (pdxe_gbuf_node_t **)realloc(gb->nodes, (size_t)cap * sizeof(*grown));
+            (pdxe_gbuf_node_t **)pdxe_counted_realloc(gb->nodes, (size_t)cap * sizeof(*grown));
         if (!grown) {
             return 0;
         }
         gb->nodes = grown;
         gb->cap_nodes = cap;
     }
-    pdxe_gbuf_node_t *n = (pdxe_gbuf_node_t *)calloc(1, sizeof(*n));
+    pdxe_gbuf_node_t *n = (pdxe_gbuf_node_t *)pdxe_counted_calloc(1, sizeof(*n));
     if (!n) {
         return 0;
     }
     n->label = dup_or_null(label);
     n->name = dup_or_null(name);
-    n->qualified_name = strdup(qualified_name);
+    n->qualified_name = pdxe_counted_strdup(qualified_name);
     n->file_path = dup_or_null(file_path);
     n->properties_json = dup_or_null(properties_json);
     if (dup_failed(label, n->label) || dup_failed(name, n->name) || !n->qualified_name ||
@@ -335,7 +336,7 @@ static char *edge_key(int64_t source_id, int64_t target_id, const char *type,
         }
     }
     size_t cap = strlen(type) + ln_len + 64;
-    char *key = (char *)malloc(cap);
+    char *key = (char *)pdxe_counted_malloc(cap);
     if (!key) {
         return NULL;
     }
@@ -385,7 +386,7 @@ int pdxe_gbuf_add_edge(pdxe_gbuf_t *gb, int64_t source_id, int64_t target_id, co
     if (gb->n_edges == gb->cap_edges) {
         uint32_t cap = gb->cap_edges ? gb->cap_edges * 2 : 64;
         pdxe_gbuf_edge_t **grown =
-            (pdxe_gbuf_edge_t **)realloc(gb->edges, (size_t)cap * sizeof(*grown));
+            (pdxe_gbuf_edge_t **)pdxe_counted_realloc(gb->edges, (size_t)cap * sizeof(*grown));
         if (!grown) {
             free(key);
             return -1;
@@ -393,14 +394,14 @@ int pdxe_gbuf_add_edge(pdxe_gbuf_t *gb, int64_t source_id, int64_t target_id, co
         gb->edges = grown;
         gb->cap_edges = cap;
     }
-    pdxe_gbuf_edge_t *e = (pdxe_gbuf_edge_t *)calloc(1, sizeof(*e));
+    pdxe_gbuf_edge_t *e = (pdxe_gbuf_edge_t *)pdxe_counted_calloc(1, sizeof(*e));
     if (!e) {
         free(key);
         return -1;
     }
     e->source_id = source_id;
     e->target_id = target_id;
-    e->type = strdup(type);
+    e->type = pdxe_counted_strdup(type);
     e->target_qualified_name = dup_or_null(target_qualified_name);
     e->properties_json = dup_or_null(properties_json);
     if (!e->type || dup_failed(target_qualified_name, e->target_qualified_name) ||
@@ -499,34 +500,14 @@ int pdxe_gbuf_find_edges_by_source_type(const pdxe_gbuf_t *gb, int64_t source_id
 _Atomic uint64_t g_lsp_tail_lookups = 0;
 _Atomic uint64_t g_lsp_tail_candidates = 0;
 
-/* --- the pipeline object ---------------------------------------------------- */
-
-struct pdxe_pipeline *pdxe_pipeline_new(void) {
-    return (struct pdxe_pipeline *)calloc(1, sizeof(struct pdxe_pipeline));
-}
-
-void pdxe_pipeline_free(struct pdxe_pipeline *p) {
-    if (!p) {
-        return;
-    }
-    pdxe_store_free_lsp_surfaces(p->surface_rows, p->surface_row_count);
-    free(p);
-}
-
 /*
- * The reference's contract: with no pipeline, the rows are freed at once; otherwise
- * the pipeline takes them, releasing any it held before. Kept exactly, because the
- * resolution sources rely on handing ownership over in both cases.
+ * The reference's contract with no pipeline: the rows are freed at once. The
+ * interface never gives the resolution sources a pipeline, because the rows are all a
+ * pipeline would receive and nothing here reads them, so that is the only case.
  */
 void pdxe_pipeline_set_lsp_surfaces(pdxe_pipeline_t *p, pdxe_lsp_surface_row_t *rows, int count) {
-    struct pdxe_pipeline *pipe = (struct pdxe_pipeline *)p;
-    if (!pipe) {
-        pdxe_store_free_lsp_surfaces(rows, count);
-        return;
-    }
-    pdxe_store_free_lsp_surfaces(pipe->surface_rows, pipe->surface_row_count);
-    pipe->surface_rows = rows;
-    pipe->surface_row_count = count;
+    (void)p;
+    pdxe_store_free_lsp_surfaces(rows, count);
 }
 
 /* Frees what the surface builder allocated for each row, then the rows. */

@@ -14,6 +14,7 @@ The plan document itself is never edited to record progress. Progress lives here
 |---|---|---|
 | `tasks.json` | derived | `scripts/plan/extract-plan.py` — regenerate, never edit |
 | `TASKS.md` | derived | same; the readable task index |
+| `amendments.json` | live | corrections the extractor applies to a task's projected text where a later record (a specification change, a decision, the specification itself) supersedes it; each names its record, and the extractor fails if the text it corrects is gone |
 | `STATUS.md` | live | the driver, at the end of every task |
 | `GATES.md` | live | the driver, when a gate is evaluated |
 | `ISSUES.md` | live | anyone who hits a blocker, ambiguity, SCR or third-party problem |

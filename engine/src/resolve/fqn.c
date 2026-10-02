@@ -8,6 +8,7 @@
 #include "foundation/compat_fs.h"
 #include "foundation/constants.h"
 #include "foundation/platform.h"
+#include "lost_work.h" /* allocations whose failure loses work are counted */
 
 #include <stdbool.h>
 #include <stddef.h> // NULL
@@ -36,7 +37,7 @@
 /* Build a dot-joined string from segments. Returns heap-allocated string. */
 static char *join_segments(const char **segments, int count) {
     if (count == 0) {
-        return strdup("");
+        return pdxe_counted_strdup("");
     }
     size_t total = 0;
     for (int i = 0; i < count; i++) {
@@ -45,7 +46,7 @@ static char *join_segments(const char **segments, int count) {
             total++; /* dot separator */
         }
     }
-    char *result = malloc(total + SKIP_ONE);
+    char *result = pdxe_counted_malloc(total + SKIP_ONE);
     if (!result) {
         return NULL;
     }
@@ -112,10 +113,10 @@ static void strip_init_or_index(const char **segments, int *seg_count, const cha
 
 char *pdxe_pipeline_fqn_compute(const char *project, const char *rel_path, const char *name) {
     if (!project) {
-        return strdup("");
+        return pdxe_counted_strdup("");
     }
 
-    char *path = strdup(rel_path ? rel_path : "");
+    char *path = pdxe_counted_strdup(rel_path ? rel_path : "");
     pdxe_normalize_path_sep(path);
     /* #1077/#964: File-node QNs (name=="__file__") must preserve the full
      * filename so sibling files sharing a stem get DISTINCT nodes — e.g.
@@ -172,7 +173,7 @@ char *pdxe_pipeline_fqn_module_dir(const char *project, const char *rel_path, bo
         return pdxe_pipeline_fqn_folder(project, "");
     }
     size_t dir_len = (size_t)(last_sep - src);
-    char *dir = (char *)malloc(dir_len + 1); /* +1 for NUL */
+    char *dir = (char *)pdxe_counted_malloc(dir_len + 1); /* +1 for NUL */
     if (!dir) {
         return NULL;
     }
@@ -279,7 +280,7 @@ static char *resolve_python_relative(char *buf, size_t buf_size, const char *mod
             p++;
         }
     }
-    return strdup(buf);
+    return pdxe_counted_strdup(buf);
 }
 
 /* Strip an explicit JS/TS module file extension while preserving dots that are
@@ -327,7 +328,7 @@ static char *resolve_js_relative(char *buf, size_t buf_size, const char *module_
             return NULL;
         }
     }
-    return strdup(buf);
+    return pdxe_counted_strdup(buf);
 }
 
 char *pdxe_pipeline_resolve_relative_import(const char *source_rel, const char *module_path) {
@@ -345,11 +346,11 @@ char *pdxe_pipeline_resolve_relative_import(const char *source_rel, const char *
 
 char *pdxe_pipeline_fqn_folder(const char *project, const char *rel_dir) {
     if (!project) {
-        return strdup("");
+        return pdxe_counted_strdup("");
     }
 
     /* Work on mutable copy */
-    char *dir = strdup(rel_dir ? rel_dir : "");
+    char *dir = pdxe_counted_strdup(rel_dir ? rel_dir : "");
     pdxe_normalize_path_sep(dir);
 
     const char *segments[PDXE_SZ_256];
@@ -414,10 +415,10 @@ static bool path_is_root_syntax(const char *path) {
 
 char *pdxe_project_name_from_path(const char *abs_path) {
     if (!abs_path || !abs_path[0]) {
-        return strdup("root");
+        return pdxe_counted_strdup("root");
     }
     if (path_is_root_syntax(abs_path)) {
-        return strdup("root");
+        return pdxe_counted_strdup("root");
     }
 
     char real[PDXE_SZ_4K];
@@ -430,7 +431,7 @@ char *pdxe_project_name_from_path(const char *abs_path) {
     }
 
     /* Work on mutable copy */
-    char *path = strdup(name_path);
+    char *path = pdxe_counted_strdup(name_path);
     if (!path) {
         return NULL;
     }
@@ -453,10 +454,10 @@ char *pdxe_project_name_from_path(const char *abs_path) {
      * transliterated to its two lowercase hex digits, which use only [0-9a-f]
      * and therefore stay validator-safe while preserving the segment. */
     static const char hex_digits[] = "0123456789abcdef";
-    char *mapped = malloc(len * 2 + 1); /* worst case: every byte → 2 hex chars */
+    char *mapped = pdxe_counted_malloc(len * 2 + 1); /* worst case: every byte → 2 hex chars */
     if (!mapped) {
         free(path);
-        return strdup("root");
+        return pdxe_counted_strdup("root");
     }
     size_t mlen = 0;
     for (size_t i = 0; i < len; i++) {
@@ -504,10 +505,10 @@ char *pdxe_project_name_from_path(const char *abs_path) {
 
     if (*start == '\0') {
         free(path);
-        return strdup("root");
+        return pdxe_counted_strdup("root");
     }
 
-    char *result = strdup(start);
+    char *result = pdxe_counted_strdup(start);
     free(path);
     if (result) {
         result = fqn_bound_name_len(result); /* #624: cap filename-component length */

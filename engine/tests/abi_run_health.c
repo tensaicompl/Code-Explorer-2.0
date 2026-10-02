@@ -15,9 +15,14 @@
  *     the skip leaves no answer at all, so that no answer is never read as clean;
  *   - a degraded project still reports the answers it did find.
  *
+ *   - a run that lost an answer it found, to an allocation failing while the answer is
+ *     copied into the result, is degraded, and keeps the answers it did not lose.
+ *
  * A file is made to be skipped through the engine's own test switch, which marks the
- * file named in PDX_ENGINE_TEST_LSP_SKIP_ON exactly as its node budget would. The
- * switch exists only in a test build.
+ * file named in PDX_ENGINE_TEST_LSP_SKIP_ON exactly as its node budget would; an
+ * answer is lost through PDX_ENGINE_TEST_FAIL_ANSWER_ON, which fails the copy of every
+ * answer whose target contains its text as a failed allocation would. The switches
+ * exist only in a test build.
  */
 
 #include <stdio.h>

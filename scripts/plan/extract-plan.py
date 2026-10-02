@@ -13,6 +13,9 @@ Emits (overwriting):
   docs/plan/tasks.json   authoritative extracted dataset (ids, deps, order, tests)
   docs/plan/TASKS.md     human-readable task index
 
+Reads docs/plan/amendments.json, if present: corrections to the projection where a
+later record supersedes a task's text (see that file).
+
 Live files (STATUS.md, GATES.md, ISSUES.md, DECISIONS.md, lint-exceptions.md) are
 created once if absent and never overwritten: they carry the record of the work.
   docs/plan/TASKS.md     human-readable task index
@@ -57,11 +60,14 @@ DENYLIST_CANDIDATE = "scripts/provenance-denylist.txt"
 
 
 def load_denylist(root: Path) -> list[str]:
+    """The deny-list's patterns. A line is a pattern, optionally followed by a tab and
+    the text the vendoring rename substitutes for it; like the scanner, this reads the
+    pattern and ignores the replacement."""
     path = root / DENYLIST_CANDIDATE
     if not path.exists():
         sys.exit(f"no provenance deny-list at {DENYLIST_CANDIDATE}")
     return [
-        line.strip()
+        line.split("\t", 1)[0].strip()
         for line in path.read_text().splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
@@ -104,6 +110,39 @@ def redact(text: str) -> str:
     out, n = _redaction_re.subn("the upstream reference named in the plan", out)
     _redaction_count += n
     return out
+
+AMENDMENTS = "docs/plan/amendments.json"
+
+
+def apply_amendments(root: Path, tasks: list[dict]) -> int:
+    """Applies docs/plan/amendments.json to the extracted tasks; returns how many.
+
+    Each amendment replaces text the extraction produced, exactly once, and records
+    which record supersedes it. Text that is not there stops the run: the plan or the
+    extraction changed under the amendment, and someone must look.
+    """
+    path = root / AMENDMENTS
+    if not path.exists():
+        return 0
+    data = json.loads(path.read_text())
+    by_id = {t["id"]: t for t in tasks}
+    applied = 0
+    for task_id, amendments in data.items():
+        if task_id.startswith("_"):
+            continue
+        task = by_id.get(task_id)
+        if task is None:
+            sys.exit(f"{AMENDMENTS}: no task {task_id}")
+        for a in amendments:
+            field, old, new = a["field"], a["from"], a["to"]
+            text = task.get(field)
+            if not isinstance(text, str) or text.count(old) != 1:
+                sys.exit(f"{AMENDMENTS}: {task_id} {field} does not contain exactly one {old!r}")
+            task[field] = text.replace(old, new)
+            task.setdefault("amended_by", []).append(a["record"])
+            applied += 1
+    return applied
+
 
 def slice_between(text: str, start: str, end: str) -> str:
     a = text.index(start)
@@ -336,6 +375,8 @@ def write_tasks_md(root: Path, tasks: list[dict], phases: dict[str, str], gates:
             if t["gate_after"]:
                 out.append(f"- **Gate** {t['gate_after']} is evaluated after this task")
             out.append(f"- **Deliverables** {t['deliverables']}")
+            if t.get("amended_by"):
+                out.append("- **Amended** from the plan's text by " + "; ".join(t["amended_by"]))
             out.append(f"- **Acceptance** {t['acceptance']}")
             if t["acceptance_tests"]:
                 out.append("- **Named tests** " + ", ".join(f"`{n}`" for n in t["acceptance_tests"]))
@@ -510,6 +551,7 @@ def main() -> None:
     plan_name = plan_path.name
 
     tasks, phases = parse_tasks(plan)
+    amended = apply_amendments(root, tasks)
     gates = parse_gates(plan)
     fan, single, whole_phases = parse_fanout(plan)
     order = execution_order(tasks)
@@ -524,7 +566,7 @@ def main() -> None:
         ("lint-exceptions.md", write_lint_exceptions_md(root)),
     ) if created]
 
-    print(f"tasks: {len(tasks)}  phases: {len(phases)}  gates: {len(gates)}")
+    print(f"tasks: {len(tasks)}  phases: {len(phases)}  gates: {len(gates)}  amendments: {amended}")
     print(f"provenance redactions applied: {_redaction_count}")
     counts: dict[str, int] = {}
     for t in tasks:

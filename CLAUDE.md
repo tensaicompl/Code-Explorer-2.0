@@ -77,6 +77,9 @@ first. In short:
   fan-out classification. Regenerate, never edit.
 - `STATUS.md`, `GATES.md`, `ISSUES.md`, `DECISIONS.md`, `../lint-exceptions.md` —
   live records. Never regenerated.
+- `amendments.json` — live: corrections the extractor applies to a task's projected
+  text where a later record supersedes the plan's wording. The way to correct
+  `TASKS.md`; never edit the derived files.
 - `PROGRESS.md` — derived roll-up: counts per phase, gate readiness, next
   actionable tasks.
 

@@ -44,15 +44,30 @@ pub enum EngineError {
     #[error("this thread already has an engine")]
     EngineAlreadyOnThread,
     /// A source handed to resolution is not the one the extraction was taken from.
-    #[error("the source of `{rel_path}` is {actual} bytes, but it was extracted from {expected}")]
+    /// Says how it differs, never what either contains.
+    #[error("the source given for `{rel_path}` is not the one it was extracted from: {difference}")]
     SourceMismatch {
         /// The file's path.
         rel_path: String,
-        /// The length of the source it was extracted from.
-        expected: u64,
-        /// The length of the source given.
-        actual: u64,
+        /// How the source given differs from the one extracted.
+        difference: SourceDifference,
     },
+}
+
+/// How a source differs from the one an extraction was taken from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, thiserror::Error)]
+pub enum SourceDifference {
+    /// The lengths differ.
+    #[error("it is {given} bytes, the extracted source {extracted}")]
+    Length {
+        /// The extracted source's length.
+        extracted: u64,
+        /// The given source's length.
+        given: u64,
+    },
+    /// The lengths agree and the bytes do not: the digests differ.
+    #[error("the same length, but different bytes")]
+    Content,
 }
 
 /// `Ok` for `PDXE_OK`, the matching error otherwise. `call` names the call that

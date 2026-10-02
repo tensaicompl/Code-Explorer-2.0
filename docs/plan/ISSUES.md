@@ -15,13 +15,14 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 28 | 2026-10-02 | P1-06 | ambiguity | open | The interface promises it writes nothing to standard output or standard error, but the TypeScript resolver prints a line to standard error when one of its work budgets runs out, whatever the logging switches say. The interface's no-output test does not see it because its fixtures never exhaust a budget | Owned by P1-06, whose corpus is where a budget runs out: silence the two prints, by patch, and extend the no-output check to the corpus |
 | 27 | 2026-10-02 | P2-04 | ambiguity | open | Isolated extraction survives a crashing engine but not a hanging one: the worker protocol bounds what crosses it and how often a worker is restarted, not how long a batch may take, and 4.5 names no failure reason for a file the engine never finishes | Owned by P2-04, which batches extraction: decide whether a batch has a time limit and how a file that exceeds it is recorded, by specification change if it needs a new reason |
 | 26 | 2026-10-02 | P2-04 | ambiguity | open | The extraction cache key in 4.5 is `(engine_version, language_matrix_version, secret_policy_digest, blob_sha)`, but an extraction also depends on the file's path, from which its qualified names and module are built, and on the node budget the environment may set (`PDX_ENGINE_WALK_MAX_NODES`), under which it can come back truncated | Owned by P2-04: the key gains the path, or an entry is used only for the path it names, which every `FileExtract` records; a truncated extraction, which says so, is not cached, or the budget joins the key |
-| 25 | 2026-10-02 | P1-05 | scr | open | Two facts the engine records about a file did not cross the interface: the exceptions each definition raises, which the `THROWS` edge of 4.2.3 is built from, and that the extractor stopped at its node budget. P1-05's `FileExtract` lists `throws`, which Appendix D.2 does not have, and omits channels and configuration reads, which it does | Appended to `pdxe_file_result`: a throw array, positionless like the type references, and a `truncated` flag. `FileExtract` carries all ten arrays of the interface. `THROWS` stays resolution's to derive, as the reference derives it in a pass that is not vendored. Implemented with tests; awaiting approval |
+| 25 | 2026-10-02 | P1-05 | scr | resolved | Two facts the engine records about a file did not cross the interface: the exceptions each definition raises, which the `THROWS` edge of 4.2.3 is built from, and that the extractor stopped at its node budget. P1-05's `FileExtract` lists `throws`, which Appendix D.2 does not have, and omits channels and configuration reads, which it does | Approved by the owner on review, 2026-10-02, as implemented: a throw array, positionless like the type references, and a `truncated` flag appended to `pdxe_file_result`; `FileExtract` carries all ten arrays of the interface; `THROWS` stays resolution's to derive |
 | 24 | 2026-09-28 | P1-04 | ambiguity | resolved | The engine had never been built for Windows. The reuse map's foundation list omits a Windows-only header the kept sources include, and the vendored sources rely on POSIX names that the reference's Windows runtime provides and Microsoft's, which Rust links against, does not | The header is vendored like the others; the missing names are supplied at the build boundary for Microsoft's runtime only; the libraries a Windows link needs are named; one Windows-only use of the unlinked allocator is put behind its switches by a patch. Found by the first Windows builds of P1-04 |
 | 23 | 2026-09-28 | P9-02 | ambiguity | open | `pdx-engine-sys` is marked publishable, but its build script builds the engine from `../../engine`, which a crate packaged on its own does not contain | Owned by P9-02: either the engine sources travel inside the packaged crate, or the crate stops being publishable. Nothing in P1 publishes a crate |
 | 22 | 2026-09-28 | P0-04 | blocker | resolved | The nightly run failed on targets that belong to later tasks: the browser suite has no browser installed and the engine differential has no script yet, while four other targets reported success without checking anything. A red nightly could not be told from a regression | Each unfinished target now says it is skipped and names the task that brings it, and succeeds. The progress check fails once that task is done while its target still skips |
-| 21 | 2026-09-28 | P1-05 | ambiguity | resolved | The cross-file pass reports success whatever happens inside it: an allocation failure yields no typed answers at all, and a file whose source cannot be supplied is skipped and counted, and its log goes to a sink that discards it. A caller cannot tell no typed answer from a degraded run | A completed run now reports its health: clean or degraded, with every file counted once by what typed resolution did with it, and the work it lost. Counted from the run's own state, which a patch has the pass record, never from its log. The safe wrapper returns the health with the answers |
+| 21 | 2026-09-28 | P1-05 | ambiguity | resolved | The cross-file pass reports success whatever happens inside it: an allocation failure yields no typed answers at all, and a file whose source cannot be supplied is skipped and counted, and its log goes to a sink that discards it. A caller cannot tell no typed answer from a degraded run | A completed run reports its health: clean or degraded, every file counted by what typed resolution did with it, and the work lost without skipping a file, which after a review audit includes every failed allocation and exhausted work budget anywhere in typed resolution, extraction included. Counted on the run's thread and kept in the run's record, never read from a log. Answers and carriers are copied whole or lost and counted |
 | 20 | 2026-09-28 | P1-03 | ambiguity | resolved | Appendix I.2 states the shim's semantics in a line each, and four of those lines differ from what the reference actually does: its store keeps one node per qualified name by a content rule, its short-name lists move a renamed node, the import edges come from its import resolver rather than from extraction's import list, and its language lookup is a table of its own, not the language matrix | The shim reproduces the reference, not the summary, and the language lookup is vendored verbatim rather than rewritten. Differential fixtures against the reference confirm it |
 | 19 | 2026-09-28 | P1-03 | scr | resolved | Part 5.1 requires `-Wall -Wextra -Werror` for the engine, with no exemption. Measured: the vendored typed-resolution layer, which the reference compiles with every warning suppressed, carries dead code and style warnings under both compilers, so a literal reading does not build | Approved 2026-09-28: warnings are errors by default; a named set of harmless classes stays non-fatal in vendored sources only; the interface layer has none; defect-class diagnostics are fatal everywhere. The exemptions first reached the interface layer through the target; now attached to vendored files only, with a test that each class still fails in `engine/api` |
 | 18 | 2026-09-28 | P1-03 | scr | resolved | The plan's premise that the cross-file surface can be cached (Part 9.5, D20, 4.5 Stage 2) does not hold for the surface the reference builds: its definition rows are computed through the project's registry and import map, so they depend on other files, and they omit what the resolver reads to resolve the file's own calls | Approved 2026-09-28 as implemented: a surface holds the file-local facts typed resolution reads and no cross-file state; unchanged files re-parse, never re-extract; cross-file state is recomputed every resolution; fresh, cached and reverse-order resolution are equivalent. Section 4.5 updated |
@@ -72,6 +73,24 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 28 — The TypeScript resolver writes to standard error
+
+The interface's header promises that nothing in it writes to standard output or
+standard error, because it runs inside a program that speaks a protocol on those
+streams; the engine's debugging prints are switched off by default and its log goes to
+a sink that discards it. The TypeScript resolver's two work budgets, for parsing type
+text and for evaluating expressions, print a line to standard error the first time
+either runs out in a file, unconditionally. `abi_no_output` checks the promise over the
+fixtures, none of which exhausts a budget, so it has never seen this.
+
+Found while auditing issue 21, which now counts the same moment as lost work; the
+print was left alone there because the output contract is a separate question.
+
+Owned by P1-06, whose corpus is where budgets run out: remove the prints by patch, and
+run the no-output check over the corpus as well as the fixtures.
+
+State: open.
+
 ### 27 — A hanging engine hangs isolated extraction
 
 `PDX_ENGINE_ISOLATE=1` runs extraction in a worker process so that an engine abort
@@ -115,6 +134,12 @@ its old path.
 
 Owned by P2-04: add the path to the key, or use an entry only for the path it names;
 and either keep truncated extractions out of the cache or add the budget to the key.
+The same holds for an extraction that lost work to a failed allocation or an exhausted
+budget (issue 21): its surface records the loss, so every run resolving it is
+degraded, but `FileExtract` has no field that says so, and whether such an extraction
+is cached, or the interface should say so as it says `truncated`, is P2-04's to
+decide. P2-04's task text now names the key of 4.5 and this issue
+(`docs/plan/amendments.json`).
 
 State: open.
 
@@ -162,7 +187,12 @@ failing.
 Tests: `abi_throws` and `abi_truncated` (engine), and the safe wrapper's extraction
 tests, which check every array arrives non-empty from sources that have each fact.
 
-State: open, implemented; the appendix change awaits approval.
+Approved by the owner on review, 2026-10-02, as implemented, including the model of
+the safe wrapper carrying every array of the extraction, that `THROWS` is derived by
+resolution rather than produced by extraction, and that Java's declared exceptions
+stay as described above.
+
+State: resolved.
 
 ### 24 — The engine had never been built for Windows
 
@@ -291,21 +321,80 @@ budget.
   it is empty; the pass stopped before reaching it; its source could not be obtained;
   it was over the node budget; it was resolved. The third, fourth and fifth are lost
   work.
-- `pass_failures`: failures that lose answers without skipping a file. The project's
-  definitions not collected is one; the pass's account and the interface's disagreeing
-  is the other, because a run is never called clean on an account that does not add
-  up.
+- `pass_failures`: work lost without skipping a file. See the audit below.
 
 A degraded run reports every answer it found. The safe wrapper returns the answers and
 the health together, and checks the health is consistent before handing it out. The
 typed-resolution fixtures now refuse a degraded run, so each of them also shows its
 run was clean.
 
+**Review closure (P1-05).** The first resolution counted only the definitions not
+collected and the two accounts disagreeing as pass failures. Review found answers that
+could still disappear inside typed resolution with the run reported clean, starting
+with the copy of each answer into the result. The whole path was audited, and the
+target is: clean means every piece of typed-resolution work that could contribute
+evidence was done, with no output silently lost; it does not mean every optimisation
+succeeded.
+
+*How losses are counted.* The vendored resolvers mostly answer a failed allocation or
+an exhausted work budget by doing less, and none of that code knows which project it
+works for. Every allocation in it goes through the engine's memory core (arenas,
+hash tables and result arrays all do) or through the C library directly. So the
+memory core counts every failed allocation (`engine/api/lost_work.h`); the direct C
+library allocations whose failure loses work go through counting versions of the same
+functions; each resolver work budget counts the first time it runs out in a file; and
+the run takes the difference between its start and its end into its own record, then
+into `pass_failures`. The engine runs a project on one thread from start to end, so
+the difference is that run's and no other's: the count is per thread, read per run,
+and the authority is the run's record, never a process-wide count or a log. Losses
+during extraction count too, because part of typed resolution happens there: each
+result keeps what its extraction lost, a file's surface carries it, and a run adds it
+for each of its files.
+
+*The audit.* Each path that produces answers, and what it now does when it fails:
+
+| Path | Failure | Can it lose or change evidence? | Handling |
+|---|---|---|---|
+| Collecting the project's definitions | allocation | yes: every file resolves against them | counted; the record says they were not collected |
+| Converting a definition | a required string (qualified name, short name, receiver) not copied | yes, and it left a definition without its identity | dropped whole, counted |
+| Converting a definition | an optional part not copied (return types, bases, parameters, decorators, namespace, trait, struct fields) | yes: fewer answers | counted, definition kept |
+| Base-class and JVM qualified names, joined lists | allocation | yes | counted |
+| Rust definitions and impl relations | allocation | yes, and an impl relation could be left half-built | relation dropped whole, counted |
+| Module definition index, its entries and their growth | allocation | yes: definitions missing from the index | counted |
+| Registry construction (per language and the project's) | allocation; a full label pool | yes | counted, registration all or nothing |
+| Definition filtering per file | allocation; it falls back to every definition in the project | yes: the full set is not the filtered set, so answers can differ | counted, not treated as a safe fallback |
+| Import maps and the values in them | allocation | yes: imports missing | counted |
+| Qualified names, import and path-alias resolution | allocation | yes | counted |
+| Language resolvers' output and internals | allocation | yes | counted at the memory core |
+| Language resolvers' work budgets (TypeScript, Python, C, Rust) | the budget runs out | yes: evaluation stops for the rest of the file | counted once per file |
+| Language resolvers' depth limits | the depth is exceeded | not as a failure: these bound recursion and end cycles, deterministically, as the reference's do | resolver semantics, not counted |
+| Copying an answer into the result | any string of it not copied | yes, and it left answers with a missing caller or target | lost whole, counted |
+| Copying a synthetic call into the result | any string or captured argument not copied | yes, and it kept carriers without their arguments | lost whole, counted |
+| Pushing an answer or a call | the array cannot grow | yes | counted at the memory core |
+| Deduplication table | allocation | yes: duplicates can change what a site resolves to | counted at the memory core |
+| Python's ambiguity marking | allocation; it marks every function ambiguous | yes: callable references lost | counted |
+| Perl's method table | allocation | yes: method calls stay unresolved | counted |
+| C's negative-lookup memo; Python's type cache; TypeScript's evaluation memo | allocation | no: the full evaluation runs | not counted |
+| Perl's child-node buffer | allocation | no: an indexed walk gives the same children | not counted |
+| The pass reading a file from disk | allocation | not on this path: sources always come from memory | not counted |
+| Per-file surface rows | allocation | no: nothing reads them; the interface no longer has them built | not built |
+| The registry's resolution caches | allocation | not on this path: never opened here | not counted |
+| The rustdoc reader; decoding stored surface rows | allocation (in the JSON library) | not on this path: nothing here calls them | not counted |
+
+Two failures were also defects, fixed with the accounting: the registry could store a
+label or a name as NULL when copying failed and dereference it later, and its suffix
+search wrote through an unchecked allocation.
+
 Tests: `abi_run_health_*` (engine) and the safe wrapper's `run_health` tests, which
 prove that a project with nothing to resolve is clean, that a run made to skip a file
-is degraded even when that leaves no answer at all, and that a degraded run keeps the
-answers it found. A file is made to be skipped by the engine's own test switch, which
-marks it exactly as the node budget would.
+is degraded even when that leaves no answer at all, that a degraded run keeps the
+answers it found, and, in `abi_run_health_answer_lost` and
+`typed_resolution_internal_failure_degrades_run`, that an answer typed resolution found
+and lost while copying it into the result degrades the run, with every other answer
+kept: eight answers clean, six with the two lost, `pass_failures` 2. A file is made to
+be skipped by the engine's own test switch, which marks it as the node budget would,
+and an answer is lost through `PDX_ENGINE_TEST_FAIL_ANSWER_ON`, a test-only switch that
+fails its copy as a failed allocation would.
 
 State: resolved.
 

@@ -56,6 +56,11 @@ typedef struct {
     int files_dispatched;        /* files it resolved, or tried to */
     int files_skipped_no_lsp;    /* files in a language it does not resolve */
     int files_skipped_no_source; /* files whose source it did not obtain, or had none */
+    /* What the whole run lost, from its start to its end, as counted on its thread
+     * (lost_work.h): allocations that failed, and work budgets that ran out. Written
+     * by the interface around the run, not by the pass. */
+    uint64_t allocations_failed;
+    uint64_t work_lost;
 } pdxe_lsp_cross_record_t;
 
 /*

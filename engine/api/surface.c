@@ -39,7 +39,8 @@
 #include "shim_internal.h"
 #include "yyjson/yyjson.h"
 
-enum { SURFACE_VERSION = 1 };
+/* 2: the surface carries what the extraction lost (the "lost" count). */
+enum { SURFACE_VERSION = 2 };
 
 /* The file's bytes, and the engine's numbers, as they are; see the comment above. */
 #define SURFACE_WRITE_FLAGS (YYJSON_WRITE_ALLOW_INVALID_UNICODE | YYJSON_WRITE_ALLOW_INF_AND_NAN)
@@ -392,8 +393,8 @@ static yyjson_mut_val *encode_fields(yyjson_mut_doc *doc, const void *item, cons
     return obj;
 }
 
-int pdxe_surface_encode(const PDXEFileResult *r, const char *rel_path, int abi_lang, uint8_t **out,
-                        size_t *out_len) {
+int pdxe_surface_encode(const PDXEFileResult *r, const char *rel_path, int abi_lang,
+                        uint32_t lost, uint8_t **out, size_t *out_len) {
     if (!r || !rel_path || !out || !out_len) {
         return PDXE_E_INVALID;
     }
@@ -408,6 +409,7 @@ int pdxe_surface_encode(const PDXEFileResult *r, const char *rel_path, int abi_l
     yyjson_mut_obj_add_int(doc, root, "v", SURFACE_VERSION);
     yyjson_mut_obj_add_strcpy(doc, root, "path", rel_path);
     yyjson_mut_obj_add_int(doc, root, "lang", abi_lang);
+    yyjson_mut_obj_add_uint(doc, root, "lost", lost);
     yyjson_mut_obj_add_val(doc, root, "file", encode_fields(doc, r, FILE_FIELDS, N(FILE_FIELDS)));
     for (size_t a = 0; a < N(ARRAYS); a++) {
         const any_array *arr = AT_CONST(r, ARRAYS[a].items_offset, any_array);
@@ -586,8 +588,8 @@ static bool decode_fields(PDXEArena *arena, yyjson_val *obj, void *item, const f
 }
 
 int pdxe_surface_decode(const uint8_t *bytes, size_t len, PDXEFileResult **out, char **rel_path,
-                        int *abi_lang) {
-    if (!bytes || !out || !rel_path || !abi_lang) {
+                        int *abi_lang, uint32_t *lost) {
+    if (!bytes || !out || !rel_path || !abi_lang || !lost) {
         return PDXE_E_INVALID;
     }
     *out = NULL;
@@ -600,13 +602,16 @@ int pdxe_surface_decode(const uint8_t *bytes, size_t len, PDXEFileResult **out, 
     yyjson_val *version = yyjson_obj_get(root, "v");
     yyjson_val *path = yyjson_obj_get(root, "path");
     yyjson_val *lang = yyjson_obj_get(root, "lang");
+    yyjson_val *lost_count = yyjson_obj_get(root, "lost");
     if (!yyjson_is_obj(root) || !yyjson_is_int(version) ||
         yyjson_get_int(version) != SURFACE_VERSION || !yyjson_is_str(path) ||
-        !yyjson_is_int(lang)) {
+        !yyjson_is_int(lang) || !yyjson_is_uint(lost_count) ||
+        yyjson_get_uint(lost_count) > UINT32_MAX) {
         yyjson_doc_free(doc);
         return PDXE_E_INVALID;
     }
     int lang_id = (int)yyjson_get_int(lang);
+    uint32_t lost_value = (uint32_t)yyjson_get_uint(lost_count); /* checked to fit above */
     PDXEFileResult *r = pdxe_result_alloc();
     char *path_copy = strdup(yyjson_get_str(path));
     if (!r || !path_copy) {
@@ -644,9 +649,10 @@ int pdxe_surface_decode(const uint8_t *bytes, size_t len, PDXEFileResult **out, 
             arr->count++;
         }
     }
-    /* The top level holds exactly the version, the path, the language, the file values
-     * and the arrays: anything else is a surface this version did not write. */
-    if (ok && yyjson_obj_size(root) != 4 + N(ARRAYS)) {
+    /* The top level holds exactly the version, the path, the language, what the
+     * extraction lost, the file values and the arrays: anything else is a surface this
+     * version did not write. */
+    if (ok && yyjson_obj_size(root) != 5 + N(ARRAYS)) {
         ok = false;
     }
     yyjson_doc_free(doc);
@@ -659,5 +665,6 @@ int pdxe_surface_decode(const uint8_t *bytes, size_t len, PDXEFileResult **out, 
     *out = r;
     *rel_path = path_copy;
     *abi_lang = lang_id;
+    *lost = lost_value;
     return PDXE_OK;
 }

@@ -14,8 +14,8 @@ use pdx_engine_sys as sys;
 use crate::error::EngineError;
 use crate::model::{
     Call, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
-    FileExtract, FileStatus, Import, LexicalFacts, ReadWrite, Span, Surface, Throw, TypeRef, Usage,
-    Visibility,
+    FileExtract, FileStatus, Import, LexicalFacts, ReadWrite, SourceDigest, Span, Surface, Throw,
+    TypeRef, Usage, Visibility,
 };
 
 /// A string the engine owns, copied, or `None` for NULL.
@@ -353,7 +353,7 @@ pub(crate) unsafe fn file_extract(
     r: &sys::pdxe_file_result,
     language: &str,
     rel_path: &str,
-    source_len: u64,
+    source: &[u8],
     surface: Surface,
 ) -> Result<FileExtract, EngineError> {
     let sys::pdxe_file_result {
@@ -398,7 +398,8 @@ pub(crate) unsafe fn file_extract(
         Ok(FileExtract {
             language: language.to_owned(),
             rel_path: rel_path.to_owned(),
-            source_len,
+            source_len: source.len() as u64,
+            source_digest: SourceDigest::of(source),
             status,
             truncated: truncated != 0,
             definitions: each(defs, n_defs, "the definitions", |d| definition(d, n_defs))?,

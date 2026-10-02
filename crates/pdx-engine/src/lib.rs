@@ -25,11 +25,11 @@ mod model;
 mod resolver;
 
 pub use engine::Engine;
-pub use error::EngineError;
+pub use error::{EngineError, SourceDifference};
 pub use model::{
     Call, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
-    FileExtract, FileStatus, Import, LexicalFacts, ReadWrite, Span, Surface, Throw, TypeRef, Usage,
-    Visibility,
+    FileExtract, FileStatus, Import, LexicalFacts, ReadWrite, SourceDigest, Span, Surface, Throw,
+    TypeRef, Usage, Visibility,
 };
 pub use resolver::{
     AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ProjectResolution,

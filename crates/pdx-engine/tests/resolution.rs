@@ -7,7 +7,7 @@ use std::path::Path;
 
 use pdx_engine::{
     Engine, EngineError, FileExtract, LexicalFacts, ProjectResolution, ProjectResolver, RunStatus,
-    Strategy,
+    SourceDifference, SourceDigest, Strategy,
 };
 
 /// Resolves a fixture from fresh extractions: each file extracted by the resolver's
@@ -141,7 +141,7 @@ fn every_strategy_round_trips_through_its_name() {
 }
 
 #[test]
-fn a_source_that_is_not_the_extractions_is_refused() {
+fn a_source_of_another_length_is_rejected() {
     let engine = Engine::new().unwrap();
     let extract = engine
         .extract("python", "a.py", b"def f():\n    return 1\n")
@@ -150,8 +150,75 @@ fn a_source_that_is_not_the_extractions_is_refused() {
     let err = resolver
         .add_file(&extract, b"def f():\n    return 12\n")
         .unwrap_err();
-    assert!(matches!(err, EngineError::SourceMismatch { .. }), "{err}");
+    assert_eq!(
+        err,
+        EngineError::SourceMismatch {
+            rel_path: "a.py".into(),
+            difference: SourceDifference::Length {
+                extracted: 22,
+                given: 23
+            },
+        }
+    );
     // The project is unusable after an error, and says why.
     assert_eq!(resolver.run().unwrap_err(), err);
     assert_eq!(engine.live_handles(), 0);
+}
+
+#[test]
+fn same_length_different_source_is_rejected() {
+    // Two sources of exactly the same length that differ in content. Resolving the
+    // first's extraction with the second's tree would mix two files' facts, so the
+    // second is refused, and refused for its content, not its length.
+    let first: &[u8] = b"def f():\n    return g()\n";
+    let second: &[u8] = b"def f():\n    return h()\n";
+    assert_eq!(first.len(), second.len());
+    assert_ne!(first, second);
+
+    let engine = Engine::new().unwrap();
+    let extract = engine.extract("python", "a.py", first).unwrap();
+    let mut resolver = ProjectResolver::new(&engine).unwrap();
+    let err = resolver.add_file(&extract, second).unwrap_err();
+    assert_eq!(
+        err,
+        EngineError::SourceMismatch {
+            rel_path: "a.py".into(),
+            difference: SourceDifference::Content,
+        }
+    );
+    let message = err.to_string();
+    assert!(message.contains("same length"), "{message}");
+    assert!(
+        !message.contains("return"),
+        "the message shows source: {message}"
+    );
+    drop(resolver);
+    assert_eq!(engine.live_handles(), 0);
+
+    // The source it was taken from is accepted.
+    let mut resolver = ProjectResolver::new(&engine).unwrap();
+    resolver.add_file(&extract, first).unwrap();
+    assert!(resolver.run().unwrap().health.is_clean());
+}
+
+#[test]
+fn the_source_digest_is_sha256_of_the_extracted_bytes() {
+    // Known vectors (FIPS 180-2): the digest is SHA-256 over exactly the bytes handed
+    // to the engine, the same in every extraction and every process.
+    assert_eq!(
+        SourceDigest::of(b"").to_string(),
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    );
+    assert_eq!(
+        SourceDigest::of(b"abc").to_string(),
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+    let engine = Engine::new().unwrap();
+    let source = b"x = 1\n";
+    let extract = engine.extract("python", "a.py", source).unwrap();
+    assert_eq!(extract.source_digest, SourceDigest::of(source));
+    assert_eq!(extract.source_len, source.len() as u64);
+    let mut resolver = ProjectResolver::new(&engine).unwrap();
+    let fresh = resolver.extract_and_add("python", "a.py", source).unwrap();
+    assert_eq!(fresh.source_digest, extract.source_digest);
 }

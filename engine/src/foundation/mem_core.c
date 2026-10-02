@@ -4,6 +4,7 @@
 #include "foundation/mem_core.h"
 #include "foundation/mem.h"
 #include "foundation/mem_events.h"
+#include "lost_work.h" /* every failed allocation is counted where it fails */
 
 /* Ownership check for blocks handed back to the core (defined with pdxe_free). */
 static void check_owned(const void *block, const char *op);
@@ -263,6 +264,7 @@ void *pdxe_alloc(pdxe_mem_class_t cls, size_t bytes) {
     void *block = PDXE_BACKING_MALLOC(bytes ? bytes : PDXE_ALLOC_ONE);
     MEMEV_ALLOCATED(block, bytes, 0);
     if (!block) {
+        pdxe_lost_allocation();
         return NULL;
     }
     class_add(cls, charge_size(block, bytes), PDXE_ALLOC_ONE);
@@ -274,6 +276,7 @@ void *pdxe_calloc(pdxe_mem_class_t cls, size_t bytes) {
     void *block = PDXE_BACKING_CALLOC(bytes ? bytes : PDXE_ALLOC_ONE);
     MEMEV_ALLOCATED(block, bytes, PDXE_MEMEV_ZEROED);
     if (!block) {
+        pdxe_lost_allocation();
         return NULL;
     }
     class_add(cls, charge_size(block, bytes), PDXE_ALLOC_ONE);
@@ -294,6 +297,7 @@ void *pdxe_realloc(pdxe_mem_class_t cls, void *block, size_t bytes) {
     PDXE_MEMEV_BACKING(-1);
     MEMEV_REALLOCATED(block, next, bytes);
     if (!next) {
+        pdxe_lost_allocation();
         return NULL; /* original intact and still charged - correct */
     }
     class_sub(cls, old, 0);

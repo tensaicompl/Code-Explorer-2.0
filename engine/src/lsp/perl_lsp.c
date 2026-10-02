@@ -1478,7 +1478,7 @@ static void perl_mvec_push(PerlMethodVec *mv, const char *pkg, const char *short
         return;
     if (mv->cnt == mv->cap) {
         int ncap = mv->cap ? mv->cap * 2 : 32;
-        PerlMethodEnt *nv = (PerlMethodEnt *)realloc(mv->v, (size_t)ncap * sizeof(PerlMethodEnt));
+        PerlMethodEnt *nv = (PerlMethodEnt *)pdxe_counted_realloc(mv->v, (size_t)ncap * sizeof(PerlMethodEnt));
         if (!nv) {
             mv->oom = true;
             return;

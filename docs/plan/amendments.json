@@ -1,0 +1,25 @@
+{
+  "_about": [
+    "Corrections to the projection of the plan into tasks.json and TASKS.md, applied by",
+    "scripts/plan/extract-plan.py after it extracts each task. The plan document is",
+    "external and unchanged; where a later record (a specification change, a decision,",
+    "or the normative specification itself) supersedes what a task's text says, the",
+    "projection says what is now true, and names the record. Each amendment replaces",
+    "text the extraction produces exactly; the generator fails if that text is gone,",
+    "so an amendment cannot outlive what it corrects. Live file: edited, not generated."
+  ],
+  "P2-04": [
+    {
+      "field": "deliverables",
+      "from": "keyed by `(engine_version, language_matrix_version, blob_sha)`",
+      "to": "keyed by `(engine_version, language_matrix_version, secret_policy_digest, blob_sha)` as specification 4.5 requires (the extraction also depends on the file's path and the node budget: issue 26, which P2-04 resolves before the key is final)",
+      "record": "specification 4.5; issue 26"
+    },
+    {
+      "field": "deliverables",
+      "from": "`bincode`-serialised `FileExtract`",
+      "to": "postcard-serialised `FileExtract`",
+      "record": "decision 19"
+    }
+  ]
+}

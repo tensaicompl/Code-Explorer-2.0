@@ -382,11 +382,46 @@ pub(crate) mod serde_bytes_compat {
     }
 }
 
+/// The SHA-256 digest of the exact bytes handed to the engine to extract.
+///
+/// It identifies the source an extraction was taken from, so the extraction is only
+/// ever resolved with that source. It is a digest of whatever the caller extracted,
+/// after any normalisation the caller applied, and nothing else: it is not a version
+/// control identity of the file, which is computed differently and over different
+/// bytes.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct SourceDigest([u8; 32]);
+
+impl SourceDigest {
+    /// The digest of `bytes`.
+    pub fn of(bytes: &[u8]) -> Self {
+        use sha2::Digest as _;
+        Self(sha2::Sha256::digest(bytes).into())
+    }
+
+    /// The digest's bytes.
+    pub fn as_bytes(&self) -> &[u8; 32] {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for SourceDigest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.iter().try_for_each(|b| write!(f, "{b:02x}"))
+    }
+}
+
+impl std::fmt::Debug for SourceDigest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SourceDigest({self})")
+    }
+}
+
 /// Everything extraction found in one file, and its resolution surface.
 ///
-/// Self-contained: it names the file and language it was taken for and the length of
-/// the source, so it can be cached, sent between processes, and later resolved with
-/// the same source, without the engine that produced it.
+/// Self-contained: it names the file and language it was taken for and identifies the
+/// source by length and digest, so it can be cached, sent between processes, and later
+/// resolved with that same source, and no other, without the engine that produced it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileExtract {
     /// The language it was extracted as, by the language matrix's identifier.
@@ -396,6 +431,8 @@ pub struct FileExtract {
     pub rel_path: String,
     /// The length of the source in bytes.
     pub source_len: u64,
+    /// The digest of the source: of exactly the bytes extracted.
+    pub source_digest: SourceDigest,
     /// How far parsing got.
     pub status: FileStatus,
     /// The extractor stopped walking the file at its node budget: what it found up to

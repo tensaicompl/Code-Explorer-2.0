@@ -292,6 +292,14 @@ if(PDXE_BUILD_TESTS)
     ENVIRONMENT PDX_ENGINE_TEST_LSP_SKIP_ON=calls.py)
   set_tests_properties(abi_run_health_degraded_keeps_answers PROPERTIES
     ENVIRONMENT PDX_ENGINE_TEST_LSP_SKIP_ON=app/service.py)
+  # An answer typed resolution found, lost to a failed allocation while it is copied
+  # into the result: both files are still resolved, the others' answers remain, and
+  # the run is degraded by the loss alone.
+  add_test(NAME abi_run_health_answer_lost
+    COMMAND abi_run_health degraded some ${PDXE_CALLS} files_resolved=2 pass_failures=2 --
+            app/models.py app/service.py)
+  set_tests_properties(abi_run_health_answer_lost PROPERTIES
+    ENVIRONMENT PDX_ENGINE_TEST_FAIL_ANSWER_ON=make_user)
 
   # The warning exemptions reach vendored sources and never the interface layer.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)

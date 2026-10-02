@@ -10,8 +10,8 @@ use pdx_engine_sys as sys;
 
 use crate::convert;
 use crate::engine::{Engine, RawResult, c_string, language_id};
-use crate::error::{EngineError, check};
-use crate::model::{Call, FileExtract, Span, Visibility};
+use crate::error::{EngineError, SourceDifference, check};
+use crate::model::{Call, FileExtract, SourceDigest, Span, Visibility};
 
 /// How a resolution was reached, in the interface's normalised vocabulary.
 ///
@@ -286,13 +286,14 @@ impl<'e> ProjectResolver<'e> {
     /// Adds a file from its extraction, which may have come from a cache or another
     /// process: the extraction's surface is what the file is resolved through, so the
     /// file is never extracted again. `source` is the file's source, which resolution
-    /// parses again for the tree it walks; it must be the source the extraction was
-    /// taken from.
+    /// parses again for the tree it walks; it must be exactly the bytes the extraction
+    /// was taken from, and is checked against the extraction's length and digest.
     ///
     /// # Errors
     ///
-    /// A source of another length than the extraction's, and the engine's refusals,
-    /// such as a path added twice. After an error the project cannot run.
+    /// [`EngineError::SourceMismatch`] for any other source, even of the same length,
+    /// and the engine's refusals, such as a path added twice. After an error the
+    /// project cannot run.
     pub fn add_file(&mut self, extract: &FileExtract, source: &[u8]) -> Result<(), EngineError> {
         let result = self.add_file_inner(extract, source);
         self.note(result)
@@ -377,11 +378,20 @@ impl<'e> ProjectResolver<'e> {
     }
 
     fn add_file_inner(&mut self, extract: &FileExtract, source: &[u8]) -> Result<(), EngineError> {
-        if source.len() as u64 != extract.source_len {
+        let difference = if source.len() as u64 != extract.source_len {
+            Some(SourceDifference::Length {
+                extracted: extract.source_len,
+                given: source.len() as u64,
+            })
+        } else if SourceDigest::of(source) != extract.source_digest {
+            Some(SourceDifference::Content)
+        } else {
+            None
+        };
+        if let Some(difference) = difference {
             return Err(EngineError::SourceMismatch {
                 rel_path: extract.rel_path.clone(),
-                expected: extract.source_len,
-                actual: source.len() as u64,
+                difference,
             });
         }
         let lang = language_id(&extract.language)
@@ -408,7 +418,7 @@ impl<'e> ProjectResolver<'e> {
         let raw = self.engine.extract_raw(language, rel_path, source)?;
         // The surface is exported before the project resolves through the result,
         // which the interface requires.
-        let extract = raw.to_extract(language, rel_path, source.len())?;
+        let extract = raw.to_extract(language, rel_path, source)?;
         let lang = language_id(language)
             .ok_or_else(|| EngineError::UnknownLanguage(language.to_owned()))?;
         self.add(lang, language, rel_path, source, raw)?;

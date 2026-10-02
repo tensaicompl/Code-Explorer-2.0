@@ -86,7 +86,7 @@ impl Engine {
         source: &[u8],
     ) -> Result<FileExtract, EngineError> {
         let result = self.extract_raw(language, rel_path, source)?;
-        result.to_extract(language, rel_path, source.len())
+        result.to_extract(language, rel_path, source)
     }
 
     /// Engine objects currently alive on behalf of this engine: extraction results and
@@ -202,24 +202,17 @@ impl<'e> RawResult<'e> {
         Ok(Surface::new(copy))
     }
 
-    /// The whole result, surface included, as an owned extraction.
+    /// The whole result, surface included, as an owned extraction. `source` is the
+    /// exact bytes the result was extracted from, which the extraction is identified by.
     pub(crate) fn to_extract(
         &self,
         language: &str,
         rel_path: &str,
-        source_len: usize,
+        source: &[u8],
     ) -> Result<FileExtract, EngineError> {
         let surface = self.surface(rel_path)?;
         // SAFETY: the result is alive until self is dropped, after this returns.
-        unsafe {
-            convert::file_extract(
-                self.ptr.as_ref(),
-                language,
-                rel_path,
-                source_len as u64,
-                surface,
-            )
-        }
+        unsafe { convert::file_extract(self.ptr.as_ref(), language, rel_path, source, surface) }
     }
 }
 

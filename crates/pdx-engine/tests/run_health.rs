@@ -3,10 +3,13 @@
 //!
 //! No answer is never evidence of a clean run on its own: a project with nothing to
 //! resolve is clean, a project whose resolution was made to skip a file is degraded
-//! even when that leaves no answer at all, and a degraded run still reports the answers
-//! it found. A file is made to be skipped by the engine's own test switch, which marks
-//! the file named in `PDX_ENGINE_TEST_LSP_SKIP_ON` exactly as its node budget would;
-//! those tests run in a child process, so the switch reaches no other test.
+//! even when that leaves no answer at all, a degraded run still reports the answers it
+//! found, and an answer lost inside typed resolution degrades the run too. A file is
+//! made to be skipped by the engine's own test switch, which marks the file named in
+//! `PDX_ENGINE_TEST_LSP_SKIP_ON` exactly as its node budget would; an answer is lost by
+//! `PDX_ENGINE_TEST_FAIL_ANSWER_ON`, which fails its copy into the result as a failed
+//! allocation would. Those tests run in a child process, so a switch reaches no other
+//! test.
 
 mod common;
 
@@ -15,6 +18,7 @@ use std::path::Path;
 use pdx_engine::{Engine, ProjectResolution, ProjectResolver, RunHealth, RunStatus};
 
 const SKIP: &str = "PDX_ENGINE_TEST_LSP_SKIP_ON";
+const FAIL_ANSWER: &str = "PDX_ENGINE_TEST_FAIL_ANSWER_ON";
 
 /// Resolves the named files of a fixture, fresh and from their extractions as a cache
 /// would hold them, and checks the two runs agree, health included.
@@ -116,6 +120,57 @@ fn a_degraded_run_keeps_the_answers_it_found() {
         run.resolutions
             .iter()
             .all(|r| r.site_ref.rel_path == "app/models.py"),
+        "{:?}",
+        run.resolutions
+    );
+}
+
+/// The two-file cross-file fixture, resolved fresh and from cached extractions.
+fn cross_file_run() -> ProjectResolution {
+    resolve(
+        &common::fixtures().join("resolve/python_cross_file_calls"),
+        &["app/models.py", "app/service.py"],
+    )
+}
+
+#[test]
+fn the_cross_file_fixture_is_clean_and_answers_make_user() {
+    // The control for the test below: without the fault, the run is clean and
+    // includes the answers the fault removes.
+    let run = cross_file_run();
+    assert_eq!(run.health.status, RunStatus::Clean);
+    assert_eq!(run.health.pass_failures, 0);
+    assert_eq!(run.resolutions.len(), 8);
+    assert_eq!(
+        run.resolutions
+            .iter()
+            .filter(|r| r.target_qn.contains("make_user"))
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn typed_resolution_internal_failure_degrades_run() {
+    if common::rerun_in_child(
+        "typed_resolution_internal_failure_degrades_run",
+        &[(FAIL_ANSWER, "make_user")],
+    ) {
+        return;
+    }
+    // Typed resolution finds both answers to make_user, and both are lost while they
+    // are copied into the result. The run still completes and resolves both files, but
+    // it cannot claim to be clean, and the answers it did not lose remain.
+    let run = cross_file_run();
+    let h = run.health;
+    assert_eq!(h.status, RunStatus::Degraded);
+    assert!(h.pass_failures > 0, "{h:?}");
+    assert_eq!(h.files_resolved, 2);
+    assert_eq!(run.resolutions.len(), 6, "{:?}", run.resolutions);
+    assert!(
+        run.resolutions
+            .iter()
+            .all(|r| !r.target_qn.contains("make_user")),
         "{:?}",
         run.resolutions
     );

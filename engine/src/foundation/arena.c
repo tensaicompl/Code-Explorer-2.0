@@ -13,6 +13,7 @@
 #include "foundation/constants.h"
 #include "foundation/mem_core.h"
 #include "foundation/mem_events.h"
+#include "lost_work.h" /* a refused allocation is counted where it is refused */
 
 enum { ARENA_ALIGN = 7, ARENA_GROW_OK = 1 };
 #include <stdlib.h>
@@ -119,6 +120,7 @@ static int arena_grow(PDXEArena *a, size_t min_size) {
         a->nblocks = a->cur + SKIP_ONE;
     }
     if (a->nblocks >= PDXE_ARENA_MAX_BLOCKS) {
+        pdxe_lost_allocation(); /* refused as surely as a failed allocation */
         return 0;
     }
     size_t new_size = a->grow_size;

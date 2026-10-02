@@ -4635,8 +4635,13 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
         return;
     /* Pathological-input guard: bail out once we've spent too many
      * eval steps on this file. Prevents hangs on adversarial input. */
-    if (ctx->eval_step_count > PDXE_RUST_EVAL_STEP_CAP)
+    if (ctx->eval_step_count > PDXE_RUST_EVAL_STEP_CAP) {
+        if (ctx->eval_step_count == PDXE_RUST_EVAL_STEP_CAP + 1) {
+            ctx->eval_step_count++; /* counted once per file */
+            pdxe_lost_work();
+        }
         return;
+    }
     ctx->eval_step_count++;
     const char *kind = ts_node_type(node);
 

@@ -27,6 +27,7 @@
 #include "pipeline/lsp_resolve.h"
 #include "pipeline/pass_lsp_cross.h"
 #include "pipeline/pipeline_internal.h"
+#include "lost_work.h"
 #include "shim_internal.h"
 
 /* --- versions and the project sentinel -------------------------------------- */
@@ -346,6 +347,10 @@ typedef struct {
     bool in_project;
     /* The interface language it was extracted as; 0 for a result rebuilt from a cache. */
     int lang;
+    /* What extraction lost on this file: failed allocations and work budgets run out
+     * (lost_work.h). Typed resolution happens partly during extraction, and its
+     * answers are reported by a run, so a run counts this as its own loss. */
+    uint32_t lost;
 } result_holder;
 
 static void holder_free(result_holder *h) {
@@ -734,8 +739,10 @@ int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8
         free(source);
         return PDXE_E_NOMEM;
     }
+    pdxe_losses_t before = pdxe_losses();
     PDXEFileResult *engine = pdxe_engine_extract_file(source, (int)len, (PDXELanguage)engine_lang,
                                                       PROJECT_SENTINEL, path, 0, NULL, NULL);
+    pdxe_losses_t after = pdxe_losses();
     free(source);
     if (!engine) {
         line_index_free(&li);
@@ -756,6 +763,8 @@ int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8
         return PDXE_E_NOMEM;
     }
     h->lang = lang;
+    uint64_t lost = (after.allocations - before.allocations) + (after.work - before.work);
+    h->lost = lost > UINT32_MAX ? UINT32_MAX : (uint32_t)lost;
     return PDXE_OK;
 }
 
@@ -942,6 +951,8 @@ typedef struct {
     /* Whether the resolver asked for the file's source, and whether it was given it. */
     bool source_asked;
     bool source_served;
+    /* What extraction lost on the file before it reached the project. */
+    uint32_t extraction_lost;
 } file_state;
 
 struct pdxe_project {
@@ -957,7 +968,6 @@ struct pdxe_project {
 
     pdxe_gbuf_t *gbuf;
     pdxe_registry_t *registry;
-    struct pdxe_pipeline *pipeline;
     PDXEHashTable *pkgmap;
     pdxe_path_alias_collection_t *aliases;
     /* The root crate manifest, in the engine's own shape, when one was supplied. */
@@ -978,6 +988,7 @@ struct pdxe_project {
     PDXEFileResult **surfaces;
     char **surface_paths;
     int *surface_langs;
+    uint32_t *surface_lost;
     int n_surfaces;
     int cap_surfaces;
 
@@ -1028,8 +1039,7 @@ int pdxe_resolve_project_begin(pdxe_ctx *ctx, pdxe_project **out) {
     p->ctx = ctx;
     p->gbuf = pdxe_gbuf_new();
     p->registry = pdxe_registry_new();
-    p->pipeline = pdxe_pipeline_new();
-    if (!p->gbuf || !p->registry || !p->pipeline) {
+    if (!p->gbuf || !p->registry) {
         pdxe_resolve_project_end(p);
         return PDXE_E_NOMEM;
     }
@@ -1136,6 +1146,7 @@ int pdxe_resolve_project_add_file(pdxe_project *p, int lang, const char *rel_pat
     if (st.source == FROM_CALLER) {
         st.borrowed = holder;
         holder->in_project = true;
+        st.extraction_lost = holder->lost;
     }
 
     int i = p->n_files++;
@@ -1168,7 +1179,7 @@ int pdxe_surface_export(const pdxe_file_result *r, const char *rel_path, uint8_t
     if (!h || !rel_path || !out || !out_len || !h->engine || h->in_project) {
         return PDXE_E_INVALID;
     }
-    return pdxe_surface_encode(h->engine, rel_path, h->lang, out, out_len);
+    return pdxe_surface_encode(h->engine, rel_path, h->lang, h->lost, out, out_len);
 }
 
 void pdxe_surface_free(uint8_t *bytes) {
@@ -1182,7 +1193,8 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
     PDXEFileResult *r = NULL;
     char *path = NULL;
     int lang = 0;
-    int rc = pdxe_surface_decode(bytes, len, &r, &path, &lang);
+    uint32_t lost = 0;
+    int rc = pdxe_surface_decode(bytes, len, &r, &path, &lang, &lost);
     if (rc != PDXE_OK) {
         return rc;
     }
@@ -1207,7 +1219,11 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
         if (ls) {
             p->surface_langs = ls;
         }
-        if (!rs || !ps || !ls) {
+        uint32_t *lo = (uint32_t *)realloc(p->surface_lost, (size_t)cap * sizeof(*lo));
+        if (lo) {
+            p->surface_lost = lo;
+        }
+        if (!rs || !ps || !ls || !lo) {
             pdxe_free_result(r);
             free(path);
             return PDXE_E_NOMEM;
@@ -1217,6 +1233,7 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
     p->surfaces[p->n_surfaces] = r;
     p->surface_paths[p->n_surfaces] = path;
     p->surface_langs[p->n_surfaces] = lang;
+    p->surface_lost[p->n_surfaces] = lost;
     p->n_surfaces++;
     return PDXE_OK;
 }
@@ -1247,6 +1264,7 @@ static int materialise_results(pdxe_project *p) {
                 p->cache[i] = p->surfaces[found];
                 p->surfaces[found] = NULL;
                 st->source = FROM_SURFACE;
+                st->extraction_lost = p->surface_lost[found];
             } else if (st->source == EXTRACT_HERE) {
                 p->cache[i] = pdxe_engine_extract_file(p->sources[i], p->source_lens[i],
                                                        p->files[i].language, PROJECT_SENTINEL,
@@ -1890,6 +1908,13 @@ static void compute_health(pdxe_project *p) {
             asked_and_served++;
         }
     }
+    /* Work lost to failed allocations and exhausted budgets: during the run, and on
+     * each file's extraction, where part of its typed resolution happened. */
+    uint64_t lost = rec->allocations_failed + rec->work_lost;
+    for (int i = 0; i < p->n_files; i++) {
+        lost += p->state[i].extraction_lost;
+    }
+    h->pass_failures = lost > UINT32_MAX ? UINT32_MAX : (uint32_t)lost;
     if (rec->completed) {
         if (has_definitions && !rec->definitions_collected) {
             h->pass_failures++;
@@ -1903,9 +1928,9 @@ static void compute_health(pdxe_project *p) {
             h->pass_failures++;
         }
     }
-    bool lost = h->files_not_reached || h->files_source_unavailable || h->files_over_budget ||
-                h->pass_failures;
-    h->status = lost ? PDXE_RUN_DEGRADED : PDXE_RUN_CLEAN;
+    bool degraded = h->files_not_reached || h->files_source_unavailable ||
+                    h->files_over_budget || h->pass_failures;
+    h->status = degraded ? PDXE_RUN_DEGRADED : PDXE_RUN_CLEAN;
 }
 
 int pdxe_resolve_project_run(pdxe_project *p) {
@@ -1913,13 +1938,19 @@ int pdxe_resolve_project_run(pdxe_project *p) {
         return PDXE_E_INVALID;
     }
     p->ran = true;
+    /* Everything the run loses is counted on this thread while it runs (lost_work.h);
+     * the run is this thread's only work until it returns. */
+    pdxe_losses_t before = pdxe_losses();
 
     memset(&p->pctx, 0, sizeof(p->pctx));
     p->pctx.project_name = PROJECT_SENTINEL;
     p->pctx.repo_path = NULL; /* no repository on disk; nothing is read from one */
     p->pctx.gbuf = p->gbuf;
     p->pctx.registry = p->registry;
-    p->pctx.pipeline = (pdxe_pipeline_t *)p->pipeline;
+    /* No pipeline: the pass gives one only the per-file surface rows the reference
+     * persists for its incremental builds, which this project never reads, so they are
+     * not built at all. */
+    p->pctx.pipeline = NULL;
     p->pctx.result_cache = p->cache;
     p->pctx.path_aliases = p->aliases;
 
@@ -1942,6 +1973,9 @@ int pdxe_resolve_project_run(pdxe_project *p) {
         rc = collect_results(p);
     }
     if (rc == PDXE_OK) {
+        pdxe_losses_t after = pdxe_losses();
+        p->pctx.lsp_cross.allocations_failed = after.allocations - before.allocations;
+        p->pctx.lsp_cross.work_lost = after.work - before.work;
         compute_health(p);
         p->health_known = true;
     }
@@ -2024,6 +2058,7 @@ void pdxe_resolve_project_end(pdxe_project *p) {
     free(p->surfaces);
     free(p->surface_paths);
     free(p->surface_langs);
+    free(p->surface_lost);
     free(p->results);
     if (p->pkgmap) {
         pdxe_ht_free(p->pkgmap);
@@ -2033,7 +2068,6 @@ void pdxe_resolve_project_end(pdxe_project *p) {
     if (p->registry) {
         pdxe_registry_free(p->registry);
     }
-    pdxe_pipeline_free(p->pipeline);
     string_list_free(&p->owned);
     free(p);
 }

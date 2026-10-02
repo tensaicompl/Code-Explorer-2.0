@@ -11,6 +11,7 @@
 #include "foundation/constants.h"
 #include "foundation/hash_table.h"
 #include "foundation/str_util.h"
+#include "lost_work.h" /* allocations whose failure loses work are counted */
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,9 +47,9 @@ enum {
 static char *path_dirname(const char *rel_path) {
     const char *last = strrchr(rel_path, '/');
     if (!last) {
-        return strdup("");
+        return pdxe_counted_strdup("");
     }
-    return pdxe_strndup(rel_path, (size_t)(last - rel_path));
+    return pdxe_counted_strndup(rel_path, (size_t)(last - rel_path));
 }
 
 /* Check if a string ends with a suffix. */
@@ -64,7 +65,7 @@ static bool ends_with(const char *s, const char *suffix) {
 /* Try slash-based prefix matching (Go: github.com/foo/bar/pkg/utils).
  * Returns heap QN or NULL. */
 static char *resolve_slash_prefix(PDXEHashTable *map, const char *module_path) {
-    char *buf = strdup(module_path);
+    char *buf = pdxe_counted_strdup(module_path);
     if (!buf) {
         return NULL;
     }
@@ -87,7 +88,7 @@ static char *resolve_slash_prefix(PDXEHashTable *map, const char *module_path) {
             }
         }
         free(buf);
-        return strdup(result);
+        return pdxe_counted_strdup(result);
     }
     free(buf);
     return NULL;
@@ -97,7 +98,7 @@ static char *resolve_slash_prefix(PDXEHashTable *map, const char *module_path) {
  * Returns heap QN or NULL. */
 static char *resolve_dot_prefix(PDXEHashTable *map, const char *module_path,
                                 const char *project_name) {
-    char *buf = strdup(module_path);
+    char *buf = pdxe_counted_strdup(module_path);
     if (!buf) {
         return NULL;
     }
@@ -131,7 +132,7 @@ static char *resolve_dot_prefix(PDXEHashTable *map, const char *module_path,
  * Returns heap QN or NULL. */
 static char *resolve_backslash_prefix(PDXEHashTable *map, const char *module_path,
                                       const char *project_name) {
-    char *buf = strdup(module_path);
+    char *buf = pdxe_counted_strdup(module_path);
     if (!buf) {
         return NULL;
     }
@@ -203,7 +204,7 @@ char *pdxe_pipeline_resolve_module(const pdxe_pipeline_ctx_t *ctx, const char *s
     /* 3. Exact lookup */
     const char *mapped_qn = (const char *)pdxe_ht_get(pkgmap, module_path);
     if (mapped_qn) {
-        return strdup(mapped_qn);
+        return pdxe_counted_strdup(mapped_qn);
     }
 
     /* 4. Prefix matching by separator type */
@@ -551,7 +552,7 @@ static const pdxe_gbuf_node_t *resolve_sibling_file(const pdxe_pipeline_ctx_t *c
     {
         const char *slash = strrchr(base, '/');
         const char *bn = slash ? slash + 1 : base;
-        char *dpart = slash ? pdxe_strndup(base, (size_t)(slash - base)) : strdup("");
+        char *dpart = slash ? pdxe_counted_strndup(base, (size_t)(slash - base)) : pdxe_counted_strdup("");
         if (dpart && bn[0] != '_') {
             snprintf(cands[ncand++], PKGMAP_PATH_BUF, "%s%s%s%s_%s.scss", dir, dir[0] ? "/" : "",
                      dpart[0] ? dpart : "", dpart[0] ? "/" : "", bn);
@@ -934,7 +935,7 @@ PDXEHashTable *pdxe_pipeline_namespace_map_build_names(const char *project_name,
         /* Normalize the namespace key to dot-separated form so it matches the
          * dot-normalized lookups in pdxe_pipeline_resolve_import_node (PHP uses
          * '\\', some grammars '::' or '/'). */
-        char *key = strdup(namespace_name);
+        char *key = pdxe_counted_strdup(namespace_name);
         if (!key) {
             free(file_qn);
             continue;
@@ -960,7 +961,7 @@ PDXEHashTable *pdxe_pipeline_namespace_map_build_names(const char *project_name,
             char *combined = NULL;
             if (stored_key && cur) {
                 size_t need = strlen(cur) + 1 + strlen(file_qn) + 1;
-                combined = malloc(need);
+                combined = pdxe_counted_malloc(need);
                 if (combined) {
                     snprintf(combined, need, "%s\n%s", cur, file_qn);
                     void *prev = pdxe_ht_set(map, stored_key, combined);

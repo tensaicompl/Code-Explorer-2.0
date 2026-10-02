@@ -34,6 +34,7 @@
 #include "foundation/log.h"
 #include "foundation/compat_fs.h"
 #include "foundation/compat.h" /* PDXE_TLS */
+#include "lost_work.h" /* what a run loses is counted where it is lost */
 
 #include <stdio.h>
 #include <stdint.h>
@@ -423,6 +424,13 @@ static int pxc_build_lsp_def(PDXEArena *arena, const PDXEDefinition *src, const 
     /* Copies, not borrows: a result may be parked on disk (spill mode) the
      * moment the collector is done with it; the def list outlives it. */
     dst->short_name = pdxe_arena_strdup(arena, src->name);
+    /* A definition without its identity is not a definition: one whose name or
+     * receiver could not be copied is dropped whole, never kept half-built. The
+     * failed copy is counted where it failed (lost_work.h). */
+    if (!dst->qualified_name || !dst->short_name ||
+        (src->parent_class && !dst->receiver_type)) {
+        return -1;
+    }
     dst->label = label;
     dst->def_module_qn = module_qn;
     dst->namespace_name = namespace_name ? pdxe_arena_strdup(arena, namespace_name) : NULL;
@@ -557,13 +565,17 @@ static int pxc_build_rust_impl_relation(PDXEArena *arena, const PDXEImplTrait *i
         return -1;
     }
     const char *receiver_qn = pdxe_arena_strdup(arena, impl->struct_qn);
+    const char *trait_qn = pdxe_arena_strdup(arena, impl->trait_name);
+    if (!receiver_qn || !trait_qn) {
+        return -1; /* never half a relation; the failed copy is counted */
+    }
     memset(dst, 0, sizeof(*dst));
     dst->qualified_name = receiver_qn;
     dst->short_name = pxc_qn_leaf(receiver_qn);
     dst->label = "RustImpl";
     dst->receiver_type = receiver_qn;
     dst->def_module_qn = module_qn;
-    dst->trait_qn = pdxe_arena_strdup(arena, impl->trait_name); /* raw; canonicalized later */
+    dst->trait_qn = trait_qn; /* raw; canonicalized later */
     dst->lang = PDXE_LANG_RUST;
     dst->is_rust_impl_relation = true;
     return 0;
@@ -599,7 +611,7 @@ PDXELSPDef *pdxe_pxc_collect_all_defs(const pdxe_pipeline_ctx_t *ctx, PDXEArena 
         }
         return NULL;
     }
-    PDXELSPDef *defs = (PDXELSPDef *)calloc((size_t)total, sizeof(PDXELSPDef));
+    PDXELSPDef *defs = (PDXELSPDef *)pdxe_counted_calloc((size_t)total, sizeof(PDXELSPDef));
     if (!defs) {
         *out_count = 0;
         if (out_def_starts) {
@@ -724,7 +736,7 @@ static char *pxc_kotlin_import_from_metadata(const PDXEFileResult *result, const
      * package-qualified (target.actual), not path/project-qualified. The
      * resolver still requires a registered function/type before emitting an
      * exact semantic relationship. */
-    return strdup(path);
+    return pdxe_counted_strdup(path);
 }
 
 /* IMPORTS edges correctly target dependency modules, but Python from-imports
@@ -740,7 +752,7 @@ static char *pxc_import_value_qn(PDXELanguage lang, const PDXEFileResult *result
     if (lang == PDXE_LANG_KOTLIN)
         return pxc_kotlin_import_from_metadata(result, local_name);
     if (lang != PDXE_LANG_PYTHON)
-        return strdup(target->qualified_name);
+        return pdxe_counted_strdup(target->qualified_name);
 
     bool ambiguous = false;
     const char *path = pxc_unique_import_path(result, local_name, &ambiguous);
@@ -751,11 +763,11 @@ static char *pxc_import_value_qn(PDXELanguage lang, const PDXEFileResult *result
     if (!path || !source_leaf || !target_leaf || strcmp(source_leaf, local_name) != 0 ||
         strcmp(source_leaf, target_leaf) == 0 || !target->label ||
         (strcmp(target->label, "Module") != 0 && strcmp(target->label, "Folder") != 0)) {
-        return strdup(target->qualified_name);
+        return pdxe_counted_strdup(target->qualified_name);
     }
 
     size_t need = strlen(target->qualified_name) + 1 + strlen(source_leaf) + 1;
-    char *qualified = (char *)malloc(need);
+    char *qualified = (char *)pdxe_counted_malloc(need);
     if (!qualified)
         return NULL;
     snprintf(qualified, need, "%s.%s", target->qualified_name, source_leaf);
@@ -789,12 +801,12 @@ static char *pxc_python_import_from_metadata(const pdxe_gbuf_t *gbuf, const char
     const pdxe_gbuf_node_t *exact =
         pdxe_pipeline_lsp_target_node(gbuf, project_name, module_path, false);
     if (exact && exact->qualified_name)
-        return strdup(exact->qualified_name);
+        return pdxe_counted_strdup(exact->qualified_name);
 
     const char *last_dot = strrchr(module_path, '.');
     if (last_dot && last_dot > module_path) {
         size_t module_len = (size_t)(last_dot - module_path);
-        char *module = (char *)malloc(module_len + 1);
+        char *module = (char *)pdxe_counted_malloc(module_len + 1);
         if (!module)
             return NULL;
         memcpy(module, module_path, module_len);
@@ -806,7 +818,7 @@ static char *pxc_python_import_from_metadata(const pdxe_gbuf_t *gbuf, const char
             (strcmp(module_node->label, "Module") == 0 ||
              strcmp(module_node->label, "Folder") == 0)) {
             size_t need = strlen(module_node->qualified_name) + 1 + strlen(source_leaf) + 1;
-            char *qualified = (char *)malloc(need);
+            char *qualified = (char *)pdxe_counted_malloc(need);
             if (!qualified)
                 return NULL;
             snprintf(qualified, need, "%s.%s", module_node->qualified_name, source_leaf);
@@ -815,9 +827,9 @@ static char *pxc_python_import_from_metadata(const pdxe_gbuf_t *gbuf, const char
     }
 
     if (!project_name || !project_name[0])
-        return strdup(module_path);
+        return pdxe_counted_strdup(module_path);
     size_t need = strlen(project_name) + 1 + strlen(module_path) + 1;
-    char *qualified = (char *)malloc(need);
+    char *qualified = (char *)pdxe_counted_malloc(need);
     if (!qualified)
         return NULL;
     snprintf(qualified, need, "%s.%s", project_name, module_path);
@@ -851,8 +863,8 @@ int pdxe_pxc_build_import_map(const pdxe_gbuf_t *gbuf, const char *project_name,
         return 0;
 
     size_t capacity = (size_t)edge_count + (size_t)metadata_count;
-    const char **keys = (const char **)calloc(capacity, sizeof(const char *));
-    const char **vals = (const char **)calloc(capacity, sizeof(const char *));
+    const char **keys = (const char **)pdxe_counted_calloc(capacity, sizeof(const char *));
+    const char **vals = (const char **)pdxe_counted_calloc(capacity, sizeof(const char *));
     if (!keys || !vals) {
         free(keys);
         free(vals);
@@ -872,7 +884,7 @@ int pdxe_pxc_build_import_map(const pdxe_gbuf_t *gbuf, const char *project_name,
         if (!end || end <= start)
             continue;
         size_t n = (size_t)(end - start);
-        char *local = (char *)malloc(n + 1);
+        char *local = (char *)pdxe_counted_malloc(n + 1);
         if (!local)
             continue;
         memcpy(local, start, n);
@@ -907,7 +919,7 @@ int pdxe_pxc_build_import_map(const pdxe_gbuf_t *gbuf, const char *project_name,
                 : pxc_python_import_from_metadata(gbuf, project_name, imp->local_name, path);
         if (!value)
             continue;
-        char *local = strdup(imp->local_name);
+        char *local = pdxe_counted_strdup(imp->local_name);
         if (!local) {
             free(value);
             continue;
@@ -1041,6 +1053,84 @@ void pdxe_pxc_thread_scratch_end(void) {
     tl_pxc_keep = false;
 }
 
+/* One string of an answer or a call carrier, copied into the result's arena. A
+ * string the source does not have is not copied; one it has and that cannot be
+ * copied fails the copy, and the failed allocation is counted where it failed. */
+static bool pxc_copy_field(PDXEArena *arena, const char *src, const char **out) {
+    if (!src) {
+        *out = NULL;
+        return true;
+    }
+    *out = pdxe_arena_strdup(arena, src);
+    return *out != NULL;
+}
+
+#ifdef PDXE_ENABLE_TEST_SEAMS
+/* Test builds only: the copy of every answer whose target contains the text in
+ * PDX_ENGINE_TEST_FAIL_ANSWER_ON fails as an allocation failing there would, counted
+ * as one, so a test can show that a lost answer degrades the run. */
+static bool pxc_test_fail_answer(const char *callee_qn) {
+    const char *on = getenv("PDX_ENGINE_TEST_FAIL_ANSWER_ON");
+    if (on && on[0] && callee_qn && strstr(callee_qn, on)) {
+        pdxe_lost_allocation();
+        return true;
+    }
+    return false;
+}
+#endif
+
+/* A copy of one resolved call, whole or not at all: its caller and target, and its
+ * strategy and reason when it has them. A partial copy would be a malformed answer,
+ * so on any failure nothing is written and the answer is lost; the failure is
+ * counted where it happened, which is what makes the run report it. */
+static bool pxc_copy_resolved(PDXEArena *arena, const PDXEResolvedCall *src,
+                              PDXEResolvedCall *dst) {
+#ifdef PDXE_ENABLE_TEST_SEAMS
+    if (pxc_test_fail_answer(src->callee_qn)) {
+        return false;
+    }
+#endif
+    PDXEResolvedCall copy = *src;
+    if (!pxc_copy_field(arena, src->caller_qn, &copy.caller_qn) || !copy.caller_qn ||
+        !pxc_copy_field(arena, src->callee_qn, &copy.callee_qn) || !copy.callee_qn ||
+        !pxc_copy_field(arena, src->strategy, &copy.strategy) ||
+        !pxc_copy_field(arena, src->reason, &copy.reason)) {
+        return false;
+    }
+    *dst = copy;
+    return true;
+}
+
+/* A copy of one call carrier, whole or not at all: callee, enclosing function, the
+ * argument texts it has, and each captured argument. An argument the resolver
+ * captured is part of what the carrier says, so a carrier missing one is not kept. */
+static bool pxc_copy_call(PDXEArena *arena, const PDXECall *src, PDXECall *dst) {
+    PDXECall copy = *src;
+    if (!pxc_copy_field(arena, src->callee_name, &copy.callee_name) ||
+        !pxc_copy_field(arena, src->enclosing_func_qn, &copy.enclosing_func_qn) ||
+        !pxc_copy_field(arena, src->first_string_arg, &copy.first_string_arg) ||
+        !pxc_copy_field(arena, src->second_arg_name, &copy.second_arg_name)) {
+        return false;
+    }
+    copy.args = NULL;
+    if (src->args && src->arg_count > 0) {
+        copy.args = pdxe_arena_calloc(arena, (size_t)src->arg_count * sizeof(PDXECallArg));
+        if (!copy.args) {
+            return false;
+        }
+        for (int ai = 0; ai < src->arg_count; ai++) {
+            copy.args[ai].index = src->args[ai].index;
+            if (!pxc_copy_field(arena, src->args[ai].expr, &copy.args[ai].expr) ||
+                !pxc_copy_field(arena, src->args[ai].value, &copy.args[ai].value) ||
+                !pxc_copy_field(arena, src->args[ai].keyword, &copy.args[ai].keyword)) {
+                return false;
+            }
+        }
+    }
+    *dst = copy;
+    return true;
+}
+
 /* Append cross-file results from `src_out` (allocated in a scratch arena
  * about to be destroyed) into `dst_calls` (lives in cache_entry->arena),
  * copying every string field into dst_arena. A manifest-qualified Rust
@@ -1089,15 +1179,9 @@ static void pxc_append_results(PDXEArena *dst_arena, PDXEResolvedCallArray *dst_
                 strcmp(dst->caller_qn, src->caller_qn) != 0) {
                 continue;
             }
-            dst->caller_qn = pdxe_arena_strdup(dst_arena, src->caller_qn);
-            dst->callee_qn = pdxe_arena_strdup(dst_arena, src->callee_qn);
-            dst->strategy = pdxe_arena_strdup(dst_arena, src->strategy);
-            dst->confidence = src->confidence;
-            dst->reason = src->reason ? pdxe_arena_strdup(dst_arena, src->reason) : NULL;
-            dst->kind = src->kind;
-            dst->site_start_byte = src->site_start_byte;
-            dst->site_end_byte = src->site_end_byte;
-            dst->source_origin = src->source_origin;
+            /* Superseded whole or not at all; a failed copy leaves the earlier
+             * record as it was, and the loss is counted. */
+            (void)pxc_copy_resolved(dst_arena, src, dst);
         }
     }
 
@@ -1129,28 +1213,14 @@ static void pxc_append_results(PDXEArena *dst_arena, PDXEResolvedCallArray *dst_
         if (prior) {
             PDXEResolvedCall *dst = &dst_calls->items[(int)(uintptr_t)prior - 1];
             if (src->confidence > dst->confidence) {
-                dst->caller_qn = pdxe_arena_strdup(dst_arena, src->caller_qn);
-                dst->callee_qn = pdxe_arena_strdup(dst_arena, src->callee_qn);
-                dst->strategy = src->strategy ? pdxe_arena_strdup(dst_arena, src->strategy) : NULL;
-                dst->confidence = src->confidence;
-                dst->reason = src->reason ? pdxe_arena_strdup(dst_arena, src->reason) : NULL;
-                dst->kind = src->kind;
-                dst->site_start_byte = src->site_start_byte;
-                dst->site_end_byte = src->site_end_byte;
-                dst->source_origin = src->source_origin;
+                (void)pxc_copy_resolved(dst_arena, src, dst);
             }
             continue;
         }
         PDXEResolvedCall dst = {0};
-        dst.caller_qn = pdxe_arena_strdup(dst_arena, src->caller_qn);
-        dst.callee_qn = pdxe_arena_strdup(dst_arena, src->callee_qn);
-        dst.strategy = src->strategy ? pdxe_arena_strdup(dst_arena, src->strategy) : NULL;
-        dst.confidence = src->confidence;
-        dst.reason = src->reason ? pdxe_arena_strdup(dst_arena, src->reason) : NULL;
-        dst.kind = src->kind;
-        dst.site_start_byte = src->site_start_byte;
-        dst.site_end_byte = src->site_end_byte;
-        dst.source_origin = src->source_origin;
+        if (!pxc_copy_resolved(dst_arena, src, &dst)) {
+            continue; /* lost, and counted where it was lost */
+        }
         pdxe_resolvedcall_push(dst_calls, dst_arena, dst);
         if (k) {
             pdxe_ht_set(seen, k, (void *)(uintptr_t)dst_calls->count);
@@ -1202,28 +1272,9 @@ static void pxc_append_synthetic_calls(PDXEArena *dst_arena, PDXECallArray *dst_
         if (key && pdxe_ht_get(seen, key))
             continue;
 
-        PDXECall dst = *src;
-        dst.callee_name = pdxe_arena_strdup(dst_arena, src->callee_name);
-        dst.enclosing_func_qn = pdxe_arena_strdup(dst_arena, src->enclosing_func_qn);
-        dst.first_string_arg =
-            src->first_string_arg ? pdxe_arena_strdup(dst_arena, src->first_string_arg) : NULL;
-        dst.second_arg_name =
-            src->second_arg_name ? pdxe_arena_strdup(dst_arena, src->second_arg_name) : NULL;
-        dst.args = NULL;
-        if (src->args && src->arg_count > 0) {
-            dst.args = pdxe_arena_calloc(dst_arena, (size_t)src->arg_count * sizeof(PDXECallArg));
-            if (!dst.args) {
-                dst.arg_count = 0;
-            }
-        }
-        for (int ai = 0; dst.args && ai < src->arg_count; ai++) {
-            dst.args[ai].index = src->args[ai].index;
-            dst.args[ai].expr =
-                src->args[ai].expr ? pdxe_arena_strdup(dst_arena, src->args[ai].expr) : NULL;
-            dst.args[ai].value =
-                src->args[ai].value ? pdxe_arena_strdup(dst_arena, src->args[ai].value) : NULL;
-            dst.args[ai].keyword =
-                src->args[ai].keyword ? pdxe_arena_strdup(dst_arena, src->args[ai].keyword) : NULL;
+        PDXECall dst;
+        if (!pxc_copy_call(dst_arena, src, &dst)) {
+            continue; /* lost, and counted where it was lost */
         }
         pdxe_calls_push(dst_calls, dst_arena, dst);
         if (key)
@@ -1666,7 +1717,7 @@ int pdxe_pipeline_pass_lsp_cross(pdxe_pipeline_ctx_t *ctx, const pdxe_file_info_
 
     /* Per-file module QN cache so we don't recompute it once per def + once
      * per call. pdxe_pipeline_fqn_module mallocs; freed at end. */
-    char **def_modules = (char **)calloc((size_t)file_count, sizeof(char *));
+    char **def_modules = (char **)pdxe_counted_calloc((size_t)file_count, sizeof(char *));
     if (!def_modules) {
         pdxe_log_error("pass.err", "pass", "lsp_cross", "phase", "alloc");
         return 0;
@@ -1833,12 +1884,12 @@ static pxc_module_entry_t *pxc_module_entry_get_or_create(PDXEHashTable *ht, con
     if (e) {
         return e;
     }
-    e = (pxc_module_entry_t *)calloc(1, sizeof(*e));
+    e = (pxc_module_entry_t *)pdxe_counted_calloc(1, sizeof(*e));
     if (!e) {
         return NULL;
     }
     e->cap = 8;
-    e->indices = (int *)calloc((size_t)e->cap, sizeof(*e->indices));
+    e->indices = (int *)pdxe_counted_calloc((size_t)e->cap, sizeof(*e->indices));
     if (!e->indices) {
         free(e);
         return NULL;
@@ -1853,7 +1904,7 @@ static void pxc_module_entry_add_index(pxc_module_entry_t *e, int index) {
     }
     if (e->count >= e->cap) {
         int new_cap = e->cap * 2;
-        int *new_indices = (int *)realloc(e->indices, (size_t)new_cap * sizeof(*new_indices));
+        int *new_indices = (int *)pdxe_counted_realloc(e->indices, (size_t)new_cap * sizeof(*new_indices));
         if (!new_indices) {
             return;
         }
@@ -1929,7 +1980,7 @@ static void pxc_mark_import_defs(const PDXEModuleDefIndex *idx, bool *selected,
     if (!idx || !idx->ht || !import_qn || !import_qn[0]) {
         return;
     }
-    char *candidate = strdup(import_qn);
+    char *candidate = pdxe_counted_strdup(import_qn);
     if (!candidate) {
         return;
     }
@@ -2001,7 +2052,7 @@ PDXEModuleDefIndex *pdxe_pxc_build_module_def_index(PDXELSPDef *all_defs, int de
             i);
     }
 
-    PDXEModuleDefIndex *idx = (PDXEModuleDefIndex *)calloc(1, sizeof(*idx));
+    PDXEModuleDefIndex *idx = (PDXEModuleDefIndex *)pdxe_counted_calloc(1, sizeof(*idx));
     if (!idx) {
         pdxe_ht_foreach(ht, pxc_module_entry_free_cb, NULL);
         pdxe_ht_free(ht);
@@ -2044,7 +2095,7 @@ PDXELSPDef *pdxe_pxc_filter_defs_for_file(const PDXEModuleDefIndex *idx, PDXELSP
         return NULL;
     }
 
-    bool *selected = (bool *)calloc((size_t)idx->def_count, sizeof(*selected));
+    bool *selected = (bool *)pdxe_counted_calloc((size_t)idx->def_count, sizeof(*selected));
     if (!selected) {
         return NULL;
     }
@@ -2066,7 +2117,7 @@ PDXELSPDef *pdxe_pxc_filter_defs_for_file(const PDXEModuleDefIndex *idx, PDXELSP
         return NULL;
     }
 
-    PDXELSPDef *out = (PDXELSPDef *)malloc((size_t)total * sizeof(PDXELSPDef));
+    PDXELSPDef *out = (PDXELSPDef *)pdxe_counted_malloc((size_t)total * sizeof(PDXELSPDef));
     if (!out) {
         free(selected);
         return NULL;

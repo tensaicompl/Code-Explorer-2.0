@@ -182,15 +182,16 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
     PDXEFileResult *decoded = NULL;
     char *decoded_path = NULL;
     int decoded_lang = 0;
-    if (surface &&
-        pdxe_surface_decode(surface, surface_len, &decoded, &decoded_path, &decoded_lang) ==
-            PDXE_OK) {
+    uint32_t decoded_lost = UINT32_MAX;
+    if (surface && pdxe_surface_decode(surface, surface_len, &decoded, &decoded_path,
+                                       &decoded_lang, &decoded_lost) == PDXE_OK) {
         CHECK(strcmp(decoded_path, path) == 0 && decoded_lang == lang,
               "%s: surface names another file", path);
+        CHECK(decoded_lost == 0, "%s: extraction lost work on a fixture", path);
         uint8_t *again = NULL;
         size_t again_len = 0;
-        CHECK(pdxe_surface_encode(decoded, decoded_path, decoded_lang, &again, &again_len) ==
-                      PDXE_OK &&
+        CHECK(pdxe_surface_encode(decoded, decoded_path, decoded_lang, decoded_lost, &again,
+                                  &again_len) == PDXE_OK &&
                   again_len == surface_len && memcmp(again, surface, surface_len) == 0,
               "%s: the surface does not survive decoding", path);
         free(again);
@@ -340,7 +341,9 @@ static void expect_refused(const char *what, const char *bytes) {
     PDXEFileResult *r = NULL;
     char *path = NULL;
     int lang = 0;
-    int rc = bytes ? pdxe_surface_decode((const uint8_t *)bytes, strlen(bytes), &r, &path, &lang)
+    uint32_t lost = 0;
+    int rc = bytes ? pdxe_surface_decode((const uint8_t *)bytes, strlen(bytes), &r, &path, &lang,
+                                         &lost)
                    : PDXE_E_INVALID;
     CHECK(bytes && rc == PDXE_E_INVALID && !r && !path, "a surface %s was accepted", what);
     if (r) {
@@ -371,7 +374,11 @@ static void check_refusals(pdxe_ctx *ctx) {
     free(truncated);
 
     char *m;
-    expect_refused("of another version", m = replace(good, "\"v\":1", "\"v\":2"));
+    expect_refused("of another version", m = replace(good, "\"v\":2", "\"v\":1"));
+    free(m);
+    expect_refused("without what extraction lost", m = replace(good, "\"lost\":0,", ""));
+    free(m);
+    expect_refused("with a negative loss", m = replace(good, "\"lost\":0", "\"lost\":-1"));
     free(m);
     expect_refused("without a field", m = replace(good, "\"lsp_skipped\":false,", ""));
     free(m);
@@ -381,7 +388,7 @@ static void check_refusals(pdxe_ctx *ctx) {
     expect_refused("with a field of the wrong type",
                    m = replace(good, "\"lsp_skipped\":false", "\"lsp_skipped\":0"));
     free(m);
-    expect_refused("with an extra top-level key", m = replace(good, "\"v\":1", "\"v\":1,\"x\":0"));
+    expect_refused("with an extra top-level key", m = replace(good, "\"v\":2", "\"v\":2,\"x\":0"));
     free(m);
     expect_refused("whose count disagrees with its array",
                    m = replace(good, "\"signature_param_count\":1", "\"signature_param_count\":2"));

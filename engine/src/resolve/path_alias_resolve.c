@@ -8,6 +8,7 @@
 
 #include "pipeline/path_alias.h"
 #include "pipeline/pipeline_internal.h"
+#include "lost_work.h" /* allocations whose failure loses work are counted */
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -59,7 +60,7 @@ char *pdxe_path_alias_resolve(const pdxe_path_alias_map_t *map, const char *modu
             const char *wild_start = module_path + prefix_len;
             size_t tp_len = strlen(e->target_prefix);
             size_t ts_len = strlen(e->target_suffix);
-            char *result = malloc(tp_len + wild_len + ts_len + 1);
+            char *result = pdxe_counted_malloc(tp_len + wild_len + ts_len + 1);
             if (!result) {
                 return NULL;
             }
@@ -71,7 +72,7 @@ char *pdxe_path_alias_resolve(const pdxe_path_alias_map_t *map, const char *modu
         }
 
         if (strcmp(module_path, e->alias_prefix) == 0) {
-            return strip_resolved_ext(strdup(e->target_prefix));
+            return strip_resolved_ext(pdxe_counted_strdup(e->target_prefix));
         }
     }
 
@@ -82,7 +83,7 @@ char *pdxe_path_alias_resolve(const pdxe_path_alias_map_t *map, const char *modu
         strchr(module_path, '/') != NULL) {
         size_t bu_len = strlen(map->base_url);
         size_t need = bu_len + 1 + mod_len + 1;
-        char *result = malloc(need);
+        char *result = pdxe_counted_malloc(need);
         if (!result) {
             return NULL;
         }

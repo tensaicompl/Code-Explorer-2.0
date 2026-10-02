@@ -495,12 +495,16 @@ enum pdxe_run_status {
  *                             resolution skips such a file
  *   files_resolved            typed resolution ran on it
  *
- * so the six add up to `files`. `pass_failures` counts failures inside typed
- * resolution that lose answers without skipping a file; today the one such failure is
- * being unable to collect the project's definitions, which every file resolves
- * against. Each of the counts from files_not_reached to pass_failures is work lost:
- * any of them above zero makes the run degraded. All of them are counted from the
- * run's own state, never from its log.
+ * so the six add up to `files`. `pass_failures` counts work typed resolution lost
+ * without skipping a file: every allocation that failed, wherever in the run it failed,
+ * and every per-file work budget a resolver ran out of, each of which leaves answers
+ * unfound; the same, counted during the extraction of each file, since part of typed
+ * resolution happens there; the project's definitions not collected; and the pass's
+ * account of its files disagreeing with the interface's. An allocation that fails
+ * where it only costs time, or where the complete answer is reached another way, is
+ * not counted. Each of the counts from files_not_reached to pass_failures is work
+ * lost: any of them above zero makes the run degraded. All of them are counted from
+ * the run's own state, never from its log.
  *
  * Appended by a specification change; see docs/plan/ISSUES.md, issue 21.
  */
