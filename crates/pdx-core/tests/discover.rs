@@ -420,7 +420,8 @@ fn languages_come_from_names_content_and_configuration() {
         .write("bin/deploy", "#!/usr/bin/env bash\necho deploy\n")
         .write("views/index.blade.php", "<?php echo 1;\n")
         .write("ui/widget.component.rs", "x")
-        .write("ui/widget.COMPONENT.rs", "x")
+        // Another directory: on a case-insensitive filesystem the two names are one file.
+        .write("ui/upper/widget.COMPONENT.rs", "x")
         .write("ui/Widget.tsx", "export const W = () => null;\n")
         .write(
             "pdx.toml",
@@ -447,7 +448,7 @@ fn languages_come_from_names_content_and_configuration() {
         "the longer configured suffix wins"
     );
     assert_eq!(
-        language("ui/widget.COMPONENT.rs"),
+        language("ui/upper/widget.COMPONENT.rs"),
         Some("rust"),
         "suffixes match case-sensitively"
     );

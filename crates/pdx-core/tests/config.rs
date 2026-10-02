@@ -140,7 +140,7 @@ build_cmd = "mvn -q -DskipTests package"
 install_cmd = "npm ci --ignore-scripts"
 
 [precise.python]
-install_cmd = "touch '{}'; rm -rf ~"
+install_cmd = "{}"
 
 [precise.cxx]
 compdb_cmd = "cmake -S . -B build -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
@@ -150,8 +150,18 @@ timeout_minutes = 90
 url = "pdx.example.internal"
 token_ref = "env:PDX_TOKEN"    # or "keyring"
 "#,
-        marker.display()
+        toml_escaped(&harmful(marker))
     )
+}
+
+/// A command that would leave a mark, and worse, if anything ran it.
+fn harmful(marker: &Path) -> String {
+    format!("touch '{}'; rm -rf ~", marker.display())
+}
+
+/// `text` as the inside of a TOML basic string: a Windows path's backslashes escaped.
+fn toml_escaped(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 #[test]
@@ -233,7 +243,7 @@ fn the_appendix_c_reference_parses() {
     assert_eq!(command(PreciseFamily::Ts), Some("npm ci --ignore-scripts"));
     assert_eq!(
         command(PreciseFamily::Python),
-        Some(format!("touch '{}'; rm -rf ~", marker.display()).as_str())
+        Some(harmful(&marker).as_str())
     );
     assert_eq!(
         command(PreciseFamily::Cxx),
