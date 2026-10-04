@@ -5,9 +5,10 @@ The graph model, the indexing pipeline, resolution, segments and layout.
 Open. Apache-2.0; see `LICENSE` at the repository root.
 
 The graph model's vocabulary, identities and rows exist, and so do segments, the
-files that store them, a repository's configuration, content secret normalisation and
-the pipeline's first two stages, discovery and extraction; the later stages arrive
-with the tasks that implement them. What exists is below.
+files that store them, a repository's configuration, content secret normalisation,
+the pipeline's first two stages, discovery and extraction, and the symbol registry
+Stage 3 reads; the later stages arrive with the tasks that implement them. What exists
+is below.
 
 ## Public API
 
@@ -163,6 +164,28 @@ Only clean extractions are stored, and none while an engine extraction switch is
 extraction of the source now normalised. The budget bounds the source buffers held at
 once; what the engine allocates while extracting is not bounded by it.
 
+### `resolve::registry`
+
+The symbol registry (4.5 Stage 3): built once by `SymbolRegistry::build(root,
+&discovered, report)` from Stage 1's files and Stage 2's report, then read-only. It
+resolves no call and assigns no band.
+
+| Item | |
+|---|---|
+| `DefinitionRef`, `ImportRef` | A file's path and an index in its extraction: the registry's identity for definitions and imports. No graph id |
+| `by_name`, `by_qualified_name`, `by_file`, `definition`, `extract` | Definitions by short name, exact qualified name and file, in (path, index) order; a qualified name shared by overloads keeps every definition. Names keep their case |
+| `ModuleKey`, `modules_of_file`, `module_of_file`, `module_of_definition`, `files_in_module`, `definitions_in_module`, `paired_file` | Modules by the matrix's rule, from evidence only: declared namespace (Java, Kotlin, C#, PHP), C++ namespaces and Ruby nesting per definition, Python dotted paths from `__init__.py` packages, `go.mod` module paths, the crate layout under each `Cargo.toml`, directories, files, Ada unit names. None where evidence is missing (Perl, Scala, Groovy, protobuf). C headers paired with sources by basename |
+| `ImportRecord`, `ImportTarget`, `InternalTarget`, `imports_of`, `import` | One record per extracted import with its raw text, the local names it binds and its target: `Internal`, `InternalCandidates`, `External`, `UnresolvedInternal`, `Unclassified`. A relative import is never external |
+| `NameProvenance`, `name_provenance`, `is_external_name`, `external_names` | A name is external only when every import binding it leads outside the repository and the file does not define it |
+| `BaseRelation`, `BaseResolution`, `direct_bases`, `direct_derived`, `ancestors`, `declaring_type` | Hierarchy from `Definition::base_classes`: exact qualified name, same module, import binding, unique name, in that order; ambiguity kept; external only by import. Ancestors breadth-first, cycle-safe |
+| `resolution_metadata` | Go modules, packages from `package.json`, declared packages, `tsconfig.json` alias scopes and the root crate manifest, as `pdx_engine::ResolutionMetadata`: the same the registry resolves with |
+| `RegistryError` | Stages that disagree, a definition index or parent an extraction does not have, metadata that cannot be read or parsed, or has changed since Stage 2 |
+
+Metadata files are read only if discovery found them candidates, through `prepare_source`
+(checked against Stage 2's blob and digest) or `prepare_candidate`, normalised; a
+redacted file is never opened. `tsconfig.json` may hold comments and trailing commas,
+and `extends` is followed within the repository.
+
 ### `languages`
 
 The language matrix of the specification's Appendix A: the 31 languages PDX indexes,
@@ -212,6 +235,7 @@ cargo test -p pdx-core
 | `discover` | `discover_honours_gitignore` (every exclusion source, their independence, hard excludes, `vendor`, `.ignore` and hidden files); `discover_skips_symlinks` (file, directory, outside the root, a loop); `discover_marks_binary_and_large` (the limit inclusive, the file over it never read, NUL is binary, non-UTF-8 is not); secret paths redacted unread; unknown languages kept; configured and header languages; sorted relative paths; root and ignore-file refusals |
 | `secrets` | `secret_policy_digest_fixed_vector` and `detector_version_enters_secret_policy_digest` against vectors computed outside the crate; every detector's matches and what it keeps; what is not a credential left alone; non-UTF-8; `secret_detector_overlap_is_order_independent` over all 120 orders; `secret_normalisation_preserves_offsets` as a property |
 | `extract` | `cache_hit_skips_engine`, `blob_sha_matches_git` (against `git hash-object` and fixed vectors), `memory_budget_batches`, `secret_policy_change_invalidates_cache`; the key's path and language; `cache_object_id_fixed_vector`; independence of the checkout's location; the node budget and every other extraction switch bypassing the cache; truncated, lossy and unclean entries; wrong digests, corruption and atomic private writes; failures, crashes and timeouts; files carried forward unopened; a changed checkout; order under any workers and batches; `secrets_do_not_reach_engine_or_cache` |
+| `registry` | `registry_<lang>` for every typed language (a test holds the list to the matrix), each through discovery, extraction and the registry; `external_detection_python_stdlib`; duplicates and case kept; input order irrelevant; every module rule; imports internal, external, unresolved and ambiguous; Python packages and relative imports, tsconfig aliases and `extends`, Go modules nested, Rust path dependencies and the standard crates, C pairing; hierarchy transitive, cycle-safe, ambiguity unforced; fresh and cached extractions the same registry; the engine resolving with the registry's metadata to the registry's files; refusals of disagreeing stages, malformed extractions, bad and changed metadata; redacted and symlinked metadata never read |
 | `config` | `pdx_toml_defaults` field by field; the Appendix C reference with all four rule forms and every precise family, commands never run; global and family timeouts; the `[languages] extra` rules; every refusal, each naming the file and key |
 | `consts` | Every constant is documented, and the interface's mirror is real |
 

@@ -59,7 +59,7 @@ pub const PDXE_VIS_PUBLIC: pdxe_visibility = 1;
 pub const PDXE_VIS_NON_PUBLIC: pdxe_visibility = 2;
 #[doc = " Visibility of a definition, as the source declares it."]
 pub type pdxe_visibility = u32;
-#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope."]
+#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope.\n\n `base_classes` are the classes, interfaces and traits the definition names as its\n bases, exactly as the engine recorded them: in its order, spelling and case,\n unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 40."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_definition {
@@ -78,10 +78,12 @@ pub struct pdxe_definition {
     pub cyclomatic: u32,
     pub cognitive: u32,
     pub loop_depth: u32,
+    pub base_classes: *mut *const ::std::os::raw::c_char,
+    pub n_base_classes: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 120usize];
+    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 136usize];
     ["Alignment of pdxe_definition"][::std::mem::align_of::<pdxe_definition>() - 8usize];
     ["Offset of field: pdxe_definition::name"]
         [::std::mem::offset_of!(pdxe_definition, name) - 0usize];
@@ -113,6 +115,10 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_definition, cognitive) - 108usize];
     ["Offset of field: pdxe_definition::loop_depth"]
         [::std::mem::offset_of!(pdxe_definition, loop_depth) - 112usize];
+    ["Offset of field: pdxe_definition::base_classes"]
+        [::std::mem::offset_of!(pdxe_definition, base_classes) - 120usize];
+    ["Offset of field: pdxe_definition::n_base_classes"]
+        [::std::mem::offset_of!(pdxe_definition, n_base_classes) - 128usize];
 };
 impl Default for pdxe_definition {
     fn default() -> Self {
@@ -414,10 +420,12 @@ pub struct pdxe_file_result {
     pub truncated: u8,
     #[doc = " Work extraction lost on the file: allocations that failed and work budgets that\n ran out while it was extracted (api/lost_work.h). 0 when nothing was lost. It is\n the count the file's resolution surface carries, which a project resolving the\n file counts as its own loss. A result rebuilt from a cache has 0. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 26."]
     pub extraction_lost: u32,
+    #[doc = " The package or namespace the file declares, exactly as written in its first\n declaration, or NULL when it declares none. Of the language matrix's languages,\n the engine reads it for Java and Kotlin (`package`), C# (`namespace`, block or\n file-scoped) and PHP (`namespace`), and it is NULL for every other, whatever the\n source says. A result rebuilt from a cache has none. Appended by a specification\n change; see docs/plan/ISSUES.md, issue 41."]
+    pub declared_namespace: *const ::std::os::raw::c_char,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 176usize];
+    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 184usize];
     ["Alignment of pdxe_file_result"][::std::mem::align_of::<pdxe_file_result>() - 8usize];
     ["Offset of field: pdxe_file_result::status"]
         [::std::mem::offset_of!(pdxe_file_result, status) - 0usize];
@@ -465,6 +473,8 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_file_result, truncated) - 164usize];
     ["Offset of field: pdxe_file_result::extraction_lost"]
         [::std::mem::offset_of!(pdxe_file_result, extraction_lost) - 168usize];
+    ["Offset of field: pdxe_file_result::declared_namespace"]
+        [::std::mem::offset_of!(pdxe_file_result, declared_namespace) - 176usize];
 };
 impl Default for pdxe_file_result {
     fn default() -> Self {
@@ -489,7 +499,7 @@ unsafe extern "C" {
     pub fn pdxe_result_free(ctx: *mut pdxe_ctx, r: *mut pdxe_file_result);
 }
 unsafe extern "C" {
-    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface."]
+    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface. A definition's base\n classes are copied with it, array and strings; a definition with bases and no array,\n or with a NULL base, is refused. It declares no namespace."]
     pub fn pdxe_result_build(
         ctx: *mut pdxe_ctx,
         defs: *const pdxe_definition,

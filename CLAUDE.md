@@ -14,22 +14,23 @@ P0 and P1 are done and gates G0 and G1a have passed; P2 has begun with the graph
 model (`pdx_core::ids`, `bands`, `kinds`, `model`), the segment file
 (`pdx_core::segment`), the repository configuration (`pdx_core::config`), Stage 1,
 discovery (`pdx_core::index::discover`), and Stage 2, extraction with its cache
-(`pdx_core::index::extract`) and content secret normalisation (`pdx_core::secrets`).
-P1 vendored the engine, built it, gave it its interface, bound it to Rust
-(`pdx-engine-sys`), and wrapped it safely (`pdx-engine`: owned extractions, typed
-resolution with run health, crash-isolated extraction), built and tested on Linux,
-macOS and Windows, and run nightly under the address, undefined-behaviour and leak
-sanitizers over a committed corpus; it also transcribed the language matrix
-(`pdx_core::languages`). The previous implementation is in `legacy/`, read-only
-until the retirement task removes it. There is no whole pipeline (`build_segment`)
-and no product behaviour yet.
+(`pdx_core::index::extract`) and content secret normalisation (`pdx_core::secrets`),
+and the symbol registry Stage 3 reads (`pdx_core::resolve::registry`). P1 vendored
+the engine, built it, gave it its interface, bound it to Rust (`pdx-engine-sys`),
+and wrapped it safely (`pdx-engine`: owned extractions, typed resolution with run
+health, crash-isolated extraction), built and tested on Linux, macOS and Windows,
+and run nightly under the address, undefined-behaviour and leak sanitizers over a
+committed corpus; it also transcribed the language matrix (`pdx_core::languages`).
+The previous implementation is in `legacy/`, read-only until the retirement task
+removes it. There is no whole pipeline (`build_segment`) and no product behaviour
+yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`) and the pipeline's stages as they arrive (`index`: discover, extract); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract) and resolution (`resolve`: the symbol registry); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`) |
@@ -45,6 +46,15 @@ make check-full   # adds accuracy, determinism, sanitizers, browser suites; the 
 make check-asan   # the engine's tests and the sanitizer corpus (bench/corpus) under the
                   # address, undefined-behaviour and leak sanitizers; `make asan` is the same
 ```
+
+On a machine with little memory (a WSL VM capped at 10 GB goes down whole when one
+process takes about 9 GB), run builds and tests in a capped scope, so a runaway is the
+only thing killed: `systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=0
+make check`, with `CARGO_BUILD_JOBS=6` and `RUST_TEST_THREADS=4`. A graph walk without
+a visited set (P2-05's hierarchy, before its fix) exhausts memory in seconds. `make
+engine` passes `-j` with no number, which under the Makefile generator is unlimited:
+build the engine first with `cmake --build target/engine -j 6` and the target finds
+nothing left to do. `make check` itself peaks near 500 MB this way.
 
 The language matrix is `pdx_core::languages`, transcribed from the plan's Appendix A:
 31 languages, each with its tier, extensions, shebangs, module rule and test rule.
@@ -83,6 +93,17 @@ no cache is used; a hit must be this source's exact extraction (issue 26). An is
 worker that times out fails the build and is never recorded as `engine_crash` (issue
 27). Test secrets are synthetic and assembled at run time: never write a
 credential-shaped literal into the tree.
+
+The symbol registry is read-only once built and owns no graph identity: definitions
+are `(path, index)`. Modules come from the matrix's rule and evidence only (a declared
+namespace, C++'s qualified names, `__init__.py` packages, `go.mod`, the crate layout),
+never a directory guess; a missing fact is `None`. An import is external only by the
+language's rules, a relative one never is, and a name is external only when every
+import binding it is; ambiguity is kept, never resolved by order. Metadata files are
+read only as Stage 2 reads candidates, never a redacted one, and the engine gets the
+registry's own metadata. Engine facts it lacks are issues 42 (Rust traits) and 43
+(aliases applied to every language), both P2-06's. The extraction cache is format 2
+and the worker protocol 3 (issues 40 and 41).
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

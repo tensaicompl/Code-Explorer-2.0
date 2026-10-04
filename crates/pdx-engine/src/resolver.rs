@@ -477,6 +477,8 @@ impl<'e> ProjectResolver<'e> {
                     cyclomatic: d.cyclomatic,
                     cognitive: d.cognitive,
                     loop_depth: d.loop_depth,
+                    base_classes: strings.array(&d.base_classes)?,
+                    n_base_classes: count(d.base_classes.len())?,
                 })
             })
             .collect::<Result<Vec<_>, EngineError>>()?;
@@ -757,15 +759,31 @@ fn run_health(h: sys::pdxe_run_health) -> Result<RunHealth, EngineError> {
     })
 }
 
-/// C strings kept alive while the engine reads them.
+/// C strings, and arrays of them, kept alive while the engine reads them.
 #[derive(Default)]
-struct Strings(Vec<CString>);
+struct Strings(Vec<CString>, Vec<Vec<*const c_char>>);
 
 impl Strings {
     fn required(&mut self, s: &str) -> Result<*const c_char, EngineError> {
         let c = c_string(s, "a string")?;
         let p = c.as_ptr();
         self.0.push(c);
+        Ok(p)
+    }
+
+    /// An array of these strings, or NULL when there are none, as the interface's
+    /// counted string arrays are.
+    fn array(&mut self, items: &[String]) -> Result<*mut *const c_char, EngineError> {
+        if items.is_empty() {
+            return Ok(ptr::null_mut());
+        }
+        let mut pointers = items
+            .iter()
+            .map(|s| self.required(s))
+            .collect::<Result<Vec<_>, _>>()?;
+        // The vector's buffer does not move when it is kept below.
+        let p = pointers.as_mut_ptr();
+        self.1.push(pointers);
         Ok(p)
     }
 

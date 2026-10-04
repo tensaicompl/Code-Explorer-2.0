@@ -264,7 +264,7 @@ if(PDXE_BUILD_TESTS)
   # The bytes fixtures are source that is not valid UTF-8: a surface keeps it exactly.
   add_test(NAME abi_result_build_roundtrip
     COMMAND abi_result_build_roundtrip ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_ROOT}
-            ${PDXE_ROOT}/tests/fixtures/bytes)
+            ${PDXE_ROOT}/tests/fixtures/bytes ${PDXE_ROOT}/tests/fixtures/bases)
   file(GLOB PDXE_RESOLVE_FIXTURE_DIRS LIST_DIRECTORIES true ${PDXE_RESOLVE_FIXTURE_ROOT}/*)
   add_test(NAME abi_no_output
     COMMAND abi_no_output --corpus ${PDXE_CORPUS} ${PDXE_SMOKE_FIXTURES}

@@ -123,6 +123,8 @@ unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition
         cyclomatic,
         cognitive,
         loop_depth,
+        base_classes,
+        n_base_classes,
     } = *d;
     // SAFETY: (all string reads below) the caller guarantees the strings are alive.
     let kind_name = unsafe { required(kind, "a definition's kind") }?;
@@ -155,6 +157,18 @@ unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition
         cyclomatic,
         cognitive,
         loop_depth,
+        // SAFETY: the array, when there is one, holds `n_base_classes` strings alive
+        // for the call.
+        base_classes: unsafe {
+            slice(
+                base_classes.cast_const(),
+                n_base_classes,
+                "a definition's bases",
+            )
+        }?
+        .iter()
+        .map(|&b| unsafe { required(b, "a definition's base") })
+        .collect::<Result<_, _>>()?,
     })
 }
 
@@ -380,6 +394,7 @@ pub(crate) unsafe fn file_extract(
         n_throws,
         truncated,
         extraction_lost,
+        declared_namespace,
     } = *r;
 
     let status = match u32::try_from(status) {
@@ -404,6 +419,7 @@ pub(crate) unsafe fn file_extract(
             status,
             truncated: truncated != 0,
             extraction_lost,
+            declared_namespace: optional(declared_namespace),
             definitions: each(defs, n_defs, "the definitions", |d| definition(d, n_defs))?,
             calls: each(calls, n_calls, "the calls", |c| call(c, Some(n_defs)))?,
             imports: each(imports, n_imports, "the imports", |i| import(i))?,

@@ -10,5 +10,6 @@ pub mod index;
 pub mod kinds;
 pub mod languages;
 pub mod model;
+pub mod resolve;
 pub mod secrets;
 pub mod segment;

@@ -25,7 +25,8 @@ engine found in the file, owned, in the engine's order:
 | `status` | `Parsed`, `Partial` (the tree has errors) or `Failed` |
 | `truncated` | The extractor stopped at its node budget, which is off unless the environment sets one |
 | `extraction_lost` | Work lost while the file was extracted: allocations that failed and work budgets that ran out. 0 when nothing was lost; otherwise the extraction is degraded, and its surface carries the same count into every project that resolves it |
-| `definitions` | With normalised kind and the engine's own, spans, parent, visibility, test and entry-point flags, and three complexity metrics |
+| `declared_namespace` | The package or namespace the file declares, as written, for the languages whose declaration the engine reads (Java, Kotlin, C#, PHP); `None` otherwise. `namespace_evidence(language)` says where a language's evidence is: this field, C++'s qualified names, or nowhere |
+| `definitions` | With normalised kind and the engine's own, spans, parent, visibility, test and entry-point flags, three complexity metrics, and `base_classes`: the bases it names, in the engine's order and spelling, unresolved |
 | `calls` | Calls, then callables passed as values (`is_reference`); `typed_only` sites; lexical facts |
 | `imports`, `usages` | Usages with their lexical facts |
 | `type_refs`, `throws`, `read_writes`, `channels`, `env_accesses` | Positionless: the engine records only their scope |
@@ -89,7 +90,8 @@ ordinary child processes on every system.
 
 The protocol is length-prefixed postcard frames (decision 19), with a size limit, each
 encoded straight into the pipe so a batch's sources are not copied on the way; the
-worker names its protocol (2) and engine version first and is refused if they differ.
+worker names its protocol (3: since a definition carries its bases and an extraction its
+declared namespace) and engine version first and is refused if they differ.
 
 Every exchange with a worker, its introduction included, is bounded in time: the
 request written and the response read within `DEFAULT_EXCHANGE_TIMEOUT` (120 s), or
@@ -122,6 +124,7 @@ cargo test -p pdx-engine
 | `run_health` | Clean with no answers; degraded even with no answers; a degraded run keeps the answers it found; `typed_resolution_internal_failure_degrades_run`: an answer lost inside typed resolution degrades the run and the rest remain |
 | `ownership` | `Engine` and `ProjectResolver` are neither `Send` nor `Sync`; one engine per thread; a project frees everything after an error; answers outlive their project |
 | `determinism` | `extract_is_deterministic`: property tests over generated programs and over every matrix language's fixture with arbitrary bytes edited in |
+| `declarations` | `base_classes_cross_the_safe_boundary` (one base, several in the engine's order, none, the engine's spelling); they and declared namespaces survive postcard; a cached extraction with bases resolves as a fresh one; `declared_namespace` for each language that has one, block and file-scoped C# alike; `namespace_evidence` held to what the engine records |
 | `budgets` | Nothing is lost or truncated normally; a starved TypeScript budget is reported in `extraction_lost`; `NODE_BUDGET_ENV` is the variable the engine reads; a switch set to any value counts as set; `every_engine_variable_is_classified` over the engine's sources |
 
 The isolation tests are in the `pdx` crate, whose binary is the worker:

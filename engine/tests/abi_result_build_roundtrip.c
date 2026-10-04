@@ -10,6 +10,11 @@
  *   - a rebuilt result has no surface of its own to give;
  *   - the file's surface, decoded and encoded again, is the same bytes.
  *
+ * Every definition's base classes come back too, in order, and are the rebuilt
+ * result's own: rebuilt from a copy that is then overwritten and freed, they still
+ * compare equal. Definitions with no base, one base and several must all occur
+ * (fixtures/bases), and a definition with none has no array (issue 40).
+ *
  * And surfaces that are not what the encoder writes are refused: truncated, of
  * another version, with a field missing, a field extra, a field of the wrong type,
  * or a counted array whose count disagrees with it.
@@ -63,8 +68,12 @@ static void compare(const char *path, const pdxe_file_result *a, const pdxe_file
                   x->parent_index == y->parent_index && x->visibility == y->visibility &&
                   x->is_test == y->is_test && x->is_entry_point == y->is_entry_point &&
                   x->cyclomatic == y->cyclomatic && x->cognitive == y->cognitive &&
-                  x->loop_depth == y->loop_depth,
+                  x->loop_depth == y->loop_depth && x->n_base_classes == y->n_base_classes,
               "%s: definition %u differs", path, i);
+        for (uint32_t b = 0; b < x->n_base_classes && b < y->n_base_classes; b++) {
+            CHECK(same_str(x->base_classes[b], y->base_classes[b]),
+                  "%s: definition %u's base %u differs", path, i, b);
+        }
     }
     for (uint32_t i = 0; i < a->n_calls && i < b->n_calls; i++) {
         const pdxe_call *x = &a->calls[i], *y = &b->calls[i];
@@ -146,6 +155,41 @@ static int language_of(const char *name) {
 }
 
 static int files_checked = 0;
+static int defs_without_bases = 0;
+static int defs_with_one_base = 0;
+static int defs_with_several_bases = 0;
+
+/* A copy of the definitions the caller owns: the array, and each base array and base
+ * string. Its other strings stay the result's, which outlives the copy. */
+static pdxe_definition *copy_defs(const pdxe_file_result *r) {
+    pdxe_definition *copy = calloc(r->n_defs ? r->n_defs : 1, sizeof(*copy));
+    for (uint32_t i = 0; copy && i < r->n_defs; i++) {
+        copy[i] = r->defs[i];
+        if (r->defs[i].n_base_classes) {
+            const char **bases = calloc(r->defs[i].n_base_classes, sizeof(*bases));
+            for (uint32_t b = 0; bases && b < r->defs[i].n_base_classes; b++) {
+                bases[b] = strdup(r->defs[i].base_classes[b]);
+            }
+            copy[i].base_classes = bases;
+        }
+    }
+    return copy;
+}
+
+/* Overwrites and frees what copy_defs made, so anything still pointing into it reads
+ * something else. */
+static void destroy_defs(pdxe_definition *copy, uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        for (uint32_t b = 0; b < copy[i].n_base_classes; b++) {
+            char *s = (char *)copy[i].base_classes[b];
+            memset(s, 'Z', strlen(s));
+            free(s);
+            copy[i].base_classes[b] = NULL;
+        }
+        free((void *)copy[i].base_classes);
+    }
+    free(copy);
+}
 
 static void check_file(pdxe_ctx *ctx, const char *path) {
     int lang = language_of(path);
@@ -161,6 +205,45 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
         return;
     }
     files_checked++;
+    for (uint32_t i = 0; i < r->n_defs; i++) {
+        const pdxe_definition *d = &r->defs[i];
+        CHECK((d->n_base_classes == 0) == (d->base_classes == NULL),
+              "%s: definition %u has %u bases and %s array", path, i, d->n_base_classes,
+              d->base_classes ? "an" : "no");
+        for (uint32_t b = 0; b < d->n_base_classes; b++) {
+            CHECK(d->base_classes[b] && d->base_classes[b][0], "%s: definition %u's base %u is empty",
+                  path, i, b);
+        }
+        defs_without_bases += d->n_base_classes == 0;
+        defs_with_one_base += d->n_base_classes == 1;
+        defs_with_several_bases += d->n_base_classes > 1;
+    }
+
+    /* Rebuilt from a copy that is destroyed before the comparison: the bases must be
+     * the rebuilt result's own. */
+    pdxe_definition *copy = copy_defs(r);
+    pdxe_file_result *from_copy = NULL;
+    CHECK(copy && pdxe_result_build(ctx, copy, r->n_defs, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                                    NULL, 0, &from_copy) == PDXE_OK,
+          "%s: rebuild from a copy failed", path);
+    if (copy) {
+        destroy_defs(copy, r->n_defs);
+    }
+    if (from_copy) {
+        CHECK(from_copy->n_defs == r->n_defs, "%s: a rebuild lost definitions", path);
+        for (uint32_t i = 0; i < from_copy->n_defs && i < r->n_defs; i++) {
+            const pdxe_definition *x = &r->defs[i], *y = &from_copy->defs[i];
+            CHECK(x->n_base_classes == y->n_base_classes &&
+                      (y->n_base_classes == 0) == (y->base_classes == NULL),
+                  "%s: definition %u's bases were not rebuilt", path, i);
+            for (uint32_t b = 0; b < x->n_base_classes && b < y->n_base_classes; b++) {
+                CHECK(same_str(x->base_classes[b], y->base_classes[b]) &&
+                          y->base_classes[b] != x->base_classes[b],
+                      "%s: definition %u's base %u is not a copy of its own", path, i, b);
+            }
+        }
+        pdxe_result_free(ctx, from_copy);
+    }
 
     pdxe_file_result *rebuilt = NULL;
     CHECK(pdxe_result_build(ctx, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
@@ -390,6 +473,21 @@ static void check_refusals(pdxe_ctx *ctx) {
     free(m);
     expect_refused("with an extra top-level key", m = replace(good, "\"v\":2", "\"v\":2,\"x\":0"));
     free(m);
+    /* A definition's bases: counted bases with no array, and a NULL base. */
+    pdxe_definition with_bases = r->defs[0];
+    pdxe_file_result *refused = NULL;
+    with_bases.n_base_classes = 1;
+    with_bases.base_classes = NULL;
+    CHECK(pdxe_result_build(ctx, &with_bases, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            &refused) == PDXE_E_INVALID && !refused,
+          "a definition counting bases it has no array for was rebuilt");
+    const char *null_base[] = {"Base", NULL};
+    with_bases.n_base_classes = 2;
+    with_bases.base_classes = null_base;
+    CHECK(pdxe_result_build(ctx, &with_bases, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            &refused) == PDXE_E_INVALID && !refused,
+          "a definition with a NULL base was rebuilt");
+
     expect_refused("whose count disagrees with its array",
                    m = replace(good, "\"signature_param_count\":1", "\"signature_param_count\":2"));
     free(m);
@@ -413,6 +511,9 @@ int main(int argc, char **argv) {
     }
     check_refusals(ctx);
     pdxe_shutdown(ctx);
+    CHECK(defs_without_bases > 0 && defs_with_one_base > 0 && defs_with_several_bases > 0,
+          "bases seen: %d definitions with none, %d with one, %d with several",
+          defs_without_bases, defs_with_one_base, defs_with_several_bases);
     printf("%s: %d files, %d projects, %d failures\n", failures ? "FAIL" : "ok", files_checked,
            projects_checked, failures);
     return failures || files_checked == 0 ? 1 : 0;

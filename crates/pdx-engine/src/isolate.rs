@@ -60,8 +60,9 @@ pub const MAX_FRAME_BYTES: u64 = 4 << 30;
 pub const DEFAULT_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Version of the protocol below; a worker of another version is refused. 2 since
-/// `FileExtract` gained `extraction_lost`.
-const PROTOCOL: u32 = 2;
+/// `FileExtract` gained `extraction_lost`, 3 since a definition carries its base
+/// classes and an extraction the namespace its file declares.
+const PROTOCOL: u32 = 3;
 
 /// Whether the environment asks for isolation.
 pub fn isolation_requested() -> bool {
@@ -389,16 +390,7 @@ impl Worker {
             Ok(Some(Response::Ready {
                 protocol,
                 engine_version,
-            })) => {
-                let ours = Engine::version();
-                if protocol != PROTOCOL || engine_version != ours {
-                    return Err(IsolationError::Handshake(format!(
-                        "it speaks protocol {protocol} for engine {engine_version}, \
-                         not protocol {PROTOCOL} for engine {ours}"
-                    )));
-                }
-                Ok(worker)
-            }
+            })) => accept(protocol, &engine_version).map(|()| worker),
             Ok(_) => Err(IsolationError::Handshake(
                 "it did not introduce itself".into(),
             )),
@@ -472,6 +464,19 @@ impl Drop for Worker {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+/// Accepts a worker's introduction only if it speaks this protocol for this engine: a
+/// worker of another protocol would exchange messages of another shape.
+fn accept(protocol: u32, engine_version: &str) -> Result<(), IsolationError> {
+    let ours = Engine::version();
+    if protocol != PROTOCOL || engine_version != ours {
+        return Err(IsolationError::Handshake(format!(
+            "it speaks protocol {protocol} for engine {engine_version}, \
+             not protocol {PROTOCOL} for engine {ours}"
+        )));
+    }
+    Ok(())
 }
 
 /// Serves extraction on standard input and output until the input ends: the worker's
@@ -664,6 +669,23 @@ mod tests {
             read_frame::<Vec<FileExtract>>(&mut bytes.as_slice()),
             Err(FrameError::Malformed(_))
         ));
+    }
+
+    #[test]
+    fn a_worker_of_another_protocol_is_refused() {
+        // 3 since a definition carries its base classes and a file its declared
+        // namespace: a worker still speaking 2 sends extractions of the old shape.
+        assert_eq!(PROTOCOL, 3);
+        let ours = Engine::version();
+        for (protocol, version) in [(2, ours.as_str()), (4, ours.as_str()), (PROTOCOL, "0")] {
+            let err = accept(protocol, version).unwrap_err();
+            assert!(
+                err.to_string()
+                    .contains(&format!("protocol {protocol} for engine {version}")),
+                "{err}"
+            );
+        }
+        accept(PROTOCOL, &ours).expect("this program's own workers are accepted");
     }
 
     #[test]

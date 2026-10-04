@@ -343,6 +343,34 @@ pub fn prepare_source(root: &Path, file: &DiscoveredFile) -> Result<PreparedSour
     })
 }
 
+/// Reads a candidate Stage 2 does not extract, such as a manifest of no language
+/// (`go.mod`), for what later stages read from it: with the same checks and bound as
+/// [`prepare_source`], identified, and normalised as a file of its language, or of none,
+/// so a secret value in it is masked as in any other file. Only a candidate is ever
+/// opened.
+///
+/// # Errors
+///
+/// [`ExtractError::NotExtracted`] for anything but a candidate, and as for
+/// [`prepare_source`].
+pub fn prepare_candidate(
+    root: &Path,
+    file: &DiscoveredFile,
+) -> Result<PreparedSource, ExtractError> {
+    if file.disposition != Disposition::Candidate {
+        return Err(ExtractError::NotExtracted(file.path.clone()));
+    }
+    let mut bytes = read_original(root, file)?;
+    let blob_sha = BlobSha::of(&bytes);
+    secrets::normalise_in_place(&mut bytes, file.language.map_or("", |l| l.id));
+    let digest = SourceDigest::of(&bytes);
+    Ok(PreparedSource {
+        bytes,
+        blob_sha,
+        digest,
+    })
+}
+
 /// The file's original bytes, read only if the path, followed component by component
 /// without following a link, is still a regular file of the size discovery recorded,
 /// and never more than that size.

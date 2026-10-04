@@ -28,8 +28,8 @@ pub use engine::{EXTRACTION_SWITCHES, Engine, NODE_BUDGET_ENV, extraction_switch
 pub use error::{EngineError, SourceDifference};
 pub use model::{
     Call, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
-    FileExtract, FileStatus, Import, LexicalFacts, ReadWrite, SourceDigest, Span, Surface, Throw,
-    TypeRef, Usage, Visibility,
+    FileExtract, FileStatus, Import, LexicalFacts, NamespaceEvidence, ReadWrite, SourceDigest,
+    Span, Surface, Throw, TypeRef, Usage, Visibility, namespace_evidence,
 };
 pub use resolver::{
     AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ProjectResolution,

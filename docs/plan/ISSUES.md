@@ -15,6 +15,10 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 43 | 2026-10-04 | P2-06 | third-party | open | The engine applies a `tsconfig.json`'s path aliases and base URL to every file below the configuration, whatever its language: in a repository with a root `tsconfig.json` whose `baseUrl` is set, a Go import such as `example.com/acme/pkg/a` contains `/`, takes the base-URL fallback, becomes `./example.com/acme/pkg/a`, and its typed resolution is lost. The registry applies aliases to TypeScript and JavaScript only, so the two would read one repository differently | Owned by P2-06, which first runs the engine's typed resolution with the registry's metadata: confirm, then gate the alias step of the vendored import resolver to the script languages through `engine/patches`, so engine and registry hold one interpretation. P2-05's consistency test proves agreement on each mechanism in a repository of its own |
+| 42 | 2026-10-04 | P2-06 | ambiguity | open | Rust has no base classes: a trait's supertraits and an `impl Trait for Type` are what inheritance-guided resolution needs. The engine records `impl Trait for Type` pairs internally (`impl_traits`) and supertraits not at all; neither crosses the safe boundary, and `base_classes` is empty for every Rust definition | Owned by P2-06, which needs them for inheritance-guided resolution in Rust: expose the engine's `impl_traits` through the append-only interface (as issue 40 did for bases), and decide whether supertraits are needed. P2-05 fabricates no trait relation: its Rust hierarchy is empty, documented |
+| 41 | 2026-10-04 | P2-05 | scr | resolved | The language matrix makes Java's, Kotlin's, C#'s, PHP's, Perl's, Scala's, Groovy's and protobuf's module the package or namespace a file declares, but qualified names are built from the file's path, and no declaration crossed the safe boundary. The engine records the declaration for Java, Kotlin, C# and PHP (`namespace_name`) and drops it at the interface; for Perl, Scala, Groovy and protobuf it records none | Exposed as issue 40 exposed bases, pending the owner's confirmation: `pdxe_file_result` appends `declared_namespace`, carried into `FileExtract::declared_namespace`; `pdx_engine::namespace_evidence` says where each language's evidence is (the file's declaration; C++'s qualified names; nowhere). Cache format 2 and worker protocol 3 cover it with issue 40. Perl, Scala, Groovy and protobuf get no module: none is invented from the directory |
+| 40 | 2026-10-04 | P2-05 | scr | resolved | Class hierarchies (P2-05) and inheritance-guided resolution (P2-06) need each definition's bases. The engine records them (`PDXEDefinition.base_classes`) and the surface codec keeps them, but `pdxe.c` dropped them, so neither `pdxe_definition` nor `FileExtract` had them, and the opaque surface is not to be decoded in `pdx-core` | Owner decision 2026-10-03, implemented: `pdxe_definition` appends `base_classes` and `n_base_classes`, the engine's strings in its order, spelling and case, NULL and 0 for none; `pdxe_result_build` deep-copies them and refuses a counted array that is missing or holds NULL; `Definition::base_classes`. `EXTRACT_CACHE_FORMAT_VERSION` 1 → 2 (a format-1 entry is a miss) and the worker protocol 2 → 3 (a protocol-2 worker is refused). No graph, schema, matrix, engine or secret-detector version moves |
 | 39 | 2026-10-02 | P2-04 | third-party | resolved | P2-04 adds four packages the supply-chain ratchet refuses until they are recorded: `rayon` 1.12.0, with `rayon-core` 1.13.0 and `either` 1.18.0, for Stage 2's worker pool, and `sha1` 0.11.0 for the Git blob identity. The other packages P2-04 uses directly, `regex` 1.13.1 and `postcard` 1.1.3, and rayon's `crossbeam-*` dependencies, were already locked and recorded | Owner-authorised exact-version exemptions, `safe-to-deploy` because all four ship, each with a note naming this issue: no audit is claimed, none is imported, no version is a wildcard, nothing else changed. `cargo vet --locked` passes with 99 exemptions, 0 audits and 0 imports; CI run 37069384925's supply-chain job proved it, after a local check that dropping one exemption fails the ratchet |
 | 38 | 2026-10-02 | P2-08 | ambiguity | open | 5.12 redacts `.env*` files and says `.env` files are parsed for keys only, never values; 4.7.1 resolves a contract's placeholders from `.env` when a value exists there. Read literally, both cannot hold: resolving a placeholder from `.env` reads the value 5.12 forbids reading | Owned by P2-08, which decides the secure placeholder semantics by specification change. Until then, and in P2-04, a redacted `.env` is never opened, never reaches the engine and never enters the extraction cache, and no `.env` value is read |
 | 37 | 2026-10-02 | P2-04 | scr | resolved | 5.12 replaces each secret value with `<REDACTED_SECRET>`, but spans, site identities and, later, the merging of compiler occurrences rely on exact byte offsets: a fixed-length marker in place of a value of any other length shifts every offset after it | Approved by the owner on 2026-10-02: normalisation preserves length, masking each byte of a secret value with ASCII `X` and never a carriage return or line feed, and keeps keys, separators, quotes, PEM marker lines and indentation; `<REDACTED_SECRET>` describes a masked value and is never substituted. Written into 4.5; proven by `secret_normalisation_preserves_offsets` and the leak regressions. No stored format changes |
@@ -81,6 +85,103 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 43 — The engine applies path aliases to every language
+
+`pdxe_pipeline_resolve_module`, in the vendored import resolver, tries a file's
+nearest alias scope before the package map, for an import of any language. A scope
+with a base URL rewrites any import that has a `/` and does not start with `.` or `@`
+to a path below the base URL. Go's import paths have that shape, so in a repository
+whose root `tsconfig.json` sets `baseUrl`, a Go import of the repository's own module
+becomes a path that names nothing, and the call it carries goes unresolved. Found by
+P2-05's consistency test: the same Go call resolves with the registry's metadata
+alone and is lost once a root alias scope with a base URL is added.
+
+The registry applies aliases to TypeScript and JavaScript only, which is
+TypeScript's own rule, so engine and registry read such a repository differently.
+
+Owned by P2-06, which runs the engine's typed resolution with the registry's
+metadata: confirm against the reference, then gate the alias step to the script
+languages by a patch in `engine/patches`, and add a polyglot fixture. Until then
+P2-05's consistency test proves the two agree on Go modules and on aliases, each in
+a repository of its own.
+
+State: open.
+
+### 42 — Rust's trait relations do not cross the safe boundary
+
+Rust has no base classes. What inheritance-guided resolution needs in Rust is which
+traits a type implements and which traits a trait requires. The engine records
+`impl Trait for Type` as pairs (`PDXEImplTrait`: trait, type, the type's qualified
+name) and does not record supertraits; the interface carries neither, and every Rust
+definition's `base_classes` is empty (`pub trait Shape: Drawable` included).
+
+P2-05 does not invent them from names: its Rust hierarchy is empty, which the
+registry's tests state. Owned by P2-06, which needs them: expose `impl_traits` through
+the append-only interface, as issue 40 did for bases, and decide whether supertraits
+are needed and from where.
+
+State: open.
+
+### 41 — Declared packages and namespaces do not cross the safe boundary
+
+The language matrix gives Java, Kotlin, Scala, C++, C#, PHP, Perl, Groovy and protobuf
+the module rule `Declaration`: a file's module is the package or namespace it
+declares. The engine builds qualified names from paths, never from declarations
+(`src/main/java/com/acme/Shop.java` gives `src.main.java.com.acme.Shop`), so the
+registry cannot read a package from them, and P2-05 may not infer one from the
+directory.
+
+What the engine records:
+
+- Java, Kotlin, C# and PHP: the file's first `package` or `namespace` declaration, in
+  `PDXEFileResult.namespace_name`, which `pdxe.c` did not pass on.
+- C++: its namespaces, inside the qualified names (`src.shapes.geo.detail.helper`;
+  `a::b` as one part for a declaration written `namespace a::b`).
+- Perl, Scala, Groovy and protobuf: nothing.
+
+Resolved for the first group as issue 40 was resolved, pending the owner's
+confirmation: `pdxe_file_result` appends `const char *declared_namespace`, NULL when
+the file declares none, and `FileExtract::declared_namespace` carries it;
+`pdx_engine::namespace_evidence(language)` says which of the three cases a language is,
+and a test holds it to real extractions. Cache format 2 and protocol 3 (issue 40) cover
+the change. C++'s modules come from its qualified names. Perl, Scala, Groovy and
+protobuf have no module in the registry: none is invented, and their imports are
+unclassified. Recording their declarations would take a change to the vendored
+extractor; no task needs it before P2-07, which derives `Module` nodes.
+
+State: resolved.
+
+### 40 — Class hierarchy facts are dropped at the safe extraction boundary
+
+P2-05 builds class hierarchies and P2-06 resolves calls through them. The engine
+records each definition's bases (`PDXEDefinition.base_classes`), and the surface codec
+keeps them, but the translation in `pdxe.c` dropped them: `pdxe_definition` had no
+field for them, nor `pdx_engine::Definition`, and the surface is opaque to `pdx-core`.
+
+Owner decision 2026-10-03, implemented:
+
+- `pdxe_definition` appends `const char **base_classes; uint32_t n_base_classes;`.
+  An extracted result borrows the engine's array; none is NULL and 0. The strings are
+  the engine's, in its order, spelling and case, unresolved (`extends Base` for
+  JavaScript, a repeat for some Java declarations: what the engine wrote).
+- `pdxe_result_build` copies the array and each string into the rebuilt result, and
+  refuses a definition that counts bases with no array or holds a NULL one.
+- `Definition::base_classes: Vec<String>`, copied while the result is alive.
+- `EXTRACT_CACHE_FORMAT_VERSION` 1 → 2: a format-1 entry is never decoded, in the
+  directory format 1 used or at the current path; it is a miss and is replaced.
+- The worker protocol 2 → 3: a worker of another protocol is refused at its
+  introduction.
+- No other version moves: the engine extracts exactly as before; only what crosses the
+  interface grew.
+
+Proven by `base_classes_cross_the_safe_boundary`, `bases_and_declarations_survive_serialisation`,
+`a_cached_extraction_with_bases_resolves`, `cached_extractions_keep_bases_and_namespaces`,
+`cache_format_1_is_a_miss`, `a_worker_of_another_protocol_is_refused`, and
+`abi_result_build_roundtrip`, which rebuilds from a copy it then overwrites and frees
+and requires definitions with no base, one, and several (`tests/fixtures/bases`).
 
 State: resolved.
 

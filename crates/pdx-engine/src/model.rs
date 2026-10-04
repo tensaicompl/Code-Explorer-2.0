@@ -203,6 +203,10 @@ pub struct Definition {
     pub cognitive: u32,
     /// Deepest loop nesting.
     pub loop_depth: u32,
+    /// The classes, interfaces and traits it names as its bases, exactly as the engine
+    /// recorded them: in its order, spelling and case, unresolved. Empty when it names
+    /// none, or for a kind that has none.
+    pub base_classes: Vec<String>,
 }
 
 /// A call site, or a callable passed as a value.
@@ -417,6 +421,31 @@ impl std::fmt::Debug for SourceDigest {
     }
 }
 
+/// Where an extraction says which package or namespace a definition belongs to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum NamespaceEvidence {
+    /// The file's own declaration, which [`FileExtract::declared_namespace`] carries;
+    /// a file without one is in the language's unnamed package or global namespace.
+    FileDeclaration,
+    /// The definitions' qualified names: after the file's module, the namespaces that
+    /// enclose a definition, each as written (`a::b` for a nested declaration written
+    /// at once), then any enclosing types, then its name.
+    QualifiedNames,
+    /// Nowhere: the engine records no package or namespace for the language.
+    Unrecorded,
+}
+
+/// What the engine records of package and namespace declarations in `language`, by
+/// the engine's language identifier. Qualified names are otherwise built from the
+/// file's path, never from a declaration.
+pub fn namespace_evidence(language: &str) -> NamespaceEvidence {
+    match language {
+        "java" | "kotlin" | "csharp" | "php" => NamespaceEvidence::FileDeclaration,
+        "cpp" => NamespaceEvidence::QualifiedNames,
+        _ => NamespaceEvidence::Unrecorded,
+    }
+}
+
 /// Everything extraction found in one file, and its resolution surface.
 ///
 /// Self-contained: it names the file and language it was taken for and identifies the
@@ -443,6 +472,12 @@ pub struct FileExtract {
     /// the extraction is degraded, and is the same count its surface carries into any
     /// project that resolves it.
     pub extraction_lost: u32,
+    /// The package or namespace the file declares, as written in its first
+    /// declaration, or `None` when it declares none. The engine reads it only where
+    /// [`namespace_evidence`](crate::namespace_evidence) says
+    /// [`NamespaceEvidence::FileDeclaration`](crate::NamespaceEvidence::FileDeclaration);
+    /// for every other language it is `None`, whatever the source says.
+    pub declared_namespace: Option<String>,
     /// Definitions.
     pub definitions: Vec<Definition>,
     /// Calls, then callables passed as values.

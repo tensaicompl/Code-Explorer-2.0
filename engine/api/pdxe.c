@@ -581,6 +581,14 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
         o->cyclomatic = d->complexity > 0 ? (uint32_t)d->complexity : 0;
         o->cognitive = d->cognitive > 0 ? (uint32_t)d->cognitive : 0;
         o->loop_depth = d->loop_depth > 0 ? (uint32_t)d->loop_depth : 0;
+        /* The engine's own NULL-terminated array, borrowed like its strings: order,
+         * spelling and case as recorded, nothing resolved. None is NULL and 0. */
+        uint32_t n_bases = 0;
+        while (d->base_classes && d->base_classes[n_bases]) {
+            n_bases++;
+        }
+        o->base_classes = n_bases ? d->base_classes : NULL;
+        o->n_base_classes = n_bases;
     }
     r->n_defs = kept;
 
@@ -767,6 +775,8 @@ int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8
     h->lost = lost > UINT32_MAX ? UINT32_MAX : (uint32_t)lost;
     /* The caller sees the count the surface carries, from the same field. */
     h->pub.extraction_lost = h->lost;
+    /* The file's declared package or namespace, borrowed like the other strings. */
+    h->pub.declared_namespace = h->engine ? h->engine->namespace_name : NULL;
     return PDXE_OK;
 }
 
@@ -793,7 +803,7 @@ static const char *own(result_holder *h, const char *s, bool *failed) {
  * engine result behind it: it describes the file, and resolving the file takes its
  * surface (pdxe_surface_import). Channel, configuration, diagnostic and throw arrays
  * are not among the parts and come back empty; the status is `parsed`, and the result
- * is not truncated.
+ * is not truncated. A definition's base classes are copied, the array and each string.
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,
@@ -806,6 +816,17 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
     if (!ctx || !out || (n_defs && !defs) || (n_calls && !calls) || (n_imports && !imports) ||
         (n_usages && !usages) || (n_types && !types) || (n_rws && !rws)) {
         return PDXE_E_INVALID;
+    }
+    /* Every base a definition counts is a string, in an array that holds it. */
+    for (uint32_t i = 0; i < n_defs; i++) {
+        if (defs[i].n_base_classes && !defs[i].base_classes) {
+            return PDXE_E_INVALID;
+        }
+        for (uint32_t b = 0; b < defs[i].n_base_classes; b++) {
+            if (!defs[i].base_classes[b]) {
+                return PDXE_E_INVALID;
+            }
+        }
     }
     result_holder *h = (result_holder *)calloc(1, sizeof(*h));
     if (!h) {
@@ -838,6 +859,23 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
         d->engine_kind = own(h, defs[i].engine_kind, &failed);
         d->signature = own(h, defs[i].signature, &failed);
         d->doc = own(h, defs[i].doc, &failed);
+        d->base_classes = NULL;
+        d->n_base_classes = 0;
+        if (defs[i].n_base_classes && !failed) {
+            /* The array is the holder's too: it frees it with the strings. */
+            const char **bases =
+                (const char **)calloc(defs[i].n_base_classes, sizeof(*bases));
+            if (!bases || !adopt(h, (char *)bases)) {
+                free(bases);
+                failed = true;
+                continue;
+            }
+            for (uint32_t b = 0; b < defs[i].n_base_classes; b++) {
+                bases[b] = own(h, defs[i].base_classes[b], &failed);
+            }
+            d->base_classes = bases;
+            d->n_base_classes = defs[i].n_base_classes;
+        }
     }
     for (uint32_t i = 0; i < n_calls; i++) {
         r->calls[i] = calls[i];

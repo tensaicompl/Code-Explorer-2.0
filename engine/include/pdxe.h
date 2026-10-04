@@ -107,6 +107,11 @@ enum pdxe_visibility {
  *
  * `parent_index` indexes the definition array of the same result, or
  * PDXE_NO_PARENT when the definition is at file scope.
+ *
+ * `base_classes` are the classes, interfaces and traits the definition names as its
+ * bases, exactly as the engine recorded them: in its order, spelling and case,
+ * unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.
+ * Appended by a specification change; see docs/plan/ISSUES.md, issue 40.
  */
 typedef struct {
     const char *name;
@@ -124,6 +129,8 @@ typedef struct {
     uint32_t cyclomatic;
     uint32_t cognitive;
     uint32_t loop_depth;
+    const char **base_classes;
+    uint32_t n_base_classes;
 } pdxe_definition;
 
 /*
@@ -310,6 +317,15 @@ typedef struct {
      * specification change; see docs/plan/ISSUES.md, issue 26.
      */
     uint32_t extraction_lost;
+    /*
+     * The package or namespace the file declares, exactly as written in its first
+     * declaration, or NULL when it declares none. Of the language matrix's languages,
+     * the engine reads it for Java and Kotlin (`package`), C# (`namespace`, block or
+     * file-scoped) and PHP (`namespace`), and it is NULL for every other, whatever the
+     * source says. A result rebuilt from a cache has none. Appended by a specification
+     * change; see docs/plan/ISSUES.md, issue 41.
+     */
+    const char *declared_namespace;
 } pdxe_file_result;
 
 int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8_t *bytes,
@@ -324,7 +340,9 @@ void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r);
  * it is added to a project together with its surface (pdxe_surface_import). Its
  * channel, configuration, diagnostic and throw arrays are empty, its status is parsed,
  * it is not truncated and it reports no lost work: those parts are the cache's to keep,
- * and resolution reads what it needs of them from the surface.
+ * and resolution reads what it needs of them from the surface. A definition's base
+ * classes are copied with it, array and strings; a definition with bases and no array,
+ * or with a NULL base, is refused. It declares no namespace.
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,

@@ -706,19 +706,17 @@ fn cache_object_id_fixed_vector() {
     );
     assert_eq!(key.engine_version, ENGINE_VERSION);
     assert_eq!(key.language_matrix_version, LANGUAGE_MATRIX_VERSION);
+    assert_eq!(
+        EXTRACT_CACHE_FORMAT_VERSION, 2,
+        "the vector below is format 2's"
+    );
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "a7e13d8e147ee5826ff38bc81f39c4c3bacbcf094a5cc4805f57cd2b942c7e13"
+        "f0ee31c64d6ba07d4f40287fbdc851a7d16a95d413a1e2d0e4ae1fbc74ab9301"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(
-        path,
-        Path::new("cache")
-            .join(format!("v{EXTRACT_CACHE_FORMAT_VERSION}"))
-            .join("a7")
-            .join(&id)
-    );
+    assert_eq!(path, Path::new("cache").join("v2").join("f0").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -1013,6 +1011,85 @@ fn cache_rejects_wrong_source_digest() {
 }
 
 #[test]
+fn cache_format_1_is_a_miss() {
+    // Format 1 held definitions without base classes and extractions without a
+    // declared namespace. Its entries are never decoded as the current format: not in
+    // the directory format 1 used, which is never read, and not at the current path
+    // with format 1 written in them.
+    let checkout = Checkout::new();
+    checkout.write("src/app.py", PYTHON);
+    let config = checkout.config();
+    let key = key_for(&checkout, &config, "src/app.py", "python");
+    let clean = {
+        let probe = Probe::new(Twist::None);
+        extract_of(&run(&checkout, None, &probe), "src/app.py").clone()
+    };
+    let old = postcard::to_stdvec(&CacheEnvelope {
+        format_version: 1,
+        key: key.clone(),
+        extract: clean.clone(),
+    })
+    .unwrap();
+    let cache = Cache::new();
+    let current = cache.cache.object_path(&key);
+    let current_text = current.to_string_lossy().replace('\\', "/");
+    assert!(current_text.contains("/v2/"), "{current_text}");
+    let format_1_dir = cache
+        .cache
+        .root()
+        .join("v1")
+        .join(&current.file_name().unwrap().to_string_lossy()[..2]);
+    fs::create_dir_all(&format_1_dir).unwrap();
+    fs::write(format_1_dir.join(current.file_name().unwrap()), &old).unwrap();
+    plant(&cache, &key, &old);
+    assert_eq!(cache.cache.load(&key), Err(CacheDefect::WrongFormat(1)));
+
+    let probe = Probe::new(Twist::None);
+    let report = run(&checkout, Some(&cache), &probe);
+    assert_eq!(probe.files(), 1, "a format-1 entry was used");
+    assert_eq!(report.stats.cache_hits, 0);
+    assert_eq!(report.stats.cache_unusable, 1);
+    assert_eq!(
+        cache.cache.load(&key),
+        Ok(Some(clean)),
+        "the entry was not replaced"
+    );
+}
+
+#[test]
+fn cached_extractions_keep_bases_and_namespaces() {
+    let checkout = Checkout::new();
+    checkout
+        .write(
+            "src/main/java/com/acme/Derived.java",
+            "package com.acme;\npublic class Derived extends Base implements Runnable {\n  public void run() {}\n}\n",
+        )
+        .write("pkg/shapes.py", "class Derived(Zeta, Alpha):\n    pass\n");
+    let cache = Cache::new();
+    let probe = Probe::new(Twist::None);
+    let fresh = run(&checkout, Some(&cache), &probe);
+    let probe = Probe::new(Twist::None);
+    let cached = run(&checkout, Some(&cache), &probe);
+    assert_eq!(probe.files(), 0, "not from the cache");
+    assert_eq!(cached.files, fresh.files);
+    let java = extract_of(&cached, "src/main/java/com/acme/Derived.java");
+    assert_eq!(java.declared_namespace.as_deref(), Some("com.acme"));
+    let derived = java
+        .definitions
+        .iter()
+        .find(|d| d.name == "Derived")
+        .unwrap();
+    assert_eq!(derived.base_classes[0], "Base");
+    let python = extract_of(&cached, "pkg/shapes.py");
+    let derived = python
+        .definitions
+        .iter()
+        .find(|d| d.name == "Derived")
+        .unwrap();
+    assert_eq!(derived.base_classes, ["Zeta", "Alpha"]);
+}
+
+#[test]
 fn cache_rejects_corruption() {
     let checkout = Checkout::new();
     checkout.write("src/app.py", PYTHON);
@@ -1057,7 +1134,19 @@ fn cache_rejects_corruption() {
         ),
         (
             "not postcard",
-            b"\x01\xff\xff\xff\xff\xff\xff\xff\xff\xff".to_vec(),
+            [
+                u8::try_from(EXTRACT_CACHE_FORMAT_VERSION).unwrap(),
+                0xff,
+                0xff,
+                0xff,
+                0xff,
+                0xff,
+                0xff,
+                0xff,
+                0xff,
+                0xff,
+            ]
+            .to_vec(),
             CacheDefect::Malformed,
         ),
     ];
