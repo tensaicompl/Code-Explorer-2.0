@@ -61,8 +61,9 @@ pub const DEFAULT_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Version of the protocol below; a worker of another version is refused. 2 since
 /// `FileExtract` gained `extraction_lost`, 3 since a definition carries its base
-/// classes and an extraction the namespace its file declares.
-const PROTOCOL: u32 = 3;
+/// classes and an extraction the namespace its file declares, 4 since an extraction
+/// carries its `impl Trait for Type` relations (issue 42).
+const PROTOCOL: u32 = 4;
 
 /// Whether the environment asks for isolation.
 pub fn isolation_requested() -> bool {
@@ -673,11 +674,16 @@ mod tests {
 
     #[test]
     fn a_worker_of_another_protocol_is_refused() {
-        // 3 since a definition carries its base classes and a file its declared
-        // namespace: a worker still speaking 2 sends extractions of the old shape.
-        assert_eq!(PROTOCOL, 3);
+        // 4 since an extraction carries its impl relations: a worker still speaking 3
+        // (bases and namespaces, issues 40 and 41) sends extractions of the old shape.
+        assert_eq!(PROTOCOL, 4);
         let ours = Engine::version();
-        for (protocol, version) in [(2, ours.as_str()), (4, ours.as_str()), (PROTOCOL, "0")] {
+        for (protocol, version) in [
+            (2, ours.as_str()),
+            (3, ours.as_str()),
+            (5, ours.as_str()),
+            (PROTOCOL, "0"),
+        ] {
             let err = accept(protocol, version).unwrap_err();
             assert!(
                 err.to_string()

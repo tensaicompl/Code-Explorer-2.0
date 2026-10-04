@@ -162,6 +162,14 @@ static char *resolve_backslash_prefix(PDXEHashTable *map, const char *module_pat
     return NULL;
 }
 
+/* Path aliases come from tsconfig/jsconfig, which configure TypeScript and
+ * JavaScript only: an import in any other language never goes through them. */
+static bool path_aliases_apply_to(const char *source_rel) {
+    const char *slash = strrchr(source_rel, '/');
+    PDXELanguage lang = pdxe_language_for_filename(slash ? slash + 1 : source_rel);
+    return lang == PDXE_LANG_TYPESCRIPT || lang == PDXE_LANG_TSX || lang == PDXE_LANG_JAVASCRIPT;
+}
+
 char *pdxe_pipeline_resolve_module(const pdxe_pipeline_ctx_t *ctx, const char *source_rel,
                                   const char *module_path) {
     if (!ctx || !module_path) {
@@ -182,7 +190,7 @@ char *pdxe_pipeline_resolve_module(const pdxe_pipeline_ctx_t *ctx, const char *s
 
     /* 1b. Try build-tool path aliases (tsconfig/jsconfig paths today;
      *     other loaders can register here later). Independent of pkgmap. */
-    if (ctx->path_aliases && source_rel) {
+    if (ctx->path_aliases && source_rel && path_aliases_apply_to(source_rel)) {
         const pdxe_path_alias_map_t *amap =
             pdxe_path_alias_find_for_file(ctx->path_aliases, source_rel);
         if (amap) {

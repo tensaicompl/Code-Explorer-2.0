@@ -46,8 +46,9 @@ pub const SECRET_DETECTOR_VERSION: u32 = 2;
 /// extraction and the key it was stored under. An entry of another version is never
 /// read, only replaced. The cache is disposable and is not a segment. 2 since a
 /// definition carries its base classes and an extraction its file's declared
-/// namespace (issues 40 and 41).
-pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 2;
+/// namespace (issues 40 and 41), 3 since an extraction carries its `impl Trait for
+/// Type` relations (issue 42).
+pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 3;
 
 // --- resolution ------------------------------------------------------------
 

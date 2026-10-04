@@ -272,6 +272,21 @@ typedef struct {
     pdxe_span span;
 } pdxe_throw;
 
+/*
+ * An `impl Trait for Type` block, as the engine records it for Rust: the trait and
+ * the implementing type as the source spells them (any type arguments left off,
+ * `io::Write` kept qualified), and the type's qualified name as extraction builds it
+ * for the file. Recorded for every such block, an empty one included, so the relation
+ * does not depend on the block defining a method. A trait's own supertraits
+ * (`trait Child: Parent`) are not recorded. Resolving either name is resolution's
+ * work. Appended by a specification change; see docs/plan/ISSUES.md, issue 42.
+ */
+typedef struct {
+    const char *trait_name;
+    const char *struct_name;
+    const char *struct_qn;
+} pdxe_impl_trait;
+
 /* `status`: 0 parsed, 1 partial (the tree carries errors), 2 failed. */
 enum pdxe_file_status {
     PDXE_FILE_PARSED = 0,
@@ -326,6 +341,15 @@ typedef struct {
      * change; see docs/plan/ISSUES.md, issue 41.
      */
     const char *declared_namespace;
+    /*
+     * The file's `impl Trait for Type` relations, in the engine's order: Rust's only,
+     * none for any other language. NULL and 0 when there are none. A relation the
+     * engine could not record whole (an allocation that failed, which it counts as
+     * lost work) is left out. Appended by a specification change; see
+     * docs/plan/ISSUES.md, issue 42.
+     */
+    pdxe_impl_trait *impl_traits;
+    uint32_t n_impl_traits;
 } pdxe_file_result;
 
 int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8_t *bytes,
@@ -342,13 +366,16 @@ void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r);
  * it is not truncated and it reports no lost work: those parts are the cache's to keep,
  * and resolution reads what it needs of them from the surface. A definition's base
  * classes are copied with it, array and strings; a definition with bases and no array,
- * or with a NULL base, is refused. It declares no namespace.
+ * or with a NULL base, is refused. It declares no namespace. Its `impl Trait for Type`
+ * relations are copied, array and strings, NULL and 0 for none; relations counted
+ * with no array, or one with a NULL string, are refused (issue 42).
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,
                       uint32_t n_imports, const pdxe_usage *usages, uint32_t n_usages,
                       const pdxe_type_ref *types, uint32_t n_types, const pdxe_rw *rws,
-                      uint32_t n_rws, pdxe_file_result **out);
+                      uint32_t n_rws, const pdxe_impl_trait *impl_traits,
+                      uint32_t n_impl_traits, pdxe_file_result **out);
 
 /* --- typed resolution across files --------------------------------------- */
 

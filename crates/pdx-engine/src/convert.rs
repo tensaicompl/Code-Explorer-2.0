@@ -14,8 +14,8 @@ use pdx_engine_sys as sys;
 use crate::error::EngineError;
 use crate::model::{
     Call, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
-    FileExtract, FileStatus, Import, LexicalFacts, ReadWrite, SourceDigest, Span, Surface, Throw,
-    TypeRef, Usage, Visibility,
+    FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, ReadWrite, SourceDigest, Span,
+    Surface, Throw, TypeRef, Usage, Visibility,
 };
 
 /// A string the engine owns, copied, or `None` for NULL.
@@ -358,6 +358,23 @@ unsafe fn throw(t: &sys::pdxe_throw, n_defs: u32) -> Result<Throw, EngineError> 
     })
 }
 
+/// # Safety
+///
+/// The strings in `t` are NULL or alive for the call.
+unsafe fn impl_trait(t: &sys::pdxe_impl_trait) -> Result<ImplTrait, EngineError> {
+    let sys::pdxe_impl_trait {
+        trait_name,
+        struct_name,
+        struct_qn,
+    } = *t;
+    Ok(ImplTrait {
+        // SAFETY: as the caller guarantees.
+        trait_name: unsafe { required(trait_name, "an impl relation's trait") }?,
+        struct_name: unsafe { required(struct_name, "an impl relation's type") }?,
+        struct_qn: unsafe { required(struct_qn, "an impl relation's qualified name") }?,
+    })
+}
+
 /// Everything an extraction result holds, copied, with the surface taken from it.
 ///
 /// # Safety
@@ -395,6 +412,8 @@ pub(crate) unsafe fn file_extract(
         truncated,
         extraction_lost,
         declared_namespace,
+        impl_traits,
+        n_impl_traits,
     } = *r;
 
     let status = match u32::try_from(status) {
@@ -421,6 +440,9 @@ pub(crate) unsafe fn file_extract(
             extraction_lost,
             declared_namespace: optional(declared_namespace),
             definitions: each(defs, n_defs, "the definitions", |d| definition(d, n_defs))?,
+            impl_traits: each(impl_traits, n_impl_traits, "the impl relations", |t| {
+                impl_trait(t)
+            })?,
             calls: each(calls, n_calls, "the calls", |c| call(c, Some(n_defs)))?,
             imports: each(imports, n_imports, "the imports", |i| import(i))?,
             usages: each(usages, n_usages, "the usages", |u| usage(u, n_defs))?,

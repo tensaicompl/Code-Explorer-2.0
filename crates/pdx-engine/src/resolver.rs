@@ -11,7 +11,9 @@ use pdx_engine_sys as sys;
 use crate::convert;
 use crate::engine::{Engine, RawResult, c_string, language_id};
 use crate::error::{EngineError, SourceDifference, check};
-use crate::model::{Call, FileExtract, SourceDigest, Span, Visibility};
+use crate::model::{
+    Call, FileExtract, ImplTrait, ReadWrite, SourceDigest, Span, TypeRef, Usage, Visibility,
+};
 
 /// How a resolution was reached, in the interface's normalised vocabulary.
 ///
@@ -502,37 +504,22 @@ impl<'e> ProjectResolver<'e> {
         let usages = e
             .usages
             .iter()
-            .map(|u| {
-                Ok(sys::pdxe_usage {
-                    name: strings.required(&u.name)?,
-                    scope_index: c_index(u.scope),
-                    span: c_span(u.span),
-                    lexical: u.lexical.bits(),
-                })
-            })
+            .map(|u| c_usage(u, &mut strings))
             .collect::<Result<Vec<_>, EngineError>>()?;
         let types = e
             .type_refs
             .iter()
-            .map(|t| {
-                Ok(sys::pdxe_type_ref {
-                    type_text: strings.required(&t.type_text)?,
-                    scope_index: c_index(t.scope),
-                    span: c_span(t.span),
-                })
-            })
+            .map(|t| c_type_ref(t, &mut strings))
             .collect::<Result<Vec<_>, EngineError>>()?;
         let rws = e
             .read_writes
             .iter()
-            .map(|w| {
-                Ok(sys::pdxe_rw {
-                    field_text: strings.required(&w.field_text)?,
-                    scope_index: c_index(w.scope),
-                    is_write: u8::from(w.is_write),
-                    span: c_span(w.span),
-                })
-            })
+            .map(|w| c_read_write(w, &mut strings))
+            .collect::<Result<Vec<_>, EngineError>>()?;
+        let impls = e
+            .impl_traits
+            .iter()
+            .map(|t| c_impl_trait(t, &mut strings))
             .collect::<Result<Vec<_>, EngineError>>()?;
 
         let mut out = ptr::null_mut();
@@ -553,6 +540,12 @@ impl<'e> ProjectResolver<'e> {
                 count(types.len())?,
                 rws.as_ptr(),
                 count(rws.len())?,
+                if impls.is_empty() {
+                    ptr::null()
+                } else {
+                    impls.as_ptr()
+                },
+                count(impls.len())?,
                 &raw mut out,
             )
         };
@@ -826,6 +819,40 @@ fn c_call(c: &Call, strings: &mut Strings) -> Result<sys::pdxe_call, EngineError
         is_reference: u8::from(c.is_reference),
         typed_only: u8::from(c.typed_only),
         lexical: c.lexical.bits(),
+    })
+}
+
+fn c_usage(u: &Usage, strings: &mut Strings) -> Result<sys::pdxe_usage, EngineError> {
+    Ok(sys::pdxe_usage {
+        name: strings.required(&u.name)?,
+        scope_index: c_index(u.scope),
+        span: c_span(u.span),
+        lexical: u.lexical.bits(),
+    })
+}
+
+fn c_type_ref(t: &TypeRef, strings: &mut Strings) -> Result<sys::pdxe_type_ref, EngineError> {
+    Ok(sys::pdxe_type_ref {
+        type_text: strings.required(&t.type_text)?,
+        scope_index: c_index(t.scope),
+        span: c_span(t.span),
+    })
+}
+
+fn c_read_write(w: &ReadWrite, strings: &mut Strings) -> Result<sys::pdxe_rw, EngineError> {
+    Ok(sys::pdxe_rw {
+        field_text: strings.required(&w.field_text)?,
+        scope_index: c_index(w.scope),
+        is_write: u8::from(w.is_write),
+        span: c_span(w.span),
+    })
+}
+
+fn c_impl_trait(t: &ImplTrait, strings: &mut Strings) -> Result<sys::pdxe_impl_trait, EngineError> {
+    Ok(sys::pdxe_impl_trait {
+        trait_name: strings.required(&t.trait_name)?,
+        struct_name: strings.required(&t.struct_name)?,
+        struct_qn: strings.required(&t.struct_qn)?,
     })
 }
 

@@ -964,6 +964,97 @@ fn class_hierarchy_transitive_and_cycle_safe() {
 }
 
 #[test]
+fn rust_impl_relations_resolve_internal_traits() {
+    // `impl Trait for Type` (issue 42): the trait through the file's `use`, the type
+    // by its recorded qualified name; an empty block counts as much as one with
+    // methods, and a trait imported from outside the repository is external.
+    let checkout = Checkout::new(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"shapes\"\nversion = \"0.1.0\"\n",
+        ),
+        ("src/lib.rs", "pub mod shape;\npub mod square;\n"),
+        (
+            "src/shape.rs",
+            "pub trait Shape {\n    fn area(&self) -> f64;\n}\n\npub trait Marker {}\n",
+        ),
+        (
+            "src/square.rs",
+            "use crate::shape::{Marker, Shape};\nuse std::fmt;\n\npub struct Square;\n\nimpl Marker for Square {}\n\nimpl Shape for Square {\n    fn area(&self) -> f64 {\n        1.0\n    }\n}\n\nimpl fmt::Display for Square {\n    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {\n        write!(f, \"square\")\n    }\n}\n",
+        ),
+    ]);
+    let reg = checkout.registry();
+    let square = def(&reg, "src/square.rs", "Square");
+    let shape = def(&reg, "src/shape.rs", "Shape");
+    let marker = def(&reg, "src/shape.rs", "Marker");
+    let relations = reg.impl_relations("src/square.rs");
+    let named: Vec<&str> = relations.iter().map(|r| r.trait_name.as_str()).collect();
+    assert_eq!(named, ["Marker", "Shape", "fmt::Display"]);
+    for relation in relations {
+        assert_eq!(
+            relation.implementing_type,
+            BaseResolution::Internal(square.clone())
+        );
+        assert_eq!(relation.struct_qn, "src.square.Square");
+    }
+    assert_eq!(
+        relations[0].implemented_trait,
+        BaseResolution::Internal(marker.clone())
+    );
+    assert_eq!(
+        relations[1].implemented_trait,
+        BaseResolution::Internal(shape.clone())
+    );
+    assert!(matches!(
+        relations[2].implemented_trait,
+        BaseResolution::External(_)
+    ));
+    let mut expected = vec![shape.clone(), marker.clone()];
+    expected.sort();
+    assert_eq!(reg.implemented_traits(&square), expected);
+    assert_eq!(reg.implementors(&shape), std::slice::from_ref(&square));
+    assert_eq!(reg.implementors(&marker), std::slice::from_ref(&square));
+    // No supertrait is invented, and the class hierarchy is still empty for Rust.
+    assert!(reg.implemented_traits(&shape).is_empty());
+    assert!(reg.ancestors(&square).is_empty());
+}
+
+#[test]
+fn ambiguous_trait_remains_ambiguous() {
+    // Two traits of one name, and an impl whose file names neither through an import:
+    // nothing chooses between them, so the type implements no internal trait.
+    let checkout = Checkout::new(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"shapes\"\nversion = \"0.1.0\"\n",
+        ),
+        ("src/lib.rs", "pub mod a;\npub mod b;\npub mod c;\n"),
+        ("src/a.rs", "pub trait Shape {}\n"),
+        ("src/b.rs", "pub trait Shape {}\n"),
+        (
+            "src/c.rs",
+            "pub struct Square;\n\nimpl Shape for Square {}\n",
+        ),
+    ]);
+    let reg = checkout.registry();
+    let square = def(&reg, "src/c.rs", "Square");
+    let [relation] = reg.impl_relations("src/c.rs") else {
+        panic!("one relation: {:?}", reg.impl_relations("src/c.rs"));
+    };
+    let mut both = vec![
+        def(&reg, "src/a.rs", "Shape"),
+        def(&reg, "src/b.rs", "Shape"),
+    ];
+    both.sort();
+    assert_eq!(relation.implemented_trait, BaseResolution::Ambiguous(both));
+    assert_eq!(
+        relation.implementing_type,
+        BaseResolution::Internal(square.clone())
+    );
+    assert!(reg.implemented_traits(&square).is_empty());
+}
+
+#[test]
 fn ambiguous_base_is_not_forced() {
     let checkout = Checkout::new(&[
         ("one/base.py", "class Base:\n    pass\n"),
@@ -1420,8 +1511,8 @@ fn engine_metadata_matches_registry_modules() {
     );
 
     // The alias scope the registry resolves with is the one the engine gets, and both
-    // take an aliased import to the same file. (In its own checkout: the engine applies
-    // a root base URL to other languages' imports too, docs/plan/ISSUES.md, issue 43.)
+    // take an aliased import to the same file. Both mechanisms in one repository are
+    // `polyglot_ts_alias_does_not_affect_go` (issue 43).
     let ts = Checkout::new(&[
         (
             "tsconfig.json",
@@ -1451,6 +1542,77 @@ fn engine_metadata_matches_registry_modules() {
             &[("src/app/show.ts", "formatName")]
         ),
         internal_files(&import(&reg, "src/app/show.ts", "@/lib/format").target)
+    );
+}
+
+#[test]
+fn polyglot_ts_alias_does_not_affect_go() {
+    // One repository with a root `tsconfig.json` that sets a base URL and an alias, a
+    // TypeScript file importing through the alias, and a Go module importing its own
+    // package (issue 43). The alias resolves TypeScript's import; Go's import is not
+    // rewritten by it; and the engine and the registry agree on both, with the
+    // configuration present or not.
+    let go_files = [
+        ("go.mod", "module example.com/acme\n"),
+        ("pkg/a/a.go", "package a\n\nfunc Hello() int { return 1 }\n"),
+        (
+            "pkg/b/b.go",
+            "package b\n\nimport \"example.com/acme/pkg/a\"\n\nfunc Use() int { return a.Hello() }\n",
+        ),
+    ];
+    let ts_files = [
+        (
+            "tsconfig.json",
+            "{ \"compilerOptions\": { \"baseUrl\": \".\", \"paths\": { \"@/*\": [\"src/*\"] } } }\n",
+        ),
+        (
+            "src/lib/format.ts",
+            "export function formatName(s: string): string { return s.trim(); }\n",
+        ),
+        (
+            "src/app/show.ts",
+            "import { formatName } from '@/lib/format';\nexport function show(): string { return formatName(' x '); }\n",
+        ),
+    ];
+    let go_paths = ["pkg/a/a.go", "pkg/b/b.go"];
+    let go_call = [("pkg/b/b.go", "Hello")];
+
+    // Go alone: the baseline.
+    let alone = Checkout::new(&go_files);
+    let reg = alone.registry();
+    let baseline = engine_targets(&alone, &reg, &go_paths, &go_call);
+    assert_eq!(baseline, ["pkg/a/a.go"]);
+
+    // The same Go module beside a root configuration with a base URL.
+    let files: Vec<(&str, &str)> = go_files.iter().chain(&ts_files).copied().collect();
+    let polyglot = Checkout::new(&files);
+    let reg = polyglot.registry();
+    let scope = &reg.resolution_metadata().alias_scopes[0];
+    assert_eq!(
+        (scope.dir_prefix.as_str(), scope.base_url.as_deref()),
+        ("", Some("."))
+    );
+    let paths = [
+        "pkg/a/a.go",
+        "pkg/b/b.go",
+        "src/app/show.ts",
+        "src/lib/format.ts",
+    ];
+    let calls = [("pkg/b/b.go", "Hello"), ("src/app/show.ts", "formatName")];
+    let engine = engine_targets(&polyglot, &reg, &paths, &calls);
+    assert_eq!(engine, ["pkg/a/a.go", "src/lib/format.ts"]);
+    assert_eq!(
+        engine[0], baseline[0],
+        "the configuration changed Go's answer"
+    );
+    // The registry reads both imports as the engine does.
+    assert_eq!(
+        internal_files(&import(&reg, "pkg/b/b.go", "example.com/acme/pkg/a").target),
+        [engine[0].as_str()]
+    );
+    assert_eq!(
+        internal_files(&import(&reg, "src/app/show.ts", "@/lib/format").target),
+        [engine[1].as_str()]
     );
 }
 

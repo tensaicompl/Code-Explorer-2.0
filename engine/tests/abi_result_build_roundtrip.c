@@ -15,6 +15,10 @@
  * compare equal. Definitions with no base, one base and several must all occur
  * (fixtures/bases), and a definition with none has no array (issue 40).
  *
+ * So do a file's `impl Trait for Type` relations, in order, the rebuilt result's own
+ * in the same way; files with none, one and several must all occur (fixtures/bases),
+ * and a file with none has no array (issue 42).
+ *
  * And surfaces that are not what the encoder writes are refused: truncated, of
  * another version, with a field missing, a field extra, a field of the wrong type,
  * or a counted array whose count disagrees with it.
@@ -109,6 +113,15 @@ static void compare(const char *path, const pdxe_file_result *a, const pdxe_file
                   x->is_write == y->is_write && same_span(x->span, y->span),
               "%s: field access %u differs", path, i);
     }
+    CHECK(a->n_impl_traits == b->n_impl_traits &&
+              (b->n_impl_traits == 0) == (b->impl_traits == NULL),
+          "%s: impl relations differ in number", path);
+    for (uint32_t i = 0; i < a->n_impl_traits && i < b->n_impl_traits; i++) {
+        const pdxe_impl_trait *x = &a->impl_traits[i], *y = &b->impl_traits[i];
+        CHECK(same_str(x->trait_name, y->trait_name) && same_str(x->struct_name, y->struct_name) &&
+                  same_str(x->struct_qn, y->struct_qn),
+              "%s: impl relation %u differs", path, i);
+    }
 }
 
 static unsigned char *read_all(const char *path, size_t *len) {
@@ -158,6 +171,35 @@ static int files_checked = 0;
 static int defs_without_bases = 0;
 static int defs_with_one_base = 0;
 static int defs_with_several_bases = 0;
+static int files_without_impls = 0;
+static int files_with_one_impl = 0;
+static int files_with_several_impls = 0;
+
+/* A copy of a result's impl relations the caller owns, array and strings. */
+static pdxe_impl_trait *copy_impls(const pdxe_file_result *r) {
+    pdxe_impl_trait *copy = calloc(r->n_impl_traits ? r->n_impl_traits : 1, sizeof(*copy));
+    for (uint32_t i = 0; copy && i < r->n_impl_traits; i++) {
+        copy[i].trait_name = strdup(r->impl_traits[i].trait_name);
+        copy[i].struct_name = strdup(r->impl_traits[i].struct_name);
+        copy[i].struct_qn = strdup(r->impl_traits[i].struct_qn);
+    }
+    return copy;
+}
+
+/* Overwrites and frees what copy_impls made. */
+static void destroy_impls(pdxe_impl_trait *copy, uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        const char *strings[] = {copy[i].trait_name, copy[i].struct_name, copy[i].struct_qn};
+        for (size_t s = 0; s < 3; s++) {
+            char *p = (char *)strings[s];
+            if (p) {
+                memset(p, 'Z', strlen(p));
+                free(p);
+            }
+        }
+    }
+    free(copy);
+}
 
 /* A copy of the definitions the caller owns: the array, and each base array and base
  * string. Its other strings stay the result's, which outlives the copy. */
@@ -218,16 +260,34 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
         defs_with_one_base += d->n_base_classes == 1;
         defs_with_several_bases += d->n_base_classes > 1;
     }
+    CHECK((r->n_impl_traits == 0) == (r->impl_traits == NULL),
+          "%s: %u impl relations and %s array", path, r->n_impl_traits,
+          r->impl_traits ? "an" : "no");
+    for (uint32_t i = 0; i < r->n_impl_traits; i++) {
+        const pdxe_impl_trait *it = &r->impl_traits[i];
+        CHECK(it->trait_name && it->trait_name[0] && it->struct_name && it->struct_name[0] &&
+                  it->struct_qn && it->struct_qn[0],
+              "%s: impl relation %u has an empty string", path, i);
+    }
+    files_without_impls += r->n_impl_traits == 0;
+    files_with_one_impl += r->n_impl_traits == 1;
+    files_with_several_impls += r->n_impl_traits > 1;
 
     /* Rebuilt from a copy that is destroyed before the comparison: the bases must be
      * the rebuilt result's own. */
     pdxe_definition *copy = copy_defs(r);
+    pdxe_impl_trait *impls = copy_impls(r);
     pdxe_file_result *from_copy = NULL;
-    CHECK(copy && pdxe_result_build(ctx, copy, r->n_defs, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
-                                    NULL, 0, &from_copy) == PDXE_OK,
+    CHECK(copy && impls &&
+              pdxe_result_build(ctx, copy, r->n_defs, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                                r->n_impl_traits ? impls : NULL, r->n_impl_traits,
+                                &from_copy) == PDXE_OK,
           "%s: rebuild from a copy failed", path);
     if (copy) {
         destroy_defs(copy, r->n_defs);
+    }
+    if (impls) {
+        destroy_impls(impls, r->n_impl_traits);
     }
     if (from_copy) {
         CHECK(from_copy->n_defs == r->n_defs, "%s: a rebuild lost definitions", path);
@@ -242,13 +302,24 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
                       "%s: definition %u's base %u is not a copy of its own", path, i, b);
             }
         }
+        CHECK(from_copy->n_impl_traits == r->n_impl_traits &&
+                  (from_copy->n_impl_traits == 0) == (from_copy->impl_traits == NULL),
+              "%s: the impl relations were not rebuilt", path);
+        for (uint32_t i = 0; i < from_copy->n_impl_traits && i < r->n_impl_traits; i++) {
+            const pdxe_impl_trait *x = &r->impl_traits[i], *y = &from_copy->impl_traits[i];
+            CHECK(same_str(x->trait_name, y->trait_name) &&
+                      same_str(x->struct_name, y->struct_name) &&
+                      same_str(x->struct_qn, y->struct_qn) && y->trait_name != x->trait_name &&
+                      y->struct_name != x->struct_name && y->struct_qn != x->struct_qn,
+                  "%s: impl relation %u is not a copy of its own", path, i);
+        }
         pdxe_result_free(ctx, from_copy);
     }
 
     pdxe_file_result *rebuilt = NULL;
     CHECK(pdxe_result_build(ctx, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
                             r->n_imports, r->usages, r->n_usages, r->types, r->n_types, r->rws,
-                            r->n_rws, &rebuilt) == PDXE_OK,
+                            r->n_rws, r->impl_traits, r->n_impl_traits, &rebuilt) == PDXE_OK,
           "%s: rebuild failed", path);
     if (rebuilt) {
         compare(path, r, rebuilt);
@@ -479,14 +550,22 @@ static void check_refusals(pdxe_ctx *ctx) {
     with_bases.n_base_classes = 1;
     with_bases.base_classes = NULL;
     CHECK(pdxe_result_build(ctx, &with_bases, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
-                            &refused) == PDXE_E_INVALID && !refused,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "a definition counting bases it has no array for was rebuilt");
     const char *null_base[] = {"Base", NULL};
     with_bases.n_base_classes = 2;
     with_bases.base_classes = null_base;
     CHECK(pdxe_result_build(ctx, &with_bases, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
-                            &refused) == PDXE_E_INVALID && !refused,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "a definition with a NULL base was rebuilt");
+    /* Impl relations: counted with no array, and one with a NULL string. */
+    CHECK(pdxe_result_build(ctx, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 1,
+                            &refused) == PDXE_E_INVALID && !refused,
+          "impl relations counted with no array were rebuilt");
+    const pdxe_impl_trait null_qn = {"Shape", "Square", NULL};
+    CHECK(pdxe_result_build(ctx, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, &null_qn, 1,
+                            &refused) == PDXE_E_INVALID && !refused,
+          "an impl relation with a NULL qualified name was rebuilt");
 
     expect_refused("whose count disagrees with its array",
                    m = replace(good, "\"signature_param_count\":1", "\"signature_param_count\":2"));
@@ -514,6 +593,9 @@ int main(int argc, char **argv) {
     CHECK(defs_without_bases > 0 && defs_with_one_base > 0 && defs_with_several_bases > 0,
           "bases seen: %d definitions with none, %d with one, %d with several",
           defs_without_bases, defs_with_one_base, defs_with_several_bases);
+    CHECK(files_without_impls > 0 && files_with_one_impl > 0 && files_with_several_impls > 0,
+          "impl relations seen: %d files with none, %d with one, %d with several",
+          files_without_impls, files_with_one_impl, files_with_several_impls);
     printf("%s: %d files, %d projects, %d failures\n", failures ? "FAIL" : "ok", files_checked,
            projects_checked, failures);
     return failures || files_checked == 0 ? 1 : 0;

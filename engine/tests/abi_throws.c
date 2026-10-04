@@ -126,7 +126,8 @@ int main(int argc, char **argv) {
             pdxe_file_result *rebuilt = NULL;
             CHECK(pdxe_result_build(ctx, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
                                     r->n_imports, r->usages, r->n_usages, r->types, r->n_types,
-                                    r->rws, r->n_rws, &rebuilt) == PDXE_OK,
+                                    r->rws, r->n_rws, r->impl_traits, r->n_impl_traits,
+                                    &rebuilt) == PDXE_OK,
                   "%s: cannot rebuild", fx->file);
             if (rebuilt) {
                 CHECK(rebuilt->n_throws == 0 && rebuilt->throws != NULL &&

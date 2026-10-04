@@ -437,6 +437,38 @@ fn declared(lookup: &Lookup<'_>, language: &'static str, text: &str, sep: char) 
     {
         found.push(lookup.module_target(module, Some(member.to_owned())));
     }
+    // A static import names a member of a type: `q.Util.helper` imports `helper` of
+    // the type `Util` that the package `q` defines. Only the package's files that
+    // define such a type are the target.
+    if found.is_empty()
+        && let Some((parent, member)) = text.rsplit_once(sep)
+        && let Some((package, ty)) = parent.rsplit_once(sep)
+        && let Some(module) = lookup
+            .namespaces
+            .get(&(language, namespace_key(language, package)))
+    {
+        let files: Vec<String> = lookup
+            .module_files
+            .get(module)
+            .into_iter()
+            .flatten()
+            .filter(|f| {
+                lookup.sources.extract(f).is_some_and(|e| {
+                    e.definitions
+                        .iter()
+                        .any(|d| d.name == ty && modules::is_type(d.kind))
+                })
+            })
+            .cloned()
+            .collect();
+        if !files.is_empty() {
+            found.push(InternalTarget {
+                module: Some(module.clone()),
+                files,
+                member: Some(member.to_owned()),
+            });
+        }
+    }
     decide(found, ImportTarget::External)
 }
 

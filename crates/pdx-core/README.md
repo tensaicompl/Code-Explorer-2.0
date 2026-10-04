@@ -6,9 +6,9 @@ Open. Apache-2.0; see `LICENSE` at the repository root.
 
 The graph model's vocabulary, identities and rows exist, and so do segments, the
 files that store them, a repository's configuration, content secret normalisation,
-the pipeline's first two stages, discovery and extraction, and the symbol registry
-Stage 3 reads; the later stages arrive with the tasks that implement them. What exists
-is below.
+the pipeline's first two stages, discovery and extraction, and Stage 3's resolution:
+the symbol registry and the stages that settle each call site's band and target; the
+later stages arrive with the tasks that implement them. What exists is below.
 
 ## Public API
 
@@ -154,7 +154,7 @@ that times out fails it with an `ExtractError`, which names paths and never cont
 | `prepare_source(root, file)` | The file read (each path component checked without following a link, never more than discovery's size), `BlobSha` over the original bytes, normalised in place, `SourceDigest` over the result. Stage 3 reads a file again through it |
 | `BlobSha` | Git's blob identity of the original bytes, 40 hex; never the `SourceDigest`, which is SHA-256 of the normalised bytes the engine was given |
 | `CacheKey`, `CacheObjectId` | `(engine_version, language_matrix_version, secret_policy_digest, language_id, rel_path, blob_sha)`; the object id is SHA-256 over a tagged, length-prefixed encoding of it, 64 hex |
-| `ExtractCache`, `FsCache::at(root)` | `load` and `store`, usable from every worker at once. `FsCache` keeps `<root>/v1/<2 hex>/<64 hex>`, written to a temporary file and renamed, 0700 directories and 0600 files on Unix |
+| `ExtractCache`, `FsCache::at(root)` | `load` and `store`, usable from every worker at once. `FsCache` keeps `<root>/v<format>/<2 hex>/<64 hex>` (`v3` today), written to a temporary file and renamed, 0700 directories and 0600 files on Unix |
 | `CacheEnvelope` | `{ format_version, key, extract }` in postcard, decoded exactly; another format, key, trailing bytes or a damaged entry is a `CacheDefect`, a miss |
 | `ExtractLimits`, `plan_batches`, `BatchPlan` | Workers requested and the memory budget, resolved by the caller. A file over the whole budget is skipped; `effective_workers × largest ≤ budget`; each worker's share is `budget / effective_workers`; batches greedy in path order, at most `MAX_BATCH_FILES` |
 | `ExtractBackend`, `default_backend` | One per worker thread: the engine in process, or an isolated worker when `PDX_ENGINE_ISOLATE=1` |
@@ -178,6 +178,7 @@ resolves no call and assigns no band.
 | `ImportRecord`, `ImportTarget`, `InternalTarget`, `imports_of`, `import` | One record per extracted import with its raw text, the local names it binds and its target: `Internal`, `InternalCandidates`, `External`, `UnresolvedInternal`, `Unclassified`. A relative import is never external |
 | `NameProvenance`, `name_provenance`, `is_external_name`, `external_names` | A name is external only when every import binding it leads outside the repository and the file does not define it |
 | `BaseRelation`, `BaseResolution`, `direct_bases`, `direct_derived`, `ancestors`, `declaring_type` | Hierarchy from `Definition::base_classes`: exact qualified name, same module, import binding, unique name, in that order; ambiguity kept; external only by import. Ancestors breadth-first, cycle-safe |
+| `ImplRelation`, `impl_relations`, `implemented_traits`, `implementors` | Rust's `impl Trait for Type` blocks (`FileExtract::impl_traits`), the type by its recorded qualified name or else as a base is resolved, the trait as a base is resolved; a relation counts only when both are exactly one internal type. Supertraits are not recorded (issue 42) |
 | `resolution_metadata` | Go modules, packages from `package.json`, declared packages, `tsconfig.json` alias scopes and the root crate manifest, as `pdx_engine::ResolutionMetadata`: the same the registry resolves with |
 | `RegistryError` | Stages that disagree, a definition index or parent an extraction does not have, metadata that cannot be read or parsed, or has changed since Stage 2 |
 
@@ -185,6 +186,34 @@ Metadata files are read only if discovery found them candidates, through `prepar
 (checked against Stage 2's blob and digest) or `prepare_candidate`, normalised; a
 redacted file is never opened. `tsconfig.json` may hold comments and trailing commas,
 and `extends` is followed within the repository.
+
+### `resolve::blocklist`
+
+Appendix B.4's generic-name blocklist: `BASE`, its 57 names unchanged, and
+`ADDITIONS`, each a documented constant (Python's `__init__`, `__str__`, `__repr__`,
+`__enter__`, `__exit__`); `is_blocked(language, name)`, exact and case-sensitive.
+
+### `resolve::stages`
+
+Stage 3's resolution (4.5): `resolve(root, &registry)` runs typed resolution over the
+whole repository (`typed_resolution`: every extracted file in path order, its source
+read again and checked against Stage 2, the registry's metadata) and then settles every
+site (`resolve_with(&registry, &typed)`).
+
+| Item | |
+|---|---|
+| `Resolution` | A band, the target of a drawn band, the sorted candidates of `candidate`, and the engine's answer verbatim (`EngineAnswer`: score, normalised and raw strategy, candidate count, target). Made only through `Resolution::new`, which refuses every shape its band does not mean (`InvalidResolution`) |
+| `ResolveReport` | `resolutions` (`ResolvedSite`: `SiteRef`, the `Call`, its `Resolution`), `unconfirmed` (`UnconfirmedSite`: `typed_only` questions, references and engine-found sites typed resolution did not settle) and `engine_health`, the run's `RunHealth` |
+| `narrow`, `NarrowingStage`, `Narrowed` | The narrowing core every site goes through: one sorted set, a stage's single survivor resolves, several become the set, none changes nothing |
+| `ResolutionError` | Typed resolution's failures, a changed or unreadable checkout, two answers for one site, an answer for a site the extractions do not have, a registry without what a site names |
+
+Precedence per site: the blocklist; the engine's answer (`typed` when `from_engine`
+says so and its target is one definition; `external` when its target is in no file of
+the project, issue 45); names bound locally (`unresolved`) or only by external imports
+(`external`); then import-guided, inheritance-guided, exact and scoped over the
+candidates (definitions a call can invoke, of the caller's language family, by name, by
+qualified name, through aliasing imports, and the engine's hint); then `candidate` or
+`unresolved`. An `UNRESOLVED_MEMBER` call is never resolved by its name alone.
 
 ### `languages`
 
@@ -235,7 +264,8 @@ cargo test -p pdx-core
 | `discover` | `discover_honours_gitignore` (every exclusion source, their independence, hard excludes, `vendor`, `.ignore` and hidden files); `discover_skips_symlinks` (file, directory, outside the root, a loop); `discover_marks_binary_and_large` (the limit inclusive, the file over it never read, NUL is binary, non-UTF-8 is not); secret paths redacted unread; unknown languages kept; configured and header languages; sorted relative paths; root and ignore-file refusals |
 | `secrets` | `secret_policy_digest_fixed_vector` and `detector_version_enters_secret_policy_digest` against vectors computed outside the crate; every detector's matches and what it keeps; what is not a credential left alone; non-UTF-8; `secret_detector_overlap_is_order_independent` over all 120 orders; `secret_normalisation_preserves_offsets` as a property |
 | `extract` | `cache_hit_skips_engine`, `blob_sha_matches_git` (against `git hash-object` and fixed vectors), `memory_budget_batches`, `secret_policy_change_invalidates_cache`; the key's path and language; `cache_object_id_fixed_vector`; independence of the checkout's location; the node budget and every other extraction switch bypassing the cache; truncated, lossy and unclean entries; wrong digests, corruption and atomic private writes; failures, crashes and timeouts; files carried forward unopened; a changed checkout; order under any workers and batches; `secrets_do_not_reach_engine_or_cache` |
-| `registry` | `registry_<lang>` for every typed language (a test holds the list to the matrix), each through discovery, extraction and the registry; `external_detection_python_stdlib`; duplicates and case kept; input order irrelevant; every module rule; imports internal, external, unresolved and ambiguous; Python packages and relative imports, tsconfig aliases and `extends`, Go modules nested, Rust path dependencies and the standard crates, C pairing; hierarchy transitive, cycle-safe, ambiguity unforced; fresh and cached extractions the same registry; the engine resolving with the registry's metadata to the registry's files; refusals of disagreeing stages, malformed extractions, bad and changed metadata; redacted and symlinked metadata never read |
+| `registry` | `registry_<lang>` for every typed language (a test holds the list to the matrix), each through discovery, extraction and the registry; `external_detection_python_stdlib`; duplicates and case kept; input order irrelevant; every module rule; imports internal, external, unresolved and ambiguous; Python packages and relative imports, tsconfig aliases and `extends`, Go modules nested, Rust path dependencies and the standard crates, C pairing; hierarchy transitive, cycle-safe, ambiguity unforced; fresh and cached extractions the same registry; Rust `impl` relations resolved, an ambiguous trait kept ambiguous; the engine resolving with the registry's metadata to the registry's files, a root `tsconfig.json` beside a Go module included (`polyglot_ts_alias_does_not_affect_go`); refusals of disagreeing stages, malformed extractions, bad and changed metadata; redacted and symlinked metadata never read |
+| `stages` | `resolution_stage_matrix` (all nine outcomes, each row's evidence stated); `narrowing_keeps_narrowest_set`; `blocklist_precedes_all`; `typed_requires_lsp_typed_single_candidate_and_min_score`; `engine_hints_never_restrict_candidate_universe`; typed targets mapped uniquely, engine-proven external targets, unvalidated hints; aliases, module receivers, Java static imports and C includes import-guided; `super`, implicit receivers and Rust `impl` traits through the hierarchy; scoped by module, not directory; no cross-family candidate; lexical bindings, unresolved members, `typed_only`, references and engine-found sites never resolved by name; degraded runs; duplicate and impossible answers refused; resolution shapes; typed resolution over a polyglot repository, in any file order, fresh or cached |
 | `config` | `pdx_toml_defaults` field by field; the Appendix C reference with all four rule forms and every precise family, commands never run; global and family timeouts; the `[languages] extra` rules; every refusal, each naming the file and key |
 | `consts` | Every constant is documented, and the interface's mirror is real |
 

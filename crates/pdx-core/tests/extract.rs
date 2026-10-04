@@ -708,8 +708,8 @@ fn cache_object_id_fixed_vector() {
     assert_eq!(key.engine_version, ENGINE_VERSION);
     assert_eq!(key.language_matrix_version, LANGUAGE_MATRIX_VERSION);
     assert_eq!(
-        EXTRACT_CACHE_FORMAT_VERSION, 2,
-        "the vector below is format 2's"
+        EXTRACT_CACHE_FORMAT_VERSION, 3,
+        "the vector below is format 3's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 2,
@@ -718,10 +718,10 @@ fn cache_object_id_fixed_vector() {
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "89623d825368399fb47e7c94b17c0e312c28cf223d808921fcfbe621820e8c59"
+        "9e53439d946efd2d697239ab10b5633cf770e93b55779a34dcd991f1cadb33d4"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v2").join("89").join(&id));
+    assert_eq!(path, Path::new("cache").join("v3").join("9e").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -1016,48 +1016,90 @@ fn cache_rejects_wrong_source_digest() {
 }
 
 #[test]
-fn cache_format_1_is_a_miss() {
-    // Format 1 held definitions without base classes and extractions without a
-    // declared namespace. Its entries are never decoded as the current format: not in
-    // the directory format 1 used, which is never read, and not at the current path
-    // with format 1 written in them.
-    let checkout = Checkout::new();
-    checkout.write("src/app.py", PYTHON);
-    let config = checkout.config();
-    let key = key_for(&checkout, &config, "src/app.py", "python");
-    let clean = {
-        let probe = Probe::new(Twist::None);
-        extract_of(&run(&checkout, None, &probe), "src/app.py").clone()
-    };
-    let old = postcard::to_stdvec(&CacheEnvelope {
-        format_version: 1,
-        key: key.clone(),
-        extract: clean.clone(),
-    })
-    .unwrap();
-    let cache = Cache::new();
-    let current = cache.cache.object_path(&key);
-    let current_text = current.to_string_lossy().replace('\\', "/");
-    assert!(current_text.contains("/v2/"), "{current_text}");
-    let format_1_dir = cache
-        .cache
-        .root()
-        .join("v1")
-        .join(&current.file_name().unwrap().to_string_lossy()[..2]);
-    fs::create_dir_all(&format_1_dir).unwrap();
-    fs::write(format_1_dir.join(current.file_name().unwrap()), &old).unwrap();
-    plant(&cache, &key, &old);
-    assert_eq!(cache.cache.load(&key), Err(CacheDefect::WrongFormat(1)));
+fn cache_format_2_is_a_miss() {
+    // Format 2 held extractions without their impl relations (issue 42), format 1
+    // also definitions without base classes and extractions without a declared
+    // namespace. Their entries are never decoded as the current format: not in the
+    // directory their format used, which is never read, and not at the current path
+    // with their format written in them.
+    for old_format in [1, 2] {
+        let checkout = Checkout::new();
+        checkout.write("src/app.py", PYTHON);
+        let config = checkout.config();
+        let key = key_for(&checkout, &config, "src/app.py", "python");
+        let clean = {
+            let probe = Probe::new(Twist::None);
+            extract_of(&run(&checkout, None, &probe), "src/app.py").clone()
+        };
+        let old = postcard::to_stdvec(&CacheEnvelope {
+            format_version: old_format,
+            key: key.clone(),
+            extract: clean.clone(),
+        })
+        .unwrap();
+        let cache = Cache::new();
+        let current = cache.cache.object_path(&key);
+        let current_text = current.to_string_lossy().replace('\\', "/");
+        assert!(current_text.contains("/v3/"), "{current_text}");
+        let old_dir = cache
+            .cache
+            .root()
+            .join(format!("v{old_format}"))
+            .join(&current.file_name().unwrap().to_string_lossy()[..2]);
+        fs::create_dir_all(&old_dir).unwrap();
+        fs::write(old_dir.join(current.file_name().unwrap()), &old).unwrap();
+        plant(&cache, &key, &old);
+        assert_eq!(
+            cache.cache.load(&key),
+            Err(CacheDefect::WrongFormat(old_format))
+        );
 
+        let probe = Probe::new(Twist::None);
+        let report = run(&checkout, Some(&cache), &probe);
+        assert_eq!(probe.files(), 1, "a format-{old_format} entry was used");
+        assert_eq!(report.stats.cache_hits, 0);
+        assert_eq!(report.stats.cache_unusable, 1);
+        assert_eq!(
+            cache.cache.load(&key),
+            Ok(Some(clean)),
+            "the format-{old_format} entry was not replaced"
+        );
+    }
+}
+
+#[test]
+fn cached_extractions_keep_impl_relations() {
+    // `impl Trait for Type` relations survive the cache whole, the empty block's
+    // included, which no method definition could stand in for (issue 42).
+    let checkout = Checkout::new();
+    checkout.write(
+        "src/lib.rs",
+        "pub trait Marker {}\npub trait Shape { fn area(&self) -> f64; }\npub struct Square;\nimpl Marker for Square {}\nimpl Shape for Square { fn area(&self) -> f64 { 1.0 } }\n",
+    );
+    let cache = Cache::new();
     let probe = Probe::new(Twist::None);
-    let report = run(&checkout, Some(&cache), &probe);
-    assert_eq!(probe.files(), 1, "a format-1 entry was used");
-    assert_eq!(report.stats.cache_hits, 0);
-    assert_eq!(report.stats.cache_unusable, 1);
+    let fresh = run(&checkout, Some(&cache), &probe);
+    let probe = Probe::new(Twist::None);
+    let cached = run(&checkout, Some(&cache), &probe);
+    assert_eq!(probe.files(), 0, "not from the cache");
+    assert_eq!(cached.files, fresh.files);
+    let relations: Vec<(&str, &str, &str)> = extract_of(&cached, "src/lib.rs")
+        .impl_traits
+        .iter()
+        .map(|t| {
+            (
+                t.trait_name.as_str(),
+                t.struct_name.as_str(),
+                t.struct_qn.as_str(),
+            )
+        })
+        .collect();
     assert_eq!(
-        cache.cache.load(&key),
-        Ok(Some(clean)),
-        "the entry was not replaced"
+        relations,
+        [
+            ("Marker", "Square", "src.lib.Square"),
+            ("Shape", "Square", "src.lib.Square")
+        ]
     );
 }
 

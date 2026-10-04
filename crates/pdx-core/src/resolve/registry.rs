@@ -164,6 +164,27 @@ pub enum BaseResolution {
     Unresolved,
 }
 
+/// An `impl Trait for Type` block (Rust), as the engine recorded it, and the type and
+/// trait it names, each resolved as a base is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImplRelation {
+    /// The file the block is in.
+    pub path: String,
+    /// The relation's index in that file's extraction.
+    pub index: u32,
+    /// The trait as the engine recorded it.
+    pub trait_name: String,
+    /// The implementing type as the engine recorded it.
+    pub struct_name: String,
+    /// The implementing type's qualified name as the engine recorded it.
+    pub struct_qn: String,
+    /// The implementing type: its recorded qualified name if a type of the repository
+    /// has it, otherwise its name, resolved as a base is.
+    pub implementing_type: BaseResolution,
+    /// The trait, resolved as a base is.
+    pub implemented_trait: BaseResolution,
+}
+
 /// Why the registry could not be built. Names files by path, never their content.
 #[derive(Debug, thiserror::Error)]
 pub enum RegistryError {
@@ -238,7 +259,7 @@ pub(crate) struct Sources<'a> {
 }
 
 impl Sources<'_> {
-    fn extract(&self, path: &str) -> Option<&FileExtract> {
+    pub(crate) fn extract(&self, path: &str) -> Option<&FileExtract> {
         match &self.files.get(path)?.outcome {
             FileOutcome::Extracted { extract, .. } => Some(extract),
             _ => None,
@@ -260,6 +281,9 @@ pub struct SymbolRegistry {
     imports: BTreeMap<String, Vec<ImportRecord>>,
     bases: BTreeMap<DefinitionRef, Vec<BaseRelation>>,
     derived: BTreeMap<DefinitionRef, Vec<DefinitionRef>>,
+    impls: BTreeMap<String, Vec<ImplRelation>>,
+    traits_of: BTreeMap<DefinitionRef, Vec<DefinitionRef>>,
+    implementors: BTreeMap<DefinitionRef, Vec<DefinitionRef>>,
     pairs: BTreeMap<String, String>,
     metadata: ResolutionMetadata,
 }
@@ -301,6 +325,9 @@ impl SymbolRegistry {
             imports: BTreeMap::new(),
             bases: BTreeMap::new(),
             derived: BTreeMap::new(),
+            impls: BTreeMap::new(),
+            traits_of: BTreeMap::new(),
+            implementors: BTreeMap::new(),
             pairs: BTreeMap::new(),
             metadata: ResolutionMetadata::default(),
         };
@@ -310,6 +337,7 @@ impl SymbolRegistry {
         registry.resolve_imports(&sources, &layout, &namespaces);
         registry.pair_headers(&sources);
         registry.resolve_bases(&sources);
+        registry.resolve_impls(&sources);
         registry.metadata = registry.metadata_for_engine(&layout);
         registry.files = sources.files;
         Ok(registry)
@@ -520,25 +548,115 @@ impl SymbolRegistry {
             .collect();
     }
 
-    /// What one base names: an exact qualified name; a type of the same name in the
-    /// derived definition's module; a type an import binding the name leads to (or
-    /// external, if the import is); a type of that name unique in the repository.
-    /// The first of these that finds anything decides; several are ambiguous.
+    /// Each file's `impl Trait for Type` relations, with the type and trait each names,
+    /// and which internal traits each internal type implements. A relation counts only
+    /// when both resolve to exactly one type of the repository: no ambiguous trait or
+    /// type is ever chosen. Supertraits are not recorded by the engine, so a trait's own
+    /// bases are not followed (issue 42).
+    fn resolve_impls(&mut self, sources: &Sources<'_>) {
+        let mut impls = BTreeMap::new();
+        let mut traits_of: BTreeMap<DefinitionRef, BTreeSet<DefinitionRef>> = BTreeMap::new();
+        let mut implementors: BTreeMap<DefinitionRef, BTreeSet<DefinitionRef>> = BTreeMap::new();
+        for (path, state) in &sources.files {
+            let FileOutcome::Extracted { extract, .. } = &state.outcome else {
+                continue;
+            };
+            if extract.impl_traits.is_empty() {
+                continue;
+            }
+            let module = match self.file_modules.get(path).map(Vec::as_slice) {
+                Some([one]) => Some(one),
+                _ => None,
+            };
+            let context = NameContext {
+                path,
+                module,
+                exclude: None,
+            };
+            let mut relations = Vec::new();
+            for (index, relation) in extract.impl_traits.iter().enumerate() {
+                let Ok(index) = u32::try_from(index) else {
+                    continue;
+                };
+                let by_qn: Vec<DefinitionRef> = self
+                    .by_qualified_name(&relation.struct_qn)
+                    .iter()
+                    .filter(|r| definition_of(sources, r).is_some_and(|d| modules::is_type(d.kind)))
+                    .cloned()
+                    .collect();
+                let implementing_type = match by_qn.as_slice() {
+                    [one] => BaseResolution::Internal(one.clone()),
+                    [] => self.resolve_type_name(sources, &context, &relation.struct_name),
+                    _ => BaseResolution::Ambiguous(by_qn),
+                };
+                let implemented_trait =
+                    self.resolve_type_name(sources, &context, &relation.trait_name);
+                if let (BaseResolution::Internal(ty), BaseResolution::Internal(tr)) =
+                    (&implementing_type, &implemented_trait)
+                {
+                    traits_of.entry(ty.clone()).or_default().insert(tr.clone());
+                    implementors
+                        .entry(tr.clone())
+                        .or_default()
+                        .insert(ty.clone());
+                }
+                relations.push(ImplRelation {
+                    path: path.clone(),
+                    index,
+                    trait_name: relation.trait_name.clone(),
+                    struct_name: relation.struct_name.clone(),
+                    struct_qn: relation.struct_qn.clone(),
+                    implementing_type,
+                    implemented_trait,
+                });
+            }
+            impls.insert(path.clone(), relations);
+        }
+        self.impls = impls;
+        let flatten = |m: BTreeMap<DefinitionRef, BTreeSet<DefinitionRef>>| {
+            m.into_iter()
+                .map(|(k, v)| (k, v.into_iter().collect()))
+                .collect()
+        };
+        self.traits_of = flatten(traits_of);
+        self.implementors = flatten(implementors);
+    }
+
+    /// What one base names, for the definition naming it.
     fn resolve_base(
         &self,
         sources: &Sources<'_>,
         derived: &DefinitionRef,
         name: &str,
     ) -> BaseResolution {
+        let context = NameContext {
+            path: &derived.path,
+            module: self.definition_modules.get(derived),
+            exclude: Some(derived),
+        };
+        self.resolve_type_name(sources, &context, name)
+    }
+
+    /// What a type name written in `context` names: an exact qualified name; a type of
+    /// the same name in the context's module; a type an import binding the name leads
+    /// to (or external, if the import is); a type of that name unique in the
+    /// repository. The first of these that finds anything decides; several are
+    /// ambiguous.
+    fn resolve_type_name(
+        &self,
+        sources: &Sources<'_>,
+        context: &NameContext<'_>,
+        name: &str,
+    ) -> BaseResolution {
         let Some(language) = sources
             .files
-            .get(&derived.path)
+            .get(context.path)
             .and_then(|s| s.discovered.language)
         else {
             return BaseResolution::Unresolved;
         };
         let is_type_here = |r: &DefinitionRef| -> bool {
-            r != derived
+            Some(r) != context.exclude
                 && definition_of(sources, r).is_some_and(|d| modules::is_type(d.kind))
                 && sources
                     .files
@@ -570,7 +688,7 @@ impl SymbolRegistry {
         }
         // 2. A type of that name in the same module.
         if qualifier.is_none()
-            && let Some(module) = self.definition_modules.get(derived)
+            && let Some(module) = context.module
         {
             let same: Vec<DefinitionRef> = self
                 .by_name
@@ -586,7 +704,7 @@ impl SymbolRegistry {
         }
         // 3. An import binds it.
         if let Some(found) =
-            self.base_through_imports(sources, derived, qualifier, short, &is_type_here)
+            self.base_through_imports(sources, context.path, qualifier, short, &is_type_here)
         {
             return found;
         }
@@ -608,7 +726,7 @@ impl SymbolRegistry {
     fn base_through_imports(
         &self,
         sources: &Sources<'_>,
-        derived: &DefinitionRef,
+        path: &str,
         qualifier: Option<&str>,
         short: &str,
         is_type_here: &dyn Fn(&DefinitionRef) -> bool,
@@ -616,7 +734,7 @@ impl SymbolRegistry {
         let bound = qualifier.map_or(short, |q| q.split(['.', ':', '\\']).next().unwrap_or(q));
         let binding: Vec<&ImportRecord> = self
             .imports
-            .get(&derived.path)
+            .get(path)
             .into_iter()
             .flatten()
             .filter(|i| i.bindings.iter().any(|b| b == bound))
@@ -735,6 +853,11 @@ impl SymbolRegistry {
     /// A file's language, as discovery assigned it.
     pub fn language(&self, path: &str) -> Option<&'static Language> {
         self.files.get(path)?.discovered.language
+    }
+
+    /// The file as Stage 1 found it.
+    pub fn discovered(&self, path: &str) -> Option<&DiscoveredFile> {
+        self.files.get(path).map(|s| &s.discovered)
     }
 
     /// What Stage 2 did with a file.
@@ -956,6 +1079,24 @@ impl SymbolRegistry {
         None
     }
 
+    /// A file's `impl Trait for Type` relations, in extraction order.
+    pub fn impl_relations(&self, path: &str) -> &[ImplRelation] {
+        self.impls.get(path).map_or(&[], Vec::as_slice)
+    }
+
+    /// The internal traits a type implements directly, by path then index: the
+    /// relations whose type and trait each resolve to exactly one type of the
+    /// repository. A trait's own supertraits are not among them: the engine does not
+    /// record them (issue 42).
+    pub fn implemented_traits(&self, r: &DefinitionRef) -> &[DefinitionRef] {
+        self.traits_of.get(r).map_or(&[], Vec::as_slice)
+    }
+
+    /// The internal types that implement a trait directly, by path then index.
+    pub fn implementors(&self, r: &DefinitionRef) -> &[DefinitionRef] {
+        self.implementors.get(r).map_or(&[], Vec::as_slice)
+    }
+
     // --- engine metadata ------------------------------------------------------------
 
     /// The repository's module metadata as the engine's resolver takes it: Go
@@ -965,6 +1106,14 @@ impl SymbolRegistry {
     pub fn resolution_metadata(&self) -> &ResolutionMetadata {
         &self.metadata
     }
+}
+
+/// Where a type name is written: the file, its module when it has one, and the
+/// definition naming it, which cannot name itself.
+struct NameContext<'a> {
+    path: &'a str,
+    module: Option<&'a ModuleKey>,
+    exclude: Option<&'a DefinitionRef>,
 }
 
 /// A definition of the files being registered.

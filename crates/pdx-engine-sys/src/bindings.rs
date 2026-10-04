@@ -386,6 +386,34 @@ impl Default for pdxe_throw {
         }
     }
 }
+#[doc = " An `impl Trait for Type` block, as the engine records it for Rust: the trait and\n the implementing type as the source spells them (any type arguments left off,\n `io::Write` kept qualified), and the type's qualified name as extraction builds it\n for the file. Recorded for every such block, an empty one included, so the relation\n does not depend on the block defining a method. A trait's own supertraits\n (`trait Child: Parent`) are not recorded. Resolving either name is resolution's\n work. Appended by a specification change; see docs/plan/ISSUES.md, issue 42."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pdxe_impl_trait {
+    pub trait_name: *const ::std::os::raw::c_char,
+    pub struct_name: *const ::std::os::raw::c_char,
+    pub struct_qn: *const ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pdxe_impl_trait"][::std::mem::size_of::<pdxe_impl_trait>() - 24usize];
+    ["Alignment of pdxe_impl_trait"][::std::mem::align_of::<pdxe_impl_trait>() - 8usize];
+    ["Offset of field: pdxe_impl_trait::trait_name"]
+        [::std::mem::offset_of!(pdxe_impl_trait, trait_name) - 0usize];
+    ["Offset of field: pdxe_impl_trait::struct_name"]
+        [::std::mem::offset_of!(pdxe_impl_trait, struct_name) - 8usize];
+    ["Offset of field: pdxe_impl_trait::struct_qn"]
+        [::std::mem::offset_of!(pdxe_impl_trait, struct_qn) - 16usize];
+};
+impl Default for pdxe_impl_trait {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
 pub const PDXE_FILE_PARSED: pdxe_file_status = 0;
 pub const PDXE_FILE_PARTIAL: pdxe_file_status = 1;
 pub const PDXE_FILE_FAILED: pdxe_file_status = 2;
@@ -422,10 +450,13 @@ pub struct pdxe_file_result {
     pub extraction_lost: u32,
     #[doc = " The package or namespace the file declares, exactly as written in its first\n declaration, or NULL when it declares none. Of the language matrix's languages,\n the engine reads it for Java and Kotlin (`package`), C# (`namespace`, block or\n file-scoped) and PHP (`namespace`), and it is NULL for every other, whatever the\n source says. A result rebuilt from a cache has none. Appended by a specification\n change; see docs/plan/ISSUES.md, issue 41."]
     pub declared_namespace: *const ::std::os::raw::c_char,
+    #[doc = " The file's `impl Trait for Type` relations, in the engine's order: Rust's only,\n none for any other language. NULL and 0 when there are none. A relation the\n engine could not record whole (an allocation that failed, which it counts as\n lost work) is left out. Appended by a specification change; see\n docs/plan/ISSUES.md, issue 42."]
+    pub impl_traits: *mut pdxe_impl_trait,
+    pub n_impl_traits: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 184usize];
+    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 200usize];
     ["Alignment of pdxe_file_result"][::std::mem::align_of::<pdxe_file_result>() - 8usize];
     ["Offset of field: pdxe_file_result::status"]
         [::std::mem::offset_of!(pdxe_file_result, status) - 0usize];
@@ -475,6 +506,10 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_file_result, extraction_lost) - 168usize];
     ["Offset of field: pdxe_file_result::declared_namespace"]
         [::std::mem::offset_of!(pdxe_file_result, declared_namespace) - 176usize];
+    ["Offset of field: pdxe_file_result::impl_traits"]
+        [::std::mem::offset_of!(pdxe_file_result, impl_traits) - 184usize];
+    ["Offset of field: pdxe_file_result::n_impl_traits"]
+        [::std::mem::offset_of!(pdxe_file_result, n_impl_traits) - 192usize];
 };
 impl Default for pdxe_file_result {
     fn default() -> Self {
@@ -499,7 +534,7 @@ unsafe extern "C" {
     pub fn pdxe_result_free(ctx: *mut pdxe_ctx, r: *mut pdxe_file_result);
 }
 unsafe extern "C" {
-    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface. A definition's base\n classes are copied with it, array and strings; a definition with bases and no array,\n or with a NULL base, is refused. It declares no namespace."]
+    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface. A definition's base\n classes are copied with it, array and strings; a definition with bases and no array,\n or with a NULL base, is refused. It declares no namespace. Its `impl Trait for Type`\n relations are copied, array and strings, NULL and 0 for none; relations counted\n with no array, or one with a NULL string, are refused (issue 42)."]
     pub fn pdxe_result_build(
         ctx: *mut pdxe_ctx,
         defs: *const pdxe_definition,
@@ -514,6 +549,8 @@ unsafe extern "C" {
         n_types: u32,
         rws: *const pdxe_rw,
         n_rws: u32,
+        impl_traits: *const pdxe_impl_trait,
+        n_impl_traits: u32,
         out: *mut *mut pdxe_file_result,
     ) -> ::std::os::raw::c_int;
 }

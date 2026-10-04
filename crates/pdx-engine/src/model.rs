@@ -209,6 +209,19 @@ pub struct Definition {
     pub base_classes: Vec<String>,
 }
 
+/// An `impl Trait for Type` block (Rust): which trait a type implements, as the engine
+/// records it. Recorded for every such block, an empty one included; a trait's own
+/// supertraits are not recorded.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct ImplTrait {
+    /// The trait as the source spells it, without type arguments (`From`, `fmt::Display`).
+    pub trait_name: String,
+    /// The implementing type as the source spells it, without type arguments.
+    pub struct_name: String,
+    /// The implementing type's qualified name, as extraction builds it for the file.
+    pub struct_qn: String,
+}
+
 /// A call site, or a callable passed as a value.
 ///
 /// Calls are in the order the engine found them, then references in the order their
@@ -480,6 +493,8 @@ pub struct FileExtract {
     pub declared_namespace: Option<String>,
     /// Definitions.
     pub definitions: Vec<Definition>,
+    /// The file's `impl Trait for Type` relations, in the engine's order: Rust's only.
+    pub impl_traits: Vec<ImplTrait>,
     /// Calls, then callables passed as values.
     pub calls: Vec<Call>,
     /// Imports.

@@ -367,6 +367,7 @@ static void holder_free(result_holder *h) {
     free(h->pub.envs);
     free(h->pub.diags);
     free(h->pub.throws);
+    free(h->pub.impl_traits);
     if (h->engine) {
         pdxe_free_result(h->engine);
     }
@@ -701,6 +702,33 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
     r->n_throws = (uint32_t)throws->count;
     r->truncated = engine->walk_truncated ? 1 : 0;
 
+    /* `impl Trait for Type` relations, borrowed like the other strings, in the
+     * engine's order. The type's qualified name loses the project prefix every
+     * qualified name the interface gives loses; nothing else is changed. A relation
+     * with a missing string, which only a failed allocation leaves, is not reported. */
+    const PDXEImplTraitArray *impls = &engine->impl_traits;
+    if (impls->count > 0) {
+        r->impl_traits = (pdxe_impl_trait *)calloc((size_t)impls->count, sizeof(pdxe_impl_trait));
+        if (!r->impl_traits) {
+            holder_free(h);
+            return PDXE_E_NOMEM;
+        }
+        for (int i = 0; i < impls->count; i++) {
+            const PDXEImplTrait *it = &impls->items[i];
+            if (!it->trait_name || !it->struct_name || !it->struct_qn) {
+                continue;
+            }
+            pdxe_impl_trait *o = &r->impl_traits[r->n_impl_traits++];
+            o->trait_name = it->trait_name;
+            o->struct_name = it->struct_name;
+            o->struct_qn = strip_project(it->struct_qn);
+        }
+        if (r->n_impl_traits == 0) {
+            free(r->impl_traits);
+            r->impl_traits = NULL;
+        }
+    }
+
     *out = r;
     return PDXE_OK;
 }
@@ -803,19 +831,29 @@ static const char *own(result_holder *h, const char *s, bool *failed) {
  * engine result behind it: it describes the file, and resolving the file takes its
  * surface (pdxe_surface_import). Channel, configuration, diagnostic and throw arrays
  * are not among the parts and come back empty; the status is `parsed`, and the result
- * is not truncated. A definition's base classes are copied, the array and each string.
+ * is not truncated. A definition's base classes are copied, the array and each string,
+ * and so are the `impl Trait for Type` relations.
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,
                       uint32_t n_imports, const pdxe_usage *usages, uint32_t n_usages,
                       const pdxe_type_ref *types, uint32_t n_types, const pdxe_rw *rws,
-                      uint32_t n_rws, pdxe_file_result **out) {
+                      uint32_t n_rws, const pdxe_impl_trait *impl_traits,
+                      uint32_t n_impl_traits, pdxe_file_result **out) {
     if (out) {
         *out = NULL;
     }
     if (!ctx || !out || (n_defs && !defs) || (n_calls && !calls) || (n_imports && !imports) ||
-        (n_usages && !usages) || (n_types && !types) || (n_rws && !rws)) {
+        (n_usages && !usages) || (n_types && !types) || (n_rws && !rws) ||
+        (n_impl_traits && !impl_traits)) {
         return PDXE_E_INVALID;
+    }
+    /* Every relation has its three strings. */
+    for (uint32_t i = 0; i < n_impl_traits; i++) {
+        if (!impl_traits[i].trait_name || !impl_traits[i].struct_name ||
+            !impl_traits[i].struct_qn) {
+            return PDXE_E_INVALID;
+        }
     }
     /* Every base a definition counts is a string, in an array that holds it. */
     for (uint32_t i = 0; i < n_defs; i++) {
@@ -844,8 +882,10 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
     r->envs = ALLOC_ARRAY(pdxe_env_access, 0);
     r->diags = ALLOC_ARRAY(pdxe_diag, 0);
     r->throws = ALLOC_ARRAY(pdxe_throw, 0);
+    r->impl_traits =
+        n_impl_traits ? (pdxe_impl_trait *)calloc(n_impl_traits, sizeof(pdxe_impl_trait)) : NULL;
     if (!r->defs || !r->calls || !r->imports || !r->usages || !r->types || !r->rws ||
-        !r->channels || !r->envs || !r->diags || !r->throws) {
+        !r->channels || !r->envs || !r->diags || !r->throws || (n_impl_traits && !r->impl_traits)) {
         holder_free(h);
         return PDXE_E_NOMEM;
     }
@@ -900,6 +940,11 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
         r->rws[i] = rws[i];
         r->rws[i].field_text = own(h, rws[i].field_text, &failed);
     }
+    for (uint32_t i = 0; i < n_impl_traits; i++) {
+        r->impl_traits[i].trait_name = own(h, impl_traits[i].trait_name, &failed);
+        r->impl_traits[i].struct_name = own(h, impl_traits[i].struct_name, &failed);
+        r->impl_traits[i].struct_qn = own(h, impl_traits[i].struct_qn, &failed);
+    }
     if (failed) {
         holder_free(h);
         return PDXE_E_NOMEM;
@@ -910,6 +955,7 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
     r->n_usages = n_usages;
     r->n_types = n_types;
     r->n_rws = n_rws;
+    r->n_impl_traits = n_impl_traits;
     *out = r;
     return PDXE_OK;
 }

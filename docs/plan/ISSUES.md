@@ -15,9 +15,10 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 45 | 2026-10-04 | P2-06 | ambiguity | resolved | An engine answer whose target is in no file of the project (`target_rel_path` absent: a built-in, say) settles its site, the safe model says, and must not be resolved by name; but no band says what such a site is, and the Rust stages, run on its name, would bind a built-in call to any definition of the repository that shares it | Owner decision, implemented: after the generic blocklist, such a site is `external`, target none, with the engine's score, strategy and candidate count kept; no Rust stage runs on its name. Proven by `engine_external_does_not_fall_back_to_local_name`, and for references by `untyped_callable_reference_is_not_a_call` |
 | 44 | 2026-10-04 | P2-04 | blocker | resolved | P2-04's acceptance property `secret_normalisation_preserves_offsets` fails about one run in three (13 of 40 local runs, and P2-05's CI on Windows, run 37229601107): a bearer token followed by `=` and more token bytes (`Bearer <token>=A`) is masked only to the `=`, so the bytes after it reach the engine, and a second pass, reading the masked `=` as a token byte, masks them then. Normalisation was not idempotent, and part of a secret was not masked | The bearer token runs on over `=` and the token bytes after it in the same run: `[A-Za-z0-9\-._~+/]{16,}[A-Za-z0-9\-._~+/=]*`, so padding never ends a match early. It masks more, never less. `SECRET_DETECTOR_VERSION` 1 → 2, as a change to what a detector matches requires, which moves the policy digest and so every extraction cache key (an older entry is a miss); fixed vectors recomputed independently. Regression `bearer_masking_is_idempotent_after_padding`; the property passes 60 random runs and 20,000 cases. No other detector has the defect: each masks to `X` inside a class `X` already belongs to |
-| 43 | 2026-10-04 | P2-06 | third-party | open | The engine applies a `tsconfig.json`'s path aliases and base URL to every file below the configuration, whatever its language: in a repository with a root `tsconfig.json` whose `baseUrl` is set, a Go import such as `example.com/acme/pkg/a` contains `/`, takes the base-URL fallback, becomes `./example.com/acme/pkg/a`, and its typed resolution is lost. The registry applies aliases to TypeScript and JavaScript only, so the two would read one repository differently | Owned by P2-06, which first runs the engine's typed resolution with the registry's metadata: confirm, then gate the alias step of the vendored import resolver to the script languages through `engine/patches`, so engine and registry hold one interpretation. P2-05's consistency test proves agreement on each mechanism in a repository of its own |
-| 42 | 2026-10-04 | P2-06 | ambiguity | open | Rust has no base classes: a trait's supertraits and an `impl Trait for Type` are what inheritance-guided resolution needs. The engine records `impl Trait for Type` pairs internally (`impl_traits`) and supertraits not at all; neither crosses the safe boundary, and `base_classes` is empty for every Rust definition | Owned by P2-06, which needs them for inheritance-guided resolution in Rust: expose the engine's `impl_traits` through the append-only interface (as issue 40 did for bases), and decide whether supertraits are needed. P2-05 fabricates no trait relation: its Rust hierarchy is empty, documented |
+| 43 | 2026-10-04 | P2-06 | third-party | resolved | The engine applies a `tsconfig.json`'s path aliases and base URL to every file below the configuration, whatever its language: in a repository with a root `tsconfig.json` whose `baseUrl` is set, a Go import such as `example.com/acme/pkg/a` contains `/`, takes the base-URL fallback, becomes `./example.com/acme/pkg/a`, and its typed resolution is lost. The registry applies aliases to TypeScript and JavaScript only, so the two would read one repository differently | Confirmed against the pinned reference, whose import resolver tries the alias step for every language too. `engine/patches/0009-script-path-aliases-only.patch` applies the alias step only to an importing file the engine's own lookup classes as TypeScript, TSX or JavaScript; relative imports, the package map and Go's module mapping are unchanged. `polyglot_ts_alias_does_not_affect_go` (registry and stages) holds a root `tsconfig.json` with a base URL, an aliased TypeScript import and a Go module importing its own package in one repository: it failed before the patch and passes after, the Go answer the same with and without the configuration, and engine and registry agree |
+| 42 | 2026-10-04 | P2-06 | ambiguity | resolved | Rust has no base classes: a trait's supertraits and an `impl Trait for Type` are what inheritance-guided resolution needs. The engine records `impl Trait for Type` pairs internally (`impl_traits`) and supertraits not at all; neither crosses the safe boundary, and `base_classes` is empty for every Rust definition | Owner decision, implemented: `pdxe_impl_trait { trait_name, struct_name, struct_qn }` and `pdxe_file_result.impl_traits`/`n_impl_traits` appended; `pdxe_result_build` takes and deep-copies them, refusing a counted array that is missing or a NULL string; `ImplTrait` and `FileExtract::impl_traits`; `EXTRACT_CACHE_FORMAT_VERSION` 2 → 3, worker protocol 3 → 4. The registry resolves each relation (`implemented_traits`, `implementors`) and inheritance-guided resolution follows a type's direct internal traits. Supertraits stay unrecorded: Rust's inheritance-guided support is the direct `impl` relations only, a stated coverage limit, never a guess |
 | 41 | 2026-10-04 | P2-05 | scr | resolved | The language matrix makes Java's, Kotlin's, C#'s, PHP's, Perl's, Scala's, Groovy's and protobuf's module the package or namespace a file declares, but qualified names are built from the file's path, and no declaration crossed the safe boundary. The engine records the declaration for Java, Kotlin, C# and PHP (`namespace_name`) and drops it at the interface; for Perl, Scala, Groovy and protobuf it records none | Exposed as issue 40 exposed bases; owner confirmed 2026-10-04: `pdxe_file_result` appends `declared_namespace`, carried into `FileExtract::declared_namespace`; `pdx_engine::namespace_evidence` says where each language's evidence is (the file's declaration; C++'s qualified names; nowhere). Cache format 2 and worker protocol 3 cover it with issue 40. Perl, Scala, Groovy and protobuf get no module: none is invented from the directory, and no parser is added to manufacture one |
 | 40 | 2026-10-04 | P2-05 | scr | resolved | Class hierarchies (P2-05) and inheritance-guided resolution (P2-06) need each definition's bases. The engine records them (`PDXEDefinition.base_classes`) and the surface codec keeps them, but `pdxe.c` dropped them, so neither `pdxe_definition` nor `FileExtract` had them, and the opaque surface is not to be decoded in `pdx-core` | Owner decision 2026-10-03, implemented: `pdxe_definition` appends `base_classes` and `n_base_classes`, the engine's strings in its order, spelling and case, NULL and 0 for none; `pdxe_result_build` deep-copies them and refuses a counted array that is missing or holds NULL; `Definition::base_classes`. `EXTRACT_CACHE_FORMAT_VERSION` 1 → 2 (a format-1 entry is a miss) and the worker protocol 2 → 3 (a protocol-2 worker is refused). No graph, schema, matrix, engine or secret-detector version moves |
 | 39 | 2026-10-02 | P2-04 | third-party | resolved | P2-04 adds four packages the supply-chain ratchet refuses until they are recorded: `rayon` 1.12.0, with `rayon-core` 1.13.0 and `either` 1.18.0, for Stage 2's worker pool, and `sha1` 0.11.0 for the Git blob identity. The other packages P2-04 uses directly, `regex` 1.13.1 and `postcard` 1.1.3, and rayon's `crossbeam-*` dependencies, were already locked and recorded | Owner-authorised exact-version exemptions, `safe-to-deploy` because all four ship, each with a note naming this issue: no audit is claimed, none is imported, no version is a wildcard, nothing else changed. `cargo vet --locked` passes with 99 exemptions, 0 audits and 0 imports; CI run 37069384925's supply-chain job proved it, after a local check that dropping one exemption fails the ratchet |
@@ -89,6 +90,24 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 45 — Typed engine target with no project file
+
+`pdx_engine::TypedResolution` says a target in no file of the project
+(`target_rel_path` absent, such as a built-in) settles its site all the same, which
+must not then be resolved by name. Nothing said which band that is: the import-based
+`external` rule needs import provenance, which a built-in call has none of, and the
+Rust stages, run on the name, would draw a built-in call to any definition of the
+repository that shares it.
+
+Owner decision, implemented in P2-06: after the generic blocklist (a blocklisted name
+is still `blocked`), such a site is `external`, with no target and no candidates, and
+the engine's score, strategy and candidate count kept for calibration. No Rust stage
+runs on its name. A `typed_only` question or a reference settled this way is an
+external call site. Proven by `engine_external_does_not_fall_back_to_local_name`,
+`blocklist_precedes_all` and `untyped_callable_reference_is_not_a_call`.
+
+State: resolved.
+
 ### 44 — Bearer-token masking stops at padding
 
 Found on P2-05's continuous integration (run 37229601107, Windows): P2-04's property
@@ -129,13 +148,20 @@ alone and is lost once a root alias scope with a base URL is added.
 The registry applies aliases to TypeScript and JavaScript only, which is
 TypeScript's own rule, so engine and registry read such a repository differently.
 
-Owned by P2-06, which runs the engine's typed resolution with the registry's
-metadata: confirm against the reference, then gate the alias step to the script
-languages by a patch in `engine/patches`, and add a polyglot fixture. Until then
-P2-05's consistency test proves the two agree on Go modules and on aliases, each in
-a repository of its own.
+Resolved in P2-06. The pinned reference's import resolver tries the alias step for an
+import of any language too, so this is upstream behaviour, changed here by a patch so
+that a refresh keeps it: `engine/patches/0009-script-path-aliases-only.patch` applies
+the alias step only when the engine's own language lookup classes the importing file
+(by its name) as TypeScript, TSX or JavaScript. Relative imports, the package map and
+Go's module mapping are unchanged. `polyglot_ts_alias_does_not_affect_go` puts a root
+`tsconfig.json` with a base URL and an alias, an aliased TypeScript import and a Go
+module importing its own package in one repository; before the patch the engine lost
+the Go call's answer, after it the Go answer is the one it gives without the
+configuration, the TypeScript import resolves through the alias, and the registry's
+import targets are the engine's. The test is in both `registry` and `stages`, so it
+runs in continuous integration with the rest.
 
-State: open.
+State: resolved.
 
 ### 42 — Rust's trait relations do not cross the safe boundary
 
@@ -146,11 +172,42 @@ name) and does not record supertraits; the interface carries neither, and every 
 definition's `base_classes` is empty (`pub trait Shape: Drawable` included).
 
 P2-05 does not invent them from names: its Rust hierarchy is empty, which the
-registry's tests state. Owned by P2-06, which needs them: expose `impl_traits` through
-the append-only interface, as issue 40 did for bases, and decide whether supertraits
-are needed and from where.
+registry's tests state.
 
-State: open.
+Resolved in P2-06, as owner-decided:
+
+- `pdxe_impl_trait { trait_name, struct_name, struct_qn }` and, appended to
+  `pdxe_file_result`, `impl_traits` and `n_impl_traits`: the engine's relations in its
+  order and spelling, the type's qualified name without the project prefix every
+  interface qualified name loses, NULL and 0 for none. A relation the engine recorded
+  without a string (only a failed allocation leaves one) is not reported.
+- `pdxe_result_build` takes the relations and deep-copies them, refusing a counted
+  array that is missing or one with a NULL string; `ProjectResolver::rebuild` passes
+  them.
+- `pdx_engine::ImplTrait` and `FileExtract::impl_traits`, copied while the result is
+  alive.
+- `EXTRACT_CACHE_FORMAT_VERSION` 2 → 3: a format-1 or format-2 entry is a miss
+  (`cache_format_2_is_a_miss`). The worker protocol 3 → 4: a protocol-3 worker is
+  refused (`a_worker_of_another_protocol_is_refused`). No segment, matrix, engine or
+  detector version moves: the engine recorded the fact already.
+- The registry resolves each relation (`impl_relations`): the type by its recorded
+  qualified name, else as a base is resolved; the trait as a base is resolved. Only a
+  relation whose type and trait are each exactly one internal type counts
+  (`implemented_traits`, `implementors`); an ambiguous trait stays ambiguous.
+- Inheritance-guided resolution adds a type's direct internal traits to its hierarchy.
+
+Supertraits (`trait Child: Parent`) are not recorded by the engine and are not parsed
+or inferred here: Rust's inheritance-guided support is the direct `impl Trait for
+Type` relations only. That is a stated coverage limit.
+
+Proven by `impl_traits_cross_the_safe_boundary` (none, one from an empty block,
+several), `impl_traits_survive_serialisation`, `a_cached_extraction_with_impl_traits_resolves`,
+`cached_extractions_keep_impl_relations`, `isolation_carries_impl_relations`,
+`abi_result_build_roundtrip` (none, one and several, deep-copied, refusals),
+`rust_impl_relations_resolve_internal_traits`, `ambiguous_trait_remains_ambiguous` and
+`rust_impl_trait_inheritance_guided`.
+
+State: resolved.
 
 ### 41 — Declared packages and namespaces do not cross the safe boundary
 
@@ -211,7 +268,8 @@ Owner decision 2026-10-03, implemented:
 
 Proven by `base_classes_cross_the_safe_boundary`, `bases_and_declarations_survive_serialisation`,
 `a_cached_extraction_with_bases_resolves`, `cached_extractions_keep_bases_and_namespaces`,
-`cache_format_1_is_a_miss`, `a_worker_of_another_protocol_is_refused`, and
+`cache_format_1_is_a_miss` (since issue 42 `cache_format_2_is_a_miss`, which plants
+format 1 and format 2), `a_worker_of_another_protocol_is_refused`, and
 `abi_result_build_roundtrip`, which rebuilds from a copy it then overwrites and frees
 and requires definitions with no base, one, and several (`tests/fixtures/bases`).
 

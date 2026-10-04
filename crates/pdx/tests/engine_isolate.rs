@@ -120,6 +120,33 @@ fn isolation_does_not_change_what_is_extracted() {
 }
 
 #[test]
+fn isolation_carries_impl_relations() {
+    // Protocol 4 carries an extraction's `impl Trait for Type` relations (issue 42): a
+    // worker's extraction of a Rust file has them, exactly as this process's.
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../engine/tests/fixtures/bases");
+    let files: Vec<SourceFile> = ["one_impl.rs", "traits.rs"]
+        .iter()
+        .map(|name| SourceFile {
+            language: "rust".to_owned(),
+            rel_path: format!("src/{name}"),
+            source: std::fs::read(dir.join(name)).unwrap(),
+        })
+        .collect();
+    let expected = in_process(&files);
+    let mut isolated = IsolatedExtractor::new(worker());
+    let outcomes = isolated.extract_batch(&files).expect("a worker");
+    assert_eq!(outcomes, expected);
+    let relations: Vec<usize> = outcomes
+        .iter()
+        .map(|o| match o {
+            ExtractOutcome::Extracted(e) => e.impl_traits.len(),
+            failed @ ExtractOutcome::Failed(_) => panic!("not extracted: {failed:?}"),
+        })
+        .collect();
+    assert_eq!(relations, [1, 4]);
+}
+
+#[test]
 fn a_program_that_is_not_a_worker_is_refused() {
     // This binary without the subcommand says something that is not the protocol.
     let mut isolated = IsolatedExtractor::new(WorkerCommand::new(env!("CARGO_BIN_EXE_pdx")));
