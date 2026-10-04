@@ -19,6 +19,7 @@ use std::time::Duration;
 use pdx_core::config::PdxConfig;
 use pdx_core::consts::{
     ENGINE_VERSION, EXTRACT_BATCH_MAX_FILES, EXTRACT_CACHE_FORMAT_VERSION, LANGUAGE_MATRIX_VERSION,
+    SECRET_DETECTOR_VERSION,
 };
 use pdx_core::index::discover::{DiscoveredFile, discover};
 use pdx_core::index::extract::{
@@ -710,13 +711,17 @@ fn cache_object_id_fixed_vector() {
         EXTRACT_CACHE_FORMAT_VERSION, 2,
         "the vector below is format 2's"
     );
+    assert_eq!(
+        SECRET_DETECTOR_VERSION, 2,
+        "the vector below is detector 2's, through the policy digest"
+    );
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "f0ee31c64d6ba07d4f40287fbdc851a7d16a95d413a1e2d0e4ae1fbc74ab9301"
+        "89623d825368399fb47e7c94b17c0e312c28cf223d808921fcfbe621820e8c59"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v2").join("f0").join(&id));
+    assert_eq!(path, Path::new("cache").join("v2").join("89").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();

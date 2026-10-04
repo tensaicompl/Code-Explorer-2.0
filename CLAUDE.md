@@ -85,9 +85,10 @@ Stage 2 reads a file's original bytes once, takes its Git `blob_sha` from them, 
 secret values in the same buffer and gives the engine only the normalised bytes:
 original bytes never reach the engine, the cache, an error or a log, and a redacted
 file is never opened. Masking preserves length and never touches CR or LF (issue 37);
-a change to what the detectors match bumps `SECRET_DETECTOR_VERSION`. The extraction
-cache key is `(engine_version, language_matrix_version, secret_policy_digest,
-language_id, rel_path, blob_sha)`; only clean extractions (not truncated, no
+a change to what the detectors match bumps `SECRET_DETECTOR_VERSION` (2 since a
+bearer token runs on over its `=` padding, issue 44). The extraction cache key is
+`(engine_version, language_matrix_version, secret_policy_digest, language_id,
+rel_path, blob_sha)`; only clean extractions (not truncated, no
 `extraction_lost`) are cached; with any `pdx_engine::EXTRACTION_SWITCHES` variable set
 no cache is used; a hit must be this source's exact extraction (issue 26). An isolated
 worker that times out fails the build and is never recorded as `engine_crash` (issue

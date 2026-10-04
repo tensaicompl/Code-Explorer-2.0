@@ -38,8 +38,9 @@ pub const ENGINE_VERSION: u32 = 1;
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the
 /// bytes extracted change with them; it is part of the secret-policy digest, so every
-/// extraction cached under the old behaviour stops matching.
-pub const SECRET_DETECTOR_VERSION: u32 = 1;
+/// extraction cached under the old behaviour stops matching. 2 since a bearer token
+/// runs on over its `=` padding and what follows it (issue 44).
+pub const SECRET_DETECTOR_VERSION: u32 = 2;
 
 /// Layout of an entry of the extraction cache: the envelope that holds a cached
 /// extraction and the key it was stored under. An entry of another version is never

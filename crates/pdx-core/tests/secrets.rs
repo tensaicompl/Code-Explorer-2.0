@@ -91,20 +91,20 @@ fn digest_of(config: &str) -> SecretPolicyDigest {
 #[test]
 fn secret_policy_digest_fixed_vector() {
     // sha256 of the canonical form, computed independently:
-    //   {"detector_version":1,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
-    assert_eq!(SECRET_DETECTOR_VERSION, 1);
+    //   {"detector_version":2,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
+    assert_eq!(SECRET_DETECTOR_VERSION, 2);
     let default = SecretPolicyDigest::of(&PdxConfig::default().secrets);
     assert_eq!(
         default.to_string(),
-        "b9e1601f738d0ef897c6d316535f86fb31ecae8f6ab50676678a91209dd21b0c"
+        "2d31e6c1829c821c29d11db44835995830ea3df0819a22b3736ffbf071ef07e8"
     );
     // A repository adding patterns: the effective set is the default and its own,
-    //   {"detector_version":1,"patterns":["*.key","*.p12","*.pem","*id_rsa*",".env*",
+    //   {"detector_version":2,"patterns":["*.key","*.p12","*.pem","*id_rsa*",".env*",
     //    "config/credentials.yml"]}
     let custom = digest_of("[secrets]\npatterns = [\"config/credentials.yml\", \"*.p12\"]\n");
     assert_eq!(
         custom.to_string(),
-        "eaaa970c8085c957cd2e5e5f285e7937bc48a5731a6dedd0ecd8ef749ebaae7d"
+        "76c75e1ce153c396e3333fc4c68564c250ab2d7be41777f67bf6aa4733726bf3"
     );
     // Order and repetition mean nothing, and a default restated changes nothing.
     assert_eq!(
@@ -118,15 +118,16 @@ fn secret_policy_digest_fixed_vector() {
 
 #[test]
 fn detector_version_enters_secret_policy_digest() {
-    // The same patterns under detector version 2, computed independently:
-    //   {"detector_version":2,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
+    // The same patterns under detector version 1, before issue 44, computed
+    // independently:
+    //   {"detector_version":1,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
     let patterns = PdxConfig::default().secrets.patterns;
     let v1 = SecretPolicyDigest::for_policy(1, &patterns);
     let v2 = SecretPolicyDigest::for_policy(2, &patterns);
-    assert_eq!(v1, SecretPolicyDigest::of(&PdxConfig::default().secrets));
+    assert_eq!(v2, SecretPolicyDigest::of(&PdxConfig::default().secrets));
     assert_eq!(
-        v2.to_string(),
-        "2d31e6c1829c821c29d11db44835995830ea3df0819a22b3736ffbf071ef07e8"
+        v1.to_string(),
+        "b9e1601f738d0ef897c6d316535f86fb31ecae8f6ab50676678a91209dd21b0c"
     );
     assert_ne!(v1, v2);
     // And no pattern at all is a policy too, distinct from both.
@@ -187,6 +188,30 @@ fn bearer_tokens_are_masked_and_the_word_is_kept() {
     ] {
         assert_eq!(normalised(source, "typescript"), source);
     }
+}
+
+#[test]
+fn bearer_masking_is_idempotent_after_padding() {
+    // The case the offsets property found (issue 44): a token, `=`, then more token
+    // bytes. Padding must not end the token, or the bytes after it reach the engine
+    // and a second pass, reading the masked `=` as a token byte, masks them then.
+    let token = bearer_token();
+    for tail in ["=A", "==abc", "=", "=a=b"] {
+        let source = format!("Authorization: Bearer {token}{tail}\n");
+        let once = normalised(&source, "yaml");
+        assert_eq!(
+            once,
+            with_masked(&source, &[&format!("{token}{tail}")]),
+            "{tail}"
+        );
+        assert_eq!(normalised(&once, "yaml"), once, "{tail}");
+    }
+    // What follows the run is left alone.
+    let source = format!("Authorization: Bearer {token}= next\n");
+    assert_eq!(
+        normalised(&source, "yaml"),
+        with_masked(&source, &[&format!("{token}=")])
+    );
 }
 
 #[test]

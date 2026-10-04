@@ -22,7 +22,7 @@
 //! | Detector | Matches | Masks |
 //! |---|---|---|
 //! | [`Detector::PrivateKey`] | A PEM `BEGIN` marker of a `PRIVATE KEY`, `RSA PRIVATE KEY`, `EC PRIVATE KEY`, `DSA PRIVATE KEY` or `OPENSSH PRIVATE KEY`, to the `END` marker with the same label, or to the end of the input if there is none | Every base64 byte between the markers (`A-Z a-z 0-9 + / =`), except the `n`, `r` or `t` of an escape after a backslash |
-//! | [`Detector::BearerToken`] | `Bearer`, any case, at a word boundary, then spaces or tabs and a token of at least 16 of `A-Z a-z 0-9 - . _ ~ + /` with any `=` padding | The token |
+//! | [`Detector::BearerToken`] | `Bearer`, any case, at a word boundary, then spaces or tabs and a token of at least 16 of `A-Z a-z 0-9 - . _ ~ + /`, running on over those and `=` (its padding, and anything after it in the same run) | The token |
 //! | [`Detector::CredentialAssignment`] | A key ending, in any case, with one of [`CREDENTIAL_KEYS`] (its words joined by `_`, `-` or nothing), an optional closing quote, then `=`, `:`, `:=` or `=>`, then a value | The value: inside its quotes when quoted; a bare value only in a language whose bare values are literals ([`BARE_VALUE_LANGUAGES`]) |
 //! | [`Detector::UriPassword`] | `scheme://user:password@` | The password |
 //! | [`Detector::CloudAccessKeyId`] | `AKIA` or `ASIA` and 16 of `A-Z 0-9`, at word boundaries | All 20 bytes |
@@ -198,9 +198,12 @@ static PRIVATE_KEY_BEGIN: LazyLock<Regex> = LazyLock::new(|| {
     regex(&format!("(?-u)-----BEGIN ({})-----", labels.join("|")))
 });
 
-/// `Bearer` and its token, group 1.
-static BEARER: LazyLock<Regex> =
-    LazyLock::new(|| regex(r"(?-u)(?i)\bbearer[ \t]+([A-Za-z0-9\-._~+/]{16,}=*)"));
+/// `Bearer` and its token, group 1. The token runs on over `=` and what follows it in
+/// the same run, so padding never ends a match early: masking turns `=` into a token
+/// byte, and a token that stopped there would grow on a second pass (issue 44).
+static BEARER: LazyLock<Regex> = LazyLock::new(|| {
+    regex(r"(?-u)(?i)\bbearer[ \t]+([A-Za-z0-9\-._~+/]{16,}[A-Za-z0-9\-._~+/=]*)")
+});
 
 /// An access key identifier, group 1.
 static ACCESS_KEY_ID: LazyLock<Regex> =

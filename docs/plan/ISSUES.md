@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 44 | 2026-10-04 | P2-04 | blocker | resolved | P2-04's acceptance property `secret_normalisation_preserves_offsets` fails about one run in three (13 of 40 local runs, and P2-05's CI on Windows, run 37229601107): a bearer token followed by `=` and more token bytes (`Bearer <token>=A`) is masked only to the `=`, so the bytes after it reach the engine, and a second pass, reading the masked `=` as a token byte, masks them then. Normalisation was not idempotent, and part of a secret was not masked | The bearer token runs on over `=` and the token bytes after it in the same run: `[A-Za-z0-9\-._~+/]{16,}[A-Za-z0-9\-._~+/=]*`, so padding never ends a match early. It masks more, never less. `SECRET_DETECTOR_VERSION` 1 → 2, as a change to what a detector matches requires, which moves the policy digest and so every extraction cache key (an older entry is a miss); fixed vectors recomputed independently. Regression `bearer_masking_is_idempotent_after_padding`; the property passes 60 random runs and 20,000 cases. No other detector has the defect: each masks to `X` inside a class `X` already belongs to |
 | 43 | 2026-10-04 | P2-06 | third-party | open | The engine applies a `tsconfig.json`'s path aliases and base URL to every file below the configuration, whatever its language: in a repository with a root `tsconfig.json` whose `baseUrl` is set, a Go import such as `example.com/acme/pkg/a` contains `/`, takes the base-URL fallback, becomes `./example.com/acme/pkg/a`, and its typed resolution is lost. The registry applies aliases to TypeScript and JavaScript only, so the two would read one repository differently | Owned by P2-06, which first runs the engine's typed resolution with the registry's metadata: confirm, then gate the alias step of the vendored import resolver to the script languages through `engine/patches`, so engine and registry hold one interpretation. P2-05's consistency test proves agreement on each mechanism in a repository of its own |
 | 42 | 2026-10-04 | P2-06 | ambiguity | open | Rust has no base classes: a trait's supertraits and an `impl Trait for Type` are what inheritance-guided resolution needs. The engine records `impl Trait for Type` pairs internally (`impl_traits`) and supertraits not at all; neither crosses the safe boundary, and `base_classes` is empty for every Rust definition | Owned by P2-06, which needs them for inheritance-guided resolution in Rust: expose the engine's `impl_traits` through the append-only interface (as issue 40 did for bases), and decide whether supertraits are needed. P2-05 fabricates no trait relation: its Rust hierarchy is empty, documented |
 | 41 | 2026-10-04 | P2-05 | scr | resolved | The language matrix makes Java's, Kotlin's, C#'s, PHP's, Perl's, Scala's, Groovy's and protobuf's module the package or namespace a file declares, but qualified names are built from the file's path, and no declaration crossed the safe boundary. The engine records the declaration for Java, Kotlin, C# and PHP (`namespace_name`) and drops it at the interface; for Perl, Scala, Groovy and protobuf it records none | Exposed as issue 40 exposed bases, pending the owner's confirmation: `pdxe_file_result` appends `declared_namespace`, carried into `FileExtract::declared_namespace`; `pdx_engine::namespace_evidence` says where each language's evidence is (the file's declaration; C++'s qualified names; nowhere). Cache format 2 and worker protocol 3 cover it with issue 40. Perl, Scala, Groovy and protobuf get no module: none is invented from the directory |
@@ -85,6 +86,32 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 44 — Bearer-token masking stops at padding
+
+Found on P2-05's continuous integration (run 37229601107, Windows): P2-04's property
+`secret_normalisation_preserves_offsets` failed, minimal input
+`Authorization: Bearer <token>=A` as YAML. The bearer detector matched
+`<token>=*`, so `=` padding ended the token and the `A` after it was left unmasked:
+a byte of what is plausibly one credential reached the engine. Masking then turned the
+`=` into `X`, a token byte, so normalising the output again masked the `A` too, which
+the property's idempotence check refuses. The property generates its source at random
+and the case needs a bearer piece directly followed by random bytes that start with a
+token byte, so it failed in about a third of runs (13 of 40 locally) and had passed
+P2-04's own runs by chance.
+
+Fixed: the token is at least 16 token bytes, then any run of token bytes and `=`,
+so padding and whatever follows it in the same run are masked. The change masks more,
+never less, and no other detector has the defect (each masks to `X` inside a class `X`
+belongs to, so a second pass finds the same ranges). What a detector matches changed,
+so `SECRET_DETECTOR_VERSION` moves from 1 to 2: the secret-policy digest and with it
+every extraction cache key change, and an entry cached under version 1 is a miss.
+The fixed vectors (`secret_policy_digest_fixed_vector`, `cache_object_id_fixed_vector`)
+were recomputed outside the crate with Python `hashlib`, which first reproduced the
+version-1 values. Regression: `bearer_masking_is_idempotent_after_padding`; the
+property passes 60 random runs and one of 20,000 cases.
 
 State: resolved.
 

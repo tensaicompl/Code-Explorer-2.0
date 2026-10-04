@@ -129,7 +129,7 @@ bytes, never requiring UTF-8, with non-backtracking `regex::bytes`.
 
 | Item | |
 |---|---|
-| `Detector` | `PrivateKey` (PEM blocks, base64 masked between the markers), `BearerToken` (16 or more token bytes), `CredentialAssignment` (keys ending in one of `CREDENTIAL_KEYS`, words joined by `_`, `-` or nothing; quoted values everywhere, bare values only in `BARE_VALUE_LANGUAGES`), `UriPassword`, `CloudAccessKeyId`; a value that is wholly a placeholder is left alone |
+| `Detector` | `PrivateKey` (PEM blocks, base64 masked between the markers), `BearerToken` (16 or more token bytes, then any run of token bytes and `=`), `CredentialAssignment` (keys ending in one of `CREDENTIAL_KEYS`, words joined by `_`, `-` or nothing; quoted values everywhere, bare values only in `BARE_VALUE_LANGUAGES`), `UriPassword`, `CloudAccessKeyId`; a value that is wholly a placeholder is left alone |
 | `secret_ranges`, `secret_ranges_with` | The ranges found, sorted and merged: the same in any detector order |
 | `SecretPolicyDigest` | SHA-256 of `{"detector_version":…,"patterns":[…]}`, compact, keys in that order, the effective patterns sorted; `of(&SecretsConfig)` under `SECRET_DETECTOR_VERSION`, `for_policy(version, patterns)` |
 
