@@ -58,7 +58,8 @@ make check`, with `CARGO_BUILD_JOBS=6` and `RUST_TEST_THREADS=4`. A graph walk w
 a visited set (P2-05's hierarchy, before its fix) exhausts memory in seconds. `make
 engine` passes `-j` with no number, which under the Makefile generator is unlimited:
 build the engine first with `cmake --build target/engine -j 6` and the target finds
-nothing left to do. `make check` itself peaks near 500 MB this way.
+nothing left to do. `scripts/check-asan.sh` does the same in `target/engine-asan`:
+configure it with the script's flags and build it with `-j 6` first. `make check` itself peaks near 500 MB this way.
 
 The language matrix is `pdx_core::languages`, transcribed from the plan's Appendix A:
 31 languages, each with its tier, extensions, shebangs, module rule and test rule.
