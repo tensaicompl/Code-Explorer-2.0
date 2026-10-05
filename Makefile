@@ -49,10 +49,12 @@ ENGINE_BUILD ?= target/engine
 # last value in its cache, so a build directory once configured with it off would stay
 # off, silently. Turning it off takes asking: make engine PDXE_VENDORED_WERROR=OFF.
 PDXE_VENDORED_WERROR ?= ON
+# Parallel to CMake's own CMAKE_BUILD_PARALLEL_LEVEL when it is set, else one job per
+# online processor: never `-j` alone, which the Makefile generator runs unbounded.
 engine:
 	@cmake -S engine -B $(ENGINE_BUILD) -DCMAKE_BUILD_TYPE=Release -DPDXE_BUILD_TESTS=ON -DPDXE_TEST_SEAMS=ON \
 	  -DPDXE_VENDORED_WERROR=$(PDXE_VENDORED_WERROR) > /dev/null
-	@cmake --build $(ENGINE_BUILD) -j
+	@cmake --build $(ENGINE_BUILD) --parallel "$${CMAKE_BUILD_PARALLEL_LEVEL:-$$(getconf _NPROCESSORS_ONLN)}"
 	@echo "engine: built $(ENGINE_BUILD)/libpdxe.a"
 
 # The interface's own tests: C programs over the archive, and typed resolution

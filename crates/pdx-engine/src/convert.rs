@@ -14,8 +14,8 @@ use pdx_engine_sys as sys;
 use crate::error::EngineError;
 use crate::model::{
     Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
-    FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, ReadWrite, SourceDigest, Span,
-    Surface, Throw, TypeRef, Usage, Visibility,
+    FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, ReadWrite, RouteFact, SourceDigest,
+    Span, Surface, Throw, TypeRef, Usage, Visibility,
 };
 
 /// A string the engine owns, copied, or `None` for NULL.
@@ -129,8 +129,12 @@ unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition
         n_decorators,
         signature_param_types,
         n_signature_param_types,
-        route_path,
-        route_method,
+        // The engine's single summary of `routes`, which carry every binding with its
+        // node: set aside.
+        route_path: _,
+        route_method: _,
+        routes,
+        n_routes,
     } = *d;
     // SAFETY: (all string reads below) the caller guarantees the strings are alive.
     let kind_name = unsafe { required(kind, "a definition's kind") }?;
@@ -185,8 +189,36 @@ unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition
                 "a parameter type",
             )
         }?,
-        route_path: unsafe { optional(route_path) },
-        route_method: unsafe { optional(route_method) },
+        // SAFETY: the array, when there is one, holds `n_routes` routes whose strings
+        // are alive for the call.
+        routes: unsafe { slice(routes, n_routes, "a definition's routes") }?
+            .iter()
+            .map(|r| unsafe { route(r) })
+            .collect::<Result<_, _>>()?,
+    })
+}
+
+/// # Safety
+///
+/// The strings and the path array in `r` are NULL or alive for the call.
+unsafe fn route(r: &sys::pdxe_route) -> Result<RouteFact, EngineError> {
+    let sys::pdxe_route {
+        method,
+        path,
+        callee_text,
+        source_text,
+        span: at,
+        ast_path,
+        n_ast_path,
+    } = *r;
+    // SAFETY (all reads below): as the caller guarantees.
+    Ok(RouteFact {
+        method: unsafe { required(method, "a route's method") }?,
+        path: unsafe { required(path, "a route's path") }?,
+        callee_text: unsafe { required(callee_text, "a route's callee") }?,
+        source_text: unsafe { optional(source_text) },
+        span: span(at),
+        ast_path: unsafe { strings(ast_path.cast_const(), n_ast_path, "a route's node type") }?,
     })
 }
 

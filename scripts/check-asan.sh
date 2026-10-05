@@ -20,7 +20,9 @@ cmake -S engine -B "$build" -DCMAKE_BUILD_TYPE=Debug -DPDXE_BUILD_TESTS=ON -DPDX
   -DPDXE_VENDORED_WERROR=ON \
   -DCMAKE_C_FLAGS="$flags" -DCMAKE_CXX_FLAGS="$flags" \
   -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined" > /dev/null
-cmake --build "$build" -j
+# Bounded like `make engine`: CMake's own CMAKE_BUILD_PARALLEL_LEVEL, else one job per
+# online processor; `-j` alone is unbounded under the Makefile generator.
+cmake --build "$build" --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-$(getconf _NPROCESSORS_ONLN)}"
 
 # The corpus is the point of this run as much as the tests are: refuse to pass a suite
 # that does not extract it.

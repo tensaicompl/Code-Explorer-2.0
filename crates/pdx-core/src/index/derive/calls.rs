@@ -90,7 +90,7 @@ pub(crate) fn ordinals(registry: &SymbolRegistry) -> BTreeMap<SiteRef, u32> {
     out
 }
 
-fn model_span(span: pdx_engine::Span) -> Span {
+pub(crate) fn model_span(span: pdx_engine::Span) -> Span {
     Span {
         start_byte: span.start_byte,
         end_byte: span.end_byte,

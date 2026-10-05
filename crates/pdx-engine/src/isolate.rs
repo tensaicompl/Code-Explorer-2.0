@@ -64,8 +64,9 @@ pub const DEFAULT_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(120);
 /// classes and an extraction the namespace its file declares, 4 since an extraction
 /// carries its `impl Trait for Type` relations (issue 42), 5 since a call carries its
 /// node-type path and arguments and a definition its decorators, parameter types and
-/// route (issues 46 and 47).
-const PROTOCOL: u32 = 5;
+/// route (issues 46 and 47), 6 since a definition carries every route binding with its
+/// declaring node in place of one route (issue 54).
+const PROTOCOL: u32 = 6;
 
 /// Whether the environment asks for isolation.
 pub fn isolation_requested() -> bool {
@@ -676,16 +677,17 @@ mod tests {
 
     #[test]
     fn a_worker_of_another_protocol_is_refused() {
-        // 5 since a call carries its node-type path and arguments and a definition its
-        // decorators, parameter types and route (issues 46 and 47): a worker still
-        // speaking 4 (impl relations, issue 42) sends extractions of the old shape.
-        assert_eq!(PROTOCOL, 5);
+        // 6 since a definition carries every route binding with its declaring node
+        // (issue 54): a worker still speaking 5 (one route, issues 46 and 47) sends
+        // extractions of the old shape.
+        assert_eq!(PROTOCOL, 6);
         let ours = Engine::version();
         for (protocol, version) in [
             (2, ours.as_str()),
             (3, ours.as_str()),
             (4, ours.as_str()),
-            (6, ours.as_str()),
+            (5, ours.as_str()),
+            (7, ours.as_str()),
             (PROTOCOL, "0"),
         ] {
             let err = accept(protocol, version).unwrap_err();

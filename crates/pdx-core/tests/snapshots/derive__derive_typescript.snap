@@ -3,12 +3,12 @@ source: crates/pdx-core/tests/derive.rs
 expression: projection(&run.graph)
 ---
 nodes: {"File": 4, "Folder": 3, "Function": 2, "Module": 2, "Repo": 1, "Variable": 4}
-entry points: 2
+entry points: 0
 edges: {("CALLS", "import-guided"): 1, ("CALLS", "typed"): 1}
 candidates: {"unresolved": 2}
 files: src/app/show.test.ts=parsed src/app/show.ts=parsed src/lib/format.ts=parsed tsconfig.json=parsed
-  Function src.app.show.show show parent=File:show.ts module=typescript:src/app entry id=ED2JS68JC26WRHB03ZYSD26CFJ
-  Function src.lib.format.formatName formatName parent=File:format.ts module=typescript:src/lib entry id=K4TB97B28C2YQQ8NQZ36ZBPYD5
+  Function src.app.show.show show parent=File:show.ts module=typescript:src/app id=ED2JS68JC26WRHB03ZYSD26CFJ
+  Function src.lib.format.formatName formatName parent=File:format.ts module=typescript:src/lib id=K4TB97B28C2YQQ8NQZ36ZBPYD5
   Module typescript:src/app src/app parent=Folder:app id=49Z82J7AMJH1Z3J4P4CF6C4RXB
   Module typescript:src/lib src/lib parent=File:format.ts id=PAVS3ZG45FXTSSY5FWQG2JB4QE
   Variable tsconfig.@/* @/* parent=File:tsconfig.json id=4FR6KNHCM47YY9EYB6PZ22SY8D

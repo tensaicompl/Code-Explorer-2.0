@@ -213,10 +213,32 @@ pub struct Definition {
     /// Its parameters' types as the engine reads them, in order; `?` for one it cannot
     /// read (issue 47).
     pub signature_param_types: Vec<String>,
-    /// The HTTP route path a decorator binds it to, where the engine found one.
-    pub route_path: Option<String>,
-    /// The HTTP method of that route, as the engine recorded it.
-    pub route_method: Option<String>,
+    /// Every HTTP route binding its decorators or annotations declare, each with the
+    /// node that declares it, in source order (issue 54). One per method and path: an
+    /// annotation listing two paths gives two, sharing their node. A binding whose path
+    /// or method is not a literal is not reported.
+    pub routes: Vec<RouteFact>,
+}
+
+/// One HTTP route binding a decorator or annotation declares for a definition, and the
+/// node that declares it (issue 54).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct RouteFact {
+    /// The method, in upper case; `ANY` when the declaration names none.
+    pub method: String,
+    /// The route's path, joined to the enclosing class's own mapping.
+    pub path: String,
+    /// The decorator's callee or the annotation's name, as written (`app.get`,
+    /// `GetMapping`).
+    pub callee_text: String,
+    /// The whole declaring decorator call or annotation, as written.
+    pub source_text: Option<String>,
+    /// The declaring node's position; `None` when the engine does not know it.
+    pub span: Option<Span>,
+    /// The node types from the lowest node holding both the definition and the
+    /// declaring node (the definition itself for an annotation inside it; the decorated
+    /// wrapper for a Python decorator) down to the declaring node; empty when not known.
+    pub ast_path: Vec<String>,
 }
 
 /// One argument the engine captured at a call (issue 47).

@@ -708,13 +708,13 @@ fn cache_object_id_fixed_vector() {
     assert_eq!(key.engine_version, ENGINE_VERSION);
     assert_eq!(key.language_matrix_version, LANGUAGE_MATRIX_VERSION);
     assert_eq!(
-        EXTRACT_CACHE_FORMAT_VERSION, 4,
-        "the vector below is format 4's"
+        EXTRACT_CACHE_FORMAT_VERSION, 5,
+        "the vector below is format 5's"
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (2, 2),
-        "the vector below is engine 2's and matrix 2's"
+        (3, 2),
+        "the vector below is engine 3's and matrix 2's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 2,
@@ -723,10 +723,10 @@ fn cache_object_id_fixed_vector() {
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "db46598944211d68e2eabd6c3ed2031a06212f8bee8a43877ed2216845cdc191"
+        "6ff3be1cc5bd32cd0a68c2f69bfda4c4b247f85746c8abf5e4a3ac46168ed177"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v4").join("db").join(&id));
+    assert_eq!(path, Path::new("cache").join("v5").join("6f").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -1021,14 +1021,15 @@ fn cache_rejects_wrong_source_digest() {
 }
 
 #[test]
-fn cache_format_3_is_a_miss() {
-    // Format 3 held calls without their node-type path and arguments and definitions
+fn cache_format_4_is_a_miss() {
+    // Format 4 held a definition's one route without its declaring node (issue 54);
+    // format 3 calls without their node-type path and arguments and definitions
     // without decorators, parameter types and route (issues 46 and 47); format 2 also
     // extractions without impl relations (issue 42), format 1 definitions without base
     // classes and extractions without a declared namespace. Their entries are never
     // decoded as the current format: not in the directory their format used, which is
     // never read, and not at the current path with their format written in them.
-    for old_format in [1, 2, 3] {
+    for old_format in [1, 2, 3, 4] {
         let checkout = Checkout::new();
         checkout.write("src/app.py", PYTHON);
         let config = checkout.config();
@@ -1046,7 +1047,7 @@ fn cache_format_3_is_a_miss() {
         let cache = Cache::new();
         let current = cache.cache.object_path(&key);
         let current_text = current.to_string_lossy().replace('\\', "/");
-        assert!(current_text.contains("/v4/"), "{current_text}");
+        assert!(current_text.contains("/v5/"), "{current_text}");
         let old_dir = cache
             .cache
             .root()
@@ -1112,7 +1113,8 @@ fn cached_extractions_keep_impl_relations() {
 #[test]
 fn cached_extractions_keep_site_paths_and_derivation_facts() {
     // Each call's node-type path and arguments and each definition's decorators,
-    // parameter types and route survive the cache whole (issues 46 and 47).
+    // parameter types and routes, with their positions and paths, survive the cache
+    // whole (issues 46, 47 and 54).
     let checkout = Checkout::new();
     checkout.write(
         "app/main.py",
@@ -1146,10 +1148,17 @@ fn cached_extractions_keep_site_paths_and_derivation_facts() {
         .unwrap();
     assert_eq!(read.decorators, ["@app.get(\"/users/{user_id}\")"]);
     assert_eq!(read.signature_param_types, ["int"]);
+    let route = &read.routes[..];
+    assert_eq!(route.len(), 1);
     assert_eq!(
-        (read.route_method.as_deref(), read.route_path.as_deref()),
-        (Some("GET"), Some("/users/{user_id}"))
+        (route[0].method.as_str(), route[0].path.as_str()),
+        ("GET", "/users/{user_id}")
     );
+    assert_eq!(
+        route[0].ast_path,
+        ["decorated_definition", "decorator", "call"]
+    );
+    assert!(route[0].span.is_some(), "the route keeps its position");
 }
 
 #[test]

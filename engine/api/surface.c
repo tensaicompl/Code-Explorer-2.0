@@ -39,8 +39,10 @@
 #include "shim_internal.h"
 #include "yyjson/yyjson.h"
 
-/* 2: the surface carries what the extraction lost (the "lost" count). */
-enum { SURFACE_VERSION = 3 }; /* 3: calls and usages carry their node-type path (issue 46) */
+/* 2: the surface carries what the extraction lost (the "lost" count). 3: calls and
+ * usages carry their node-type path (issue 46). 4: definitions carry their route
+ * facts (issue 54). */
+enum { SURFACE_VERSION = 4 };
 
 /* The file's bytes, and the engine's numbers, as they are; see the comment above. */
 #define SURFACE_WRITE_FLAGS (YYJSON_WRITE_ALLOW_INVALID_UNICODE | YYJSON_WRITE_ALLOW_INF_AND_NAN)
@@ -54,6 +56,7 @@ typedef enum {
     F_STRN,    /* const char **, counted by the int at count_offset */
     F_U32N,    /* uint32_t *, counted by the int at count_offset */
     F_ARGS,    /* PDXECallArg *, counted by the int at count_offset */
+    F_ROUTES,  /* PDXERouteFact *, counted by the int at count_offset */
     F_INT,     /* int */
     F_U32,     /* uint32_t */
     F_BOOL,    /* bool */
@@ -121,6 +124,18 @@ static const field DEFINITION_FIELDS[] = {
     FIELD(PDXEDefinition, F_STR, structural_profile),
     FIELD(PDXEDefinition, F_STR, body_tokens),
     FIELD(PDXEDefinition, F_STR, impl_trait),
+    COUNTED(PDXEDefinition, F_ROUTES, routes, route_count),
+    FIELD(PDXEDefinition, F_INT, route_count),
+};
+
+static const field ROUTE_FIELDS[] = {
+    FIELD(PDXERouteFact, F_STR, method),
+    FIELD(PDXERouteFact, F_STR, path),
+    FIELD(PDXERouteFact, F_STR, callee_text),
+    FIELD(PDXERouteFact, F_STR, source_text),
+    FIELD(PDXERouteFact, F_STRV, ast_path),
+    FIELD(PDXERouteFact, F_U32, start_byte),
+    FIELD(PDXERouteFact, F_U32, end_byte),
 };
 
 static const field CALL_FIELDS[] = {
@@ -366,6 +381,18 @@ static yyjson_mut_val *encode_field(yyjson_mut_doc *doc, const void *item, const
         }
         return arr;
     }
+    case F_ROUTES: {
+        const PDXERouteFact *v = *AT_CONST(item, f->offset, const PDXERouteFact *);
+        int n = *AT_CONST(item, f->count_offset, int);
+        if (!v) {
+            return yyjson_mut_null(doc);
+        }
+        yyjson_mut_val *arr = yyjson_mut_arr(doc);
+        for (int i = 0; i < n; i++) {
+            yyjson_mut_arr_append(arr, encode_fields(doc, &v[i], ROUTE_FIELDS, N(ROUTE_FIELDS)));
+        }
+        return arr;
+    }
     case F_INT:
     case F_ENUM:
         return yyjson_mut_sint(doc, *AT_CONST(item, f->offset, int));
@@ -533,6 +560,31 @@ static bool decode_field(PDXEArena *arena, yyjson_val *v, void *item, const fiel
         *slot = list;
         return true;
     }
+    case F_ROUTES: {
+        PDXERouteFact **slot = AT(item, f->offset, PDXERouteFact *);
+        if (yyjson_is_null(v)) {
+            *slot = NULL;
+            return true;
+        }
+        if (!yyjson_is_arr(v)) {
+            return false;
+        }
+        size_t n = yyjson_arr_size(v);
+        PDXERouteFact *list =
+            (PDXERouteFact *)pdxe_arena_calloc(arena, (n ? n : 1) * sizeof(*list));
+        if (!list) {
+            return false;
+        }
+        size_t i, max;
+        yyjson_val *e;
+        yyjson_arr_foreach(v, i, max, e) {
+            if (!decode_fields(arena, e, &list[i], ROUTE_FIELDS, N(ROUTE_FIELDS))) {
+                return false;
+            }
+        }
+        *slot = list;
+        return true;
+    }
     case F_INT:
     case F_ENUM:
         if (!yyjson_is_int(v)) {
@@ -578,7 +630,8 @@ static bool decode_fields(PDXEArena *arena, yyjson_val *obj, void *item, const f
     }
     /* A counted array and its count must agree, or a later reader overruns it. */
     for (size_t i = 0; i < n; i++) {
-        if (fields[i].kind == F_STRN || fields[i].kind == F_U32N || fields[i].kind == F_ARGS) {
+        if (fields[i].kind == F_STRN || fields[i].kind == F_U32N || fields[i].kind == F_ARGS ||
+            fields[i].kind == F_ROUTES) {
             yyjson_val *v = yyjson_obj_get(obj, fields[i].key);
             int count = *AT(item, fields[i].count_offset, int);
             if (yyjson_is_arr(v) ? (size_t)count != yyjson_arr_size(v) : count != 0) {

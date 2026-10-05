@@ -54,12 +54,13 @@ make check-asan   # the engine's tests and the sanitizer corpus (bench/corpus) u
 On a machine with little memory (a WSL VM capped at 10 GB goes down whole when one
 process takes about 9 GB), run builds and tests in a capped scope, so a runaway is the
 only thing killed: `systemd-run --user --scope -p MemoryMax=6G -p MemorySwapMax=0
-make check`, with `CARGO_BUILD_JOBS=6` and `RUST_TEST_THREADS=4`. A graph walk without
-a visited set (P2-05's hierarchy, before its fix) exhausts memory in seconds. `make
-engine` passes `-j` with no number, which under the Makefile generator is unlimited:
-build the engine first with `cmake --build target/engine -j 6` and the target finds
-nothing left to do. `scripts/check-asan.sh` does the same in `target/engine-asan`:
-configure it with the script's flags and build it with `-j 6` first. `make check` itself peaks near 500 MB this way.
+make check`, with `CARGO_BUILD_JOBS=6`, `RUST_TEST_THREADS=4` and
+`CMAKE_BUILD_PARALLEL_LEVEL=6`. A graph walk without a visited set (P2-05's hierarchy,
+before its fix) exhausts memory in seconds. `make engine` and `scripts/check-asan.sh`
+build the engine with CMake's own `CMAKE_BUILD_PARALLEL_LEVEL` jobs, else one per
+online processor (on a 28-core machine, set it: 28 grammar compilations at once is
+several GB); they never pass `-j` alone, which the Makefile generator runs unbounded.
+`make check` itself peaks near 600 MB this way.
 
 The language matrix is `pdx_core::languages`, transcribed from the plan's Appendix A:
 31 languages, each with its tier, extensions, shebangs, module rule and test rule.
@@ -111,10 +112,11 @@ registry's own metadata, and applies a configuration's path aliases to TypeScrip
 JavaScript imports only, as the registry does (issue 43, patch 0009). Rust's `impl
 Trait for Type` relations cross the interface (`FileExtract::impl_traits`, issue 42)
 and the registry resolves them; supertraits are not recorded, so none is followed. The
-extraction cache is format 4 and the worker protocol 5 (issues 40 to 42, 46 and 47):
-calls carry their node-type path (`ast_path`, computed by the engine since patch
-0010, so `ENGINE_VERSION` is 2) and arguments, and definitions their decorators,
-parameter types and routes.
+extraction cache is format 5 and the worker protocol 6 (issues 40 to 42, 46, 47 and
+54): calls carry their node-type path (`ast_path`, computed by the engine since patch
+0010) and arguments, and definitions their decorators, parameter types and every route
+binding with its declaring node's position and path (`routes`, patch 0011);
+`ENGINE_VERSION` is 3.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
@@ -142,8 +144,14 @@ candidate row, with the engine's numbers copied unchanged; unconfirmed sites and
 with no position in the file are counted, never stored (issue 49). Test files follow
 issue 31's rules (`LANGUAGE_MATRIX_VERSION` 2); a definition is a test only on its
 framework's evidence, never because the engine flags its file, and `TESTS` edges sit
-beside the `CALLS` edges they mirror. Routes (Spring, FastAPI, Express) key on their
-handler's file and `{"handler","method","path"}` JSON, never a line. Segments are
+beside the `CALLS` edges they mirror. Routes (Spring, JAX-RS, FastAPI, Flask, Express)
+key on their handler's file and `{"handler","method","path"}` JSON, never a line, and
+every `DEFINES_ROUTE` edge has its `route` site (the declaring annotation, decorator or
+call); no site, no route (issue 54). Every structural edge has its site: `Builder`
+and the segment writer refuse one without (`EdgeKind::requires_site`). An entry point
+is Appendix B.2's, decided here (tests, route handlers, each language's conventional
+`main`, the framework bootstraps); the engine's own flag is `props.engine_entry_point`
+and never makes one (issue 55). Segments are
 `SEGMENT_SCHEMA_VERSION` 2 (`candidates.engine_candidates`, nullable `blob_sha` and
 `line_count` for files never read; issues 50 and 51). The golden fixtures are `insta`
 snapshots in `crates/pdx-core/tests/snapshots/`: review a changed one, never accept it

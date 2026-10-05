@@ -148,9 +148,10 @@ fn isolation_carries_impl_relations() {
 
 #[test]
 fn isolation_carries_site_paths_and_derivation_facts() {
-    // Protocol 5 carries each call's node-type path and arguments and each
-    // definition's decorators, parameter types and route (issues 46 and 47): a
-    // worker's extraction has them, exactly as this process's.
+    // Protocol 6 carries each call's node-type path and arguments and each
+    // definition's decorators, parameter types and route bindings with their
+    // declaring nodes (issues 46, 47 and 54): a worker's extraction has them, exactly
+    // as this process's.
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../engine/tests/fixtures/facts");
     let files: Vec<SourceFile> = [
         ("python", "routes.py"),
@@ -183,11 +184,17 @@ fn isolation_carries_site_paths_and_derivation_facts() {
         facts.3 += e
             .definitions
             .iter()
-            .filter(|d| d.route_path.is_some())
-            .count();
+            .map(|d| d.routes.iter().filter(|r| !r.ast_path.is_empty()).count())
+            .sum::<usize>();
     }
     assert!(facts.0 > 0 && facts.1 > 0 && facts.2 > 0, "{facts:?}");
-    assert_eq!(facts.3, 3, "two FastAPI routes and a Spring one");
+    // FastAPI: three handlers, one with two decorators; Spring: one path, two paths,
+    // and two paths by two methods.
+    assert_eq!(
+        facts.3,
+        4 + 7,
+        "every route binding, positioned, through the worker"
+    );
 }
 
 #[test]

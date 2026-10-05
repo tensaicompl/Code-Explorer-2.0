@@ -97,6 +97,30 @@ enum pdxe_visibility {
 #define PDXE_NO_PARENT UINT32_MAX
 
 /*
+ * One HTTP route binding a decorator or annotation declares for a definition: its
+ * method in upper case (`ANY` when the declaration names none), its path (joined to the
+ * enclosing class's own mapping), and the node that declares it. `callee_text` is the
+ * decorator's callee or the annotation's name as written (`app.get`, `GetMapping`);
+ * `source_text` the whole declaring call or annotation. `span` is the declaring node's
+ * position, all zero when not known. `ast_path` is the syntax node types from the lowest
+ * node holding both the definition and the declaring node (the definition itself when
+ * the declaration is inside it, as a JVM annotation is; the decorated wrapper for a
+ * Python decorator) down to the declaring node; NULL with a count of 0 when not known.
+ * One fact per method and path: an annotation listing two paths gives two facts that
+ * share their node. Bindings whose path or method is not a literal are not reported.
+ * Appended by a specification change; see docs/plan/ISSUES.md, issue 54.
+ */
+typedef struct {
+    const char *method;
+    const char *path;
+    const char *callee_text;
+    const char *source_text;
+    pdxe_span span;
+    const char **ast_path;
+    uint32_t n_ast_path;
+} pdxe_route;
+
+/*
  * A definition: anything the graph gives a node of its own.
  *
  * `kind` is one of the normalised strings of the kind mapping, never an engine
@@ -119,6 +143,11 @@ enum pdxe_visibility {
  * and `route_method` the HTTP route a decorator binds it to, where the engine found
  * one, else NULL. Each array is NULL with a count of 0 when empty. Appended by a
  * specification change; see docs/plan/ISSUES.md, issue 47.
+ *
+ * `routes` are every route binding the definition's decorators or annotations declare
+ * (pdxe_route), each with the node that declares it; NULL with a count of 0 for none.
+ * `route_path` and `route_method` keep the engine's single summary of them. Appended
+ * by a specification change; see docs/plan/ISSUES.md, issue 54.
  */
 typedef struct {
     const char *name;
@@ -144,6 +173,8 @@ typedef struct {
     uint32_t n_signature_param_types;
     const char *route_path;
     const char *route_method;
+    const pdxe_route *routes;
+    uint32_t n_routes;
 } pdxe_definition;
 
 /*
@@ -413,7 +444,9 @@ void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r);
  * decorators, parameter types and route, and a call's node-type path and arguments,
  * are copied too; any of those arrays counted without an array, or holding a NULL
  * string where one is required (every element; an argument's expression), is refused
- * (issues 46 and 47).
+ * (issues 46 and 47). A definition's routes are copied, the array, each route's strings
+ * and node-type path; routes counted with no array, a route missing its method, path or
+ * callee text, or a path counted with no array or holding a NULL, are refused (issue 54).
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,

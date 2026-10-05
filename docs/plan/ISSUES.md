@@ -15,9 +15,13 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 57 | 2026-10-05 | P2-10 | ambiguity | open | Malformed source can come back `parsed`: the engine marks a file `partial` only when an error region remains after it subtracts the regions definitions were recovered from, so `def broken(:` with a body is `parsed`. Coverage, the degraded status and the published parsed/partial/failed counts depend on what syntax damage means | P2-10 (coverage, degraded status, `build_segment`) decides, before publication: the semantics of parsed, partial and failed for recoverable syntax errors, malformed fixtures for them, and the coverage and degraded thresholds that use them |
+| 56 | 2026-10-05 | P2-07 | ambiguity | resolved | P2-07 extended 4.2.1 so that non-callable definitions sharing a kind, path and qualified name take the identical-signature collision scheme (`e3b0c442-1`, `e3b0c442-2`), without bringing it to the owner | Owner decision, 2026-10-05: approved as implemented. Ids must be unique, the extracted facts hold no stronger discriminator, and a line number would break the identity design. The limitation is explicit in 4.2.1: inserting another identical declaration before an existing one may renumber that group. No version moves. `duplicate_noncallables_have_unique_deterministic_ids` |
+| 55 | 2026-10-05 | P2-07 | blocker | resolved | P2-07 copied the engine's entry-point flag into `props.is_entry_point`, and the engine sets it on every exported JavaScript and TypeScript declaration: the TypeScript golden showed plain exported functions as entry points, which Appendix B.2 does not make them | `is_entry_point` is decided from evidence of B.2's categories only: tests, route handlers, each language's conventional `main` (JVM, C#, C, C++ global namespace, Go, Rust binary roots), the framework bootstraps. The engine's flag is kept as `props.engine_entry_point`. `exported_typescript_function_is_not_entry_point`, `exported_javascript_function_is_not_entry_point`, `main_entry_points_survive_engine_flag_filter`, `entry_point_categories_are_kept` |
+| 54 | 2026-10-05 | P2-07 | blocker | resolved | 4.2.4: every non-containment edge references its `site_id`. P2-07 made Spring's `DEFINES_ROUTE` edges with no site (the engine recorded a route as two strings with no position) and `routes_spring` asserted it; and one route per definition lost a mapping's other paths and methods | Engine patch 0011 records every route binding with its declaring node's position and node-type path (`pdxe_route`, `RouteFact`); one fact per method and path, literals only. Every `DEFINES_ROUTE` edge has a real `route` site, shared by the bindings of one declaration; no site, no route. `Builder` and the segment writer refuse a structural edge without its site. `ENGINE_VERSION` 3, cache format 5, protocol 6, surface 4 |
 | 53 | 2026-10-05 | P2-10 | ambiguity | open | A POSIX file name may contain `\`, which Windows reads as a separator: such a file has no identity that is the same on every host. Discovery finds it on Linux and macOS; Stage 4 refuses any path that is not repository-relative POSIX, so today a repository holding one fails its build | P2-10 (coverage and the whole pipeline) decides how such a file is accounted for, for example as skipped with a reason, before Stage 4 sees it. Stage 4's refusal stays: a host-native path never becomes an identity (`backslash_path_never_reaches_an_identity`) |
-| 52 | 2026-10-05 | P2-07 | third-party | resolved | P2-07's golden fixtures use snapshot tests; the ratchet refuses `insta` 1.49.0 and its diffing dependency `similar` 2.7.0 until they are recorded | Owner-authorised exact-version exemptions, `safe-to-run` (test-only), added by hand with notes naming this issue; no audit claimed, nothing regenerated. 101 exemptions |
-| 51 | 2026-10-05 | P2-07 | ambiguity | resolved | 4.3's `files` row requires a `blob_sha` and a `line_count` for every file, but Stage 2 reads only extraction candidates: a redacted, binary, oversized or unknown file is never read, so neither exists, and Stage 2 kept no line count for any file | The facts are kept where they exist and absent where they do not: `files.blob_sha` and `files.line_count` are nullable, NULL for a file never read; Stage 2 counts lines in the bytes it already reads. Part of `SEGMENT_SCHEMA_VERSION` 2 (with issue 50). Proven by `file_records_are_faithful` |
+| 52 | 2026-10-05 | P2-07 | third-party | resolved | P2-07's golden fixtures use snapshot tests; the ratchet refuses `insta` 1.49.0 and its diffing dependency `similar` 2.7.0 until they are recorded | Owner-authorised exact-version exemptions, `safe-to-run` (test-only), added by hand with notes naming this issue; no audit claimed, nothing regenerated. 101 exemptions. Owner confirmed as implemented, 2026-10-05: exemptions, not audits |
+| 51 | 2026-10-05 | P2-07 | ambiguity | resolved | 4.3's `files` row requires a `blob_sha` and a `line_count` for every file, but Stage 2 reads only extraction candidates: a redacted, binary, oversized or unknown file is never read, so neither exists, and Stage 2 kept no line count for any file | The facts are kept where they exist and absent where they do not: `files.blob_sha` and `files.line_count` are nullable, NULL for a file never read; Stage 2 counts lines in the bytes it already reads. Part of `SEGMENT_SCHEMA_VERSION` 2 (with issue 50). Proven by `file_records_are_faithful`. Owner confirmed as implemented, 2026-10-05 |
 | 50 | 2026-10-05 | P2-07 | scr | resolved | 4.2.2 stores the engine's score, strategy and candidate count verbatim on an edge or a candidate row, but the `candidates` table and `CandidateSite` had no candidate count: the first derived candidate rows would have lost it | `candidates.engine_candidates INTEGER` and `CandidateSite::engine_candidates`; `SEGMENT_SCHEMA_VERSION` 1 → 2, and a reader refuses version 1. Proven by `segment_roundtrip`, `reader_refuses_wrong_schema_version` and `candidate_rows_copy_engine_calibration` |
 | 49 | 2026-10-05 | P2-07 | ambiguity | resolved | P2-06 settles every call site as a `Resolution`, and no task owned turning resolutions into persistent sites, `CALLS` and `CALL_REFERENCE` edges and candidate rows; `TESTS` edges depend on them | Owner decision: P2-07 owns it. Drawn bands give a site and an edge with the engine's numbers copied unchanged; other bands a site and a candidate row; unconfirmed sites and sites with no position in the file are counted, never rows. Proven by `drawn_edges_copy_engine_calibration`, `candidate_rows_copy_engine_calibration`, `unconfirmed_sites_are_counted_never_drawn` and `site_without_raw_position_is_counted_not_placed` |
 | 48 | 2026-10-05 | P2-07 | scr | resolved | `ModuleKey` was not a graph identity, and Appendix B.3 has a module spanning files be one node with no `file_id`: no member file can stably identify or parent it | Owner decision, written into 4.2.1: `(Module, path = scope, qualified_name = "<language>:<name>", "")`; one file → that file is `file_id` and parent; several → no `file_id`, sorted `props.files`, nearest common folder (or the repository) as parent; symbols keep their physical parents and gain `props.module`. Fixed vectors in 4.2.1; `module_id_does_not_depend_on_file_count` |
@@ -98,6 +102,142 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 57 — Malformed source can be reported as parsed
+
+The engine reports a file `failed` when it could not parse it at all and `partial`
+when an error region of the tree remains after it subtracts the regions it recovered a
+definition from. A small syntax error inside a definition it still recovered leaves no
+such region, so the file is `parsed`. Observed in P2-07:
+
+```python
+def broken(:
+    return
+```
+
+is `parsed`, while
+
+```python
+def fine():
+    return 1
+
+
+def broken(x:
+    return x
+```
+
+is `partial` (`file_records_are_faithful` uses the second).
+
+Stage 4 maps the engine's status faithfully and is not the place to redefine it. What
+syntax damage means for coverage, the degraded status and the published parsed,
+partial and failed counts is P2-10's (coverage, degraded status, `build_segment`), and
+must be decided before anything is published: the semantics of `parsed`, `partial` and
+`failed` for a recoverable syntax error, malformed fixtures for them, and coverage and
+degraded thresholds that use those semantics.
+
+State: open.
+
+### 56 — Repeated non-callables share the collision scheme
+
+4.2.1's disambiguator rule names callables. P2-07 found definitions that are not
+callables yet share a kind, path and qualified name (a Python name assigned twice at
+module level, a class declared twice), and gave them the identical-signature scheme:
+their signatures are empty, so they are `e3b0c442-1`, `e3b0c442-2`, in file order. It
+wrote that into 4.2.1 without bringing it to the owner.
+
+Owner decision, 2026-10-05: approved as implemented. Persistent node ids must stay
+unique; the extracted facts hold nothing stronger that tells such declarations apart; a
+line number would break the identity design; deterministic file order is better than a
+collision or a position. The limitation is now explicit in 4.2.1: unlike distinct
+overloads, inserting another identical declaration before an existing one may renumber
+that collision group. No version moves: the rule was in the identity format before any
+segment was published. Proven by `duplicate_noncallables_have_unique_deterministic_ids`
+(two variables and two classes, each pair two ids, the same on every run, equal to
+4.2.1's rule computed by hand).
+
+State: resolved.
+
+### 55 — The engine's entry-point flag is not Appendix B.2's
+
+P2-07 set `props.is_entry_point` to the engine's own flag or a test, and `entry.rs`
+kept the engine's flag unconditionally. The engine sets that flag far more broadly than
+Appendix B.2: on every exported JavaScript and TypeScript declaration, and on any
+`main` (a `func main()` in any Go package, a `main` inside a C++ namespace). The
+TypeScript golden proved it: plain exported `show` and `formatName` were entry points.
+
+Resolved. `props.is_entry_point` is a PDX graph fact decided from evidence of B.2's
+categories (`index::derive::entry`): every test and route handler; a program's `main` by
+its language's convention (`entry::is_main`: Java's and Groovy's `main(String[])`,
+Scala's `main(Array[String])`, Kotlin's `main()` or `main(Array<String>)`, C#'s
+`Main()` or `Main(string[])`, C's `main` at file scope, C++'s in the global namespace,
+Go's `func main()` at file scope, Rust's `fn main()` at file scope in `main.rs` or under
+`bin`); a class annotated `@SpringBootApplication`; a module-level `FastAPI` or Flask
+application; the definition calling `listen` on an Express application or
+`NestFactory.create`; an ASP.NET `Program.cs` with top-level statements. The engine's
+flag is kept as `props.engine_entry_point`, engine evidence only, and never makes an
+entry point; the engine's own semantics are unchanged. Command-line subcommand handlers
+are not supported: nothing in the facts ties a handler to its registration. One
+approximation remains: Go's package clause is not extracted, so a `func main()` in a
+package other than `main` is taken for one.
+
+Proven by `exported_typescript_function_is_not_entry_point` and
+`exported_javascript_function_is_not_entry_point` (the engine flags each; the graph does
+not), `main_entry_points_survive_engine_flag_filter` (Java, Kotlin, C, C++, Go, Rust and
+C# mains are; a Java `main(int)`, a C++ namespace's `main`, a Rust library's `main` and a
+Python `main` are not), `entry_point_categories_are_kept` (Spring Boot, FastAPI
+application and handler, a TypeScript Express handler and `listen` caller, a test) and
+the goldens: the TypeScript golden's entry points went from 2 to 0.
+
+State: resolved.
+
+### 54 — A route's `DEFINES_ROUTE` edge had no site
+
+4.2.4 says every non-containment edge references its `site_id`, and `DEFINES_ROUTE` is
+one. The engine recorded a definition's route as two strings, `route_path` and
+`route_method`, with no position and no node, so P2-07 made Spring's `DEFINES_ROUTE`
+edges with `site_id` none, reported them, and `routes_spring` asserted the missing site.
+The same two strings held one route per definition: the engine took the first mapping
+annotation or decorator and the first path in it, so `@GetMapping({"/a", "/b"})` lost
+`/b`, a `@RequestMapping` listing two methods lost one, and a function under two route
+decorators lost the second.
+
+Resolved without weakening 4.2.4. Engine patch 0011 records, beside the old strings, a
+`PDXERouteFact` per method and path every route annotation or decorator on a definition
+declares (Spring mappings, JAX-RS verbs with `@Path`, FastAPI, Flask with `methods=`,
+Django REST framework's `@action`), each with the declaring node's span and its
+node-type path; several paths or methods in one mapping are one fact each, joined to
+each of the class's mapping paths; a path or method that is not a literal gives no fact.
+The interface carries them as `pdxe_route` (append-only on `pdxe_definition`, validated
+and deep-copied by `pdxe_result_build`, encoded in the surface), and Rust as
+`Definition::routes` (`RouteFact`), in place of the two strings. Stage 4 makes each
+binding's `route` site from its fact (4.2.1's fingerprint over the path, the callee as
+resolution splits it and the ordinal among the handler's declaring nodes); one
+declaration is one site for the edges of all its bindings; a binding without a position
+or path gives no route and no edge, only a diagnostic. Express keeps its registration
+call as its site. `Builder::add_edge` refuses a structural edge without its site or
+naming one it does not have, and the segment writer refuses a structural edge without
+its site, so hand-assembled rows cannot bypass derive (`EdgeKind::requires_site`; the
+contract group's sites are P2-08's, and history and estate edges are outside the
+repository's code).
+
+`ENGINE_VERSION` 2 → 3 (the engine computes new facts), `EXTRACT_CACHE_FORMAT_VERSION`
+4 → 5 and the worker protocol 5 → 6 (`FileExtract` changed shape), the surface codec
+3 → 4. Segment schema, language matrix and secret detector are unchanged. The accepted
+Route identity is unchanged; its vectors stand.
+
+Proven by `routes_spring` (a real site at the annotation's line, kept under line
+insertion), `spring_route_has_real_site`, `spring_multiple_paths_create_multiple_routes`,
+`spring_request_mapping_multiple_methods`, `spring_multiple_routes_have_deterministic_ids`,
+`route_line_shift_keeps_route_site_id`, `every_non_containment_edge_has_a_site`,
+`route_facts_cross_the_boundary`, `cached_extractions_keep_site_paths_and_derivation_facts`,
+`isolation_carries_site_paths_and_derivation_facts`, the C round trip's route coverage
+and refusals, `a_siteless_defines_route_is_refused` and
+`writer_refuses_a_structural_edge_without_its_site`.
+
+The P2-02 segment fixture had a `USES_TYPE` edge and an observed precise `CALLS` edge
+without sites, which the writer now refuses; both were given sites.
+
+State: resolved.
+
 ### 53 — A file name with a backslash has no host-independent identity
 
 A file name on Linux or macOS may contain `\`. Windows reads the same character as a
@@ -135,6 +275,9 @@ issue, and was added by hand to `supply-chain/config.toml`. **These are exemptio
 not audits.** No exemption was regenerated and nothing else changed: 101 exemptions
 (95 of issue 36, 4 of issue 39 and these 2).
 
+Owner confirmation, 2026-10-05: approved as implemented. `insta` 1.49.0 and `similar`
+2.7.0 are exact-version, test-only cargo-vet exemptions: exemptions, not audits.
+
 State: resolved.
 
 ### 51 — File records for files that were never read
@@ -152,6 +295,11 @@ for every candidate, and the registry keeps the count. A file whose status is
 `redacted`, `binary` or `skipped` has neither fact; a `parsed`, `partial` or `failed`
 one has both. Proven by `file_records_are_faithful`, with Git's own blob ids as the
 expected values.
+
+Owner confirmation, 2026-10-05: approved as implemented. `files.blob_sha` and
+`files.line_count` are NULL when Stage 1 or 2 deliberately never read the file
+(redacted, binary, too large, of no language or otherwise never read); the pipeline
+must not open such a file only to fill them. `SEGMENT_SCHEMA_VERSION` stays 2.
 
 State: resolved.
 

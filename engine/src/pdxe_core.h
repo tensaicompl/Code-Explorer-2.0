@@ -193,6 +193,23 @@ typedef enum {
 
 // --- Extraction result structs ---
 
+/* One HTTP route binding a decorator or annotation declares for a definition, with
+ * the source node that declares it. One fact per method and path the node binds (an
+ * annotation listing two paths is two facts with one node). `ast_path` is the node
+ * types from the lowest node holding both the definition and the declaring node (the
+ * definition itself when the node is inside it) down to the declaring node,
+ * NULL-terminated, the strings the grammar's own; NULL when they could not be
+ * recorded. The span is the declaring node's, in the raw source. */
+typedef struct {
+    const char *method;      // upper-case HTTP method, or "ANY"
+    const char *path;        // the route's path, joined to its class's prefix
+    const char *callee_text; // the decorator's callee or the annotation's name, as written
+    const char *source_text; // the declaring decorator call or annotation, as written
+    const char **ast_path;   // see above
+    uint32_t start_byte;     // the declaring node's span; end > start
+    uint32_t end_byte;
+} PDXERouteFact;
+
 typedef struct {
     const char *name;           // short name
     const char *qualified_name; // project.path.name
@@ -238,6 +255,11 @@ typedef struct {
      * that declared this method.  Kept at the tail so zero-initialised
      * callers in every other language remain ABI/source compatible. */
     const char *impl_trait;
+    /* Every route binding the definition's decorators or annotations declare, each with
+     * its declaring node (PDXERouteFact); NULL and 0 for none. route_path/route_method
+     * above keep the first, as before. Kept at the tail, as impl_trait is. */
+    PDXERouteFact *routes;
+    int route_count;
 } PDXEDefinition;
 
 /* Argument captured from a call expression */

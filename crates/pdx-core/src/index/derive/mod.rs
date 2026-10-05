@@ -97,8 +97,9 @@ pub enum RouteProblem {
     /// The registration names no handler the facts identify (an inline function, an
     /// expression, a name nothing resolves).
     NoHandler,
-    /// The route is drawn, but no source site evidences it: the framework's
-    /// annotation is not a site the engine records.
+    /// The engine recorded no position or node-type path for the node that declares
+    /// the route, or the registration call has none: without a site there is no route
+    /// and no edge.
     NoSite,
 }
 
@@ -169,6 +170,12 @@ pub enum DeriveError {
     /// give the same file different identities on different hosts.
     #[error("{0}: not a repository-relative POSIX path")]
     NotRepositoryPath(String),
+    /// A structural edge with no evidence site (4.2.4), which the stage never stores.
+    #[error("a {0} edge has no evidence site")]
+    EdgeWithoutSite(crate::kinds::EdgeKind),
+    /// An edge naming a site the stage never added.
+    #[error("an edge names the site {0}, which the graph does not have")]
+    UnknownSite(SiteId),
     /// A fact refers to something the stage has no node for.
     #[error("{path}: {detail}")]
     Missing {
@@ -238,7 +245,18 @@ impl Builder {
         }
     }
 
+    /// Adds an edge, refusing a structural one without its evidence site, or naming a
+    /// site the graph does not have (4.2.4).
     pub(crate) fn add_edge(&mut self, edge: Edge) -> Result<(), DeriveError> {
+        match &edge.site_id {
+            None if edge.kind.requires_site() => {
+                return Err(DeriveError::EdgeWithoutSite(edge.kind));
+            }
+            Some(site) if !self.sites.contains_key(site) => {
+                return Err(DeriveError::UnknownSite(site.clone()));
+            }
+            _ => {}
+        }
         match self.edges.get(&edge.edge_id) {
             Some(existing) if *existing == edge => Ok(()),
             Some(_) => Err(DeriveError::DuplicateEdge(edge.edge_id)),
@@ -310,5 +328,92 @@ impl Builder {
             module_nodes: self.module_nodes,
             diagnostics: self.diagnostics,
         }
+    }
+}
+
+#[cfg(test)]
+mod invariant {
+    use super::*;
+    use crate::ids::NodeKey;
+    use crate::kinds::EdgeKind;
+
+    fn builder() -> Builder {
+        let repo = RepoId::parse("ce63551447285fd4").expect("a repo id");
+        Builder {
+            files: BTreeMap::new(),
+            nodes: BTreeMap::new(),
+            sites: BTreeMap::new(),
+            edges: BTreeMap::new(),
+            candidates: BTreeMap::new(),
+            repo_node: NodeKey::repo(&repo).node_id().expect("an id"),
+            file_nodes: BTreeMap::new(),
+            folder_nodes: BTreeMap::new(),
+            definition_nodes: BTreeMap::new(),
+            file_definitions: BTreeSet::new(),
+            module_nodes: BTreeMap::new(),
+            diagnostics: Diagnostics::default(),
+        }
+    }
+
+    fn node(name: &str) -> NodeId {
+        let repo = RepoId::parse("ce63551447285fd4").expect("a repo id");
+        NodeKey::definition(&repo, crate::kinds::NodeKind::Method, "a.java", name, "")
+            .node_id()
+            .expect("an id")
+    }
+
+    #[test]
+    fn a_siteless_defines_route_is_refused() {
+        let mut graph = builder();
+        let edge = Edge::new(
+            node("a.A.list"),
+            node("route"),
+            EdgeKind::DefinesRoute,
+            Band::Exact,
+            None,
+        );
+        assert!(matches!(
+            graph.add_edge(edge),
+            Err(DeriveError::EdgeWithoutSite(EdgeKind::DefinesRoute))
+        ));
+        assert!(graph.edges.is_empty());
+    }
+
+    #[test]
+    fn an_edge_naming_a_missing_site_is_refused() {
+        let mut graph = builder();
+        let site = crate::ids::SiteKey::new(
+            "a.java",
+            None,
+            crate::kinds::SiteKind::Call,
+            crate::ids::ast_fingerprint(&["call"], "f", "", 1).expect("a fingerprint"),
+        )
+        .site_id()
+        .expect("an id");
+        let edge = Edge::new(
+            node("a.A.f"),
+            node("a.A.g"),
+            EdgeKind::Calls,
+            Band::Exact,
+            Some(site),
+        );
+        assert!(matches!(
+            graph.add_edge(edge),
+            Err(DeriveError::UnknownSite(_))
+        ));
+    }
+
+    #[test]
+    fn history_edges_are_not_held_to_a_site() {
+        // 4.2.1's own vector has a CHANGES_WITH edge with no site.
+        let mut graph = builder();
+        let edge = Edge::new(
+            node("a"),
+            node("b"),
+            EdgeKind::ChangesWith,
+            Band::Exact,
+            None,
+        );
+        assert!(graph.add_edge(edge).is_ok());
     }
 }

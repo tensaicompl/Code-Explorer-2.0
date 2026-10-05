@@ -11,3 +11,9 @@ def read_user(user_id: int) -> dict:
 @app.post("/users")
 def create_user(name: str, admin: bool = False) -> dict:
     return {"name": name, "admin": admin}
+
+
+@app.get("/health")
+@app.post("/status")
+def health() -> dict:
+    return {}

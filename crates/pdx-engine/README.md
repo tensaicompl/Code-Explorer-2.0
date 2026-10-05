@@ -26,7 +26,7 @@ engine found in the file, owned, in the engine's order:
 | `truncated` | The extractor stopped at its node budget, which is off unless the environment sets one |
 | `extraction_lost` | Work lost while the file was extracted: allocations that failed and work budgets that ran out. 0 when nothing was lost; otherwise the extraction is degraded, and its surface carries the same count into every project that resolves it |
 | `declared_namespace` | The package or namespace the file declares, as written, for the languages whose declaration the engine reads (Java, Kotlin, C#, PHP); `None` otherwise. `namespace_evidence(language)` says where a language's evidence is: this field, C++'s qualified names, or nowhere |
-| `definitions` | With normalised kind and the engine's own, spans, parent, visibility, test and entry-point flags, three complexity metrics, and `base_classes`: the bases it names, in the engine's order and spelling, unresolved. `decorators` (annotations, decorators and attributes as written), `signature_param_types` (the declared parameter types, `?` for an unknown one), and `route_method` and `route_path` for a Spring or `FastAPI` handler (Spring's path joined to its controller's prefix), all as the engine extracted them (issue 47). The engine's `is_test` flag marks every definition of a test file, helpers included |
+| `definitions` | With normalised kind and the engine's own, spans, parent, visibility, test and entry-point flags, three complexity metrics, and `base_classes`: the bases it names, in the engine's order and spelling, unresolved. `decorators` (annotations, decorators and attributes as written) and `signature_param_types` (the declared parameter types, `?` for an unknown one), as the engine extracted them (issue 47). `routes` (`RouteFact`): every HTTP route binding its annotations or decorators declare (Spring, JAX-RS, FastAPI, Flask, Django REST framework), one per method and path, joined to the class's own mapping, each with its callee as written, the declaration's text, position and node-type path; a path or method that is not a literal gives none (issue 54). The engine's `is_test` flag marks every definition of a test file, helpers included |
 | `impl_traits` | Rust's `impl Trait for Type` blocks (`ImplTrait`: the trait and the type as spelt, without type arguments, and the type's qualified name), empty blocks included, in the engine's order; empty for every other language. Supertraits are not recorded (issue 42) |
 | `calls` | Calls, then callables passed as values (`is_reference`); `typed_only` sites; lexical facts. `ast_path`: the node types from the innermost enclosing function's node (the root's, at file scope) down to the site's own, for every site with a position in the file (issue 46); empty for a site found only in preprocessed text. `args` (`CallArg`): each argument's text, its literal value where the engine resolved one, its keyword, and its position (issue 47) |
 | `imports`, `usages` | Usages with their lexical facts |
@@ -91,9 +91,10 @@ ordinary child processes on every system.
 
 The protocol is length-prefixed postcard frames (decision 19), with a size limit, each
 encoded straight into the pipe so a batch's sources are not copied on the way; the
-worker names its protocol (5: since an extraction carries its sites' node-type paths
-and arguments and its definitions' decorators, parameter types and routes, after 4 for
-`impl Trait for Type` relations and 3 for bases and declared namespaces) and engine
+worker names its protocol (6: since a definition carries every route binding with its
+declaring node, after 5 for sites' node-type paths, arguments, decorators, parameter
+types and one route, 4 for `impl Trait for Type` relations and 3 for bases and declared
+namespaces) and engine
 version first and is refused if they differ.
 
 Every exchange with a worker, its introduction included, is bounded in time: the
@@ -129,7 +130,7 @@ cargo test -p pdx-engine
 | `determinism` | `extract_is_deterministic`: property tests over generated programs and over every matrix language's fixture with arbitrary bytes edited in |
 | `declarations` | `base_classes_cross_the_safe_boundary` (one base, several in the engine's order, none, the engine's spelling); they and declared namespaces survive postcard; a cached extraction with bases resolves as a fresh one; `declared_namespace` for each language that has one, block and file-scoped C# alike; `namespace_evidence` held to what the engine records |
 | `impl_traits` | `impl_traits_cross_the_safe_boundary` (none, one from an empty block, several in the source's order, a module-qualified trait kept whole, type arguments left off, Rust only); they survive postcard; a cached extraction with them resolves as a fresh one |
-| `site_facts` | `call_ast_path_crosses_the_boundary` and `reference_ast_path_crosses_the_boundary` (exact paths, in a method, under an `if`, at file scope); `every_site_in_the_source_has_a_path` over every fixture; `derivation_facts_cross_the_boundary` (Spring, `FastAPI` and Express: decorators, parameter types, routes, positional and keyword arguments with their values); they survive postcard |
+| `site_facts` | `call_ast_path_crosses_the_boundary` and `reference_ast_path_crosses_the_boundary` (exact paths, in a method, under an `if`, at file scope); `every_site_in_the_source_has_a_path` over every fixture; `derivation_facts_cross_the_boundary` (Spring, `FastAPI` and Express: decorators, parameter types, routes with their positions and paths, positional and keyword arguments with their values); `route_facts_cross_the_boundary` (several paths and methods in one Spring or Kotlin mapping, a class prefix, a marker annotation, stacked and Flask decorators, a constant path giving none); they survive postcard |
 | `budgets` | Nothing is lost or truncated normally; a starved TypeScript budget is reported in `extraction_lost`; `NODE_BUDGET_ENV` is the variable the engine reads; a switch set to any value counts as set; `every_engine_variable_is_classified` over the engine's sources |
 
 The isolation tests are in the `pdx` crate, whose binary is the worker:

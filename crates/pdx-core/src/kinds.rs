@@ -302,6 +302,16 @@ impl EdgeKind {
         }
     }
 
+    /// Whether an edge of this kind in a repository's segment must reference the site
+    /// that evidences it (4.2.4: every non-containment edge references its `site_id`).
+    /// It is the structural group, whose evidence is a place in the repository's own
+    /// source. The contract group's sites are defined with the contracts (4.7, P2-08),
+    /// and history and estate edges are no repository's code (`CHANGES_WITH` has none,
+    /// 4.2.1), so neither is held to it here.
+    pub const fn requires_site(self) -> bool {
+        matches!(self.category(), EdgeCategory::Structural)
+    }
+
     /// Whether 4.2.2 requires every edge of this kind to carry a confidence band.
     pub const fn requires_band(self) -> bool {
         matches!(

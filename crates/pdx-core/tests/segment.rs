@@ -235,6 +235,58 @@ fn fixture() -> SegmentData {
     )
     .expect("a site")
     .with_texts(Some("java.util.Map"), None);
+    // Every structural edge has its evidence site (4.2.4): the parameter type `add`
+    // uses, and the call back from `remove`.
+    let type_site = Site::new(
+        &SiteKey::new(
+            JAVA,
+            Some(add.node_id.clone()),
+            SiteKind::TypeRef,
+            ids::ast_fingerprint(
+                &["method_declaration", "formal_parameter", "type_identifier"],
+                "Item",
+                "",
+                1,
+            )
+            .expect("a fingerprint"),
+        ),
+        file_id(JAVA),
+        Span {
+            start_byte: 280,
+            end_byte: 284,
+            start_line: 12,
+            start_col: 20,
+            end_line: 12,
+            end_col: 24,
+        },
+    )
+    .expect("a site")
+    .with_texts(Some("Item"), None);
+    let back_site = Site::new(
+        &SiteKey::new(
+            JAVA,
+            Some(remove.node_id.clone()),
+            SiteKind::Call,
+            ids::ast_fingerprint(
+                &["method_declaration", "method_invocation"],
+                "add",
+                "this",
+                1,
+            )
+            .expect("a fingerprint"),
+        ),
+        file_id(JAVA),
+        Span {
+            start_byte: 400,
+            end_byte: 412,
+            start_line: 18,
+            start_col: 8,
+            end_line: 18,
+            end_col: 20,
+        },
+    )
+    .expect("a site")
+    .with_texts(Some("add"), Some("this"));
 
     let calls = Edge::new(
         add.node_id.clone(),
@@ -249,7 +301,7 @@ fn fixture() -> SegmentData {
         class.node_id.clone(),
         EdgeKind::UsesType,
         Band::Exact,
-        None,
+        Some(type_site.site_id.clone()),
     );
     uses.props = props(&[("via", json!("parameter"))]);
     let mut observed = Edge::new(
@@ -257,7 +309,7 @@ fn fixture() -> SegmentData {
         add.node_id.clone(),
         EdgeKind::Calls,
         Band::Precise,
-        None,
+        Some(back_site.site_id.clone()),
     );
     observed.observed = true;
     observed.weight = 3;
@@ -388,7 +440,7 @@ fn fixture() -> SegmentData {
     data.nodes = vec![
         repo_node, java_file, guide_file, class, add, remove, section,
     ];
-    data.sites = vec![site, import_site];
+    data.sites = vec![site, import_site, type_site, back_site];
     data.edges = vec![calls, uses, observed, changes];
     data.candidates = vec![candidate];
     data.contracts = vec![contract, consumed];
@@ -1042,6 +1094,35 @@ fn foreign_key_violations_are_refused() {
         }
         other => panic!("expected a foreign-key refusal, got {other:?}"),
     }
+}
+
+#[test]
+fn writer_refuses_a_structural_edge_without_its_site() {
+    // 4.2.4: a non-containment edge references its evidence site. Rows assembled by
+    // hand cannot bypass it.
+    let scratch = Scratch::new();
+    let mut data = fixture();
+    let add = node_named(&data, "add").node_id;
+    let remove = node_named(&data, "remove").node_id;
+    data.edges.push(Edge::new(
+        add,
+        remove,
+        EdgeKind::DefinesRoute,
+        Band::Exact,
+        None,
+    ));
+    let dir = scratch.dir("siteless");
+    let refused = SegmentWriter::new()
+        .build_in(&scratch.dir("siteless-build"))
+        .write(&data, &dir.join("segment.db"));
+    assert!(
+        matches!(
+            &refused,
+            Err(SegmentError::InvalidRow { table: "edges", .. })
+        ),
+        "{refused:?}"
+    );
+    assert!(!dir.join("segment.db").exists());
 }
 
 #[test]

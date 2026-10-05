@@ -59,7 +59,44 @@ pub const PDXE_VIS_PUBLIC: pdxe_visibility = 1;
 pub const PDXE_VIS_NON_PUBLIC: pdxe_visibility = 2;
 #[doc = " Visibility of a definition, as the source declares it."]
 pub type pdxe_visibility = u32;
-#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope.\n\n `base_classes` are the classes, interfaces and traits the definition names as its\n bases, exactly as the engine recorded them: in its order, spelling and case,\n unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 40.\n\n `decorators` are the decorators, annotations or attributes the definition carries,\n as the engine recorded each, in its order; `signature_param_types` its parameters'\n types as the engine reads them, in order, `?` for one it cannot read; `route_path`\n and `route_method` the HTTP route a decorator binds it to, where the engine found\n one, else NULL. Each array is NULL with a count of 0 when empty. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 47."]
+#[doc = " One HTTP route binding a decorator or annotation declares for a definition: its\n method in upper case (`ANY` when the declaration names none), its path (joined to the\n enclosing class's own mapping), and the node that declares it. `callee_text` is the\n decorator's callee or the annotation's name as written (`app.get`, `GetMapping`);\n `source_text` the whole declaring call or annotation. `span` is the declaring node's\n position, all zero when not known. `ast_path` is the syntax node types from the lowest\n node holding both the definition and the declaring node (the definition itself when\n the declaration is inside it, as a JVM annotation is; the decorated wrapper for a\n Python decorator) down to the declaring node; NULL with a count of 0 when not known.\n One fact per method and path: an annotation listing two paths gives two facts that\n share their node. Bindings whose path or method is not a literal are not reported.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 54."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pdxe_route {
+    pub method: *const ::std::os::raw::c_char,
+    pub path: *const ::std::os::raw::c_char,
+    pub callee_text: *const ::std::os::raw::c_char,
+    pub source_text: *const ::std::os::raw::c_char,
+    pub span: pdxe_span,
+    pub ast_path: *mut *const ::std::os::raw::c_char,
+    pub n_ast_path: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pdxe_route"][::std::mem::size_of::<pdxe_route>() - 72usize];
+    ["Alignment of pdxe_route"][::std::mem::align_of::<pdxe_route>() - 8usize];
+    ["Offset of field: pdxe_route::method"][::std::mem::offset_of!(pdxe_route, method) - 0usize];
+    ["Offset of field: pdxe_route::path"][::std::mem::offset_of!(pdxe_route, path) - 8usize];
+    ["Offset of field: pdxe_route::callee_text"]
+        [::std::mem::offset_of!(pdxe_route, callee_text) - 16usize];
+    ["Offset of field: pdxe_route::source_text"]
+        [::std::mem::offset_of!(pdxe_route, source_text) - 24usize];
+    ["Offset of field: pdxe_route::span"][::std::mem::offset_of!(pdxe_route, span) - 32usize];
+    ["Offset of field: pdxe_route::ast_path"]
+        [::std::mem::offset_of!(pdxe_route, ast_path) - 56usize];
+    ["Offset of field: pdxe_route::n_ast_path"]
+        [::std::mem::offset_of!(pdxe_route, n_ast_path) - 64usize];
+};
+impl Default for pdxe_route {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope.\n\n `base_classes` are the classes, interfaces and traits the definition names as its\n bases, exactly as the engine recorded them: in its order, spelling and case,\n unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 40.\n\n `decorators` are the decorators, annotations or attributes the definition carries,\n as the engine recorded each, in its order; `signature_param_types` its parameters'\n types as the engine reads them, in order, `?` for one it cannot read; `route_path`\n and `route_method` the HTTP route a decorator binds it to, where the engine found\n one, else NULL. Each array is NULL with a count of 0 when empty. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 47.\n\n `routes` are every route binding the definition's decorators or annotations declare\n (pdxe_route), each with the node that declares it; NULL with a count of 0 for none.\n `route_path` and `route_method` keep the engine's single summary of them. Appended\n by a specification change; see docs/plan/ISSUES.md, issue 54."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_definition {
@@ -86,10 +123,12 @@ pub struct pdxe_definition {
     pub n_signature_param_types: u32,
     pub route_path: *const ::std::os::raw::c_char,
     pub route_method: *const ::std::os::raw::c_char,
+    pub routes: *const pdxe_route,
+    pub n_routes: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 184usize];
+    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 200usize];
     ["Alignment of pdxe_definition"][::std::mem::align_of::<pdxe_definition>() - 8usize];
     ["Offset of field: pdxe_definition::name"]
         [::std::mem::offset_of!(pdxe_definition, name) - 0usize];
@@ -137,6 +176,10 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_definition, route_path) - 168usize];
     ["Offset of field: pdxe_definition::route_method"]
         [::std::mem::offset_of!(pdxe_definition, route_method) - 176usize];
+    ["Offset of field: pdxe_definition::routes"]
+        [::std::mem::offset_of!(pdxe_definition, routes) - 184usize];
+    ["Offset of field: pdxe_definition::n_routes"]
+        [::std::mem::offset_of!(pdxe_definition, n_routes) - 192usize];
 };
 impl Default for pdxe_definition {
     fn default() -> Self {
@@ -592,7 +635,7 @@ unsafe extern "C" {
     pub fn pdxe_result_free(ctx: *mut pdxe_ctx, r: *mut pdxe_file_result);
 }
 unsafe extern "C" {
-    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface. A definition's base\n classes are copied with it, array and strings; a definition with bases and no array,\n or with a NULL base, is refused. It declares no namespace. Its `impl Trait for Type`\n relations are copied, array and strings, NULL and 0 for none; relations counted\n with no array, or one with a NULL string, are refused (issue 42). A definition's\n decorators, parameter types and route, and a call's node-type path and arguments,\n are copied too; any of those arrays counted without an array, or holding a NULL\n string where one is required (every element; an argument's expression), is refused\n (issues 46 and 47)."]
+    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface. A definition's base\n classes are copied with it, array and strings; a definition with bases and no array,\n or with a NULL base, is refused. It declares no namespace. Its `impl Trait for Type`\n relations are copied, array and strings, NULL and 0 for none; relations counted\n with no array, or one with a NULL string, are refused (issue 42). A definition's\n decorators, parameter types and route, and a call's node-type path and arguments,\n are copied too; any of those arrays counted without an array, or holding a NULL\n string where one is required (every element; an argument's expression), is refused\n (issues 46 and 47). A definition's routes are copied, the array, each route's strings\n and node-type path; routes counted with no array, a route missing its method, path or\n callee text, or a path counted with no array or holding a NULL, are refused (issue 54)."]
     pub fn pdxe_result_build(
         ctx: *mut pdxe_ctx,
         defs: *const pdxe_definition,

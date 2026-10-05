@@ -586,14 +586,32 @@ fn defines(graph: &DerivedGraph, route: &Node) -> pdx_core::model::Edge {
     found[0].clone()
 }
 
+const CONTROLLER_PATH: &str = "src/main/java/com/acme/web/UserController.java";
+
+/// A Spring controller, with `before` inserted ahead of its first mapping.
+fn controller(before: &str) -> Checkout {
+    let source = format!(
+        "package com.acme.web;\n\nimport org.springframework.web.bind.annotation.*;\n\n@RestController\n@RequestMapping(\"/api\")\npublic class UserController {{\n{before}  @GetMapping(\"/users\")\n  public String list() {{ return \"\"; }}\n\n  @PostMapping(\"/users\")\n  public String create(String name) {{ return name; }}\n\n  @DeleteMapping(\"/users/{{id}}\")\n  public void remove(long id) {{}}\n\n  public String helper() {{ return \"\"; }}\n}}\n"
+    );
+    Checkout::new(&[(CONTROLLER_PATH, source.as_str())])
+}
+
+/// The site an edge names, which must exist.
+fn site_of_edge<'g>(
+    graph: &'g DerivedGraph,
+    edge: &pdx_core::model::Edge,
+) -> &'g pdx_core::model::Site {
+    let id = edge.site_id.as_ref().expect("the edge names its site");
+    graph
+        .sites
+        .iter()
+        .find(|s| &s.site_id == id)
+        .expect("the site the edge names")
+}
+
 #[test]
 fn routes_spring() {
-    let handler_path = "src/main/java/com/acme/web/UserController.java";
-    let checkout = Checkout::new(&[(
-        handler_path,
-        "package com.acme.web;\n\nimport org.springframework.web.bind.annotation.*;\n\n@RestController\n@RequestMapping(\"/api\")\npublic class UserController {\n  @GetMapping(\"/users\")\n  public String list() { return \"\"; }\n\n  @PostMapping(\"/users\")\n  public String create(String name) { return name; }\n\n  @DeleteMapping(\"/users/{id}\")\n  public void remove(long id) {}\n\n  public String helper() { return \"\"; }\n}\n",
-    )]);
-    let run = run(&checkout);
+    let run = run(&controller(""));
     let g = &run.graph;
     let found = routes(g);
     let names: Vec<&str> = found.keys().map(String::as_str).collect();
@@ -613,17 +631,33 @@ fn routes_spring() {
         r#"{"handler":"src.main.java.com.acme.web.UserController.list","method":"GET","path":"/api/users"}"#
     );
     assert_eq!(route.node_id.as_str(), "CGDNAXVJSZCGQ3AWN0X6NPR9GE");
-    assert_eq!(route.file_id.as_ref(), Some(&g.file_nodes[handler_path]));
-    assert_eq!(route.parent_id.as_ref(), Some(&g.file_nodes[handler_path]));
-    // From the handler to the route; an annotation is no site the engine records, so
-    // the edge has none and the stage says so.
-    let edge = defines(g, route);
-    assert_eq!(edge.src, list.node_id);
-    assert_eq!(edge.site_id, None);
-    assert!(
-        g.diagnostics.routes.iter().any(|d| d.route == "/api/users"
-            && d.problem == pdx_core::index::derive::RouteProblem::NoSite)
+    assert_eq!(route.file_id.as_ref(), Some(&g.file_nodes[CONTROLLER_PATH]));
+    assert_eq!(
+        route.parent_id.as_ref(),
+        Some(&g.file_nodes[CONTROLLER_PATH])
     );
+    // From the handler to the route, at the annotation that declares it (4.2.4).
+    let edge = defines(g, route);
+    assert_eq!((&edge.src, &edge.dst), (&list.node_id, &route.node_id));
+    let site = site_of_edge(g, &edge);
+    assert_eq!(site.site_kind, pdx_core::kinds::SiteKind::Route);
+    assert_eq!(site.enclosing_node_id.as_ref(), Some(&list.node_id));
+    assert_eq!(site.callee_text.as_deref(), Some("GetMapping"));
+    assert!(site.span.start_line > 0 && site.span.end_byte > site.span.start_byte);
+    assert_eq!(site.span.start_line, 8, "the annotation's own line");
+    assert!(
+        g.diagnostics.routes.is_empty(),
+        "{:#?}",
+        g.diagnostics.routes
+    );
+    // Lines above it move nothing that is identity.
+    let moved = run_with(&controller("\n\n  // moved\n\n"), false, 2);
+    let moved_route = routes(&moved.graph)["GET /api/users"].clone();
+    let moved_edge = defines(&moved.graph, &moved_route);
+    assert_eq!(moved_route.node_id, route.node_id);
+    assert_eq!(moved_edge.site_id, edge.site_id);
+    assert_eq!(moved_edge.edge_id, edge.edge_id);
+    assert_ne!(site_of_edge(&moved.graph, &moved_edge).span.start_line, 8);
     assert!(prop_bool(list, "is_entry_point"));
     assert!(!prop_bool(
         node(g, NodeKind::Method, "helper"),
@@ -1955,4 +1989,399 @@ fn derived_graph_writes_a_segment() {
     derived.sort_by(|a, b| a.edge_id.cmp(&b.edge_id));
     assert!(!derived.is_empty());
     assert_eq!(stored, derived);
+}
+
+// --- review closure: routes have real sites (issue 54) ---------------------------------
+
+/// Every route of a graph, by name, with its `DEFINES_ROUTE` edges and their sites.
+fn route_edges(graph: &DerivedGraph) -> BTreeMap<String, Vec<pdx_core::model::Edge>> {
+    let mut out: BTreeMap<String, Vec<pdx_core::model::Edge>> = BTreeMap::new();
+    for route in nodes_of(graph, NodeKind::Route) {
+        let edges = graph
+            .edges
+            .iter()
+            .filter(|e| e.kind == EdgeKind::DefinesRoute && e.dst == route.node_id)
+            .cloned()
+            .collect();
+        out.insert(route.name.clone(), edges);
+    }
+    out
+}
+
+fn spring(methods: &str) -> Checkout {
+    let source = format!(
+        "package com.acme.web;\n\nimport org.springframework.web.bind.annotation.*;\n\n@RestController\n@RequestMapping(\"/api\")\npublic class Api {{\n{methods}}}\n"
+    );
+    Checkout::new(&[("src/main/java/com/acme/web/Api.java", source.as_str())])
+}
+
+#[test]
+fn spring_route_has_real_site() {
+    let source = "package com.acme.web;\n\nimport org.springframework.web.bind.annotation.*;\n\n@RestController\n@RequestMapping(\"/api\")\npublic class Api {\n  @GetMapping(\"/users\")\n  public String list() { return \"\"; }\n}\n";
+    let path = "src/main/java/com/acme/web/Api.java";
+    let run = run(&Checkout::new(&[(path, source)]));
+    let g = &run.graph;
+    let edges = route_edges(g);
+    let edge = &edges["GET /api/users"][0];
+    let site = site_of_edge(g, edge);
+    // The site is the annotation itself, positioned in the file.
+    assert_eq!(
+        &source[site.span.start_byte as usize..site.span.end_byte as usize],
+        "@GetMapping(\"/users\")"
+    );
+    // Its identity is 4.2.1's, recomputed here from the facts: the handler, the
+    // annotation's node-type path from it, its name, no receiver, ordinal 1.
+    let list = node(g, NodeKind::Method, "list");
+    let fingerprint = pdx_core::ids::ast_fingerprint(
+        &["method_declaration", "modifiers", "annotation"],
+        "GetMapping",
+        "",
+        1,
+    )
+    .unwrap();
+    assert_eq!(site.ast_fingerprint, fingerprint);
+    let key = pdx_core::ids::SiteKey::new(
+        path,
+        Some(list.node_id.clone()),
+        pdx_core::kinds::SiteKind::Route,
+        fingerprint,
+    );
+    assert_eq!(site.site_id, key.site_id().unwrap());
+    assert_eq!(edge.band, pdx_core::bands::Band::Exact);
+}
+
+#[test]
+fn spring_multiple_paths_create_multiple_routes() {
+    let run = run(&spring(
+        "  @GetMapping({\"/a\", \"/b\"})\n  public String both() { return \"\"; }\n",
+    ));
+    let g = &run.graph;
+    let edges = route_edges(g);
+    assert_eq!(
+        edges.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["GET /api/a", "GET /api/b"]
+    );
+    let handler = node(g, NodeKind::Method, "both");
+    let (a, b) = (&edges["GET /api/a"], &edges["GET /api/b"]);
+    assert_eq!((a.len(), b.len()), (1, 1));
+    assert_eq!((&a[0].src, &b[0].src), (&handler.node_id, &handler.node_id));
+    // One annotation, one site, an edge to each route.
+    assert_eq!(a[0].site_id, b[0].site_id);
+    assert_ne!(a[0].edge_id, b[0].edge_id);
+    assert_eq!(
+        g.sites
+            .iter()
+            .filter(|s| s.site_kind == pdx_core::kinds::SiteKind::Route)
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn spring_request_mapping_multiple_methods() {
+    let run = run(&spring(
+        "  @RequestMapping(path = {\"/x\", \"/y\"}, method = {RequestMethod.GET, RequestMethod.POST})\n  public String both() { return \"\"; }\n\n  @RequestMapping(\"/any\")\n  public String any() { return \"\"; }\n",
+    ));
+    let edges = route_edges(&run.graph);
+    assert_eq!(
+        edges.keys().map(String::as_str).collect::<Vec<_>>(),
+        [
+            "ANY /api/any",
+            "GET /api/x",
+            "GET /api/y",
+            "POST /api/x",
+            "POST /api/y"
+        ]
+    );
+    let sites: std::collections::BTreeSet<_> = edges
+        .iter()
+        .filter(|(name, _)| !name.starts_with("ANY"))
+        .map(|(_, e)| e[0].site_id.clone())
+        .collect();
+    assert_eq!(
+        sites.len(),
+        1,
+        "four bindings of one annotation share its site"
+    );
+}
+
+#[test]
+fn spring_multiple_routes_have_deterministic_ids() {
+    let methods = "  @GetMapping({\"/a\", \"/b\"})\n  public String both() { return \"\"; }\n";
+    let first = run(&spring(methods));
+    let second = run_with(&spring(methods), true, 1);
+    let ids = |r: &Run| -> Vec<(String, String, String, String)> {
+        route_edges(&r.graph)
+            .into_iter()
+            .map(|(name, e)| {
+                (
+                    name,
+                    e[0].dst.as_str().to_owned(),
+                    e[0].edge_id.as_str().to_owned(),
+                    e[0].site_id.as_ref().unwrap().as_str().to_owned(),
+                )
+            })
+            .collect()
+    };
+    assert_eq!(ids(&first), ids(&second));
+    // Each Route id is the accepted identity for its own path, whatever else the
+    // annotation lists.
+    for path in ["/api/a", "/api/b"] {
+        let key = pdx_core::index::derive::routes::route_node_key(
+            &repo(),
+            "src/main/java/com/acme/web/Api.java",
+            "src.main.java.com.acme.web.Api.both",
+            "GET",
+            path,
+        );
+        assert_eq!(
+            routes(&first.graph)[&format!("GET {path}")].node_id,
+            key.node_id().unwrap()
+        );
+    }
+}
+
+#[test]
+fn route_line_shift_keeps_route_site_id() {
+    let files = |pad: &str| -> Vec<(String, String)> {
+        vec![
+            (
+                "src/main/java/com/acme/web/Api.java".to_owned(),
+                format!(
+                    "package com.acme.web;\n\nimport org.springframework.web.bind.annotation.*;\n\n@RestController\npublic class Api {{\n{pad}  @GetMapping({{\"/a\", \"/b\"}})\n  public String both() {{ return \"\"; }}\n}}\n"
+                ),
+            ),
+            (
+                "app/main.py".to_owned(),
+                format!(
+                    "from fastapi import FastAPI\n\napp = FastAPI()\n{pad}\n\n@app.get(\"/one\")\n@app.post(\"/two\")\ndef handler() -> dict:\n    return {{}}\n"
+                ),
+            ),
+            (
+                "src/server.js".to_owned(),
+                format!(
+                    "const express = require('express');\nconst app = express();\n{pad}function list(req, res) {{ res.json([]); }}\napp.get('/items', list);\n"
+                ),
+            ),
+        ]
+    };
+    let ids = |pad: &str| {
+        let owned = files(pad);
+        let borrowed: Vec<(&str, &str)> = owned
+            .iter()
+            .map(|(p, c)| (p.as_str(), c.as_str()))
+            .collect();
+        let run = run(&Checkout::new(&borrowed));
+        route_edges(&run.graph)
+            .into_iter()
+            .map(|(name, e)| (name, e[0].site_id.clone(), e[0].edge_id.clone()))
+            .collect::<Vec<_>>()
+    };
+    let before = ids("");
+    assert_eq!(before.len(), 5, "{before:#?}");
+    assert_eq!(before, ids("\n\n\n// a comment\n\n"));
+}
+
+#[test]
+fn every_non_containment_edge_has_a_site() {
+    let mut files = everything();
+    files.extend([
+        (
+            "pkg/refs.py",
+            "def helper():\n    return 1\n\n\ndef run(xs):\n    xs.append(helper)\n    return helper()\n",
+        ),
+        (
+            "src/main/java/com/acme/web/Api.java",
+            "package com.acme.web;\n\nimport org.springframework.web.bind.annotation.*;\n\n@RestController\npublic class Api {\n  @GetMapping({\"/a\", \"/b\"})\n  public String both() { return \"\"; }\n}\n",
+        ),
+    ]);
+    let run = run(&Checkout::new(&files));
+    let g = &run.graph;
+    let sites: std::collections::BTreeSet<_> = g.sites.iter().map(|s| &s.site_id).collect();
+    let mut kinds = std::collections::BTreeSet::new();
+    for edge in &g.edges {
+        assert_ne!(edge.kind, EdgeKind::Contains, "containment is parent_id");
+        let site = edge
+            .site_id
+            .as_ref()
+            .unwrap_or_else(|| panic!("a {} edge with no site: {edge:#?}", edge.kind));
+        assert!(
+            sites.contains(site),
+            "a {} edge names a missing site",
+            edge.kind
+        );
+        kinds.insert(edge.kind.as_str());
+    }
+    // Every kind P2-07 produces is held to it here.
+    for kind in ["CALLS", "CALL_REFERENCE", "TESTS", "DEFINES_ROUTE"] {
+        assert!(kinds.contains(kind), "no {kind} edge to check: {kinds:?}");
+    }
+}
+
+// --- review closure: entry points are Appendix B.2's (issue 55) ------------------------
+
+#[test]
+fn exported_typescript_function_is_not_entry_point() {
+    let run = run(&Checkout::new(&[(
+        "src/h.ts",
+        "export function helper(): number {\n  return 1;\n}\n",
+    )]));
+    let helper = node(&run.graph, NodeKind::Function, "helper");
+    // The engine flags it; the graph does not take that for an entry point.
+    assert!(prop_bool(helper, "engine_entry_point"));
+    assert!(!prop_bool(helper, "is_entry_point"));
+}
+
+#[test]
+fn exported_javascript_function_is_not_entry_point() {
+    let run = run(&Checkout::new(&[(
+        "src/h.js",
+        "export function helper() {\n  return 1;\n}\n",
+    )]));
+    let helper = node(&run.graph, NodeKind::Function, "helper");
+    assert!(prop_bool(helper, "engine_entry_point"));
+    assert!(!prop_bool(helper, "is_entry_point"));
+}
+
+#[test]
+fn main_entry_points_survive_engine_flag_filter() {
+    let run = run(&Checkout::new(&[
+        (
+            "src/main/java/com/acme/App.java",
+            "package com.acme;\n\npublic class App {\n  public static void main(String[] args) {}\n  public void main(int x) {}\n}\n",
+        ),
+        (
+            "src/main/kotlin/Main.kt",
+            "package app\n\nfun main(args: Array<String>) {}\n",
+        ),
+        ("csrc/main.c", "int main(void) { return 0; }\n"),
+        (
+            "cppsrc/main.cpp",
+            "namespace geo { int main() { return 1; } }\nint main(int argc, char** argv) { return 0; }\n",
+        ),
+        ("cmd/tool/main.go", "package main\n\nfunc main() {}\n"),
+        ("crate/src/main.rs", "fn main() {}\n"),
+        ("crate/src/lib.rs", "pub fn main() {}\n"),
+        (
+            "dotnet/Program.cs",
+            "namespace App { class Program { static void Main(string[] args) {} } }\n",
+        ),
+        ("py/tool.py", "def main():\n    return 0\n"),
+    ]));
+    let g = &run.graph;
+    let entry = |path: &str, name: &str| -> Vec<bool> {
+        let file = &g.file_nodes[path];
+        g.nodes
+            .iter()
+            .filter(|n| n.name == name && n.file_id.as_ref() == Some(file))
+            .map(|n| prop_bool(n, "is_entry_point"))
+            .collect()
+    };
+    let mut java = entry("src/main/java/com/acme/App.java", "main");
+    java.sort_unstable();
+    assert_eq!(java, [false, true], "main(String[]) only");
+    assert_eq!(entry("src/main/kotlin/Main.kt", "main"), [true]);
+    assert_eq!(entry("csrc/main.c", "main"), [true]);
+    let mut cpp = entry("cppsrc/main.cpp", "main");
+    cpp.sort_unstable();
+    assert_eq!(cpp, [false, true], "the global namespace's main only");
+    assert_eq!(entry("cmd/tool/main.go", "main"), [true]);
+    assert_eq!(entry("crate/src/main.rs", "main"), [true]);
+    assert_eq!(
+        entry("crate/src/lib.rs", "main"),
+        [false],
+        "a library's main"
+    );
+    assert_eq!(entry("dotnet/Program.cs", "Main"), [true]);
+    assert_eq!(entry("py/tool.py", "main"), [false], "no convention");
+}
+
+#[test]
+fn entry_point_categories_are_kept() {
+    let run = run(&Checkout::new(&[
+        (
+            "src/main/java/com/acme/Boot.java",
+            "package com.acme;\n\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\n\n@SpringBootApplication\npublic class Boot {}\n",
+        ),
+        (
+            "app/main.py",
+            "from fastapi import FastAPI\n\napp = FastAPI()\n\n\n@app.get(\"/x\")\ndef x() -> dict:\n    return {}\n",
+        ),
+        (
+            "web/server.ts",
+            "import express from 'express';\n\nconst app = express();\n\nfunction list(req: any, res: any): void {\n  res.json([]);\n}\n\napp.get('/items', list);\n\nexport function start(): void {\n  app.listen(3000);\n}\n",
+        ),
+        ("tests/test_x.py", "def test_one():\n    assert True\n"),
+    ]));
+    let g = &run.graph;
+    let at = |path: &str, kind: NodeKind, name: &str| -> bool {
+        let file = &g.file_nodes[path];
+        let found: Vec<&Node> = g
+            .nodes
+            .iter()
+            .filter(|n| n.kind == kind && n.name == name && n.file_id.as_ref() == Some(file))
+            .collect();
+        assert_eq!(found.len(), 1, "{path} {kind} {name}");
+        prop_bool(found[0], "is_entry_point")
+    };
+    assert!(at(
+        "src/main/java/com/acme/Boot.java",
+        NodeKind::Class,
+        "Boot"
+    ));
+    assert!(
+        at("app/main.py", NodeKind::Variable, "app"),
+        "the FastAPI application"
+    );
+    assert!(
+        at("app/main.py", NodeKind::Function, "x"),
+        "a FastAPI route handler"
+    );
+    assert!(
+        at("web/server.ts", NodeKind::Function, "list"),
+        "a TypeScript route handler"
+    );
+    assert!(
+        at("web/server.ts", NodeKind::Function, "start"),
+        "it calls listen"
+    );
+    assert!(at("tests/test_x.py", NodeKind::Test, "test_one"));
+    // An Express application object is not itself an entry point; its server's start is.
+    assert!(!at("web/server.ts", NodeKind::Variable, "app"));
+}
+
+// --- review closure: repeated non-callables (issue 56) --------------------------------
+
+#[test]
+fn duplicate_noncallables_have_unique_deterministic_ids() {
+    let source = "X = 1\nX = 2\n\n\nclass A:\n    pass\n\n\nclass A:\n    pass\n";
+    let first = run(&Checkout::new(&[("pkg/a.py", source)]));
+    let again = run_with(&Checkout::new(&[("pkg/a.py", source)]), true, 1);
+    for kind in [NodeKind::Variable, NodeKind::Class] {
+        let ids = |r: &Run| -> Vec<NodeId> {
+            let mut found: Vec<&Node> = nodes_of(&r.graph, kind);
+            found.sort_by_key(|n| n.start_line);
+            found.iter().map(|n| n.node_id.clone()).collect()
+        };
+        let a = ids(&first);
+        assert_eq!(a.len(), 2, "{kind}");
+        assert_ne!(a[0], a[1], "{kind}: two declarations, two ids");
+        assert_eq!(a, ids(&again), "{kind}: the same ids every run");
+        // 4.2.1's rule: the empty signature's hash, numbered in file order.
+        let qn = if kind == NodeKind::Class {
+            "pkg.a.A"
+        } else {
+            "pkg.a.X"
+        };
+        for (n, id) in (1..).zip(&a) {
+            let key = pdx_core::ids::NodeKey::definition(
+                &repo(),
+                kind,
+                "pkg/a.py",
+                qn,
+                &format!("e3b0c442-{n}"),
+            );
+            assert_eq!(*id, key.node_id().unwrap(), "{kind} {n}");
+        }
+    }
 }

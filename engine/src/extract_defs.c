@@ -1849,6 +1849,519 @@ static const char *spring_class_route_prefix(PDXEArena *a, TSNode class_node, co
     return NULL;
 }
 
+/* --- Route facts ------------------------------------------------------------
+ *
+ * Every route binding a definition's decorators or annotations declare, each with
+ * the node that declares it, so a caller can place the binding in the source. The
+ * single route_path/route_method above stay as they were; these are complete:
+ * every mapping annotation and every route decorator, every literal path and method
+ * each one lists. A binding whose path or method is not a literal (a constant, an
+ * expression, a template) is left out rather than guessed.
+ */
+
+enum {
+    ROUTE_LIST_MAX = 32,     /* literal paths or methods one annotation may list */
+    ROUTE_ANCESTORS_MAX = 8, /* ancestors of a definition searched for its declaring node */
+    ROUTE_PATH_MAX = 64,     /* node types from that ancestor down to the declaring node */
+};
+
+typedef struct {
+    const char *items[ROUTE_LIST_MAX];
+    int n;
+    bool dynamic; /* something listed was not a literal, or there were too many */
+} route_list;
+
+typedef struct {
+    PDXERouteFact *items;
+    int count;
+    int cap;
+} route_fact_list;
+
+static void route_list_add(route_list *l, const char *s) {
+    if (!s) {
+        l->dynamic = true;
+        return;
+    }
+    for (int i = 0; i < l->n; i++) {
+        if (strcmp(l->items[i], s) == 0) {
+            return;
+        }
+    }
+    if (l->n == ROUTE_LIST_MAX) {
+        l->dynamic = true;
+        return;
+    }
+    l->items[l->n++] = s;
+}
+
+/* The node types from the lowest node holding both `def_node` and `site` down to
+ * `site`, NULL-terminated; NULL when they cannot be found within the bounds. */
+static const char **route_site_path(PDXEArena *a, TSNode def_node, TSNode site) {
+    TSNode ancestors[ROUTE_ANCESTORS_MAX];
+    int n_ancestors = 0;
+    for (TSNode n = def_node; !ts_node_is_null(n) && n_ancestors < ROUTE_ANCESTORS_MAX;
+         n = ts_node_parent(n)) {
+        ancestors[n_ancestors++] = n;
+    }
+    const char *types[ROUTE_PATH_MAX];
+    int n_types = 0;
+    for (TSNode n = site; !ts_node_is_null(n) && n_types < ROUTE_PATH_MAX; n = ts_node_parent(n)) {
+        types[n_types++] = ts_node_type(n);
+        for (int i = 0; i < n_ancestors; i++) {
+            if (ts_node_eq(n, ancestors[i])) {
+                const char **path =
+                    (const char **)pdxe_arena_alloc(a, (size_t)(n_types + 1) * sizeof(*path));
+                if (!path) {
+                    return NULL;
+                }
+                for (int t = 0; t < n_types; t++) {
+                    path[t] = types[n_types - 1 - t];
+                }
+                path[n_types] = NULL;
+                return path;
+            }
+        }
+    }
+    return NULL;
+}
+
+/* A string literal's value without its quotes; NULL for anything that is not a plain
+ * literal: an interpolated or templated string, an f-string, an expression. */
+static const char *route_literal(PDXEArena *a, TSNode node, const char *source) {
+    if (ts_node_is_null(node) || !is_route_string_kind(ts_node_type(node))) {
+        return NULL;
+    }
+    uint32_t nc = ts_node_named_child_count(node);
+    for (uint32_t i = 0; i < nc; i++) {
+        const char *t = ts_node_type(ts_node_named_child(node, i));
+        if (strstr(t, "interpolat") || strstr(t, "template") || strstr(t, "substitution")) {
+            return NULL;
+        }
+    }
+    const char *text = pdxe_node_text(a, node, source);
+    if (!text) {
+        return NULL;
+    }
+    /* A Python prefix: raw and byte strings are literal, a format string is not. */
+    while (*text && *text != '"' && *text != '\'') {
+        if (*text == 'f' || *text == 'F') {
+            return NULL;
+        }
+        text++;
+    }
+    size_t len = strlen(text);
+    size_t quote = (len >= 6 && (strncmp(text, "\"\"\"", 3) == 0 || strncmp(text, "'''", 3) == 0))
+                       ? 3
+                       : 1;
+    if (len < 2 * quote || (text[0] != '"' && text[0] != '\'') ||
+        text[len - 1] != text[0]) {
+        return NULL;
+    }
+    return pdxe_arena_strndup(a, text + quote, len - 2 * quote);
+}
+
+/* A route path as a framework reads one: an empty path is the root, and a path
+ * without a leading slash is relative to it. */
+static const char *route_path_value(PDXEArena *a, const char *literal) {
+    if (!literal) {
+        return NULL;
+    }
+    if (!literal[0]) {
+        return "/";
+    }
+    return literal[0] == '/' ? literal : pdxe_arena_sprintf(a, "/%s", literal);
+}
+
+static bool is_route_array_kind(const char *t) {
+    return strcmp(t, "element_value_array_initializer") == 0 || strcmp(t, "array_initializer") == 0 ||
+           strcmp(t, "collection_literal") == 0 || strcmp(t, "list") == 0;
+}
+
+/* The literal paths a value names: one literal, or an array of literals. */
+static void route_paths_of(PDXEArena *a, TSNode value, const char *source, route_list *out) {
+    if (ts_node_is_null(value)) {
+        out->dynamic = true;
+        return;
+    }
+    if (is_route_array_kind(ts_node_type(value))) {
+        uint32_t nc = ts_node_named_child_count(value);
+        for (uint32_t i = 0; i < nc; i++) {
+            route_list_add(out,
+                           route_path_value(a, route_literal(a, ts_node_named_child(value, i), source)));
+        }
+        return;
+    }
+    route_list_add(out, route_path_value(a, route_literal(a, value, source)));
+}
+
+/* An HTTP method an expression names: `RequestMethod.GET`, a statically imported
+ * `GET`, or a literal `"get"`; NULL for anything else. */
+static const char *route_verb(PDXEArena *a, TSNode node, const char *source) {
+    static const char *const VERBS[] = {"GET",  "POST",    "PUT",   "DELETE",
+                                        "PATCH", "HEAD", "OPTIONS", "TRACE", NULL};
+    const char *text = route_literal(a, node, source);
+    if (!text) {
+        const char *t = ts_node_type(node);
+        if (strcmp(t, "identifier") != 0 && strcmp(t, "field_access") != 0 &&
+            strcmp(t, "simple_identifier") != 0 && strcmp(t, "navigation_expression") != 0 &&
+            strcmp(t, "attribute") != 0) {
+            return NULL;
+        }
+        text = pdxe_node_text(a, node, source);
+        if (!text) {
+            return NULL;
+        }
+        const char *dot = strrchr(text, '.');
+        text = dot ? dot + SKIP_CHAR : text;
+    }
+    for (int i = 0; VERBS[i]; i++) {
+        if (strcasecmp(text, VERBS[i]) == 0) {
+            return VERBS[i];
+        }
+    }
+    return NULL;
+}
+
+/* The methods a value names: one, or an array of them. */
+static void route_verbs_of(PDXEArena *a, TSNode value, const char *source, route_list *out) {
+    if (ts_node_is_null(value)) {
+        out->dynamic = true;
+        return;
+    }
+    if (is_route_array_kind(ts_node_type(value))) {
+        uint32_t nc = ts_node_named_child_count(value);
+        for (uint32_t i = 0; i < nc; i++) {
+            route_list_add(out, route_verb(a, ts_node_named_child(value, i), source));
+        }
+        return;
+    }
+    route_list_add(out, route_verb(a, value, source));
+}
+
+/* An annotation argument's name, or NULL for a lone value, and its value. */
+static const char *annotation_arg(PDXEArena *a, TSNode arg, const char *source, TSNode *value) {
+    const char *t = ts_node_type(arg);
+    *value = arg;
+    if (strcmp(t, "element_value_pair") == 0) {
+        TSNode key = ts_node_child_by_field_name(arg, TS_FIELD("key"));
+        *value = ts_node_child_by_field_name(arg, TS_FIELD("value"));
+        return ts_node_is_null(key) ? NULL : pdxe_node_text(a, key, source);
+    }
+    if (strcmp(t, "value_argument") == 0) {
+        uint32_t nc = ts_node_named_child_count(arg);
+        bool named = false;
+        for (uint32_t i = 0; i < ts_node_child_count(arg); i++) {
+            if (strcmp(ts_node_type(ts_node_child(arg, i)), "=") == 0) {
+                named = true;
+            }
+        }
+        if (nc == 0) {
+            return NULL;
+        }
+        *value = ts_node_named_child(arg, nc - 1);
+        if (named && nc >= 2) {
+            return pdxe_node_text(a, ts_node_named_child(arg, 0), source);
+        }
+    }
+    return NULL;
+}
+
+/* The paths and methods a Spring mapping annotation lists: its lone value or its
+ * `value` or `path` attribute, and for @RequestMapping its `method` attribute. No
+ * path is the root; no method on @RequestMapping is any. */
+static void spring_mapping(PDXEArena *a, TSNode annotation, const char *source,
+                           const char *name_method, route_list *paths, route_list *verbs) {
+    bool any_path = false;
+    bool any_verb = false;
+    TSNode args = annotation_args_node(annotation);
+    uint32_t nc = ts_node_is_null(args) ? 0 : ts_node_named_child_count(args);
+    for (uint32_t i = 0; i < nc; i++) {
+        TSNode value;
+        const char *key = annotation_arg(a, ts_node_named_child(args, i), source, &value);
+        if (!key || strcmp(key, "value") == 0 || strcmp(key, "path") == 0) {
+            route_paths_of(a, value, source, paths);
+            any_path = true;
+        } else if (strcmp(key, "method") == 0) {
+            route_verbs_of(a, value, source, verbs);
+            any_verb = true;
+        }
+    }
+    if (!any_path) {
+        route_list_add(paths, "/");
+    }
+    if (strcmp(name_method, "ANY") != 0) {
+        if (any_verb) {
+            verbs->dynamic = true; /* a method attribute on a method-specific mapping */
+        }
+        route_list_add(verbs, name_method);
+    } else if (!any_verb) {
+        route_list_add(verbs, "ANY");
+    }
+}
+
+/* An annotation's name as written, and its last segment. */
+static const char *annotation_simple_name(PDXEArena *a, TSNode annotation, const char *source,
+                                          const char **written) {
+    TSNode name_node = annotation_name_node(annotation);
+    *written = ts_node_is_null(name_node) ? NULL : pdxe_node_text(a, name_node, source);
+    if (!*written) {
+        return NULL;
+    }
+    const char *dot = strrchr(*written, '.');
+    return dot ? dot + SKIP_CHAR : *written;
+}
+
+/* Every annotation node of a JVM declaration, in source order. */
+static int jvm_annotations(TSNode owner, const PDXELangSpec *spec, TSNode *out, int max) {
+    TSNode wrappers[MAX_ATTR_WRAPPERS];
+    int wn = find_jvm_modifiers(owner, spec->language, wrappers, MAX_ATTR_WRAPPERS_MINUS_1);
+    wrappers[wn++] = owner;
+    int n = 0;
+    for (int w = 0; w < wn; w++) {
+        uint32_t cc = ts_node_child_count(wrappers[w]);
+        for (uint32_t ci = 0; ci < cc && n < max; ci++) {
+            TSNode child = ts_node_child(wrappers[w], ci);
+            if (pdxe_kind_in_set(child, spec->decorator_node_types)) {
+                out[n++] = child;
+            }
+        }
+    }
+    return n;
+}
+
+/* The prefixes a JVM class's own mapping gives its methods' routes: the paths of its
+ * Spring mapping, or its JAX-RS @Path; one empty prefix for none. False when the
+ * class's mapping is not literal, which makes its methods' routes unknown. */
+static bool jvm_class_prefixes(PDXEArena *a, TSNode class_node, const char *source,
+                               const PDXELangSpec *spec, route_list *prefixes) {
+    if (!ts_node_is_null(class_node)) {
+        TSNode annotations[ROUTE_LIST_MAX];
+        int n = jvm_annotations(class_node, spec, annotations, ROUTE_LIST_MAX);
+        for (int i = 0; i < n; i++) {
+            const char *written;
+            const char *name = annotation_simple_name(a, annotations[i], source, &written);
+            if (!name) {
+                continue;
+            }
+            if (strcmp(name, "RequestMapping") == 0) {
+                route_list verbs = {0};
+                spring_mapping(a, annotations[i], source, "ANY", prefixes, &verbs);
+                return !prefixes->dynamic;
+            }
+            if (strcmp(name, "Path") == 0) {
+                TSNode args = annotation_args_node(annotations[i]);
+                TSNode value = {0};
+                if (!ts_node_is_null(args) && ts_node_named_child_count(args) == 1) {
+                    annotation_arg(a, ts_node_named_child(args, 0), source, &value);
+                }
+                route_paths_of(a, value, source, prefixes);
+                return !prefixes->dynamic;
+            }
+        }
+    }
+    route_list_add(prefixes, "");
+    return true;
+}
+
+static bool route_facts_push(PDXEArena *a, route_fact_list *l, PDXERouteFact fact) {
+    for (int i = 0; i < l->count; i++) {
+        if (l->items[i].start_byte == fact.start_byte && strcmp(l->items[i].method, fact.method) == 0 &&
+            strcmp(l->items[i].path, fact.path) == 0) {
+            return true;
+        }
+    }
+    if (l->count == l->cap) {
+        int cap = l->cap ? l->cap * 2 : 4;
+        PDXERouteFact *grown = (PDXERouteFact *)pdxe_arena_alloc(a, (size_t)cap * sizeof(*grown));
+        if (!grown) {
+            return false;
+        }
+        if (l->count) {
+            memcpy(grown, l->items, (size_t)l->count * sizeof(*grown));
+        }
+        l->items = grown;
+        l->cap = cap;
+    }
+    l->items[l->count++] = fact;
+    return true;
+}
+
+/* One fact per method and path a declaring node binds, each joined to each prefix. */
+static void push_bindings(PDXEArena *a, route_fact_list *out, TSNode def_node, TSNode site,
+                          const char *callee, const char *source, const route_list *verbs,
+                          const route_list *prefixes, const route_list *paths) {
+    const char **ast_path = route_site_path(a, def_node, site);
+    const char *text = pdxe_node_text(a, site, source);
+    for (int v = 0; v < verbs->n; v++) {
+        for (int p = 0; p < prefixes->n; p++) {
+            for (int q = 0; q < paths->n; q++) {
+                const char *prefix = prefixes->items[p][0] ? prefixes->items[p] : NULL;
+                PDXERouteFact fact = {
+                    .method = verbs->items[v],
+                    .path = prefix ? join_route_paths(a, prefix, paths->items[q]) : paths->items[q],
+                    .callee_text = callee,
+                    .source_text = text,
+                    .ast_path = ast_path,
+                    .start_byte = ts_node_start_byte(site),
+                    .end_byte = ts_node_end_byte(site),
+                };
+                if (!fact.path || !route_facts_push(a, out, fact)) {
+                    return;
+                }
+            }
+        }
+    }
+}
+
+/* Spring mapping annotations and JAX-RS verbs on a JVM method. */
+static void jvm_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node, const char *source,
+                            const PDXELangSpec *spec, route_fact_list *out) {
+    route_list prefixes = {0};
+    if (!jvm_class_prefixes(a, class_node, source, spec, &prefixes)) {
+        return;
+    }
+    TSNode annotations[ROUTE_LIST_MAX];
+    int n = jvm_annotations(def_node, spec, annotations, ROUTE_LIST_MAX);
+    /* A JAX-RS method's path is its own @Path, relative to the class's. */
+    route_list jax_paths = {0};
+    for (int i = 0; i < n; i++) {
+        const char *written;
+        const char *name = annotation_simple_name(a, annotations[i], source, &written);
+        if (name && strcmp(name, "Path") == 0) {
+            TSNode args = annotation_args_node(annotations[i]);
+            TSNode value = {0};
+            if (!ts_node_is_null(args) && ts_node_named_child_count(args) == 1) {
+                annotation_arg(a, ts_node_named_child(args, 0), source, &value);
+            }
+            route_paths_of(a, value, source, &jax_paths);
+        }
+    }
+    for (int i = 0; i < n; i++) {
+        const char *written;
+        const char *name = annotation_simple_name(a, annotations[i], source, &written);
+        const char *method = annotation_route_method(name);
+        if (!method) {
+            continue;
+        }
+        route_list paths = {0};
+        route_list verbs = {0};
+        bool spring = strstr(name, "Mapping") != NULL;
+        if (spring) {
+            spring_mapping(a, annotations[i], source, method, &paths, &verbs);
+        } else {
+            if (jax_paths.dynamic) {
+                continue;
+            }
+            for (int p = 0; p < jax_paths.n; p++) {
+                route_list_add(&paths, jax_paths.items[p]);
+            }
+            if (paths.n == 0) {
+                route_list_add(&paths, "/");
+            }
+            route_list_add(&verbs, method);
+        }
+        if (paths.dynamic || verbs.dynamic) {
+            continue;
+        }
+        push_bindings(a, out, def_node, annotations[i], written, source, &verbs, &prefixes, &paths);
+    }
+}
+
+/* A decorator call's keyword argument's value; a null node when it has none. */
+static TSNode decorator_keyword(PDXEArena *a, TSNode args, const char *name, const char *source) {
+    return find_drf_kwarg_in_args(a, args, name, source);
+}
+
+/* Route decorators on a Python definition: FastAPI's and Flask's, and Django REST
+ * framework's @action, in source order. */
+static void decorator_route_facts(PDXEArena *a, TSNode def_node, const char *source,
+                                  const PDXELangSpec *spec, route_fact_list *out) {
+    TSNode decorators[ROUTE_LIST_MAX];
+    int n = 0;
+    for (TSNode prev = ts_node_prev_sibling(def_node);
+         !ts_node_is_null(prev) && pdxe_kind_in_set(prev, spec->decorator_node_types) &&
+         n < ROUTE_LIST_MAX;
+         prev = ts_node_prev_sibling(prev)) {
+        decorators[n++] = prev;
+    }
+    route_list no_prefix = {0};
+    route_list_add(&no_prefix, "");
+    for (int i = n - 1; i >= 0; i--) {
+        uint32_t dc = ts_node_named_child_count(decorators[i]);
+        for (uint32_t di = 0; di < dc; di++) {
+            TSNode call = ts_node_named_child(decorators[i], di);
+            if (strcmp(ts_node_type(call), "call") != 0) {
+                continue;
+            }
+            TSNode fn = ts_node_child_by_field_name(call, TS_FIELD("function"));
+            const char *callee = ts_node_is_null(fn) ? NULL : pdxe_node_text(a, fn, source);
+            TSNode args = find_decorator_args(call);
+            if (!callee || ts_node_is_null(args)) {
+                continue;
+            }
+            route_list paths = {0};
+            route_list verbs = {0};
+            const char *method = decorator_method_name(callee);
+            if (method) {
+                /* The path: the first positional argument, or `path=` / `rule=`. */
+                TSNode value = ts_node_named_child_count(args) ? ts_node_named_child(args, 0)
+                                                               : (TSNode){0};
+                if (!ts_node_is_null(value) &&
+                    strcmp(ts_node_type(value), "keyword_argument") == 0) {
+                    value = decorator_keyword(a, args, "path", source);
+                    if (ts_node_is_null(value)) {
+                        value = decorator_keyword(a, args, "rule", source);
+                    }
+                }
+                route_paths_of(a, value, source, &paths);
+                TSNode methods = decorator_keyword(a, args, "methods", source);
+                if (strcmp(method, "ANY") == 0 && !ts_node_is_null(methods)) {
+                    route_verbs_of(a, methods, source, &verbs);
+                } else {
+                    route_list_add(&verbs, method);
+                }
+            } else {
+                const char *drf_path = NULL;
+                const char *drf_method = NULL;
+                if (!try_drf_action_decorator(a, call, source, def_node, &drf_path, &drf_method)) {
+                    continue;
+                }
+                route_list_add(&paths, drf_path);
+                TSNode methods = decorator_keyword(a, args, "methods", source);
+                if (ts_node_is_null(methods)) {
+                    route_list_add(&verbs, drf_method);
+                } else {
+                    route_verbs_of(a, methods, source, &verbs);
+                }
+            }
+            if (paths.dynamic || verbs.dynamic || paths.n == 0 || verbs.n == 0) {
+                continue;
+            }
+            push_bindings(a, out, def_node, call, callee, source, &verbs, &no_prefix, &paths);
+        }
+    }
+}
+
+/* Every route binding a definition's decorators or annotations declare. */
+static void extract_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node,
+                                const char *source, const PDXELangSpec *spec,
+                                PDXEDefinition *def) {
+    def->routes = NULL;
+    def->route_count = 0;
+    if (!spec->decorator_node_types || !spec->decorator_node_types[0]) {
+        return;
+    }
+    route_fact_list facts = {0};
+    if (spec->language == PDXE_LANG_JAVA || spec->language == PDXE_LANG_KOTLIN ||
+        spec->language == PDXE_LANG_SCALA) {
+        jvm_route_facts(a, def_node, class_node, source, spec, &facts);
+    } else if (spec->language == PDXE_LANG_PYTHON) {
+        decorator_route_facts(a, def_node, source, spec, &facts);
+    }
+    def->routes = facts.count ? facts.items : NULL;
+    def->route_count = facts.count;
+}
+
 // Extract decorator names from preceding decorator/annotation nodes
 // Count annotations inside a Java/Kotlin/C# "modifiers" node.
 static int count_modifier_annotations(TSNode modifiers, const PDXELangSpec *spec) {
@@ -3928,6 +4441,7 @@ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpe
     // Decorators + route extraction from decorator AST
     def.decorators = extract_decorators(a, node, ctx->source, ctx->language, spec);
     extract_route_from_decorators(a, node, ctx->source, spec, &def.route_path, &def.route_method);
+    extract_route_facts(a, node, (TSNode){0}, ctx->source, spec, &def);
 
     // Rust: disambiguate cfg-gated twin functions by folding the #[cfg(...)]
     // predicate into the QN so both branches survive the graph upsert (#495).
@@ -5144,6 +5658,7 @@ static void push_method_def(PDXEExtractCtx *ctx, TSNode child, TSNode class_node
         const char *prefix = spring_class_route_prefix(a, class_node, ctx->source, spec);
         def.route_path = join_route_paths(a, prefix, def.route_path);
     }
+    extract_route_facts(a, child, class_node, ctx->source, spec, &def);
     def.docstring = extract_docstring(a, child, ctx->source, ctx->language);
 
     if (spec->branching_node_types && spec->branching_node_types[0]) {

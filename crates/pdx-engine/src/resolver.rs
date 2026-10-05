@@ -12,8 +12,8 @@ use crate::convert;
 use crate::engine::{Engine, RawResult, c_string, language_id};
 use crate::error::{EngineError, SourceDifference, check};
 use crate::model::{
-    Call, CallArg, FileExtract, ImplTrait, ReadWrite, SourceDigest, Span, TypeRef, Usage,
-    Visibility,
+    Call, CallArg, FileExtract, ImplTrait, ReadWrite, RouteFact, SourceDigest, Span, TypeRef,
+    Usage, Visibility,
 };
 
 /// How a resolution was reached, in the interface's normalised vocabulary.
@@ -486,8 +486,11 @@ impl<'e> ProjectResolver<'e> {
                     n_decorators: count(d.decorators.len())?,
                     signature_param_types: strings.array(&d.signature_param_types)?,
                     n_signature_param_types: count(d.signature_param_types.len())?,
-                    route_path: strings.optional(d.route_path.as_deref())?,
-                    route_method: strings.optional(d.route_method.as_deref())?,
+                    // The engine's single summary is not kept; `routes` carry every binding.
+                    route_path: ptr::null(),
+                    route_method: ptr::null(),
+                    routes: strings.routes(&d.routes)?,
+                    n_routes: count(d.routes.len())?,
                 })
             })
             .collect::<Result<Vec<_>, EngineError>>()?;
@@ -759,13 +762,14 @@ fn run_health(h: sys::pdxe_run_health) -> Result<RunHealth, EngineError> {
     })
 }
 
-/// C strings, arrays of them, and arrays of arguments, kept alive while the engine
-/// reads them.
+/// C strings, arrays of them, and arrays of arguments and routes, kept alive while
+/// the engine reads them.
 #[derive(Default)]
 struct Strings(
     Vec<CString>,
     Vec<Vec<*const c_char>>,
     Vec<Vec<sys::pdxe_call_arg>>,
+    Vec<Vec<sys::pdxe_route>>,
 );
 
 impl Strings {
@@ -815,6 +819,31 @@ impl Strings {
         // The vector's buffer does not move when it is kept below.
         let p = array.as_ptr();
         self.2.push(array);
+        Ok(p)
+    }
+
+    /// An array of these routes, or NULL when there are none.
+    fn routes(&mut self, routes: &[RouteFact]) -> Result<*const sys::pdxe_route, EngineError> {
+        if routes.is_empty() {
+            return Ok(ptr::null());
+        }
+        let array = routes
+            .iter()
+            .map(|r| {
+                Ok(sys::pdxe_route {
+                    method: self.required(&r.method)?,
+                    path: self.required(&r.path)?,
+                    callee_text: self.required(&r.callee_text)?,
+                    source_text: self.optional(r.source_text.as_deref())?,
+                    span: c_span(r.span),
+                    ast_path: self.array(&r.ast_path)?,
+                    n_ast_path: count(r.ast_path.len())?,
+                })
+            })
+            .collect::<Result<Vec<_>, EngineError>>()?;
+        // The vector's buffer does not move when it is kept below.
+        let p = array.as_ptr();
+        self.3.push(array);
         Ok(p)
     }
 }

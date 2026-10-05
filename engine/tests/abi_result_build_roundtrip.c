@@ -25,6 +25,11 @@
  * with a NULL where a string is required. Every call extraction positions in the raw
  * source has a path, and decorators, routes and arguments all occur (fixtures/facts).
  *
+ * And a definition's route facts (issue 54): every one positioned in the source with
+ * its node-type path, compared and rebuilt from copies the same way, refused when
+ * counted without an array, missing a required string, or with a path counted without
+ * an array or holding a NULL; definitions with one route and with several occur.
+ *
  * And surfaces that are not what the encoder writes are refused: truncated, of
  * another version, with a field missing, a field extra, a field of the wrong type,
  * or a counted array whose count disagrees with it.
@@ -92,6 +97,37 @@ static int same_args(const pdxe_call *x, const pdxe_call *y) {
     return 1;
 }
 
+static int same_routes(const pdxe_definition *x, const pdxe_definition *y) {
+    if (x->n_routes != y->n_routes || (y->n_routes == 0) != (y->routes == NULL)) {
+        return 0;
+    }
+    for (uint32_t k = 0; k < x->n_routes; k++) {
+        const pdxe_route *a = &x->routes[k], *b = &y->routes[k];
+        if (!same_str(a->method, b->method) || !same_str(a->path, b->path) ||
+            !same_str(a->callee_text, b->callee_text) ||
+            !same_str(a->source_text, b->source_text) || !same_span(a->span, b->span) ||
+            !same_strings(a->ast_path, a->n_ast_path, b->ast_path, b->n_ast_path)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+/* Whether every string and path of y's routes is y's own, not x's. */
+static int routes_are_copies(const pdxe_definition *x, const pdxe_definition *y) {
+    if (x->n_routes && x->routes == y->routes) {
+        return 0;
+    }
+    for (uint32_t k = 0; k < x->n_routes && k < y->n_routes; k++) {
+        const pdxe_route *a = &x->routes[k], *b = &y->routes[k];
+        if (a->method == b->method || a->path == b->path || a->callee_text == b->callee_text ||
+            (a->n_ast_path && a->ast_path == b->ast_path)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static void compare(const char *path, const pdxe_file_result *a, const pdxe_file_result *b) {
     CHECK(a->n_defs == b->n_defs && a->n_calls == b->n_calls && a->n_imports == b->n_imports &&
               a->n_usages == b->n_usages && a->n_types == b->n_types && a->n_rws == b->n_rws,
@@ -115,7 +151,7 @@ static void compare(const char *path, const pdxe_file_result *a, const pdxe_file
                   same_strings(x->signature_param_types, x->n_signature_param_types,
                                y->signature_param_types, y->n_signature_param_types) &&
                   same_str(x->route_path, y->route_path) &&
-                  same_str(x->route_method, y->route_method),
+                  same_str(x->route_method, y->route_method) && same_routes(x, y),
               "%s: definition %u's decorators, parameter types or route differ", path, i);
     }
     for (uint32_t i = 0; i < a->n_calls && i < b->n_calls; i++) {
@@ -217,6 +253,8 @@ static int calls_with_args = 0;
 static int defs_with_decorators = 0;
 static int defs_with_route = 0;
 static int defs_with_param_types = 0;
+static int defs_with_one_route = 0;
+static int defs_with_several_routes = 0;
 static int files_without_impls = 0;
 static int files_with_one_impl = 0;
 static int files_with_several_impls = 0;
@@ -299,8 +337,9 @@ static void destroy_impls(pdxe_impl_trait *copy, uint32_t n) {
     free(copy);
 }
 
-/* A copy of the definitions the caller owns: the array, and each base array and base
- * string. Its other strings stay the result's, which outlives the copy. */
+/* A copy of the definitions the caller owns: the array, each base array and base
+ * string, and each route array with its strings and paths. Its other strings stay the
+ * result's, which outlives the copy. */
 static pdxe_definition *copy_defs(const pdxe_file_result *r) {
     pdxe_definition *copy = calloc(r->n_defs ? r->n_defs : 1, sizeof(*copy));
     for (uint32_t i = 0; copy && i < r->n_defs; i++) {
@@ -311,6 +350,25 @@ static pdxe_definition *copy_defs(const pdxe_file_result *r) {
                 bases[b] = strdup(r->defs[i].base_classes[b]);
             }
             copy[i].base_classes = bases;
+        }
+        if (r->defs[i].n_routes) {
+            pdxe_route *routes = calloc(r->defs[i].n_routes, sizeof(*routes));
+            for (uint32_t k = 0; routes && k < r->defs[i].n_routes; k++) {
+                const pdxe_route *from = &r->defs[i].routes[k];
+                routes[k] = *from;
+                routes[k].method = strdup(from->method);
+                routes[k].path = strdup(from->path);
+                routes[k].callee_text = strdup(from->callee_text);
+                routes[k].source_text = from->source_text ? strdup(from->source_text) : NULL;
+                if (from->n_ast_path) {
+                    const char **types = calloc(from->n_ast_path, sizeof(*types));
+                    for (uint32_t t = 0; types && t < from->n_ast_path; t++) {
+                        types[t] = strdup(from->ast_path[t]);
+                    }
+                    routes[k].ast_path = types;
+                }
+            }
+            copy[i].routes = routes;
         }
     }
     return copy;
@@ -327,6 +385,18 @@ static void destroy_defs(pdxe_definition *copy, uint32_t n) {
             copy[i].base_classes[b] = NULL;
         }
         free((void *)copy[i].base_classes);
+        for (uint32_t k = 0; copy[i].routes && k < copy[i].n_routes; k++) {
+            pdxe_route *route = (pdxe_route *)&copy[i].routes[k];
+            scrub(route->method);
+            scrub(route->path);
+            scrub(route->callee_text);
+            scrub(route->source_text);
+            for (uint32_t t = 0; t < route->n_ast_path; t++) {
+                scrub(route->ast_path[t]);
+            }
+            free((void *)route->ast_path);
+        }
+        free((void *)copy[i].routes);
     }
     free(copy);
 }
@@ -385,6 +455,23 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
         defs_with_decorators += r->defs[i].n_decorators > 0;
         defs_with_route += r->defs[i].route_path != NULL;
         defs_with_param_types += r->defs[i].n_signature_param_types > 0;
+        const pdxe_definition *d = &r->defs[i];
+        CHECK((d->n_routes == 0) == (d->routes == NULL), "%s: definition %u counts %u routes "
+              "and has %s array", path, i, d->n_routes, d->routes ? "an" : "no");
+        for (uint32_t k = 0; k < d->n_routes; k++) {
+            const pdxe_route *route = &d->routes[k];
+            CHECK(route->method && route->method[0] && route->path && route->path[0] == '/' &&
+                      route->callee_text && route->callee_text[0] && route->source_text &&
+                      route->span.end_byte > route->span.start_byte && route->span.start_line > 0 &&
+                      route->n_ast_path > 0,
+                  "%s: definition %u's route %u is not a positioned route", path, i, k);
+            for (uint32_t t = 0; t < route->n_ast_path; t++) {
+                CHECK(route->ast_path[t] && route->ast_path[t][0],
+                      "%s: definition %u's route %u's path has an empty type", path, i, k);
+            }
+        }
+        defs_with_one_route += d->n_routes == 1;
+        defs_with_several_routes += d->n_routes > 1;
     }
     files_without_impls += r->n_impl_traits == 0;
     files_with_one_impl += r->n_impl_traits == 1;
@@ -437,7 +524,8 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
                                    y->signature_param_types, y->n_signature_param_types) &&
                       same_str(x->route_path, y->route_path) &&
                       same_str(x->route_method, y->route_method) &&
-                      (x->route_path == NULL || x->route_path != y->route_path),
+                      (x->route_path == NULL || x->route_path != y->route_path) &&
+                      same_routes(x, y) && routes_are_copies(x, y),
                   "%s: definition %u's facts are not a copy of its own", path, i);
         }
         CHECK(from_copy->n_impl_traits == r->n_impl_traits &&
@@ -666,7 +754,7 @@ static void check_refusals(pdxe_ctx *ctx) {
     free(truncated);
 
     char *m;
-    expect_refused("of another version", m = replace(good, "\"v\":3", "\"v\":2"));
+    expect_refused("of another version", m = replace(good, "\"v\":4", "\"v\":3"));
     free(m);
     expect_refused("without what extraction lost", m = replace(good, "\"lost\":0,", ""));
     free(m);
@@ -680,7 +768,7 @@ static void check_refusals(pdxe_ctx *ctx) {
     expect_refused("with a field of the wrong type",
                    m = replace(good, "\"lsp_skipped\":false", "\"lsp_skipped\":0"));
     free(m);
-    expect_refused("with an extra top-level key", m = replace(good, "\"v\":3", "\"v\":3,\"x\":0"));
+    expect_refused("with an extra top-level key", m = replace(good, "\"v\":4", "\"v\":4,\"x\":0"));
     free(m);
     /* A definition's bases: counted bases with no array, and a NULL base. */
     pdxe_definition with_bases = r->defs[0];
@@ -747,6 +835,48 @@ static void check_refusals(pdxe_ctx *ctx) {
     CHECK(pdxe_result_build(ctx, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, &null_qn, 1,
                             &refused) == PDXE_E_INVALID && !refused,
           "an impl relation with a NULL qualified name was rebuilt");
+    /* Routes (issue 54): counted with no array; one without its method; one whose path is
+     * counted with no array; one whose path holds a NULL. */
+    pdxe_definition with_routes = r->defs[0];
+    with_routes.n_base_classes = 0;
+    with_routes.base_classes = NULL;
+    with_routes.n_decorators = 0;
+    with_routes.decorators = NULL;
+    with_routes.n_signature_param_types = 0;
+    with_routes.signature_param_types = NULL;
+    with_routes.n_routes = 1;
+    with_routes.routes = NULL;
+    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
+          "routes counted with no array were rebuilt");
+    pdxe_route route = {"GET", "/x", "GetMapping", "@GetMapping(\"/x\")", {0}, NULL, 0};
+    route.method = NULL;
+    with_routes.routes = &route;
+    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
+          "a route with no method was rebuilt");
+    route.method = "GET";
+    route.n_ast_path = 1;
+    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
+          "a route path counted with no array was rebuilt");
+    const char *null_step[] = {"method_declaration", NULL};
+    route.ast_path = null_step;
+    route.n_ast_path = 2;
+    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
+          "a route path with a NULL type was rebuilt");
+    route.n_ast_path = 1;
+    pdxe_file_result *accepted = NULL;
+    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, &accepted) == PDXE_OK && accepted &&
+              accepted->defs[0].n_routes == 1 &&
+              same_str(accepted->defs[0].routes[0].path, "/x") &&
+              accepted->defs[0].routes[0].path != route.path,
+          "a well-formed route was not rebuilt as a copy");
+    if (accepted) {
+        pdxe_result_free(ctx, accepted);
+    }
 
     expect_refused("whose count disagrees with its array",
                    m = replace(good, "\"signature_param_count\":1", "\"signature_param_count\":2"));
@@ -780,6 +910,9 @@ int main(int argc, char **argv) {
           "decorators, %d with a route, %d with parameter types",
           calls_with_path, calls_with_args, defs_with_decorators, defs_with_route,
           defs_with_param_types);
+    CHECK(defs_with_one_route > 0 && defs_with_several_routes > 0,
+          "routes seen: %d definitions with one, %d with several", defs_with_one_route,
+          defs_with_several_routes);
     CHECK(files_without_impls > 0 && files_with_one_impl > 0 && files_with_several_impls > 0,
           "impl relations seen: %d files with none, %d with one, %d with several",
           files_without_impls, files_with_one_impl, files_with_several_impls);

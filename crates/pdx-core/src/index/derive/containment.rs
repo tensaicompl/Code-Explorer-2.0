@@ -353,8 +353,13 @@ fn definitions(
         }
         let is_test = kind == NodeKind::Test;
         node.props.insert("is_test", Value::from(is_test));
+        // A test is an entry point; every other category is the entry stage's to prove
+        // (Appendix B.2). The engine's own flag, which it sets on far more (every
+        // exported JavaScript or TypeScript declaration), is kept as the engine's
+        // evidence only and never makes an entry point (issue 55).
+        node.props.insert("is_entry_point", Value::from(is_test));
         node.props
-            .insert("is_entry_point", Value::from(is_test || d.is_entry_point));
+            .insert("engine_entry_point", Value::from(d.is_entry_point));
         if is_test {
             node.props
                 .insert("declared_kind", Value::from(node_kind(d.kind).as_str()));

@@ -1,38 +1,42 @@
 //! Routes: one `Route` node per route binding, and a `DEFINES_ROUTE` edge from its
-//! handler, for Spring, `FastAPI` and Express.
+//! handler at the binding's evidence site, for Spring, `FastAPI`, Flask and Express.
 //!
-//! The facts are the engine's: a definition's route method and path, which it reads
-//! from Spring's mapping annotations (already joined to the controller's prefix) and
-//! `FastAPI`'s route decorators; and the arguments of an Express registration call. No
-//! source is read again. A route's handler is only ever one the facts identify: the
-//! decorated definition, or for Express the definition the handler argument resolves
-//! to, through its reference site's resolution or as the one callable of that name
-//! defined in the same file. Anything else (an inline function, an expression) gives
-//! no route, and is reported.
+//! The facts are the engine's: every route binding a definition's annotations or
+//! decorators declare (`Definition::routes`), each with the node that declares it, its
+//! position and its node-type path (issue 54); and the arguments of an Express
+//! registration call. No source is read again. A route's handler is only ever one the
+//! facts identify: the annotated or decorated definition, or for Express the definition
+//! the handler argument resolves to, through its reference site's resolution or as the
+//! one callable of that name defined in the same file. Anything else (an inline
+//! function, an expression) gives no route, and is reported.
 //!
 //! A route's identity is its handler's file as `path` and, as `qualified_name`, compact
 //! JSON with the fields `handler` (the handler's qualified name), `method` (in upper
 //! case) and `path` (as the facts give it), in that order: no delimiter can be
-//! mistaken. Its name is `GET /users`. The route's evidence site, where the source has
-//! one the engine records (a `FastAPI` decorator call, an Express registration), is a
-//! `route` site; a Spring annotation is not one, so its `DEFINES_ROUTE` edge has no
-//! site, and is reported. A handler is always an entry point.
+//! mistaken. Its name is `GET /users`. Every `DEFINES_ROUTE` edge has its evidence site,
+//! a `route` site (4.2.4): for a declared route the declaring annotation or decorator,
+//! in the handler, keyed by 4.2.1's fingerprint of the fact's node-type path, its
+//! callee as resolution splits it and its ordinal among the handler's declaring nodes;
+//! for Express the registration call. One annotation that binds several methods or
+//! paths is one site with an edge to each route. A binding with no position or path in
+//! the source gives no route and no edge, and is reported. A handler is always an entry
+//! point.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
-use pdx_engine::{Call, Definition, DefinitionKind, SiteRef};
+use pdx_engine::{Call, DefinitionKind, RouteFact, SiteRef};
 use serde::Serialize;
 use serde_json::Value;
 
 use crate::bands::Band;
-use crate::ids::{NodeKey, RepoId};
+use crate::ids::{NodeKey, RepoId, SiteKey, ast_fingerprint};
 use crate::kinds::{EdgeKind, NodeKind, SiteKind};
-use crate::model::{Edge, Node};
+use crate::model::{Edge, Node, Site};
 use crate::resolve::registry::{DefinitionRef, NameProvenance, SymbolRegistry};
 use crate::resolve::stages::{ResolvedSite, split_callee};
 
-use super::calls::{call_site, ordinals};
-use super::{Builder, DeriveError, DeriveInput, RouteDiagnostic, RouteProblem};
+use super::calls::{call_site, model_span, ordinals};
+use super::{Builder, DeriveError, DeriveInput, Missing, RouteDiagnostic, RouteProblem};
 
 /// The fields of a route's qualified name, in their order.
 #[derive(Serialize)]
@@ -75,9 +79,18 @@ struct Binding {
     method: String,
     route: String,
     framework: &'static str,
-    /// The call that evidences it, when the source has one.
-    evidence: Option<(SiteRef, Call)>,
+    /// What evidences it in the source.
+    evidence: Evidence,
     band: Band,
+}
+
+/// A route binding's evidence.
+enum Evidence {
+    /// The annotation or decorator that declares it: the handler's route fact at this
+    /// index.
+    Declared(usize),
+    /// The Express registration call.
+    Registration(SiteRef, Call),
 }
 
 /// The HTTP methods Express registers by name.
@@ -104,82 +117,100 @@ fn is_identifier(text: &str) -> bool {
         && chars.all(|c| c.is_alphanumeric() || c == '_' || c == '$')
 }
 
+/// The framework a declared route is in, from its language, its callee and its file's
+/// imports.
+fn framework(registry: &SymbolRegistry, language: &str, path: &str, callee: &str) -> &'static str {
+    let (_, name) = split_callee(callee);
+    match language {
+        "java" | "kotlin" | "scala" if name.ends_with("Mapping") => "spring",
+        "java" | "kotlin" | "scala" => "jax-rs",
+        "python" if name == "action" => "django-rest-framework",
+        "python" if imports_module(registry, path, "fastapi") => "fastapi",
+        "python" if imports_module(registry, path, "flask") => "flask",
+        _ => "decorator",
+    }
+}
+
 /// Routes a definition's own decorators or annotations bind it to.
-fn decorated(registry: &SymbolRegistry, out: &mut Vec<Binding>) {
+fn declared(registry: &SymbolRegistry, out: &mut Vec<Binding>) {
     for path in registry.files() {
         let (Some(language), Some(extract)) = (registry.language(path), registry.extract(path))
         else {
             continue;
         };
         for (index, definition) in extract.definitions.iter().enumerate() {
-            let (Some(method), Some(route)) = (&definition.route_method, &definition.route_path)
-            else {
-                continue;
-            };
             let Ok(index) = u32::try_from(index) else {
                 continue;
             };
-            let framework = match language.id {
-                "java" | "kotlin" => "spring",
-                "python" => "fastapi",
-                _ => "decorator",
-            };
-            let evidence = if language.id == "python" {
-                decorator_call(path, definition, &extract.calls, method, route)
-            } else {
-                None
-            };
-            out.push(Binding {
-                handler: DefinitionRef {
-                    path: path.to_owned(),
-                    index,
-                },
-                method: method.to_uppercase(),
-                route: route.clone(),
-                framework,
-                evidence,
-                band: Band::Exact,
-            });
+            for (k, fact) in definition.routes.iter().enumerate() {
+                out.push(Binding {
+                    handler: DefinitionRef {
+                        path: path.to_owned(),
+                        index,
+                    },
+                    method: fact.method.to_uppercase(),
+                    route: fact.path.clone(),
+                    framework: framework(registry, language.id, path, &fact.callee_text),
+                    evidence: Evidence::Declared(k),
+                    band: Band::Exact,
+                });
+            }
         }
     }
 }
 
-/// The decorator call that binds a Python handler to its route: the call whose name is
-/// the method's, whose first argument is the route, and which is the last such call
-/// starting at or before the definition's first line.
-fn decorator_call(
-    path: &str,
-    definition: &Definition,
-    calls: &[Call],
-    method: &str,
-    route: &str,
-) -> Option<(SiteRef, Call)> {
-    let first_line = definition.span?.start_line;
-    let wanted = method.to_lowercase();
-    calls
+/// Each declaring node's ordinal among a handler's: its route facts' nodes, by
+/// position, grouped by node-type path and callee as resolution splits it (4.2.1). The
+/// facts one node declares share it.
+fn declared_ordinals(facts: &[RouteFact]) -> Vec<Option<u32>> {
+    type Group<'a> = (&'a [String], &'a str, &'a str);
+    let mut nodes: BTreeMap<Group<'_>, BTreeSet<(u32, u32)>> = BTreeMap::new();
+    for fact in facts {
+        let (Some(span), false) = (fact.span, fact.ast_path.is_empty()) else {
+            continue;
+        };
+        let (receiver, name) = split_callee(&fact.callee_text);
+        nodes
+            .entry((fact.ast_path.as_slice(), name, receiver.unwrap_or("")))
+            .or_default()
+            .insert((span.start_byte, span.end_byte));
+    }
+    facts
         .iter()
-        .enumerate()
-        .filter(|(_, c)| {
-            let (_, name) = split_callee(&c.callee_text);
-            !c.is_reference
-                && (name == wanted || name == "route" || name == "api_route")
-                && c.span.is_some_and(|s| s.start_line <= first_line)
-                && c.args
-                    .iter()
-                    .find(|a| a.index == 0)
-                    .and_then(|a| a.value.as_deref())
-                    == Some(route)
+        .map(|fact| {
+            let span = fact.span?;
+            let (receiver, name) = split_callee(&fact.callee_text);
+            let group = nodes.get(&(fact.ast_path.as_slice(), name, receiver.unwrap_or("")))?;
+            let position = group
+                .iter()
+                .position(|&s| s == (span.start_byte, span.end_byte))?;
+            u32::try_from(position + 1).ok()
         })
-        .max_by_key(|(_, c)| c.span.map(|s| s.start_byte))
-        .and_then(|(i, c)| {
-            Some((
-                SiteRef {
-                    rel_path: path.to_owned(),
-                    call_index: u32::try_from(i).ok()?,
-                },
-                c.clone(),
-            ))
-        })
+        .collect()
+}
+
+/// The `route` site of a handler's declared route, or what it lacks to be one.
+fn declared_site(
+    graph: &Builder,
+    handler: &DefinitionRef,
+    fact: &RouteFact,
+    ordinal: Option<u32>,
+) -> Result<Result<Site, Missing>, DeriveError> {
+    let Some(span) = fact.span else {
+        return Ok(Err(Missing::Position));
+    };
+    let (Some(ordinal), false) = (ordinal, fact.ast_path.is_empty()) else {
+        return Ok(Err(Missing::AstPath));
+    };
+    let (receiver, name) = split_callee(&fact.callee_text);
+    let node_types: Vec<&str> = fact.ast_path.iter().map(String::as_str).collect();
+    let fingerprint = ast_fingerprint(&node_types, name, receiver.unwrap_or(""), ordinal)?;
+    let enclosing = graph.definition_node(handler)?.clone();
+    let key = SiteKey::new(&handler.path, Some(enclosing), SiteKind::Route, fingerprint);
+    let file = graph.file_node(&handler.path)?.clone();
+    Ok(Ok(
+        Site::new(&key, file, model_span(span))?.with_texts(Some(name), receiver)
+    ))
 }
 
 /// Express registrations: `<router>.<method>('/path', …, handler)` in a file that
@@ -244,7 +275,7 @@ fn express(
                     method: name.to_uppercase(),
                     route: route.to_owned(),
                     framework: "express",
-                    evidence: Some((site_ref, call.clone())),
+                    evidence: Evidence::Registration(site_ref, call.clone()),
                     band,
                 }),
                 None => diagnostics.push(RouteDiagnostic {
@@ -305,8 +336,9 @@ fn express_handler(
     }
 }
 
-/// Adds every route the facts establish, its `DEFINES_ROUTE` edge and evidence site,
-/// and marks its handler an entry point.
+/// Adds every route the facts establish with its evidence site: its `Route` node, the
+/// site and the `DEFINES_ROUTE` edge, and marks its handler an entry point. A binding
+/// with no site in the source adds nothing and is reported.
 pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), DeriveError> {
     let registry = input.registry;
     let resolved: BTreeMap<&SiteRef, &ResolvedSite> = input
@@ -316,16 +348,16 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
         .map(|r| (&r.site_ref, r))
         .collect();
     let mut bindings = Vec::new();
-    decorated(registry, &mut bindings);
+    declared(registry, &mut bindings);
     express(
         registry,
         &resolved,
         &mut bindings,
         &mut graph.diagnostics.routes,
     );
-    let ordinals = ordinals(registry);
+    let call_ordinals = ordinals(registry);
+    let mut fact_ordinals: BTreeMap<DefinitionRef, Vec<Option<u32>>> = BTreeMap::new();
     for binding in bindings {
-        let handler_node = graph.definition_node(&binding.handler)?.clone();
         let handler = registry
             .definition(&binding.handler)
             .ok_or(DeriveError::Missing {
@@ -333,6 +365,34 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
                 detail: "a route handler the registry does not have",
             })?;
         let handler_path = binding.handler.path.as_str();
+        let site = match &binding.evidence {
+            Evidence::Declared(k) => {
+                let ordinals = fact_ordinals
+                    .entry(binding.handler.clone())
+                    .or_insert_with(|| declared_ordinals(&handler.routes));
+                let ordinal = ordinals.get(*k).copied().flatten();
+                declared_site(graph, &binding.handler, &handler.routes[*k], ordinal)?
+            }
+            Evidence::Registration(site_ref, call) => call_site(
+                graph,
+                registry,
+                &call_ordinals,
+                site_ref,
+                call,
+                SiteKind::Route,
+            )?
+            .map(|(site, _)| site),
+        };
+        let Ok(site) = site else {
+            graph.diagnostics.routes.push(RouteDiagnostic {
+                path: handler_path.to_owned(),
+                method: binding.method.clone(),
+                route: binding.route.clone(),
+                problem: RouteProblem::NoSite,
+            });
+            continue;
+        };
+        let handler_node = graph.definition_node(&binding.handler)?.clone();
         let key = route_node_key(
             input.repo,
             handler_path,
@@ -354,34 +414,14 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
             .insert("handler", Value::from(handler_node.as_str()));
         let route_node = node.node_id.clone();
         graph.add_node(node)?;
-
-        let site_id = match &binding.evidence {
-            Some((site_ref, call)) => {
-                match call_site(graph, registry, &ordinals, site_ref, call, SiteKind::Route)? {
-                    Ok((site, _)) => {
-                        let id = site.site_id.clone();
-                        graph.add_site(site)?;
-                        Some(id)
-                    }
-                    Err(_) => None,
-                }
-            }
-            None => None,
-        };
-        if site_id.is_none() {
-            graph.diagnostics.routes.push(RouteDiagnostic {
-                path: handler_path.to_owned(),
-                method: binding.method.clone(),
-                route: binding.route.clone(),
-                problem: RouteProblem::NoSite,
-            });
-        }
+        let site_id = site.site_id.clone();
+        graph.add_site(site)?;
         graph.add_edge(Edge::new(
             handler_node.clone(),
             route_node,
             EdgeKind::DefinesRoute,
             binding.band,
-            site_id,
+            Some(site_id),
         ))?;
         graph.set_prop(&handler_node, "is_entry_point", Value::from(true));
     }

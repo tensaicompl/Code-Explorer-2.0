@@ -1,8 +1,16 @@
 //! Entry points (Appendix B.2), as `props.is_entry_point`, wherever the facts prove one.
 //!
-//! The engine's own entry-point flag is kept and never cleared. Beside it:
+//! An entry point is a graph semantic, decided here from evidence of Appendix B.2's
+//! categories; the engine's own flag, which it sets on every exported JavaScript or
+//! TypeScript declaration among others, is kept as `props.engine_entry_point` and never
+//! makes one (issue 55). The categories:
 //!
-//! - a JVM `main(String[])` method, and C#'s `Main`;
+//! - a program's `main`, by its language's convention ([`is_main`]): Java's and Groovy's
+//!   `main(String[])`, Scala's `main(Array[String])`, Kotlin's `main()` or
+//!   `main(Array<String>)`, C#'s `Main()` or `Main(string[])`, C's `main` at file scope,
+//!   C++'s `main` in the global namespace, Go's `func main()` at file scope, Rust's
+//!   `fn main()` at file scope in a binary's root (`main.rs`, or a file under a `bin`
+//!   directory);
 //! - a class annotated `@SpringBootApplication`;
 //! - a module-level variable a `FastAPI` or Flask application is constructed into, in a
 //!   file that imports `fastapi` or `flask`;
@@ -13,13 +21,16 @@
 //! - an ASP.NET `Program.cs` with top-level statements, as its file;
 //! - every route handler ([`super::routes`]) and every test ([`super::tests`]).
 //!
-//! Command-line subcommand handlers (clap, argparse, cobra) are not recognised: the
-//! facts here do not tie a handler to its registration. Nothing is an entry point by its
-//! name alone (`start`, `run`, `execute`).
+//! Go's package clause is not among the extracted facts, so a `func main()` in a package
+//! other than `main` (legal, and never run) is taken for one too; that is the one
+//! approximation. Command-line subcommand handlers (clap, argparse, cobra) are not
+//! recognised: the facts here do not tie a handler to its registration. Nothing is an
+//! entry point by its name alone outside its language's convention (`start`, `run`,
+//! `execute`, a Python `main`).
 
 use std::collections::BTreeSet;
 
-use pdx_engine::{Call, DefinitionKind};
+use pdx_engine::{Call, Definition, DefinitionKind};
 use serde_json::Value;
 
 use crate::ids::NodeId;
@@ -50,6 +61,58 @@ fn caller_node(
     }
 }
 
+/// Whether a definition is its language's conventional program entry point.
+pub fn is_main(
+    registry: &SymbolRegistry,
+    language: &str,
+    path: &str,
+    r: &DefinitionRef,
+    definition: &Definition,
+) -> bool {
+    let types: Vec<String> = definition
+        .signature_param_types
+        .iter()
+        .map(|t| normalise_type(language, t))
+        .collect();
+    let types: Vec<&str> = types.iter().map(String::as_str).collect();
+    let function = definition.kind == DefinitionKind::Function;
+    let method = definition.kind == DefinitionKind::Method;
+    let top = definition.parent.is_none();
+    let named = |n: &str| definition.name == n;
+    match language {
+        "java" | "groovy" => {
+            method && named("main") && matches!(types.as_slice(), ["String[]" | "String..."])
+        }
+        "scala" => method && named("main") && types == ["Array[String]"],
+        "kotlin" => {
+            named("main")
+                && matches!(types.as_slice(), [] | ["Array"])
+                && ((function && top) || method)
+        }
+        "csharp" => method && named("Main") && matches!(types.as_slice(), [] | ["string[]"]),
+        "c" => function && top && named("main"),
+        "cpp" => {
+            function
+                && top
+                && named("main")
+                && registry
+                    .module_of_definition(r)
+                    .is_none_or(|m| m.name.is_empty())
+        }
+        "go" => function && top && named("main") && types.is_empty(),
+        "rust" => {
+            let mut parts = path.rsplit('/');
+            let file = parts.next().unwrap_or(path);
+            function
+                && top
+                && named("main")
+                && types.is_empty()
+                && (file == "main.rs" || parts.any(|d| d == "bin"))
+        }
+        _ => false,
+    }
+}
+
 /// Marks every entry point the facts prove.
 pub(crate) fn mark(
     graph: &mut Builder,
@@ -74,25 +137,13 @@ pub(crate) fn mark(
                 path: path.to_owned(),
                 index,
             };
-            let types: Vec<String> = definition
-                .signature_param_types
-                .iter()
-                .map(|t| normalise_type(language.id, t))
-                .collect();
-            let jvm_main = matches!(language.id, "java" | "kotlin" | "scala" | "groovy")
-                && definition.kind == DefinitionKind::Method
-                && definition.name == "main"
-                && matches!(types.as_slice(), [t] if t == "String[]" || t == "String..." || t == "Array");
-            let dotnet_main = language.id == "csharp"
-                && definition.kind == DefinitionKind::Method
-                && definition.name == "Main";
             let spring_boot = definition.decorators.iter().any(|d| {
                 d.trim_start_matches('@')
                     .split(['(', ' '])
                     .next()
                     .is_some_and(|n| n.rsplit('.').next() == Some("SpringBootApplication"))
             });
-            if jvm_main || dotnet_main || spring_boot {
+            if is_main(registry, language.id, path, &r, definition) || spring_boot {
                 entries.insert(graph.definition_node(&r)?.clone());
             }
         }

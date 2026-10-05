@@ -92,8 +92,9 @@ fn codec_arrays(codec: &str) -> BTreeSet<String> {
     out
 }
 
-const FACT_STRUCTURES: [&str; 15] = [
+const FACT_STRUCTURES: [&str; 16] = [
     "PDXEDefinition",
+    "PDXERouteFact",
     "PDXECall",
     "PDXECallArg",
     "PDXEImport",

@@ -270,6 +270,16 @@ impl<'a> Canonical<'a> {
         }
         for edge in &data.edges {
             finite("edges", "engine_score", edge.engine_score)?;
+            // 4.2.4: a structural edge references the site that evidences it.
+            if edge.site_id.is_none() && edge.kind.requires_site() {
+                return Err(SegmentError::InvalidRow {
+                    table: "edges",
+                    reason: format!(
+                        "{} is a {} edge with no evidence site",
+                        edge.edge_id, edge.kind
+                    ),
+                });
+            }
         }
         for candidate in &data.candidates {
             finite("candidates", "engine_score", candidate.engine_score)?;

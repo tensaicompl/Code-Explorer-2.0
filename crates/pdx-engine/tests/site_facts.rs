@@ -4,7 +4,7 @@
 
 mod common;
 
-use pdx_engine::{Call, CallArg, Engine, FileExtract};
+use pdx_engine::{Call, CallArg, Engine, FileExtract, RouteFact};
 
 fn extract(language: &str, rel_path: &str, source: &str) -> FileExtract {
     Engine::new()
@@ -124,9 +124,20 @@ fn derivation_facts_cross_the_boundary() {
         ["String", "java.util.List<Integer>"]
     );
     assert_eq!(
-        (list.route_method.as_deref(), list.route_path.as_deref()),
-        (Some("GET"), Some("/api/users"))
+        routes(&list.routes),
+        [("GET", "/api/users", "GetMapping", "@GetMapping(\"/users\")")]
     );
+    let route = &list.routes[0];
+    assert_eq!(
+        route.ast_path,
+        ["method_declaration", "modifiers", "annotation"]
+    );
+    let span = route.span.expect("a position");
+    assert_eq!(
+        &CONTROLLER[span.start_byte as usize..span.end_byte as usize],
+        "@GetMapping(\"/users\")"
+    );
+    assert_eq!(span.start_line, 8);
     let class = e
         .definitions
         .iter()
@@ -136,7 +147,10 @@ fn derivation_facts_cross_the_boundary() {
         class.decorators,
         ["@RestController", "@RequestMapping(\"/api\")"]
     );
-    assert_eq!((&class.route_method, &class.route_path), (&None, &None));
+    assert!(
+        class.routes.is_empty(),
+        "a class's mapping is its methods' prefix"
+    );
 
     let e = extract("python", "app/main.py", APP);
     let read = e
@@ -150,8 +164,17 @@ fn derivation_facts_cross_the_boundary() {
     );
     assert_eq!(read.signature_param_types, ["int", "str"]);
     assert_eq!(
-        (read.route_method.as_deref(), read.route_path.as_deref()),
-        (Some("GET"), Some("/users/{user_id}"))
+        routes(&read.routes),
+        [(
+            "GET",
+            "/users/{user_id}",
+            "app.get",
+            "app.get(\"/users/{user_id}\", status_code=200)"
+        )]
+    );
+    assert_eq!(
+        read.routes[0].ast_path,
+        ["decorated_definition", "decorator", "call"]
     );
     let decorator = e.calls.iter().find(|c| c.callee_text == "app.get").unwrap();
     assert_eq!(
@@ -206,8 +229,89 @@ fn site_facts_survive_serialisation() {
         assert!(back.calls.iter().any(|c| !c.ast_path.is_empty()), "{rel}");
         assert!(
             back.calls.iter().any(|c| !c.args.is_empty())
-                || back.definitions.iter().any(|d| d.route_path.is_some()),
+                || back.definitions.iter().any(|d| !d.routes.is_empty()),
             "{rel}"
         );
     }
+}
+
+/// Each route as (method, path, callee, source text).
+fn routes(facts: &[RouteFact]) -> Vec<(&str, &str, &str, &str)> {
+    facts
+        .iter()
+        .map(|r| {
+            (
+                r.method.as_str(),
+                r.path.as_str(),
+                r.callee_text.as_str(),
+                r.source_text.as_deref().unwrap_or(""),
+            )
+        })
+        .collect()
+}
+
+/// Each route as "METHOD path", for a definition.
+fn bindings(e: &FileExtract, name: &str) -> Vec<String> {
+    e.definitions
+        .iter()
+        .find(|d| d.name == name)
+        .unwrap_or_else(|| panic!("{name}"))
+        .routes
+        .iter()
+        .map(|r| format!("{} {}", r.method, r.path))
+        .collect()
+}
+
+#[test]
+fn route_facts_cross_the_boundary() {
+    // One fact per method and path, joined to the class's prefix, each with the node
+    // that declares it; a path or method that is not a literal gives none (issue 54).
+    let java = extract(
+        "java",
+        "src/R.java",
+        "package a;\n@RestController\n@RequestMapping(\"/api\")\npublic class R {\n  @GetMapping({\"/a\", \"/b\"})\n  public void paths() {}\n  @RequestMapping(path = {\"/x\", \"/y\"}, method = {RequestMethod.GET, RequestMethod.POST})\n  public void both() {}\n  @RequestMapping(\"/any\")\n  public void any() {}\n  @GetMapping\n  public void root() {}\n  @GetMapping(Paths.USERS)\n  public void constant() {}\n  @GetMapping(value = \"/v\", produces = \"application/json\")\n  public void media() {}\n}\n",
+    );
+    assert_eq!(bindings(&java, "paths"), ["GET /api/a", "GET /api/b"]);
+    assert_eq!(
+        bindings(&java, "both"),
+        ["GET /api/x", "GET /api/y", "POST /api/x", "POST /api/y"]
+    );
+    assert_eq!(bindings(&java, "any"), ["ANY /api/any"]);
+    assert_eq!(bindings(&java, "root"), ["GET /api"]);
+    assert!(bindings(&java, "constant").is_empty(), "no guessed path");
+    assert_eq!(bindings(&java, "media"), ["GET /api/v"]);
+    // The bindings of one annotation share its node.
+    let both = java.definitions.iter().find(|d| d.name == "both").unwrap();
+    assert!(both.routes.windows(2).all(|w| w[0].span == w[1].span));
+
+    let kotlin = extract(
+        "kotlin",
+        "src/K.kt",
+        "package a\n@RestController\n@RequestMapping(\"/k\")\nclass K {\n  @GetMapping(value = [\"/y\", \"/z\"])\n  fun yz(): String = \"\"\n  @RequestMapping(path = [\"/m\"], method = [RequestMethod.GET, RequestMethod.PUT])\n  fun m(): String = \"\"\n}\n",
+    );
+    assert_eq!(bindings(&kotlin, "yz"), ["GET /k/y", "GET /k/z"]);
+    assert_eq!(bindings(&kotlin, "m"), ["GET /k/m", "PUT /k/m"]);
+    let m = kotlin.definitions.iter().find(|d| d.name == "m").unwrap();
+    assert_eq!(
+        m.routes[0].ast_path,
+        ["function_declaration", "modifiers", "annotation"]
+    );
+
+    let python = extract(
+        "python",
+        "app/f.py",
+        "from flask import Flask\napp = Flask(__name__)\n\n@app.route(\"/f\", methods=[\"GET\", \"POST\"])\ndef f():\n    return ''\n\n@app.get(\"/one\")\n@app.post(\"/two\")\ndef stacked():\n    return ''\n\n@app.get(PATH)\ndef dynamic():\n    return ''\n",
+    );
+    assert_eq!(bindings(&python, "f"), ["GET /f", "POST /f"]);
+    assert_eq!(bindings(&python, "stacked"), ["GET /one", "POST /two"]);
+    assert!(bindings(&python, "dynamic").is_empty(), "no guessed path");
+    let stacked = python
+        .definitions
+        .iter()
+        .find(|d| d.name == "stacked")
+        .unwrap();
+    assert_ne!(
+        stacked.routes[0].span, stacked.routes[1].span,
+        "two decorators"
+    );
 }

@@ -29,7 +29,7 @@ pub use error::{EngineError, SourceDifference};
 pub use model::{
     Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
     FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, NamespaceEvidence, ReadWrite,
-    SourceDigest, Span, Surface, Throw, TypeRef, Usage, Visibility, namespace_evidence,
+    RouteFact, SourceDigest, Span, Surface, Throw, TypeRef, Usage, Visibility, namespace_evidence,
 };
 pub use resolver::{
     AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ProjectResolution,

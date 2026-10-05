@@ -37,8 +37,10 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 
 /// Version of the extraction engine's behaviour, bumped when its output can change. 2
 /// since extraction records each call's and possible reference's node-type path, which
-/// it did not compute before (issue 46).
-pub const ENGINE_VERSION: u32 = 2;
+/// it did not compute before (issue 46); 3 since it records every route binding a
+/// definition's decorators or annotations declare, with the declaring node's position
+/// and node-type path (issue 54).
+pub const ENGINE_VERSION: u32 = 3;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the
@@ -53,8 +55,10 @@ pub const SECRET_DETECTOR_VERSION: u32 = 2;
 /// definition carries its base classes and an extraction its file's declared
 /// namespace (issues 40 and 41), 3 since an extraction carries its `impl Trait for
 /// Type` relations (issue 42), 4 since a call carries its node-type path and arguments
-/// and a definition its decorators, parameter types and route (issues 46 and 47).
-pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 4;
+/// and a definition its decorators, parameter types and route (issues 46 and 47), 5
+/// since a definition carries every route binding with its declaring node in place of
+/// one route (issue 54).
+pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 5;
 
 // --- resolution ------------------------------------------------------------
 

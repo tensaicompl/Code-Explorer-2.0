@@ -37,7 +37,9 @@
  * refresh, a patch, a change to this translation. It is part of every cache key, so
  * a cached extraction from an older engine is never mistaken for a current one.
  */
-static const char ENGINE_VERSION_STRING[] = "2"; /* 2: sites carry their node-type path (issue 46) */
+/* 2: sites carry their node-type path (issue 46). 3: definitions carry every route
+ * binding with its declaring node (issue 54). */
+static const char ENGINE_VERSION_STRING[] = "3";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;
@@ -353,6 +355,8 @@ typedef struct {
     uint32_t lost;
     /* The calls' arguments, one array the calls point into (issue 47). */
     pdxe_call_arg *call_args;
+    /* The definitions' routes, one array the definitions point into (issue 54). */
+    pdxe_route *routes;
 } result_holder;
 
 static void holder_free(result_holder *h) {
@@ -371,6 +375,7 @@ static void holder_free(result_holder *h) {
     free(h->pub.throws);
     free(h->pub.impl_traits);
     free(h->call_args);
+    free(h->routes);
     if (h->engine) {
         pdxe_free_result(h->engine);
     }
@@ -628,6 +633,57 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
         o->route_method = d->route_method;
     }
     r->n_defs = kept;
+
+    /* Routes, translated into one array the definitions point into (issue 54). Their
+     * strings and node-type paths are the engine's, borrowed. */
+    size_t n_routes = 0;
+    for (int i = 0; i < defs->count; i++) {
+        if (!is_synthetic(&defs->items[i]) && defs->items[i].routes &&
+            defs->items[i].route_count > 0) {
+            n_routes += (size_t)defs->items[i].route_count;
+        }
+    }
+    if (n_routes > 0) {
+        h->routes = (pdxe_route *)calloc(n_routes, sizeof(pdxe_route));
+        if (!h->routes) {
+            holder_free(h);
+            return PDXE_E_NOMEM;
+        }
+        size_t next = 0;
+        kept = 0;
+        for (int i = 0; i < defs->count; i++) {
+            const PDXEDefinition *d = &defs->items[i];
+            if (is_synthetic(d)) {
+                continue;
+            }
+            pdxe_definition *o = &r->defs[kept++];
+            if (!d->routes || d->route_count <= 0) {
+                continue;
+            }
+            o->routes = &h->routes[next];
+            for (int k = 0; k < d->route_count; k++) {
+                const PDXERouteFact *f = &d->routes[k];
+                if (!f->method || !f->path || !f->callee_text) {
+                    continue;
+                }
+                pdxe_route *route = &h->routes[next + o->n_routes];
+                route->method = f->method;
+                route->path = f->path;
+                route->callee_text = f->callee_text;
+                route->source_text = f->source_text;
+                route->span = f->end_byte > f->start_byte
+                                  ? span_of_bytes(li, f->start_byte, f->end_byte)
+                                  : (pdxe_span){0};
+                route->n_ast_path = count_strings(f->ast_path);
+                route->ast_path = route->n_ast_path ? f->ast_path : NULL;
+                o->n_routes++;
+            }
+            if (o->n_routes == 0) {
+                o->routes = NULL;
+            }
+            next += (size_t)d->route_count;
+        }
+    }
 
     /* Second pass: parents, now that every kept definition has its position. */
     kept = 0;
@@ -936,7 +992,7 @@ static const char *own(result_holder *h, const char *s, bool *failed) {
  * surface (pdxe_surface_import). Channel, configuration, diagnostic and throw arrays
  * are not among the parts and come back empty; the status is `parsed`, and the result
  * is not truncated. A definition's base classes are copied, the array and each string,
- * and so are the `impl Trait for Type` relations.
+ * and so are its routes and the `impl Trait for Type` relations.
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,
@@ -955,8 +1011,16 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
     /* Every counted array of a definition or call is there, and holds what it must. */
     for (uint32_t i = 0; i < n_defs; i++) {
         if (!strings_present(defs[i].decorators, defs[i].n_decorators) ||
-            !strings_present(defs[i].signature_param_types, defs[i].n_signature_param_types)) {
+            !strings_present(defs[i].signature_param_types, defs[i].n_signature_param_types) ||
+            (defs[i].n_routes && !defs[i].routes)) {
             return PDXE_E_INVALID;
+        }
+        for (uint32_t k = 0; k < defs[i].n_routes; k++) {
+            const pdxe_route *route = &defs[i].routes[k];
+            if (!route->method || !route->path || !route->callee_text ||
+                !strings_present(route->ast_path, route->n_ast_path)) {
+                return PDXE_E_INVALID;
+            }
         }
     }
     for (uint32_t i = 0; i < n_calls; i++) {
@@ -1046,6 +1110,29 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
             d->signature_param_types ? defs[i].n_signature_param_types : 0;
         d->route_path = own(h, defs[i].route_path, &failed);
         d->route_method = own(h, defs[i].route_method, &failed);
+        d->routes = NULL;
+        d->n_routes = 0;
+        if (defs[i].n_routes && !failed) {
+            /* The array is the holder's too: it frees it with the strings. */
+            pdxe_route *routes = (pdxe_route *)calloc(defs[i].n_routes, sizeof(*routes));
+            if (!routes || !adopt(h, (char *)routes)) {
+                free(routes);
+                failed = true;
+                continue;
+            }
+            for (uint32_t k = 0; k < defs[i].n_routes; k++) {
+                const pdxe_route *from = &defs[i].routes[k];
+                routes[k].method = own(h, from->method, &failed);
+                routes[k].path = own(h, from->path, &failed);
+                routes[k].callee_text = own(h, from->callee_text, &failed);
+                routes[k].source_text = own(h, from->source_text, &failed);
+                routes[k].span = from->span;
+                routes[k].ast_path = own_strings(h, from->ast_path, from->n_ast_path, &failed);
+                routes[k].n_ast_path = routes[k].ast_path ? from->n_ast_path : 0;
+            }
+            d->routes = routes;
+            d->n_routes = defs[i].n_routes;
+        }
     }
     for (uint32_t i = 0; i < n_calls; i++) {
         r->calls[i] = calls[i];
