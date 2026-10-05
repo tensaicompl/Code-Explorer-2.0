@@ -250,6 +250,7 @@ pub enum RegistryError {
 pub(crate) struct FileState {
     pub(crate) discovered: DiscoveredFile,
     pub(crate) outcome: FileOutcome,
+    pub(crate) line_count: Option<u64>,
 }
 
 /// The checkout and its files, by path.
@@ -860,6 +861,12 @@ impl SymbolRegistry {
         self.files.get(path).map(|s| &s.discovered)
     }
 
+    /// A file's lines, as Stage 2 counted them from the bytes it read; `None` for a
+    /// file it never read.
+    pub fn line_count(&self, path: &str) -> Option<u64> {
+        self.files.get(path)?.line_count
+    }
+
     /// What Stage 2 did with a file.
     pub fn outcome(&self, path: &str) -> Option<&FileOutcome> {
         self.files.get(path).map(|s| &s.outcome)
@@ -1214,6 +1221,7 @@ fn pair_stages(
             FileState {
                 discovered: d,
                 outcome: e.outcome,
+                line_count: e.line_count,
             },
         );
     }

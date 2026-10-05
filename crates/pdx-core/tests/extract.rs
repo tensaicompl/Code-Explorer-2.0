@@ -676,7 +676,7 @@ fn cache_key_includes_language() {
     };
     let (python, ruby) = (as_language("python"), as_language("ruby"));
     assert_eq!(
-        LANGUAGE_MATRIX_VERSION, 1,
+        LANGUAGE_MATRIX_VERSION, 2,
         "the matrix version is the same for both"
     );
 
@@ -708,8 +708,13 @@ fn cache_object_id_fixed_vector() {
     assert_eq!(key.engine_version, ENGINE_VERSION);
     assert_eq!(key.language_matrix_version, LANGUAGE_MATRIX_VERSION);
     assert_eq!(
-        EXTRACT_CACHE_FORMAT_VERSION, 3,
-        "the vector below is format 3's"
+        EXTRACT_CACHE_FORMAT_VERSION, 4,
+        "the vector below is format 4's"
+    );
+    assert_eq!(
+        (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
+        (2, 2),
+        "the vector below is engine 2's and matrix 2's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 2,
@@ -718,10 +723,10 @@ fn cache_object_id_fixed_vector() {
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "9e53439d946efd2d697239ab10b5633cf770e93b55779a34dcd991f1cadb33d4"
+        "db46598944211d68e2eabd6c3ed2031a06212f8bee8a43877ed2216845cdc191"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v3").join("9e").join(&id));
+    assert_eq!(path, Path::new("cache").join("v4").join("db").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -1016,13 +1021,14 @@ fn cache_rejects_wrong_source_digest() {
 }
 
 #[test]
-fn cache_format_2_is_a_miss() {
-    // Format 2 held extractions without their impl relations (issue 42), format 1
-    // also definitions without base classes and extractions without a declared
-    // namespace. Their entries are never decoded as the current format: not in the
-    // directory their format used, which is never read, and not at the current path
-    // with their format written in them.
-    for old_format in [1, 2] {
+fn cache_format_3_is_a_miss() {
+    // Format 3 held calls without their node-type path and arguments and definitions
+    // without decorators, parameter types and route (issues 46 and 47); format 2 also
+    // extractions without impl relations (issue 42), format 1 definitions without base
+    // classes and extractions without a declared namespace. Their entries are never
+    // decoded as the current format: not in the directory their format used, which is
+    // never read, and not at the current path with their format written in them.
+    for old_format in [1, 2, 3] {
         let checkout = Checkout::new();
         checkout.write("src/app.py", PYTHON);
         let config = checkout.config();
@@ -1040,7 +1046,7 @@ fn cache_format_2_is_a_miss() {
         let cache = Cache::new();
         let current = cache.cache.object_path(&key);
         let current_text = current.to_string_lossy().replace('\\', "/");
-        assert!(current_text.contains("/v3/"), "{current_text}");
+        assert!(current_text.contains("/v4/"), "{current_text}");
         let old_dir = cache
             .cache
             .root()
@@ -1100,6 +1106,49 @@ fn cached_extractions_keep_impl_relations() {
             ("Marker", "Square", "src.lib.Square"),
             ("Shape", "Square", "src.lib.Square")
         ]
+    );
+}
+
+#[test]
+fn cached_extractions_keep_site_paths_and_derivation_facts() {
+    // Each call's node-type path and arguments and each definition's decorators,
+    // parameter types and route survive the cache whole (issues 46 and 47).
+    let checkout = Checkout::new();
+    checkout.write(
+        "app/main.py",
+        "from fastapi import FastAPI\n\napp = FastAPI()\n\n\n@app.get(\"/users/{user_id}\")\ndef read_user(user_id: int) -> dict:\n    return {\"id\": helper(user_id)}\n\n\ndef helper(x):\n    return x\n",
+    );
+    let cache = Cache::new();
+    let probe = Probe::new(Twist::None);
+    let fresh = run(&checkout, Some(&cache), &probe);
+    let probe = Probe::new(Twist::None);
+    let cached = run(&checkout, Some(&cache), &probe);
+    assert_eq!(probe.files(), 0, "not from the cache");
+    assert_eq!(cached.files, fresh.files);
+    let e = extract_of(&cached, "app/main.py");
+    let helper = e.calls.iter().find(|c| c.callee_text == "helper").unwrap();
+    assert_eq!(
+        helper.ast_path,
+        [
+            "function_definition",
+            "block",
+            "return_statement",
+            "dictionary",
+            "pair",
+            "call"
+        ]
+    );
+    assert_eq!(helper.args.len(), 1);
+    let read = e
+        .definitions
+        .iter()
+        .find(|d| d.name == "read_user")
+        .unwrap();
+    assert_eq!(read.decorators, ["@app.get(\"/users/{user_id}\")"]);
+    assert_eq!(read.signature_param_types, ["int"]);
+    assert_eq!(
+        (read.route_method.as_deref(), read.route_path.as_deref()),
+        (Some("GET"), Some("/users/{user_id}"))
     );
 }
 

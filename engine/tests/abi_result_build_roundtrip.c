@@ -19,6 +19,12 @@
  * in the same way; files with none, one and several must all occur (fixtures/bases),
  * and a file with none has no array (issue 42).
  *
+ * And a definition's decorators, parameter types and route, and a call's node-type
+ * path and captured arguments (issues 46 and 47): compared field by field, rebuilt
+ * from copies that are then destroyed, and refused when counted without an array or
+ * with a NULL where a string is required. Every call extraction positions in the raw
+ * source has a path, and decorators, routes and arguments all occur (fixtures/facts).
+ *
  * And surfaces that are not what the encoder writes are refused: truncated, of
  * another version, with a field missing, a field extra, a field of the wrong type,
  * or a counted array whose count disagrees with it.
@@ -59,6 +65,33 @@ static int same_span(pdxe_span a, pdxe_span b) {
     return memcmp(&a, &b, sizeof(a)) == 0;
 }
 
+static int same_strings(const char *const *a, uint32_t na, const char *const *b, uint32_t nb) {
+    if (na != nb || (na == 0) != (a == NULL) || (nb == 0) != (b == NULL)) {
+        return 0;
+    }
+    for (uint32_t i = 0; i < na; i++) {
+        if (!same_str(a[i], b[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int same_args(const pdxe_call *x, const pdxe_call *y) {
+    if (x->n_args != y->n_args || (y->n_args == 0) != (y->args == NULL)) {
+        return 0;
+    }
+    for (uint32_t a = 0; a < x->n_args; a++) {
+        if (!same_str(x->args[a].expr, y->args[a].expr) ||
+            !same_str(x->args[a].value, y->args[a].value) ||
+            !same_str(x->args[a].keyword, y->args[a].keyword) ||
+            x->args[a].index != y->args[a].index) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static void compare(const char *path, const pdxe_file_result *a, const pdxe_file_result *b) {
     CHECK(a->n_defs == b->n_defs && a->n_calls == b->n_calls && a->n_imports == b->n_imports &&
               a->n_usages == b->n_usages && a->n_types == b->n_types && a->n_rws == b->n_rws,
@@ -78,6 +111,12 @@ static void compare(const char *path, const pdxe_file_result *a, const pdxe_file
             CHECK(same_str(x->base_classes[b], y->base_classes[b]),
                   "%s: definition %u's base %u differs", path, i, b);
         }
+        CHECK(same_strings(x->decorators, x->n_decorators, y->decorators, y->n_decorators) &&
+                  same_strings(x->signature_param_types, x->n_signature_param_types,
+                               y->signature_param_types, y->n_signature_param_types) &&
+                  same_str(x->route_path, y->route_path) &&
+                  same_str(x->route_method, y->route_method),
+              "%s: definition %u's decorators, parameter types or route differ", path, i);
     }
     for (uint32_t i = 0; i < a->n_calls && i < b->n_calls; i++) {
         const pdxe_call *x = &a->calls[i], *y = &b->calls[i];
@@ -85,7 +124,9 @@ static void compare(const char *path, const pdxe_file_result *a, const pdxe_file
                   same_str(x->receiver_text, y->receiver_text) &&
                   x->caller_index == y->caller_index && same_span(x->span, y->span) &&
                   x->is_reference == y->is_reference && x->typed_only == y->typed_only &&
-                  x->lexical == y->lexical,
+                  x->lexical == y->lexical &&
+                  same_strings(x->ast_path, x->n_ast_path, y->ast_path, y->n_ast_path) &&
+                  same_args(x, y),
               "%s: call %u differs", path, i);
     }
     for (uint32_t i = 0; i < a->n_imports && i < b->n_imports; i++) {
@@ -171,9 +212,66 @@ static int files_checked = 0;
 static int defs_without_bases = 0;
 static int defs_with_one_base = 0;
 static int defs_with_several_bases = 0;
+static int calls_with_path = 0;
+static int calls_with_args = 0;
+static int defs_with_decorators = 0;
+static int defs_with_route = 0;
+static int defs_with_param_types = 0;
 static int files_without_impls = 0;
 static int files_with_one_impl = 0;
 static int files_with_several_impls = 0;
+
+/* A copy of a result's calls the caller owns: the array, each path and argument array,
+ * and their strings. Other strings stay the result's. */
+static pdxe_call *copy_calls(const pdxe_file_result *r) {
+    pdxe_call *copy = calloc(r->n_calls ? r->n_calls : 1, sizeof(*copy));
+    for (uint32_t i = 0; copy && i < r->n_calls; i++) {
+        copy[i] = r->calls[i];
+        if (r->calls[i].n_ast_path) {
+            const char **p = calloc(r->calls[i].n_ast_path, sizeof(*p));
+            for (uint32_t t = 0; p && t < r->calls[i].n_ast_path; t++) {
+                p[t] = strdup(r->calls[i].ast_path[t]);
+            }
+            copy[i].ast_path = p;
+        }
+        if (r->calls[i].n_args) {
+            pdxe_call_arg *a = calloc(r->calls[i].n_args, sizeof(*a));
+            for (uint32_t k = 0; a && k < r->calls[i].n_args; k++) {
+                a[k] = r->calls[i].args[k];
+                a[k].expr = strdup(r->calls[i].args[k].expr);
+                a[k].value = r->calls[i].args[k].value ? strdup(r->calls[i].args[k].value) : NULL;
+                a[k].keyword =
+                    r->calls[i].args[k].keyword ? strdup(r->calls[i].args[k].keyword) : NULL;
+            }
+            copy[i].args = a;
+        }
+    }
+    return copy;
+}
+
+static void scrub(const char *s) {
+    if (s) {
+        memset((char *)s, 'Z', strlen(s));
+        free((char *)s);
+    }
+}
+
+/* Overwrites and frees what copy_calls made. */
+static void destroy_calls(pdxe_call *copy, uint32_t n) {
+    for (uint32_t i = 0; i < n; i++) {
+        for (uint32_t t = 0; t < copy[i].n_ast_path; t++) {
+            scrub(copy[i].ast_path[t]);
+        }
+        free((void *)copy[i].ast_path);
+        for (uint32_t k = 0; k < copy[i].n_args; k++) {
+            scrub(copy[i].args[k].expr);
+            scrub(copy[i].args[k].value);
+            scrub(copy[i].args[k].keyword);
+        }
+        free((void *)copy[i].args);
+    }
+    free(copy);
+}
 
 /* A copy of a result's impl relations the caller owns, array and strings. */
 static pdxe_impl_trait *copy_impls(const pdxe_file_result *r) {
@@ -269,6 +367,25 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
                   it->struct_qn && it->struct_qn[0],
               "%s: impl relation %u has an empty string", path, i);
     }
+    for (uint32_t i = 0; i < r->n_calls; i++) {
+        const pdxe_call *c = &r->calls[i];
+        int raw = c->span.end_byte > c->span.start_byte;
+        CHECK(!raw || c->n_ast_path > 0, "%s: call %u (%s) is in the source but has no path", path,
+              i, c->callee_text);
+        CHECK((c->n_ast_path == 0) == (c->ast_path == NULL) && (c->n_args == 0) == (c->args == NULL),
+              "%s: call %u counts an array it does not have", path, i);
+        for (uint32_t t = 0; t < c->n_ast_path; t++) {
+            CHECK(c->ast_path[t] && c->ast_path[t][0], "%s: call %u's path has an empty type",
+                  path, i);
+        }
+        calls_with_path += c->n_ast_path > 0;
+        calls_with_args += c->n_args > 0;
+    }
+    for (uint32_t i = 0; i < r->n_defs; i++) {
+        defs_with_decorators += r->defs[i].n_decorators > 0;
+        defs_with_route += r->defs[i].route_path != NULL;
+        defs_with_param_types += r->defs[i].n_signature_param_types > 0;
+    }
     files_without_impls += r->n_impl_traits == 0;
     files_with_one_impl += r->n_impl_traits == 1;
     files_with_several_impls += r->n_impl_traits > 1;
@@ -277,14 +394,18 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
      * the rebuilt result's own. */
     pdxe_definition *copy = copy_defs(r);
     pdxe_impl_trait *impls = copy_impls(r);
+    pdxe_call *calls = copy_calls(r);
     pdxe_file_result *from_copy = NULL;
-    CHECK(copy && impls &&
-              pdxe_result_build(ctx, copy, r->n_defs, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
-                                r->n_impl_traits ? impls : NULL, r->n_impl_traits,
-                                &from_copy) == PDXE_OK,
+    CHECK(copy && impls && calls &&
+              pdxe_result_build(ctx, copy, r->n_defs, r->n_calls ? calls : NULL, r->n_calls, NULL,
+                                0, NULL, 0, NULL, 0, NULL, 0, r->n_impl_traits ? impls : NULL,
+                                r->n_impl_traits, &from_copy) == PDXE_OK,
           "%s: rebuild from a copy failed", path);
     if (copy) {
         destroy_defs(copy, r->n_defs);
+    }
+    if (calls) {
+        destroy_calls(calls, r->n_calls);
     }
     if (impls) {
         destroy_impls(impls, r->n_impl_traits);
@@ -301,6 +422,23 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
                           y->base_classes[b] != x->base_classes[b],
                       "%s: definition %u's base %u is not a copy of its own", path, i, b);
             }
+        }
+        for (uint32_t i = 0; i < from_copy->n_calls && i < r->n_calls; i++) {
+            const pdxe_call *x = &r->calls[i], *y = &from_copy->calls[i];
+            CHECK(same_strings(x->ast_path, x->n_ast_path, y->ast_path, y->n_ast_path) &&
+                      same_args(x, y) && (x->n_ast_path == 0 || x->ast_path != y->ast_path) &&
+                      (x->n_args == 0 || x->args != y->args),
+                  "%s: call %u's path or arguments are not a copy of its own", path, i);
+        }
+        for (uint32_t i = 0; i < from_copy->n_defs && i < r->n_defs; i++) {
+            const pdxe_definition *x = &r->defs[i], *y = &from_copy->defs[i];
+            CHECK(same_strings(x->decorators, x->n_decorators, y->decorators, y->n_decorators) &&
+                      same_strings(x->signature_param_types, x->n_signature_param_types,
+                                   y->signature_param_types, y->n_signature_param_types) &&
+                      same_str(x->route_path, y->route_path) &&
+                      same_str(x->route_method, y->route_method) &&
+                      (x->route_path == NULL || x->route_path != y->route_path),
+                  "%s: definition %u's facts are not a copy of its own", path, i);
         }
         CHECK(from_copy->n_impl_traits == r->n_impl_traits &&
                   (from_copy->n_impl_traits == 0) == (from_copy->impl_traits == NULL),
@@ -528,7 +666,7 @@ static void check_refusals(pdxe_ctx *ctx) {
     free(truncated);
 
     char *m;
-    expect_refused("of another version", m = replace(good, "\"v\":2", "\"v\":1"));
+    expect_refused("of another version", m = replace(good, "\"v\":3", "\"v\":2"));
     free(m);
     expect_refused("without what extraction lost", m = replace(good, "\"lost\":0,", ""));
     free(m);
@@ -542,7 +680,7 @@ static void check_refusals(pdxe_ctx *ctx) {
     expect_refused("with a field of the wrong type",
                    m = replace(good, "\"lsp_skipped\":false", "\"lsp_skipped\":0"));
     free(m);
-    expect_refused("with an extra top-level key", m = replace(good, "\"v\":2", "\"v\":2,\"x\":0"));
+    expect_refused("with an extra top-level key", m = replace(good, "\"v\":3", "\"v\":3,\"x\":0"));
     free(m);
     /* A definition's bases: counted bases with no array, and a NULL base. */
     pdxe_definition with_bases = r->defs[0];
@@ -558,6 +696,49 @@ static void check_refusals(pdxe_ctx *ctx) {
     CHECK(pdxe_result_build(ctx, &with_bases, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "a definition with a NULL base was rebuilt");
+    /* A definition's decorators counted with no array, and parameter types holding a
+     * NULL; a call's path counted with no array or holding a NULL; arguments counted
+     * with no array; an argument with no expression. */
+    pdxe_definition with_decorators = r->defs[0];
+    with_decorators.n_base_classes = 0;
+    with_decorators.base_classes = NULL;
+    with_decorators.n_decorators = 1;
+    with_decorators.decorators = NULL;
+    CHECK(pdxe_result_build(ctx, &with_decorators, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
+          "decorators counted with no array were rebuilt");
+    const char *null_param[] = {"int", NULL};
+    with_decorators.n_decorators = 0;
+    with_decorators.decorators = NULL;
+    with_decorators.n_signature_param_types = 2;
+    with_decorators.signature_param_types = null_param;
+    CHECK(pdxe_result_build(ctx, &with_decorators, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
+          "a parameter type that is NULL was rebuilt");
+    pdxe_call bad_call = {0};
+    bad_call.callee_text = "f";
+    bad_call.caller_index = PDXE_NO_PARENT;
+    bad_call.n_ast_path = 1;
+    CHECK(pdxe_result_build(ctx, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            &refused) == PDXE_E_INVALID && !refused,
+          "a path counted with no array was rebuilt");
+    const char *null_type[] = {"block", NULL};
+    bad_call.ast_path = null_type;
+    bad_call.n_ast_path = 2;
+    CHECK(pdxe_result_build(ctx, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            &refused) == PDXE_E_INVALID && !refused,
+          "a path with a NULL type was rebuilt");
+    bad_call.ast_path = NULL;
+    bad_call.n_ast_path = 0;
+    bad_call.n_args = 1;
+    CHECK(pdxe_result_build(ctx, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            &refused) == PDXE_E_INVALID && !refused,
+          "arguments counted with no array were rebuilt");
+    const pdxe_call_arg no_expr = {NULL, "v", NULL, 0};
+    bad_call.args = &no_expr;
+    CHECK(pdxe_result_build(ctx, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            &refused) == PDXE_E_INVALID && !refused,
+          "an argument with no expression was rebuilt");
     /* Impl relations: counted with no array, and one with a NULL string. */
     CHECK(pdxe_result_build(ctx, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 1,
                             &refused) == PDXE_E_INVALID && !refused,
@@ -593,6 +774,12 @@ int main(int argc, char **argv) {
     CHECK(defs_without_bases > 0 && defs_with_one_base > 0 && defs_with_several_bases > 0,
           "bases seen: %d definitions with none, %d with one, %d with several",
           defs_without_bases, defs_with_one_base, defs_with_several_bases);
+    CHECK(calls_with_path > 0 && calls_with_args > 0 && defs_with_decorators > 0 &&
+              defs_with_route > 0 && defs_with_param_types > 0,
+          "facts seen: %d calls with a path, %d with arguments; %d definitions with "
+          "decorators, %d with a route, %d with parameter types",
+          calls_with_path, calls_with_args, defs_with_decorators, defs_with_route,
+          defs_with_param_types);
     CHECK(files_without_impls > 0 && files_with_one_impl > 0 && files_with_several_impls > 0,
           "impl relations seen: %d files with none, %d with one, %d with several",
           files_without_impls, files_with_one_impl, files_with_several_impls);

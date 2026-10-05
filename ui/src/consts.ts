@@ -16,7 +16,7 @@
 export const TILE_FORMAT_VERSION = 1;
 
 /** Layout of a segment file, reported by the server and shown on the trust view. */
-export const SEGMENT_SCHEMA_VERSION = 1;
+export const SEGMENT_SCHEMA_VERSION = 2;
 
 /** Version of the agent tool surface, which the chat dock calls through. */
 export const MCP_TOOLS_VERSION = 1;

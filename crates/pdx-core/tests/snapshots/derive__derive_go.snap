@@ -1,0 +1,16 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"File": 4, "Folder": 4, "Function": 4, "Module": 2, "Repo": 1, "Test": 1}
+entry points: 2
+edges: {("CALLS", "typed"): 3, ("TESTS", "typed"): 1}
+candidates: {"unresolved": 1}
+files: cmd/app/main.go=parsed go.mod=skipped pkg/a/a.go=parsed pkg/a/a_test.go=parsed
+  Function cmd.app.main main parent=File:main.go module=go:example.com/acme/cmd/app entry id=558YZAZ41NKNDFPZR8J3AZ9E3P
+  Function pkg.a.Hello Hello parent=File:a.go module=go:example.com/acme/pkg/a id=1GP34ZRTNJVG0JPES6ZZPDNZ6C
+  Function pkg.a.helper helper parent=File:a.go module=go:example.com/acme/pkg/a id=D6ZZVVAW2SWP14V3Z7X7PKR3T0
+  Function pkg.a.setup setup parent=File:a_test.go module=go:example.com/acme/pkg/a id=V7B75M361F3YW10TTS6Q1XG90D
+  Module go:example.com/acme/cmd/app example.com/acme/cmd/app parent=File:main.go id=QEET0ZZ36H4PR85NABDM96KY9X
+  Module go:example.com/acme/pkg/a example.com/acme/pkg/a parent=Folder:a id=2EXBNZX7NK932ZRQPVS6Y4MW8F
+  Test pkg.a.TestHello TestHello parent=File:a_test.go module=go:example.com/acme/pkg/a test entry id=SVT00KEBSDM49Z9S5KW6ZS92PP

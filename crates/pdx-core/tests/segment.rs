@@ -69,6 +69,7 @@ impl Drop for Scratch {
 const COMMIT: &str = "0123456789abcdef0123456789abcdef01234567";
 const JAVA: &str = "src/main/Inventory.java";
 const GUIDE: &str = "docs/guide.md";
+const SECRET: &str = "config/.env.production";
 
 fn repo() -> RepoId {
     RepoId::parse("ce63551447285fd4").expect("a repository id")
@@ -127,9 +128,9 @@ fn fixture() -> SegmentData {
             language: "java".to_owned(),
             status: FileStatus::Parsed,
             status_reason: None,
-            blob_sha: "1111111111111111111111111111111111111111".to_owned(),
+            blob_sha: Some("1111111111111111111111111111111111111111".to_owned()),
             size_bytes: 3330,
-            line_count: 120,
+            line_count: Some(120),
         },
         FileRecord {
             file_id: file_id(GUIDE),
@@ -137,9 +138,20 @@ fn fixture() -> SegmentData {
             language: "markdown".to_owned(),
             status: FileStatus::Partial,
             status_reason: Some("an unclosed code fence".to_owned()),
-            blob_sha: "2222222222222222222222222222222222222222".to_owned(),
+            blob_sha: Some("2222222222222222222222222222222222222222".to_owned()),
             size_bytes: 812,
-            line_count: 40,
+            line_count: Some(40),
+        },
+        // Never read: no hash, no lines (issue 51).
+        FileRecord {
+            file_id: file_id(SECRET),
+            path: SECRET.to_owned(),
+            language: "properties".to_owned(),
+            status: FileStatus::Redacted,
+            status_reason: None,
+            blob_sha: None,
+            size_bytes: 64,
+            line_count: None,
         },
     ];
 
@@ -265,6 +277,7 @@ fn fixture() -> SegmentData {
         candidate_ids: vec![add.node_id.clone(), remove.node_id.clone()],
         engine_score: Some(0.5),
         engine_strategy: Some("suffix_match".to_owned()),
+        engine_candidates: Some(2),
         reason: "two definitions survive; the call's \"receiver\" is untyped".to_owned(),
     };
 
@@ -687,19 +700,29 @@ fn segment_is_byte_identical_across_builds() {
 fn reader_refuses_wrong_schema_version() {
     let scratch = Scratch::new();
     let segment = write(&fixture(), &scratch, "versions");
-    let (copy, conn) = damaged_copy(&segment, &scratch, "v2.db");
-    conn.execute(testing::SET_META, ["schema_version", "2"])
-        .expect("damaged");
-    drop(conn);
-    match SegmentReader::open(&copy) {
-        Err(SegmentError::WrongSchemaVersion {
-            expected: 1,
-            found: 2,
-        }) => {}
-        other => panic!("expected a wrong-schema refusal, got {other:?}"),
+    // A version-1 segment (before `candidates.engine_candidates`, issue 50) is
+    // refused, never read as the current version; so is a later one.
+    for (name, found) in [("v1.db", 1), ("v3.db", 3)] {
+        let (damaged, conn) = damaged_copy(&segment, &scratch, name);
+        conn.execute(testing::SET_META, ["schema_version", &found.to_string()])
+            .expect("damaged");
+        drop(conn);
+        match SegmentReader::open(&damaged) {
+            Err(SegmentError::WrongSchemaVersion {
+                expected: 2,
+                found: f,
+            }) if f == found => {}
+            other => panic!("expected a wrong-schema refusal of {found}, got {other:?}"),
+        }
+        // The refusal names both versions.
+        let message = SegmentReader::open(&damaged)
+            .expect_err("refused")
+            .to_string();
+        assert!(
+            message.contains('2') && message.contains(&found.to_string()),
+            "{message}"
+        );
     }
-    let message = SegmentReader::open(&copy).expect_err("refused").to_string();
-    assert!(message.contains('2') && message.contains('1'), "{message}");
 
     let (copy, conn) = damaged_copy(&segment, &scratch, "missing.db");
     conn.execute(testing::DELETE_META, ["schema_version"])
@@ -1330,9 +1353,9 @@ fn rows_that_cannot_be_stored_are_refused() {
     ));
 
     let mut other_version = fixture();
-    other_version.meta.schema_version = 2;
+    other_version.meta.schema_version = 1;
     assert!(matches!(
-        attempt(&other_version, "v2.db"),
+        attempt(&other_version, "v1.db"),
         Err(SegmentError::InvalidRow { table: "meta", .. })
     ));
 

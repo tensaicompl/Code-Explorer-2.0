@@ -1,0 +1,21 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"Class": 1, "File": 3, "Folder": 1, "Function": 1, "Interface": 1, "Method": 3, "Module": 2, "Repo": 1, "Struct": 1, "Test": 1, "Variable": 2}
+entry points: 1
+edges: {("CALLS", "exact"): 1}
+candidates: {"candidate": 1}
+files: Cargo.toml=parsed src/cart.rs=parsed src/lib.rs=parsed
+  Class Cargo.package package parent=File:Cargo.toml id=W651ZJJMKTCXADXA8XX75TW5A1
+  Function src.lib.total total parent=File:lib.rs module=rust:crate id=75XJEXFEZE998MW6H3KDNQH6HG
+  Interface src.cart.Summed Summed parent=File:cart.rs module=rust:crate::cart id=BS6ZZ19J79T2XNVN417BQ441TC
+  Method src.cart.Cart.new new parent=Struct:Cart module=rust:crate::cart id=Z08W3M3FE2K862CQWSTB2CH84E
+  Method src.cart.Cart.sum sum parent=Struct:Cart module=rust:crate::cart id=B2AE77GQDJNACX79FTGJPMSFP7
+  Method src.cart.Summed.sum sum parent=Interface:Summed module=rust:crate::cart id=WP9ME9E3Z9PX5CX9T1ZJ9C8732
+  Module rust:crate crate parent=File:lib.rs id=ZV6YA92QPRBQE04EE3MSDF8XQA
+  Module rust:crate::cart crate::cart parent=File:cart.rs id=S0ZVKHSGFBV8VF7VZRWA7Y6MXN
+  Struct src.cart.Cart Cart parent=File:cart.rs module=rust:crate::cart id=E7VHR5064NN1EJ9P484JWKDBM6
+  Test src.cart.sums sums parent=File:cart.rs module=rust:crate::cart test entry id=C61QV0NM0VV22JFXK8M6H7ZVPY
+  Variable Cargo.name name parent=File:Cargo.toml id=5Q24ESM27H213VFZ5WFGMSPCAZ
+  Variable Cargo.version version parent=File:Cargo.toml id=E62D5AN6F52JBQJHDNFTPHTYTA

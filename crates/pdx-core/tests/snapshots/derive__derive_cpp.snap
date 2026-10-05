@@ -1,0 +1,15 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"File": 1, "Folder": 1, "Function": 3, "Module": 3, "Repo": 1}
+entry points: 1
+edges: {("CALLS", "typed"): 2}
+candidates: {}
+files: src/shapes.cpp=parsed
+  Function src.shapes.draw.paint paint parent=File:shapes.cpp module=cpp:draw id=QDSXM9P51HTFXCK8JYWC8YEABB
+  Function src.shapes.geo.area area parent=File:shapes.cpp module=cpp:geo id=AF2YMR8AZPPF228Q6VAVE0GQW9
+  Function src.shapes.main main parent=File:shapes.cpp module=cpp: entry id=GCHSC1N83ZJSQ7E58BDZXX2GV1
+  Module cpp:  parent=File:shapes.cpp id=FS9M1419P87M1A4W6W0NQ6W5WD
+  Module cpp:draw draw parent=File:shapes.cpp id=9FJ7ZGR9EHPGFCAEJFAZC3T3JN
+  Module cpp:geo geo parent=File:shapes.cpp id=BF3DE9APVR3DQZF31F7A2952VS

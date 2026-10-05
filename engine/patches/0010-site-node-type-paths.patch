@@ -1,0 +1,308 @@
+diff --git a/engine/src/extract_calls.c b/engine/src/extract_calls.c
+index 4e0041b..7e004c8 100644
+--- a/engine/src/extract_calls.c
++++ b/engine/src/extract_calls.c
+@@ -3730,8 +3730,20 @@ static PDXEInvocationDescriptor describe_emitted_primary_call(
+     return descriptor;
+ }
+ 
++static PDXEInvocationDescriptor handle_calls_at_node(PDXEExtractCtx *ctx, TSNode node,
++                                                     const PDXELangSpec *spec, WalkState *state);
++
++/* Every call handled at this node is recorded with the node's node-type path. */
+ PDXEInvocationDescriptor handle_calls(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
+                                      WalkState *state) {
++    int calls_before = ctx->result->calls.count;
++    PDXEInvocationDescriptor invocation = handle_calls_at_node(ctx, node, spec, state);
++    pdxe_walk_stamp_site_paths(ctx, state, calls_before, ctx->result->usages.count);
++    return invocation;
++}
++
++static PDXEInvocationDescriptor handle_calls_at_node(PDXEExtractCtx *ctx, TSNode node,
++                                                     const PDXELangSpec *spec, WalkState *state) {
+     PDXEInvocationDescriptor invocation = {0};
+     bool callable_reference = is_callable_reference_value(ctx->language, node);
+     if (callable_reference) {
+diff --git a/engine/src/extract_unified.c b/engine/src/extract_unified.c
+index 632dce1..5d0c5b3 100644
+--- a/engine/src/extract_unified.c
++++ b/engine/src/extract_unified.c
+@@ -329,9 +329,11 @@ static bool push_scope(WalkState *state, uint8_t kind, uint32_t depth, const cha
+     f->prev_inside_import = state->inside_import;
+     f->prev_loop_depth = state->loop_depth;
+     f->prev_branch_depth = state->branch_depth;
++    f->prev_enclosing_func_depth = state->enclosing_func_depth;
+     switch (kind) {
+     case SCOPE_FUNC:
+         state->enclosing_func_qn = qn;
++        state->enclosing_func_depth = depth;
+         break;
+     case SCOPE_CLASS:
+     case SCOPE_NAMESPACE:
+@@ -447,6 +449,7 @@ static void pop_expired_scopes(WalkState *state, uint32_t cur_depth) {
+         state->inside_import = f->prev_inside_import;
+         state->loop_depth = f->prev_loop_depth;
+         state->branch_depth = f->prev_branch_depth;
++        state->enclosing_func_depth = f->prev_enclosing_func_depth;
+         py_param_unwind_to(state, f->prev_py_param_stack_count);
+     }
+ }
+@@ -2558,6 +2561,89 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
+     }
+ }
+ 
++/* Records the current node's type at its depth, growing the stack by doubling;
++ * an allocation that fails stops recording for the rest of the walk, and every
++ * site after it has no path. */
++static void record_node_type(WalkState *state, uint32_t depth, const char *type) {
++    if (state->node_types_failed) {
++        return;
++    }
++    if (depth >= state->node_types_capacity) {
++        uint32_t capacity = state->node_types_capacity ? state->node_types_capacity * 2 : 64;
++        while (capacity <= depth) {
++            capacity *= 2;
++        }
++        const char **grown =
++            (const char **)pdxe_arena_alloc(state->arena, (size_t)capacity * sizeof(char *));
++        if (!grown) {
++            state->node_types_failed = true;
++            return;
++        }
++        if (state->node_types) {
++            memcpy((void *)grown, (const void *)state->node_types,
++                   (size_t)state->node_types_capacity * sizeof(char *));
++        }
++        state->node_types = grown;
++        state->node_types_capacity = capacity;
++    }
++    state->node_types[depth] = type;
++    state->current_depth = depth;
++}
++
++/* The current node's path from the innermost function frame, NULL-terminated, in
++ * the arena; NULL when it cannot be given. */
++static const char **current_site_path(WalkState *state) {
++    uint32_t from = state->enclosing_func_depth;
++    uint32_t to = state->current_depth;
++    if (state->node_types_failed || !state->node_types || from > to ||
++        to >= state->node_types_capacity) {
++        return NULL;
++    }
++    uint32_t n = to - from + 1;
++    const char **path =
++        (const char **)pdxe_arena_alloc(state->arena, ((size_t)n + 1) * sizeof(char *));
++    if (!path) {
++        return NULL;
++    }
++    for (uint32_t i = 0; i < n; i++) {
++        path[i] = state->node_types[from + i];
++        if (!path[i]) {
++            return NULL;
++        }
++    }
++    path[n] = NULL;
++    return path;
++}
++
++void pdxe_walk_stamp_site_paths(PDXEExtractCtx *ctx, WalkState *state, int calls_before,
++                               int usages_before) {
++    const char **path = NULL;
++    bool computed = false;
++    for (int i = calls_before; i < ctx->result->calls.count; i++) {
++        PDXECall *call = &ctx->result->calls.items[i];
++        if (!call->ast_path) {
++            if (!computed) {
++                path = current_site_path(state);
++                computed = true;
++            }
++            call->ast_path = path;
++        }
++    }
++    for (int i = usages_before; i < ctx->result->usages.count; i++) {
++        PDXEUsage *usage = &ctx->result->usages.items[i];
++        bool possible_reference =
++            usage->kind == PDXE_USAGE_CALL_REFERENCE ||
++            (usage->kind == PDXE_USAGE_VALUE && usage->may_be_call_reference);
++        if (possible_reference && !usage->ast_path) {
++            if (!computed) {
++                path = current_site_path(state);
++                computed = true;
++            }
++            usage->ast_path = path;
++        }
++    }
++}
++
+ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
+     const PDXELangSpec *spec = pdxe_lang_spec(ctx->language);
+     if (!spec) {
+@@ -2617,6 +2703,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
+     for (;;) {
+         TSNode node = ts_tree_cursor_current_node(&cursor);
+         visited++;
++        record_node_type(&state, depth, ts_node_type(node));
+         /* The budget is spent in nodes, so the walk of a given file always ends
+          * on the same node — on any machine, under any load. A CPU deadline
+          * here made the graph differ between two runs on one machine; see
+diff --git a/engine/src/extract_unified.h b/engine/src/extract_unified.h
+index 1f46f8e..4dbc9f1 100644
+--- a/engine/src/extract_unified.h
++++ b/engine/src/extract_unified.h
+@@ -84,6 +84,7 @@ typedef struct {
+     bool prev_inside_import;
+     int prev_loop_depth;
+     int prev_branch_depth;
++    uint32_t prev_enclosing_func_depth;
+     /* #1912: py_param_stack height on entry. Pop unwinds back to it, so a
+      * frame unbinds exactly the parameters it bound and nothing else. */
+     int prev_py_param_stack_count;
+@@ -141,6 +142,15 @@ typedef struct {
+     bool inside_import;                 // within an import_node_types subtree
+     int loop_depth;                     // count of enclosing loop scopes (for bottleneck metrics)
+     int branch_depth;                   // count of enclosing branch scopes
++    /* A site's node-type path: node_types holds the type of the current node and of
++     * each ancestor, by cursor depth; enclosing_func_depth is the depth of the
++     * innermost function frame (0, the root, at file scope). The path of a site at
++     * current_depth is node_types[enclosing_func_depth..current_depth]. */
++    const char **node_types;
++    uint32_t node_types_capacity;
++    uint32_t current_depth;
++    uint32_t enclosing_func_depth;
++    bool node_types_failed;
+ 
+     PDXEArena *arena;
+     PDXEWalkScope *scopes;
+@@ -214,6 +224,10 @@ bool pdxe_walk_python_param_is_bound(const WalkState *state, const char *name);
+ PDXEInvocationDescriptor handle_calls(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
+                                      WalkState *state);
+ void handle_usages(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec, WalkState *state);
++/* Gives every call pushed since calls_before, and every possible callable reference
++ * pushed since usages_before, the current node's node-type path. */
++void pdxe_walk_stamp_site_paths(PDXEExtractCtx *ctx, WalkState *state, int calls_before,
++                               int usages_before);
+ void pdxe_finalize_lexical_usages(PDXEExtractCtx *ctx, WalkState *state);
+ void handle_throws(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec, WalkState *state);
+ void handle_readwrites(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec, WalkState *state);
+diff --git a/engine/src/extract_usages.c b/engine/src/extract_usages.c
+index be80a81..d5339c6 100644
+--- a/engine/src/extract_usages.c
++++ b/engine/src/extract_usages.c
+@@ -2616,7 +2616,18 @@ void pdxe_extract_usages(PDXEExtractCtx *ctx) {
+ // --- Unified handler: called once per node by the cursor walk ---
+ // Uses WalkState flags instead of parent-chain walks for O(1) context checks.
+ 
++static void handle_usages_at_node(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
++                                  WalkState *state);
++
++/* Every possible callable reference recorded at this node gets the node's path. */
+ void handle_usages(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec, WalkState *state) {
++    int usages_before = ctx->result->usages.count;
++    handle_usages_at_node(ctx, node, spec, state);
++    pdxe_walk_stamp_site_paths(ctx, state, ctx->result->calls.count, usages_before);
++}
++
++static void handle_usages_at_node(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
++                                  WalkState *state) {
+     if (emit_direct_perl_coderef_usage(ctx, node, state->enclosing_func_qn,
+                                        active_lexical_scope_id(state))) {
+         return;
+diff --git a/engine/src/pdxe_core.c b/engine/src/pdxe_core.c
+index 3ad8e21..d92b7bc 100644
+--- a/engine/src/pdxe_core.c
++++ b/engine/src/pdxe_core.c
+@@ -2072,6 +2072,59 @@ PDXEFileResult *pdxe_engine_extract_file(const char *source, int source_len, PDX
+ enum { PDXE_EXTRACT_SCRATCH_BLOCK = PDXE_SZ_512 * PDXE_SZ_1K };
+ enum { PDXE_EXTRACT_SCRATCH_KEEP_BYTES = 4 * PDXE_SZ_1K * PDXE_SZ_1K };
+ 
++/* The node-type path of a site the walk did not record: from the nearest enclosing
++ * function node (the root at file scope), by the language's function node types as
++ * the walk pushes them, down to the smallest node covering the site. NULL when the
++ * site cannot be located or memory runs out. */
++static const char **late_site_path(PDXEArena *a, TSNode root, const PDXELangSpec *spec,
++                                   uint32_t start, uint32_t end) {
++    TSNode site = ts_node_descendant_for_byte_range(root, start, end);
++    if (ts_node_is_null(site)) {
++        return NULL;
++    }
++    uint32_t n = 0;
++    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
++        n++;
++        if (spec && spec->function_node_types && !ts_node_eq(at, site) &&
++            pdxe_kind_in_set(at, spec->function_node_types)) {
++            break;
++        }
++    }
++    const char **path = (const char **)pdxe_arena_alloc(a, ((size_t)n + 1) * sizeof(char *));
++    if (!path) {
++        return NULL;
++    }
++    path[n] = NULL;
++    uint32_t i = n;
++    for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
++        path[--i] = ts_node_type(at);
++    }
++    return path;
++}
++
++/* Gives a node-type path to every call, and every possible callable reference, that
++ * was added to the result after the walk (a per-file resolver's desugared calls) at a
++ * position in the raw source. */
++static void stamp_late_site_paths(PDXEArena *a, PDXEFileResult *result, TSNode root,
++                                  const PDXELangSpec *spec) {
++    for (int i = 0; i < result->calls.count; i++) {
++        PDXECall *c = &result->calls.items[i];
++        if (!c->ast_path && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
++            c->site_end_byte > c->site_start_byte) {
++            c->ast_path = late_site_path(a, root, spec, c->site_start_byte, c->site_end_byte);
++        }
++    }
++    for (int i = 0; i < result->usages.count; i++) {
++        PDXEUsage *u = &result->usages.items[i];
++        bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
++                                  (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
++        if (possible_reference && !u->ast_path && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
++            u->site_end_byte > u->site_start_byte) {
++            u->ast_path = late_site_path(a, root, spec, u->site_start_byte, u->site_end_byte);
++        }
++    }
++}
++
+ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, PDXELanguage language,
+                                            const char *project, const char *rel_path,
+                                            int64_t timeout_micros, const char **extra_defines,
+@@ -2337,6 +2390,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+         }
+     }
+     atomic_fetch_add(&total_lsp_ns, now_ns() - lsp_start);
++    stamp_late_site_paths(a, result, root, spec);
+ 
+     // Calls extracted so far all carry ORIGINAL-source line numbers; the C/C++
+     // preprocessor second pass below appends calls with EXPANDED-source lines,
+diff --git a/engine/src/pdxe_core.h b/engine/src/pdxe_core.h
+index 3b3fd68..ff8362c 100644
+--- a/engine/src/pdxe_core.h
++++ b/engine/src/pdxe_core.h
+@@ -294,6 +294,11 @@ typedef struct {
+                                      // (self.compiler.apply_converters()). An object the
+                                      // class owns, not a parameter: read by the weak-member
+                                      // guard's unique-name exemption. Default false.
++    /* The syntax node types from the enclosing definition's node (the file's root
++     * at file scope) down to the node the call is recorded at, NULL-terminated.
++     * The strings are the language's own and static. NULL when the walk could not
++     * record them. Kept at the tail, as impl_trait is, for zero-initialised callers. */
++    const char **ast_path;
+ } PDXECall;
+ 
+ typedef struct {
+@@ -323,6 +328,10 @@ typedef struct {
+                                           // (Go x.f — field_identifier). The extractor strips
+                                           // the receiver, so this is the only surviving record
+                                           // of selector shape (#1962). Default false.
++    /* As PDXECall.ast_path, recorded only for a usage that may be a callable
++     * reference (kind CALL_REFERENCE, or VALUE with may_be_call_reference);
++     * NULL for every other usage. */
++    const char **ast_path;
+ } PDXEUsage;
+ 
+ typedef struct {

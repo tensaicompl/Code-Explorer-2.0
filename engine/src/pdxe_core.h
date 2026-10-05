@@ -294,6 +294,11 @@ typedef struct {
                                      // (self.compiler.apply_converters()). An object the
                                      // class owns, not a parameter: read by the weak-member
                                      // guard's unique-name exemption. Default false.
+    /* The syntax node types from the enclosing definition's node (the file's root
+     * at file scope) down to the node the call is recorded at, NULL-terminated.
+     * The strings are the language's own and static. NULL when the walk could not
+     * record them. Kept at the tail, as impl_trait is, for zero-initialised callers. */
+    const char **ast_path;
 } PDXECall;
 
 typedef struct {
@@ -323,6 +328,10 @@ typedef struct {
                                           // (Go x.f — field_identifier). The extractor strips
                                           // the receiver, so this is the only surviving record
                                           // of selector shape (#1962). Default false.
+    /* As PDXECall.ast_path, recorded only for a usage that may be a callable
+     * reference (kind CALL_REFERENCE, or VALUE with may_be_call_reference);
+     * NULL for every other usage. */
+    const char **ast_path;
 } PDXEUsage;
 
 typedef struct {

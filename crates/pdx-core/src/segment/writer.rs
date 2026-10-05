@@ -356,7 +356,7 @@ fn insert_files(conn: &Connection, rows: &Canonical<'_>) -> Result<(), SegmentEr
             f.status_reason,
             f.blob_sha,
             int("files", f.size_bytes)?,
-            int("files", f.line_count)?,
+            f.line_count.map(|n| int("files", n)).transpose()?,
         ])?;
     }
     Ok(())
@@ -469,6 +469,7 @@ fn insert_candidates(conn: &Connection, rows: &Canonical<'_>) -> Result<(), Segm
             json("candidates", &ids)?,
             c.engine_score,
             c.engine_strategy,
+            c.engine_candidates,
             c.reason,
         ])?;
     }

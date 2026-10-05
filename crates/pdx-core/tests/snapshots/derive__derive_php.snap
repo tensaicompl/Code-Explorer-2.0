@@ -1,0 +1,17 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"Class": 2, "File": 2, "Folder": 2, "Method": 3, "Module": 2, "Repo": 1, "Test": 1}
+entry points: 1
+edges: {("CALLS", "exact"): 1, ("CALLS", "import-guided"): 2, ("CALLS", "typed"): 1, ("TESTS", "exact"): 1, ("TESTS", "import-guided"): 1}
+candidates: {}
+files: src/Cart.php=parsed tests/CartTest.php=parsed
+  Class src.Cart.Cart Cart parent=File:Cart.php module=php:App id=3JB9E4X72SGAERST85157PZ9TN
+  Class tests.CartTest.CartTest CartTest parent=File:CartTest.php module=php:App\Tests id=9BXWQQ1SDRRG7965TB85MC22YC
+  Method src.Cart.Cart.helper helper parent=Class:Cart module=php:App id=9PMGEC3885SXP4KSTYA8VK65J0
+  Method src.Cart.Cart.total total parent=Class:Cart module=php:App id=DYD4AMRDA4ACWD3TXPHNMWHQTC
+  Method tests.CartTest.CartTest.makeCart makeCart parent=Class:CartTest module=php:App\Tests id=050D1P6M5XXVFYHDM2MWTKPB7H
+  Module php:App App parent=File:Cart.php id=8PRHT2TS352TTAJFFTR5B9J8VD
+  Module php:App\Tests App\Tests parent=File:CartTest.php id=TQ9V109100H819MSC8JN3BDD1Q
+  Test tests.CartTest.CartTest.testTotal testTotal parent=Class:CartTest module=php:App\Tests test entry id=JTKTK9ED8HXW6H0P7H8TD41XN8

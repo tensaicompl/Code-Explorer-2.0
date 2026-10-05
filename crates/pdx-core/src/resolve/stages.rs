@@ -576,7 +576,10 @@ fn receiver_of(language: &str, receiver: Option<&str>) -> Receiver {
 /// A callee's receiver, if it has one, and its short name: split at the last `.`,
 /// `->`, `::` or `\`. A text that would leave no name (an operator such as
 /// `operator->`) is all name.
-fn split_callee(text: &str) -> (Option<&str>, &str) {
+///
+/// The one reading of a callee's text: resolution looks the name up with it, and a
+/// site's identity (4.2.1) hashes the same name and receiver.
+pub fn split_callee(text: &str) -> (Option<&str>, &str) {
     let at = ["->", "::", ".", "\\"]
         .iter()
         .filter_map(|sep| text.rfind(sep).map(|i| (i, sep.len())))

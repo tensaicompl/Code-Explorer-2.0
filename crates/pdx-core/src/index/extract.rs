@@ -163,6 +163,9 @@ pub struct ExtractedFile {
     pub language: Option<&'static Language>,
     /// What became of it.
     pub outcome: FileOutcome,
+    /// Its lines, counted from the bytes Stage 2 read; `None` for a file it never read
+    /// (redacted, binary, too large, skipped for memory, of no language).
+    pub line_count: Option<u64>,
 }
 
 /// What the stage did, beside its outcomes: never part of what it produced, which
@@ -307,6 +310,15 @@ pub struct PreparedSource {
     pub blob_sha: BlobSha,
     /// The normalised bytes' digest, as the engine records it.
     pub digest: SourceDigest,
+    /// Its lines: the line feeds, and one more for a last line without one; 0 for an
+    /// empty file. Masking never touches a line ending, so it is the original's count.
+    pub line_count: u64,
+}
+
+/// The lines of `bytes`: its line feeds, and one more for a last line without one.
+pub fn count_lines(bytes: &[u8]) -> u64 {
+    let feeds = bytes.iter().fold(0u64, |n, &b| n + u64::from(b == b'\n'));
+    feeds + u64::from(bytes.last().is_some_and(|&b| b != b'\n'))
 }
 
 impl std::fmt::Debug for PreparedSource {
@@ -336,10 +348,12 @@ pub fn prepare_source(root: &Path, file: &DiscoveredFile) -> Result<PreparedSour
     let blob_sha = BlobSha::of(&bytes);
     secrets::normalise_in_place(&mut bytes, language.id);
     let digest = SourceDigest::of(&bytes);
+    let line_count = count_lines(&bytes);
     Ok(PreparedSource {
         bytes,
         blob_sha,
         digest,
+        line_count,
     })
 }
 
@@ -364,10 +378,12 @@ pub fn prepare_candidate(
     let blob_sha = BlobSha::of(&bytes);
     secrets::normalise_in_place(&mut bytes, file.language.map_or("", |l| l.id));
     let digest = SourceDigest::of(&bytes);
+    let line_count = count_lines(&bytes);
     Ok(PreparedSource {
         bytes,
         blob_sha,
         digest,
+        line_count,
     })
 }
 
@@ -516,19 +532,23 @@ impl<'a> ExtractStage<'a> {
         }
 
         let counters = Counters::default();
+        let mut line_counts: Vec<Option<u64>> = vec![None; files.len()];
         if plan.threads() > 0 {
-            for (index, outcome) in self.run_batches(files, &plan, cache, &counters)? {
+            for (index, outcome, lines) in self.run_batches(files, &plan, cache, &counters)? {
                 outcomes[index] = Some(outcome);
+                line_counts[index] = Some(lines);
             }
         }
 
         let files = files
             .iter()
             .zip(outcomes)
-            .map(|(file, outcome)| ExtractedFile {
+            .zip(line_counts)
+            .map(|((file, outcome), line_count)| ExtractedFile {
                 path: file.path.clone(),
                 language: file.language,
                 outcome: outcome.expect("every file has an outcome"),
+                line_count,
             })
             .collect();
         Ok(ExtractReport {
@@ -559,7 +579,7 @@ impl<'a> ExtractStage<'a> {
         plan: &BatchPlan,
         cache: Option<&dyn ExtractCache>,
         counters: &Counters,
-    ) -> Result<Vec<(usize, FileOutcome)>, ExtractError> {
+    ) -> Result<Vec<(usize, FileOutcome, u64)>, ExtractError> {
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(plan.threads())
             .thread_name(|i| format!("pdx-extract-{i}"))
@@ -631,7 +651,7 @@ impl<'a> ExtractStage<'a> {
         batch: &Batch,
         cache: Option<&dyn ExtractCache>,
         counters: &Counters,
-    ) -> Result<Vec<(usize, FileOutcome)>, ExtractError> {
+    ) -> Result<Vec<(usize, FileOutcome, u64)>, ExtractError> {
         let mut done = Vec::with_capacity(batch.files.len());
         let mut sources = Vec::new();
         let mut pending = Vec::new();
@@ -662,6 +682,7 @@ impl<'a> ExtractStage<'a> {
                                 extract: Box::new(extract),
                                 blob_sha: prepared.blob_sha,
                             },
+                            prepared.line_count,
                         ));
                         continue;
                     }
@@ -669,7 +690,13 @@ impl<'a> ExtractStage<'a> {
                     Err(_) => counters.cache_unusable.fetch_add(1, Ordering::Relaxed),
                 };
             }
-            pending.push((index, key, prepared.blob_sha, prepared.digest));
+            pending.push((
+                index,
+                key,
+                prepared.blob_sha,
+                prepared.digest,
+                prepared.line_count,
+            ));
             sources.push(SourceFile {
                 language: engine_language.to_owned(),
                 rel_path: file.path.clone(),
@@ -686,7 +713,7 @@ impl<'a> ExtractStage<'a> {
         // A failure here (an isolated worker that timed out included) fails the
         // stage before anything of the batch is stored or returned.
         let outcomes = backend.extract_batch(&sources)?;
-        for ((index, key, blob_sha, digest), (source, outcome)) in
+        for ((index, key, blob_sha, digest, lines), (source, outcome)) in
             pending.into_iter().zip(sources.into_iter().zip(outcomes))
         {
             let outcome = match outcome {
@@ -716,16 +743,16 @@ impl<'a> ExtractStage<'a> {
                     FileOutcome::EngineFailed { blob_sha, error }
                 }
             };
-            done.push((index, outcome));
+            done.push((index, outcome, lines));
         }
         // The batch's sources are released here, with `held`.
-        done.sort_by_key(|(index, _)| *index);
+        done.sort_by_key(|(index, _, _)| *index);
         Ok(done)
     }
 }
 
 /// Where a worker leaves one batch's outcomes, by file index.
-type BatchSlot = Mutex<Option<Vec<(usize, FileOutcome)>>>;
+type BatchSlot = Mutex<Option<Vec<(usize, FileOutcome, u64)>>>;
 
 /// Whether an extraction may be cached: it is complete and lost no work.
 fn is_clean(extract: &FileExtract) -> bool {

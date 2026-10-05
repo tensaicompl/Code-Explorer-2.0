@@ -12,7 +12,8 @@ use crate::convert;
 use crate::engine::{Engine, RawResult, c_string, language_id};
 use crate::error::{EngineError, SourceDifference, check};
 use crate::model::{
-    Call, FileExtract, ImplTrait, ReadWrite, SourceDigest, Span, TypeRef, Usage, Visibility,
+    Call, CallArg, FileExtract, ImplTrait, ReadWrite, SourceDigest, Span, TypeRef, Usage,
+    Visibility,
 };
 
 /// How a resolution was reached, in the interface's normalised vocabulary.
@@ -481,6 +482,12 @@ impl<'e> ProjectResolver<'e> {
                     loop_depth: d.loop_depth,
                     base_classes: strings.array(&d.base_classes)?,
                     n_base_classes: count(d.base_classes.len())?,
+                    decorators: strings.array(&d.decorators)?,
+                    n_decorators: count(d.decorators.len())?,
+                    signature_param_types: strings.array(&d.signature_param_types)?,
+                    n_signature_param_types: count(d.signature_param_types.len())?,
+                    route_path: strings.optional(d.route_path.as_deref())?,
+                    route_method: strings.optional(d.route_method.as_deref())?,
                 })
             })
             .collect::<Result<Vec<_>, EngineError>>()?;
@@ -752,9 +759,14 @@ fn run_health(h: sys::pdxe_run_health) -> Result<RunHealth, EngineError> {
     })
 }
 
-/// C strings, and arrays of them, kept alive while the engine reads them.
+/// C strings, arrays of them, and arrays of arguments, kept alive while the engine
+/// reads them.
 #[derive(Default)]
-struct Strings(Vec<CString>, Vec<Vec<*const c_char>>);
+struct Strings(
+    Vec<CString>,
+    Vec<Vec<*const c_char>>,
+    Vec<Vec<sys::pdxe_call_arg>>,
+);
 
 impl Strings {
     fn required(&mut self, s: &str) -> Result<*const c_char, EngineError> {
@@ -782,6 +794,28 @@ impl Strings {
 
     fn optional(&mut self, s: Option<&str>) -> Result<*const c_char, EngineError> {
         s.map_or(Ok(ptr::null()), |s| self.required(s))
+    }
+
+    /// An array of these arguments, or NULL when there are none.
+    fn args(&mut self, args: &[CallArg]) -> Result<*const sys::pdxe_call_arg, EngineError> {
+        if args.is_empty() {
+            return Ok(ptr::null());
+        }
+        let array = args
+            .iter()
+            .map(|a| {
+                Ok(sys::pdxe_call_arg {
+                    expr: self.required(&a.expr)?,
+                    value: self.optional(a.value.as_deref())?,
+                    keyword: self.optional(a.keyword.as_deref())?,
+                    index: a.index,
+                })
+            })
+            .collect::<Result<Vec<_>, EngineError>>()?;
+        // The vector's buffer does not move when it is kept below.
+        let p = array.as_ptr();
+        self.2.push(array);
+        Ok(p)
     }
 }
 
@@ -819,6 +853,10 @@ fn c_call(c: &Call, strings: &mut Strings) -> Result<sys::pdxe_call, EngineError
         is_reference: u8::from(c.is_reference),
         typed_only: u8::from(c.typed_only),
         lexical: c.lexical.bits(),
+        ast_path: strings.array(&c.ast_path)?,
+        n_ast_path: count(c.ast_path.len())?,
+        args: strings.args(&c.args)?,
+        n_args: count(c.args.len())?,
     })
 }
 

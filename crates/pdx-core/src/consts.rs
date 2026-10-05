@@ -18,7 +18,7 @@
 // the one it was built against, and the server re-indexes rather than guessing.
 
 /// Layout of a segment file, the immutable graph of one repository at one commit.
-pub const SEGMENT_SCHEMA_VERSION: u32 = 1;
+pub const SEGMENT_SCHEMA_VERSION: u32 = 2;
 
 /// Layout of the control plane's relational schema.
 pub const CONTROL_SCHEMA_VERSION: u32 = 1;
@@ -29,11 +29,16 @@ pub const MCP_TOOLS_VERSION: u32 = 1;
 /// Wire format of a rendering tile.
 pub const TILE_FORMAT_VERSION: u32 = 1;
 
-/// Version of the language matrix: which languages exist and how they are detected.
-pub const LANGUAGE_MATRIX_VERSION: u32 = 1;
+/// Version of the language matrix: which languages exist, how they are detected, and
+/// what each recognises as a test. 2 since the test rules are read as issue 31 decided:
+/// TypeScript's `.test` and `.spec` on every extension, JavaScript's on its own, and a
+/// directory rule at any depth.
+pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 
-/// Version of the extraction engine's behaviour, bumped when its output can change.
-pub const ENGINE_VERSION: u32 = 1;
+/// Version of the extraction engine's behaviour, bumped when its output can change. 2
+/// since extraction records each call's and possible reference's node-type path, which
+/// it did not compute before (issue 46).
+pub const ENGINE_VERSION: u32 = 2;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the
@@ -47,8 +52,9 @@ pub const SECRET_DETECTOR_VERSION: u32 = 2;
 /// read, only replaced. The cache is disposable and is not a segment. 2 since a
 /// definition carries its base classes and an extraction its file's declared
 /// namespace (issues 40 and 41), 3 since an extraction carries its `impl Trait for
-/// Type` relations (issue 42).
-pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 3;
+/// Type` relations (issue 42), 4 since a call carries its node-type path and arguments
+/// and a definition its decorators, parameter types and route (issues 46 and 47).
+pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 4;
 
 // --- resolution ------------------------------------------------------------
 

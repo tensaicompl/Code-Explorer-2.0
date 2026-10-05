@@ -37,7 +37,7 @@
  * refresh, a patch, a change to this translation. It is part of every cache key, so
  * a cached extraction from an older engine is never mistaken for a current one.
  */
-static const char ENGINE_VERSION_STRING[] = "1";
+static const char ENGINE_VERSION_STRING[] = "2"; /* 2: sites carry their node-type path (issue 46) */
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;
@@ -351,6 +351,8 @@ typedef struct {
      * (lost_work.h). Typed resolution happens partly during extraction, and its
      * answers are reported by a run, so a run counts this as its own loss. */
     uint32_t lost;
+    /* The calls' arguments, one array the calls point into (issue 47). */
+    pdxe_call_arg *call_args;
 } result_holder;
 
 static void holder_free(result_holder *h) {
@@ -368,6 +370,7 @@ static void holder_free(result_holder *h) {
     free(h->pub.diags);
     free(h->pub.throws);
     free(h->pub.impl_traits);
+    free(h->call_args);
     if (h->engine) {
         pdxe_free_result(h->engine);
     }
@@ -501,8 +504,21 @@ static uint16_t lexical_of(const PDXEUsage *u) {
 }
 
 /* The interface's description of an engine call. */
+/* The length of a NULL-terminated array of strings; 0 for none. */
+static uint32_t count_strings(const char *const *v) {
+    uint32_t n = 0;
+    while (v && v[n]) {
+        n++;
+    }
+    return n;
+}
+
 static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const PDXECall *c) {
     pdxe_call o = {0};
+    /* The engine's own static node types, borrowed; arguments are attached by the
+     * caller, which owns the array they go in. */
+    o.n_ast_path = count_strings(c->ast_path);
+    o.ast_path = o.n_ast_path ? c->ast_path : NULL;
     o.callee_text = c->callee_name;
     /*
      * The engine keeps a call's receiver inside its callee text rather than on its own;
@@ -522,6 +538,8 @@ static pdxe_call reference_of(const PDXEDefArray *defs, const line_index *li, co
     pdxe_call o = {0};
     o.callee_text = u->ref_name;
     o.receiver_text = NULL;
+    o.n_ast_path = count_strings(u->ast_path);
+    o.ast_path = o.n_ast_path ? u->ast_path : NULL;
     o.caller_index = index_of_qn(defs, u->enclosing_func_qn);
     o.span = site_span(li, u->source_origin, u->site_start_byte, u->site_end_byte, 0);
     o.is_reference = 1;
@@ -590,6 +608,24 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
         }
         o->base_classes = n_bases ? d->base_classes : NULL;
         o->n_base_classes = n_bases;
+        /* Decorators, parameter types and route, borrowed as recorded (issue 47).
+         * The parameter types are counted, not terminated; an array with a missing
+         * entry is not passed on. */
+        o->n_decorators = count_strings(d->decorators);
+        o->decorators = o->n_decorators ? d->decorators : NULL;
+        uint32_t n_types =
+            d->signature_param_types && d->signature_param_count > 0
+                ? (uint32_t)d->signature_param_count
+                : 0;
+        for (uint32_t t = 0; t < n_types; t++) {
+            if (!d->signature_param_types[t]) {
+                n_types = 0;
+            }
+        }
+        o->signature_param_types = n_types ? d->signature_param_types : NULL;
+        o->n_signature_param_types = n_types;
+        o->route_path = d->route_path;
+        o->route_method = d->route_method;
     }
     r->n_defs = kept;
 
@@ -614,6 +650,37 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
     }
     for (int i = 0; i < calls->count; i++) {
         r->calls[r->n_calls++] = call_of(defs, li, &calls->items[i]);
+    }
+    /* The calls' captured arguments, translated into one array (issue 47). */
+    size_t n_args = 0;
+    for (int i = 0; i < calls->count; i++) {
+        if (calls->items[i].args && calls->items[i].arg_count > 0) {
+            n_args += (size_t)calls->items[i].arg_count;
+        }
+    }
+    if (n_args > 0) {
+        h->call_args = (pdxe_call_arg *)calloc(n_args, sizeof(pdxe_call_arg));
+        if (!h->call_args) {
+            holder_free(h);
+            return PDXE_E_NOMEM;
+        }
+        size_t next = 0;
+        for (int i = 0; i < calls->count; i++) {
+            const PDXECall *c = &calls->items[i];
+            if (!c->args || c->arg_count <= 0) {
+                continue;
+            }
+            r->calls[i].args = &h->call_args[next];
+            for (int a = 0; a < c->arg_count; a++) {
+                pdxe_call_arg *o = &h->call_args[next + (size_t)r->calls[i].n_args];
+                o->expr = c->args[a].expr ? c->args[a].expr : "";
+                o->value = c->args[a].value;
+                o->keyword = c->args[a].keyword;
+                o->index = c->args[a].index > 0 ? (uint32_t)c->args[a].index : 0;
+                r->calls[i].n_args++;
+            }
+            next += (size_t)c->arg_count;
+        }
     }
     for (int i = 0; i < usages->count; i++) {
         if (is_reference_site(&usages->items[i])) {
@@ -811,6 +878,43 @@ int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8
 
 /* --- results rebuilt from a cache -------------------------------------------- */
 
+/* Whether a counted array of strings is there and every string in it is. */
+static bool strings_present(const char *const *v, uint32_t n) {
+    if (n == 0) {
+        return true;
+    }
+    if (!v) {
+        return false;
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        if (!v[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static const char *own(result_holder *h, const char *s, bool *failed);
+
+/* A copy the holder owns of a counted array of strings, the array and each string;
+ * NULL for none. Sets *failed when a copy could not be made. */
+static const char **own_strings(result_holder *h, const char *const *v, uint32_t n,
+                                bool *failed) {
+    if (n == 0 || *failed) {
+        return NULL;
+    }
+    const char **copy = (const char **)calloc(n, sizeof(*copy));
+    if (!copy || !adopt(h, (char *)copy)) {
+        free(copy);
+        *failed = true;
+        return NULL;
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        copy[i] = own(h, v[i], failed);
+    }
+    return copy;
+}
+
 /* A copy the holder owns, or NULL for NULL. Sets *failed when a copy could not be made. */
 static const char *own(result_holder *h, const char *s, bool *failed) {
     if (!s) {
@@ -847,6 +951,24 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
         (n_usages && !usages) || (n_types && !types) || (n_rws && !rws) ||
         (n_impl_traits && !impl_traits)) {
         return PDXE_E_INVALID;
+    }
+    /* Every counted array of a definition or call is there, and holds what it must. */
+    for (uint32_t i = 0; i < n_defs; i++) {
+        if (!strings_present(defs[i].decorators, defs[i].n_decorators) ||
+            !strings_present(defs[i].signature_param_types, defs[i].n_signature_param_types)) {
+            return PDXE_E_INVALID;
+        }
+    }
+    for (uint32_t i = 0; i < n_calls; i++) {
+        if (!strings_present(calls[i].ast_path, calls[i].n_ast_path) ||
+            (calls[i].n_args && !calls[i].args)) {
+            return PDXE_E_INVALID;
+        }
+        for (uint32_t a = 0; a < calls[i].n_args; a++) {
+            if (!calls[i].args[a].expr) {
+                return PDXE_E_INVALID;
+            }
+        }
     }
     /* Every relation has its three strings. */
     for (uint32_t i = 0; i < n_impl_traits; i++) {
@@ -916,11 +1038,39 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
             d->base_classes = bases;
             d->n_base_classes = defs[i].n_base_classes;
         }
+        d->decorators = own_strings(h, defs[i].decorators, defs[i].n_decorators, &failed);
+        d->n_decorators = d->decorators ? defs[i].n_decorators : 0;
+        d->signature_param_types = own_strings(h, defs[i].signature_param_types,
+                                               defs[i].n_signature_param_types, &failed);
+        d->n_signature_param_types =
+            d->signature_param_types ? defs[i].n_signature_param_types : 0;
+        d->route_path = own(h, defs[i].route_path, &failed);
+        d->route_method = own(h, defs[i].route_method, &failed);
     }
     for (uint32_t i = 0; i < n_calls; i++) {
         r->calls[i] = calls[i];
         r->calls[i].callee_text = own(h, calls[i].callee_text, &failed);
         r->calls[i].receiver_text = own(h, calls[i].receiver_text, &failed);
+        r->calls[i].ast_path = own_strings(h, calls[i].ast_path, calls[i].n_ast_path, &failed);
+        r->calls[i].n_ast_path = r->calls[i].ast_path ? calls[i].n_ast_path : 0;
+        r->calls[i].args = NULL;
+        r->calls[i].n_args = 0;
+        if (calls[i].n_args && !failed) {
+            pdxe_call_arg *args = (pdxe_call_arg *)calloc(calls[i].n_args, sizeof(*args));
+            if (!args || !adopt(h, (char *)args)) {
+                free(args);
+                failed = true;
+                continue;
+            }
+            for (uint32_t a = 0; a < calls[i].n_args; a++) {
+                args[a].expr = own(h, calls[i].args[a].expr, &failed);
+                args[a].value = own(h, calls[i].args[a].value, &failed);
+                args[a].keyword = own(h, calls[i].args[a].keyword, &failed);
+                args[a].index = calls[i].args[a].index;
+            }
+            r->calls[i].args = args;
+            r->calls[i].n_args = calls[i].n_args;
+        }
     }
     for (uint32_t i = 0; i < n_imports; i++) {
         r->imports[i] = imports[i];

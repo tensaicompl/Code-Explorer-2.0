@@ -2072,6 +2072,59 @@ PDXEFileResult *pdxe_engine_extract_file(const char *source, int source_len, PDX
 enum { PDXE_EXTRACT_SCRATCH_BLOCK = PDXE_SZ_512 * PDXE_SZ_1K };
 enum { PDXE_EXTRACT_SCRATCH_KEEP_BYTES = 4 * PDXE_SZ_1K * PDXE_SZ_1K };
 
+/* The node-type path of a site the walk did not record: from the nearest enclosing
+ * function node (the root at file scope), by the language's function node types as
+ * the walk pushes them, down to the smallest node covering the site. NULL when the
+ * site cannot be located or memory runs out. */
+static const char **late_site_path(PDXEArena *a, TSNode root, const PDXELangSpec *spec,
+                                   uint32_t start, uint32_t end) {
+    TSNode site = ts_node_descendant_for_byte_range(root, start, end);
+    if (ts_node_is_null(site)) {
+        return NULL;
+    }
+    uint32_t n = 0;
+    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
+        n++;
+        if (spec && spec->function_node_types && !ts_node_eq(at, site) &&
+            pdxe_kind_in_set(at, spec->function_node_types)) {
+            break;
+        }
+    }
+    const char **path = (const char **)pdxe_arena_alloc(a, ((size_t)n + 1) * sizeof(char *));
+    if (!path) {
+        return NULL;
+    }
+    path[n] = NULL;
+    uint32_t i = n;
+    for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
+        path[--i] = ts_node_type(at);
+    }
+    return path;
+}
+
+/* Gives a node-type path to every call, and every possible callable reference, that
+ * was added to the result after the walk (a per-file resolver's desugared calls) at a
+ * position in the raw source. */
+static void stamp_late_site_paths(PDXEArena *a, PDXEFileResult *result, TSNode root,
+                                  const PDXELangSpec *spec) {
+    for (int i = 0; i < result->calls.count; i++) {
+        PDXECall *c = &result->calls.items[i];
+        if (!c->ast_path && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+            c->site_end_byte > c->site_start_byte) {
+            c->ast_path = late_site_path(a, root, spec, c->site_start_byte, c->site_end_byte);
+        }
+    }
+    for (int i = 0; i < result->usages.count; i++) {
+        PDXEUsage *u = &result->usages.items[i];
+        bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
+                                  (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
+        if (possible_reference && !u->ast_path && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+            u->site_end_byte > u->site_start_byte) {
+            u->ast_path = late_site_path(a, root, spec, u->site_start_byte, u->site_end_byte);
+        }
+    }
+}
+
 static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, PDXELanguage language,
                                            const char *project, const char *rel_path,
                                            int64_t timeout_micros, const char **extra_defines,
@@ -2337,6 +2390,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
         }
     }
     atomic_fetch_add(&total_lsp_ns, now_ns() - lsp_start);
+    stamp_late_site_paths(a, result, root, spec);
 
     // Calls extracted so far all carry ORIGINAL-source line numbers; the C/C++
     // preprocessor second pass below appends calls with EXPANDED-source lines,

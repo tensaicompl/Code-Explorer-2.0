@@ -13,7 +13,7 @@ use pdx_engine_sys as sys;
 
 use crate::error::EngineError;
 use crate::model::{
-    Call, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
+    Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
     FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, ReadWrite, SourceDigest, Span,
     Surface, Throw, TypeRef, Usage, Visibility,
 };
@@ -125,6 +125,12 @@ unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition
         loop_depth,
         base_classes,
         n_base_classes,
+        decorators,
+        n_decorators,
+        signature_param_types,
+        n_signature_param_types,
+        route_path,
+        route_method,
     } = *d;
     // SAFETY: (all string reads below) the caller guarantees the strings are alive.
     let kind_name = unsafe { required(kind, "a definition's kind") }?;
@@ -169,6 +175,50 @@ unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition
         .iter()
         .map(|&b| unsafe { required(b, "a definition's base") })
         .collect::<Result<_, _>>()?,
+        // SAFETY (the four below): the arrays hold their counts of strings, and every
+        // string is alive for the call.
+        decorators: unsafe { strings(decorators.cast_const(), n_decorators, "a decorator") }?,
+        signature_param_types: unsafe {
+            strings(
+                signature_param_types.cast_const(),
+                n_signature_param_types,
+                "a parameter type",
+            )
+        }?,
+        route_path: unsafe { optional(route_path) },
+        route_method: unsafe { optional(route_method) },
+    })
+}
+
+/// A counted array of strings, copied; `what` names one element.
+///
+/// # Safety
+///
+/// The array, when there is one, holds `n` strings alive for the call.
+unsafe fn strings(p: *const *const c_char, n: u32, what: &str) -> Result<Vec<String>, EngineError> {
+    // SAFETY: as the caller guarantees.
+    unsafe { slice(p, n, what) }?
+        .iter()
+        .map(|&s| unsafe { required(s, what) })
+        .collect()
+}
+
+/// # Safety
+///
+/// The strings in `a` are NULL or alive for the call.
+unsafe fn call_arg(a: &sys::pdxe_call_arg) -> Result<CallArg, EngineError> {
+    let sys::pdxe_call_arg {
+        expr,
+        value,
+        keyword,
+        index,
+    } = *a;
+    Ok(CallArg {
+        // SAFETY: as the caller guarantees.
+        expr: unsafe { required(expr, "an argument's expression") }?,
+        value: unsafe { optional(value) },
+        keyword: unsafe { optional(keyword) },
+        index,
     })
 }
 
@@ -186,6 +236,10 @@ pub(crate) unsafe fn call(c: &sys::pdxe_call, n_defs: Option<u32>) -> Result<Cal
         is_reference,
         typed_only,
         lexical,
+        ast_path,
+        n_ast_path,
+        args,
+        n_args,
     } = *c;
     // A resolution's site may belong to another file's result, whose definition count
     // is not at hand; only the bound the file's own result gives is checked.
@@ -202,6 +256,9 @@ pub(crate) unsafe fn call(c: &sys::pdxe_call, n_defs: Option<u32>) -> Result<Cal
         is_reference: is_reference != 0,
         typed_only: typed_only != 0,
         lexical: LexicalFacts::from_bits(lexical),
+        // SAFETY: the arrays hold their counts, and their strings are alive.
+        ast_path: unsafe { strings(ast_path.cast_const(), n_ast_path, "a node type") }?,
+        args: unsafe { each(args, n_args, "a call's arguments", |a| call_arg(a)) }?,
     })
 }
 

@@ -207,6 +207,30 @@ pub struct Definition {
     /// recorded them: in its order, spelling and case, unresolved. Empty when it names
     /// none, or for a kind that has none.
     pub base_classes: Vec<String>,
+    /// The decorators, annotations or attributes it carries, as the engine recorded
+    /// each, in its order (issue 47).
+    pub decorators: Vec<String>,
+    /// Its parameters' types as the engine reads them, in order; `?` for one it cannot
+    /// read (issue 47).
+    pub signature_param_types: Vec<String>,
+    /// The HTTP route path a decorator binds it to, where the engine found one.
+    pub route_path: Option<String>,
+    /// The HTTP method of that route, as the engine recorded it.
+    pub route_method: Option<String>,
+}
+
+/// One argument the engine captured at a call (issue 47).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CallArg {
+    /// The expression as written.
+    pub expr: String,
+    /// The string value it resolves to, where the engine resolved one: a literal, or a
+    /// constant it followed.
+    pub value: Option<String>,
+    /// The keyword, for a keyword argument.
+    pub keyword: Option<String>,
+    /// Its 0-based position.
+    pub index: u32,
 }
 
 /// An `impl Trait for Type` block (Rust): which trait a type implements, as the engine
@@ -245,6 +269,14 @@ pub struct Call {
     pub typed_only: bool,
     /// What the extractor saw around it.
     pub lexical: LexicalFacts,
+    /// The syntax node types from the enclosing definition's node (the file's root at
+    /// file scope) down to the node the site is recorded at: what a site's identity
+    /// hashes (4.2.1, issue 46). Empty when the engine could not record it, and for a
+    /// resolution's site.
+    pub ast_path: Vec<String>,
+    /// The arguments the engine captured, in its order; empty for a reference and a
+    /// resolution's site (issue 47).
+    pub args: Vec<CallArg>,
 }
 
 /// An import.

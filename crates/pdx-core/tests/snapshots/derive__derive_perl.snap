@@ -1,0 +1,11 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"File": 2, "Folder": 3, "Function": 2, "Repo": 1}
+entry points: 0
+edges: {("CALLS", "typed"): 1}
+candidates: {}
+files: lib/Acme/Shop.pm=parsed t/shop.t=skipped
+  Function lib.Acme.Shop.helper helper parent=File:Shop.pm id=A5W7Q84AREJAAPH410KC570JV6
+  Function lib.Acme.Shop.total total parent=File:Shop.pm id=K6ZVR2NTWCQXV3QF8WMA3D4CNE

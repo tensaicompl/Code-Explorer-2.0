@@ -56,8 +56,8 @@ pub(crate) const INSERT_OCCURRENCE: &str = "INSERT INTO semantic_occurrences \
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)";
 
 pub(crate) const INSERT_CANDIDATE: &str = "INSERT INTO candidates \
-    (site_id, src, callee_name, band, candidate_ids, engine_score, engine_strategy, reason) \
-    VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)";
+    (site_id, src, callee_name, band, candidate_ids, engine_score, engine_strategy, \
+    engine_candidates, reason) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
 
 pub(crate) const INSERT_CONTRACT: &str = "INSERT INTO contracts \
     (contract_id, kind, key, namespace_key, identity_strength, owner_node_id, direction, props) \
@@ -121,7 +121,7 @@ pub(crate) const EDGES_TO: &str = edge_select!(
 );
 
 pub(crate) const CANDIDATES_FROM: &str = "SELECT site_id, src, callee_name, band, \
-    candidate_ids, engine_score, engine_strategy, reason FROM candidates \
+    candidate_ids, engine_score, engine_strategy, engine_candidates, reason FROM candidates \
     WHERE src = ?1 ORDER BY site_id";
 
 /// Contracts of kind `?1` and key `?2`, either NULL for any.

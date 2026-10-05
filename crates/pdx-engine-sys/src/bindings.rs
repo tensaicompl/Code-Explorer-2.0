@@ -59,7 +59,7 @@ pub const PDXE_VIS_PUBLIC: pdxe_visibility = 1;
 pub const PDXE_VIS_NON_PUBLIC: pdxe_visibility = 2;
 #[doc = " Visibility of a definition, as the source declares it."]
 pub type pdxe_visibility = u32;
-#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope.\n\n `base_classes` are the classes, interfaces and traits the definition names as its\n bases, exactly as the engine recorded them: in its order, spelling and case,\n unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 40."]
+#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope.\n\n `base_classes` are the classes, interfaces and traits the definition names as its\n bases, exactly as the engine recorded them: in its order, spelling and case,\n unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 40.\n\n `decorators` are the decorators, annotations or attributes the definition carries,\n as the engine recorded each, in its order; `signature_param_types` its parameters'\n types as the engine reads them, in order, `?` for one it cannot read; `route_path`\n and `route_method` the HTTP route a decorator binds it to, where the engine found\n one, else NULL. Each array is NULL with a count of 0 when empty. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 47."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_definition {
@@ -80,10 +80,16 @@ pub struct pdxe_definition {
     pub loop_depth: u32,
     pub base_classes: *mut *const ::std::os::raw::c_char,
     pub n_base_classes: u32,
+    pub decorators: *mut *const ::std::os::raw::c_char,
+    pub n_decorators: u32,
+    pub signature_param_types: *mut *const ::std::os::raw::c_char,
+    pub n_signature_param_types: u32,
+    pub route_path: *const ::std::os::raw::c_char,
+    pub route_method: *const ::std::os::raw::c_char,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 136usize];
+    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 184usize];
     ["Alignment of pdxe_definition"][::std::mem::align_of::<pdxe_definition>() - 8usize];
     ["Offset of field: pdxe_definition::name"]
         [::std::mem::offset_of!(pdxe_definition, name) - 0usize];
@@ -119,6 +125,18 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_definition, base_classes) - 120usize];
     ["Offset of field: pdxe_definition::n_base_classes"]
         [::std::mem::offset_of!(pdxe_definition, n_base_classes) - 128usize];
+    ["Offset of field: pdxe_definition::decorators"]
+        [::std::mem::offset_of!(pdxe_definition, decorators) - 136usize];
+    ["Offset of field: pdxe_definition::n_decorators"]
+        [::std::mem::offset_of!(pdxe_definition, n_decorators) - 144usize];
+    ["Offset of field: pdxe_definition::signature_param_types"]
+        [::std::mem::offset_of!(pdxe_definition, signature_param_types) - 152usize];
+    ["Offset of field: pdxe_definition::n_signature_param_types"]
+        [::std::mem::offset_of!(pdxe_definition, n_signature_param_types) - 160usize];
+    ["Offset of field: pdxe_definition::route_path"]
+        [::std::mem::offset_of!(pdxe_definition, route_path) - 168usize];
+    ["Offset of field: pdxe_definition::route_method"]
+        [::std::mem::offset_of!(pdxe_definition, route_method) - 176usize];
 };
 impl Default for pdxe_definition {
     fn default() -> Self {
@@ -138,7 +156,36 @@ pub const PDXE_LEX_LOCALLY_BOUND: pdxe_lexical_fact = 32;
 pub const PDXE_LEX_SELF_ROOTED: pdxe_lexical_fact = 64;
 #[doc = " What the extractor saw of a name in its surroundings, for resolving it by name when\n typed resolution has no answer. Each bit is one fact; none is a summary of others.\n\n On references and usages:\n\n   PDXE_LEX_EXPLICIT_REFERENCE  the source spells a callable reference as such\n                                (a method reference, an address-of), rather than\n                                passing a plain name a callable might be behind\n   PDXE_LEX_MEMBER_ACCESS       the name is the member half of a selector; the\n                                receiver before it has been removed\n   PDXE_LEX_BLOCKED             a binding in the same code means the name is not the\n                                module-level definition of that name; resolving it\n                                by name must not reach a callable\n   PDXE_LEX_BLOCKED_LOCALLY     that binding is in a local scope; resolving it by\n                                name must not reach anything\n\n On calls:\n\n   PDXE_LEX_UNRESOLVED_MEMBER   a member call whose receiver the extractor could not\n                                tie to anything: in Python, not self, cls or super()\n                                and not rooted in an imported name; in JavaScript\n                                and TypeScript, not this or super; in Perl, any\n                                method call. Resolving it by a short name alone\n                                fabricates edges, so the reference does not\n   PDXE_LEX_LOCALLY_BOUND       a bare call whose callee name is a parameter of an\n                                enclosing function, so it cannot be the module-level\n                                definition of that name (Python)\n   PDXE_LEX_SELF_ROOTED         a member call whose receiver is an attribute chain\n                                rooted at self or cls but is not self or cls itself,\n                                an object the class owns (Python)\n\n Appended by a specification change; see docs/plan/ISSUES.md, issue 17."]
 pub type pdxe_lexical_fact = u32;
-#[doc = " A call site.\n\n `caller_index` indexes the definition array of the same result, or is\n PDXE_NO_PARENT for a call at file scope.\n\n `is_reference` marks a callable passed as a value rather than invoked: a name the\n engine saw used as a value where a callable could be meant, such as a function\n handed to another as an argument. It is a call reference only if typed resolution\n says so; without a typed resolution it is an ordinary use of a name, and a caller\n must not turn it into a call. Such a site is reported here and not again among the\n usages, so that no site is counted twice.\n\n `typed_only` marks a site that exists only as a question for typed resolution: an\n operator the language turns into a method call, a protocol method it invokes\n implicitly, a call the engine inferred rather than read. It is a call only if a\n typed resolution names its target. A caller must never resolve it by name, since\n the name it carries is not text the source contains. Appended by a specification\n change; see docs/plan/ISSUES.md, issue 17.\n\n Calls come first in the order the engine found them, then references in the\n order their names appear. That order is the index a typed resolution refers to."]
+#[doc = " A call site.\n\n `caller_index` indexes the definition array of the same result, or is\n PDXE_NO_PARENT for a call at file scope.\n\n `is_reference` marks a callable passed as a value rather than invoked: a name the\n engine saw used as a value where a callable could be meant, such as a function\n handed to another as an argument. It is a call reference only if typed resolution\n says so; without a typed resolution it is an ordinary use of a name, and a caller\n must not turn it into a call. Such a site is reported here and not again among the\n usages, so that no site is counted twice.\n\n `typed_only` marks a site that exists only as a question for typed resolution: an\n operator the language turns into a method call, a protocol method it invokes\n implicitly, a call the engine inferred rather than read. It is a call only if a\n typed resolution names its target. A caller must never resolve it by name, since\n the name it carries is not text the source contains. Appended by a specification\n change; see docs/plan/ISSUES.md, issue 17.\n\n Calls come first in the order the engine found them, then references in the\n order their names appear. That order is the index a typed resolution refers to.\n/\n/*\n One argument the engine captured at a call: its expression as written, the string\n value it resolves to where the engine resolved one (a literal, or a constant it\n followed), the keyword for a keyword argument, and its 0-based position. Appended by\n a specification change; see docs/plan/ISSUES.md, issue 47."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pdxe_call_arg {
+    pub expr: *const ::std::os::raw::c_char,
+    pub value: *const ::std::os::raw::c_char,
+    pub keyword: *const ::std::os::raw::c_char,
+    pub index: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pdxe_call_arg"][::std::mem::size_of::<pdxe_call_arg>() - 32usize];
+    ["Alignment of pdxe_call_arg"][::std::mem::align_of::<pdxe_call_arg>() - 8usize];
+    ["Offset of field: pdxe_call_arg::expr"][::std::mem::offset_of!(pdxe_call_arg, expr) - 0usize];
+    ["Offset of field: pdxe_call_arg::value"]
+        [::std::mem::offset_of!(pdxe_call_arg, value) - 8usize];
+    ["Offset of field: pdxe_call_arg::keyword"]
+        [::std::mem::offset_of!(pdxe_call_arg, keyword) - 16usize];
+    ["Offset of field: pdxe_call_arg::index"]
+        [::std::mem::offset_of!(pdxe_call_arg, index) - 24usize];
+};
+impl Default for pdxe_call_arg {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_call {
@@ -149,10 +196,16 @@ pub struct pdxe_call {
     pub is_reference: u8,
     pub typed_only: u8,
     pub lexical: u16,
+    #[doc = " The syntax node types from the enclosing definition's node (the file's root for a\n site at file scope) down to the node the site is recorded at, in order: the path a\n site's identity hashes (4.2.1). NULL with a count of 0 when the walk could not\n record it. Appended by a specification change; see docs/plan/ISSUES.md, issue 46."]
+    pub ast_path: *mut *const ::std::os::raw::c_char,
+    pub n_ast_path: u32,
+    #[doc = " The arguments the engine captured, in its order (pdxe_call_arg); NULL and 0 for a\n reference, a call with none, and a resolution's site. Appended by a specification\n change; see docs/plan/ISSUES.md, issue 47."]
+    pub args: *const pdxe_call_arg,
+    pub n_args: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_call"][::std::mem::size_of::<pdxe_call>() - 48usize];
+    ["Size of pdxe_call"][::std::mem::size_of::<pdxe_call>() - 80usize];
     ["Alignment of pdxe_call"][::std::mem::align_of::<pdxe_call>() - 8usize];
     ["Offset of field: pdxe_call::callee_text"]
         [::std::mem::offset_of!(pdxe_call, callee_text) - 0usize];
@@ -166,6 +219,11 @@ const _: () = {
     ["Offset of field: pdxe_call::typed_only"]
         [::std::mem::offset_of!(pdxe_call, typed_only) - 45usize];
     ["Offset of field: pdxe_call::lexical"][::std::mem::offset_of!(pdxe_call, lexical) - 46usize];
+    ["Offset of field: pdxe_call::ast_path"][::std::mem::offset_of!(pdxe_call, ast_path) - 48usize];
+    ["Offset of field: pdxe_call::n_ast_path"]
+        [::std::mem::offset_of!(pdxe_call, n_ast_path) - 56usize];
+    ["Offset of field: pdxe_call::args"][::std::mem::offset_of!(pdxe_call, args) - 64usize];
+    ["Offset of field: pdxe_call::n_args"][::std::mem::offset_of!(pdxe_call, n_args) - 72usize];
 };
 impl Default for pdxe_call {
     fn default() -> Self {
@@ -534,7 +592,7 @@ unsafe extern "C" {
     pub fn pdxe_result_free(ctx: *mut pdxe_ctx, r: *mut pdxe_file_result);
 }
 unsafe extern "C" {
-    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface. A definition's base\n classes are copied with it, array and strings; a definition with bases and no array,\n or with a NULL base, is refused. It declares no namespace. Its `impl Trait for Type`\n relations are copied, array and strings, NULL and 0 for none; relations counted\n with no array, or one with a NULL string, are refused (issue 42)."]
+    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface. A definition's base\n classes are copied with it, array and strings; a definition with bases and no array,\n or with a NULL base, is refused. It declares no namespace. Its `impl Trait for Type`\n relations are copied, array and strings, NULL and 0 for none; relations counted\n with no array, or one with a NULL string, are refused (issue 42). A definition's\n decorators, parameter types and route, and a call's node-type path and arguments,\n are copied too; any of those arrays counted without an array, or holding a NULL\n string where one is required (every element; an argument's expression), is refused\n (issues 46 and 47)."]
     pub fn pdxe_result_build(
         ctx: *mut pdxe_ctx,
         defs: *const pdxe_definition,
@@ -843,7 +901,7 @@ pub struct pdxe_resolution {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_resolution"][::std::mem::size_of::<pdxe_resolution>() - 112usize];
+    ["Size of pdxe_resolution"][::std::mem::size_of::<pdxe_resolution>() - 144usize];
     ["Alignment of pdxe_resolution"][::std::mem::align_of::<pdxe_resolution>() - 8usize];
     ["Offset of field: pdxe_resolution::rel_path"]
         [::std::mem::offset_of!(pdxe_resolution, rel_path) - 0usize];

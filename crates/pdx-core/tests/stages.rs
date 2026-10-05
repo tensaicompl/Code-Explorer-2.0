@@ -1576,6 +1576,8 @@ fn engine_sites_past_the_extraction_need_an_answer() {
             is_reference: false,
             typed_only: true,
             lexical: pdx_engine::LexicalFacts::default(),
+            ast_path: Vec::new(),
+            args: Vec::new(),
         },
         target_qn: "lib.compute".into(),
         target_rel_path: Some("lib.py".into()),

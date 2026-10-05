@@ -147,6 +147,50 @@ fn isolation_carries_impl_relations() {
 }
 
 #[test]
+fn isolation_carries_site_paths_and_derivation_facts() {
+    // Protocol 5 carries each call's node-type path and arguments and each
+    // definition's decorators, parameter types and route (issues 46 and 47): a
+    // worker's extraction has them, exactly as this process's.
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../engine/tests/fixtures/facts");
+    let files: Vec<SourceFile> = [
+        ("python", "routes.py"),
+        ("java", "UserController.java"),
+        ("javascript", "server.js"),
+    ]
+    .iter()
+    .map(|(language, name)| SourceFile {
+        language: (*language).to_owned(),
+        rel_path: format!("src/{name}"),
+        source: std::fs::read(dir.join(name)).unwrap(),
+    })
+    .collect();
+    let expected = in_process(&files);
+    let mut isolated = IsolatedExtractor::new(worker());
+    let outcomes = isolated.extract_batch(&files).expect("a worker");
+    assert_eq!(outcomes, expected);
+    let mut facts = (0, 0, 0, 0);
+    for outcome in &outcomes {
+        let ExtractOutcome::Extracted(e) = outcome else {
+            panic!("not extracted: {outcome:?}");
+        };
+        facts.0 += e.calls.iter().filter(|c| !c.ast_path.is_empty()).count();
+        facts.1 += e.calls.iter().filter(|c| !c.args.is_empty()).count();
+        facts.2 += e
+            .definitions
+            .iter()
+            .filter(|d| !d.decorators.is_empty())
+            .count();
+        facts.3 += e
+            .definitions
+            .iter()
+            .filter(|d| d.route_path.is_some())
+            .count();
+    }
+    assert!(facts.0 > 0 && facts.1 > 0 && facts.2 > 0, "{facts:?}");
+    assert_eq!(facts.3, 3, "two FastAPI routes and a Spring one");
+}
+
+#[test]
 fn a_program_that_is_not_a_worker_is_refused() {
     // This binary without the subcommand says something that is not the protocol.
     let mut isolated = IsolatedExtractor::new(WorkerCommand::new(env!("CARGO_BIN_EXE_pdx")));

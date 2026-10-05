@@ -1,0 +1,14 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"File": 3, "Folder": 2, "Function": 3, "Module": 2, "Repo": 1}
+entry points: 1
+edges: {("CALLS", "import-guided"): 1, ("CALLS", "typed"): 1}
+candidates: {}
+files: app/main.c=parsed lib/shop.c=parsed lib/shop.h=parsed
+  Function app.main.main main parent=File:main.c module=c:app entry id=7QJ9QJ0DR273TFQ9Z39ATSYPKB
+  Function lib.shop.helper helper parent=File:shop.c module=c:lib id=ER638N0364XB00N22C0QE6ZRMK
+  Function lib.shop.total total parent=File:shop.c module=c:lib id=PX7SXKABAJ6WYXFTXZHT56AXHE
+  Module c:app app parent=File:main.c id=7REKKFB82GBWBT34DY2NNF91QJ
+  Module c:lib lib parent=Folder:lib id=1W6QCT9C2QTDJWQX9J77XA0Q6M

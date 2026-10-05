@@ -40,7 +40,7 @@
 #include "yyjson/yyjson.h"
 
 /* 2: the surface carries what the extraction lost (the "lost" count). */
-enum { SURFACE_VERSION = 2 };
+enum { SURFACE_VERSION = 3 }; /* 3: calls and usages carry their node-type path (issue 46) */
 
 /* The file's bytes, and the engine's numbers, as they are; see the comment above. */
 #define SURFACE_WRITE_FLAGS (YYJSON_WRITE_ALLOW_INVALID_UNICODE | YYJSON_WRITE_ALLOW_INF_AND_NAN)
@@ -140,6 +140,7 @@ static const field CALL_FIELDS[] = {
     FIELD(PDXECall, F_BOOL, requires_lsp_resolution),
     FIELD(PDXECall, F_BOOL, callee_is_locally_bound),
     FIELD(PDXECall, F_BOOL, receiver_is_self_attribute),
+    FIELD(PDXECall, F_STRV, ast_path),
 };
 
 static const field CALL_ARG_FIELDS[] = {
@@ -166,6 +167,7 @@ static const field USAGE_FIELDS[] = {
     FIELD(PDXEUsage, F_BOOL, semantic_reference_blocked),
     FIELD(PDXEUsage, F_BOOL, semantic_reference_local_shadow),
     FIELD(PDXEUsage, F_BOOL, is_member_access),
+    FIELD(PDXEUsage, F_STRV, ast_path),
 };
 
 static const field THROW_FIELDS[] = {

@@ -145,6 +145,11 @@ criteria = "safe-to-deploy"
 version = "2.14.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.insta]]
+version = "1.49.0"
+criteria = "safe-to-run"
+notes = "Issue 52: test-only, the snapshot tests P2-07's derive golden fixtures require. An exemption, not an audit."
+
 [[exemptions.itoa]]
 version = "1.0.18"
 criteria = "safe-to-deploy"
@@ -307,6 +312,11 @@ criteria = "safe-to-deploy"
 [[exemptions.shlex]]
 version = "2.0.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.similar]]
+version = "2.7.0"
+criteria = "safe-to-run"
+notes = "Issue 52: test-only, the diffing insta reports snapshot changes with. An exemption, not an audit."
 
 [[exemptions.smallvec]]
 version = "1.16.2"

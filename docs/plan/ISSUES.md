@@ -15,6 +15,14 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 53 | 2026-10-05 | P2-10 | ambiguity | open | A POSIX file name may contain `\`, which Windows reads as a separator: such a file has no identity that is the same on every host. Discovery finds it on Linux and macOS; Stage 4 refuses any path that is not repository-relative POSIX, so today a repository holding one fails its build | P2-10 (coverage and the whole pipeline) decides how such a file is accounted for, for example as skipped with a reason, before Stage 4 sees it. Stage 4's refusal stays: a host-native path never becomes an identity (`backslash_path_never_reaches_an_identity`) |
+| 52 | 2026-10-05 | P2-07 | third-party | resolved | P2-07's golden fixtures use snapshot tests; the ratchet refuses `insta` 1.49.0 and its diffing dependency `similar` 2.7.0 until they are recorded | Owner-authorised exact-version exemptions, `safe-to-run` (test-only), added by hand with notes naming this issue; no audit claimed, nothing regenerated. 101 exemptions |
+| 51 | 2026-10-05 | P2-07 | ambiguity | resolved | 4.3's `files` row requires a `blob_sha` and a `line_count` for every file, but Stage 2 reads only extraction candidates: a redacted, binary, oversized or unknown file is never read, so neither exists, and Stage 2 kept no line count for any file | The facts are kept where they exist and absent where they do not: `files.blob_sha` and `files.line_count` are nullable, NULL for a file never read; Stage 2 counts lines in the bytes it already reads. Part of `SEGMENT_SCHEMA_VERSION` 2 (with issue 50). Proven by `file_records_are_faithful` |
+| 50 | 2026-10-05 | P2-07 | scr | resolved | 4.2.2 stores the engine's score, strategy and candidate count verbatim on an edge or a candidate row, but the `candidates` table and `CandidateSite` had no candidate count: the first derived candidate rows would have lost it | `candidates.engine_candidates INTEGER` and `CandidateSite::engine_candidates`; `SEGMENT_SCHEMA_VERSION` 1 → 2, and a reader refuses version 1. Proven by `segment_roundtrip`, `reader_refuses_wrong_schema_version` and `candidate_rows_copy_engine_calibration` |
+| 49 | 2026-10-05 | P2-07 | ambiguity | resolved | P2-06 settles every call site as a `Resolution`, and no task owned turning resolutions into persistent sites, `CALLS` and `CALL_REFERENCE` edges and candidate rows; `TESTS` edges depend on them | Owner decision: P2-07 owns it. Drawn bands give a site and an edge with the engine's numbers copied unchanged; other bands a site and a candidate row; unconfirmed sites and sites with no position in the file are counted, never rows. Proven by `drawn_edges_copy_engine_calibration`, `candidate_rows_copy_engine_calibration`, `unconfirmed_sites_are_counted_never_drawn` and `site_without_raw_position_is_counted_not_placed` |
+| 48 | 2026-10-05 | P2-07 | scr | resolved | `ModuleKey` was not a graph identity, and Appendix B.3 has a module spanning files be one node with no `file_id`: no member file can stably identify or parent it | Owner decision, written into 4.2.1: `(Module, path = scope, qualified_name = "<language>:<name>", "")`; one file → that file is `file_id` and parent; several → no `file_id`, sorted `props.files`, nearest common folder (or the repository) as parent; symbols keep their physical parents and gain `props.module`. Fixed vectors in 4.2.1; `module_id_does_not_depend_on_file_count` |
+| 47 | 2026-10-05 | P2-07 | ambiguity | resolved | Facts Stage 4 needs exist inside the engine and were dropped at the safe boundary: definitions' decorators, declared parameter types and route bindings, and calls' arguments | Exposed, append-only, deep-copied by `pdxe_result_build`; `Definition::{decorators, signature_param_types, route_path, route_method}` and `Call::args`. Existing facts passed through: no `ENGINE_VERSION` move of their own. Shares issue 46's cache format 4 and worker protocol 5. Fresh, cached and isolated-worker extractions agree |
+| 46 | 2026-10-05 | P2-07 | ambiguity | resolved | 4.2.1's `site_id` needs the engine's node-type path from the enclosing definition to the site, but `Call` did not carry one, and nothing else (a line, an offset, a call index, a constant path) may stand in for it | The engine did not compute one: `engine/patches/0010-site-node-type-paths.patch` records it during the walk, so `ENGINE_VERSION` 1 → 2, `EXTRACT_CACHE_FORMAT_VERSION` 3 → 4 and the worker protocol 4 → 5. `Call::ast_path` for calls and callable references. Proven by the site-path tests listed in the entry |
 | 45 | 2026-10-04 | P2-06 | ambiguity | resolved | An engine answer whose target is in no file of the project (`target_rel_path` absent: a built-in, say) settles its site, the safe model says, and must not be resolved by name; but no band says what such a site is, and the Rust stages, run on its name, would bind a built-in call to any definition of the repository that shares it | Owner decision, implemented: after the generic blocklist, such a site is `external`, target none, with the engine's score, strategy and candidate count kept; no Rust stage runs on its name. Proven by `engine_external_does_not_fall_back_to_local_name`, and for references by `untyped_callable_reference_is_not_a_call` |
 | 44 | 2026-10-04 | P2-04 | blocker | resolved | P2-04's acceptance property `secret_normalisation_preserves_offsets` fails about one run in three (13 of 40 local runs, and P2-05's CI on Windows, run 37229601107): a bearer token followed by `=` and more token bytes (`Bearer <token>=A`) is masked only to the `=`, so the bytes after it reach the engine, and a second pass, reading the masked `=` as a token byte, masks them then. Normalisation was not idempotent, and part of a secret was not masked | The bearer token runs on over `=` and the token bytes after it in the same run: `[A-Za-z0-9\-._~+/]{16,}[A-Za-z0-9\-._~+/=]*`, so padding never ends a match early. It masks more, never less. `SECRET_DETECTOR_VERSION` 1 → 2, as a change to what a detector matches requires, which moves the policy digest and so every extraction cache key (an older entry is a miss); fixed vectors recomputed independently. Regression `bearer_masking_is_idempotent_after_padding`; the property passes 60 random runs and 20,000 cases. No other detector has the defect: each masks to `X` inside a class `X` already belongs to |
 | 43 | 2026-10-04 | P2-06 | third-party | resolved | The engine applies a `tsconfig.json`'s path aliases and base URL to every file below the configuration, whatever its language: in a repository with a root `tsconfig.json` whose `baseUrl` is set, a Go import such as `example.com/acme/pkg/a` contains `/`, takes the base-URL fallback, becomes `./example.com/acme/pkg/a`, and its typed resolution is lost. The registry applies aliases to TypeScript and JavaScript only, so the two would read one repository differently | Confirmed against the pinned reference, whose import resolver tries the alias step for every language too. `engine/patches/0009-script-path-aliases-only.patch` applies the alias step only to an importing file the engine's own lookup classes as TypeScript, TSX or JavaScript; relative imports, the package map and Go's module mapping are unchanged. `polyglot_ts_alias_does_not_affect_go` (registry and stages) holds a root `tsconfig.json` with a base URL, an aliased TypeScript import and a Go module importing its own package in one repository: it failed before the patch and passes after, the Go answer the same with and without the configuration, and engine and registry agree |
@@ -29,7 +37,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 34 | 2026-10-02 | P5-03 | ambiguity | open | 4.3 gives `evidence.evidence_id` as the "sha of (fact_id, provider, provider_version, verdict)" and `semantic_occurrences.occ_id` as the "sha of (provider, symbol, file_id, start_byte, end_byte, role)", without the byte encoding issue 33 fixed for the graph's ids: separators, how numbers are written, and the output's form and length. Both are stored keys | Owned by P5-03, which first writes these rows: fix both encodings, by specification change, before a precise segment is published. P2-02 stores and reads the ids exactly as given and computes neither |
 | 33 | 2026-10-02 | P2-01 | scr | resolved | 4.2.1 defines every identity as a hash, but leaves byte-level choices open that two implementations could make differently and so produce different stored ids: how `ast_fingerprint` serialises its node-type path, texts and ordinal, and in what form `site_id` reads it; the case of the base32 output; whether the overload disambiguator is hex text or raw bytes, and how the identical-signature ordinal is written; what an absent enclosing definition or site contributes; which clone URLs `canonical_clone_url` accepts | Approved by the owner on 2026-10-02 exactly as P2-01 implemented them, and written into 4.2.1 with reference vectors. `SEGMENT_SCHEMA_VERSION` stays 1: this completes the initial identity format before the first segment writer, so nothing stored is invalidated |
 | 32 | 2026-10-02 | G1a | blocker | resolved | Evaluating G1a found the local engine build compiled without warnings as errors in vendored sources: its build directory had once been configured with `PDXE_VENDORED_WERROR` off, CMake keeps an option's last value, and neither `make engine` nor `make check-asan` stated it. The continuous integration builds were unaffected, but a local check could pass on a weaker policy than it appeared to | Both targets now state the policy on every configure (`make engine PDXE_VENDORED_WERROR=OFF` remains the explicit way to relax it). Rebuilt locally with gcc 13.3 and clang 18: every non-grammar source carries `-Wall -Wextra -Werror`, and every warning printed is in issue 19's exempt set |
-| 31 | 2026-10-02 | P2-07 | ambiguity | open | Appendix A gives `javascript` the test rule "same as TS", and TypeScript's file-name patterns are `*.test.ts` and `*.spec.ts`: read literally, no JavaScript file is a test by its name, and neither is a TypeScript `.tsx`, `.mts` or `.cts` file. Nor does it say where a directory pattern such as `tests/**` applies, at the repository root or at any depth | Owned by P2-07, which derives tests from these rules: decide, by specification change if the answer is not the literal reading. The registry records the rules exactly as Appendix A writes them, the JavaScript rule as TypeScript's by reference, so a reading of them changes no data |
+| 31 | 2026-10-02 | P2-07 | ambiguity | resolved | Appendix A gives `javascript` the test rule "same as TS", and TypeScript's file-name patterns are `*.test.ts` and `*.spec.ts`: read literally, no JavaScript file is a test by its name, and neither is a TypeScript `.tsx`, `.mts` or `.cts` file. Nor does it say where a directory pattern such as `tests/**` applies, at the repository root or at any depth | Owner decision, 2026-10-05: `.test` and `.spec` on every TypeScript extension; JavaScript takes that convention on its own extensions, never `.test.ts`; directory patterns match at any depth on whole components, several components consecutively; `test*` is any component beginning `test`, case-sensitively. `LANGUAGE_MATRIX_VERSION` 1 → 2. Proven by `test_rules_follow_issue_31` |
 | 30 | 2026-10-02 | P1-07 | ambiguity | resolved | Appendix A leaves parts of language detection unsaid: it gives `bash` a shebang without naming a form, writes two patterns over a file's name (`Dockerfile*`, `.env*`) beside the extensions without saying which wins when a name matches both kinds, and says nothing of case | Implemented to the letter where Appendix A speaks and narrowly where it is silent: a shebang is a `#!` first line naming `bash`, directly or through `env`, and nothing else, `sh` included; an entry with `*` is a pattern over the name, any other an extension the name ends with; an extension decides before a name pattern, and a name pattern before a shebang; matching is case-sensitive. Each choice has a test, and any can be changed by a specification change that bumps the matrix version |
 | 29 | 2026-10-02 | P1-06 | blocker | resolved | The first sanitizer run over the corpus failed: for a project whose definitions typed resolution keeps none of, building the C# resolver's shared registry takes an offset from a NULL array, which is undefined behaviour in C. A documentation-only project reaches it; no fixture had | Fixed by `engine/patches/0008`, in the C# builder and in the Java one, which has the same shape and no caller yet. The regression `abi_run_health_untyped_only` fails under the sanitizers without the patch. No sanitizer report is suppressed |
 | 28 | 2026-10-02 | P1-06 | ambiguity | resolved | The interface promises it writes nothing to standard output or standard error, but the TypeScript resolver prints a line to standard error when one of its work budgets runs out, whatever the logging switches say. The interface's no-output test does not see it because its fixtures never exhaust a budget | The two unconditional prints are removed through the vendored patch mechanism (`engine/patches/0007`); the lost-work count at both sites remains, and evaluation still degrades to an unknown type. A no-output regression starves the budget and proves every TypeScript run of the corpus exhausted it and was degraded for it, with nothing written; the sanitizer corpus is covered by the no-output contract too |
@@ -87,6 +95,190 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 53 — A file name with a backslash has no host-independent identity
+
+A file name on Linux or macOS may contain `\`. Windows reads the same character as a
+path separator, so `src\a.py` there is a file `a.py` in a folder `src`: no identity
+built from such a name is the same on every host, which 4.2.1 requires of every path
+in one. Discovery builds paths from names joined by `/` and finds such a file on Linux
+and macOS like any other.
+
+P2-07 makes Stage 4 refuse every path that is not repository-relative POSIX (a `\`, a
+drive letter, an absolute path, an empty, `.` or `..` component) with
+`DeriveError::NotRepositoryPath`, rather than give it an identity:
+`backslash_path_never_reaches_an_identity` and `host_native_paths_are_refused`. A
+repository holding such a file therefore fails its build today.
+
+How the file is accounted for instead (skipped by discovery with a reason, and counted
+by coverage) is the whole pipeline's decision, P2-10's, which owns coverage and the
+build. The refusal in Stage 4 stays whatever is decided: it is what keeps a host-native
+path out of every identity.
+
+State: open.
+
+### 52 — P2-07 dependency exemptions
+
+The golden fixtures of P2-07 (Part S of its brief) are snapshot tests, written with
+`insta`, which brings `similar` for its diffs. Both are development dependencies of
+`pdx-core` only and never ship:
+
+| Package | Version | Criterion | Why |
+|---|---|---|---|
+| `insta` | 1.49.0 | `safe-to-run` | Snapshot assertions for `derive_<language>`; default features off |
+| `similar` | 2.7.0 | `safe-to-run` | `insta`'s diffing |
+
+As for issue 39, each exemption is for its exact version, carries a note naming this
+issue, and was added by hand to `supply-chain/config.toml`. **These are exemptions,
+not audits.** No exemption was regenerated and nothing else changed: 101 exemptions
+(95 of issue 36, 4 of issue 39 and these 2).
+
+State: resolved.
+
+### 51 — File records for files that were never read
+
+4.3's `files` row has a `blob_sha` and a `line_count` for every file, and the brief for
+P2-07 requires both to be the pipeline's own facts, never a second read. Stage 2 reads
+only extraction candidates. A redacted file is never opened, a binary one is recognised
+and never extracted, an oversized one or one of no language is never read: there is no
+blob identity for any of them. Stage 2 also kept no line count at all.
+
+Resolved within `SEGMENT_SCHEMA_VERSION` 2 (issue 50): both columns are nullable,
+`NULL` for a file the pipeline never read, and stated so in 4.3's DDL. Stage 2 counts
+lines (newlines, and one more for a last line without one) in the bytes it already reads
+for every candidate, and the registry keeps the count. A file whose status is
+`redacted`, `binary` or `skipped` has neither fact; a `parsed`, `partial` or `failed`
+one has both. Proven by `file_records_are_faithful`, with Git's own blob ids as the
+expected values.
+
+State: resolved.
+
+### 50 — Candidate rows lose the engine's candidate count
+
+4.2.2 keeps the engine's score, strategy and candidate count verbatim wherever a
+resolution is stored. `edges` had all three; `candidates` and `CandidateSite` had no
+candidate count, so a non-drawn site the engine answered would have lost it in the
+first segment P2-07's rows reach.
+
+Resolved: `engine_candidates INTEGER` in `candidates` (4.3's DDL and `schema.sql`
+together), `CandidateSite::engine_candidates`, the writer and reader. A changed table
+is a changed segment layout, so `SEGMENT_SCHEMA_VERSION` is 2, mirrored in
+`ui/src/consts.ts`, and a reader refuses version 1 as it refuses any other. No
+identity changes. Proven by `segment_roundtrip`,
+`segment_is_byte_identical_across_builds`, `reader_refuses_wrong_schema_version` and
+`candidate_rows_copy_engine_calibration`.
+
+State: resolved.
+
+### 49 — Resolutions had no owner to become graph rows
+
+P2-06's stages settle every call site as a `Resolution`, with its unconfirmed sites
+apart, and stop there. No later task named turning them into persistent sites,
+`CALLS` and `CALL_REFERENCE` edges and candidate rows, and P2-07's `TESTS` edges are
+made from those calls.
+
+Owner decision, implemented in P2-07 (`index::derive::calls`):
+
+- A resolution with a drawn band (`typed`, `import-guided`, `inheritance-guided`,
+  `exact`, `scoped`) gives one site (`call`, or `reference` for a callable passed as a
+  value) and one edge, `CALLS` or `CALL_REFERENCE`, from the definition the engine
+  attributes the site to (or from the file, at file scope) to the target's node, with
+  the band, the site, `observed` false, and the engine's score, strategy and candidate
+  count copied unchanged.
+- Any other band gives one site and one candidate row, its candidates' nodes sorted
+  and once each, with the same engine numbers, and no edge.
+- Unconfirmed sites (`typed_only` with no typed answer, an unconfirmed reference, an
+  engine-found site) are carried in the stage's diagnostics for counting, never as a
+  row.
+- A resolved site with no position in the file (a call found only in preprocessed
+  text) or no node-type path is counted in the diagnostics, never stored at a
+  position it does not have.
+
+Proven by `drawn_edges_copy_engine_calibration`, `candidate_rows_copy_engine_calibration`,
+`unconfirmed_sites_are_counted_never_drawn` and
+`site_without_raw_position_is_counted_not_placed`.
+
+State: resolved.
+
+### 48 — Module node identity and containment
+
+`ModuleKey` (language, scope, name) was explicitly not a graph identity, and Appendix
+B.3 says both that containment runs `Repo → Folder → File → Module` and that a module
+spanning files is one node with no `file_id`. A member file can neither identify such a
+module (which file would be first?) nor be its parent.
+
+Owner decision, written into 4.2.1 (a bullet and rule 11, with fixed vectors):
+
+- Identity: `kind` `Module`, `path` the module's scope, `qualified_name`
+  `<language>:<name>`, disambiguator `""`. It depends on no member file, their number
+  or their order: adding a file to a package changes no id.
+- A module in one file has that file as `file_id` and parent. A module spanning files
+  has no `file_id`, its member paths sorted in `props.files`, and the nearest folder
+  holding them all, or the repository, as parent.
+- Symbols keep their physical parents (`File → Class → Method`); their module is
+  `props.module`, so a file joining a package moves nothing.
+- A language whose module is the file itself has no module node: the file node is the
+  module.
+
+Proven by the Part U tests (`single_file_module_has_file_parent` to
+`symbols_reference_semantic_module`, over a Java package in two files, one Python name
+under two source roots, one `crate::` name in two crates and TypeScript and JavaScript
+in one directory) and `module_id_fixed_vectors`.
+
+State: resolved.
+
+### 47 — Derivation facts dropped at the safe boundary
+
+The engine extracts, for each definition, its decorators or annotations, its declared
+parameter types and, for a Spring or `FastAPI` handler, its route's method and path
+(Spring's joined to the controller's prefix); and for each call its arguments, with
+the literal value and keyword where it has them. None crossed the interface, and Stage
+4 needs them for tests, routes, entry points and overload identity. Reading them again
+from source would duplicate the engine's work and could disagree with it.
+
+Exposed, append-only: `pdxe_definition` gains `decorators`, `signature_param_types`,
+`route_path` and `route_method`, `pdxe_call` gains `args` (`pdxe_call_arg`: `expr`,
+`value`, `keyword`, `index`); `pdx_engine::Definition` and `Call` carry them owned,
+in the engine's order and spelling. `pdxe_result_build` validates every counted array
+and deep-copies it, so a rebuilt result holds nothing of its caller's; the C test
+`abi_result_build_roundtrip` covers the new fields and five refusals. Passing existing
+facts through moves no `ENGINE_VERSION`; the change to `FileExtract` shares issue 46's
+cache format 4 and worker protocol 5. Fresh, cached and isolated-worker extractions
+agree: `derivation_facts_cross_the_boundary`,
+`cached_extractions_keep_site_paths_and_derivation_facts` and
+`isolation_carries_site_paths_and_derivation_facts`.
+
+State: resolved.
+
+### 46 — Call sites had no node-type path
+
+4.2.1's `ast_fingerprint` hashes the engine's node-type path from the enclosing
+definition to the site, with the callee and receiver texts and an ordinal, so a site's
+identity survives line shifts. `pdx_engine::Call` carried texts, a position and a
+caller, but no path, and nothing else may stand in for one: not a line, an offset, a
+call index, file order or a constant path.
+
+Preflight evidence that the path is new: the engine's call and usage structures had no
+such field, its walk kept a stack of scopes (kind, name, depth) and never the node
+types above the current node, and the pinned reference contains no computation of an
+ancestry path anywhere. So the path is computed, not exposed:
+`engine/patches/0010-site-node-type-paths.patch` records the node types of the walk's
+current branch and the depth of the innermost enclosing function, and stamps every
+call and callable reference the walk adds with the slice between them; sites added
+after the walk are stamped from the tree. Extraction output changed, so
+`ENGINE_VERSION` is 2; `FileExtract` changed, so `EXTRACT_CACHE_FORMAT_VERSION` is 4
+and the worker protocol 5, with no migration: format 3 entries are misses and a
+protocol-4 worker is refused.
+
+Proven: `call_ast_path_crosses_the_boundary`, `reference_ast_path_crosses_the_boundary`,
+`every_site_in_the_source_has_a_path`, `cached_extractions_keep_site_paths_and_derivation_facts`,
+`isolation_carries_site_paths_and_derivation_facts`, `line_insertion_keeps_node_and_site_ids`,
+`moving_a_call_without_restructuring_keeps_its_fingerprint`,
+`changing_ast_nesting_changes_fingerprint`, `identical_sites_get_deterministic_ordinals`,
+`unrelated_call_and_definition_keep_identities`, `cache_format_3_is_a_miss` and
+`a_worker_of_another_protocol_is_refused`.
 
 State: resolved.
 
@@ -597,7 +789,27 @@ JavaScript rule as a reference to TypeScript's (`TestDetection::SameAs`), resolv
 `TESTS` edges (Appendix B.5 defers to Appendix A), so the reading is P2-07's to settle,
 by specification change if it is not the literal one.
 
-State: open.
+Owner decision, 2026-10-05, implemented in P2-07:
+
+- TypeScript's file-name rule is the `.test` and `.spec` convention on every
+  TypeScript extension of the matrix: `.test.ts`, `.test.tsx`, `.test.mts`,
+  `.test.cts`, and the same with `.spec` (`TestRule::SourceSuffix`).
+- JavaScript's "same as TypeScript" is that convention on JavaScript's own extensions
+  (`.test.js`, `.test.jsx`, `.test.mjs`, `.test.cjs`, and `.spec`); a JavaScript file is
+  never matched against `.test.ts`.
+- A directory rule (`tests/**`, `__tests__/**`, `src/test/**`, `t/**`, `spec/**`)
+  matches that directory at any depth, on whole path components: `tests/a.py` and
+  `packages/api/tests/a.py` match, `packages/api/mytests/a.py` does not. A rule of
+  several components matches them consecutively: `service/src/test/java/A.java`
+  matches `src/test/**`, `src/main/test/A.java` does not.
+- `test*` (`NamePrefix("test")`) is any directory component beginning `test`,
+  case-sensitively.
+
+This changes the matrix's test-detection column, so `LANGUAGE_MATRIX_VERSION` is 2;
+language detection is unchanged. Proven by `test_rules_follow_issue_31` and the
+matrix tests.
+
+State: resolved.
 
 ### 30 — Language detection where Appendix A is silent
 

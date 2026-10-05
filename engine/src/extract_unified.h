@@ -84,6 +84,7 @@ typedef struct {
     bool prev_inside_import;
     int prev_loop_depth;
     int prev_branch_depth;
+    uint32_t prev_enclosing_func_depth;
     /* #1912: py_param_stack height on entry. Pop unwinds back to it, so a
      * frame unbinds exactly the parameters it bound and nothing else. */
     int prev_py_param_stack_count;
@@ -141,6 +142,15 @@ typedef struct {
     bool inside_import;                 // within an import_node_types subtree
     int loop_depth;                     // count of enclosing loop scopes (for bottleneck metrics)
     int branch_depth;                   // count of enclosing branch scopes
+    /* A site's node-type path: node_types holds the type of the current node and of
+     * each ancestor, by cursor depth; enclosing_func_depth is the depth of the
+     * innermost function frame (0, the root, at file scope). The path of a site at
+     * current_depth is node_types[enclosing_func_depth..current_depth]. */
+    const char **node_types;
+    uint32_t node_types_capacity;
+    uint32_t current_depth;
+    uint32_t enclosing_func_depth;
+    bool node_types_failed;
 
     PDXEArena *arena;
     PDXEWalkScope *scopes;
@@ -214,6 +224,10 @@ bool pdxe_walk_python_param_is_bound(const WalkState *state, const char *name);
 PDXEInvocationDescriptor handle_calls(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
                                      WalkState *state);
 void handle_usages(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec, WalkState *state);
+/* Gives every call pushed since calls_before, and every possible callable reference
+ * pushed since usages_before, the current node's node-type path. */
+void pdxe_walk_stamp_site_paths(PDXEExtractCtx *ctx, WalkState *state, int calls_before,
+                               int usages_before);
 void pdxe_finalize_lexical_usages(PDXEExtractCtx *ctx, WalkState *state);
 void handle_throws(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec, WalkState *state);
 void handle_readwrites(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec, WalkState *state);

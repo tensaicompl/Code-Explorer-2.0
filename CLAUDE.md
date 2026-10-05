@@ -15,9 +15,11 @@ model (`pdx_core::ids`, `bands`, `kinds`, `model`), the segment file
 (`pdx_core::segment`), the repository configuration (`pdx_core::config`), Stage 1,
 discovery (`pdx_core::index::discover`), and Stage 2, extraction with its cache
 (`pdx_core::index::extract`) and content secret normalisation (`pdx_core::secrets`),
-and Stage 3's resolution: the symbol registry (`pdx_core::resolve::registry`), the
+Stage 3's resolution: the symbol registry (`pdx_core::resolve::registry`), the
 generic-name blocklist (`resolve::blocklist`) and the stages that settle every call
-site's band and target (`resolve::stages`). P1 vendored
+site's band and target (`resolve::stages`), and Stage 4's first part, which derives
+containment, modules, call sites and edges, tests, routes and entry points
+(`pdx_core::index::derive`). P1 vendored
 the engine, built it, gave it its interface, bound it to Rust (`pdx-engine-sys`),
 and wrapped it safely (`pdx-engine`: owned extractions, typed resolution with run
 health, crash-isolated extraction), built and tested on Linux, macOS and Windows,
@@ -32,7 +34,7 @@ this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`) |
@@ -108,7 +110,10 @@ registry's own metadata, and applies a configuration's path aliases to TypeScrip
 JavaScript imports only, as the registry does (issue 43, patch 0009). Rust's `impl
 Trait for Type` relations cross the interface (`FileExtract::impl_traits`, issue 42)
 and the registry resolves them; supertraits are not recorded, so none is followed. The
-extraction cache is format 3 and the worker protocol 4 (issues 40 to 42).
+extraction cache is format 4 and the worker protocol 5 (issues 40 to 42, 46 and 47):
+calls carry their node-type path (`ast_path`, computed by the engine since patch
+0010, so `ENGINE_VERSION` is 2) and arguments, and definitions their decorators,
+parameter types and routes.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
@@ -123,6 +128,25 @@ narrowing to several; `scoped` is the module, never a directory the matrix does 
 call a module. `typed_only` sites, references and engine-found sites are call sites
 only when typed resolution settles them. A `Resolution` can only be made in a shape
 its band means. Nothing here makes a graph id: targets are `DefinitionRef`s.
+
+Stage 4 (`index::derive`) is where facts get persistent identities, from 4.2.1's
+fields only: never a line, offset, call index, insertion order or checkout location,
+and every path repository-relative POSIX (a host-native path stops the stage, issue
+53). One map from `DefinitionRef` to node serves every part. A module is `(Module,
+scope, "<language>:<name>", "")`, never keyed or parented by a member file; a spanning
+one has no `file_id`, sorted `props.files` and the nearest common folder as parent;
+symbols keep their physical parents and carry `props.module` (issue 48). Drawn
+resolutions become a site and a `CALLS` or `CALL_REFERENCE` edge, others a site and a
+candidate row, with the engine's numbers copied unchanged; unconfirmed sites and sites
+with no position in the file are counted, never stored (issue 49). Test files follow
+issue 31's rules (`LANGUAGE_MATRIX_VERSION` 2); a definition is a test only on its
+framework's evidence, never because the engine flags its file, and `TESTS` edges sit
+beside the `CALLS` edges they mirror. Routes (Spring, FastAPI, Express) key on their
+handler's file and `{"handler","method","path"}` JSON, never a line. Segments are
+`SEGMENT_SCHEMA_VERSION` 2 (`candidates.engine_candidates`, nullable `blob_sha` and
+`line_count` for files never read; issues 50 and 51). The golden fixtures are `insta`
+snapshots in `crates/pdx-core/tests/snapshots/`: review a changed one, never accept it
+blind.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

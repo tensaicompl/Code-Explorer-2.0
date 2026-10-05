@@ -368,6 +368,18 @@ fn disambiguator_fixed_vectors() {
         Ok("652bcc3a")
     );
     assert_eq!(ids::signature_disambiguator("").as_deref(), Ok("e3b0c442"));
+    // Signatures as Stage 4 normalises them (issue 47's parameter types).
+    for (signature, expected) in [
+        ("int", "6da88c34"),
+        ("int,int", "9ddf8874"),
+        ("List,int", "90a7807f"),
+        ("?,?", "f8e407f9"),
+    ] {
+        assert_eq!(
+            ids::signature_disambiguator(signature).as_deref(),
+            Ok(expected)
+        );
+    }
     // Alone, a callable needs no disambiguator.
     assert_eq!(
         ids::overload_disambiguators(&["String,int"]),
@@ -597,6 +609,75 @@ fn id_types_serialise_as_their_strings() {
     assert_eq!(format!("{id}"), "FC0C2RXS73G18HY3HRG3C0EX2Z");
 }
 
+// --- modules and routes (4.2.1 rules 11 and 12) -----------------------------------
+
+#[test]
+fn module_and_route_fixed_vectors() {
+    use pdx_core::index::derive::modules::module_node_key;
+    use pdx_core::index::derive::routes::{route_node_key, route_qualified_name};
+    use pdx_core::resolve::registry::ModuleKey;
+    for (language, scope, name, expected) in [
+        ("java", "", "com.acme.shop", "55G35296BGG2AQWVHDDXJJXD1M"),
+        ("python", "", "pkg.sub", "X7VNB2146K5J6FVR2TWT9783HB"),
+        ("python", "lib", "pkg.sub", "J5Z60XNE5PYTSWP0EBK78V58YJ"),
+        (
+            "go",
+            "",
+            "example.com/acme/pkg",
+            "0N6YZHJWWNYR1WV3S30G8J7Q5D",
+        ),
+        (
+            "rust",
+            "crates/a",
+            "crate::service",
+            "W7DPJAGX5MAX8TT51WAQ3WVAAE",
+        ),
+        (
+            "rust",
+            "crates/b",
+            "crate::service",
+            "CT62A3GAKD1W2AG6E4ED6X8XXX",
+        ),
+        ("typescript", "", "src/api", "PM423SES9K6HFMTAWW56BPBYN7"),
+        ("javascript", "", "src/api", "9DT6FP0NHCXCTXSPQ4MH0H6F7C"),
+    ] {
+        let qualified_name = format!("{language}:{name}");
+        let by_rule = NodeKey::definition(&repo(), NodeKind::Module, scope, &qualified_name, "");
+        assert_eq!(
+            by_rule.node_id().unwrap().as_str(),
+            expected,
+            "{qualified_name} in {scope:?}"
+        );
+        let key = ModuleKey {
+            language,
+            scope: scope.to_owned(),
+            name: name.to_owned(),
+        };
+        assert_eq!(module_node_key(&repo(), &key), by_rule);
+    }
+    let handler = "src.main.java.com.acme.web.UserController.list";
+    assert_eq!(
+        route_qualified_name(handler, "GET", "/api/users"),
+        r#"{"handler":"src.main.java.com.acme.web.UserController.list","method":"GET","path":"/api/users"}"#
+    );
+    let route = route_node_key(
+        &repo(),
+        "src/main/java/com/acme/web/UserController.java",
+        handler,
+        "GET",
+        "/api/users",
+    );
+    assert_eq!(
+        route.node_id().unwrap().as_str(),
+        "CGDNAXVJSZCGQ3AWN0X6NPR9GE"
+    );
+    // Rule 12's escapes: quotes, backslashes and control characters, nothing else.
+    assert_eq!(
+        route_qualified_name("a\"b\\c", "GET", "/x\u{1}\n/é"),
+        "{\"handler\":\"a\\\"b\\\\c\",\"method\":\"GET\",\"path\":\"/x\\u0001\\n/é\"}"
+    );
+}
+
 #[test]
 fn the_specification_carries_these_vectors() {
     // 4.2.1 prints reference vectors so that a second implementation can check itself
@@ -630,6 +711,19 @@ fn the_specification_carries_these_vectors() {
         "639NYMS5S3YSVEMV5N1G4T7HEQ",
         "04K6NBGNS5YV1FH28A5J5KK36A",
         "DWNCJWMCV866WG7RJNMDFCQRNP",
+        "55G35296BGG2AQWVHDDXJJXD1M",
+        "X7VNB2146K5J6FVR2TWT9783HB",
+        "J5Z60XNE5PYTSWP0EBK78V58YJ",
+        "0N6YZHJWWNYR1WV3S30G8J7Q5D",
+        "W7DPJAGX5MAX8TT51WAQ3WVAAE",
+        "CT62A3GAKD1W2AG6E4ED6X8XXX",
+        "PM423SES9K6HFMTAWW56BPBYN7",
+        "9DT6FP0NHCXCTXSPQ4MH0H6F7C",
+        "CGDNAXVJSZCGQ3AWN0X6NPR9GE",
+        "6da88c34",
+        "9ddf8874",
+        "90a7807f",
+        "f8e407f9",
     ] {
         assert!(
             vectors.contains(&format!("`{value}`")),
@@ -637,5 +731,5 @@ fn the_specification_carries_these_vectors() {
         );
     }
     let printed = vectors.matches("\n| ").count();
-    assert_eq!(printed, 15, "4.2.1 prints a vector this test does not know");
+    assert_eq!(printed, 22, "4.2.1 prints a vector this test does not know");
 }

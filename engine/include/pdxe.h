@@ -112,6 +112,13 @@ enum pdxe_visibility {
  * bases, exactly as the engine recorded them: in its order, spelling and case,
  * unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.
  * Appended by a specification change; see docs/plan/ISSUES.md, issue 40.
+ *
+ * `decorators` are the decorators, annotations or attributes the definition carries,
+ * as the engine recorded each, in its order; `signature_param_types` its parameters'
+ * types as the engine reads them, in order, `?` for one it cannot read; `route_path`
+ * and `route_method` the HTTP route a decorator binds it to, where the engine found
+ * one, else NULL. Each array is NULL with a count of 0 when empty. Appended by a
+ * specification change; see docs/plan/ISSUES.md, issue 47.
  */
 typedef struct {
     const char *name;
@@ -131,6 +138,12 @@ typedef struct {
     uint32_t loop_depth;
     const char **base_classes;
     uint32_t n_base_classes;
+    const char **decorators;
+    uint32_t n_decorators;
+    const char **signature_param_types;
+    uint32_t n_signature_param_types;
+    const char *route_path;
+    const char *route_method;
 } pdxe_definition;
 
 /*
@@ -200,6 +213,19 @@ enum pdxe_lexical_fact {
  * Calls come first in the order the engine found them, then references in the
  * order their names appear. That order is the index a typed resolution refers to.
  */
+/*
+ * One argument the engine captured at a call: its expression as written, the string
+ * value it resolves to where the engine resolved one (a literal, or a constant it
+ * followed), the keyword for a keyword argument, and its 0-based position. Appended by
+ * a specification change; see docs/plan/ISSUES.md, issue 47.
+ */
+typedef struct {
+    const char *expr;
+    const char *value;
+    const char *keyword;
+    uint32_t index;
+} pdxe_call_arg;
+
 typedef struct {
     const char *callee_text;
     const char *receiver_text;
@@ -208,6 +234,21 @@ typedef struct {
     uint8_t is_reference;
     uint8_t typed_only;
     uint16_t lexical;
+    /*
+     * The syntax node types from the enclosing definition's node (the file's root for a
+     * site at file scope) down to the node the site is recorded at, in order: the path a
+     * site's identity hashes (4.2.1). NULL with a count of 0 when the walk could not
+     * record it. Appended by a specification change; see docs/plan/ISSUES.md, issue 46.
+     */
+    const char **ast_path;
+    uint32_t n_ast_path;
+    /*
+     * The arguments the engine captured, in its order (pdxe_call_arg); NULL and 0 for a
+     * reference, a call with none, and a resolution's site. Appended by a specification
+     * change; see docs/plan/ISSUES.md, issue 47.
+     */
+    const pdxe_call_arg *args;
+    uint32_t n_args;
 } pdxe_call;
 
 typedef struct {
@@ -368,7 +409,11 @@ void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r);
  * classes are copied with it, array and strings; a definition with bases and no array,
  * or with a NULL base, is refused. It declares no namespace. Its `impl Trait for Type`
  * relations are copied, array and strings, NULL and 0 for none; relations counted
- * with no array, or one with a NULL string, are refused (issue 42).
+ * with no array, or one with a NULL string, are refused (issue 42). A definition's
+ * decorators, parameter types and route, and a call's node-type path and arguments,
+ * are copied too; any of those arrays counted without an array, or holding a NULL
+ * string where one is required (every element; an argument's expression), is refused
+ * (issues 46 and 47).
  */
 int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,

@@ -1,0 +1,19 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"Class": 1, "File": 4, "Folder": 3, "Function": 2, "Method": 2, "Module": 4, "Repo": 1, "Test": 1}
+entry points: 1
+edges: {("CALLS", "typed"): 4, ("TESTS", "typed"): 1}
+candidates: {"candidate": 1}
+files: pkg/__init__.py=parsed pkg/core.py=parsed pkg/util.py=parsed tests/unit/test_core.py=parsed
+  Class pkg.core.Shop Shop parent=File:core.py module=python:pkg.core id=5JV9H7CEMQGPNF0PRXZVK2YJ20
+  Function pkg.util.double double parent=File:util.py module=python:pkg.util id=E3NGJRB0FNHVHSKXGVSJ2S7D59
+  Function tests.unit.test_core.helper helper parent=File:test_core.py module=python:test_core id=FM0VY5T0AMAWXM6C49K3FJ9V5Z
+  Method pkg.core.Shop.base base parent=Class:Shop module=python:pkg.core id=NMBNTEV9BXYXQ1W7WM8DJWJZ04
+  Method pkg.core.Shop.total total parent=Class:Shop module=python:pkg.core id=X98GW9VNT114JDZZW20YGNEY5R
+  Module python:pkg pkg parent=File:__init__.py id=NRE6ACQJ0RY992NJTZ1P60S0M1
+  Module python:pkg.core pkg.core parent=File:core.py id=X2W6K2PFTZ9QPXDE6P8E28ZKYZ
+  Module python:pkg.util pkg.util parent=File:util.py id=8RQ7K49J5FGBC0SE8074A50QE9
+  Module python:test_core test_core parent=File:test_core.py id=Z409TV2FNC73B5KSFW0VRYBM5P
+  Test tests.unit.test_core.test_total test_total parent=File:test_core.py module=python:test_core test entry id=GHYSSHWSB6NT510SRNB4G0AQST

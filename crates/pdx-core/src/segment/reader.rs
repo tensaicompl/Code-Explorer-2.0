@@ -543,7 +543,8 @@ fn candidate(row: &Row<'_>) -> Result<CandidateSite, SegmentError> {
         candidate_ids,
         engine_score: row.get(5)?,
         engine_strategy: row.get(6)?,
-        reason: row.get(7)?,
+        engine_candidates: opt_u32(row, T, "engine_candidates", 7)?,
+        reason: row.get(8)?,
     })
 }
 
@@ -595,7 +596,10 @@ fn file(row: &Row<'_>) -> Result<FileRecord, SegmentError> {
         status_reason: row.get(4)?,
         blob_sha: row.get(5)?,
         size_bytes: count_at(row, T, "size_bytes", 6)?,
-        line_count: count_at(row, T, "line_count", 7)?,
+        line_count: row
+            .get::<_, Option<i64>>(7)?
+            .map(|v| number(T, "line_count", v))
+            .transpose()?,
     })
 }
 

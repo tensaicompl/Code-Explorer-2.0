@@ -435,11 +435,12 @@ fn candidate_site_serialised_form() {
         candidate_ids: vec![other, method()],
         engine_score: Some(0.5),
         engine_strategy: Some("suffix_match".to_owned()),
+        engine_candidates: Some(2),
         reason: "two definitions survive the scoped stage".to_owned(),
     };
     assert_eq!(
         json(&candidate),
-        r#"{"site_id":"8Q0S4A5X7HM4PN0YV3FCEAFV2V","src":"FC0C2RXS73G18HY3HRG3C0EX2Z","callee_name":"save","band":"candidate","candidate_ids":["639NYMS5S3YSVEMV5N1G4T7HEQ","FC0C2RXS73G18HY3HRG3C0EX2Z"],"engine_score":0.5,"engine_strategy":"suffix_match","reason":"two definitions survive the scoped stage"}"#
+        r#"{"site_id":"8Q0S4A5X7HM4PN0YV3FCEAFV2V","src":"FC0C2RXS73G18HY3HRG3C0EX2Z","callee_name":"save","band":"candidate","candidate_ids":["639NYMS5S3YSVEMV5N1G4T7HEQ","FC0C2RXS73G18HY3HRG3C0EX2Z"],"engine_score":0.5,"engine_strategy":"suffix_match","engine_candidates":2,"reason":"two definitions survive the scoped stage"}"#
     );
     assert_eq!(
         serde_json::from_str::<CandidateSite>(&json(&candidate)).expect("json"),

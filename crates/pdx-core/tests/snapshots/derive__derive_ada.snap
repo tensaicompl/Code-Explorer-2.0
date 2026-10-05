@@ -1,0 +1,14 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"Class": 1, "File": 2, "Folder": 1, "Function": 3, "Module": 1, "Repo": 1}
+entry points: 0
+edges: {}
+candidates: {}
+files: src/shop.adb=parsed src/shop.ads=parsed
+  Class src.shop.Shop Shop parent=File:shop.ads module=ada:Shop id=NRHCFHQME2383E171YATS8JV0N
+  Function src.shop.Helper Helper parent=File:shop.adb id=0JF8YVVMYACFC7F41H511A2T6D
+  Function src.shop.Total Total parent=File:shop.adb id=5JQ29F08CRYEDQFP5EKFJDYK4Q
+  Function src.shop.Total Total parent=File:shop.ads module=ada:Shop id=H3SFWTHBVZPJ8JSRD7P0CN9JFB
+  Module ada:Shop Shop parent=File:shop.ads id=CG69VW9HET4J80SZ4596X0CERW

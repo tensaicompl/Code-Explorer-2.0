@@ -38,7 +38,8 @@ const fn name(prefix: &'static str, suffix: &'static str) -> TestRule {
 
 const NONE: TestDetection = TestDetection::Rules(&[]);
 
-/// Appendix A, `LANGUAGE_MATRIX_VERSION` = 1, in its order.
+/// Appendix A, in its order, with its test rules read as issue 31 decided
+/// (`LANGUAGE_MATRIX_VERSION` = 2).
 const ROWS: &[Row] = &[
     Row {
         id: "java",
@@ -76,8 +77,8 @@ const ROWS: &[Row] = &[
         shebangs: &[],
         module: M::DirectoryWithPathMappings { config: "tsconfig" },
         tests: TestDetection::Rules(&[
-            name("", ".test.ts"),
-            name("", ".spec.ts"),
+            T::SourceSuffix(".test"),
+            T::SourceSuffix(".spec"),
             T::Under(Path("__tests__")),
         ]),
     },
@@ -840,6 +841,7 @@ fn engine_test_languages_are_the_matrix_and_its_dialects() {
 }
 
 #[test]
-fn version_is_one() {
-    assert_eq!(LANGUAGE_MATRIX_VERSION, 1);
+fn version_is_two() {
+    // 2 since issue 31: the test rules' semantics changed, the languages did not.
+    assert_eq!(LANGUAGE_MATRIX_VERSION, 2);
 }

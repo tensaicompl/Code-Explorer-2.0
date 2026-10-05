@@ -1,0 +1,18 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"Class": 2, "File": 3, "Folder": 2, "Method": 3, "Module": 3, "Repo": 1, "Test": 1}
+entry points: 2
+edges: {("CALLS", "exact"): 2, ("CALLS", "typed"): 3, ("TESTS", "exact"): 1, ("TESTS", "typed"): 1}
+candidates: {"unresolved": 1}
+files: Program.cs=parsed src/Shop.cs=parsed tests/CartTests.cs=parsed
+  Class src.Shop.Cart Cart parent=File:Shop.cs module=csharp:Acme.Shop id=ZRZ05GJ0VCYBAY69Y7TYB3ZV7H
+  Class tests.CartTests.CartTests CartTests parent=File:CartTests.cs module=csharp:Acme.Shop.Tests id=5Z667AEFC9M1ENAX6XD105YEBV
+  Method src.Shop.Cart.Helper Helper parent=Class:Cart module=csharp:Acme.Shop id=K5M4MBSVPZ895YNKVYP42SMZWJ
+  Method src.Shop.Cart.Total Total parent=Class:Cart module=csharp:Acme.Shop id=855CRN518TRAJP8T0AT9HH0APM
+  Method tests.CartTests.CartTests.Check Check parent=Class:CartTests module=csharp:Acme.Shop.Tests id=HYR957E5VMWR3GBY66C9PG1BKS
+  Module csharp:  parent=File:Program.cs id=9ZCXDVKGSYCSMP5A94PQTKNWZ4
+  Module csharp:Acme.Shop Acme.Shop parent=File:Shop.cs id=039RZW20DPXG9FVPS8388NM6MQ
+  Module csharp:Acme.Shop.Tests Acme.Shop.Tests parent=File:CartTests.cs id=6P2XE9EG4VP36FVR61GCVPT30V
+  Test tests.CartTests.CartTests.Totals Totals parent=Class:CartTests module=csharp:Acme.Shop.Tests test entry id=6N6D6YQ3SRJEEB8EVF48MCPZF8

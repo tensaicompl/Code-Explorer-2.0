@@ -1,0 +1,21 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"Class": 4, "File": 4, "Folder": 9, "Method": 6, "Module": 1, "Repo": 1, "Test": 1}
+entry points: 2
+edges: {("CALLS", "exact"): 2, ("CALLS", "typed"): 4, ("TESTS", "exact"): 1, ("TESTS", "typed"): 2}
+candidates: {"candidate": 1}
+files: src/main/java/com/acme/App.java=parsed src/main/java/com/acme/Shop.java=parsed src/main/java/com/acme/Util.java=parsed src/test/java/com/acme/ShopTest.java=parsed
+  Class src.main.java.com.acme.App App parent=File:App.java module=java:com.acme id=8066TA6W1PJHYW7X0SMM3M19X4
+  Class src.main.java.com.acme.Shop Shop parent=File:Shop.java module=java:com.acme id=77E0SZ9YFC0ZYRK1JEYN8KG1Y1
+  Class src.main.java.com.acme.Util Util parent=File:Util.java module=java:com.acme id=5M7F4XTYCETFSV77QBXFBHD2SM
+  Class src.test.java.com.acme.ShopTest ShopTest parent=File:ShopTest.java module=java:com.acme id=QNY14VP5CPTKGYS9Z2PPXCJ59C
+  Method src.main.java.com.acme.App.main main parent=Class:App module=java:com.acme entry id=X0ZC1KN7CW256SG6GQP5SJY3HK
+  Method src.main.java.com.acme.Shop.helper helper parent=Class:Shop module=java:com.acme id=98Q9R4E2EG5CM4QA827RSQAJRH
+  Method src.main.java.com.acme.Shop.total total parent=Class:Shop module=java:com.acme id=DRHJFMPEXZ14QEVQNEH4SE66VS
+  Method src.main.java.com.acme.Util.twice twice parent=Class:Util module=java:com.acme id=GAAK0AD1P6EF1AR1TTSXPC0MVZ
+  Method src.main.java.com.acme.Util.twice twice parent=Class:Util module=java:com.acme id=H65F29MMQRY17T8F8Z8B4RC22M
+  Method src.test.java.com.acme.ShopTest.check check parent=Class:ShopTest module=java:com.acme id=JSRA2RZ4PY3NHTD2EGPE2MC3SE
+  Module java:com.acme com.acme parent=Folder:src id=GJRE6BDZB9TW64C54HB1FZJM8A
+  Test src.test.java.com.acme.ShopTest.totals totals parent=Class:ShopTest module=java:com.acme test entry id=53HR62J98HPHM8S5AZHY8WT80J

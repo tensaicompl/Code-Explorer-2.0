@@ -268,6 +268,8 @@ pub struct CandidateSite {
     pub engine_score: Option<f64>,
     /// The engine's strategy, verbatim.
     pub engine_strategy: Option<String>,
+    /// How many candidates the engine considered, verbatim (issue 50).
+    pub engine_candidates: Option<u32>,
     /// Why, in words.
     pub reason: String,
 }
@@ -445,12 +447,12 @@ pub struct FileRecord {
     pub status: FileStatus,
     /// Why, when its status needs a reason.
     pub status_reason: Option<String>,
-    /// Its git blob hash, in hex.
-    pub blob_sha: String,
+    /// Its git blob hash, in hex; `None` for a file the pipeline never read.
+    pub blob_sha: Option<String>,
     /// Its size.
     pub size_bytes: u64,
-    /// Its number of lines.
-    pub line_count: u64,
+    /// Its number of lines; `None` for a file the pipeline never read.
+    pub line_count: Option<u64>,
 }
 
 vocabulary! {

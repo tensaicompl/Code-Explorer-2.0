@@ -106,9 +106,11 @@ pub enum TestFramework {
 /// A directory, in a rule for the files beneath it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum DirectoryPattern {
-    /// A directory by its path of one or more names: `tests`, `src/test`.
+    /// A directory by its path of one or more names, `tests` or `src/test`: consecutive
+    /// directory components anywhere in a file's path.
     Path(&'static str),
-    /// A directory whose name begins with the prefix: `test` for `test*`.
+    /// A directory whose name begins with the prefix, case-sensitively: `test` for
+    /// `test*`, any directory component of a file's path.
     NamePrefix(&'static str),
 }
 
@@ -119,6 +121,11 @@ pub enum DirectoryPattern {
 /// decide; the pattern itself is Appendix A's, exactly.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum TestRule {
+    /// A source file whose name ends with this stem and then one of its own language's
+    /// extensions: `.test` matches `a.test.ts` and `a.test.tsx` in TypeScript, and, for a
+    /// language whose rules are TypeScript's ([`TestDetection::SameAs`]), `a.test.js`
+    /// and `a.test.mjs` in JavaScript, never `a.test.ts` (issue 31).
+    SourceSuffix(&'static str),
     /// A file whose name is `prefix`, then anything, then `suffix`: `test_*.py` is the
     /// prefix `test_` and the suffix `.py`.
     FileName {
@@ -127,7 +134,8 @@ pub enum TestRule {
         /// What the name ends with.
         suffix: &'static str,
     },
-    /// A file beneath the directory: `tests/**`.
+    /// A file beneath the directory, at any depth: `tests/**` matches `tests/a.py` and
+    /// `packages/api/tests/a.py` (issue 31).
     Under(DirectoryPattern),
     /// A function or class carrying the framework's test annotations.
     Annotations(TestFramework),
@@ -406,9 +414,11 @@ static MATRIX: &[Language] = &[
         name_prefixes: &[],
         shebangs: &[],
         module_rule: ModuleRule::DirectoryWithPathMappings { config: "tsconfig" },
+        // Appendix A's `*.test.ts`, `*.spec.ts`: the `.test` and `.spec` convention, on
+        // every extension of the language (issue 31).
         test_detection: TestDetection::Rules(&[
-            file_name_rule("", ".test.ts"),
-            file_name_rule("", ".spec.ts"),
+            TestRule::SourceSuffix(".test"),
+            TestRule::SourceSuffix(".spec"),
             TestRule::Under(DirectoryPattern::Path("__tests__")),
         ]),
     },

@@ -1,0 +1,16 @@
+---
+source: crates/pdx-core/tests/derive.rs
+expression: projection(&run.graph)
+---
+nodes: {"Class": 2, "File": 2, "Folder": 9, "Method": 3, "Module": 1, "Repo": 1, "Test": 1}
+entry points: 1
+edges: {("CALLS", "exact"): 1, ("CALLS", "inheritance-guided"): 1, ("CALLS", "typed"): 1, ("TESTS", "exact"): 1, ("TESTS", "typed"): 1}
+candidates: {}
+files: src/main/kotlin/com/acme/Shop.kt=parsed src/test/kotlin/com/acme/ShopTest.kt=parsed
+  Class src.main.kotlin.com.acme.Shop.Shop Shop parent=File:Shop.kt module=kotlin:com.acme id=K3D483NHH0DSSFZSS8GZZ1E15V
+  Class src.test.kotlin.com.acme.ShopTest.ShopTest ShopTest parent=File:ShopTest.kt module=kotlin:com.acme id=FN3PEBJERMSF0SF3REXJSZEGTD
+  Method src.main.kotlin.com.acme.Shop.Shop.helper helper parent=Class:Shop module=kotlin:com.acme id=E1EA2FSKH2W1FJ2VFCEZEG1Z21
+  Method src.main.kotlin.com.acme.Shop.Shop.total total parent=Class:Shop module=kotlin:com.acme id=D3DG8NP2GYDJM1SYAM8BYH0DYK
+  Method src.test.kotlin.com.acme.ShopTest.ShopTest.check check parent=Class:ShopTest module=kotlin:com.acme id=PC17B0M8JYX26M7QHVH4RGK9D1
+  Module kotlin:com.acme com.acme parent=Folder:src id=J9XE4VZKM3QAVN1HYEZGSKC2W9
+  Test src.test.kotlin.com.acme.ShopTest.ShopTest.totals totals parent=Class:ShopTest module=kotlin:com.acme test entry id=RMVCR3DTJ6CPC2X49VQT7YZ8N1

@@ -58,8 +58,10 @@ parsing and serialisation; anything else is refused.
 The segment's rows (4.3), each field a column of the same name, nullable columns as
 `Option`: `Node`, `Site` (with its `Span`), `Edge`, `CandidateSite`, `Contract`,
 `Metric`, `Coverage` (with `BandCounts`, one count per band in 4.2.2's order). `props`
-is a map kept in key order. Edges keep the engine's score, strategy and candidate count
-verbatim beside the band, and observation as a flag that changes neither band nor id.
+is a map kept in key order. Edges and candidate rows keep the engine's score, strategy and candidate count
+verbatim beside the band (`CandidateSite::engine_candidates` since schema 2, issue 50),
+and an edge's observation is a flag that changes neither band nor id. A `FileRecord`'s
+`blob_sha` and `line_count` are `None` for a file the pipeline never read (issue 51).
 Constructors compute ids from keys; lines and spans are metadata set beside them.
 
 ### `segment`
@@ -137,8 +139,8 @@ bytes, never requiring UTF-8, with non-backtracking `regex::bytes`.
 
 Stage 2 of 4.5. `ExtractStage::new(root, &secrets, limits)`, optionally
 `.with_cache(&cache)` and `.with_backend(&factory)`, then `.run(&discovered)`, returns
-an `ExtractReport`: one `ExtractedFile { path, language, outcome }` per discovered
-file, in the order given, with `ExtractStats` (cache hits, misses, unusable entries,
+an `ExtractReport`: one `ExtractedFile { path, language, outcome, line_count }` per
+discovered file (the count of lines in the bytes read, `None` for a file never read), in the order given, with `ExtractStats` (cache hits, misses, unusable entries,
 writes, workers, batches, the most source bytes held at once) and `degraded()`.
 
 Only a `Candidate` with a language is extracted. `FileOutcome` is `Extracted
@@ -154,7 +156,7 @@ that times out fails it with an `ExtractError`, which names paths and never cont
 | `prepare_source(root, file)` | The file read (each path component checked without following a link, never more than discovery's size), `BlobSha` over the original bytes, normalised in place, `SourceDigest` over the result. Stage 3 reads a file again through it |
 | `BlobSha` | Git's blob identity of the original bytes, 40 hex; never the `SourceDigest`, which is SHA-256 of the normalised bytes the engine was given |
 | `CacheKey`, `CacheObjectId` | `(engine_version, language_matrix_version, secret_policy_digest, language_id, rel_path, blob_sha)`; the object id is SHA-256 over a tagged, length-prefixed encoding of it, 64 hex |
-| `ExtractCache`, `FsCache::at(root)` | `load` and `store`, usable from every worker at once. `FsCache` keeps `<root>/v<format>/<2 hex>/<64 hex>` (`v3` today), written to a temporary file and renamed, 0700 directories and 0600 files on Unix |
+| `ExtractCache`, `FsCache::at(root)` | `load` and `store`, usable from every worker at once. `FsCache` keeps `<root>/v<format>/<2 hex>/<64 hex>` (`v4` today), written to a temporary file and renamed, 0700 directories and 0600 files on Unix |
 | `CacheEnvelope` | `{ format_version, key, extract }` in postcard, decoded exactly; another format, key, trailing bytes or a damaged entry is a `CacheDefect`, a miss |
 | `ExtractLimits`, `plan_batches`, `BatchPlan` | Workers requested and the memory budget, resolved by the caller. A file over the whole budget is skipped; `effective_workers × largest ≤ budget`; each worker's share is `budget / effective_workers`; batches greedy in path order, at most `MAX_BATCH_FILES` |
 | `ExtractBackend`, `default_backend` | One per worker thread: the engine in process, or an isolated worker when `PDX_ENGINE_ISOLATE=1` |
@@ -204,6 +206,7 @@ site (`resolve_with(&registry, &typed)`).
 |---|---|
 | `Resolution` | A band, the target of a drawn band, the sorted candidates of `candidate`, and the engine's answer verbatim (`EngineAnswer`: score, normalised and raw strategy, candidate count, target). Made only through `Resolution::new`, which refuses every shape its band does not mean (`InvalidResolution`) |
 | `ResolveReport` | `resolutions` (`ResolvedSite`: `SiteRef`, the `Call`, its `Resolution`), `unconfirmed` (`UnconfirmedSite`: `typed_only` questions, references and engine-found sites typed resolution did not settle) and `engine_health`, the run's `RunHealth` |
+| `split_callee` | A callee's text as receiver and name (`obj.foo` is `obj` and `foo`): the one reading resolution and site identity share |
 | `narrow`, `NarrowingStage`, `Narrowed` | The narrowing core every site goes through: one sorted set, a stage's single survivor resolves, several become the set, none changes nothing |
 | `ResolutionError` | Typed resolution's failures, a changed or unreadable checkout, two answers for one site, an answer for a site the extractions do not have, a registry without what a site names |
 
@@ -214,6 +217,27 @@ the project, issue 45); names bound locally (`unresolved`) or only by external i
 candidates (definitions a call can invoke, of the caller's language family, by name, by
 qualified name, through aliasing imports, and the engine's hint); then `candidate` or
 `unresolved`. An `UNRESOLVED_MEMBER` call is never resolved by its name alone.
+
+### `index::derive`
+
+Stage 4 of 4.5, its first part (P2-07): `derive(&DeriveInput { repo, repo_name,
+registry, resolution })` turns the registry and Stage 3's report into a `DerivedGraph`,
+where facts first get persistent identities. It writes no segment: the graph's rows
+are what `SegmentData` holds, sorted by stored identity (files by path, nodes, sites
+and edges by id, candidate rows by site), and the same whatever order the stages
+produced their facts in.
+
+| Item | |
+|---|---|
+| `DerivedGraph` | `files`, `nodes`, `sites`, `edges`, `candidates`; `repo_node`, `file_nodes`, `definition_nodes` (the one map from `DefinitionRef` to node every part reads), `module_nodes`; `diagnostics` |
+| `Diagnostics` | What is counted, never stored: Stage 3's unconfirmed sites, resolved sites with no position in the file or no node-type path (`Unmaterialized`, `Missing`), and route evidence with no handler the facts identify or no evidence site (`RouteDiagnostic`) |
+| `DeriveError` | A path that is not repository-relative POSIX (`NotRepositoryPath`), an identity that cannot be computed, two different facts with one id, a fact naming something with no node |
+| `containment` | `Repo`, `Folder`, `File` nodes and a `FileRecord` per discovered file (`file_status`: every Stage 2 outcome mapped, an engine failure never `parsed`, a withheld file `redacted`); one node per definition by `node_kind`, parented to its enclosing definition or file; the engine's file-level module is the file node. `normalise_type` and `normalised_signature` for overload disambiguators; `is_repository_path` |
+| `modules` | `module_node_key`: `(Module, scope, "<language>:<name>", "")` (issue 48); one-file modules parented to their file, spanning ones to the nearest common folder with sorted `props.files`; `props.module` on symbols, which keep their physical parents |
+| `calls` | Resolutions as `call`/`reference` sites (4.2.1's fingerprint over the engine's node-type path, `split_callee`'s texts and the ordinal among same-path, same-text sites of the definition), drawn `CALLS`/`CALL_REFERENCE` edges and non-drawn candidate rows, the engine's numbers copied (issue 49) |
+| `tests` | `is_test_path` (issue 31); a definition is a `Test` node only on its framework's evidence, its declared kind in `props.declared_kind`; a `TESTS` edge beside every drawn call a test makes |
+| `routes` | `route_qualified_name`, `route_node_key`; Spring, `FastAPI` and Express bindings as `Route` nodes in the handler's file with a `route` site where the source has one, and `DEFINES_ROUTE` from the handler |
+| `entry` | `props.is_entry_point` where Appendix B.2's categories are proven by the facts: tests, route handlers, JVM and C# `main`, Spring Boot applications, `FastAPI` and Flask applications, Express `listen` and `NestFactory.create` callers, ASP.NET top-level statements |
 
 ### `languages`
 
@@ -230,7 +254,7 @@ rule, is a specification change that bumps it.
 | `Language` | `id`, `tier`, `extensions`, `name_prefixes`, `shebangs`, `module_rule`, `test_detection`; `test_rules()` follows a rule shared with another language, `engine_language(path)` names the engine grammar a file is extracted with |
 | `Tier` | `Typed` (the engine resolves types) or `Structural` (the Rust stages alone resolve), as Appendix A declares it; never inferred from the engine |
 | `ModuleRule` | Where a file's module name comes from: a `package` or `namespace` declaration, the directory (with `tsconfig` path mappings, or under the `go.mod` module path), a dotted path from the nearest `__init__.py` root, the `mod` tree from `lib.rs`/`main.rs`, and so on |
-| `TestDetection`, `TestRule` | How tests are recognised: file-name patterns, directories, framework annotations, attributes and macros, or the same rules as another language |
+| `TestDetection`, `TestRule` | How tests are recognised: a `.test`/`.spec` stem on the language's own extensions (`SourceSuffix`), file-name patterns, directories, framework annotations, attributes and macros, or the same rules as another language, translated to its extensions (issue 31) |
 | `HEADER_RULE` | Appendix A's rule for `.h`, the one extension two languages share |
 | `ENGINE_DIALECTS` | Engine grammars named otherwise than their language: `.tsx` files are TypeScript, extracted with the engine's `tsx` grammar |
 
@@ -245,7 +269,7 @@ case-sensitively:
 4. otherwise no language.
 
 The rules are data: deriving `Module` nodes and `TESTS` edges from them is the derive
-stage's. Discovery's ignore rules, size limit, binary detection and `pdx.toml`
+stage's (`index::derive`). Discovery's ignore rules, size limit, binary detection and `pdx.toml`
 `[languages] extra` belong to the discover stage, which calls `detect`.
 
 ## Tests
@@ -260,12 +284,13 @@ cargo test -p pdx-core
 | `ids` | Fixed vectors, computed outside the crate, for every identity; `node_id_ignores_lines`, `site_id_ignores_lines`, `site_id_changes_with_ast_path` and `overload_insert_does_not_renumber` as properties; URL canonicalisation and refusals; NUL refused everywhere |
 | `bands` | `band_order_total`; drawn bands; spellings; `from_engine` over every Appendix D.3 strategy, score edge and candidate count, against a table written from D.3, and D.3's list against the engine's |
 | `model` | Every vocabulary's complete spelling, and the exact JSON of every row type |
-| `segment` | `schema_sql_is_4_3_verbatim`; `segment_roundtrip` over every table; `segment_is_byte_identical_across_builds` from reordered rows in different directories; `reader_refuses_wrong_schema_version`, malformed meta and broken references on damaged copies; `fts_finds_qualified_names` and search semantics; read-only files, untouched by reading; the content hash against the file's bytes; hostile text and paths stay data |
+| `segment` | `schema_sql_is_4_3_verbatim`; `segment_roundtrip` over every table; `segment_is_byte_identical_across_builds` from reordered rows in different directories; `reader_refuses_wrong_schema_version` (version 1 and 3 refused), malformed meta and broken references on damaged copies; `fts_finds_qualified_names` and search semantics; read-only files, untouched by reading; the content hash against the file's bytes; hostile text and paths stay data |
 | `discover` | `discover_honours_gitignore` (every exclusion source, their independence, hard excludes, `vendor`, `.ignore` and hidden files); `discover_skips_symlinks` (file, directory, outside the root, a loop); `discover_marks_binary_and_large` (the limit inclusive, the file over it never read, NUL is binary, non-UTF-8 is not); secret paths redacted unread; unknown languages kept; configured and header languages; sorted relative paths; root and ignore-file refusals |
 | `secrets` | `secret_policy_digest_fixed_vector` and `detector_version_enters_secret_policy_digest` against vectors computed outside the crate; every detector's matches and what it keeps; what is not a credential left alone; non-UTF-8; `secret_detector_overlap_is_order_independent` over all 120 orders; `secret_normalisation_preserves_offsets` as a property |
-| `extract` | `cache_hit_skips_engine`, `blob_sha_matches_git` (against `git hash-object` and fixed vectors), `memory_budget_batches`, `secret_policy_change_invalidates_cache`; the key's path and language; `cache_object_id_fixed_vector`; independence of the checkout's location; the node budget and every other extraction switch bypassing the cache; truncated, lossy and unclean entries; wrong digests, corruption and atomic private writes; failures, crashes and timeouts; files carried forward unopened; a changed checkout; order under any workers and batches; `secrets_do_not_reach_engine_or_cache` |
+| `extract` | `cache_hit_skips_engine`, `cache_format_3_is_a_miss`, `cached_extractions_keep_site_paths_and_derivation_facts`, `blob_sha_matches_git` (against `git hash-object` and fixed vectors), `memory_budget_batches`, `secret_policy_change_invalidates_cache`; the key's path and language; `cache_object_id_fixed_vector`; independence of the checkout's location; the node budget and every other extraction switch bypassing the cache; truncated, lossy and unclean entries; wrong digests, corruption and atomic private writes; failures, crashes and timeouts; files carried forward unopened; a changed checkout; order under any workers and batches; `secrets_do_not_reach_engine_or_cache` |
 | `registry` | `registry_<lang>` for every typed language (a test holds the list to the matrix), each through discovery, extraction and the registry; `external_detection_python_stdlib`; duplicates and case kept; input order irrelevant; every module rule; imports internal, external, unresolved and ambiguous; Python packages and relative imports, tsconfig aliases and `extends`, Go modules nested, Rust path dependencies and the standard crates, C pairing; hierarchy transitive, cycle-safe, ambiguity unforced; fresh and cached extractions the same registry; Rust `impl` relations resolved, an ambiguous trait kept ambiguous; the engine resolving with the registry's metadata to the registry's files, a root `tsconfig.json` beside a Go module included (`polyglot_ts_alias_does_not_affect_go`); refusals of disagreeing stages, malformed extractions, bad and changed metadata; redacted and symlinked metadata never read |
 | `stages` | `resolution_stage_matrix` (all nine outcomes, each row's evidence stated); `narrowing_keeps_narrowest_set`; `blocklist_precedes_all`; `typed_requires_lsp_typed_single_candidate_and_min_score`; `engine_hints_never_restrict_candidate_universe`; typed targets mapped uniquely, engine-proven external targets, unvalidated hints; aliases, module receivers, Java static imports and C includes import-guided; `super`, implicit receivers and Rust `impl` traits through the hierarchy; scoped by module, not directory; no cross-family candidate; lexical bindings, unresolved members, `typed_only`, references and engine-found sites never resolved by name; degraded runs; duplicate and impossible answers refused; resolution shapes; typed resolution over a polyglot repository, in any file order, fresh or cached |
+| `derive` | Through the whole pipeline: `derive_<lang>` golden snapshots for every typed language and Ada (a test holds the list to the matrix); `routes_spring`, `routes_fastapi`, `routes_express`, `tests_junit`, `tests_pytest`; `test_rules_follow_issue_31`; the Part U module tests and `module_id_fixed_vectors`; overload, route and site identities held over line insertions, moves, unrelated definitions and calls, and changed by nesting, method and path; no identity depending on the checkout; host-native paths refused; faithful file records; the engine's numbers copied to edges and candidate rows; unconfirmed and unplaced sites counted, never stored; output independent of input order; the derived graph written and read back as a segment |
 | `config` | `pdx_toml_defaults` field by field; the Appendix C reference with all four rule forms and every precise family, commands never run; global and family timeouts; the `[languages] extra` rules; every refusal, each naming the file and key |
 | `consts` | Every constant is documented, and the interface's mirror is real |
 
@@ -273,4 +298,4 @@ The crate's dependencies are `pdx-engine` (Stage 2 extracts through it), `serde`
 `serde_json`, `sha2`, `rusqlite` (bundled SQLite), `tempfile`, `thiserror`, `ignore`
 and `globset` (gitignore and glob semantics), `toml`, `postcard` (cache entries),
 `rayon` (Stage 2's workers), `regex` (the secret detectors) and `sha1` (the Git blob
-identity only).
+identity only); for its tests only, `insta` (snapshots; issue 52).

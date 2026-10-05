@@ -2616,7 +2616,18 @@ void pdxe_extract_usages(PDXEExtractCtx *ctx) {
 // --- Unified handler: called once per node by the cursor walk ---
 // Uses WalkState flags instead of parent-chain walks for O(1) context checks.
 
+static void handle_usages_at_node(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
+                                  WalkState *state);
+
+/* Every possible callable reference recorded at this node gets the node's path. */
 void handle_usages(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec, WalkState *state) {
+    int usages_before = ctx->result->usages.count;
+    handle_usages_at_node(ctx, node, spec, state);
+    pdxe_walk_stamp_site_paths(ctx, state, ctx->result->calls.count, usages_before);
+}
+
+static void handle_usages_at_node(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
+                                  WalkState *state) {
     if (emit_direct_perl_coderef_usage(ctx, node, state->enclosing_func_qn,
                                        active_lexical_scope_id(state))) {
         return;

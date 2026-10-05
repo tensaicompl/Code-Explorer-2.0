@@ -329,9 +329,11 @@ static bool push_scope(WalkState *state, uint8_t kind, uint32_t depth, const cha
     f->prev_inside_import = state->inside_import;
     f->prev_loop_depth = state->loop_depth;
     f->prev_branch_depth = state->branch_depth;
+    f->prev_enclosing_func_depth = state->enclosing_func_depth;
     switch (kind) {
     case SCOPE_FUNC:
         state->enclosing_func_qn = qn;
+        state->enclosing_func_depth = depth;
         break;
     case SCOPE_CLASS:
     case SCOPE_NAMESPACE:
@@ -447,6 +449,7 @@ static void pop_expired_scopes(WalkState *state, uint32_t cur_depth) {
         state->inside_import = f->prev_inside_import;
         state->loop_depth = f->prev_loop_depth;
         state->branch_depth = f->prev_branch_depth;
+        state->enclosing_func_depth = f->prev_enclosing_func_depth;
         py_param_unwind_to(state, f->prev_py_param_stack_count);
     }
 }
@@ -2558,6 +2561,89 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
     }
 }
 
+/* Records the current node's type at its depth, growing the stack by doubling;
+ * an allocation that fails stops recording for the rest of the walk, and every
+ * site after it has no path. */
+static void record_node_type(WalkState *state, uint32_t depth, const char *type) {
+    if (state->node_types_failed) {
+        return;
+    }
+    if (depth >= state->node_types_capacity) {
+        uint32_t capacity = state->node_types_capacity ? state->node_types_capacity * 2 : 64;
+        while (capacity <= depth) {
+            capacity *= 2;
+        }
+        const char **grown =
+            (const char **)pdxe_arena_alloc(state->arena, (size_t)capacity * sizeof(char *));
+        if (!grown) {
+            state->node_types_failed = true;
+            return;
+        }
+        if (state->node_types) {
+            memcpy((void *)grown, (const void *)state->node_types,
+                   (size_t)state->node_types_capacity * sizeof(char *));
+        }
+        state->node_types = grown;
+        state->node_types_capacity = capacity;
+    }
+    state->node_types[depth] = type;
+    state->current_depth = depth;
+}
+
+/* The current node's path from the innermost function frame, NULL-terminated, in
+ * the arena; NULL when it cannot be given. */
+static const char **current_site_path(WalkState *state) {
+    uint32_t from = state->enclosing_func_depth;
+    uint32_t to = state->current_depth;
+    if (state->node_types_failed || !state->node_types || from > to ||
+        to >= state->node_types_capacity) {
+        return NULL;
+    }
+    uint32_t n = to - from + 1;
+    const char **path =
+        (const char **)pdxe_arena_alloc(state->arena, ((size_t)n + 1) * sizeof(char *));
+    if (!path) {
+        return NULL;
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        path[i] = state->node_types[from + i];
+        if (!path[i]) {
+            return NULL;
+        }
+    }
+    path[n] = NULL;
+    return path;
+}
+
+void pdxe_walk_stamp_site_paths(PDXEExtractCtx *ctx, WalkState *state, int calls_before,
+                               int usages_before) {
+    const char **path = NULL;
+    bool computed = false;
+    for (int i = calls_before; i < ctx->result->calls.count; i++) {
+        PDXECall *call = &ctx->result->calls.items[i];
+        if (!call->ast_path) {
+            if (!computed) {
+                path = current_site_path(state);
+                computed = true;
+            }
+            call->ast_path = path;
+        }
+    }
+    for (int i = usages_before; i < ctx->result->usages.count; i++) {
+        PDXEUsage *usage = &ctx->result->usages.items[i];
+        bool possible_reference =
+            usage->kind == PDXE_USAGE_CALL_REFERENCE ||
+            (usage->kind == PDXE_USAGE_VALUE && usage->may_be_call_reference);
+        if (possible_reference && !usage->ast_path) {
+            if (!computed) {
+                path = current_site_path(state);
+                computed = true;
+            }
+            usage->ast_path = path;
+        }
+    }
+}
+
 void pdxe_extract_unified(PDXEExtractCtx *ctx) {
     const PDXELangSpec *spec = pdxe_lang_spec(ctx->language);
     if (!spec) {
@@ -2617,6 +2703,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
     for (;;) {
         TSNode node = ts_tree_cursor_current_node(&cursor);
         visited++;
+        record_node_type(&state, depth, ts_node_type(node));
         /* The budget is spent in nodes, so the walk of a given file always ends
          * on the same node — on any machine, under any load. A CPU deadline
          * here made the graph differ between two runs on one machine; see

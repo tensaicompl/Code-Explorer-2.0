@@ -3730,8 +3730,20 @@ static PDXEInvocationDescriptor describe_emitted_primary_call(
     return descriptor;
 }
 
+static PDXEInvocationDescriptor handle_calls_at_node(PDXEExtractCtx *ctx, TSNode node,
+                                                     const PDXELangSpec *spec, WalkState *state);
+
+/* Every call handled at this node is recorded with the node's node-type path. */
 PDXEInvocationDescriptor handle_calls(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
                                      WalkState *state) {
+    int calls_before = ctx->result->calls.count;
+    PDXEInvocationDescriptor invocation = handle_calls_at_node(ctx, node, spec, state);
+    pdxe_walk_stamp_site_paths(ctx, state, calls_before, ctx->result->usages.count);
+    return invocation;
+}
+
+static PDXEInvocationDescriptor handle_calls_at_node(PDXEExtractCtx *ctx, TSNode node,
+                                                     const PDXELangSpec *spec, WalkState *state) {
     PDXEInvocationDescriptor invocation = {0};
     bool callable_reference = is_callable_reference_value(ctx->language, node);
     if (callable_reference) {

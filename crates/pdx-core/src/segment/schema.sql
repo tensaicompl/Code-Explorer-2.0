@@ -8,9 +8,9 @@ CREATE TABLE files (
   language TEXT NOT NULL,              -- Appendix A id, or 'unknown'
   status TEXT NOT NULL CHECK (status IN ('parsed','partial','failed','skipped','binary','redacted')),
   status_reason TEXT,
-  blob_sha TEXT NOT NULL,              -- git blob sha (hex)
+  blob_sha TEXT,                       -- git blob sha (hex); NULL for a file never read
   size_bytes INTEGER NOT NULL,
-  line_count INTEGER NOT NULL
+  line_count INTEGER                   -- NULL for a file never read
 );
 
 CREATE TABLE nodes (
@@ -88,7 +88,7 @@ CREATE TABLE candidates (              -- non-drawn call sites, one row per site
   callee_name TEXT NOT NULL,
   band TEXT NOT NULL CHECK (band IN ('candidate','external','blocked','unresolved','contradicted')),
   candidate_ids TEXT NOT NULL DEFAULT '[]',   -- JSON array of node_id
-  engine_score REAL, engine_strategy TEXT,
+  engine_score REAL, engine_strategy TEXT, engine_candidates INTEGER,
   reason TEXT NOT NULL
 );
 CREATE INDEX candidates_src ON candidates(src);
