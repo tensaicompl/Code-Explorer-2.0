@@ -15,7 +15,12 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 61 | 2026-10-10 | P6-01 | ambiguity | open | The engine's channel facts reach Rust as a name and a direction only: the transport it classifies them by (Kafka, AMQP, a socket, an in-process emitter) is dropped at the interface, a socket with no named channel is labelled with its function's name, and an in-process event emitter's events are channel facts too. Taken whole, they would make channel contracts of what no broker carries | P2-08 uses a fact only when a broker client call in its file names it (a `producer`, `consumer` or AMQP `channel` receiver, an operation of the fact's direction, an argument that is the channel); any other is reported (`UnconfirmedChannel`) and gives no contract, and no transport is claimed for an engine fact. P6-01 decides, before it draws `MESSAGES` from engine facts, whether the interface must carry the transport (append-only: `ENGINE_VERSION`, cache format, worker protocol and surface would move) |
+| 66 | 2026-10-10 | P6-02 | blocker | open | 4.7.1 also takes namespace identities from sources no repository's Stage 4 has: a provider's Kubernetes `Service` name and `Ingress`/`Route` host, `pdx-arch.yaml`'s hostnames, brokers, data sources and contexts, a consumer's declared alias, and a protobuf file shared as an artifact across repositories | Missing facts: deployment resources (`Service`, `Ingress`) and the estate model are not inputs of Stage 4, and sharing is a cross-repository relation. Contracts stay `unresolved` without `pdx.toml [identity]`, never guessed from a manifest's name (`missing_fact_identity_from_deployment_and_estate_model`). P6-02 (estate model, `DEPLOYED_AS`) supplies them; P6-01 applies them when linking |
+| 65 | 2026-10-10 | P6-01 | blocker | open | Two 4.7.1 forms carry their full meaning in a value bound before the call: a JMS producer created for a destination sends with none in its own arguments, and a route registered on a group, scope, nest or mounted router has a prefix composed at run time | Missing fact: local value flow (which value a local or a receiver holds). A JMS send with no destination gives nothing (`missing_fact_destination_bound_before_the_call`); a registration in a callable that composes a prefixed router, or on a parameter declared as a group, is withheld with `PrefixUnknown` (`missing_fact_router_prefixes_withhold_routes`); a router mounted from another callable or file is not visible and keeps the path it declares. P6-01 decides before drawing links whether to add the fact |
+| 64 | 2026-10-10 | P6-01 | blocker | open | 4.7.1's table consumers include ORM repository classes bound to entities (`interface UserRepository extends JpaRepository<User, Long>`), but the extracted base class is `JpaRepository` with its type arguments erased, and `User` is a type reference of the whole file, tied to no base clause | Missing fact: a definition's base classes with their type arguments (`JpaRepository<User, Long>` → `[User, Long]`), an append-only engine fact. No consumer is guessed from a repository's, file's or method's name (`missing_fact_repository_entity_type_arguments`). P6-01 decides before drawing `SHARES_TABLE` |
+| 63 | 2026-10-10 | P6-01 | blocker | open | Kotlin calls are extracted without their arguments (`kafkaTemplate.send("t", m)` has none), so no call-based 4.7.1 source can read its destination or URL in Kotlin: `KafkaTemplate.send`, producer calls, `RestTemplate`, `WebClient` | Missing fact: the arguments of Kotlin calls, as other languages' calls carry them (`Call::args`). Kotlin's annotations (`@KafkaListener` and the rest, Spring mappings) are read; its calls give nothing (`missing_fact_kotlin_call_arguments`). P6-01 decides before drawing links from Kotlin repositories |
+| 62 | 2026-10-10 | P2-08 | scr | resolved | P2-08's contract sources did not cover every source the normative 4.7.1 table names (`WebClient`, `KafkaTemplate.send`, NATS and Redis publish, JMS producers, ORM repositories, and several provider frameworks), and its clarifications read as if a smaller list replaced the table | Every source of 4.7.1 classified (below): all those current facts can prove are implemented and in `contract_source_conformance_4_7_1`; the rest each need a named missing fact, with a fixture proving it, an issue (63 to 66) and an owner. No source is left implementable-now. 4.7's clarifications state that the table is the normative target and nothing in them narrows it |
+| 61 | 2026-10-10 | P6-01 | ambiguity | open | The engine's channel facts reach Rust as a name and a direction only: the transport the engine classified them by is dropped at the interface, and socket messages and in-process events are channel facts too | No longer a gap in P2-08's rows (issue 62): every 4.7.1 broker source is read from call, import and annotation facts with its transport. An engine fact is used only when a broker client call in a file importing a Kafka or AMQP library confirms it; others are `UnconfirmedChannel`. What remains is P6-01's calibration: whether engine facts outside the named sources (sockets, emitters) should ever be links, which would need the transport across the interface |
 | 60 | 2026-10-10 | P2-08 | third-party | resolved | Contracts must read YAML (OpenAPI, AsyncAPI, application configuration, changelogs) and XML (`pom.xml`, `*.csproj`, changelogs); no parser of either was in the dependency graph, and a hand-written general one is what the brief forbids | `saphyr-parser` 0.1.0 (event parser; the tree is built in `contracts::document`, an alias never expanded) and `roxmltree` 0.21.1 (read-only; a DTD refused), pinned exactly; with `arraydeque` 0.5.1 three new crates, each an owner-authorised exact-version `safe-to-deploy` exemption, not an audit. 104 exemptions, 0 audits, 0 imports. Decision 24 |
 | 59 | 2026-10-10 | P2-08 | scr | resolved | `contracts.contract_id` is the primary key, yet several sightings in one repository can be one contract (an OpenAPI operation and its route, a producer and a listener of one topic, two providers of one key); 4.7.1 says nothing of merging them, or of whether contracts are also graph nodes and edges | Merged by `(kind, namespace_key)` only, in any order: `provides` + `consumes` = `both`; the strongest identity; the providers' one owner, or none with `owner_ambiguous` and `provider_owner_node_ids` when they differ (NULL owner = consumed-only or several provider owners); `raw_forms`, `source_paths` and all evidence as sorted sets. The `contracts` table is the record: P2-08 adds no contract node and no `EXPOSES`/`PUBLISHES`/… edge (4.7.2 reads only `contracts`), so 4.2.4's site rule is untouched. No DDL change, comment only |
 | 58 | 2026-10-10 | P2-08 | scr | resolved | 4.7.1 says `namespace_key` = identity + key and 4.2.1 hashes it into the contract's id, but neither defines the text for an established identity, the column key, an artifact's coordinate parts or the canonical host; the first stored contract ids depend on it | `{"identity":…,"key":…}` compact JSON (route identity's escaping) for `exact` and `declared`, strength not in it; `unresolved:<repo_id>:<key>` for unresolved; an artifact's key is its own namespace. Hosts lower-cased, one terminal dot and user information dropped, default ports omitted, loopback hosts no identity; several identities, several rows. Column = table key `.` column; `ecosystem:group:name[@version]` with the eight ecosystem names. Fixed vectors for every kind, computed outside the crate. No version moves: no contract was stored before |
@@ -106,6 +111,175 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 66 — Identity sources outside a repository's Stage 4
+
+4.7.1's namespace column takes identities from places a repository's own derivation
+does not have: a provider's Kubernetes `Service` name and `Ingress`/`Route` host; the
+hostnames, brokers, data sources and contexts `pdx-arch.yaml` declares; a consumer's
+declared alias for a host; and, for RPC, the `.proto` file shared as an artifact between
+two repositories or one package declared under one context.
+
+Missing facts: deployment resources are not derived at Stage 4 (no task before the
+estate model reads them), `pdx-arch.yaml` is estate-level configuration parsed by P6-02,
+and sharing is a relation between repositories. P2-08 uses `pdx.toml [identity]` and
+literal configuration, and otherwise leaves the contract `unresolved`, never deriving
+an identity from a manifest's, file's or repository's name. The fixture
+`missing_fact_identity_from_deployment_and_estate_model` has a `Service`, an `Ingress`
+and a `pdx-arch.yaml` and an unresolved contract. Owner: P6-02 (estate model,
+`DEPLOYED_AS`) supplies the identities; P6-01 applies them when it groups contracts.
+
+State: open.
+
+### 65 — Values bound before the call
+
+Two 4.7.1 forms keep part of their meaning in a value bound earlier:
+
+- A JMS producer created for a destination (`session.createProducer(d)`) sends with no
+  destination in its own arguments (`p.send(m)`). The inline form,
+  `producer.send(session.createQueue("q"), m)`, is read.
+- A route registered on a router composed under a prefix at run time (gin's and echo's
+  `Group`, ASP.NET's `MapGroup`, Hono's `route` and `basePath`, axum's `nest`,
+  actix-web's `scope`, Express's `use`) has a path its declaration does not complete.
+
+Missing fact: local value flow (which value a local variable or a receiver holds).
+Without it nothing is guessed: the bound JMS send gives no contract
+(`missing_fact_destination_bound_before_the_call`); a registration in a callable that
+composes a prefixed router, or on a parameter declared as a group type, is withheld
+with `PrefixUnknown` (`missing_fact_router_prefixes_withhold_routes`). A router mounted
+from another callable or file is not visible, so its registrations keep the path they
+declare, the same limit as P2-07's Express routes. Owner: P6-01 decides, before it
+draws links, whether the value-flow fact is needed.
+
+State: open.
+
+### 64 — Base classes keep no type arguments
+
+4.7.1's table consumers include ORM repository classes bound to entities. For
+`interface UserRepository extends JpaRepository<User, Long>`, the extraction's base
+class is `JpaRepository`, its type arguments erased, and `User` and `Long` are type
+references of the file, tied to no base clause (`missing_fact_repository_entity_type_arguments`
+proves both). The entity is never guessed from the repository's, file's or methods'
+names, so no table is consumed. Missing fact: a definition's base classes with their
+type arguments, an append-only engine fact (it would move `ENGINE_VERSION`, the cache
+format, the worker protocol and the surface version). Owner: P6-01, before it draws
+`SHARES_TABLE`.
+
+State: open.
+
+### 63 — Kotlin calls carry no arguments
+
+The engine extracts Kotlin calls without their arguments:
+`kafkaTemplate.send("kt.orders", "x")` is a call with none
+(`missing_fact_kotlin_call_arguments`). No call-based source can therefore read a
+destination or a URL in Kotlin: `KafkaTemplate.send`, Kafka producers and consumers,
+`RestTemplate`, `WebClient`, JMS and Redis calls. Kotlin's annotations are extracted and
+read (`@KafkaListener`, `@RabbitListener`, `@JmsListener`, Spring mappings, JPA). Missing
+fact: Kotlin call arguments (`Call::args`), as the other languages' calls carry them.
+Owner: P6-01, before it draws links from Kotlin repositories.
+
+State: open.
+
+### 62 — Contract-source coverage of 4.7.1
+
+The review of P2-08 found sources the normative 4.7.1 table names that the
+implementation did not read, and clarifications in 4.7 that read as if a smaller list
+replaced the table. The table stays the target: 4.7 now says so, and every source is
+classified here. A source is read only by provenance (the file imports the framework or
+library; a receiver's declared type, where the facts give it) and shape (the
+framework's decorator or registration, the library's operation with the value where it
+takes it); a receiver's name is never evidence, and a call resolution sends to a
+definition of the repository is its own.
+
+**API providers**
+
+| Source | Evidence | Route node | Classification | Proof |
+|---|---|---|---|---|
+| OpenAPI / Swagger | `openapi*.{yaml,yml,json}`, `swagger*.{yaml,json}` | none needed | IMPLEMENTED | `contracts_openapi`, conformance |
+| Spring | mapping annotations | P2-07, reused | IMPLEMENTED | `route_contract_reuses_derived_route`, conformance |
+| JAX-RS | `@Path` and verb annotations | P2-07, reused | IMPLEMENTED | conformance |
+| `FastAPI` | route decorators | P2-07, reused | IMPLEMENTED | conformance |
+| Flask | `route` decorators | P2-07, reused | IMPLEMENTED | conformance |
+| Express | `<router>.<method>(path, handler)`, `express` imported | P2-07, reused | IMPLEMENTED | conformance |
+| `NestJS` | `@Controller` + `@Get`/…/`@All`, `@nestjs/common` imported | none; owner the method | IMPLEMENTED | conformance |
+| Hono | `get`/`post`/…/`all("/t", …)`, `hono` imported | none; owner the file | IMPLEMENTED | conformance |
+| ASP.NET | `[Route]` + `[HttpGet]`/…/`[AcceptVerbs]`, `[controller]`/`[action]`; minimal `MapGet`/… | none | IMPLEMENTED | conformance |
+| axum | `route("/t", get(h).post(h))`, `axum` used | none | IMPLEMENTED | conformance |
+| actix-web | `#[get("/t")]`/`#[route]`; `route("/t", web::get().to(h))`, `web::resource` | none | IMPLEMENTED | conformance |
+| Go `net/http` | `http.HandleFunc`/`Handle`, a `ServeMux`'s, Go 1.22 method patterns | none | IMPLEMENTED | conformance |
+| gin | `GET`/…/`Any("/t", …)`, gin imported | none | IMPLEMENTED | conformance |
+| echo | `GET`/…/`Any("/t", …)`, echo imported | none | IMPLEMENTED | conformance |
+| Prefixes composed at run time (groups, scopes, nests, mounts) | local value flow | — | REQUIRES_MISSING_FACT | `missing_fact_router_prefixes_withhold_routes`; issue 65; P6-01 |
+
+**API consumers**
+
+| Source | Evidence | Classification | Proof |
+|---|---|---|---|
+| `fetch` | global `fetch`, literal or no options | IMPLEMENTED | conformance, `http_client_calls_are_consumed_contracts` |
+| `axios` | `axios.<verb>`, bound by its import | IMPLEMENTED | conformance |
+| `RestTemplate` | its operations, `org.springframework.web.client` imported | IMPLEMENTED | conformance, `configured_identities_reach_contracts` |
+| `WebClient` | `<client>.<verb>().uri("…")` or `.method(HttpMethod.X).uri(…)`, imported; a parameter of another type refused | IMPLEMENTED | conformance |
+| `requests`, `httpx` | module calls, bound by their import | IMPLEMENTED | conformance |
+| `HttpClient` | `GetAsync`/…, `System.Net.Http` imported | IMPLEMENTED | conformance |
+| `reqwest` | `reqwest::get`, a client's `get`/… with an absolute URL | IMPLEMENTED | conformance |
+| Go `http.NewRequest` | `NewRequest`, `NewRequestWithContext`, `Get`, `Head`, `Post`, `PostForm` | IMPLEMENTED | conformance |
+| Any of these in Kotlin | Kotlin calls carry no arguments | REQUIRES_MISSING_FACT | `missing_fact_kotlin_call_arguments`; issue 63; P6-01 |
+
+**RPC**
+
+| Source | Classification | Proof |
+|---|---|---|
+| `.proto` service definitions | IMPLEMENTED | `contracts_proto` |
+| Generated-stub calls resolved to a stub of one service | IMPLEMENTED | `proto_stub_calls_are_consumed_when_resolution_proves_them` |
+
+**Channels**
+
+| Source | Evidence | Classification | Proof |
+|---|---|---|---|
+| `AsyncAPI` | 2.x and 3.x documents | IMPLEMENTED | conformance, `listener_annotations_and_asyncapi_channels` |
+| `KafkaTemplate.send` (Java) | `org.springframework.kafka` imported, `send("t", …)` | IMPLEMENTED | conformance |
+| `producer.send` | `kafka-python`/`aiokafka` `send`, `confluent-kafka` `produce`, `kafkajs` `send({topic})`, Java `KafkaProducer.send(new ProducerRecord<>("t", …))`; the engine's facts with a Kafka library imported | IMPLEMENTED | `contracts_kafka_literal`, conformance |
+| `channel.basic_publish` | `pika` (`exchange`, else `routing_key`); `amqplib` `publish`/`sendToQueue` | IMPLEMENTED | conformance |
+| NATS publish | `nats` (JavaScript, Python), `nats.go` `Publish` | IMPLEMENTED | conformance |
+| Redis publish | `redis-py`, `ioredis`, go-redis, Jedis, Lettuce, Spring `RedisTemplate.convertAndSend` | IMPLEMENTED | conformance |
+| JMS producer calls | Spring `JmsTemplate.convertAndSend`/`send`; `MessageProducer`/`JMSProducer.send(session.createQueue("q"), …)` | IMPLEMENTED | conformance |
+| JMS producer whose destination was bound earlier | local value flow | REQUIRES_MISSING_FACT | `missing_fact_destination_bound_before_the_call`; issue 65; P6-01 |
+| `@KafkaListener` | Java and Kotlin annotations | IMPLEMENTED | `contracts_kafka_placeholder_unresolved`, conformance |
+| `consumer.subscribe` | `kafka-python`, `confluent-kafka`, `kafkajs` `subscribe({topic(s)})`, Java `KafkaConsumer.subscribe(List.of(…))` | IMPLEMENTED | conformance |
+| `@RabbitListener`, `@JmsListener` | annotations | IMPLEMENTED | conformance |
+| Producer and consumer calls in Kotlin | Kotlin calls carry no arguments | REQUIRES_MISSING_FACT | `missing_fact_kotlin_call_arguments`; issue 63; P6-01 |
+| Placeholders from `application*.yml/properties` | one eligible value | IMPLEMENTED | `application_property_resolves_placeholder` and the rest |
+
+**Tables and columns**
+
+| Source | Classification | Proof |
+|---|---|---|
+| DDL, Flyway SQL migrations | IMPLEMENTED | conformance |
+| Liquibase (XML, YAML, JSON) | IMPLEMENTED | conformance |
+| JPA `@Table`, `SQLAlchemy` `__tablename__`, Django `Meta.db_table`, Prisma, EF `[Table]` | IMPLEMENTED | `contracts_jpa_table`, conformance |
+| SQL literals with `FROM`, `JOIN`, `INTO`, `UPDATE` | IMPLEMENTED | conformance, `ddl_orm_and_sql_tables` |
+| ORM repository classes bound to entities | REQUIRES_MISSING_FACT | `missing_fact_repository_entity_type_arguments`; issue 64; P6-01 |
+
+**Artifacts**: `pom.xml`, `build.gradle`, `build.gradle.kts`, `package.json`,
+`Cargo.toml`, `go.mod`, `*.csproj`, `pyproject.toml`, `setup.cfg`, `alire.toml`, `*.gpr`
+and their dependency sections: each IMPLEMENTED (`contracts_maven_artifact`,
+conformance). Literal declarations only; no package manager, registry or network.
+
+**Namespace identities**
+
+| Source | Classification | Proof |
+|---|---|---|
+| `pdx.toml [identity]` hostnames, brokers, data sources | IMPLEMENTED | `multiple_declared_hostnames_create_multiple_contracts`, `contracts_kafka_literal`, `configured_identities_reach_contracts` |
+| A consumer URL's host; a configuration value resolving one | IMPLEMENTED | `declared_and_exact_same_identity_share_contract_id`, `configured_identities_reach_contracts` |
+| Literal OpenAPI and `AsyncAPI` servers; a literal Kafka cluster or `RabbitMQ` broker; a literal JDBC URL | IMPLEMENTED | `contracts_openapi`, `configured_identities_reach_contracts`, `contracts_jpa_table` |
+| Kubernetes `Service` name, `Ingress`/`Route` host; `pdx-arch.yaml`; a consumer's declared alias; a shared `.proto` artifact or one context | REQUIRES_MISSING_FACT | `missing_fact_identity_from_deployment_and_estate_model`; issue 66; P6-02 and P6-01 |
+
+`.env` is not a source: the owner removed it from 4.7.1 by issue 38's correction.
+
+Nothing is IMPLEMENTABLE_NOW: every source the current facts prove is implemented, and
+each other names its missing fact. No engine fact was added, so no version moved.
+
+State: resolved.
+
 ### 61 — Engine channel facts carry no transport
 
 The engine classifies each publish or subscribe it finds by transport (Kafka, AMQP,
@@ -132,6 +306,18 @@ must carry the transport (and a position) before broker identity can be applied 
 engine facts beyond the declared `brokers`. That is an append-only interface change
 and moves `ENGINE_VERSION`, the cache format, the worker protocol and the surface
 version.
+
+Updated in the P2-08 review closure (issue 62), outcome A: the transport is no longer
+needed for any P2-08 contract row. Every broker source 4.7.1 names is read from call,
+import and annotation facts that prove the library, the direction and the destination
+(`contracts::messaging`: `KafkaTemplate.send`, Kafka's Java, Python and JavaScript
+producers and consumers, `pika` and `amqplib`, NATS, Redis publish, JMS; the listener
+annotations), each with its transport in `props.transports`. The engine fact path
+remains for the facts those rules do not read, and now also requires the file to import
+a Kafka or AMQP client library: a receiver's name is never evidence on its own. What
+issue 61 still covers is P6-01's calibration of the engine's other channel facts
+(sockets, in-process emitters, STOMP): whether any should become a link, which would
+need the transport across the interface. It no longer represents missing contract rows.
 
 State: open.
 
@@ -185,6 +371,18 @@ the repository id, so nothing merges across repositories. The merge is commutati
   facts the key determines (an artifact's `ecosystem`, `group`, `name`, `version`; a
   protobuf method's `package`, `service`, `method`) appear once, and two different
   values of one are refused.
+
+Owner ratification, 2026-10-10 (P2-08 review closure): evidence props are always
+sorted arrays with plural names (`route_node_ids`, `route_site_ids`, `site_ids`,
+`frameworks`, `clients`, `transports`, `placeholders`, `access_modes`), even with one
+value; a shape never depends on the data.
+
+The writer and the accumulator check the same rules (`contracts::row::check`): an
+artifact is `exact` with its key as namespace; an unresolved namespace is exactly
+`unresolved:<the segment's repo_id>:<key>`; a resolved one is exactly the canonical
+compact JSON over the row's own key and a non-empty identity; the id is then the estate
+id of that namespace; `owner_ambiguous` is `true` with no owner and at least two sorted
+distinct provider owners that are nodes (`writer_refuses_malformed_contract_rows`).
 
 Scope: the `contracts` rows are the record of contract participation. P2-08 adds no
 contract node to `nodes` and no `EXPOSES`, `CONSUMES`, `PUBLISHES`, `SUBSCRIBES`,
@@ -243,6 +441,13 @@ API contract (and the same unresolved key in another repository), an RPC method,
 channel, a table, a column, an artifact and an artifact version
 (`contract_namespace_key_fixed_vectors`). No version moves: no contract row existed
 before this.
+
+Owner ratification, 2026-10-10 (P2-08 review closure): the loopback and unspecified
+hosts (`localhost`, `*.localhost`, `127.0.0.0/8`, `::1`, `::`, `0.0.0.0`) never give an
+`exact` identity, because a runtime-local endpoint is no service another repository can
+share and treating it as one would join unrelated repositories. A local name declared
+in `pdx.toml [identity]` stays `declared`: it is the owner's statement
+(`local_hosts_are_never_exact_identities`).
 
 The contract fixtures use hosts reserved for examples by RFC 2606, as issue 33's
 vectors do; their prefixes (`https://api.example.com`, `http://api.example.com`,

@@ -11,11 +11,11 @@ use rusqlite::{Connection, OpenFlags, Statement, params};
 use sha2::{Digest, Sha256};
 
 use super::{SCHEMA, SegmentData, SegmentError, queries, verify};
-use crate::ids::{NodeId, NodeKey, SiteId};
+use crate::ids::{NodeId, NodeKey, RepoId, SiteId};
 use crate::kinds::LayerRole;
 use crate::languages;
 use crate::model::{
-    CandidateSite, Contract, Coverage, Edge, Evidence, FileRecord, IdentityStrength, Metric, Node,
+    CandidateSite, Contract, Coverage, Edge, Evidence, FileRecord, Metric, Node,
     SemanticOccurrence, Site,
 };
 
@@ -232,48 +232,20 @@ fn sorted<'a, T, K: Ord + std::fmt::Debug>(
     Ok(sorted)
 }
 
-/// A contract row as 4.2.1 and 4.7.1 define it, whoever assembled it: its id is the
-/// estate id of its kind over its `namespace_key`, its key and `namespace_key` are not
-/// empty, an unresolved identity's `namespace_key` and only that is
-/// `unresolved:`-prefixed, and its owner, when it has one, is a node of the segment.
-fn contract_row(contract: &Contract, nodes: &BTreeSet<&NodeId>) -> Result<(), SegmentError> {
-    let invalid = |reason: String| {
-        Err(SegmentError::InvalidRow {
-            table: "contracts",
-            reason,
-        })
-    };
-    if contract.key.is_empty() || contract.namespace_key.is_empty() {
-        return invalid(format!("{} has an empty key", contract.contract_id));
-    }
-    let expected = NodeKey::estate(contract.kind.node_kind(), &contract.namespace_key)
-        .and_then(|k| k.node_id())
-        .map_err(|e| SegmentError::InvalidRow {
+/// A contract row as 4.2.1 and 4.7.1 define it, whoever assembled it: the same rules
+/// the accumulator applies ([`crate::contracts::row::check`]), against the segment's
+/// own repository and nodes.
+fn contract_row(
+    contract: &Contract,
+    repo: &RepoId,
+    nodes: &BTreeSet<&NodeId>,
+) -> Result<(), SegmentError> {
+    crate::contracts::row::check(contract, repo, |id| nodes.contains(id)).map_err(|e| {
+        SegmentError::InvalidRow {
             table: "contracts",
             reason: format!("{}: {e}", contract.contract_id),
-        })?;
-    if expected != contract.contract_id {
-        return invalid(format!(
-            "{} is not the id of the {} {:?}",
-            contract.contract_id, contract.kind, contract.namespace_key
-        ));
-    }
-    let unresolved = contract.identity_strength == IdentityStrength::Unresolved;
-    if unresolved != contract.namespace_key.starts_with("unresolved:") {
-        return invalid(format!(
-            "{}'s namespace_key does not match its identity strength",
-            contract.contract_id
-        ));
-    }
-    if let Some(owner) = &contract.owner_node_id
-        && !nodes.contains(owner)
-    {
-        return invalid(format!(
-            "{}'s owner {owner} is not a node of the segment",
-            contract.contract_id
-        ));
-    }
-    Ok(())
+        }
+    })
 }
 
 fn finite(table: &'static str, column: &str, value: Option<f64>) -> Result<(), SegmentError> {
@@ -340,7 +312,7 @@ impl<'a> Canonical<'a> {
         }
         let nodes: BTreeSet<&NodeId> = data.nodes.iter().map(|n| &n.node_id).collect();
         for contract in &data.contracts {
-            contract_row(contract, &nodes)?;
+            contract_row(contract, repo, &nodes)?;
         }
         let meta = verify::meta_rows(&data.meta)?;
         Ok(Self {

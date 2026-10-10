@@ -160,8 +160,8 @@ blind.
 
 Contracts (`pdx_core::contracts`, P2-08) are Stage 4's last part and its
 `DerivedGraph::contracts`: `contracts` rows only, never also nodes or contract edges
-(issue 59). Each source (`openapi`, `routes`, `proto`, `channels`, `tables`,
-`artifacts`) reports `ContractObservation`s; only `ContractAccumulator` makes a
+(issue 59). Each source (`openapi`, `routes`, `endpoints`, `proto`, `messaging`,
+`channels`, `tables`, `artifacts`) reports `ContractObservation`s; only `ContractAccumulator` makes a
 `namespace_key` and id, and merges (direction lattice, strongest identity, one
 provider owner or `owner_ambiguous`, sorted evidence sets). The id is
 `NodeKey::estate(kind, namespace_key)`; `namespace_key` is `{"identity","key"}` JSON
@@ -172,9 +172,15 @@ second reading of the source. Documents are read through `contracts::source` (St
 parsed with `saphyr-parser` (aliases never expanded) and `roxmltree` (no DTD), issue
 60; nothing is fetched, run or resolved. `.env*` is never opened: placeholders resolve
 only from `application*.yml|properties`, one eligible value, never a credential key's
-(issue 38). Engine channel facts count only when a broker client call confirms them
-(issue 61, open for P6-01). A malformed document is a `ContractDiagnostic`, never a
-guess. The segment writer re-checks every contract row (`contract_row`).
+(issue 38). A library call counts only by provenance (the file imports it; a
+parameter's declared type) and shape, never by a receiver's name; a call resolution
+draws to the repository is its own. The 4.7.1 table is the target: issue 62 classifies
+every source as implemented (`contract_source_conformance_4_7_1`) or needing a named
+missing fact (Kotlin call arguments 63, base-class type arguments 64, local value flow
+65, deployment/estate identities 66); engine channel facts need a Kafka or AMQP library
+import (issue 61). A malformed document is a `ContractDiagnostic`, never a guess. The
+accumulator and the segment writer apply one row validator (`contracts::row::check`):
+canonical namespaces, artifacts exact, unresolved scoped to the segment's repository.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

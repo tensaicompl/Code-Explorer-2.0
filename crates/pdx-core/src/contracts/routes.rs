@@ -24,6 +24,8 @@ use pdx_engine::{Call, CallArg, SiteRef};
 use crate::index::derive::DeriveError;
 use crate::index::derive::calls::{call_site, ordinals};
 use crate::index::derive::routes::imports_module;
+
+use super::calls::declared_parameter_type;
 use crate::kinds::{ContractKind, EdgeKind, NodeKind, SiteKind};
 use crate::model::ContractDirection;
 use crate::resolve::registry::SymbolRegistry;
@@ -308,6 +310,11 @@ fn jvm_client<'a>(
     receiver: Option<&str>,
     name: &str,
 ) -> Option<Parts<'a>> {
+    if name == "uri"
+        && let Some(found) = webclient(registry, path, call, receiver?)
+    {
+        return Some(found);
+    }
     let resttemplate = imports_module(
         registry,
         path,
@@ -331,6 +338,37 @@ fn jvm_client<'a>(
         _ => return None,
     };
     Some(("RestTemplate", method.to_owned(), arg(call, 0)))
+}
+
+/// Spring's `WebClient`: `<client>.get().uri("…")` (or `post()`, …, or
+/// `method(HttpMethod.X)`), in a file importing it; a client that is a parameter of
+/// another declared type is not one.
+fn webclient<'a>(
+    registry: &SymbolRegistry,
+    path: &str,
+    call: &'a Call,
+    receiver: &str,
+) -> Option<Parts<'a>> {
+    if !imports_module(
+        registry,
+        path,
+        "org.springframework.web.reactive.function.client",
+    ) {
+        return None;
+    }
+    let chosen = receiver.strip_suffix(')')?;
+    let (base, selector) = split_callee(&chosen[..chosen.rfind('(')?]);
+    let argument = &chosen[chosen.rfind('(')? + 1..];
+    let method = match (selector, argument.trim()) {
+        ("method", http) => http_method(http.rsplit('.').next()?)?,
+        (selector, "") => verb(selector)?.to_owned(),
+        _ => return None,
+    };
+    let base = base?;
+    if declared_parameter_type(registry, path, call, base).is_some_and(|t| t != "WebClient") {
+        return None;
+    }
+    Some(("WebClient", method, arg(call, 0)))
 }
 
 fn dotnet_client<'a>(

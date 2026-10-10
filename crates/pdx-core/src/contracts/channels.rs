@@ -39,6 +39,7 @@ use crate::model::ContractDirection;
 use crate::resolve::stages::split_callee;
 
 use super::annotation::{self, string_literal};
+use super::calls::imports_any;
 use super::config_values::Resolved;
 use super::document::{self, Doc, DocError};
 use super::identity::{host_port, unresolved_channel_key};
@@ -60,8 +61,27 @@ const EMIT_OPERATIONS: [&str; 6] = [
 /// Operations that consume a broker destination.
 const LISTEN_OPERATIONS: [&str; 4] = ["subscribe", "poll", "consume", "basic_consume"];
 
-/// Receivers a broker client is held in, by the last part of their name.
-const BROKER_RECEIVERS: [&str; 3] = ["producer", "consumer", "channel"];
+/// The receivers the engine classifies a channel fact's client by, and the libraries
+/// one of which the file must import for the classification to stand: the receiver's
+/// name alone is never evidence (issue 62).
+const BROKER_RECEIVERS: [(&str, &[&str]); 3] = [
+    ("producer", KAFKA_LIBRARIES),
+    ("consumer", KAFKA_LIBRARIES),
+    ("channel", AMQP_LIBRARIES),
+];
+
+/// Kafka client libraries.
+const KAFKA_LIBRARIES: &[&str] = &[
+    "kafka",
+    "aiokafka",
+    "confluent_kafka",
+    "kafkajs",
+    "kafka-node",
+    "node-rdkafka",
+];
+
+/// AMQP client libraries.
+const AMQP_LIBRARIES: &[&str] = &["pika", "aio_pika", "amqplib", "amqp-connection-manager"];
 
 pub(crate) fn observe(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveError> {
     engine_facts(context, found)?;
@@ -82,7 +102,7 @@ fn destination(context: &Context<'_>, raw: &str) -> Option<(String, Option<Strin
 }
 
 /// A channel observation with its key, placeholder and identities set.
-fn channel(
+pub(crate) fn channel(
     context: &Context<'_>,
     raw: &str,
     direction: ContractDirection,
@@ -103,8 +123,15 @@ fn channel(
     Some(observation)
 }
 
-/// Whether a call is a broker client call of `direction` naming `channel`.
-fn names_channel(call: &Call, direction: ChannelDirection, channel: &str) -> bool {
+/// Whether a call is a broker client call of `direction` naming `channel`, in a file
+/// that imports the client's library.
+fn names_channel(
+    registry: &crate::resolve::registry::SymbolRegistry,
+    path: &str,
+    call: &Call,
+    direction: ChannelDirection,
+    channel: &str,
+) -> bool {
     let (Some(receiver), name) = split_callee(&call.callee_text) else {
         return false;
     };
@@ -113,9 +140,17 @@ fn names_channel(call: &Call, direction: ChannelDirection, channel: &str) -> boo
         ChannelDirection::Emit => &EMIT_OPERATIONS,
         ChannelDirection::Listen => &LISTEN_OPERATIONS,
     };
-    if call.is_reference || !BROKER_RECEIVERS.contains(&tail) || !operations.contains(&name) {
+    let Some((_, libraries)) = BROKER_RECEIVERS.iter().find(|(r, _)| *r == tail) else {
+        return false;
+    };
+    if call.is_reference || !operations.contains(&name) || !imports_any(registry, path, libraries) {
         return false;
     }
+    names(call, channel)
+}
+
+/// Whether one of a call's arguments is the channel, or a list holding it.
+fn names(call: &Call, channel: &str) -> bool {
     let quoted = [format!("\"{channel}\""), format!("'{channel}'")];
     call.args.iter().any(|a| {
         a.value.as_deref() == Some(channel)
@@ -136,11 +171,23 @@ fn engine_facts(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveEr
         }
         let file = context.graph.file_node(path)?.clone();
         for fact in &extract.channels {
+            // A broker client rule already read the call that carries this fact.
+            let read = extract.calls.iter().enumerate().any(|(i, c)| {
+                found.covered.contains(&SiteRef {
+                    rel_path: path.to_owned(),
+                    call_index: u32::try_from(i).unwrap_or(u32::MAX),
+                }) && names(c, &fact.channel_text)
+            });
+            if read {
+                continue;
+            }
             let calls: Vec<(usize, &Call)> = extract
                 .calls
                 .iter()
                 .enumerate()
-                .filter(|(_, c)| names_channel(c, fact.direction, &fact.channel_text))
+                .filter(|(_, c)| {
+                    names_channel(registry, path, c, fact.direction, &fact.channel_text)
+                })
                 .collect();
             if calls.is_empty() {
                 found.diagnose(path, ContractProblem::UnconfirmedChannel);

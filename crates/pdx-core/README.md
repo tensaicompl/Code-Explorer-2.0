@@ -257,16 +257,20 @@ them, is never opened (issue 38).
 | Item | |
 |---|---|
 | `identity` | `namespace_key` (`{"identity","key"}` JSON, `unresolved:<repo_id>:<key>`, an artifact's coordinate; issue 58), `contract_id` (`NodeKey::estate` over it), `ContractIdentity` (`Exact`, `Declared`, `Unresolved`); the key normalisers `api_key`, `api_path`, `http_method`, `url_authority`, `host_port`, `declared_name`, `simple_placeholder`, `unresolved_channel_key`, `table_key`, `column_key`, `identifier_parts`, `artifact_key`, `artifact_version_key`, `Ecosystem` |
-| `ContractObservation`, `ContractAccumulator`, `validate` | One sighting; the merge (direction lattice, strongest identity, one owner or `owner_ambiguous` with `provider_owner_node_ids`, sorted evidence sets) and the checks every row passes (its id is its `namespace_key`'s, keys non-empty, strength and prefix agree, owners are nodes) |
-| `ContractDiagnostic`, `ContractProblem` | A document that gave nothing: `Unparseable`, `NotUtf8`, `TooDeep`, `NotADocument`, `UnfollowedRef`, `UnconfirmedChannel` |
+| `ContractObservation`, `ContractAccumulator`, `validate` | One sighting; the merge (direction lattice, strongest identity, one owner or `owner_ambiguous` with `provider_owner_node_ids`, sorted evidence sets); `validate` applies `row::check` against the graph's nodes |
+| `row` | `check` and `ContractRowError`: the rules every stored row obeys, the same in the accumulator and the segment writer (artifact exact with namespace = key; unresolved namespace exactly `unresolved:<repo>:<key>`; resolved namespace exactly the canonical JSON over the row's key and a non-empty identity; id = estate id of the namespace; owners are nodes; ambiguous-owner props consistent) |
+| `calls` | Call evidence shared by library sources: `imports`/`imports_any` (Rust `::` paths too), `parameter_type` (a receiver's declared type from its callable's signature, any language's parameter syntax), `receiver_may_be`, `literal`, `literal_list`, `object_value`, `constructed_first`, `factory_literal` |
+| `endpoints` | API providers with no `Route` node: `NestJS`, ASP.NET (attributes, minimal APIs), Hono, `net/http`, gin, echo, axum, actix-web; a registration on a router composed under a prefix is withheld (`PrefixUnknown`, issue 65) |
+| `messaging` | `RULES`: broker client operations (`KafkaTemplate`, Kafka producers and consumers, `pika`, `amqplib`, NATS, Redis, JMS) by import provenance, operation and destination position; a call two rules read differently is ambiguous and gives nothing |
+| `ContractDiagnostic`, `ContractProblem` | Evidence that gave nothing: `Unparseable`, `NotUtf8`, `TooDeep`, `NotADocument`, `UnfollowedRef`, `UnconfirmedChannel`, `PrefixUnknown` |
 | `DeclaredIdentities` | `pdx.toml [identity]`, canonical |
 | `config_values` | `ConfigValues`: the eligible values of `application*.yml` and `application*.properties` (never a credential key's, never a detected secret), `resolve`/`resolve_leading` (`${KEY}` with exactly one value), `kafka_cluster`, `rabbit_broker`, `datasource` (`jdbc_identity`); `parse_properties`, `flatten` |
 | `document` | `Doc`, `parse_yaml` (events; aliases opaque, never expanded), `parse_json`; nesting bounded by `CONTRACT_DOCUMENT_MAX_DEPTH` |
 | `annotation` | `parse`/`parse_in` an annotation's literal arguments; `string_literal`, `script_literal` (a `$` interpolates in Kotlin and Groovy) |
 | `openapi` | OpenAPI 3 and Swagger 2 operations (`document_kind`): servers' literal authorities `exact`, their paths prefixes; no `$ref` followed |
-| `routes` | Every `Route` node of P2-07 as a provided `ApiContract` it owns; HTTP client calls with a determined method and literal URL (`fetch`, `axios`, `requests`, `httpx`, `RestTemplate`, `HttpClient`, `reqwest`, `net/http`) consumed |
+| `routes` | Every `Route` node of P2-07 as a provided `ApiContract` it owns; HTTP client calls with a determined method and literal URL (`fetch`, `axios`, `requests`, `httpx`, `RestTemplate`, `WebClient`, `HttpClient`, `reqwest`, `net/http`) consumed |
 | `proto` | `parse` (`Service`, a lexer that knows comments and strings); methods provided by their file; stub calls consumed only when resolution names a stub of exactly one service and method; always `unresolved` |
-| `channels` | Engine channel facts a broker client call confirms (issue 61); `@KafkaListener`, `@RabbitListener`, `@JmsListener`; `AsyncAPI` 2 and 3 (`is_asyncapi`) |
+| `channels` | Engine channel facts a Kafka or AMQP client call confirms in a file importing the library (issue 61); `@KafkaListener`, `@RabbitListener`, `@JmsListener`; `AsyncAPI` 2 and 3 (`is_asyncapi`) |
 | `tables` | `create_tables`, Liquibase, `prisma_models`, JPA, Entity Framework, `SQLAlchemy`, Django; `sql_access` (`Access::Read`/`Write`) for SQL string arguments |
 | `artifacts` | `Coordinate`; `maven`, `gradle`, `npm`, `cargo`, `go_mod`, `nuget`, `pyproject`, `setup_cfg`, `alire`, `gpr`: literal coordinates and dependencies only |
 

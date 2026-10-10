@@ -26,6 +26,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use pdx_engine::SiteRef;
 use serde_json::Value;
 
 use crate::config::PdxConfig;
@@ -38,13 +39,17 @@ use crate::resolve::stages::ResolveReport;
 
 pub mod annotation;
 pub mod artifacts;
+pub mod calls;
 pub mod channels;
 pub mod config_values;
 pub mod document;
+pub mod endpoints;
 pub mod identity;
+pub mod messaging;
 pub mod openapi;
 pub mod proto;
 pub mod routes;
+pub mod row;
 pub(crate) mod source;
 pub mod tables;
 
@@ -162,6 +167,9 @@ pub enum ContractProblem {
     /// A channel fact no broker client call in its file names: the engine's label for
     /// a socket or an in-process event, not a destination (issue 61).
     UnconfirmedChannel,
+    /// A route registration on a router composed under a prefix the facts do not give
+    /// (a group, a scope, a nest): its full path is unknown, so no contract (issue 65).
+    PrefixUnknown,
 }
 
 /// The contracts of one repository, as its observations are merged (issue 59).
@@ -377,7 +385,7 @@ impl ContractAccumulator {
                 direction: merged.direction,
                 props,
             };
-            validate(&contract)?;
+            validate(&contract, &self.repo, nodes)?;
             contracts.push(contract);
         }
         contracts.sort_by(|a, b| a.contract_id.cmp(&b.contract_id));
@@ -385,31 +393,20 @@ impl ContractAccumulator {
     }
 }
 
-/// Checks a contract row as stored: its id is 4.2.1's estate id of its kind over its
-/// `namespace_key`, its key and `namespace_key` are not empty, and an unresolved
-/// identity's `namespace_key`, and only that, is `unresolved:`-prefixed.
+/// Checks a contract row of the repository `repo` against [`row::check`], its owners
+/// against the graph's nodes.
 ///
 /// # Errors
 ///
-/// [`DeriveError::InvalidContract`] naming what is wrong.
-pub fn validate(contract: &Contract) -> Result<(), DeriveError> {
-    let invalid = |why: &str| {
-        Err(DeriveError::InvalidContract(format!(
-            "{} {}: {why}",
-            contract.kind, contract.contract_id
-        )))
-    };
-    if contract.key.is_empty() || contract.namespace_key.is_empty() {
-        return invalid("an empty key");
-    }
-    if identity::contract_id(contract.kind, &contract.namespace_key)? != contract.contract_id {
-        return invalid("its id is not the estate id of its namespace_key");
-    }
-    let unresolved = contract.identity_strength == IdentityStrength::Unresolved;
-    if unresolved != contract.namespace_key.starts_with("unresolved:") {
-        return invalid("its namespace_key does not match its identity strength");
-    }
-    Ok(())
+/// [`DeriveError::InvalidContract`] naming the rule the row breaks.
+pub fn validate(
+    contract: &Contract,
+    repo: &RepoId,
+    nodes: &BTreeMap<NodeId, Node>,
+) -> Result<(), DeriveError> {
+    row::check(contract, repo, |id| nodes.contains_key(id)).map_err(|e| {
+        DeriveError::InvalidContract(format!("{} {}: {e}", contract.kind, contract.contract_id))
+    })
 }
 
 /// The repository's declared identities (`pdx.toml [identity]`), canonical.
@@ -457,6 +454,8 @@ impl DeclaredIdentities {
 
 /// What every source of evidence reads.
 pub(crate) struct Context<'a> {
+    /// Calls resolution draws to a definition of the repository: the repository's own.
+    pub(crate) internal: BTreeSet<SiteRef>,
     pub(crate) root: &'a Path,
     pub(crate) registry: &'a SymbolRegistry,
     pub(crate) resolution: &'a ResolveReport,
@@ -470,6 +469,8 @@ pub(crate) struct Context<'a> {
 pub(crate) struct Found {
     pub(crate) observations: Vec<ContractObservation>,
     pub(crate) diagnostics: Vec<ContractDiagnostic>,
+    /// Calls a broker client rule read, which an engine channel fact need not repeat.
+    pub(crate) covered: BTreeSet<SiteRef>,
 }
 
 impl Found {
@@ -505,7 +506,15 @@ pub(crate) fn extension(path: &str) -> Option<&str> {
 pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), DeriveError> {
     let mut found = Found::default();
     let config = config_values::ConfigValues::read(input.root, input.registry, &mut found)?;
+    let internal = input
+        .resolution
+        .resolutions
+        .iter()
+        .filter(|r| r.resolution.band().is_drawn() && r.resolution.target().is_some())
+        .map(|r| r.site_ref.clone())
+        .collect();
     let context = Context {
+        internal,
         root: input.root,
         registry: input.registry,
         resolution: input.resolution,
@@ -515,7 +524,9 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
     };
     openapi::observe(&context, &mut found)?;
     routes::observe(&context, &mut found)?;
+    endpoints::observe(&context, &mut found)?;
     proto::observe(&context, &mut found)?;
+    messaging::observe(&context, &mut found)?;
     channels::observe(&context, &mut found)?;
     tables::observe(&context, &mut found)?;
     artifacts::observe(&context, &mut found)?;

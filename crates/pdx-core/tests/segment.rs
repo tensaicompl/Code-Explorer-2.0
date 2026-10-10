@@ -1349,7 +1349,20 @@ fn content_sha256_is_the_hash_of_the_file() {
 fn hostile_text_stays_data() {
     let scratch = Scratch::new();
     let mut data = fixture();
-    data.contracts[0].key = "GET /it's \"quoted\"; DROP TABLE nodes; --".to_owned();
+    // A consistent row (namespace and id over the hostile key), so only the text is
+    // under test.
+    let hostile = "GET /it's \"quoted\"; DROP TABLE nodes; --";
+    let namespace = pdx_core::contracts::identity::namespace_key(
+        ContractKind::ApiContract,
+        &pdx_core::contracts::ContractIdentity::Declared("orders.internal".to_owned()),
+        hostile,
+        &repo(),
+    );
+    data.contracts[0].contract_id =
+        pdx_core::contracts::identity::contract_id(ContractKind::ApiContract, &namespace)
+            .expect("an id");
+    data.contracts[0].key = hostile.to_owned();
+    data.contracts[0].namespace_key = namespace;
     data.nodes[0].name = "Robert'); DROP TABLE nodes;--".to_owned();
     // A destination whose path a naive statement would break on.
     let dir = scratch.dir("it's a dir — ü");
@@ -1501,10 +1514,11 @@ fn populated_contracts(data: &SegmentData) -> Vec<Contract> {
             ContractDirection::Both,
             &[
                 ("owner_ambiguous", json!(true)),
-                (
-                    "provider_owner_node_ids",
-                    json!([owner.as_str(), other.as_str()]),
-                ),
+                ("provider_owner_node_ids", {
+                    let mut ids = [owner.as_str(), other.as_str()];
+                    ids.sort_unstable();
+                    json!(ids)
+                }),
             ],
         ),
         row(
@@ -1594,6 +1608,163 @@ fn contract_rows_round_trip_exactly() {
     );
 }
 
+/// A malformed contract row: which populated row, how it is changed, whether its id
+/// is recomputed from the changed `namespace_key`, and the rule that must refuse it.
+struct Malformed {
+    row: usize,
+    mutate: Box<dyn Fn(&mut Contract)>,
+    recompute: bool,
+    why: &'static str,
+    what: &'static str,
+}
+
+fn malformed(
+    row: usize,
+    recompute: bool,
+    why: &'static str,
+    what: &'static str,
+    mutate: impl Fn(&mut Contract) + 'static,
+) -> Malformed {
+    Malformed {
+        row,
+        mutate: Box::new(mutate),
+        recompute,
+        why,
+        what,
+    }
+}
+
+/// Populated rows: 0 an ambiguous API contract, 1 an unresolved RPC method, 3 a
+/// declared table, 5 an artifact, 6 an artifact version.
+fn malformed_namespaces() -> Vec<Malformed> {
+    let unresolved = "an unresolved namespace_key";
+    vec![
+        malformed(5, true, "not exact", "artifact-declared", |c| {
+            c.identity_strength = IdentityStrength::Declared;
+        }),
+        malformed(5, true, "not exact", "artifact-unresolved", |c| {
+            c.identity_strength = IdentityStrength::Unresolved;
+        }),
+        malformed(6, true, "not exact", "artifact-version-declared", |c| {
+            c.identity_strength = IdentityStrength::Declared;
+        }),
+        malformed(
+            5,
+            true,
+            "is not its key",
+            "artifact-namespace-not-key",
+            |c| {
+                c.namespace_key = format!(r#"{{"identity":"maven","key":"{}"}}"#, c.key);
+            },
+        ),
+        malformed(1, true, unresolved, "unresolved-wrong-repo", |c| {
+            c.namespace_key = format!("unresolved:2b2f33ba06c16e77:{}", c.key);
+        }),
+        malformed(1, true, unresolved, "unresolved-wrong-key", |c| {
+            "unresolved:ce63551447285fd4:other.Service/Method".clone_into(&mut c.namespace_key);
+        }),
+        malformed(1, true, unresolved, "unresolved-missing-repo", |c| {
+            c.namespace_key = format!("unresolved:{}", c.key);
+        }),
+        malformed(1, true, unresolved, "unresolved-extra-suffix", |c| {
+            c.namespace_key = format!("unresolved:ce63551447285fd4:{} ", c.key);
+        }),
+        malformed(1, true, unresolved, "unresolved-extra-prefix", |c| {
+            c.namespace_key = format!("x-unresolved:ce63551447285fd4:{}", c.key);
+        }),
+    ]
+}
+
+const DB: &str = "db.example.com:5432/shop";
+
+fn malformed_resolved() -> Vec<Malformed> {
+    let shape = "exactly `identity` and `key`";
+    let canonical = "canonical form";
+    vec![
+        malformed(
+            3,
+            true,
+            "embeds another key",
+            "resolved-embedded-key-differs",
+            |c| {
+                c.namespace_key = format!(r#"{{"identity":"{DB}","key":"other"}}"#);
+            },
+        ),
+        malformed(3, true, "empty identity", "resolved-empty-identity", |c| {
+            r#"{"identity":"","key":"users"}"#.clone_into(&mut c.namespace_key);
+        }),
+        malformed(3, true, shape, "resolved-extra-json-member", |c| {
+            c.namespace_key = format!(r#"{{"identity":"{DB}","key":"users","x":1}}"#);
+        }),
+        malformed(
+            3,
+            true,
+            canonical,
+            "resolved-noncanonical-member-order",
+            |c| {
+                c.namespace_key = format!(r#"{{"key":"users","identity":"{DB}"}}"#);
+            },
+        ),
+        malformed(
+            3,
+            true,
+            canonical,
+            "resolved-noncanonical-whitespace",
+            |c| {
+                c.namespace_key = format!(r#"{{"identity": "{DB}", "key": "users"}}"#);
+            },
+        ),
+        malformed(3, true, canonical, "resolved-duplicate-member", |c| {
+            c.namespace_key = format!(r#"{{"identity":"{DB}","identity":"x","key":"users"}}"#);
+        }),
+        malformed(3, true, shape, "resolved-not-json", |c| {
+            "users".clone_into(&mut c.namespace_key);
+        }),
+        malformed(1, true, shape, "unresolved-namespace-declared", |c| {
+            c.identity_strength = IdentityStrength::Declared;
+        }),
+    ]
+}
+
+fn malformed_ids_and_owners() -> Vec<Malformed> {
+    let owners = "provider_owner_node_ids";
+    let listed = |c: &Contract| -> Vec<serde_json::Value> {
+        c.props
+            .get("provider_owner_node_ids")
+            .and_then(serde_json::Value::as_array)
+            .cloned()
+            .expect("ids")
+    };
+    vec![
+        malformed(1, false, "not the estate id", "wrong-id", |c| {
+            c.contract_id = id(&NodeKey::estate(NodeKind::RpcMethod, &c.key).expect("a key"));
+        }),
+        malformed(1, false, "not the estate id", "wrong-kind", |c| {
+            c.kind = ContractKind::Channel;
+        }),
+        malformed(1, false, "not a node", "unknown-owner", |c| {
+            c.owner_node_id = Some(id(&method("com.acme.Nowhere.gone")));
+        }),
+        malformed(0, false, "not true", "ambiguity-flag-false", |c| {
+            c.props.insert("owner_ambiguous", json!(false));
+        }),
+        malformed(0, false, owners, "ambiguous-owners-unsorted", move |c| {
+            let mut ids = listed(c);
+            ids.reverse();
+            c.props
+                .insert("provider_owner_node_ids", serde_json::Value::Array(ids));
+        }),
+        malformed(0, false, owners, "ambiguous-one-owner", move |c| {
+            let first = listed(c).remove(0);
+            c.props.insert("provider_owner_node_ids", json!([first]));
+        }),
+        malformed(1, false, owners, "owners-without-flag", |c| {
+            c.props.insert("provider_owner_node_ids", json!([]));
+        }),
+        malformed(1, false, "empty key", "empty-key", |c| c.key.clear()),
+    ]
+}
+
 #[test]
 fn writer_refuses_malformed_contract_rows() {
     let scratch = Scratch::new();
@@ -1602,40 +1773,37 @@ fn writer_refuses_malformed_contract_rows() {
         data.contracts = populated_contracts(&data);
         data
     };
-    let refused = |mutate: &dyn Fn(&mut Contract), what: &str| {
-        let mut data = base.clone();
-        mutate(&mut data.contracts[1]);
-        let result = SegmentWriter::new()
+    let written = |data: &SegmentData, what: &str| {
+        SegmentWriter::new()
             .build_in(&scratch.dir(&format!("temp {what}")))
-            .write(&data, &scratch.dir(what).join("segment.db"));
-        assert!(
-            matches!(
-                result,
-                Err(SegmentError::InvalidRow {
-                    table: "contracts",
-                    ..
-                })
-            ),
-            "{what}: {result:?}"
-        );
+            .write(data, &scratch.dir(what).join("segment.db"))
     };
-    // An id that is not NodeKey::estate(kind, namespace_key), however it was made.
-    refused(
-        &|c| {
-            c.contract_id = id(&NodeKey::estate(NodeKind::RpcMethod, &c.key).expect("a key"));
-        },
-        "wrong-id",
+    assert!(
+        written(&base, "valid").is_ok(),
+        "the rows as made are stored"
     );
-    refused(&|c| c.kind = ContractKind::Channel, "wrong-kind");
-    refused(
-        &|c| c.identity_strength = IdentityStrength::Declared,
-        "unresolved-namespace-declared",
-    );
-    refused(
-        &|c| {
-            c.owner_node_id = Some(id(&method("com.acme.Nowhere.gone")));
-        },
-        "unknown-owner",
-    );
-    refused(&|c| c.key.clear(), "empty-key");
+    // Each row is changed and, unless the id itself is under test, its id recomputed
+    // from the changed namespace_key: the refusal must be the semantic rule's, never
+    // the id check's.
+    let cases = malformed_namespaces()
+        .into_iter()
+        .chain(malformed_resolved())
+        .chain(malformed_ids_and_owners());
+    for case in cases {
+        let mut data = base.clone();
+        let contract = &mut data.contracts[case.row];
+        (case.mutate)(contract);
+        if case.recompute {
+            contract.contract_id =
+                pdx_core::contracts::identity::contract_id(contract.kind, &contract.namespace_key)
+                    .expect("an id");
+        }
+        match written(&data, case.what) {
+            Err(SegmentError::InvalidRow {
+                table: "contracts",
+                reason,
+            }) => assert!(reason.contains(case.why), "{}: {reason}", case.what),
+            other => panic!("{}: {other:?}", case.what),
+        }
+    }
 }
