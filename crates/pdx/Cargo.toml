@@ -19,6 +19,15 @@ enterprise = ["dep:pdx-arch", "dep:pdx-analytics", "dep:pdx-server"]
 
 [dependencies]
 pdx-engine = { path = "../pdx-engine", version = "0.1.0" }
+# `pdx index` runs the pipeline (`build_segment`), `pdx coverage` reads its segment.
+pdx-core = { path = "../pdx-core", version = "0.1.0" }
+# The command line (builder API only): no colour, suggestions, wrapping, environment
+# arguments or derive macros, so help and errors are the same on every terminal
+# (issue 70).
+clap = { version = "=4.6.7", default-features = false, features = ["std", "help", "usage", "error-context"] }
+# The `--json` reports.
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
 pdx-arch = { path = "../pdx-arch", optional = true }
 pdx-analytics = { path = "../pdx-analytics", optional = true }
 pdx-server = { path = "../pdx-server", optional = true }
@@ -27,6 +36,6 @@ pdx-server = { path = "../pdx-server", optional = true }
 # The engine's fault-injection switches, so the isolation test can make the worker
 # crash. Enabled here only, so no release build contains them.
 pdx-engine-sys = { path = "../pdx-engine-sys", features = ["test-seams"] }
-# Stage 2 run with this binary's own isolated workers (tests/extract_isolated.rs).
-pdx-core = { path = "../pdx-core" }
 tempfile = "3.27.0"
+# The CLI's help and report snapshots (tests/cli.rs).
+insta = { version = "1.49.0", default-features = false }

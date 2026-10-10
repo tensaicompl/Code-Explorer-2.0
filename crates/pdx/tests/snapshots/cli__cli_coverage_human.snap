@@ -1,0 +1,13 @@
+---
+source: crates/pdx/tests/cli.rs
+expression: text
+---
+structural segment of https://git.example/acme/shop at cd5952872419226222f367121bb1a6ea0bff191c
+python
+  files 4: 4 parsed, 0 partial, 0 failed, 0 skipped
+  symbols 4, call sites 3, observed links 0
+  bands: precise 0, typed 3, import-guided 0, inheritance-guided 0, exact 0, scoped 0, candidate 0, external 0, blocked 0, unresolved 0, contradicted 0
+unknown
+  files 1: 0 parsed, 0 partial, 0 failed, 1 skipped
+  symbols 0, call sites 0, observed links 0
+  bands: precise 0, typed 0, import-guided 0, inheritance-guided 0, exact 0, scoped 0, candidate 0, external 0, blocked 0, unresolved 0, contradicted 0

@@ -8,6 +8,11 @@ version = "0.10"
 version = "1.1.5"
 criteria = "safe-to-deploy"
 
+[[exemptions.anstyle]]
+version = "1.0.14"
+criteria = "safe-to-deploy"
+notes = "Issue 70: required by P2-11 through clap (its style types; colour is not enabled). An exemption, not an audit."
+
 [[exemptions.arraydeque]]
 version = "0.5.1"
 criteria = "safe-to-deploy"
@@ -48,6 +53,21 @@ criteria = "safe-to-deploy"
 [[exemptions.clang-sys]]
 version = "1.9.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.clap]]
+version = "4.6.7"
+criteria = "safe-to-deploy"
+notes = "Issue 70: required by P2-11 (pdx's command line, builder API; default features off but std, help, usage, error-context). An exemption, not an audit."
+
+[[exemptions.clap_builder]]
+version = "4.6.7"
+criteria = "safe-to-deploy"
+notes = "Issue 70: required by P2-11 through clap (the command builder and parser). An exemption, not an audit."
+
+[[exemptions.clap_lex]]
+version = "1.1.1"
+criteria = "safe-to-deploy"
+notes = "Issue 70: required by P2-11 through clap (its argument lexer). An exemption, not an audit."
 
 [[exemptions.cmake]]
 version = "0.1.58"

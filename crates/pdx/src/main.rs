@@ -1,11 +1,18 @@
-//! The command-line interface.
+//! The command-line interface: `pdx index`, `pdx coverage` and `pdx version` (P2-11),
+//! and the hidden engine worker isolated extraction starts this program as.
 
 use std::ffi::OsStr;
 use std::process::ExitCode;
 
-/// Entry point. The command surface is built in a later task; the one command that
-/// exists is the hidden engine worker, which isolated extraction starts this program
-/// as (`pdx_engine::isolate`).
+mod cli;
+mod local;
+mod report;
+mod repository;
+mod resources;
+
+/// Entry point. The hidden engine worker (`pdx_engine::isolate`) is served before the
+/// command line is parsed, exactly as before: it is no public command and prints
+/// nothing of its own.
 fn main() -> ExitCode {
     let first = std::env::args_os().nth(1);
     if first.as_deref() == Some(OsStr::new(pdx_engine::isolate::WORKER_SUBCOMMAND)) {
@@ -14,6 +21,5 @@ fn main() -> ExitCode {
             Err(_) => ExitCode::FAILURE,
         };
     }
-    println!("not implemented");
-    ExitCode::SUCCESS
+    cli::run(std::env::args_os())
 }

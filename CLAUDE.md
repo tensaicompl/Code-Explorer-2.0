@@ -30,14 +30,15 @@ health, crash-isolated extraction), built and tested on Linux, macOS and Windows
 and run nightly under the address, undefined-behaviour and leak sanitizers over a
 committed corpus; it also transcribed the language matrix (`pdx_core::languages`).
 The previous implementation is in `legacy/`, read-only until the retirement task
-removes it. There is no CLI (`pdx index` is P2-11) and no product behaviour yet.
+removes it. The local CLI has `pdx index`, `pdx coverage` and `pdx version` (P2-11);
+there is no query surface (MCP, server, UI) yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` has only the hidden `engine-worker` command so far; the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` is the CLI (`index`, `coverage`, `version`, and the hidden `engine-worker`); the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`) |
@@ -236,6 +237,37 @@ The whole pipeline (P2-10) is `index::build_segment(IndexRequest) -> SegmentRepo
   `with_default` races other threads over callsite interest, so it lives in a test
   binary of its own.
 
+The CLI (P2-11) is `crates/pdx`: `cli` (clap builder API, exit codes), `repository`
+(Git metadata and identity), `resources` (Stage 2 limits), `local` (output and cache
+paths), `report` (JSON and text reports, progress).
+
+- **Ownership.** P2-11 owns CLI parsing, building `IndexRequest`, Git metadata policy,
+  resource-limit resolution, the JSON report DTO, exit codes, TTY progress and the
+  coverage reader. `build_segment` stays the only pipeline: never re-implement a
+  stage in `pdx`.
+- **Exit codes** are 0 ready, 2 degraded, 1 for every error. Usage errors are caught
+  so they never leak clap's own 2. Results go to stdout; errors (`pdx: …`, one line)
+  and progress (only when stderr is a terminal) go to stderr.
+- **Clean HEAD only.** `pdx index` indexes HEAD and refuses a dirty tree (untracked,
+  not ignored files included; decision 38); `.pdx/` belongs in `.gitignore`.
+- **Identity** comes from origin's HTTPS URL via `canonical_clone_url` and
+  `repo_id_from_url` (decision 36). SSH and other remotes are refused, never guessed
+  or echoed. `pdx.toml [server]` refuses (P4-06 owns registered ids). The name comes
+  from the URL, never the checkout directory. `repo_id_source` is SCR 71: no meta key.
+- **Git** is run as `git -C <path> …`: no shell, GIT_DIR and the other routing
+  variables cleared, no prompt, bounded stdout, stderr never shown.
+- **Limits** (decision 37): workers are the min of `available_parallelism`, the
+  cgroup quota (floor, at least 1) and `PDX_WORKERS`. Memory is `PDX_MEM_BUDGET_MB`,
+  else 60% of the cgroup limit, else `DEFAULT_MEMORY_BUDGET_BYTES` (512 MiB). Bad
+  settings are errors.
+- **Output.** The default is `<root>/.pdx/segment.db`; a relative `--out` is below the
+  root. A `.pdx` symlink or file is refused, and a segment is never overwritten.
+- **Reports.** The JSON report carries no machine state (workers, budget, cache,
+  paths, time); it is snapshotted in `tests/cli.rs`.
+- **The hidden worker** is served before parsing, unchanged.
+- **Test fixtures** are real Git repositories with fixed author, committer, dates and
+  autocrlf, and with `GIT_CONFIG_GLOBAL` pointed at an empty file.
+
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file
 named `recovery_*` may parse partially and `failed_*` must fail; anything else must
@@ -252,8 +284,8 @@ nightly and release run it. A new or changed crate needs a real audit, an owner-
 import, or a version-specific exemption with an `ISSUES.md` entry; never regenerate the
 exemptions to make it pass. The 95 exemptions recorded when vetting began are not
 audits (issue 36), and neither are the four exact-version ones P2-04 added (issue 39),
-P2-07's two (issue 52), P2-08's three parser crates (issue 60) or P2-10's three
-tracing crates (issue 69): 107 exemptions.
+P2-07's two (issue 52), P2-08's three parser crates (issue 60), P2-10's three
+tracing crates (issue 69) or P2-11's four clap crates (issue 70): 111 exemptions.
 
 Engine-specific targets: `make engine-test` (the interface tests),
 `make engine-typed-reference` (re-record the reference engine's answers for the

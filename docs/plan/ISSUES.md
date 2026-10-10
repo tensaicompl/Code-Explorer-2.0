@@ -15,6 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 71 | 2026-10-11 | P2-11 | scr | open | 4.2.1 says a local binary with no server "records `repo_id_source = \"url\"` in `meta`", but 4.3's `meta` keys do not include it and the reader refuses a key it does not know, so no segment can record it without a schema change | P2-11 derives the URL identity and writes no such key: a segment's `meta` is 4.3's keys exactly, `SEGMENT_SCHEMA_VERSION` stays 2. Owner to decide: add the key to 4.3 (a schema change) or drop the clause from 4.2.1 (a local segment's id is URL-derived exactly when no server is configured, which the CLI decides) |
+| 70 | 2026-10-11 | P2-11 | third-party | resolved | `pdx`'s command line (P2-11) needs an argument parser with subcommands, typed values and help; none was in the dependency graph | `clap` 4.6.7, pinned exactly, builder API, default features off but `std`, `help`, `usage`, `error-context` (no colour, suggestions, wrapping, environment arguments or derive macros), with `clap_builder` 4.6.7, `clap_lex` 1.1.1 and `anstyle` 1.0.14: four exact-version `safe-to-deploy` exemptions added by hand, each naming this issue. Exemptions, not audits: 111 exemptions, 0 audits, 0 imports |
 | 69 | 2026-10-10 | P2-10 | third-party | resolved | P2-10's deliverable puts `build_segment`'s stages in `tracing` spans (Part 9's logging rule), and no tracing crate was in the dependency graph | `tracing` 0.1.44, pinned exactly, without default features (no attribute macros) but `std`, with `tracing-core` 0.1.36 and `pin-project-lite` 0.2.17: three exact-version `safe-to-deploy` exemptions added by hand, each naming this issue. Exemptions, not audits: 107 exemptions, 0 audits, 0 imports. No subscriber is installed by the library; spans carry stage names and counts only (decision 35) |
 | 68 | 2026-10-10 | P2-09 | third-party | open | The engine's per-definition visibility is evidence only in Go (exported identifiers) and Python (a leading underscore): elsewhere it does not read a declaration's modifiers, so Java and Kotlin `public` methods come back non-public, and Rust, TypeScript, JavaScript, C#, C, C++, PHP, Scala and Ada private declarations public | Stage 4 stores `props.visibility` only for Go and Python and leaves it absent (unknown) elsewhere, never stored wrong (`visibility_props_only_where_engine_evidence`); `importance` takes an unknown visibility as not public (decision 28). Restoring it elsewhere needs an engine fact that reads declaration modifiers, an append-only change that moves `ENGINE_VERSION`, the cache format, the worker protocol and the surface version. The conservative behaviour was approved by the P2-09 driver review on 2026-10-10. Review checkpoint: before P2-12's golden snapshots are accepted, the driver chooses (A) modifier-derived visibility as a versioned engine fact, with the version moves and rebuilds, or (B) unknown visibility and 0.6 ratified as PDX 2.0's behaviour, the limitation kept in product and trust documentation. Until then it blocks neither P2-10 nor P2-11 |
 | 67 | 2026-10-10 | P2-09 | scr | resolved | 4.12.1 names `cyclomatic`, `cognitive` and `loop_depth` without defining them, and the engine's facts (Appendix D.4) are not the textbook metrics: its count is of each language table's branching node types, so boolean operators and conditional expressions are no decision, `try`, `with`, `defer` and `go` are, and a `switch` or `match` counts itself as well as each case | Ratified by the P2-09 driver review on 2026-10-10 (decision 32). For PDX 2.0, for callables only (decision 29): `cyclomatic` = 1 + the engine's branching-node count, `cognitive` = the engine's cognitive count, `loop_depth` = the engine's deepest loop nesting. The documented engine-specific deviations (below) are intentional product semantics; the metrics are not identical to every textbook definition. The acceptance fixtures on Java, Python, Go, TypeScript, Rust and C lock the definition (`cyclomatic_known_values`, `cognitive_and_loop_depth_known_values`, `complexity_engine_facts_cross_stage_boundary`). A later change of these semantics is a specification change, with the compatibility and build-identity treatment it needs before published segments can coexist with it |
@@ -111,6 +113,49 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 71 — `repo_id_source` has no place in a segment's meta
+
+4.2.1 says that with no server the local binary derives `repo_id` from the canonical
+clone URL "and records `repo_id_source = "url"` in `meta`". 4.3 lists a segment's
+`meta` keys (`schema_version`, `repo_id`, `repo_url`, `commit_sha`, `profile`,
+`engine_version`, `pdx_version`, `language_matrix_version`, `precise_sources`), the
+writer stores exactly those, and the reader refuses a segment holding any other key
+(`SegmentError::UnexpectedMeta`). The two cannot both hold: recording the source is a
+change of the stored format.
+
+P2-11 derives the URL identity (decision 36) and records nothing more: no meta key is
+invented and `SEGMENT_SCHEMA_VERSION` stays 2. `pdx_core::ids::repo_id_from_url`'s
+documentation repeats 4.2.1's clause and is left as it is until this is decided.
+
+For the owner: either 4.3 gains `repo_id_source` (a schema change, version 3, with the
+writer, reader and verifier), or 4.2.1 drops the clause (a local segment's identity is
+URL-derived exactly when no server is configured, which the binary decides, and the
+re-keying 4.2.1 describes is the local cache's, not the segment's).
+
+State: open.
+
+### 70 — P2-11 command-line parser
+
+`pdx`'s command line has subcommands, a positional path with a default, typed options,
+help and usage errors, which a parser should own rather than a hand-written loop. No
+parser was in the dependency graph. Chosen under D1 (decision 39), pinned exactly:
+
+| Package | Version | Criterion | Direct | Why |
+|---|---|---|---|---|
+| `clap` | 4.6.7 | `safe-to-deploy` | yes | The command line, through the builder API. Default features off; `std`, `help`, `usage`, `error-context` on: no colour, suggestions, terminal-width wrapping, environment-backed arguments or derive macros, so help and errors are the same on every terminal and no procedural macro is built |
+| `clap_builder` | 4.6.7 | `safe-to-deploy` | no | `clap`'s builder and parser |
+| `clap_lex` | 1.1.1 | `safe-to-deploy` | no | `clap`'s argument lexer |
+| `anstyle` | 1.0.14 | `safe-to-deploy` | no | `clap_builder`'s style types; no styling is enabled |
+
+Usage errors are intercepted: the parser's own exit code (2) would read as "degraded",
+so every usage error exits 1. Each exemption is for its exact version, carries a note
+naming this issue and was added by hand to `supply-chain/config.toml`. **These are
+exemptions, not audits.** Nothing was regenerated and no audit was imported: 111
+exemptions (107 before and these 4), 0 audits, 0 imports. Licences: MIT OR Apache-2.0
+(all four).
 
 State: resolved.
 

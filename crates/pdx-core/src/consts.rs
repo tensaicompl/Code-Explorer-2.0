@@ -92,6 +92,13 @@ pub const EXTRACT_BATCH_MAX_FILES: u32 = 16;
 /// rule D17 (decision 23).
 pub const EXTRACT_CACHE_MAX_ENTRY_BYTES: u64 = 1024 * 1024 * 1024;
 
+/// Stage 2's memory budget, in bytes, for a local build when neither
+/// `PDX_MEM_BUDGET_MB` nor a cgroup memory limit sets one (4.5, "Worker and memory
+/// limits", is silent there). 512 MiB of source in flight: far more than a batch of
+/// files at `MAX_FILE_BYTES` needs, small beside any host that runs the engine, and the
+/// same on Linux, macOS and Windows. Set under rule D17 (decision 37).
+pub const DEFAULT_MEMORY_BUDGET_BYTES: u64 = 512 * 1024 * 1024;
+
 /// How deeply a structured document read for contracts (`OpenAPI`, `AsyncAPI`, a
 /// configuration file or a changelog, 4.7.1) may nest its mappings and sequences; a
 /// deeper one is reported and gives no contract.
@@ -247,6 +254,11 @@ const _: () = assert!(
 const _: () = assert!(
     EXTRACT_BATCH_MAX_FILES > 0,
     "a batch must be able to hold a file"
+);
+
+const _: () = assert!(
+    DEFAULT_MEMORY_BUDGET_BYTES >= MAX_FILE_BYTES,
+    "the default budget holds a file of the largest size discovery reads"
 );
 
 const _: () = assert!(

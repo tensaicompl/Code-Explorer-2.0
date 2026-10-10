@@ -1,0 +1,51 @@
+---
+source: crates/pdx/tests/cli.rs
+expression: combined
+---
+$ pdx --help
+Index a Git repository into a code-graph segment, and report on it
+
+Usage: pdx <COMMAND>
+
+Commands:
+  index     Build the structural segment of the repository's HEAD commit
+  coverage  Print the coverage of the repository's segment, .pdx/segment.db
+  version   Print the versions of pdx, the engine, the segment schema and the language matrix
+
+Options:
+  -h, --help  Print help
+
+Exit codes: 0 success (an index is ready), 2 indexed but degraded, 1 error.
+
+$ pdx index --help
+Build the structural segment of the repository's HEAD commit
+
+Usage: pdx index [OPTIONS] [PATH]
+
+Arguments:
+  [PATH]  The repository, or a directory inside it [default: .]
+
+Options:
+      --out <FILE>         Where to write the segment; a relative path is below the repository root; never overwritten [default: .pdx/segment.db]
+      --profile <PROFILE>  The build profile [default: structural] [possible values: structural]
+      --json               Print the index report as JSON
+  -h, --help               Print help
+
+The working tree must be clean: a segment is of the HEAD commit. The repository's identity comes from its origin remote, which must be an HTTPS clone URL. Exit codes: 0 ready, 2 degraded, 1 error.
+
+$ pdx coverage --help
+Print the coverage of the repository's segment, .pdx/segment.db
+
+Usage: pdx coverage [OPTIONS]
+
+Options:
+      --json  Print the coverage as JSON
+  -h, --help  Print help
+
+$ pdx version --help
+Print the versions of pdx, the engine, the segment schema and the language matrix
+
+Usage: pdx version
+
+Options:
+  -h, --help  Print help

@@ -1,0 +1,112 @@
+---
+source: crates/pdx/tests/cli.rs
+expression: text
+---
+{
+  "status": "ready",
+  "profile": "structural",
+  "repository": {
+    "repo_id": "09365e7fa98ebdf2",
+    "repo_url": "https://git.example/acme/shop",
+    "name": "shop",
+    "commit_sha": "cd5952872419226222f367121bb1a6ea0bff191c"
+  },
+  "segment": {
+    "output": ".pdx/segment.db",
+    "content_sha256": "74f173fcf14701600a60a59eb0059acad3cda293d333181f879d5b4d5ea27bd5",
+    "size_bytes": 176128
+  },
+  "files": {
+    "files": 5,
+    "parsed": 4,
+    "partial": 0,
+    "failed": 0,
+    "skipped": 1,
+    "skipped_size": 0,
+    "binary": 0,
+    "redacted": 0
+  },
+  "rows": {
+    "files": 5,
+    "nodes": 16,
+    "sites": 3,
+    "edges": 4,
+    "candidates": 0,
+    "contracts": 0,
+    "metrics": 32,
+    "coverage": 2
+  },
+  "resolution": {
+    "call_sites": 3,
+    "unconfirmed": 1,
+    "engine_health": {
+      "status": "clean",
+      "files": 4,
+      "files_resolved": 3,
+      "files_untyped": 0,
+      "files_empty": 1,
+      "files_over_budget": 0,
+      "files_source_unavailable": 0,
+      "files_not_reached": 0,
+      "pass_failures": 0
+    }
+  },
+  "derive": {
+    "unmaterialized": 0,
+    "routes": 0,
+    "contracts": 0,
+    "metrics": 0
+  },
+  "coverage": [
+    {
+      "language": "python",
+      "files": 4,
+      "parsed": 4,
+      "partial": 0,
+      "failed": 0,
+      "skipped": 0,
+      "symbols": 4,
+      "call_sites": 3,
+      "by_band": {
+        "precise": 0,
+        "typed": 3,
+        "import-guided": 0,
+        "inheritance-guided": 0,
+        "exact": 0,
+        "scoped": 0,
+        "candidate": 0,
+        "external": 0,
+        "blocked": 0,
+        "unresolved": 0,
+        "contradicted": 0
+      },
+      "observed_links": 0
+    },
+    {
+      "language": "unknown",
+      "files": 1,
+      "parsed": 0,
+      "partial": 0,
+      "failed": 0,
+      "skipped": 1,
+      "symbols": 0,
+      "call_sites": 0,
+      "by_band": {
+        "precise": 0,
+        "typed": 0,
+        "import-guided": 0,
+        "inheritance-guided": 0,
+        "exact": 0,
+        "scoped": 0,
+        "candidate": 0,
+        "external": 0,
+        "blocked": 0,
+        "unresolved": 0,
+        "contradicted": 0
+      },
+      "observed_links": 0
+    }
+  ],
+  "unportable": [],
+  "degraded_reasons": []
+}
