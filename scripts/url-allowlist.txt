@@ -37,3 +37,11 @@ https://sqlite.org/
 https://git.example/
 https://git.example:8443/
 https://x-access-token:s3cr3t@Git.Example/
+
+# Contract fixtures (docs/spec/4.7, P2-08, issue 58): HTTP endpoints and a remote
+# `$ref` on hosts reserved for examples (RFC 2606), which no network resolves. The
+# mixed case is a fixture's: authorities are canonicalised.
+https://api.example.com
+http://api.example.com
+https://API.Example.com
+https://specs.example.invalid/

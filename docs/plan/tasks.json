@@ -658,7 +658,7 @@
       "depends": [
         "P2-07"
       ],
-      "deliverables": "`contracts/{openapi,routes,proto,channels,tables,artifacts}.rs` implementing 4.7.1 with key normalisation (channel producers/consumers come from the engine's `channels` array, Appendix D.2, supplemented by the annotation rules of 4.7.1); `props` include the raw form; placeholder resolution from `application*.yml|properties` and `.env` keys.",
+      "deliverables": "`contracts/{openapi,routes,proto,channels,tables,artifacts}.rs` implementing 4.7.1 with key normalisation (channel producers/consumers come from the engine's `channels` array, Appendix D.2, supplemented by the annotation rules of 4.7.1); `props` include the raw form; placeholder resolution from non-redacted `application*.yml|properties` only, when one distinct eligible value exists; `.env*` stays inside the secret-path floor, never opened or parsed, and resolves nothing (issue 38, resolved).",
       "acceptance": "fixtures `contracts_openapi`, `contracts_proto`, `contracts_kafka_literal`, `contracts_kafka_placeholder_unresolved`, `contracts_jpa_table`, `contracts_maven_artifact`, `contract_key_normalisation` (table of raw \u2192 key).",
       "acceptance_tests": [
         "contracts_openapi",
@@ -668,6 +668,9 @@
         "contracts_jpa_table",
         "contracts_maven_artifact",
         "contract_key_normalisation"
+      ],
+      "amended_by": [
+        "issue 38"
       ],
       "order": 21,
       "execution": "fan-out-eligible",

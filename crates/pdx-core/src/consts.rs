@@ -92,6 +92,15 @@ pub const EXTRACT_BATCH_MAX_FILES: u32 = 16;
 /// rule D17 (decision 23).
 pub const EXTRACT_CACHE_MAX_ENTRY_BYTES: u64 = 1024 * 1024 * 1024;
 
+/// How deeply a structured document read for contracts (`OpenAPI`, `AsyncAPI`, a
+/// configuration file or a changelog, 4.7.1) may nest its mappings and sequences; a
+/// deeper one is reported and gives no contract.
+///
+/// Those documents nest a handful of levels; the limit bounds what a repository can
+/// make the reader hold on a stack. Unspecified by the plan; set under rule D17
+/// (decision 25).
+pub const CONTRACT_DOCUMENT_MAX_DEPTH: usize = 64;
+
 // --- retention -------------------------------------------------------------
 
 /// Manifest versions kept before their unreferenced segments may be collected.

@@ -141,6 +141,7 @@ pub(crate) fn build(
         sites: BTreeMap::new(),
         edges: BTreeMap::new(),
         candidates: BTreeMap::new(),
+        contracts: Vec::new(),
         repo_node: repo_node.node_id.clone(),
         file_nodes: BTreeMap::new(),
         folder_nodes: BTreeMap::new(),

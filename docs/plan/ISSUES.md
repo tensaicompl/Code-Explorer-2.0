@@ -15,6 +15,10 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 61 | 2026-10-10 | P6-01 | ambiguity | open | The engine's channel facts reach Rust as a name and a direction only: the transport it classifies them by (Kafka, AMQP, a socket, an in-process emitter) is dropped at the interface, a socket with no named channel is labelled with its function's name, and an in-process event emitter's events are channel facts too. Taken whole, they would make channel contracts of what no broker carries | P2-08 uses a fact only when a broker client call in its file names it (a `producer`, `consumer` or AMQP `channel` receiver, an operation of the fact's direction, an argument that is the channel); any other is reported (`UnconfirmedChannel`) and gives no contract, and no transport is claimed for an engine fact. P6-01 decides, before it draws `MESSAGES` from engine facts, whether the interface must carry the transport (append-only: `ENGINE_VERSION`, cache format, worker protocol and surface would move) |
+| 60 | 2026-10-10 | P2-08 | third-party | resolved | Contracts must read YAML (OpenAPI, AsyncAPI, application configuration, changelogs) and XML (`pom.xml`, `*.csproj`, changelogs); no parser of either was in the dependency graph, and a hand-written general one is what the brief forbids | `saphyr-parser` 0.1.0 (event parser; the tree is built in `contracts::document`, an alias never expanded) and `roxmltree` 0.21.1 (read-only; a DTD refused), pinned exactly; with `arraydeque` 0.5.1 three new crates, each an owner-authorised exact-version `safe-to-deploy` exemption, not an audit. 104 exemptions, 0 audits, 0 imports. Decision 24 |
+| 59 | 2026-10-10 | P2-08 | scr | resolved | `contracts.contract_id` is the primary key, yet several sightings in one repository can be one contract (an OpenAPI operation and its route, a producer and a listener of one topic, two providers of one key); 4.7.1 says nothing of merging them, or of whether contracts are also graph nodes and edges | Merged by `(kind, namespace_key)` only, in any order: `provides` + `consumes` = `both`; the strongest identity; the providers' one owner, or none with `owner_ambiguous` and `provider_owner_node_ids` when they differ (NULL owner = consumed-only or several provider owners); `raw_forms`, `source_paths` and all evidence as sorted sets. The `contracts` table is the record: P2-08 adds no contract node and no `EXPOSES`/`PUBLISHES`/… edge (4.7.2 reads only `contracts`), so 4.2.4's site rule is untouched. No DDL change, comment only |
+| 58 | 2026-10-10 | P2-08 | scr | resolved | 4.7.1 says `namespace_key` = identity + key and 4.2.1 hashes it into the contract's id, but neither defines the text for an established identity, the column key, an artifact's coordinate parts or the canonical host; the first stored contract ids depend on it | `{"identity":…,"key":…}` compact JSON (route identity's escaping) for `exact` and `declared`, strength not in it; `unresolved:<repo_id>:<key>` for unresolved; an artifact's key is its own namespace. Hosts lower-cased, one terminal dot and user information dropped, default ports omitted, loopback hosts no identity; several identities, several rows. Column = table key `.` column; `ecosystem:group:name[@version]` with the eight ecosystem names. Fixed vectors for every kind, computed outside the crate. No version moves: no contract was stored before |
 | 57 | 2026-10-05 | P2-10 | ambiguity | open | Malformed source can come back `parsed`: the engine marks a file `partial` only when an error region remains after it subtracts the regions definitions were recovered from, so `def broken(:` with a body is `parsed`. Coverage, the degraded status and the published parsed/partial/failed counts depend on what syntax damage means | P2-10 (coverage, degraded status, `build_segment`) decides, before publication: the semantics of parsed, partial and failed for recoverable syntax errors, malformed fixtures for them, and the coverage and degraded thresholds that use them |
 | 56 | 2026-10-05 | P2-07 | ambiguity | resolved | P2-07 extended 4.2.1 so that non-callable definitions sharing a kind, path and qualified name take the identical-signature collision scheme (`e3b0c442-1`, `e3b0c442-2`), without bringing it to the owner | Owner decision, 2026-10-05: approved as implemented. Ids must be unique, the extracted facts hold no stronger discriminator, and a line number would break the identity design. The limitation is explicit in 4.2.1: inserting another identical declaration before an existing one may renumber that group. No version moves. `duplicate_noncallables_have_unique_deterministic_ids` |
 | 55 | 2026-10-05 | P2-07 | blocker | resolved | P2-07 copied the engine's entry-point flag into `props.is_entry_point`, and the engine sets it on every exported JavaScript and TypeScript declaration: the TypeScript golden showed plain exported functions as entry points, which Appendix B.2 does not make them | `is_entry_point` is decided from evidence of B.2's categories only: tests, route handlers, each language's conventional `main` (JVM, C#, C, C++ global namespace, Go, Rust binary roots), the framework bootstraps. The engine's flag is kept as `props.engine_entry_point`. `exported_typescript_function_is_not_entry_point`, `exported_javascript_function_is_not_entry_point`, `main_entry_points_survive_engine_flag_filter`, `entry_point_categories_are_kept` |
@@ -34,7 +38,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 41 | 2026-10-04 | P2-05 | scr | resolved | The language matrix makes Java's, Kotlin's, C#'s, PHP's, Perl's, Scala's, Groovy's and protobuf's module the package or namespace a file declares, but qualified names are built from the file's path, and no declaration crossed the safe boundary. The engine records the declaration for Java, Kotlin, C# and PHP (`namespace_name`) and drops it at the interface; for Perl, Scala, Groovy and protobuf it records none | Exposed as issue 40 exposed bases; owner confirmed 2026-10-04: `pdxe_file_result` appends `declared_namespace`, carried into `FileExtract::declared_namespace`; `pdx_engine::namespace_evidence` says where each language's evidence is (the file's declaration; C++'s qualified names; nowhere). Cache format 2 and worker protocol 3 cover it with issue 40. Perl, Scala, Groovy and protobuf get no module: none is invented from the directory, and no parser is added to manufacture one |
 | 40 | 2026-10-04 | P2-05 | scr | resolved | Class hierarchies (P2-05) and inheritance-guided resolution (P2-06) need each definition's bases. The engine records them (`PDXEDefinition.base_classes`) and the surface codec keeps them, but `pdxe.c` dropped them, so neither `pdxe_definition` nor `FileExtract` had them, and the opaque surface is not to be decoded in `pdx-core` | Owner decision 2026-10-03, implemented: `pdxe_definition` appends `base_classes` and `n_base_classes`, the engine's strings in its order, spelling and case, NULL and 0 for none; `pdxe_result_build` deep-copies them and refuses a counted array that is missing or holds NULL; `Definition::base_classes`. `EXTRACT_CACHE_FORMAT_VERSION` 1 → 2 (a format-1 entry is a miss) and the worker protocol 2 → 3 (a protocol-2 worker is refused). No graph, schema, matrix, engine or secret-detector version moves |
 | 39 | 2026-10-02 | P2-04 | third-party | resolved | P2-04 adds four packages the supply-chain ratchet refuses until they are recorded: `rayon` 1.12.0, with `rayon-core` 1.13.0 and `either` 1.18.0, for Stage 2's worker pool, and `sha1` 0.11.0 for the Git blob identity. The other packages P2-04 uses directly, `regex` 1.13.1 and `postcard` 1.1.3, and rayon's `crossbeam-*` dependencies, were already locked and recorded | Owner-authorised exact-version exemptions, `safe-to-deploy` because all four ship, each with a note naming this issue: no audit is claimed, none is imported, no version is a wildcard, nothing else changed. `cargo vet --locked` passes with 99 exemptions, 0 audits and 0 imports; CI run 37069384925's supply-chain job proved it, after a local check that dropping one exemption fails the ratchet |
-| 38 | 2026-10-02 | P2-08 | ambiguity | open | 5.12 redacts `.env*` files and says `.env` files are parsed for keys only, never values; 4.7.1 resolves a contract's placeholders from `.env` when a value exists there. Read literally, both cannot hold: resolving a placeholder from `.env` reads the value 5.12 forbids reading | Owned by P2-08, which decides the secure placeholder semantics by specification change. Until then, and in P2-04, a redacted `.env` is never opened, never reaches the engine and never enters the extraction cache, and no `.env` value is read |
+| 38 | 2026-10-02 | P2-08 | ambiguity | resolved | 5.12 redacts `.env*` files and says `.env` files are parsed for keys only, never values; 4.7.1 resolves a contract's placeholders from `.env` when a value exists there. Read literally, both cannot hold: resolving a placeholder from `.env` reads the value 5.12 forbids reading | Owner decision, 2026-10-10: the security boundary wins. `.env*` stays redacted and unopened, is parsed for neither keys nor values, resolves no placeholder and strengthens no identity. Placeholders resolve only from non-redacted `application*.yml` and `application*.properties`, read as every file is, when exactly one eligible value exists; never a credential key's value. 4.7.1 corrected; P2-08's projection amended. `dotenv_never_resolves_contract_placeholder` |
 | 37 | 2026-10-02 | P2-04 | scr | resolved | 5.12 replaces each secret value with `<REDACTED_SECRET>`, but spans, site identities and, later, the merging of compiler occurrences rely on exact byte offsets: a fixed-length marker in place of a value of any other length shifts every offset after it | Approved by the owner on 2026-10-02: normalisation preserves length, masking each byte of a secret value with ASCII `X` and never a carriage return or line feed, and keeps keys, separators, quotes, PEM marker lines and indentation; `<REDACTED_SECRET>` describes a masked value and is never substituted. Written into 4.5; proven by `secret_normalisation_preserves_offsets` and the leak regressions. No stored format changes |
 | 36 | 2026-10-02 | P0-04 | ambiguity | resolved | Part 5.12 requires `cargo vet` records for new crates in `supply-chain/`, but no task delivered it: there was no `supply-chain/` directory, no audit configuration and no check, and every crate added since P0 was unvetted. Licences were checked (`cargo deny`); provenance of the code itself was not | P0-04 ownership restored by amendment. cargo-vet 0.10.2 is pinned (`scripts/cargo-vet.sh`). `supply-chain/` records the current `Cargo.lock`: its 95 crates are one-time bootstrap exemptions, explicitly not claimed as audited; no local audits, no imported ones. Normal CI runs `cargo vet --locked` (`make vet`), as do nightly and release, so a new or changed crate is refused until it is audited, imported by an owner's decision, or exempted on the record |
 | 35 | 2026-10-02 | P2-03 | ambiguity | resolved | Stage 1 and Appendix C leave choices open: no binary-file detector; Appendix C mixes defaults with examples; whether `[secrets] patterns` replaces or extends the 5.12 defaults; where `.pdxignore` applies and how it combines with `.gitignore`; which `[precise.<family>]` tables and keys exist; what the hard-coded excludes match | Accepted as implemented: a file is binary when it holds a NUL byte; example values are not defaults; the root `.pdxignore` only, as an independent rule set; ignore sources 4.5 does not name are not read; excludes match directories by name at any depth; the four documented precise families, each with a `timeout_minutes` override. Overridden by the owner on review: `[secrets] patterns` extends a mandatory floor and never replaces it; the effective patterns are the sorted, de-duplicated union of the 5.12 defaults and the configured ones |
@@ -99,6 +103,152 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 61 — Engine channel facts carry no transport
+
+The engine classifies each publish or subscribe it finds by transport (Kafka, AMQP,
+Socket.IO, an in-process event emitter, a raw socket, STOMP) and names the channel by
+the call's argument. Across the interface (`pdxe_channel`, `Channel`) only the name
+and the direction remain. Two things follow. A channel fact may be a socket's message
+or an in-process event (`emitter.emit('change')`), not a destination any broker
+carries. And for a socket with no named channel the engine uses the enclosing
+function's name, or `(websocket)`, as the channel.
+
+P2-08 does not widen the interface for this (its brief: no ABI change to make props
+richer). It uses an engine channel fact only when a call in the same file confirms
+it: a receiver whose last part is `producer`, `consumer` or `channel` (the receivers
+the engine classifies as Kafka and AMQP clients), an operation of the fact's
+direction (`send`, `sendBatch`, `produce`, `publish`, `basic_publish`, `sendToQueue`;
+`subscribe`, `poll`, `consume`, `basic_consume`), and an argument that is the
+channel's name. Every other fact is reported as `UnconfirmedChannel` and gives no
+contract. No transport is claimed for an engine fact; listener annotations, whose
+transport the annotation names, carry `props.transports`. Proven by
+`unconfirmed_engine_channels_give_no_contract` and `contracts_kafka_literal`.
+
+Open for P6-01, which draws `MESSAGES` from these rows: whether the engine interface
+must carry the transport (and a position) before broker identity can be applied to
+engine facts beyond the declared `brokers`. That is an append-only interface change
+and moves `ENGINE_VERSION`, the cache format, the worker protocol and the surface
+version.
+
+State: open.
+
+### 60 — P2-08 parser dependencies
+
+Contracts read YAML and XML documents. Neither a YAML nor an XML parser was in the
+dependency graph (the graph had `serde_json` and `toml`). Writing a general parser of
+either by hand is what the brief forbids, and the YAML crate most often used is
+deprecated and archived. Chosen under D1 (decision 24), pinned exactly:
+
+| Package | Version | Criterion | Direct | Why |
+|---|---|---|---|---|
+| `saphyr-parser` | 0.1.0 | `safe-to-deploy` | yes | YAML events; the tree is built in `contracts::document`, so an alias stays opaque (never expanded), tags are ignored and nesting is bounded (decision 25). No `unsafe` code |
+| `arraydeque` | 0.5.1 | `safe-to-deploy` | no | `saphyr-parser`'s fixed-capacity buffer |
+| `roxmltree` | 0.21.1 | `safe-to-deploy` | yes | XML, read-only; `allow_dtd` is off, so a document type declaration (and with it any entity) is refused; nothing is fetched. Default features off but `std`; its `memchr` was already vetted |
+
+`thiserror`, which `saphyr-parser` also uses, was already in the graph. Each
+exemption is for its exact version, carries a note naming this issue and was added by
+hand to `supply-chain/config.toml`; the brief authorised them. **These are
+exemptions, not audits.** Nothing was regenerated and no audit was imported: 104
+exemptions (95 of issue 36, 4 of issue 39, 2 of issue 52 and these 3), 0 audits, 0
+imports. Licences: MIT OR Apache-2.0 (all three).
+
+State: resolved.
+
+### 59 — Duplicate contract observations
+
+`contracts.contract_id` is the table's primary key, and one contract can be sighted
+more than once in a repository: an OpenAPI operation and the route that serves it,
+two routes of one method and path, a producer and a listener of one topic, a table
+declared by a migration and mapped by an entity, a dependency declared by two
+manifests. 4.7.1 did not say how such rows become one; first-wins or last-wins would
+make a row depend on the order files are read in.
+
+Resolved (owner brief, 2026-10-10). Observations merge only when their kind and
+`namespace_key` are equal, which is exactly when their ids are; unresolved keys hold
+the repository id, so nothing merges across repositories. The merge is commutative:
+
+- direction: `provides` with `provides` stays, `consumes` with `consumes` stays, any
+  other pair and anything with `both` is `both`;
+- identity strength: `exact` over `declared` over `unresolved` (unresolved
+  observations have their own `namespace_key`, so they do not meet resolved ones);
+- owner: a consumed-only observation nominates none. The providers' owners, when they
+  are one node, are the row's `owner_node_id`; when they are several, the row has none,
+  `props.owner_ambiguous` is `true` and `props.provider_owner_node_ids` lists them,
+  sorted. `owner_node_id` NULL therefore means consumed-only or several provider
+  owners (4.3's comment says so; no DDL change, no version moves);
+- `props.raw_forms` and `props.source_paths` are sorted sets of every observation's,
+  and every piece of evidence (`frameworks`, `route_node_ids`, `route_site_ids`,
+  `site_ids`, `clients`, `transports`, `placeholders`, `access_modes`) a sorted set;
+  facts the key determines (an artifact's `ecosystem`, `group`, `name`, `version`; a
+  protobuf method's `package`, `service`, `method`) appear once, and two different
+  values of one are refused.
+
+Scope: the `contracts` rows are the record of contract participation. P2-08 adds no
+contract node to `nodes` and no `EXPOSES`, `CONSUMES`, `PUBLISHES`, `SUBSCRIBES`,
+`READS_TABLE`, `WRITES_TABLE`, `DEFINES_TABLE`, `PRODUCES_ARTIFACT` or
+`LINKS_ARTIFACT` edge: the link job (4.7.2) reads only the `contracts` tables, and a
+row already holds the direction, owner and evidence such an edge would repeat. Those
+kinds stay in the vocabulary for views that need site-backed edges; 4.2.4's site rule
+is not weakened. Proven by `contract_duplicate_providers_merge_deterministically`,
+`contract_provider_and_consumer_becomes_both`,
+`contract_multiple_provider_owners_are_not_arbitrarily_chosen`,
+`exact_identity_wins_over_declared_for_same_namespace`,
+`contract_observation_order_does_not_change_output` and
+`contracts_do_not_duplicate_the_graph`.
+
+State: resolved.
+
+### 58 — Contract identity encoding
+
+4.7.1 defines `namespace_key` as the identity and the key, and 4.2.1 hashes it into
+the contract's estate-level id, but neither defined its text for an established
+identity. Nor were the column key, an artifact coordinate's parts per ecosystem or
+the canonical form of a host defined. Contract ids are a stored format, so this had
+to be settled before the first contract row.
+
+Resolved (owner brief, 2026-10-10), written into 4.7.1:
+
+- `exact` or `declared`: `{"identity":"<identity>","key":"<key>"}`, compact JSON,
+  members in that order, escaped as a route's qualified name (4.2.1, rule 12). The
+  strength is not in it, so an `exact` and a `declared` observation of one identity
+  are one contract; nor are the repository, the kind (already in the id) or anything
+  positional.
+- `unresolved`: `unresolved:<repo_id>:<key>`, the repository's stable `RepoId`.
+- `Artifact` and `ArtifactVersion`: the key itself, `exact`; the coordinate is
+  unique in its registry.
+- The id is `NodeKey::estate(kind, namespace_key)`, never another formula; owner,
+  direction, raw form, file and line are not in it.
+- Several identities (two declared host names, two literal servers) give one row
+  each.
+- Strength: `exact` for an identity the source or configuration describing the
+  endpoint names (a URL's host, a literal OpenAPI server, a literal JDBC host and
+  database, a literal broker); `declared` for `pdx.toml [identity]`; otherwise
+  `unresolved`. Never a repository's or directory's name.
+- Hosts: lower-cased, one terminal dot removed, user information dropped, the
+  scheme's default port (`http` 80, `https` 443) omitted, any other kept, IP literals
+  as written, no DNS. A loopback or unspecified host (`localhost`, `127.0.0.0/8`,
+  `::1`, `0.0.0.0`) names no shared service and gives no identity.
+- Keys: API `METHOD path` (4.7.1, with every parameter syntax `{}`); a table's key
+  lower-cased and unquoted, `public.` dropped and any other schema kept; a column's,
+  its table's key, `.`, and the column lower-cased and unquoted; an artifact's
+  `ecosystem:group:name` (`maven`, `npm`, `cargo`, `go`, `nuget`, `pypi`, `alire`,
+  `gpr`; the group empty where the ecosystem has none, `@scope` for a scoped npm
+  package) and `…@version`, a range verbatim.
+
+Fixed vectors, computed outside the crate, for an exact, a declared and an unresolved
+API contract (and the same unresolved key in another repository), an RPC method, a
+channel, a table, a column, an artifact and an artifact version
+(`contract_namespace_key_fixed_vectors`). No version moves: no contract row existed
+before this.
+
+The contract fixtures use hosts reserved for examples by RFC 2606, as issue 33's
+vectors do; their prefixes (`https://api.example.com`, `http://api.example.com`,
+`https://API.Example.com`, `https://specs.example.invalid/`) are added to
+`scripts/url-allowlist.txt`, and every other address a test needs (a loopback or
+private host, user information) is built at run time.
 
 State: resolved.
 
@@ -662,7 +812,24 @@ Owned by P2-08, which links contracts and must decide, by specification change, 
 a placeholder may take from `.env`, if anything, without a secret value reaching the
 index.
 
-State: open.
+Owner decision, 2026-10-10: the security boundary wins. `.env*` files stay inside the
+mandatory secret-path floor: redacted, never opened, never parsed for keys or values.
+They resolve no placeholder and strengthen no identity, and no repository can make
+their content reach a contract key, a namespace, props, an error or a log. 4.7.1 is
+corrected accordingly. A placeholder resolves only from non-redacted
+`application*.yml` and `application*.properties` files, read through the same checks
+as every other file (and so normalised, a secret value already masked); only the
+simple `${KEY}` form resolves, when the eligible values of `KEY` across every such
+file and document are exactly one distinct non-empty value, with no file, profile or
+order preferred; a credential key's value (`password`, `secret`, `token`, `api_key`,
+`client_secret`, `private_key` and the rest of 5.12's list), a value a secret detector
+still recognises, or one holding a placeholder itself is never eligible. P2-08's
+projected task is amended (`amendments.json`) so it no longer says `.env` keys are
+read. Proven by `dotenv_never_resolves_contract_placeholder` (`.env`, `.env.local`,
+`.env.production`, `config/.env`, made unreadable on Unix, so any open would fail the
+build) and `contracts_kafka_placeholder_unresolved`.
+
+State: resolved.
 
 ### 37 — Secret replacement must preserve byte offsets
 

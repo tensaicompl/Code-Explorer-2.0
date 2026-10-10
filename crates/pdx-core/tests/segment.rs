@@ -333,13 +333,14 @@ fn fixture() -> SegmentData {
         reason: "two definitions survive; the call's \"receiver\" is untyped".to_owned(),
     };
 
-    let contract_key =
-        NodeKey::estate(NodeKind::ApiContract, "GET /orders/{id}").expect("an estate kind");
+    // 4.7.1's namespace_key for a declared identity (issue 58).
+    let namespace = r#"{"identity":"orders.internal","key":"GET /orders/{}"}"#;
+    let contract_key = NodeKey::estate(NodeKind::ApiContract, namespace).expect("an estate kind");
     let contract = Contract {
         contract_id: id(&contract_key),
         kind: ContractKind::ApiContract,
         key: "GET /orders/{}".to_owned(),
-        namespace_key: "GET /orders/{id}".to_owned(),
+        namespace_key: namespace.to_owned(),
         identity_strength: IdentityStrength::Declared,
         owner_node_id: Some(add.node_id.clone()),
         direction: ContractDirection::Provides,
@@ -1460,4 +1461,181 @@ fn rows_that_cannot_be_stored_are_refused() {
         .expect("a listing")
         .collect();
     assert!(left.is_empty(), "{left:?}");
+}
+
+/// Contract rows as P2-08 makes them: every kind, merged evidence, an ambiguous owner.
+fn populated_contracts(data: &SegmentData) -> Vec<Contract> {
+    let owner = data.nodes[0].node_id.clone();
+    let other = data.nodes[1].node_id.clone();
+    let row = |kind: ContractKind,
+               key: &str,
+               namespace: &str,
+               strength: IdentityStrength,
+               owner: Option<NodeId>,
+               direction: ContractDirection,
+               extra: &[(&str, serde_json::Value)]| {
+        let mut pairs = vec![
+            ("raw_forms", json!([format!("raw {key}")])),
+            ("source_paths", json!(["src/a.java", "src/b.java"])),
+        ];
+        pairs.extend(extra.iter().cloned());
+        Contract {
+            contract_id: pdx_core::contracts::identity::contract_id(kind, namespace)
+                .expect("an id"),
+            kind,
+            key: key.to_owned(),
+            namespace_key: namespace.to_owned(),
+            identity_strength: strength,
+            owner_node_id: owner,
+            direction,
+            props: props(&pairs),
+        }
+    };
+    vec![
+        row(
+            ContractKind::ApiContract,
+            "GET /v1/users/{}",
+            r#"{"identity":"api.example.com","key":"GET /v1/users/{}"}"#,
+            IdentityStrength::Exact,
+            None,
+            ContractDirection::Both,
+            &[
+                ("owner_ambiguous", json!(true)),
+                (
+                    "provider_owner_node_ids",
+                    json!([owner.as_str(), other.as_str()]),
+                ),
+            ],
+        ),
+        row(
+            ContractKind::RpcMethod,
+            "acme.users.UserService/GetUser",
+            "unresolved:ce63551447285fd4:acme.users.UserService/GetUser",
+            IdentityStrength::Unresolved,
+            Some(owner.clone()),
+            ContractDirection::Provides,
+            &[("package", json!("acme.users"))],
+        ),
+        row(
+            ContractKind::Channel,
+            "unresolved:${orders.topic}",
+            "unresolved:ce63551447285fd4:unresolved:${orders.topic}",
+            IdentityStrength::Unresolved,
+            None,
+            ContractDirection::Consumes,
+            &[("placeholders", json!(["${orders.topic}"]))],
+        ),
+        row(
+            ContractKind::Table,
+            "users",
+            r#"{"identity":"db.example.com:5432/shop","key":"users"}"#,
+            IdentityStrength::Declared,
+            Some(owner.clone()),
+            ContractDirection::Provides,
+            &[("access_modes", json!(["read", "write"]))],
+        ),
+        row(
+            ContractKind::Column,
+            "users.id",
+            r#"{"identity":"db.example.com:5432/shop","key":"users.id"}"#,
+            IdentityStrength::Declared,
+            Some(owner.clone()),
+            ContractDirection::Provides,
+            &[],
+        ),
+        row(
+            ContractKind::Artifact,
+            "maven:com.acme:shop",
+            "maven:com.acme:shop",
+            IdentityStrength::Exact,
+            Some(owner.clone()),
+            ContractDirection::Provides,
+            &[("ecosystem", json!("maven"))],
+        ),
+        row(
+            ContractKind::ArtifactVersion,
+            "maven:com.acme:shop@[1.0,2.0)",
+            "maven:com.acme:shop@[1.0,2.0)",
+            IdentityStrength::Exact,
+            None,
+            ContractDirection::Consumes,
+            &[("version", json!("[1.0,2.0)"))],
+        ),
+    ]
+}
+
+#[test]
+fn contract_rows_round_trip_exactly() {
+    let scratch = Scratch::new();
+    let mut data = fixture();
+    data.contracts = populated_contracts(&data);
+    let written = write(&data, &scratch, "populated");
+    let reader = SegmentReader::open(&written.path).expect("opened");
+    let mut expected = data.contracts.clone();
+    expected.sort_by(|a, b| a.contract_id.cmp(&b.contract_id));
+    assert_eq!(reader.contracts(None, None).expect("a query"), expected);
+    // Reordered input, and each contract's props built in another order: one file.
+    let mut backwards = data.clone();
+    backwards.contracts.reverse();
+    for contract in &mut backwards.contracts {
+        let mut reordered = Props::default();
+        let json = serde_json::to_value(&contract.props).expect("json");
+        let mut pairs: Vec<_> = json.as_object().expect("an object").iter().collect();
+        pairs.reverse();
+        for (k, v) in pairs {
+            reordered.insert(k, v.clone());
+        }
+        contract.props = reordered;
+    }
+    let again = write(&backwards, &scratch, "populated-backwards");
+    assert_eq!(
+        std::fs::read(&written.path).expect("bytes"),
+        std::fs::read(&again.path).expect("bytes")
+    );
+}
+
+#[test]
+fn writer_refuses_malformed_contract_rows() {
+    let scratch = Scratch::new();
+    let base = {
+        let mut data = fixture();
+        data.contracts = populated_contracts(&data);
+        data
+    };
+    let refused = |mutate: &dyn Fn(&mut Contract), what: &str| {
+        let mut data = base.clone();
+        mutate(&mut data.contracts[1]);
+        let result = SegmentWriter::new()
+            .build_in(&scratch.dir(&format!("temp {what}")))
+            .write(&data, &scratch.dir(what).join("segment.db"));
+        assert!(
+            matches!(
+                result,
+                Err(SegmentError::InvalidRow {
+                    table: "contracts",
+                    ..
+                })
+            ),
+            "{what}: {result:?}"
+        );
+    };
+    // An id that is not NodeKey::estate(kind, namespace_key), however it was made.
+    refused(
+        &|c| {
+            c.contract_id = id(&NodeKey::estate(NodeKind::RpcMethod, &c.key).expect("a key"));
+        },
+        "wrong-id",
+    );
+    refused(&|c| c.kind = ContractKind::Channel, "wrong-kind");
+    refused(
+        &|c| c.identity_strength = IdentityStrength::Declared,
+        "unresolved-namespace-declared",
+    );
+    refused(
+        &|c| {
+            c.owner_node_id = Some(id(&method("com.acme.Nowhere.gone")));
+        },
+        "unknown-owner",
+    );
+    refused(&|c| c.key.clear(), "empty-key");
 }

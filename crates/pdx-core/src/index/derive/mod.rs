@@ -21,18 +21,24 @@
 //! - [`routes`]: `Route` nodes and `DEFINES_ROUTE` edges for Spring, `FastAPI` and
 //!   Express.
 //! - [`entry`]: the entry points Appendix B.2 names that the facts prove.
+//! - [`crate::contracts`]: last, the contracts the repository provides and consumes
+//!   (4.7.1), as `contracts` rows, reading the nodes the parts above made.
 //!
 //! The result ([`DerivedGraph`]) is sorted by stored identity, ready for the segment
 //! writer; nothing here writes a segment.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
 use pdx_engine::SiteRef;
 use serde_json::Value;
 
 use crate::bands::Band;
+use crate::config::PdxConfig;
+use crate::contracts::ContractDiagnostic;
 use crate::ids::{EdgeId, IdError, NodeId, RepoId, SiteId};
-use crate::model::{CandidateSite, Edge, FileRecord, Node, Site};
+use crate::index::extract::ExtractError;
+use crate::model::{CandidateSite, Contract, Edge, FileRecord, Node, Site};
 use crate::resolve::registry::{DefinitionRef, ModuleKey, SymbolRegistry};
 use crate::resolve::stages::{ResolveReport, Unconfirmed};
 
@@ -53,6 +59,11 @@ pub struct DeriveInput<'a> {
     pub registry: &'a SymbolRegistry,
     /// Stage 3's resolutions.
     pub resolution: &'a ResolveReport,
+    /// The checkout's root, which contracts read their documents below, through the
+    /// same checks as every other read (4.7.1).
+    pub root: &'a Path,
+    /// The repository's effective configuration: its `[identity]` scopes contracts.
+    pub config: &'a PdxConfig,
 }
 
 /// Why a call or reference site is not persisted: a site's identity and row need its
@@ -112,10 +123,12 @@ pub struct Diagnostics {
     pub unmaterialized: Vec<Unmaterialized>,
     /// Route evidence that did not give a complete route.
     pub routes: Vec<RouteDiagnostic>,
+    /// Contract evidence that gave no contract, by path.
+    pub contracts: Vec<ContractDiagnostic>,
 }
 
 /// The persistent graph of one repository, sorted by stored identity: files by path,
-/// nodes by id, sites by id, edges by id, candidates by site.
+/// nodes by id, sites by id, edges by id, candidates by site, contracts by id.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DerivedGraph {
     /// One record per discovered file.
@@ -128,6 +141,9 @@ pub struct DerivedGraph {
     pub edges: Vec<Edge>,
     /// Every non-drawn call site.
     pub candidates: Vec<CandidateSite>,
+    /// Every contract the repository provides or consumes (4.7.1), by contract id:
+    /// the segment's `contracts` rows. No contract is also a node or an edge here.
+    pub contracts: Vec<Contract>,
     /// The repository's node.
     pub repo_node: NodeId,
     /// Each file's node, by path.
@@ -176,6 +192,22 @@ pub enum DeriveError {
     /// An edge naming a site the stage never added.
     #[error("an edge names the site {0}, which the graph does not have")]
     UnknownSite(SiteId),
+    /// A file contracts read is no longer what Stage 1 found (the checkout changed, a
+    /// symlink appeared, its size changed) or could not be read.
+    #[error("{path}: {source}")]
+    SourceRead {
+        /// The file.
+        path: String,
+        /// Why.
+        #[source]
+        source: Box<ExtractError>,
+    },
+    /// A file contracts read is not the bytes Stage 2 identified: the checkout changed.
+    #[error("{0}: changed since extraction")]
+    SourceChanged(String),
+    /// A contract row that would not be valid.
+    #[error("invalid contract: {0}")]
+    InvalidContract(String),
     /// A fact refers to something the stage has no node for.
     #[error("{path}: {detail}")]
     Missing {
@@ -201,6 +233,7 @@ pub fn derive(input: &DeriveInput<'_>) -> Result<DerivedGraph, DeriveError> {
     tests::link(&mut graph, &tests, &drawn)?;
     routes::build(&mut graph, input)?;
     entry::mark(&mut graph, input, &tests)?;
+    crate::contracts::build(&mut graph, input)?;
     Ok(graph.finish())
 }
 
@@ -212,6 +245,7 @@ pub(crate) struct Builder {
     pub(crate) sites: BTreeMap<SiteId, Site>,
     pub(crate) edges: BTreeMap<EdgeId, Edge>,
     pub(crate) candidates: BTreeMap<SiteId, CandidateSite>,
+    pub(crate) contracts: Vec<Contract>,
     pub(crate) repo_node: NodeId,
     pub(crate) file_nodes: BTreeMap<String, NodeId>,
     pub(crate) folder_nodes: BTreeMap<String, NodeId>,
@@ -316,12 +350,17 @@ impl Builder {
             (&a.path, &a.method, &a.route, a.problem)
                 .cmp(&(&b.path, &b.method, &b.route, b.problem))
         });
+        diagnostics.contracts.sort();
+        diagnostics.contracts.dedup();
+        self.contracts
+            .sort_by(|a, b| a.contract_id.cmp(&b.contract_id));
         DerivedGraph {
             files: self.files.into_values().collect(),
             nodes: self.nodes.into_values().collect(),
             sites: self.sites.into_values().collect(),
             edges: self.edges.into_values().collect(),
             candidates: self.candidates.into_values().collect(),
+            contracts: self.contracts,
             repo_node: self.repo_node,
             file_nodes: self.file_nodes,
             definition_nodes: self.definition_nodes,
@@ -345,6 +384,7 @@ mod invariant {
             sites: BTreeMap::new(),
             edges: BTreeMap::new(),
             candidates: BTreeMap::new(),
+            contracts: Vec::new(),
             repo_node: NodeKey::repo(&repo).node_id().expect("an id"),
             file_nodes: BTreeMap::new(),
             folder_nodes: BTreeMap::new(),

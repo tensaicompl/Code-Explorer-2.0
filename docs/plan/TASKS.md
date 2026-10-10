@@ -203,7 +203,8 @@ then P8-11, then P9.
 ### P2-08 — Derive stage: contracts
 
 - **Size** L · **Depends** P2-07 · **Order** 21 · **Execution** fan-out-eligible
-- **Deliverables** `contracts/{openapi,routes,proto,channels,tables,artifacts}.rs` implementing 4.7.1 with key normalisation (channel producers/consumers come from the engine's `channels` array, Appendix D.2, supplemented by the annotation rules of 4.7.1); `props` include the raw form; placeholder resolution from `application*.yml|properties` and `.env` keys.
+- **Deliverables** `contracts/{openapi,routes,proto,channels,tables,artifacts}.rs` implementing 4.7.1 with key normalisation (channel producers/consumers come from the engine's `channels` array, Appendix D.2, supplemented by the annotation rules of 4.7.1); `props` include the raw form; placeholder resolution from non-redacted `application*.yml|properties` only, when one distinct eligible value exists; `.env*` stays inside the secret-path floor, never opened or parsed, and resolves nothing (issue 38, resolved).
+- **Amended** from the plan's text by issue 38
 - **Acceptance** fixtures `contracts_openapi`, `contracts_proto`, `contracts_kafka_literal`, `contracts_kafka_placeholder_unresolved`, `contracts_jpa_table`, `contracts_maven_artifact`, `contract_key_normalisation` (table of raw → key).
 - **Named tests** `contracts_openapi`, `contracts_proto`, `contracts_kafka_literal`, `contracts_kafka_placeholder_unresolved`, `contracts_jpa_table`, `contracts_maven_artifact`, `contract_key_normalisation`
 

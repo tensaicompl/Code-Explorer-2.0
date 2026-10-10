@@ -39,6 +39,13 @@ rayon = "1.12.0"
 regex = "1.13.1"
 # A file's Git blob identity, and nothing else: never a security hash.
 sha1 = "0.11.0"
+# Contracts (4.7.1) read YAML documents (OpenAPI, AsyncAPI, application configuration,
+# changelogs) through this event parser; the tree is built in `contracts::document`,
+# which never expands an alias (issue 60).
+saphyr-parser = "=0.1.0"
+# Contracts read XML manifests (`pom.xml`, `*.csproj`, changelogs) with this read-only
+# parser, which resolves no external entity and fetches nothing (issue 60).
+roxmltree = { version = "=0.21.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 insta = { version = "1.49.0", default-features = false }

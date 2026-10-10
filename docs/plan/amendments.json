@@ -29,5 +29,13 @@
       "to": "postcard-serialised `FileExtract`",
       "record": "decision 19"
     }
+  ],
+  "P2-08": [
+    {
+      "field": "deliverables",
+      "from": "placeholder resolution from `application*.yml|properties` and `.env` keys.",
+      "to": "placeholder resolution from non-redacted `application*.yml|properties` only, when one distinct eligible value exists; `.env*` stays inside the secret-path floor, never opened or parsed, and resolves nothing (issue 38, resolved).",
+      "record": "issue 38"
+    }
   ]
 }

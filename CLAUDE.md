@@ -17,9 +17,10 @@ discovery (`pdx_core::index::discover`), and Stage 2, extraction with its cache
 (`pdx_core::index::extract`) and content secret normalisation (`pdx_core::secrets`),
 Stage 3's resolution: the symbol registry (`pdx_core::resolve::registry`), the
 generic-name blocklist (`resolve::blocklist`) and the stages that settle every call
-site's band and target (`resolve::stages`), and Stage 4's first part, which derives
-containment, modules, call sites and edges, tests, routes and entry points
-(`pdx_core::index::derive`). P1 vendored
+site's band and target (`resolve::stages`), and Stage 4, which derives containment,
+modules, call sites and edges, tests, routes and entry points
+(`pdx_core::index::derive`) and the repository's contracts (`pdx_core::contracts`).
+P1 vendored
 the engine, built it, gave it its interface, bound it to Rust (`pdx-engine-sys`),
 and wrapped it safely (`pdx-engine`: owned extractions, typed resolution with run
 health, crash-isolated extraction), built and tested on Linux, macOS and Windows,
@@ -157,6 +158,24 @@ and never makes one (issue 55). Segments are
 snapshots in `crates/pdx-core/tests/snapshots/`: review a changed one, never accept it
 blind.
 
+Contracts (`pdx_core::contracts`, P2-08) are Stage 4's last part and its
+`DerivedGraph::contracts`: `contracts` rows only, never also nodes or contract edges
+(issue 59). Each source (`openapi`, `routes`, `proto`, `channels`, `tables`,
+`artifacts`) reports `ContractObservation`s; only `ContractAccumulator` makes a
+`namespace_key` and id, and merges (direction lattice, strongest identity, one
+provider owner or `owner_ambiguous`, sorted evidence sets). The id is
+`NodeKey::estate(kind, namespace_key)`; `namespace_key` is `{"identity","key"}` JSON
+when established, `unresolved:<repo_id>:<key>` otherwise, an artifact's coordinate
+itself (issue 58, vectors in 4.7). Routes come from P2-07's `Route` nodes, never a
+second reading of the source. Documents are read through `contracts::source` (Stage
+2's checks, blob and digest re-verified; a changed checkout stops the stage) and
+parsed with `saphyr-parser` (aliases never expanded) and `roxmltree` (no DTD), issue
+60; nothing is fetched, run or resolved. `.env*` is never opened: placeholders resolve
+only from `application*.yml|properties`, one eligible value, never a credential key's
+(issue 38). Engine channel facts count only when a broker client call confirms them
+(issue 61, open for P6-01). A malformed document is a `ContractDiagnostic`, never a
+guess. The segment writer re-checks every contract row (`contract_row`).
+
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file
 named `recovery_*` may parse partially and `failed_*` must fail; anything else must
@@ -172,7 +191,8 @@ pinned in `scripts/cargo-vet.sh` (install it with `scripts/cargo-vet.sh install`
 nightly and release run it. A new or changed crate needs a real audit, an owner-approved
 import, or a version-specific exemption with an `ISSUES.md` entry; never regenerate the
 exemptions to make it pass. The 95 exemptions recorded when vetting began are not
-audits (issue 36), and neither are the four exact-version ones P2-04 added (issue 39).
+audits (issue 36), and neither are the four exact-version ones P2-04 added (issue 39),
+P2-07's two (issue 52) or P2-08's three parser crates (issue 60): 104 exemptions.
 
 Engine-specific targets: `make engine-test` (the interface tests),
 `make engine-typed-reference` (re-record the reference engine's answers for the

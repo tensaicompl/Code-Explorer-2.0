@@ -50,6 +50,8 @@ struct Run {
     registry: SymbolRegistry,
     report: ResolveReport,
     graph: DerivedGraph,
+    root: std::path::PathBuf,
+    config: PdxConfig,
 }
 
 fn run(checkout: &Checkout) -> Run {
@@ -80,12 +82,16 @@ fn run_with(checkout: &Checkout, reverse_discovery: bool, workers: usize) -> Run
         repo_name: "fixture",
         registry: &registry,
         resolution: &report,
+        root,
+        config: &config,
     })
     .expect("derivation succeeds");
     Run {
         registry,
         report,
         graph,
+        root: root.to_path_buf(),
+        config,
     }
 }
 
@@ -1557,6 +1563,8 @@ fn backslash_path_never_reaches_an_identity() {
         repo_name: "fixture",
         registry: &registry,
         resolution: &report,
+        root,
+        config: &config,
     });
     assert!(
         matches!(&refused, Err(pdx_core::index::derive::DeriveError::NotRepositoryPath(p)) if p == "src\\a.py"),
@@ -1743,10 +1751,8 @@ fn drawn_edges_copy_engine_calibration() {
 }
 
 /// The stages over a checkout's registry, with these answers from the engine.
-fn with_answers(
-    registry: &SymbolRegistry,
-    answers: Vec<pdx_engine::TypedResolution>,
-) -> DerivedGraph {
+fn with_answers(run: &Run, answers: Vec<pdx_engine::TypedResolution>) -> DerivedGraph {
+    let registry = &run.registry;
     let health = pdx_engine::RunHealth {
         status: pdx_engine::RunStatus::Clean,
         files: 0,
@@ -1771,6 +1777,8 @@ fn with_answers(
         repo_name: "fixture",
         registry,
         resolution: &report,
+        root: &run.root,
+        config: &run.config,
     })
     .expect("derivation succeeds")
 }
@@ -1799,7 +1807,7 @@ fn candidate_rows_copy_engine_calibration() {
         engine_strategy: Some("lsp_builtin_guess".into()),
         candidates: 7,
     };
-    let g = with_answers(&run.registry, vec![answer]);
+    let g = with_answers(&run, vec![answer]);
     let site = site_of(&g, "main.py", &calls[index]).expect("a site");
     assert!(
         g.edges
@@ -1855,7 +1863,7 @@ fn unconfirmed_sites_are_counted_never_drawn() {
         .iter()
         .position(|c| c.is_reference && c.callee_text == "compute")
         .expect("a reference");
-    let g = with_answers(&run.registry, Vec::new());
+    let g = with_answers(&run, Vec::new());
     let site_ref = pdx_engine::SiteRef {
         rel_path: "main.py".into(),
         call_index: u32::try_from(index).unwrap(),
@@ -1927,6 +1935,8 @@ fn derive_is_invariant_to_input_order() {
         repo_name: "fixture",
         registry: &base.registry,
         resolution: &report,
+        root: &base.root,
+        config: &base.config,
     })
     .unwrap();
     assert_eq!(base.graph, again);

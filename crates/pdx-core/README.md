@@ -7,8 +7,9 @@ Open. Apache-2.0; see `LICENSE` at the repository root.
 The graph model's vocabulary, identities and rows exist, and so do segments, the
 files that store them, a repository's configuration, content secret normalisation,
 the pipeline's first two stages, discovery and extraction, and Stage 3's resolution:
-the symbol registry and the stages that settle each call site's band and target; the
-later stages arrive with the tasks that implement them. What exists is below.
+the symbol registry and the stages that settle each call site's band and target, and
+Stage 4's derivation of the graph and of the repository's contracts; the later stages
+arrive with the tasks that implement them. What exists is below.
 
 ## Public API
 
@@ -78,7 +79,7 @@ SQLite 3.53.2), the same library on every platform.
 | `SegmentWriter::write(data, destination)` | Builds in a temporary directory: settings stated (page size, encoding, no auto-vacuum, no journal, no sync, foreign keys on), `schema.sql`, every table in its key's order in one transaction through prepared statements, the full-text index rebuilt once and checked, the build verified, then `VACUUM INTO` the destination, which must not exist; connections closed, the file made read-only (0444 on Unix) and hashed. Returns `WrittenSegment { path, content_sha256, size_bytes }` |
 | `SegmentReader::open(path)` | Opens `file:…?mode=ro&immutable=1` and verifies the meta (every key, schema version, well-formed values) and every declared reference before returning |
 | Queries | `node`, `children`, `edges_from`/`edges_to` (with a band filter; empty means every band), `candidates_from`, `contracts(kind, key)`, `metrics`, `coverage`/`coverage_all`, `file`/`file_by_path`, `site`, `node_location` (path and lines, for snippets), `evidence_for`, `occurrences_in_file`, and `search` (FTS5 over name, qualified name and documentation; BM25, then node id) |
-| `SegmentError` | One error type: SQLite, I/O, wrong schema version, missing or malformed meta, broken references, stored values that are not what their column must hold, rows the writer refuses (a structural edge without its site among them), an existing destination, invalid search syntax |
+| `SegmentError` | One error type: SQLite, I/O, wrong schema version, missing or malformed meta, broken references, stored values that are not what their column must hold, rows the writer refuses (a structural edge without its site, and a contract whose id is not its `namespace_key`'s, whose key is empty, whose strength and `unresolved:` prefix disagree or whose owner is no node of the segment, among them), an existing destination, invalid search syntax |
 
 `schema.sql` is 4.3's DDL byte for byte, and a test holds it so. Every other statement
 is named in `segment/queries.rs`; no value is ever spliced into SQL, and set filters
@@ -221,24 +222,53 @@ qualified name, through aliasing imports, and the engine's hint); then `candidat
 
 ### `index::derive`
 
-Stage 4 of 4.5, its first part (P2-07): `derive(&DeriveInput { repo, repo_name,
-registry, resolution })` turns the registry and Stage 3's report into a `DerivedGraph`,
-where facts first get persistent identities. It writes no segment: the graph's rows
-are what `SegmentData` holds, sorted by stored identity (files by path, nodes, sites
-and edges by id, candidate rows by site), and the same whatever order the stages
-produced their facts in.
+Stage 4 of 4.5 (P2-07, P2-08): `derive(&DeriveInput { repo, repo_name, registry,
+resolution, root, config })` turns the registry and Stage 3's report into a
+`DerivedGraph`, where facts first get persistent identities. It writes no segment: the
+graph's rows are what `SegmentData` holds, sorted by stored identity (files by path,
+nodes, sites and edges by id, candidate rows by site, contracts by id), and the same
+whatever order the stages produced their facts in. `root` and `config` are for the
+contracts, which read documents below the root and scope themselves by
+`[identity]`.
 
 | Item | |
 |---|---|
-| `DerivedGraph` | `files`, `nodes`, `sites`, `edges`, `candidates`; `repo_node`, `file_nodes`, `definition_nodes` (the one map from `DefinitionRef` to node every part reads), `module_nodes`; `diagnostics` |
-| `Diagnostics` | What is counted, never stored: Stage 3's unconfirmed sites, resolved sites with no position in the file or no node-type path (`Unmaterialized`, `Missing`), and route evidence with no handler the facts identify or no evidence site (`RouteDiagnostic`) |
-| `DeriveError` | A path that is not repository-relative POSIX (`NotRepositoryPath`), an identity that cannot be computed, two different facts with one id, a structural edge without its site or naming one the graph does not have (`EdgeWithoutSite`, `UnknownSite`), a fact naming something with no node |
+| `DerivedGraph` | `files`, `nodes`, `sites`, `edges`, `candidates`, `contracts` (the `contracts` rows, by `contract_id`; never also nodes or edges); `repo_node`, `file_nodes`, `definition_nodes` (the one map from `DefinitionRef` to node every part reads), `module_nodes`; `diagnostics` |
+| `Diagnostics` | What is counted, never stored: Stage 3's unconfirmed sites, resolved sites with no position in the file or no node-type path (`Unmaterialized`, `Missing`), route evidence with no handler the facts identify or no evidence site (`RouteDiagnostic`), and contract evidence that gave no contract (`contracts`: `ContractDiagnostic`, a path and a `ContractProblem`, never the file's content) |
+| `DeriveError` | A path that is not repository-relative POSIX (`NotRepositoryPath`), an identity that cannot be computed, two different facts with one id, a structural edge without its site or naming one the graph does not have (`EdgeWithoutSite`, `UnknownSite`), a fact naming something with no node, a document contracts read that changed since Stage 2 or cannot be read safely (`SourceChanged`, `SourceRead`), an invalid contract row (`InvalidContract`) |
 | `containment` | `Repo`, `Folder`, `File` nodes and a `FileRecord` per discovered file (`file_status`: every Stage 2 outcome mapped, an engine failure never `parsed`, a withheld file `redacted`); one node per definition by `node_kind`, parented to its enclosing definition or file; the engine's file-level module is the file node. `normalise_type` and `normalised_signature` for overload disambiguators; `is_repository_path` |
 | `modules` | `module_node_key`: `(Module, scope, "<language>:<name>", "")` (issue 48); one-file modules parented to their file, spanning ones to the nearest common folder with sorted `props.files`; `props.module` on symbols, which keep their physical parents |
 | `calls` | Resolutions as `call`/`reference` sites (4.2.1's fingerprint over the engine's node-type path, `split_callee`'s texts and the ordinal among same-path, same-text sites of the definition), drawn `CALLS`/`CALL_REFERENCE` edges and non-drawn candidate rows, the engine's numbers copied (issue 49) |
 | `tests` | `is_test_path` (issue 31); a definition is a `Test` node only on its framework's evidence, its declared kind in `props.declared_kind`; a `TESTS` edge beside every drawn call a test makes |
 | `routes` | `route_qualified_name`, `route_node_key`; every route binding the engine reports (`Definition::routes`: Spring, JAX-RS, `FastAPI`, Flask, Django REST framework) and every Express registration, as `Route` nodes in the handler's file, each with a `DEFINES_ROUTE` edge from the handler at its `route` site (the declaring annotation, decorator or call; one site for all the bindings one declaration makes). No site, no route (issue 54) |
 | `entry` | `props.is_entry_point` where Appendix B.2's categories are proven by the facts: tests, route handlers, `is_main` by each language's convention (JVM, C#, C, C++, Go, Rust), Spring Boot applications, `FastAPI` and Flask applications, Express `listen` and `NestFactory.create` callers, ASP.NET top-level statements. The engine's own flag is `props.engine_entry_point` and makes no entry point (issue 55) |
+
+### `contracts`
+
+The contracts of 4.7.1 (P2-08), derived last in Stage 4: what the repository provides
+and consumes across repositories, as `contracts` rows. Each source reports
+`ContractObservation`s (a kind, a normalised key, its identities, a direction, a
+provider's owner, raw form and evidence); one `ContractAccumulator` alone makes each
+`namespace_key` and id and merges observations of one contract whatever order they
+came in (issue 59). Documents are read through `prepare_source`/`prepare_candidate`
+with Stage 2's blob and digest checked again; a redacted file, every `.env*` among
+them, is never opened (issue 38).
+
+| Item | |
+|---|---|
+| `identity` | `namespace_key` (`{"identity","key"}` JSON, `unresolved:<repo_id>:<key>`, an artifact's coordinate; issue 58), `contract_id` (`NodeKey::estate` over it), `ContractIdentity` (`Exact`, `Declared`, `Unresolved`); the key normalisers `api_key`, `api_path`, `http_method`, `url_authority`, `host_port`, `declared_name`, `simple_placeholder`, `unresolved_channel_key`, `table_key`, `column_key`, `identifier_parts`, `artifact_key`, `artifact_version_key`, `Ecosystem` |
+| `ContractObservation`, `ContractAccumulator`, `validate` | One sighting; the merge (direction lattice, strongest identity, one owner or `owner_ambiguous` with `provider_owner_node_ids`, sorted evidence sets) and the checks every row passes (its id is its `namespace_key`'s, keys non-empty, strength and prefix agree, owners are nodes) |
+| `ContractDiagnostic`, `ContractProblem` | A document that gave nothing: `Unparseable`, `NotUtf8`, `TooDeep`, `NotADocument`, `UnfollowedRef`, `UnconfirmedChannel` |
+| `DeclaredIdentities` | `pdx.toml [identity]`, canonical |
+| `config_values` | `ConfigValues`: the eligible values of `application*.yml` and `application*.properties` (never a credential key's, never a detected secret), `resolve`/`resolve_leading` (`${KEY}` with exactly one value), `kafka_cluster`, `rabbit_broker`, `datasource` (`jdbc_identity`); `parse_properties`, `flatten` |
+| `document` | `Doc`, `parse_yaml` (events; aliases opaque, never expanded), `parse_json`; nesting bounded by `CONTRACT_DOCUMENT_MAX_DEPTH` |
+| `annotation` | `parse`/`parse_in` an annotation's literal arguments; `string_literal`, `script_literal` (a `$` interpolates in Kotlin and Groovy) |
+| `openapi` | OpenAPI 3 and Swagger 2 operations (`document_kind`): servers' literal authorities `exact`, their paths prefixes; no `$ref` followed |
+| `routes` | Every `Route` node of P2-07 as a provided `ApiContract` it owns; HTTP client calls with a determined method and literal URL (`fetch`, `axios`, `requests`, `httpx`, `RestTemplate`, `HttpClient`, `reqwest`, `net/http`) consumed |
+| `proto` | `parse` (`Service`, a lexer that knows comments and strings); methods provided by their file; stub calls consumed only when resolution names a stub of exactly one service and method; always `unresolved` |
+| `channels` | Engine channel facts a broker client call confirms (issue 61); `@KafkaListener`, `@RabbitListener`, `@JmsListener`; `AsyncAPI` 2 and 3 (`is_asyncapi`) |
+| `tables` | `create_tables`, Liquibase, `prisma_models`, JPA, Entity Framework, `SQLAlchemy`, Django; `sql_access` (`Access::Read`/`Write`) for SQL string arguments |
+| `artifacts` | `Coordinate`; `maven`, `gradle`, `npm`, `cargo`, `go_mod`, `nuget`, `pyproject`, `setup_cfg`, `alire`, `gpr`: literal coordinates and dependencies only |
 
 ### `languages`
 

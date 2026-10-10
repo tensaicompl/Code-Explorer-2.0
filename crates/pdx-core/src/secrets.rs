@@ -148,6 +148,28 @@ pub fn secret_ranges_with(
     merge(found)
 }
 
+/// Whether a configuration key names a credential: it ends, in any case and with its
+/// words joined by `_`, `-` or nothing, with one of [`CREDENTIAL_KEYS`], exactly the
+/// keys [`Detector::CredentialAssignment`] masks the value of. A dotted key
+/// (`spring.datasource.password`) is judged by its whole text, so by its last part.
+pub fn is_credential_key(key: &str) -> bool {
+    CREDENTIAL_KEY.is_match(key.as_bytes())
+}
+
+/// A key ending with a credential key, as [`assignment_prefix`] reads one.
+static CREDENTIAL_KEY: LazyLock<Regex> = LazyLock::new(|| {
+    let keys: Vec<String> = CREDENTIAL_KEYS
+        .iter()
+        .map(|k| {
+            k.split(['_', '-'])
+                .map(regex::escape)
+                .collect::<Vec<_>>()
+                .join("[_-]?")
+        })
+        .collect();
+    regex(&format!(r"(?-u)(?i)(?:{})\z", keys.join("|")))
+});
+
 /// Masks every secret value in `bytes`, a file of `language`, in place. Returns how
 /// many bytes were masked. The length never changes, and neither does any carriage
 /// return or line feed.

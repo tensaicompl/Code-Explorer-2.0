@@ -8,6 +8,11 @@ version = "0.10"
 version = "1.1.5"
 criteria = "safe-to-deploy"
 
+[[exemptions.arraydeque]]
+version = "0.5.1"
+criteria = "safe-to-deploy"
+notes = "Issue 60: required by P2-08 (saphyr-parser's fixed-capacity buffer). An exemption, not an audit."
+
 [[exemptions.autocfg]]
 version = "1.5.1"
 criteria = "safe-to-run"
@@ -264,6 +269,11 @@ criteria = "safe-to-deploy"
 version = "0.8.11"
 criteria = "safe-to-deploy"
 
+[[exemptions.roxmltree]]
+version = "0.21.1"
+criteria = "safe-to-deploy"
+notes = "Issue 60: required by P2-08 (contracts read XML manifests and changelogs; no DTD, no external entity, nothing fetched). An exemption, not an audit."
+
 [[exemptions.rusqlite]]
 version = "0.40.2"
 criteria = "safe-to-deploy"
@@ -279,6 +289,11 @@ criteria = "safe-to-deploy"
 [[exemptions.same-file]]
 version = "1.0.6"
 criteria = "safe-to-deploy"
+
+[[exemptions.saphyr-parser]]
+version = "0.1.0"
+criteria = "safe-to-deploy"
+notes = "Issue 60: required by P2-08 (contracts read YAML through this event parser; aliases are never expanded). An exemption, not an audit."
 
 [[exemptions.serde]]
 version = "1.0.229"
