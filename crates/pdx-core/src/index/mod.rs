@@ -88,8 +88,10 @@ pub enum Progress {
 
 /// What to build: a structural segment of the checkout at `root`, at `destination`.
 ///
-/// Every input the pipeline depends on is here or in the checkout (its `pdx.toml`):
-/// nothing is read from the environment, and the extraction limits come resolved.
+/// The worker and memory limits arrive resolved: `build_segment` does not read
+/// `PDX_WORKERS`, `PDX_MEM_BUDGET_MB` or a cgroup's limits, which are its caller's to
+/// resolve. Stage 2's own engine switches (isolation, the extraction switches) are
+/// unchanged and remain Stage 2's.
 pub struct IndexRequest<'a> {
     /// The checkout.
     pub root: &'a Path,
@@ -171,7 +173,9 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
         build_dir,
         progress,
     } = request;
-    let build = tracing::info_span!("build_segment", repo_id = %repo_id, commit = %commit_sha);
+    // Decision 35: spans carry stage names and counts only, never the repository's
+    // identity, URL, commit or any path.
+    let build = tracing::info_span!("build_segment");
     let _build = build.enter();
     let report = Reporter(progress);
     let meta = SegmentMeta::new(

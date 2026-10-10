@@ -147,8 +147,9 @@ pub const UNPORTABLE_PATH: &str = "unportable_path";
 /// repository-relative POSIX ([`is_repository_path`]); a file name holding `\`, which
 /// Windows reads as a separator, or a first name Windows reads as a drive (`c:x.py`)
 /// is legal on Linux and macOS but is the same path on no two kinds of host. Such a
-/// file is held back from every later stage, so no identity is ever made from it, and
-/// is accounted for as skipped with the reason [`UNPORTABLE_PATH`].
+/// file has been discovered (and read, as discovery reads any file), keeps the language
+/// discovery gave it, and is held back from every later stage, so no identity is ever
+/// made from it; it is accounted for as skipped with the reason [`UNPORTABLE_PATH`].
 pub fn split_unportable(files: Vec<DiscoveredFile>) -> (Vec<DiscoveredFile>, Vec<DiscoveredFile>) {
     files
         .into_iter()

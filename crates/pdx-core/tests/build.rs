@@ -855,6 +855,14 @@ fn split_unportable_keeps_identities_portable() {
     };
     assert_eq!(paths(&portable), ["a.py", "src/f.py"]);
     assert_eq!(paths(&unportable), ["src\\b.py", "c:d.py", "dir\\x/e.py"]);
+    // The split comes after discovery and changes nothing discovery found: a held-back
+    // file keeps the language (and everything else) Stage 1 gave it, which coverage
+    // counts it under.
+    let mut assigned = file("lib\\g.rb");
+    assigned.language = pdx_core::languages::by_id("ruby");
+    assigned.disposition = pdx_core::index::discover::Disposition::Binary;
+    let (_, held) = split_unportable(vec![assigned.clone()]);
+    assert_eq!(held, [assigned]);
 }
 
 #[cfg(unix)]

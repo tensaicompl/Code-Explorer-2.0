@@ -212,11 +212,15 @@ Layer roles and metrics (P2-09) are Stage 4's last parts, after contracts.
 The whole pipeline (P2-10) is `index::build_segment(IndexRequest) -> SegmentReport`.
 
 - **Composition.** It composes the stages and duplicates none of them. The request
-  carries resolved limits; nothing is read from the environment. Meta and destination
-  are checked before Stage 1.
+  carries resolved worker and memory limits: `build_segment` never resolves
+  `PDX_WORKERS`, `PDX_MEM_BUDGET_MB` or cgroup limits (its caller does). Stage 2's
+  existing engine switches (isolation, `EXTRACTION_SWITCHES`) are untouched. Meta and
+  destination are checked before Stage 1.
 - **Unportable paths (issue 53).** Files whose path is not repository-relative POSIX
-  are held back after Stage 1 (`discover::split_unportable`). They have no identity
-  and no row, are counted as skipped in coverage, and are listed in the report.
+  are held back after Stage 1 (`discover::split_unportable`). Discovery may already
+  have read them, as it reads any file; Stages 2 to 5 never see them. They have no
+  identity and no row, are counted as skipped in coverage, and are listed in the
+  report.
 - **Coverage** (`coverage::rows`) counts Stage 3's resolutions, never persisted rows.
   Unconfirmed sites are not call sites. All 11 bands are stored, summing to
   `call_sites`. Binary and redacted files count in `files` only; `symbols` excludes

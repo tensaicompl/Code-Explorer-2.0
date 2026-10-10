@@ -228,7 +228,7 @@ IndexError>` runs Stages 1 to 5 over a checkout and writes one structural segmen
 
 | Item | |
 |---|---|
-| `IndexRequest` | The checkout, `repo_id`, `repo_url`, `repo_name`, `commit_sha`, Stage 2's resolved `limits`, an optional cache and backend, the `destination`, an optional `build_dir` and `progress` callback. Nothing is read from the environment |
+| `IndexRequest` | The checkout, `repo_id`, `repo_url`, `repo_name`, `commit_sha`, Stage 2's resolved `limits`, an optional cache and backend, the `destination`, an optional `build_dir` and `progress` callback. The worker and memory limits arrive resolved: `build_segment` does not resolve them from the environment or cgroups. Stage 2's own engine switches are unchanged |
 | `SegmentReport` | The `WrittenSegment` (path, `content_sha256`, size), `status` (`SegmentStatus`: `ready` or `degraded`) and every `DegradedReason`, the `coverage` rows, `files` (`FileCounts`), the `unportable` paths held back (issue 53), `rows` (`RowCounts`), `resolution` (call sites, unconfirmed sites, typed resolution's run health), `derive` (what Stage 4 did not store) and Stage 2's statistics. Never written into the segment |
 | `DegradedReason` | 4.5's reasons, decided once: `failed + skipped(size) > 5%` of all files, strictly, in integers; an engine crash; a skip for memory; a truncated extraction; lost work. `partial` is none (issue 57, decision 34) |
 | `Progress`, `Stage` | Each stage started, then finished with what it produced, from the building thread; no effect on the segment |

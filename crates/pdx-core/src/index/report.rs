@@ -239,9 +239,11 @@ pub(crate) fn assess(
 }
 
 /// Whether `count` is more than 5% of `files`, strictly, in integers: `count / files >
-/// 1 / 20` exactly when `20 × count > files`. Exactly 5% is not more.
+/// 1 / 20` exactly when `20 × count > files`. Exactly 5% is not more. The product is
+/// taken in `u128`, where it cannot overflow, so the comparison is exact for every
+/// pair of `u64`.
 fn over_threshold(count: u64, files: u64) -> bool {
-    count.saturating_mul(20) > files
+    u128::from(count) * 20 > u128::from(files)
 }
 
 #[cfg(test)]
@@ -260,5 +262,19 @@ mod tests {
         assert!(!over_threshold(0, 1));
         assert!(over_threshold(1, 1));
         assert!(over_threshold(u64::MAX, u64::MAX - 1));
+
+        // Exact across the whole u64 domain, where a saturating product is not:
+        // u64::MAX = 18446744073709551615 = 20 × 922337203685477580 + 15.
+        let max = u64::MAX;
+        assert_eq!(max / 20, 922_337_203_685_477_580);
+        assert_eq!(max % 20, 15);
+        // 20 × (u64::MAX / 20) = u64::MAX − 15: under 5% of u64::MAX files.
+        assert!(!over_threshold(max / 20, max));
+        // 20 × (u64::MAX / 20 + 1) = u64::MAX + 5: over, though it does not fit a u64.
+        assert!(over_threshold(max / 20 + 1, max));
+        // Every file: 100% is over 5%.
+        assert!(over_threshold(max, max));
+        assert!(!over_threshold(0, max));
+        assert!(over_threshold(max, 0));
     }
 }
