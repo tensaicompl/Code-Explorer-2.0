@@ -481,7 +481,9 @@ fn layer_roles_path_conventions() {
     let g = graph(&[
         ("src/api/user.ts", &ts("User")),
         ("src/capitalize/x.ts", &ts("Capitalized")),
-        ("src/API/y.ts", &ts("Upper")),
+        // Under a parent with no `api` beside it: on a case-insensitive file system
+        // (Windows, macOS) `src/API` would be the same directory as `src/api`.
+        ("lib/API/y.ts", &ts("Upper")),
         ("src/services/x.ts", &ts("Svc")),
         ("src/use_cases/x.ts", &ts("UseCase")),
         ("src/model/x.ts", &ts("Model")),
