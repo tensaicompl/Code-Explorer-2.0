@@ -15,8 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 68 | 2026-10-10 | P2-09 | third-party | open | The engine's per-definition visibility is evidence only in Go (exported identifiers) and Python (a leading underscore): elsewhere it does not read a declaration's modifiers, so Java and Kotlin `public` methods come back non-public, and Rust, TypeScript, JavaScript, C#, C, C++, PHP, Scala and Ada private declarations public | Stage 4 stores `props.visibility` only for Go and Python and leaves it absent (unknown) elsewhere, never stored wrong (`visibility_props_only_where_engine_evidence`); `importance` takes an unknown visibility as not public (decision 28). Restoring it elsewhere needs an engine fact that reads declaration modifiers, an append-only change that moves `ENGINE_VERSION`, the cache format, the worker protocol and the surface version; no task owns it yet |
-| 67 | 2026-10-10 | P2-09 | scr | open | 4.12.1 names `cyclomatic`, `cognitive` and `loop_depth` without defining them, and the engine's facts (Appendix D.4) are not the textbook metrics: its count is of each language table's branching node types, so boolean operators and conditional expressions are no decision, `try`, `with`, `defer` and `go` are, and a `switch` or `match` counts itself as well as each case | Proposed and implemented: the three are the engine's facts, for callables only (decision 29); `cyclomatic` is the McCabe form `1 +` the engine's count, `cognitive` the engine's sum of one plus enclosing branching nodes, `loop_depth` its deepest loop nesting. Hand-computed on six languages where the definitions coincide (`cyclomatic_known_values`, `cognitive_and_loop_depth_known_values`, `complexity_engine_facts_cross_stage_boundary`); the deviations are listed below and in 4.12.1's clarifications. D4 does not apply: the facts exist. Awaiting the owner's approval of the definitions |
+| 68 | 2026-10-10 | P2-09 | third-party | open | The engine's per-definition visibility is evidence only in Go (exported identifiers) and Python (a leading underscore): elsewhere it does not read a declaration's modifiers, so Java and Kotlin `public` methods come back non-public, and Rust, TypeScript, JavaScript, C#, C, C++, PHP, Scala and Ada private declarations public | Stage 4 stores `props.visibility` only for Go and Python and leaves it absent (unknown) elsewhere, never stored wrong (`visibility_props_only_where_engine_evidence`); `importance` takes an unknown visibility as not public (decision 28). Restoring it elsewhere needs an engine fact that reads declaration modifiers, an append-only change that moves `ENGINE_VERSION`, the cache format, the worker protocol and the surface version. The conservative behaviour was approved by the P2-09 driver review on 2026-10-10. Review checkpoint: before P2-12's golden snapshots are accepted, the driver chooses (A) modifier-derived visibility as a versioned engine fact, with the version moves and rebuilds, or (B) unknown visibility and 0.6 ratified as PDX 2.0's behaviour, the limitation kept in product and trust documentation. Until then it blocks neither P2-10 nor P2-11 |
+| 67 | 2026-10-10 | P2-09 | scr | resolved | 4.12.1 names `cyclomatic`, `cognitive` and `loop_depth` without defining them, and the engine's facts (Appendix D.4) are not the textbook metrics: its count is of each language table's branching node types, so boolean operators and conditional expressions are no decision, `try`, `with`, `defer` and `go` are, and a `switch` or `match` counts itself as well as each case | Ratified by the P2-09 driver review on 2026-10-10 (decision 32). For PDX 2.0, for callables only (decision 29): `cyclomatic` = 1 + the engine's branching-node count, `cognitive` = the engine's cognitive count, `loop_depth` = the engine's deepest loop nesting. The documented engine-specific deviations (below) are intentional product semantics; the metrics are not identical to every textbook definition. The acceptance fixtures on Java, Python, Go, TypeScript, Rust and C lock the definition (`cyclomatic_known_values`, `cognitive_and_loop_depth_known_values`, `complexity_engine_facts_cross_stage_boundary`). A later change of these semantics is a specification change, with the compatibility and build-identity treatment it needs before published segments can coexist with it |
 | 66 | 2026-10-10 | P6-02 | blocker | open | 4.7.1 also takes namespace identities from sources no repository's Stage 4 has: a provider's Kubernetes `Service` name and `Ingress`/`Route` host, `pdx-arch.yaml`'s hostnames, brokers, data sources and contexts, a consumer's declared alias, and a protobuf file shared as an artifact across repositories | Missing facts: deployment resources (`Service`, `Ingress`) and the estate model are not inputs of Stage 4, and sharing is a cross-repository relation. Contracts stay `unresolved` without `pdx.toml [identity]`, never guessed from a manifest's name (`missing_fact_identity_from_deployment_and_estate_model`). P6-02 (estate model, `DEPLOYED_AS`) supplies them; P6-01 applies them when linking |
 | 65 | 2026-10-10 | P6-01 | blocker | open | Two 4.7.1 forms carry their full meaning in a value bound before the call: a JMS producer created for a destination sends with none in its own arguments, and a route registered on a group, scope, nest or mounted router has a prefix composed at run time | Missing fact: local value flow (which value a local or a receiver holds). A JMS send with no destination gives nothing (`missing_fact_destination_bound_before_the_call`); a registration in a callable that composes a prefixed router, or on a parameter declared as a group, is withheld with `PrefixUnknown` (`missing_fact_router_prefixes_withhold_routes`); a router mounted from another callable or file is not visible and keeps the path it declares. P6-01 decides before drawing links whether to add the fact |
 | 64 | 2026-10-10 | P6-01 | blocker | open | 4.7.1's table consumers include ORM repository classes bound to entities (`interface UserRepository extends JpaRepository<User, Long>`), but the extracted base class is `JpaRepository` with its type arguments erased, and `User` is a type reference of the whole file, tied to no base clause | Missing fact: a definition's base classes with their type arguments (`JpaRepository<User, Long>` → `[User, Long]`), an append-only engine fact. No consumer is guessed from a repository's, file's or method's name (`missing_fact_repository_entity_type_arguments`). P6-01 decides before drawing `SHARES_TABLE` |
@@ -131,8 +131,25 @@ non-inflating reading (decision 28). Proven by
 
 Restoring visibility in the other languages needs an engine fact that reads each
 declaration's modifiers. That is an append-only change: it moves `ENGINE_VERSION`, the
-extraction cache format, the worker protocol and the surface version. No task owns it
-yet; until one does, those languages' symbols take the non-public factor.
+extraction cache format, the worker protocol and the surface version.
+
+The P2-09 driver review (2026-10-10) approved the current behaviour. In Go and Python
+the engine's visibility is evidence. In every other language visibility is unknown:
+`props.visibility` is absent and `importance` takes the 0.6 factor. This is preferable
+to persisting known-false visibility.
+
+Review checkpoint: before P2-12's golden snapshots are accepted. At that checkpoint
+the driver chooses one of:
+
+- **A.** Implement trustworthy modifier-derived visibility as a versioned engine fact,
+  with the required `ENGINE_VERSION`, cache, protocol and surface moves and rebuilds.
+- **B.** Explicitly ratify unknown visibility and 0.6 as the PDX 2.0 behaviour, and
+  keep the limitation in the product and trust documentation.
+
+This does not make P2-12 responsible for an engine change. It makes P2-12 the point,
+before golden output is frozen, where the limitation is consciously dispositioned.
+Until then the conservative behaviour stays correct and blocks neither P2-10 nor
+P2-11.
 
 State: open.
 
@@ -152,8 +169,8 @@ node's type against its language's table of branching node types:
 
 Proposed, and implemented by P2-09 (`metrics::complexity`):
 
-- **`cyclomatic`** = 1 + the engine's count: the McCabe form, so a straight-line
-  callable is 1.
+- **`cyclomatic`** = 1 + the engine's count, so a straight-line callable is 1. This
+  is McCabe's `1 + decisions` shape over the engine's count, not textbook McCabe.
 - **`cognitive`** = the engine's cognitive count.
 - **`loop_depth`** = the engine's loop depth.
 
@@ -184,10 +201,26 @@ Known deviations from the textbook metrics, which these definitions accept:
 
 D4 does not apply: the facts exist and are used as the engine gives them, never
 recomputed or re-read from the source. A change to what a table counts is an engine
-change that moves `ENGINE_VERSION`. Awaiting the owner's approval of these definitions,
-which 4.12.1's clarifications record.
+change that moves `ENGINE_VERSION`.
 
-State: open (proposed; implemented as proposed).
+Ratified by the P2-09 driver review on 2026-10-10 (decision 32). For PDX 2.0:
+
+- `cyclomatic` = 1 + the engine's branching-node count;
+- `cognitive` = the engine's cognitive count;
+- `loop_depth` = the engine's deepest loop nesting;
+- the engine-specific deviations documented above are intentional product semantics.
+
+These are PDX 2.0's definitions, sourced from the engine's Appendix D.4 facts:
+deterministic and documented. Because of the engine's per-language branching tables,
+they are not identical to every external or textbook definition of McCabe or cognitive
+complexity. They apply to callable definitions only, as implemented (decision 29).
+
+The acceptance fixtures on Java, Python, Go, TypeScript, Rust and C lock the
+definition. Changing these semantics later is a specification change. It must come
+with the appropriate compatibility and build-identity treatment before existing
+published segments can coexist with the new semantics.
+
+State: resolved.
 
 ### 66 — Identity sources outside a repository's Stage 4
 

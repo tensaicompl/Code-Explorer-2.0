@@ -113,7 +113,10 @@ impl DefinitionKind {
     }
 }
 
-/// Visibility, as the source declares it.
+/// The engine's exportability or visibility fact for a definition. It is declaration
+/// visibility only where the engine applies the language's own rule (Go's exported
+/// identifiers, Python's leading underscore); elsewhere it does not read declaration
+/// modifiers (issue 68).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Visibility {
     /// The source does not say.
@@ -191,17 +194,22 @@ pub struct Definition {
     /// The definition this one is inside, as an index into the same file's
     /// definitions; `None` at file scope.
     pub parent: Option<u32>,
-    /// Declared visibility.
+    /// The engine's exportability or visibility fact. Reliable as declaration
+    /// visibility only for Go and Python; a consumer that needs declaration visibility
+    /// must treat every other language's value as unknown (issue 68).
     pub visibility: Visibility,
     /// A test.
     pub is_test: bool,
     /// An entry point of the program.
     pub is_entry_point: bool,
-    /// Cyclomatic complexity.
+    /// The engine's raw count of branching nodes, by its language's table of branching
+    /// node types. Stage 4's product metric named `cyclomatic` is 1 + this value
+    /// (issue 67).
     pub cyclomatic: u32,
-    /// Cognitive complexity.
+    /// The engine's cognitive count by its language's tables: for each branching node,
+    /// one plus the number of branching nodes enclosing it (issue 67).
     pub cognitive: u32,
-    /// Deepest loop nesting.
+    /// The engine's deepest nesting of named loop nodes (issue 67).
     pub loop_depth: u32,
     /// The classes, interfaces and traits it names as its bases, exactly as the engine
     /// recorded them: in its order, spelling and case, unresolved. Empty when it names

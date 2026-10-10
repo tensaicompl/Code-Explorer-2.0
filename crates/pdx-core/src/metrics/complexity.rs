@@ -9,9 +9,9 @@
 //! engine counts a language's table of branching node types, and what each metric is,
 //! with its deviations from the textbook definitions, is issue 67:
 //!
-//! - `cyclomatic` is the `McCabe` number, `1 + decisions`, the decisions being the
-//!   engine's count of branching nodes: a straight-line callable is 1, each `if`, loop
-//!   or `case` adds one.
+//! - `cyclomatic` is `1 +` the engine's count of branching nodes (the `McCabe` shape,
+//!   not textbook-identical): a straight-line callable is 1, each `if`, loop or `case`
+//!   adds one.
 //! - `cognitive` is the engine's sum, over branching nodes, of one plus the number of
 //!   branching nodes enclosing it.
 //! - `loop_depth` is the engine's deepest nesting of loops.
@@ -47,8 +47,8 @@ pub const fn is_callable(kind: DefinitionKind) -> bool {
     )
 }
 
-/// The `McCabe` cyclomatic complexity from the engine's count of decisions: one path, and
-/// one more per decision.
+/// PDX's `cyclomatic` from the engine's branching-node count: one path, and one more per
+/// branching node (issue 67; not identical to every textbook definition).
 pub fn cyclomatic(decisions: u32) -> f64 {
     f64::from(decisions) + 1.0
 }
