@@ -8,8 +8,9 @@ The graph model's vocabulary, identities and rows exist, and so do segments, the
 files that store them, a repository's configuration, content secret normalisation,
 the pipeline's first two stages, discovery and extraction, and Stage 3's resolution:
 the symbol registry and the stages that settle each call site's band and target, and
-Stage 4's derivation of the graph and of the repository's contracts; the later stages
-arrive with the tasks that implement them. What exists is below.
+Stage 4's derivation of the graph, the repository's contracts, its modules' and
+classes' layer roles and its symbols' metrics; the later stages arrive with the tasks
+that implement them. What exists is below.
 
 ## Public API
 
@@ -222,20 +223,20 @@ qualified name, through aliasing imports, and the engine's hint); then `candidat
 
 ### `index::derive`
 
-Stage 4 of 4.5 (P2-07, P2-08): `derive(&DeriveInput { repo, repo_name, registry,
+Stage 4 of 4.5 (P2-07 to P2-09): `derive(&DeriveInput { repo, repo_name, registry,
 resolution, root, config })` turns the registry and Stage 3's report into a
 `DerivedGraph`, where facts first get persistent identities. It writes no segment: the
 graph's rows are what `SegmentData` holds, sorted by stored identity (files by path,
-nodes, sites and edges by id, candidate rows by site, contracts by id), and the same
-whatever order the stages produced their facts in. `root` and `config` are for the
-contracts, which read documents below the root and scope themselves by
-`[identity]`.
+nodes, sites and edges by id, candidate rows by site, contracts by id, metrics by node
+then metric), and the same whatever order the stages produced their facts in. `root`
+and `config` are for the contracts, which read documents below the root and scope
+themselves by `[identity]`, and for the layer roles' `[layers]` rules.
 
 | Item | |
 |---|---|
-| `DerivedGraph` | `files`, `nodes`, `sites`, `edges`, `candidates`, `contracts` (the `contracts` rows, by `contract_id`; never also nodes or edges); `repo_node`, `file_nodes`, `definition_nodes` (the one map from `DefinitionRef` to node every part reads), `module_nodes`; `diagnostics` |
-| `Diagnostics` | What is counted, never stored: Stage 3's unconfirmed sites, resolved sites with no position in the file or no node-type path (`Unmaterialized`, `Missing`), route evidence with no handler the facts identify or no evidence site (`RouteDiagnostic`), and contract evidence that gave no contract (`contracts`: `ContractDiagnostic`, a path and a `ContractProblem`, never the file's content) |
-| `DeriveError` | A path that is not repository-relative POSIX (`NotRepositoryPath`), an identity that cannot be computed, two different facts with one id, a structural edge without its site or naming one the graph does not have (`EdgeWithoutSite`, `UnknownSite`), a fact naming something with no node, a document contracts read that changed since Stage 2 or cannot be read safely (`SourceChanged`, `SourceRead`), an invalid contract row (`InvalidContract`) |
+| `DerivedGraph` | `files`, `nodes` (`Module` and `Class` nodes with their `layer_role`), `sites`, `edges`, `candidates`, `contracts` (the `contracts` rows, by `contract_id`; never also nodes or edges), `metrics` (the `metrics` rows, by node then metric); `repo_node`, `file_nodes`, `definition_nodes` (the one map from `DefinitionRef` to node every part reads), `module_nodes`; `diagnostics` |
+| `Diagnostics` | What is counted, never stored: Stage 3's unconfirmed sites, resolved sites with no position in the file or no node-type path (`Unmaterialized`, `Missing`), route evidence with no handler the facts identify or no evidence site (`RouteDiagnostic`), contract evidence that gave no contract (`contracts`: `ContractDiagnostic`, a path and a `ContractProblem`, never the file's content), and metrics a symbol has no row for because a fact is missing (`metrics`: `MetricDiagnostic`) |
+| `DeriveError` | A path that is not repository-relative POSIX (`NotRepositoryPath`), an identity that cannot be computed, two different facts with one id, a structural edge without its site or naming one the graph does not have (`EdgeWithoutSite`, `UnknownSite`), a fact naming something with no node, a document contracts read that changed since Stage 2 or cannot be read safely (`SourceChanged`, `SourceRead`), an invalid contract row (`InvalidContract`), a configured layer glob that does not compile (`LayerRule`), a second or non-finite metric value (`DuplicateMetric`, `NonFiniteMetric`), facts about one node that contradict each other (`Invariant`) |
 | `containment` | `Repo`, `Folder`, `File` nodes and a `FileRecord` per discovered file (`file_status`: every Stage 2 outcome mapped, an engine failure never `parsed`, a withheld file `redacted`); one node per definition by `node_kind`, parented to its enclosing definition or file; the engine's file-level module is the file node. `normalise_type` and `normalised_signature` for overload disambiguators; `is_repository_path` |
 | `modules` | `module_node_key`: `(Module, scope, "<language>:<name>", "")` (issue 48); one-file modules parented to their file, spanning ones to the nearest common folder with sorted `props.files`; `props.module` on symbols, which keep their physical parents |
 | `calls` | Resolutions as `call`/`reference` sites (4.2.1's fingerprint over the engine's node-type path, `split_callee`'s texts and the ordinal among same-path, same-text sites of the definition), drawn `CALLS`/`CALL_REFERENCE` edges and non-drawn candidate rows, the engine's numbers copied (issue 49) |
@@ -273,6 +274,28 @@ them, is never opened (issue 38).
 | `channels` | Engine channel facts a Kafka or AMQP client call confirms in a file importing the library (issue 61); `@KafkaListener`, `@RabbitListener`, `@JmsListener`; `AsyncAPI` 2 and 3 (`is_asyncapi`) |
 | `tables` | `create_tables`, Liquibase, `prisma_models`, JPA, Entity Framework, `SQLAlchemy`, Django; `sql_access` (`Access::Read`/`Write`) for SQL string arguments |
 | `artifacts` | `Coordinate`; `maven`, `gradle`, `npm`, `cargo`, `go_mod`, `nuget`, `pyproject`, `setup_cfg`, `alire`, `gpr`: literal coordinates and dependencies only |
+
+### `layers::roles`
+
+Each `Module` and `Class` node's `layer_role` (4.8.3, P2-09), set in Stage 4 after the
+contracts: the repository's `pdx.toml [layers]` rules in order (`globset`, as
+validated), then framework evidence with its provenance (`FRAMEWORK_RULES`, in 4.8.3's
+order; `FrameworkRule`), then path segments (`PATH_ROLES`, `path_role`; a test path by
+`is_test_path`), else `unknown`. Every other node has none; no `HAS_ROLE` or
+`LAYER_DEPENDS` edge is made (P6-02's).
+
+### `metrics`
+
+The per-symbol metrics of 4.12.1 (P2-09), set last in Stage 4 from facts already held
+(nothing is read again): `Rows` refuses a second value or a non-finite one and gives
+the rows by node then metric; `METRICS` names them. A symbol is a definition's node,
+not the file-level module or an inline module.
+
+| Item | |
+|---|---|
+| `complexity` | `loc` from the definition's span (`loc`); the engine's `cyclomatic` (`cyclomatic`: 1 + its count), `cognitive` and `loop_depth` for callables (`is_callable`; issue 67); `transitive_loop_depth`, the deepest reachable along drawn `CALLS` with cycles condensed, and `props.recursive` |
+| `fanio` | `count` of drawn `CALLS` edges by weight (`Fans`); `fan_in` and `fan_out` for every symbol, zero included |
+| `importance` | `importance(fan_in, public, test)`: `sqrt(fan_in)` × 1.0 public or 0.6 otherwise (unknown included; issue 68) × 0.3 for a `Test` node or 1.0 |
 
 ### `languages`
 
@@ -326,6 +349,8 @@ cargo test -p pdx-core
 | `registry` | `registry_<lang>` for every typed language (a test holds the list to the matrix), each through discovery, extraction and the registry; `external_detection_python_stdlib`; duplicates and case kept; input order irrelevant; every module rule; imports internal, external, unresolved and ambiguous; Python packages and relative imports, tsconfig aliases and `extends`, Go modules nested, Rust path dependencies and the standard crates, C pairing; hierarchy transitive, cycle-safe, ambiguity unforced; fresh and cached extractions the same registry; Rust `impl` relations resolved, an ambiguous trait kept ambiguous; the engine resolving with the registry's metadata to the registry's files, a root `tsconfig.json` beside a Go module included (`polyglot_ts_alias_does_not_affect_go`); refusals of disagreeing stages, malformed extractions, bad and changed metadata; redacted and symlinked metadata never read |
 | `stages` | `resolution_stage_matrix` (all nine outcomes, each row's evidence stated); `narrowing_keeps_narrowest_set`; `blocklist_precedes_all`; `typed_requires_lsp_typed_single_candidate_and_min_score`; `engine_hints_never_restrict_candidate_universe`; typed targets mapped uniquely, engine-proven external targets, unvalidated hints; aliases, module receivers, Java static imports and C includes import-guided; `super`, implicit receivers and Rust `impl` traits through the hierarchy; scoped by module, not directory; no cross-family candidate; lexical bindings, unresolved members, `typed_only`, references and engine-found sites never resolved by name; degraded runs; duplicate and impossible answers refused; resolution shapes; typed resolution over a polyglot repository, in any file order, fresh or cached |
 | `derive` | Through the whole pipeline: `derive_<lang>` golden snapshots for every typed language and Ada (a test holds the list to the matrix); `routes_spring`, `routes_fastapi`, `routes_express`, `tests_junit`, `tests_pytest`; the review closure's `every_non_containment_edge_has_a_site`, `spring_route_has_real_site`, `spring_multiple_paths_create_multiple_routes`, `spring_request_mapping_multiple_methods`, `spring_multiple_routes_have_deterministic_ids`, `route_line_shift_keeps_route_site_id`, `exported_typescript_function_is_not_entry_point`, `exported_javascript_function_is_not_entry_point`, `main_entry_points_survive_engine_flag_filter`, `entry_point_categories_are_kept`, `duplicate_noncallables_have_unique_deterministic_ids`; `test_rules_follow_issue_31`; the Part U module tests and `module_id_fixed_vectors`; overload, route and site identities held over line insertions, moves, unrelated definitions and calls, and changed by nesting, method and path; no identity depending on the checkout; host-native paths refused; faithful file records; the engine's numbers copied to edges and candidate rows; unconfirmed and unplaced sites counted, never stored; output independent of input order; the derived graph written and read back as a segment |
+| `layers` | `layer_role_precedence` (configuration over framework over path over `unknown`, for a class and a module), `layer_role_first_config_rule_wins`, `layer_roles_framework_annotations` (every framework rule with its provenance; JPA `@Entity` alone withheld, issue 64), `layer_role_framework_tie_break_follows_4_8_3_order`, `layer_role_false_positive_annotations_are_withheld`, `layer_roles_path_conventions`, `layer_role_path_conflict_follows_4_8_3_order`, `layer_role_test_paths_reuse_language_rules`, `layer_role_multifile_module_is_deterministic`, `layer_role_only_module_and_class`, `layer_roles_are_written_into_no_props` |
+| `metrics` | Hand-computed values on Java, Python, Go, TypeScript, Rust and C: `cyclomatic_known_values`, `cognitive_and_loop_depth_known_values`, `complexity_engine_facts_cross_stage_boundary`; `complexity_metrics_only_on_callables`, `loc_uses_definition_span`, `fan_in_out_drawn_calls_only`, `fan_counts_edge_weight`, `self_call_counts_both_fans`, `transitive_loop_depth_acyclic`, `transitive_loop_depth_recursive_scc`, `importance_formula`, `visibility_props_only_where_engine_evidence`, `metrics_exclude_file_level_module`, `metrics_are_deterministic`, `derive_returns_layer_roles_and_metrics`, and the static guard `roles_and_metrics_are_pure` |
 | `config` | `pdx_toml_defaults` field by field; the Appendix C reference with all four rule forms and every precise family, commands never run; global and family timeouts; the `[languages] extra` rules; every refusal, each naming the file and key |
 | `consts` | Every constant is documented, and the interface's mirror is real |
 

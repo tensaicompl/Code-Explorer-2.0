@@ -21,8 +21,12 @@
 //! - [`routes`]: `Route` nodes and `DEFINES_ROUTE` edges for Spring, `FastAPI` and
 //!   Express.
 //! - [`entry`]: the entry points Appendix B.2 names that the facts prove.
-//! - [`crate::contracts`]: last, the contracts the repository provides and consumes
-//!   (4.7.1), as `contracts` rows, reading the nodes the parts above made.
+//! - [`crate::contracts`]: the contracts the repository provides and consumes (4.7.1),
+//!   as `contracts` rows, reading the nodes the parts above made.
+//! - [`crate::layers::roles`]: each `Module` and `Class` node's layer role (4.8.3),
+//!   once routes and contracts, which give framework evidence, are in.
+//! - [`crate::metrics`]: last, the per-symbol metrics (4.12.1), once the `CALLS` edges
+//!   and tests are final, and `props.recursive`.
 //!
 //! The result ([`DerivedGraph`]) is sorted by stored identity, ready for the segment
 //! writer; nothing here writes a segment.
@@ -38,7 +42,7 @@ use crate::config::PdxConfig;
 use crate::contracts::ContractDiagnostic;
 use crate::ids::{EdgeId, IdError, NodeId, RepoId, SiteId};
 use crate::index::extract::ExtractError;
-use crate::model::{CandidateSite, Contract, Edge, FileRecord, Node, Site};
+use crate::model::{CandidateSite, Contract, Edge, FileRecord, Metric, Node, Site};
 use crate::resolve::registry::{DefinitionRef, ModuleKey, SymbolRegistry};
 use crate::resolve::stages::{ResolveReport, Unconfirmed};
 
@@ -114,6 +118,16 @@ pub enum RouteProblem {
     NoSite,
 }
 
+/// A metric a target has no row for, because the fact it is computed from is missing
+/// (a definition with no valid span has no `loc`): counted, never made up.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct MetricDiagnostic {
+    /// The target.
+    pub node_id: NodeId,
+    /// The metric it has no row for.
+    pub metric: &'static str,
+}
+
 /// What the stage reports beside the graph, for coverage.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Diagnostics {
@@ -125,10 +139,13 @@ pub struct Diagnostics {
     pub routes: Vec<RouteDiagnostic>,
     /// Contract evidence that gave no contract, by path.
     pub contracts: Vec<ContractDiagnostic>,
+    /// Metrics a target has no row for, by node.
+    pub metrics: Vec<MetricDiagnostic>,
 }
 
 /// The persistent graph of one repository, sorted by stored identity: files by path,
-/// nodes by id, sites by id, edges by id, candidates by site, contracts by id.
+/// nodes by id, sites by id, edges by id, candidates by site, contracts by id, metrics
+/// by node then metric.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DerivedGraph {
     /// One record per discovered file.
@@ -144,6 +161,9 @@ pub struct DerivedGraph {
     /// Every contract the repository provides or consumes (4.7.1), by contract id:
     /// the segment's `contracts` rows. No contract is also a node or an edge here.
     pub contracts: Vec<Contract>,
+    /// Every symbol's metrics (4.12.1): the segment's `metrics` rows, one per node and
+    /// metric, every value finite.
+    pub metrics: Vec<Metric>,
     /// The repository's node.
     pub repo_node: NodeId,
     /// Each file's node, by path.
@@ -216,6 +236,23 @@ pub enum DeriveError {
         /// What is missing.
         detail: &'static str,
     },
+    /// A configured layer rule's glob that does not compile.
+    #[error("a layer rule does not compile: {0}")]
+    LayerRule(String),
+    /// A second value of one metric for one node.
+    #[error("the node {0} has two values of {1}")]
+    DuplicateMetric(NodeId, &'static str),
+    /// A metric value that is not finite.
+    #[error("the node {0} has a value of {1} that is not finite")]
+    NonFiniteMetric(NodeId, &'static str),
+    /// Two facts of the graph about one node that contradict each other.
+    #[error("the node {node}: {detail}")]
+    Invariant {
+        /// The node.
+        node: NodeId,
+        /// What contradicts what.
+        detail: &'static str,
+    },
 }
 
 /// Derives the persistent graph of a repository.
@@ -234,6 +271,8 @@ pub fn derive(input: &DeriveInput<'_>) -> Result<DerivedGraph, DeriveError> {
     routes::build(&mut graph, input)?;
     entry::mark(&mut graph, input, &tests)?;
     crate::contracts::build(&mut graph, input)?;
+    crate::layers::roles::assign(&mut graph, input)?;
+    crate::metrics::derive(&mut graph, input)?;
     Ok(graph.finish())
 }
 
@@ -253,6 +292,7 @@ pub(crate) struct Builder {
     /// The engine's file-level module definitions, which are their files, not symbols.
     pub(crate) file_definitions: BTreeSet<DefinitionRef>,
     pub(crate) module_nodes: BTreeMap<ModuleKey, NodeId>,
+    pub(crate) metrics: crate::metrics::Rows,
     pub(crate) diagnostics: Diagnostics,
 }
 
@@ -352,6 +392,7 @@ impl Builder {
         });
         diagnostics.contracts.sort();
         diagnostics.contracts.dedup();
+        diagnostics.metrics.sort();
         self.contracts
             .sort_by(|a, b| a.contract_id.cmp(&b.contract_id));
         DerivedGraph {
@@ -361,6 +402,7 @@ impl Builder {
             edges: self.edges.into_values().collect(),
             candidates: self.candidates.into_values().collect(),
             contracts: self.contracts,
+            metrics: self.metrics.into_rows(),
             repo_node: self.repo_node,
             file_nodes: self.file_nodes,
             definition_nodes: self.definition_nodes,
@@ -391,6 +433,7 @@ mod invariant {
             definition_nodes: BTreeMap::new(),
             file_definitions: BTreeSet::new(),
             module_nodes: BTreeMap::new(),
+            metrics: crate::metrics::Rows::default(),
             diagnostics: Diagnostics::default(),
         }
     }

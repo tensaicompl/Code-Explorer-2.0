@@ -15,6 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 68 | 2026-10-10 | P2-09 | third-party | open | The engine's per-definition visibility is evidence only in Go (exported identifiers) and Python (a leading underscore): elsewhere it does not read a declaration's modifiers, so Java and Kotlin `public` methods come back non-public, and Rust, TypeScript, JavaScript, C#, C, C++, PHP, Scala and Ada private declarations public | Stage 4 stores `props.visibility` only for Go and Python and leaves it absent (unknown) elsewhere, never stored wrong (`visibility_props_only_where_engine_evidence`); `importance` takes an unknown visibility as not public (decision 28). Restoring it elsewhere needs an engine fact that reads declaration modifiers, an append-only change that moves `ENGINE_VERSION`, the cache format, the worker protocol and the surface version; no task owns it yet |
+| 67 | 2026-10-10 | P2-09 | scr | open | 4.12.1 names `cyclomatic`, `cognitive` and `loop_depth` without defining them, and the engine's facts (Appendix D.4) are not the textbook metrics: its count is of each language table's branching node types, so boolean operators and conditional expressions are no decision, `try`, `with`, `defer` and `go` are, and a `switch` or `match` counts itself as well as each case | Proposed and implemented: the three are the engine's facts, for callables only (decision 29); `cyclomatic` is the McCabe form `1 +` the engine's count, `cognitive` the engine's sum of one plus enclosing branching nodes, `loop_depth` its deepest loop nesting. Hand-computed on six languages where the definitions coincide (`cyclomatic_known_values`, `cognitive_and_loop_depth_known_values`, `complexity_engine_facts_cross_stage_boundary`); the deviations are listed below and in 4.12.1's clarifications. D4 does not apply: the facts exist. Awaiting the owner's approval of the definitions |
 | 66 | 2026-10-10 | P6-02 | blocker | open | 4.7.1 also takes namespace identities from sources no repository's Stage 4 has: a provider's Kubernetes `Service` name and `Ingress`/`Route` host, `pdx-arch.yaml`'s hostnames, brokers, data sources and contexts, a consumer's declared alias, and a protobuf file shared as an artifact across repositories | Missing facts: deployment resources (`Service`, `Ingress`) and the estate model are not inputs of Stage 4, and sharing is a cross-repository relation. Contracts stay `unresolved` without `pdx.toml [identity]`, never guessed from a manifest's name (`missing_fact_identity_from_deployment_and_estate_model`). P6-02 (estate model, `DEPLOYED_AS`) supplies them; P6-01 applies them when linking |
 | 65 | 2026-10-10 | P6-01 | blocker | open | Two 4.7.1 forms carry their full meaning in a value bound before the call: a JMS producer created for a destination sends with none in its own arguments, and a route registered on a group, scope, nest or mounted router has a prefix composed at run time | Missing fact: local value flow (which value a local or a receiver holds). A JMS send with no destination gives nothing (`missing_fact_destination_bound_before_the_call`); a registration in a callable that composes a prefixed router, or on a parameter declared as a group, is withheld with `PrefixUnknown` (`missing_fact_router_prefixes_withhold_routes`); a router mounted from another callable or file is not visible and keeps the path it declares. P6-01 decides before drawing links whether to add the fact |
 | 64 | 2026-10-10 | P6-01 | blocker | open | 4.7.1's table consumers include ORM repository classes bound to entities (`interface UserRepository extends JpaRepository<User, Long>`), but the extracted base class is `JpaRepository` with its type arguments erased, and `User` is a type reference of the whole file, tied to no base clause | Missing fact: a definition's base classes with their type arguments (`JpaRepository<User, Long>` → `[User, Long]`), an append-only engine fact. No consumer is guessed from a repository's, file's or method's name (`missing_fact_repository_entity_type_arguments`). P6-01 decides before drawing `SHARES_TABLE` |
@@ -74,7 +76,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 10 | 2026-09-28 | P0-04 | blocker | resolved | The provenance scanner used a bash 4 builtin to read its file list, and macOS ships bash 3.2, so every scanner test failed there while passing on Linux and Windows | Replaced with portable read loops and an explicit counter, since an empty array also expands inconsistently under set -u across those versions. Verified against bash 3.2.57 in a container. The non-git exclusions were fixed at the same time |
 | 9 | 2026-09-28 | P0-04 | blocker | resolved | The first continuous integration run failed on both platforms: the step activating the pinned package manager ran at the repository root, where there is no manifest declaring it | Step moved to the interface directory in all three workflows. The Rust build passed on all three platforms, including Windows, so only this step was at fault |
 | 8 | 2026-09-28 | G0 | blocker | resolved | Gate G0 requires the gate green on Linux and macOS. No macOS host is available, so one criterion of five cannot be evaluated locally | Closed by continuous integration run 36361547926: the gate is green on Linux and macOS, and the binary builds on Windows. Two real defects had to be fixed first, issues 9 and 10 |
-| 7 | 2026-09-28 | P0-06 | ambiguity | open | The importance formula's test penalty is given as 0.3 for test nodes; the factor for a non-test node is never stated | The mirror records the source as written rather than filling the silence. To be settled when the metric is implemented, by a specification change request if the answer is not the identity |
+| 7 | 2026-09-28 | P0-06 | ambiguity | resolved | The importance formula's test penalty is given as 0.3 for test nodes; the factor for a non-test node is never stated | Settled at P2-09, 2026-10-10: the identity, 1.0, as the P2-09 task brief directs (`test_penalty = 1.0 otherwise`); no specification change request is needed. A test is a `Test` node. `importance_formula` |
 | 6 | 2026-09-28 | P0-06 | ambiguity | resolved | The source's band table carries a stray blank line between its first and second rows, which in this markup would split one table into two | The mirror emits one contiguous table of eleven rows, which is what the source's own closing sentence states. The source is not edited |
 | 5 | 2026-09-28 | P0-05 | blocker | resolved | The constants task merged with the gate red: its invariant assertions were rejected by the linter under all targets, which the test run does not exercise | Invariants converted to compile-time assertions, which are stronger than the tests they replace. The linter added to the pre-commit subset so the class is caught before a commit exists |
 | 1 | 2026-09-27 | P0-01 | ambiguity | resolved | The replaced NOTICE carried a standing directive never to publish and to keep the repository private; the plan's open-core split and release pipeline contradict it | Owner confirmed the open-core split on 2026-09-28: the plan stands, the old directive is superseded, publishing at P9 is intended |
@@ -110,6 +112,82 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 68 — The engine's visibility is evidence only in Go and Python
+
+Found by P2-09, whose `importance` reads visibility. The engine's per-definition
+visibility follows a naming convention it applies in two languages: Go's exported
+identifiers and Python's leading underscore. Elsewhere it does not read the declaration's
+modifiers. Probed on 2026-10-10: Java and Kotlin methods declared `public` are
+non-public; C#'s `private` methods, Rust's private functions and methods, TypeScript's
+and JavaScript's unexported functions and private methods, C's `static` functions, C++'s
+`private:` members, and PHP's, Scala's and Ada's private declarations are all public.
+
+Stage 4 stores `props.visibility` (`public` or `non_public`) only for Go and Python
+(`containment::visibility_is_evidence`), and leaves it absent elsewhere: unknown, never
+stored wrong. `importance` takes an unknown visibility as not public, the
+non-inflating reading (decision 28). Proven by
+`visibility_props_only_where_engine_evidence` and `importance_formula`.
+
+Restoring visibility in the other languages needs an engine fact that reads each
+declaration's modifiers. That is an append-only change: it moves `ENGINE_VERSION`, the
+extraction cache format, the worker protocol and the surface version. No task owns it
+yet; until one does, those languages' symbols take the non-public factor.
+
+State: open.
+
+### 67 — What `cyclomatic`, `cognitive` and `loop_depth` are
+
+4.12.1 names the three metrics without defining them; Appendix D.4 says the engine
+computes them. P2-09 is the first task to store them, so their meaning becomes product
+data here.
+
+The engine (`pdxe_compute_complexity`) walks a definition's syntax tree, testing each
+node's type against its language's table of branching node types:
+
+- its cyclomatic count is the number of branching nodes;
+- its cognitive count adds, for each branching node, one plus the number of branching
+  nodes enclosing it;
+- its loop depth is the deepest nesting of named loop nodes, a separate table.
+
+Proposed, and implemented by P2-09 (`metrics::complexity`):
+
+- **`cyclomatic`** = 1 + the engine's count: the McCabe form, so a straight-line
+  callable is 1.
+- **`cognitive`** = the engine's cognitive count.
+- **`loop_depth`** = the engine's loop depth.
+
+All three are stored for callables only (function, method, constructor, a test among
+them), as decision 29 records: the engine measures nothing for any other kind.
+
+Where the definitions coincide, the values are hand-computed and proven on Java,
+Python, Go, TypeScript, Rust and C: a straight line, one `if`, two sequential `if`s, a
+`for`, a `while`, a `for` holding an `if`, and two nested `for`s holding an `if`
+(`cyclomatic_known_values`, `cognitive_and_loop_depth_known_values`,
+`complexity_engine_facts_cross_stage_boundary`).
+
+Known deviations from the textbook metrics, which these definitions accept:
+
+- **Boolean operators** (`&&`, `||`, `and`, `or`) and **conditional expressions**
+  (`?:`, Python's `x if c else y`) are no decision, and add nothing to either count.
+- **Non-decisions that are counted**: the tables list some statements that are not
+  decisions. Python's `try` and `with`, Go's `defer` and `go`, and the `try` of Java,
+  JavaScript and others each add one.
+- **`switch` and `match`** count themselves and each case or arm wherever the table lists
+  both (JavaScript, C, Go, Rust, Java). That is one more than McCabe's count.
+- **Java's `do … while`** is a loop but no decision in Java's table.
+- **Nesting** for `cognitive` counts enclosing branching nodes, `try` and `with`
+  included, rather than the standard's nesting increments. An `else if` or `elif`
+  nested in its `if` adds two; `else`, labelled jumps and recursion add nothing.
+- **Very large bodies**: the walk stacks at most 4096 nodes (`BRANCHING_STACK_CAP`),
+  so an exceptionally large body can be undercounted.
+
+D4 does not apply: the facts exist and are used as the engine gives them, never
+recomputed or re-read from the source. A change to what a table counts is an engine
+change that moves `ENGINE_VERSION`. Awaiting the owner's approval of these definitions,
+which 4.12.1's clarifications record.
+
+State: open (proposed; implemented as proposed).
 
 ### 66 — Identity sources outside a repository's Stage 4
 
@@ -2289,7 +2367,12 @@ question is recorded here instead.
 To be settled when the metric is implemented. If the answer is not the identity,
 that is a specification change request with a measurement behind it.
 
-State: open. Blocks nothing until the metric is built.
+Settled at P2-09, on 2026-10-10. The P2-09 task brief directs the identity:
+`test_penalty` is 0.3 for a test node and 1.0 otherwise. A test is a `Test` node, the
+stricter semantics of Appendix B.5, and its `props.is_test` must agree. No
+specification change request is needed. Proven by `importance_formula`.
+
+State: resolved.
 
 ### 6 — The source's band table is split by a stray blank line
 

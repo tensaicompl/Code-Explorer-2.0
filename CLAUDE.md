@@ -19,7 +19,9 @@ Stage 3's resolution: the symbol registry (`pdx_core::resolve::registry`), the
 generic-name blocklist (`resolve::blocklist`) and the stages that settle every call
 site's band and target (`resolve::stages`), and Stage 4, which derives containment,
 modules, call sites and edges, tests, routes and entry points
-(`pdx_core::index::derive`) and the repository's contracts (`pdx_core::contracts`).
+(`pdx_core::index::derive`), the repository's contracts (`pdx_core::contracts`), and
+its modules' and classes' layer roles and symbols' metrics (`pdx_core::layers`,
+`pdx_core::metrics`).
 P1 vendored
 the engine, built it, gave it its interface, bound it to Rust (`pdx-engine-sys`),
 and wrapped it safely (`pdx-engine`: owned extractions, typed resolution with run
@@ -181,6 +183,31 @@ missing fact (Kotlin call arguments 63, base-class type arguments 64, local valu
 import (issue 61). A malformed document is a `ContractDiagnostic`, never a guess. The
 accumulator and the segment writer apply one row validator (`contracts::row::check`):
 canonical namespaces, artifacts exact, unresolved scoped to the segment's repository.
+
+Layer roles and metrics (P2-09) are Stage 4's last parts, after contracts.
+
+- **Roles** (`layers::roles`) go on `Module` and `Class` nodes only, always `Some`
+  (`unknown` when nothing decides). The tiers are `pdx.toml [layers]` rules in order
+  (`globset`), then framework evidence with provenance, then whole path segments in
+  4.8.3's set order, then a test path via `is_test_path`.
+  - Framework provenance: the name imported from the framework, or written qualified
+    by it; never a bare name. FastAPI and Flask come from Route nodes, SQLAlchemy from
+    P2-08 table-contract owners. JPA `@Entity` never decides (issue 64).
+  - No `HAS_ROLE`/`LAYER_DEPENDS` edges and no `pdx-arch.yaml` here: those are
+    P6-02's.
+- **Metrics** (`metrics`) are `DerivedGraph::metrics`, rows sorted by (node, metric).
+  `Rows` refuses duplicates and non-finite values.
+  - Symbols only: never the file-level module (the File node) or an inline module.
+  - Complexity is the engine's, for callables only, with `cyclomatic` = 1 + the
+    engine's count (issue 67).
+  - `transitive_loop_depth` is the max reachable over drawn `CALLS`, using an SCC
+    walk; recursive symbols get `props.recursive = true`.
+  - Fans count drawn `CALLS` weights only.
+  - `importance` takes unknown visibility as 0.6. The engine's visibility is
+    evidence only in Go and Python, so `props.visibility` is stored only there
+    (issue 68).
+  - A static test keeps both modules free of fs, net, process, env, clock and
+    randomness.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

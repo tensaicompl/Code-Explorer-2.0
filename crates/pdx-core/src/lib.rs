@@ -10,6 +10,8 @@ pub mod ids;
 pub mod index;
 pub mod kinds;
 pub mod languages;
+pub mod layers;
+pub mod metrics;
 pub mod model;
 pub mod resolve;
 pub mod secrets;

@@ -148,6 +148,7 @@ pub(crate) fn build(
         definition_nodes: BTreeMap::new(),
         file_definitions: BTreeSet::new(),
         module_nodes: BTreeMap::new(),
+        metrics: crate::metrics::Rows::default(),
         diagnostics: Diagnostics::default(),
     };
     graph.add_node(repo_node)?;
@@ -282,6 +283,13 @@ fn identities(
     Ok((kinds, disambiguators))
 }
 
+/// Whether the engine's visibility is evidence in a language: Go's exported
+/// identifiers and Python's leading underscore, the conventions it applies. In every
+/// other language it does not read a declaration's modifiers (issue 68).
+pub fn visibility_is_evidence(language: &str) -> bool {
+    matches!(language, "go" | "python")
+}
+
 /// The nodes of one file's definitions.
 fn definitions(
     graph: &mut Builder,
@@ -347,10 +355,18 @@ fn definitions(
         node.doc.clone_from(&d.doc);
         node.props
             .insert("engine_kind", Value::from(d.engine_kind.as_str()));
-        match d.visibility {
-            Visibility::Public => node.props.insert("visibility", Value::from("public")),
-            Visibility::NonPublic => node.props.insert("visibility", Value::from("non_public")),
-            Visibility::Unknown => {}
+        // The engine's visibility is evidence only where the language's rule is a
+        // naming convention it applies (Go's exported identifiers, Python's leading
+        // underscore); elsewhere it does not read the declaration's modifiers and is
+        // left unknown rather than stored wrong (issue 68).
+        if visibility_is_evidence(language) {
+            match d.visibility {
+                Visibility::Public => node.props.insert("visibility", Value::from("public")),
+                Visibility::NonPublic => {
+                    node.props.insert("visibility", Value::from("non_public"));
+                }
+                Visibility::Unknown => {}
+            }
         }
         let is_test = kind == NodeKind::Test;
         node.props.insert("is_test", Value::from(is_test));
