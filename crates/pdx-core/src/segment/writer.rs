@@ -54,6 +54,22 @@ impl SegmentWriter {
         self
     }
 
+    /// Whether a segment could be written at `destination` now: nothing is there, its
+    /// directory exists and its path is UTF-8. [`SegmentWriter::write`] checks the same
+    /// again before it writes; this lets a caller refuse before any work is done.
+    ///
+    /// # Errors
+    ///
+    /// [`SegmentError::DestinationExists`] or [`SegmentError::InvalidDestination`], as
+    /// [`SegmentWriter::write`] would report them.
+    pub fn check_destination(destination: &Path) -> Result<(), SegmentError> {
+        let destination = std::path::absolute(destination).map_err(|source| SegmentError::Io {
+            path: destination.to_path_buf(),
+            source,
+        })?;
+        check_destination(&destination)
+    }
+
     /// Writes `data` as a segment at `destination`, which must not exist.
     ///
     /// In order: a temporary database, its settings, the schema, every table's rows in
@@ -248,6 +264,37 @@ fn contract_row(
     })
 }
 
+/// A coverage row as 4.3 defines it: a language of the matrix or `unknown`, bands
+/// that sum to its call sites, and no more files with a status than files.
+fn coverage_row(row: &Coverage) -> Result<(), SegmentError> {
+    let invalid = |reason: String| SegmentError::InvalidRow {
+        table: "coverage",
+        reason: format!("{}: {reason}", row.language),
+    };
+    if row.language != "unknown" && languages::by_id(&row.language).is_none() {
+        return Err(invalid(
+            "neither a language of the matrix nor unknown".to_owned(),
+        ));
+    }
+    if row.by_band.total() != row.call_sites {
+        return Err(invalid(format!(
+            "its bands sum to {}, not its {} call sites",
+            row.by_band.total(),
+            row.call_sites
+        )));
+    }
+    let with_status = [row.parsed, row.partial, row.failed, row.skipped]
+        .iter()
+        .try_fold(0u64, |sum, n| sum.checked_add(*n));
+    if with_status.is_none_or(|n| n > row.files) {
+        return Err(invalid(format!(
+            "more files parsed, partial, failed or skipped than its {} files",
+            row.files
+        )));
+    }
+    Ok(())
+}
+
 fn finite(table: &'static str, column: &str, value: Option<f64>) -> Result<(), SegmentError> {
     match value {
         Some(v) if !v.is_finite() => Err(SegmentError::InvalidRow {
@@ -309,6 +356,9 @@ impl<'a> Canonical<'a> {
         }
         for metric in &data.metrics {
             finite("metrics", "value", Some(metric.value))?;
+        }
+        for row in &data.coverage {
+            coverage_row(row)?;
         }
         let nodes: BTreeSet<&NodeId> = data.nodes.iter().map(|n| &n.node_id).collect();
         for contract in &data.contracts {

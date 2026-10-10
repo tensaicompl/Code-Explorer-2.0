@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 69 | 2026-10-10 | P2-10 | third-party | resolved | P2-10's deliverable puts `build_segment`'s stages in `tracing` spans (Part 9's logging rule), and no tracing crate was in the dependency graph | `tracing` 0.1.44, pinned exactly, without default features (no attribute macros) but `std`, with `tracing-core` 0.1.36 and `pin-project-lite` 0.2.17: three exact-version `safe-to-deploy` exemptions added by hand, each naming this issue. Exemptions, not audits: 107 exemptions, 0 audits, 0 imports. No subscriber is installed by the library; spans carry stage names and counts only (decision 35) |
 | 68 | 2026-10-10 | P2-09 | third-party | open | The engine's per-definition visibility is evidence only in Go (exported identifiers) and Python (a leading underscore): elsewhere it does not read a declaration's modifiers, so Java and Kotlin `public` methods come back non-public, and Rust, TypeScript, JavaScript, C#, C, C++, PHP, Scala and Ada private declarations public | Stage 4 stores `props.visibility` only for Go and Python and leaves it absent (unknown) elsewhere, never stored wrong (`visibility_props_only_where_engine_evidence`); `importance` takes an unknown visibility as not public (decision 28). Restoring it elsewhere needs an engine fact that reads declaration modifiers, an append-only change that moves `ENGINE_VERSION`, the cache format, the worker protocol and the surface version. The conservative behaviour was approved by the P2-09 driver review on 2026-10-10. Review checkpoint: before P2-12's golden snapshots are accepted, the driver chooses (A) modifier-derived visibility as a versioned engine fact, with the version moves and rebuilds, or (B) unknown visibility and 0.6 ratified as PDX 2.0's behaviour, the limitation kept in product and trust documentation. Until then it blocks neither P2-10 nor P2-11 |
 | 67 | 2026-10-10 | P2-09 | scr | resolved | 4.12.1 names `cyclomatic`, `cognitive` and `loop_depth` without defining them, and the engine's facts (Appendix D.4) are not the textbook metrics: its count is of each language table's branching node types, so boolean operators and conditional expressions are no decision, `try`, `with`, `defer` and `go` are, and a `switch` or `match` counts itself as well as each case | Ratified by the P2-09 driver review on 2026-10-10 (decision 32). For PDX 2.0, for callables only (decision 29): `cyclomatic` = 1 + the engine's branching-node count, `cognitive` = the engine's cognitive count, `loop_depth` = the engine's deepest loop nesting. The documented engine-specific deviations (below) are intentional product semantics; the metrics are not identical to every textbook definition. The acceptance fixtures on Java, Python, Go, TypeScript, Rust and C lock the definition (`cyclomatic_known_values`, `cognitive_and_loop_depth_known_values`, `complexity_engine_facts_cross_stage_boundary`). A later change of these semantics is a specification change, with the compatibility and build-identity treatment it needs before published segments can coexist with it |
 | 66 | 2026-10-10 | P6-02 | blocker | open | 4.7.1 also takes namespace identities from sources no repository's Stage 4 has: a provider's Kubernetes `Service` name and `Ingress`/`Route` host, `pdx-arch.yaml`'s hostnames, brokers, data sources and contexts, a consumer's declared alias, and a protobuf file shared as an artifact across repositories | Missing facts: deployment resources (`Service`, `Ingress`) and the estate model are not inputs of Stage 4, and sharing is a cross-repository relation. Contracts stay `unresolved` without `pdx.toml [identity]`, never guessed from a manifest's name (`missing_fact_identity_from_deployment_and_estate_model`). P6-02 (estate model, `DEPLOYED_AS`) supplies them; P6-01 applies them when linking |
@@ -26,11 +27,11 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 60 | 2026-10-10 | P2-08 | third-party | resolved | Contracts must read YAML (OpenAPI, AsyncAPI, application configuration, changelogs) and XML (`pom.xml`, `*.csproj`, changelogs); no parser of either was in the dependency graph, and a hand-written general one is what the brief forbids | `saphyr-parser` 0.1.0 (event parser; the tree is built in `contracts::document`, an alias never expanded) and `roxmltree` 0.21.1 (read-only; a DTD refused), pinned exactly; with `arraydeque` 0.5.1 three new crates, each an owner-authorised exact-version `safe-to-deploy` exemption, not an audit. 104 exemptions, 0 audits, 0 imports. Decision 24 |
 | 59 | 2026-10-10 | P2-08 | scr | resolved | `contracts.contract_id` is the primary key, yet several sightings in one repository can be one contract (an OpenAPI operation and its route, a producer and a listener of one topic, two providers of one key); 4.7.1 says nothing of merging them, or of whether contracts are also graph nodes and edges | Merged by `(kind, namespace_key)` only, in any order: `provides` + `consumes` = `both`; the strongest identity; the providers' one owner, or none with `owner_ambiguous` and `provider_owner_node_ids` when they differ (NULL owner = consumed-only or several provider owners); `raw_forms`, `source_paths` and all evidence as sorted sets. The `contracts` table is the record: P2-08 adds no contract node and no `EXPOSES`/`PUBLISHES`/… edge (4.7.2 reads only `contracts`), so 4.2.4's site rule is untouched. No DDL change, comment only |
 | 58 | 2026-10-10 | P2-08 | scr | resolved | 4.7.1 says `namespace_key` = identity + key and 4.2.1 hashes it into the contract's id, but neither defines the text for an established identity, the column key, an artifact's coordinate parts or the canonical host; the first stored contract ids depend on it | `{"identity":…,"key":…}` compact JSON (route identity's escaping) for `exact` and `declared`, strength not in it; `unresolved:<repo_id>:<key>` for unresolved; an artifact's key is its own namespace. Hosts lower-cased, one terminal dot and user information dropped, default ports omitted, loopback hosts no identity; several identities, several rows. Column = table key `.` column; `ecosystem:group:name[@version]` with the eight ecosystem names. Fixed vectors for every kind, computed outside the crate. No version moves: no contract was stored before |
-| 57 | 2026-10-05 | P2-10 | ambiguity | open | Malformed source can come back `parsed`: the engine marks a file `partial` only when an error region remains after it subtracts the regions definitions were recovered from, so `def broken(:` with a body is `parsed`. Coverage, the degraded status and the published parsed/partial/failed counts depend on what syntax damage means | P2-10 (coverage, degraded status, `build_segment`) decides, before publication: the semantics of parsed, partial and failed for recoverable syntax errors, malformed fixtures for them, and the coverage and degraded thresholds that use them |
+| 57 | 2026-10-05 | P2-10 | ambiguity | resolved | Malformed source can come back `parsed`: the engine marks a file `partial` only when an error region remains after it subtracts the regions definitions were recovered from, so `def broken(:` with a body is `parsed`. Coverage, the degraded status and the published parsed/partial/failed counts depend on what syntax damage means | Settled at P2-10 (decision 34): a file's status is the engine's report, never a second parse: `Parsed` → `parsed`, `Partial` → `partial`, `Failed` → `failed` (reason `parse`), as Stage 4 already maps it. A syntax defect the engine reports no status for is not a pipeline fact. `partial` counts in coverage and is no degraded reason; `failed` counts toward the `failed + skipped(size) > 5%` threshold. Fixtures for all three (`malformed_sources_follow_engine_status`) |
 | 56 | 2026-10-05 | P2-07 | ambiguity | resolved | P2-07 extended 4.2.1 so that non-callable definitions sharing a kind, path and qualified name take the identical-signature collision scheme (`e3b0c442-1`, `e3b0c442-2`), without bringing it to the owner | Owner decision, 2026-10-05: approved as implemented. Ids must be unique, the extracted facts hold no stronger discriminator, and a line number would break the identity design. The limitation is explicit in 4.2.1: inserting another identical declaration before an existing one may renumber that group. No version moves. `duplicate_noncallables_have_unique_deterministic_ids` |
 | 55 | 2026-10-05 | P2-07 | blocker | resolved | P2-07 copied the engine's entry-point flag into `props.is_entry_point`, and the engine sets it on every exported JavaScript and TypeScript declaration: the TypeScript golden showed plain exported functions as entry points, which Appendix B.2 does not make them | `is_entry_point` is decided from evidence of B.2's categories only: tests, route handlers, each language's conventional `main` (JVM, C#, C, C++ global namespace, Go, Rust binary roots), the framework bootstraps. The engine's flag is kept as `props.engine_entry_point`. `exported_typescript_function_is_not_entry_point`, `exported_javascript_function_is_not_entry_point`, `main_entry_points_survive_engine_flag_filter`, `entry_point_categories_are_kept` |
 | 54 | 2026-10-05 | P2-07 | blocker | resolved | 4.2.4: every non-containment edge references its `site_id`. P2-07 made Spring's `DEFINES_ROUTE` edges with no site (the engine recorded a route as two strings with no position) and `routes_spring` asserted it; and one route per definition lost a mapping's other paths and methods | Engine patch 0011 records every route binding with its declaring node's position and node-type path (`pdxe_route`, `RouteFact`); one fact per method and path, literals only. Every `DEFINES_ROUTE` edge has a real `route` site, shared by the bindings of one declaration; no site, no route. `Builder` and the segment writer refuse a structural edge without its site. `ENGINE_VERSION` 3, cache format 5, protocol 6, surface 4 |
-| 53 | 2026-10-05 | P2-10 | ambiguity | open | A POSIX file name may contain `\`, which Windows reads as a separator: such a file has no identity that is the same on every host. Discovery finds it on Linux and macOS; Stage 4 refuses any path that is not repository-relative POSIX, so today a repository holding one fails its build | P2-10 (coverage and the whole pipeline) decides how such a file is accounted for, for example as skipped with a reason, before Stage 4 sees it. Stage 4's refusal stays: a host-native path never becomes an identity (`backslash_path_never_reaches_an_identity`) |
+| 53 | 2026-10-05 | P2-10 | ambiguity | resolved | A POSIX file name may contain `\`, which Windows reads as a separator: such a file has no identity that is the same on every host. Discovery finds it on Linux and macOS; Stage 4 refuses any path that is not repository-relative POSIX, so today a repository holding one fails its build | Settled at P2-10 (decision 33): `build_segment` holds such a file back at the end of Stage 1 (`discover::split_unportable`, by Stage 4's own `is_repository_path`), so no stage reads it and no identity is made from it: no file row, node or site. It is counted in its language's coverage row as a file and as skipped, listed in `SegmentReport::unportable` with the reason `unportable_path`, and counted in the degraded threshold's file total. Stage 4's refusal is unchanged. `unportable_path_is_accounted_never_identified`, `split_unportable_keeps_identities_portable` |
 | 52 | 2026-10-05 | P2-07 | third-party | resolved | P2-07's golden fixtures use snapshot tests; the ratchet refuses `insta` 1.49.0 and its diffing dependency `similar` 2.7.0 until they are recorded | Owner-authorised exact-version exemptions, `safe-to-run` (test-only), added by hand with notes naming this issue; no audit claimed, nothing regenerated. 101 exemptions. Owner confirmed as implemented, 2026-10-05: exemptions, not audits |
 | 51 | 2026-10-05 | P2-07 | ambiguity | resolved | 4.3's `files` row requires a `blob_sha` and a `line_count` for every file, but Stage 2 reads only extraction candidates: a redacted, binary, oversized or unknown file is never read, so neither exists, and Stage 2 kept no line count for any file | The facts are kept where they exist and absent where they do not: `files.blob_sha` and `files.line_count` are nullable, NULL for a file never read; Stage 2 counts lines in the bytes it already reads. Part of `SEGMENT_SCHEMA_VERSION` 2 (with issue 50). Proven by `file_records_are_faithful`. Owner confirmed as implemented, 2026-10-05 |
 | 50 | 2026-10-05 | P2-07 | scr | resolved | 4.2.2 stores the engine's score, strategy and candidate count verbatim on an edge or a candidate row, but the `candidates` table and `CandidateSite` had no candidate count: the first derived candidate rows would have lost it | `candidates.engine_candidates INTEGER` and `CandidateSite::engine_candidates`; `SEGMENT_SCHEMA_VERSION` 1 → 2, and a reader refuses version 1. Proven by `segment_roundtrip`, `reader_refuses_wrong_schema_version` and `candidate_rows_copy_engine_calibration` |
@@ -110,6 +111,29 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 69 — P2-10 tracing dependency
+
+P2-10's deliverable runs `build_segment`'s stages in `tracing` spans, as Part 9's
+logging rule requires of the pipeline. No tracing crate was in the dependency graph.
+Chosen under D1 (decision 35), pinned exactly:
+
+| Package | Version | Criterion | Direct | Why |
+|---|---|---|---|---|
+| `tracing` | 0.1.44 | `safe-to-deploy` | yes | Spans and events. Default features off (no `tracing-attributes`, so no procedural macro and no `syn`), `std` on |
+| `tracing-core` | 0.1.36 | `safe-to-deploy` | no | `tracing`'s dispatcher and callsite registry |
+| `pin-project-lite` | 0.2.17 | `safe-to-deploy` | no | `tracing`'s instrumented futures, unused here but compiled |
+
+No subscriber is installed by `pdx-core`: with none, a span costs a check and records
+nothing. Span fields are stage names and counts only: never a source, a secret or the
+checkout's location (`tracing_spans_cover_every_stage_and_change_nothing`). Each
+exemption is for its exact version, carries a note naming this issue and was added by
+hand to `supply-chain/config.toml`. **These are exemptions, not audits.** Nothing was
+regenerated and no audit was imported: 107 exemptions (104 before and these 3), 0
+audits, 0 imports. Licences: `tracing` and `tracing-core` MIT, `pin-project-lite`
+Apache-2.0 OR MIT.
 
 State: resolved.
 
@@ -600,7 +624,24 @@ must be decided before anything is published: the semantics of `parsed`, `partia
 `failed` for a recoverable syntax error, malformed fixtures for them, and coverage and
 degraded thresholds that use those semantics.
 
-State: open.
+Settled at P2-10 (decision 34). The published status is the engine's report, mapped as
+Stage 4 maps it, and nothing else decides it: no second parser and no heuristic over
+the source text in the pipeline.
+
+| Engine status | `files.status` | Coverage counter | Degraded |
+|---|---|---|---|
+| `Parsed` | `parsed` | `parsed` | no |
+| `Partial` | `partial` | `partial` | no: no normative rule makes it a reason |
+| `Failed` | `failed`, reason `parse` | `failed` | counts toward `failed + skipped(size) > 5%` |
+
+A human-visible syntax defect the engine reports no different status for (the first
+example above) stays `parsed`: the pipeline has no fact that says otherwise.
+`malformed_sources_follow_engine_status` builds all three cases through
+`build_segment`: `def broken(:` is `parsed`, the second example `partial`, and Perl
+nested past the depth the engine parses it to `failed`; only the last counts toward
+the threshold.
+
+State: resolved.
 
 ### 56 — Repeated non-callables share the collision scheme
 
@@ -723,7 +764,26 @@ by coverage) is the whole pipeline's decision, P2-10's, which owns coverage and 
 build. The refusal in Stage 4 stays whatever is decided: it is what keeps a host-native
 path out of every identity.
 
-State: open.
+Settled at P2-10 (decision 33). Stage 1 owns paths, so the classification happens at
+its boundary: `build_segment` divides discovery's files with
+`discover::split_unportable`, which applies Stage 4's own rule (`is_repository_path`).
+A file whose path fails it (a name holding `\`, or a first name Windows reads as a
+drive, such as `c:x.py`) is held back from Stages 2 to 5:
+
+- no stage reads it, so it has no blob, extraction, definition or call site;
+- no identity is made from it: no `files` row, no node, no site;
+- it is counted in its language's coverage row, in `files` and `skipped`;
+- `SegmentReport::unportable` lists it, with the reason `unportable_path`
+  (`discover::UNPORTABLE_PATH`);
+- it counts in the file total of the degraded threshold, and is not itself a reason.
+
+A file row is not forced for it: identity correctness wins over a row for every
+file. Every other path is unchanged, and Stage 4's refusal stays as the guard behind
+this. Proven end to end on Linux and macOS, where such a name can exist
+(`unportable_path_is_accounted_never_identified`), and on every host on synthetic
+paths (`split_unportable_keeps_identities_portable`).
+
+State: resolved.
 
 ### 52 — P2-07 dependency exemptions
 

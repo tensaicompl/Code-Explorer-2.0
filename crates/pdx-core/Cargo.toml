@@ -46,6 +46,9 @@ saphyr-parser = "=0.1.0"
 # Contracts read XML manifests (`pom.xml`, `*.csproj`, changelogs) with this read-only
 # parser, which resolves no external entity and fetches nothing (issue 60).
 roxmltree = { version = "=0.21.1", default-features = false, features = ["std"] }
+# The pipeline's stage spans (`build_segment`, Part 9's logging rule): observational
+# only, no subscriber here, no attribute macros (issue 69).
+tracing = { version = "=0.1.44", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 insta = { version = "1.49.0", default-features = false }

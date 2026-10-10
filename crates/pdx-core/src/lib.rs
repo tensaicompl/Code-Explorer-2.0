@@ -6,6 +6,7 @@ pub mod bands;
 pub mod config;
 pub mod consts;
 pub mod contracts;
+pub mod coverage;
 pub mod ids;
 pub mod index;
 pub mod kinds;

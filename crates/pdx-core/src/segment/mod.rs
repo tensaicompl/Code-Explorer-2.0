@@ -239,6 +239,19 @@ impl SegmentMeta {
     }
 }
 
+impl SegmentMeta {
+    /// Checks the meta is one the writer stores: this build's schema version, a commit
+    /// of 40 or 64 lower-case hex characters, a repository URL and PDX version, and no
+    /// precise source in a structural segment.
+    ///
+    /// # Errors
+    ///
+    /// [`SegmentError::InvalidRow`] for the `meta` table, as the writer reports it.
+    pub fn check(&self) -> Result<(), SegmentError> {
+        verify::meta_rows(self).map(|_| ())
+    }
+}
+
 /// Everything a segment holds, as rows: what the pipeline hands the writer.
 ///
 /// Rows may arrive in any order; the writer stores each table in its key's order, so

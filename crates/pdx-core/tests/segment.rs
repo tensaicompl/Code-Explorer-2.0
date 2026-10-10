@@ -1127,6 +1127,40 @@ fn writer_refuses_a_structural_edge_without_its_site() {
 }
 
 #[test]
+fn writer_refuses_inconsistent_coverage_rows() {
+    // 4.3: by_band holds every call site of the row, in exactly one band; the language
+    // is the matrix's or `unknown`; no more files have a status than there are files.
+    let scratch = Scratch::new();
+    let refuses = |name: &str, change: &dyn Fn(&mut Coverage)| {
+        let mut data = fixture();
+        change(&mut data.coverage[0]);
+        let dir = scratch.dir(name);
+        let refused = SegmentWriter::new()
+            .build_in(&scratch.dir(&format!("{name}-build")))
+            .write(&data, &dir.join("segment.db"));
+        assert!(
+            matches!(
+                &refused,
+                Err(SegmentError::InvalidRow {
+                    table: "coverage",
+                    ..
+                })
+            ),
+            "{name}: {refused:?}"
+        );
+        assert!(!dir.join("segment.db").exists());
+    };
+    refuses("one-call-too-many", &|c| c.call_sites += 1);
+    refuses("one-band-short", &|c| c.by_band.add(Band::Unresolved, 1));
+    refuses("no-such-language", &|c| c.language = "klingon".to_owned());
+    refuses("too-many-parsed", &|c| c.parsed = c.files + 1);
+    refuses("overflow", &|c| {
+        c.parsed = u64::MAX;
+        c.partial = 1;
+    });
+}
+
+#[test]
 fn reader_refuses_malformed_meta() {
     let scratch = Scratch::new();
     let segment = write(&fixture(), &scratch, "meta");

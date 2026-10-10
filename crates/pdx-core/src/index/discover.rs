@@ -37,6 +37,7 @@ use ignore::gitignore::{Gitignore, GitignoreBuilder};
 
 use crate::config::PdxConfig;
 use crate::consts::MAX_FILE_BYTES;
+use crate::index::derive::containment::is_repository_path;
 use crate::languages::Language;
 
 /// Directory names never indexed, at any depth (4.5). `vendor` is indexed when
@@ -137,6 +138,23 @@ fn io(path: &Path) -> impl FnOnce(std::io::Error) -> DiscoverError + '_ {
 
 /// Discovers the checkout at `root` under `config`.
 ///
+/// The reason a file is held back from the index because its path has no identity
+/// that is the same on every host (issue 53): recorded as skipped, never extracted.
+pub const UNPORTABLE_PATH: &str = "unportable_path";
+
+/// Divides discovery's files into those the index can identify and those it cannot
+/// (issue 53), each in the order given. A path is identified only when it is
+/// repository-relative POSIX ([`is_repository_path`]); a file name holding `\`, which
+/// Windows reads as a separator, or a first name Windows reads as a drive (`c:x.py`)
+/// is legal on Linux and macOS but is the same path on no two kinds of host. Such a
+/// file is held back from every later stage, so no identity is ever made from it, and
+/// is accounted for as skipped with the reason [`UNPORTABLE_PATH`].
+pub fn split_unportable(files: Vec<DiscoveredFile>) -> (Vec<DiscoveredFile>, Vec<DiscoveredFile>) {
+    files
+        .into_iter()
+        .partition(|file| is_repository_path(&file.path))
+}
+
 /// Returns every regular file that no rule excludes, sorted by path, classified in
 /// this order: a path matching a secret pattern is [`Disposition::Redacted`] and a
 /// file larger than `max_file_bytes` [`Disposition::SkippedSize`], neither read; any

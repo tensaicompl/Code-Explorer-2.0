@@ -6,11 +6,11 @@ Open. Apache-2.0; see `LICENSE` at the repository root.
 
 The graph model's vocabulary, identities and rows exist, and so do segments, the
 files that store them, a repository's configuration, content secret normalisation,
-the pipeline's first two stages, discovery and extraction, and Stage 3's resolution:
-the symbol registry and the stages that settle each call site's band and target, and
-Stage 4's derivation of the graph, the repository's contracts, its modules' and
-classes' layer roles and its symbols' metrics; the later stages arrive with the tasks
-that implement them. What exists is below.
+the whole indexing pipeline (`build_segment`): discovery, extraction, Stage 3's
+resolution (the symbol registry and the stages that settle each call site's band and
+target), Stage 4's derivation of the graph, the repository's contracts, its modules'
+and classes' layer roles, its symbols' metrics and its coverage, and Stage 5's write.
+Publication (Stage 6) is the server's and arrives with it. What exists is below.
 
 ## Public API
 
@@ -221,6 +221,34 @@ candidates (definitions a call can invoke, of the caller's language family, by n
 qualified name, through aliasing imports, and the engine's hint); then `candidate` or
 `unresolved`. An `UNRESOLVED_MEMBER` call is never resolved by its name alone.
 
+### `index`
+
+The pipeline of 4.5 (P2-10): `build_segment(IndexRequest) -> Result<SegmentReport,
+IndexError>` runs Stages 1 to 5 over a checkout and writes one structural segment.
+
+| Item | |
+|---|---|
+| `IndexRequest` | The checkout, `repo_id`, `repo_url`, `repo_name`, `commit_sha`, Stage 2's resolved `limits`, an optional cache and backend, the `destination`, an optional `build_dir` and `progress` callback. Nothing is read from the environment |
+| `SegmentReport` | The `WrittenSegment` (path, `content_sha256`, size), `status` (`SegmentStatus`: `ready` or `degraded`) and every `DegradedReason`, the `coverage` rows, `files` (`FileCounts`), the `unportable` paths held back (issue 53), `rows` (`RowCounts`), `resolution` (call sites, unconfirmed sites, typed resolution's run health), `derive` (what Stage 4 did not store) and Stage 2's statistics. Never written into the segment |
+| `DegradedReason` | 4.5's reasons, decided once: `failed + skipped(size) > 5%` of all files, strictly, in integers; an engine crash; a skip for memory; a truncated extraction; lost work. `partial` is none (issue 57, decision 34) |
+| `Progress`, `Stage` | Each stage started, then finished with what it produced, from the building thread; no effect on the segment |
+| `IndexError` | The failing stage's own error: `Config`, `Discover`, `Extract` (a worker timeout among them), `Registry`, `Resolve`, `Derive`, `Coverage`, `Write` |
+| `write` | Stage 5: `segment_data` assembles `SegmentData` from Stage 4's graph and the coverage, `write` hands it to `SegmentWriter` |
+| `discover::split_unportable` | Holds back files whose path has no host-independent identity (issue 53), by Stage 4's own `is_repository_path` |
+
+Each stage runs in a `tracing` span (`build_segment`, `discover`, `extract`, `resolve`,
+`derive`, `write`) whose fields are stage names and counts only (issue 69).
+
+### `coverage`
+
+`rows(registry, resolution, unportable)`: 4.3's coverage rows, one per language with a
+file (P2-10, decision 33). Call sites are Stage 3's resolutions, each once, under its
+band, so a site Stage 4 could not store still counts and an unconfirmed site never
+does; `by_band` holds all eleven bands and sums to `call_sites`. `files` is every file
+of the language; binary and redacted files are in no status counter; `symbols` counts
+definitions but the file-level module. The writer refuses a row whose bands do not
+sum to its call sites.
+
 ### `index::derive`
 
 Stage 4 of 4.5 (P2-07 to P2-09): `derive(&DeriveInput { repo, repo_name, registry,
@@ -342,13 +370,15 @@ cargo test -p pdx-core
 | `ids` | Fixed vectors, computed outside the crate, for every identity; `node_id_ignores_lines`, `site_id_ignores_lines`, `site_id_changes_with_ast_path` and `overload_insert_does_not_renumber` as properties; URL canonicalisation and refusals; NUL refused everywhere |
 | `bands` | `band_order_total`; drawn bands; spellings; `from_engine` over every Appendix D.3 strategy, score edge and candidate count, against a table written from D.3, and D.3's list against the engine's |
 | `model` | Every vocabulary's complete spelling, and the exact JSON of every row type |
-| `segment` | `schema_sql_is_4_3_verbatim`; `segment_roundtrip` over every table; `segment_is_byte_identical_across_builds` from reordered rows in different directories; `reader_refuses_wrong_schema_version` (version 1 and 3 refused), malformed meta and broken references on damaged copies; `fts_finds_qualified_names` and search semantics; read-only files, untouched by reading; the content hash against the file's bytes; hostile text and paths stay data |
+| `segment` | `schema_sql_is_4_3_verbatim`; `writer_refuses_inconsistent_coverage_rows`; `segment_roundtrip` over every table; `segment_is_byte_identical_across_builds` from reordered rows in different directories; `reader_refuses_wrong_schema_version` (version 1 and 3 refused), malformed meta and broken references on damaged copies; `fts_finds_qualified_names` and search semantics; read-only files, untouched by reading; the content hash against the file's bytes; hostile text and paths stay data |
 | `discover` | `discover_honours_gitignore` (every exclusion source, their independence, hard excludes, `vendor`, `.ignore` and hidden files); `discover_skips_symlinks` (file, directory, outside the root, a loop); `discover_marks_binary_and_large` (the limit inclusive, the file over it never read, NUL is binary, non-UTF-8 is not); secret paths redacted unread; unknown languages kept; configured and header languages; sorted relative paths; root and ignore-file refusals |
 | `secrets` | `secret_policy_digest_fixed_vector` and `detector_version_enters_secret_policy_digest` against vectors computed outside the crate; every detector's matches and what it keeps; what is not a credential left alone; non-UTF-8; `secret_detector_overlap_is_order_independent` over all 120 orders; `secret_normalisation_preserves_offsets` as a property |
 | `extract` | `cache_hit_skips_engine`, `cache_format_4_is_a_miss`, `cached_extractions_keep_site_paths_and_derivation_facts`, `blob_sha_matches_git` (against `git hash-object` and fixed vectors), `memory_budget_batches`, `secret_policy_change_invalidates_cache`; the key's path and language; `cache_object_id_fixed_vector`; independence of the checkout's location; the node budget and every other extraction switch bypassing the cache; truncated, lossy and unclean entries; wrong digests, corruption and atomic private writes; failures, crashes and timeouts; files carried forward unopened; a changed checkout; order under any workers and batches; `secrets_do_not_reach_engine_or_cache` |
 | `registry` | `registry_<lang>` for every typed language (a test holds the list to the matrix), each through discovery, extraction and the registry; `external_detection_python_stdlib`; duplicates and case kept; input order irrelevant; every module rule; imports internal, external, unresolved and ambiguous; Python packages and relative imports, tsconfig aliases and `extends`, Go modules nested, Rust path dependencies and the standard crates, C pairing; hierarchy transitive, cycle-safe, ambiguity unforced; fresh and cached extractions the same registry; Rust `impl` relations resolved, an ambiguous trait kept ambiguous; the engine resolving with the registry's metadata to the registry's files, a root `tsconfig.json` beside a Go module included (`polyglot_ts_alias_does_not_affect_go`); refusals of disagreeing stages, malformed extractions, bad and changed metadata; redacted and symlinked metadata never read |
 | `stages` | `resolution_stage_matrix` (all nine outcomes, each row's evidence stated); `narrowing_keeps_narrowest_set`; `blocklist_precedes_all`; `typed_requires_lsp_typed_single_candidate_and_min_score`; `engine_hints_never_restrict_candidate_universe`; typed targets mapped uniquely, engine-proven external targets, unvalidated hints; aliases, module receivers, Java static imports and C includes import-guided; `super`, implicit receivers and Rust `impl` traits through the hierarchy; scoped by module, not directory; no cross-family candidate; lexical bindings, unresolved members, `typed_only`, references and engine-found sites never resolved by name; degraded runs; duplicate and impossible answers refused; resolution shapes; typed resolution over a polyglot repository, in any file order, fresh or cached |
 | `derive` | Through the whole pipeline: `derive_<lang>` golden snapshots for every typed language and Ada (a test holds the list to the matrix); `routes_spring`, `routes_fastapi`, `routes_express`, `tests_junit`, `tests_pytest`; the review closure's `every_non_containment_edge_has_a_site`, `spring_route_has_real_site`, `spring_multiple_paths_create_multiple_routes`, `spring_request_mapping_multiple_methods`, `spring_multiple_routes_have_deterministic_ids`, `route_line_shift_keeps_route_site_id`, `exported_typescript_function_is_not_entry_point`, `exported_javascript_function_is_not_entry_point`, `main_entry_points_survive_engine_flag_filter`, `entry_point_categories_are_kept`, `duplicate_noncallables_have_unique_deterministic_ids`; `test_rules_follow_issue_31`; the Part U module tests and `module_id_fixed_vectors`; overload, route and site identities held over line insertions, moves, unrelated definitions and calls, and changed by nesting, method and path; no identity depending on the checkout; host-native paths refused; faithful file records; the engine's numbers copied to edges and candidate rows; unconfirmed and unplaced sites counted, never stored; output independent of input order; the derived graph written and read back as a segment |
+| `build` | The whole pipeline through `build_segment`: `coverage_counts_sum_to_call_sites`, `build_segment_end_to_end` and `degraded_when_failed_over_threshold` (exactly 5% ready, just over degraded, failed and size-skipped together); `coverage_counts_sites_stage_4_cannot_place`, `unconfirmed_sites_are_not_call_sites`, `coverage_attributes_languages_and_counts_files`, `coverage_symbols_are_definitions`; `malformed_sources_follow_engine_status` (issue 57), `partial_unknown_binary_and_redacted_do_not_degrade`, `explicit_stage_2_degradation_propagates`, `a_worker_timeout_is_fatal`; `split_unportable_keeps_identities_portable` and `unportable_path_is_accounted_never_identified` (issue 53); `progress_never_changes_the_segment`, `repeated_builds_are_deterministic` |
+| `build_tracing` | `tracing_spans_cover_every_stage_and_change_nothing`, in a binary of its own |
 | `layers` | `layer_role_precedence` (configuration over framework over path over `unknown`, for a class and a module), `layer_role_first_config_rule_wins`, `layer_roles_framework_annotations` (every framework rule with its provenance; JPA `@Entity` alone withheld, issue 64), `layer_role_framework_tie_break_follows_4_8_3_order`, `layer_role_false_positive_annotations_are_withheld`, `layer_roles_path_conventions`, `layer_role_path_conflict_follows_4_8_3_order`, `layer_role_test_paths_reuse_language_rules`, `layer_role_multifile_module_is_deterministic`, `layer_role_only_module_and_class`, `layer_roles_are_written_into_no_props` |
 | `metrics` | Hand-computed values on Java, Python, Go, TypeScript, Rust and C: `cyclomatic_known_values`, `cognitive_and_loop_depth_known_values`, `complexity_engine_facts_cross_stage_boundary`; `complexity_metrics_only_on_callables`, `loc_uses_definition_span`, `fan_in_out_drawn_calls_only`, `fan_counts_edge_weight`, `self_call_counts_both_fans`, `transitive_loop_depth_acyclic`, `transitive_loop_depth_recursive_scc`, `importance_formula`, `visibility_props_only_where_engine_evidence`, `metrics_exclude_file_level_module`, `metrics_are_deterministic`, `derive_returns_layer_roles_and_metrics`, and the static guard `roles_and_metrics_are_pure` |
 | `config` | `pdx_toml_defaults` field by field; the Appendix C reference with all four rule forms and every precise family, commands never run; global and family timeouts; the `[languages] extra` rules; every refusal, each naming the file and key |
@@ -357,5 +387,7 @@ cargo test -p pdx-core
 The crate's dependencies are `pdx-engine` (Stage 2 extracts through it), `serde`,
 `serde_json`, `sha2`, `rusqlite` (bundled SQLite), `tempfile`, `thiserror`, `ignore`
 and `globset` (gitignore and glob semantics), `toml`, `postcard` (cache entries),
-`rayon` (Stage 2's workers), `regex` (the secret detectors) and `sha1` (the Git blob
-identity only); for its tests only, `insta` (snapshots; issue 52).
+`rayon` (Stage 2's workers), `regex` (the secret detectors), `sha1` (the Git blob
+identity only), `saphyr-parser` and `roxmltree` (contract documents; issue 60) and
+`tracing` (the pipeline's stage spans; issue 69); for its tests only, `insta`
+(snapshots; issue 52) and `proptest`.

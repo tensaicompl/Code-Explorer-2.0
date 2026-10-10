@@ -21,7 +21,8 @@ site's band and target (`resolve::stages`), and Stage 4, which derives containme
 modules, call sites and edges, tests, routes and entry points
 (`pdx_core::index::derive`), the repository's contracts (`pdx_core::contracts`), and
 its modules' and classes' layer roles and symbols' metrics (`pdx_core::layers`,
-`pdx_core::metrics`).
+`pdx_core::metrics`), and the whole pipeline, `build_segment` (Stages 1 to 5, with
+coverage, `pdx_core::coverage`, and Stage 5's write, `index::write`).
 P1 vendored
 the engine, built it, gave it its interface, bound it to Rust (`pdx-engine-sys`),
 and wrapped it safely (`pdx-engine`: owned extractions, typed resolution with run
@@ -29,8 +30,7 @@ health, crash-isolated extraction), built and tested on Linux, macOS and Windows
 and run nightly under the address, undefined-behaviour and leak sanitizers over a
 committed corpus; it also transcribed the language matrix (`pdx_core::languages`).
 The previous implementation is in `legacy/`, read-only until the retirement task
-removes it. There is no whole pipeline (`build_segment`) and no product behaviour
-yet.
+removes it. There is no CLI (`pdx index` is P2-11) and no product behaviour yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.
@@ -209,6 +209,29 @@ Layer roles and metrics (P2-09) are Stage 4's last parts, after contracts.
   - A static test keeps both modules free of fs, net, process, env, clock and
     randomness.
 
+The whole pipeline (P2-10) is `index::build_segment(IndexRequest) -> SegmentReport`.
+
+- **Composition.** It composes the stages and duplicates none of them. The request
+  carries resolved limits; nothing is read from the environment. Meta and destination
+  are checked before Stage 1.
+- **Unportable paths (issue 53).** Files whose path is not repository-relative POSIX
+  are held back after Stage 1 (`discover::split_unportable`). They have no identity
+  and no row, are counted as skipped in coverage, and are listed in the report.
+- **Coverage** (`coverage::rows`) counts Stage 3's resolutions, never persisted rows.
+  Unconfirmed sites are not call sites. All 11 bands are stored, summing to
+  `call_sites`. Binary and redacted files count in `files` only; `symbols` excludes
+  the file-level module. The writer refuses inconsistent rows.
+- **Degraded** is decided once (`index::report::assess`): `20 × (failed +
+  skipped(size)) > files`, then engine crash, memory skip, truncation, lost work.
+  `partial` is never a reason (issue 57). A worker timeout is fatal.
+- **Tracing and progress.** `tracing` spans per stage carry names and counts only,
+  never a path or source. The progress callback runs on the building thread. Neither
+  changes the bytes (tests prove it).
+- **Gotchas.** The repository's `.gitignore` ignores `coverage/` everywhere, so
+  `crates/pdx-core/src/coverage/` needs its negation. A tracing test with
+  `with_default` races other threads over callsite interest, so it lives in a test
+  binary of its own.
+
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file
 named `recovery_*` may parse partially and `failed_*` must fail; anything else must
@@ -225,7 +248,8 @@ nightly and release run it. A new or changed crate needs a real audit, an owner-
 import, or a version-specific exemption with an `ISSUES.md` entry; never regenerate the
 exemptions to make it pass. The 95 exemptions recorded when vetting began are not
 audits (issue 36), and neither are the four exact-version ones P2-04 added (issue 39),
-P2-07's two (issue 52) or P2-08's three parser crates (issue 60): 104 exemptions.
+P2-07's two (issue 52), P2-08's three parser crates (issue 60) or P2-10's three
+tracing crates (issue 69): 107 exemptions.
 
 Engine-specific targets: `make engine-test` (the interface tests),
 `make engine-typed-reference` (re-record the reference engine's answers for the

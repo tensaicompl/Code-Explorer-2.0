@@ -30,6 +30,8 @@ dist/
 .idea/
 .vscode/
 coverage/
+# ...but not the index's coverage module (4.3 `coverage`, P2-10).
+!crates/pdx-core/src/coverage/
 .pytest_cache/
 
 # Generated graphs of the superseded indexer

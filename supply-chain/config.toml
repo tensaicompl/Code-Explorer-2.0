@@ -199,6 +199,11 @@ criteria = "safe-to-run"
 version = "1.21.4"
 criteria = "safe-to-deploy"
 
+[[exemptions.pin-project-lite]]
+version = "0.2.17"
+criteria = "safe-to-deploy"
+notes = "Issue 69: required by P2-10 through tracing (its instrumented futures). An exemption, not an audit."
+
 [[exemptions.pkg-config]]
 version = "0.3.34"
 criteria = "safe-to-deploy"
@@ -372,6 +377,16 @@ criteria = "safe-to-deploy"
 [[exemptions.toml_writer]]
 version = "1.1.2+spec-1.1.0"
 criteria = "safe-to-deploy"
+
+[[exemptions.tracing]]
+version = "0.1.44"
+criteria = "safe-to-deploy"
+notes = "Issue 69: required by P2-10 (build_segment's stage spans; default features off, no attribute macros). An exemption, not an audit."
+
+[[exemptions.tracing-core]]
+version = "0.1.36"
+criteria = "safe-to-deploy"
+notes = "Issue 69: required by P2-10 through tracing (its dispatcher and callsite registry). An exemption, not an audit."
 
 [[exemptions.typenum]]
 version = "1.20.1"
