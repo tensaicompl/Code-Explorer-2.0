@@ -30,18 +30,18 @@ health, crash-isolated extraction), built and tested on Linux, macOS and Windows
 and run nightly under the address, undefined-behaviour and leak sanitizers over a
 committed corpus; it also transcribed the language matrix (`pdx_core::languages`).
 The previous implementation is in `legacy/`, read-only until the retirement task
-removes it. The local CLI has `pdx index`, `pdx coverage` and `pdx version` (P2-11);
-there is no query surface (MCP, server, UI) yet.
+removes it. The local CLI has `pdx index`, `pdx coverage` and `pdx version` (P2-11), and
+`pdx bench` (P2-14); there is no query surface (MCP, server, UI) yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` is the CLI (`index`, `coverage`, `version`, and the hidden `engine-worker`); `pdx-bench` is the benchmark harness (the lock files, and the golden harness: `pdx-bench golden [--accept]`); the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` is the CLI (`index`, `coverage`, `version`, `bench`, and the hidden `engine-worker`); `pdx-bench` is the benchmark harness (the lock files, the golden harness: `pdx-bench golden [--accept]`, and the determinism and performance baselines: `pdx-bench bench --determinism --perf`, with its hidden worker); the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
-| `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`) |
+| `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`), the goldens (`golden/`) and the baselines (`results/<version>/`) |
 | `ada-indexer/`, `deploy/` | Skeleton and placeholder; contents arrive in their phases |
 | `legacy/` | The previous implementation. Do not fix, extend or import from it |
 
@@ -343,6 +343,41 @@ expected, run}`) and `make golden`.
   their sites by owner from the engine's own declaration occurrences; `orphan` must be
   0 (issue 76).
 
+The determinism and performance baselines (P2-14, decision 49) are `pdx bench
+--determinism | --perf`, `make determinism` and `make perf`.
+
+- **Launcher.** `pdx bench` runs `<dir of pdx>/pdx-bench bench …` and passes its exit on
+  (0, or 1 for an error or a determinism failure). `pdx` never links `pdx-bench`,
+  Criterion or `sysinfo`; `scripts/open-binary-check.sh` fails if its normal dependency
+  tree holds one.
+- **Worker.** Every build is a fresh `pdx-bench __pdx-bench-worker` process (served
+  before clap, in no help): one in-process `build_segment`, its identity derived from the
+  lock URL as `pdx index` derives it, so its segment is `pdx index`'s. One JSON answer;
+  stage times come from the progress events, five stages once each in order.
+- **Refused.** The six extraction switches, `PDX_ENGINE_ISOLATE`, `PDX_WORKERS` and
+  `PDX_MEM_BUDGET_MB`, by name, never value. Perf uses `available_parallelism` workers
+  and `DEFAULT_MEMORY_BUDGET_BYTES`, recorded.
+- **Determinism** is the ten goldens only: cold with 1 worker, an independent cold cache
+  with max(2, available) workers, then that cache warm. All three must be ready and
+  byte-identical, cold caches unread, the warm one read for every stored extraction.
+- **Perf** is goldens and `[[scale]]` (Kubernetes, Linux; `indexed_only` required):
+  three fresh-process cold-cache samples. Throughput is `Finished(Extract)` files over
+  extract + resolve time; medians, the maximum peak RSS, hashes equal, every sample kept.
+- **RSS.** Sampled from the parent with `sysinfo` every 10 ms. Above the 6 GiB ceiling
+  the worker is stopped: a golden fails, a scale repository records `out_of_memory`
+  (driver's decision; issue 82: Stage 2 retains about 330 KB per file, so Kubernetes and
+  Linux do not complete on this machine).
+- **Results** are `bench/results/<version>/<repo>.json` and `summary.json`, results
+  format 1. Canonical JSON, provenance without branch or path, staged then promoted all
+  or nothing, mode-merged, unknown fields kept, stale sections dropped, stale unknown
+  fields refused.
+- **Criterion** benches in `pdx-core` (dev-dependency only): `resolve` and
+  `segment_write` on a generated Python fixture. `tests/bench_fixture.rs` keeps their
+  guards (2,406 sites, five bands) true under `make check`.
+- **CI.** Normal CI does not run network performance benchmarks: `determinism` and
+  `perf` are in `check-full` only. On a small machine run them in a capped scope above
+  the ceiling (`MemoryMax=7G`).
+
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file
 named `recovery_*` may parse partially and `failed_*` must fail; anything else must
@@ -360,7 +395,9 @@ import, or a version-specific exemption with an `ISSUES.md` entry; never regener
 exemptions to make it pass. The 95 exemptions recorded when vetting began are not
 audits (issue 36), and neither are the four exact-version ones P2-04 added (issue 39),
 P2-07's two (issue 52), P2-08's three parser crates (issue 60), P2-10's three
-tracing crates (issue 69) or P2-11's four clap crates (issue 70): 111 exemptions.
+tracing crates (issue 69), P2-11's four clap crates (issue 70) or P2-14's 31 Criterion
+and `sysinfo` crates, with `syn` 2.0.119 raised to `safe-to-deploy` (issue 81): 142
+exemptions.
 
 Engine-specific targets: `make engine-test` (the interface tests),
 `make engine-typed-reference` (re-record the reference engine's answers for the

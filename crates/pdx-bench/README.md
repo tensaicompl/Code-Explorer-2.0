@@ -1,8 +1,8 @@
 # pdx-bench
 
 The benchmark harness: accuracy, timing and determinism. Today it runs the structural
-golden graphs (P2-12); the oracle, determinism, performance and engine-differential
-suites arrive with their own tasks.
+golden graphs (P2-12) and the determinism and performance baselines (P2-14); the
+oracle and engine-differential suites arrive with their own tasks.
 
 Open. Apache-2.0; see `LICENSE` at the repository root.
 
@@ -12,11 +12,23 @@ Open. Apache-2.0; see `LICENSE` at the repository root.
 pdx-bench golden            # compare: fails on any difference, never writes bench/golden/
 pdx-bench golden --accept   # replace bench/golden/ with what the index produces
 make golden                 # builds pdx and pdx-bench (release), then pdx-bench golden
+
+pdx bench --determinism     # three builds per golden; the segments must be identical
+pdx bench --perf            # three cold samples per golden and scale repository
+pdx bench --determinism --perf
+make determinism            # builds pdx and pdx-bench (release), then pdx bench --determinism
+make perf                   # the same, then pdx bench --perf
 ```
 
 Run from the workspace root (the directory holding `Cargo.toml`, `bench/repos.lock` and
-`crates/pdx-bench`). Exit codes: 0 every golden matched or was accepted, 1 anything else
-(a usage error included).
+`crates/pdx-bench`). Exit codes: 0 every golden matched or was accepted, or the
+benchmarks succeeded; 1 anything else (a usage error and a determinism failure
+included).
+
+`pdx bench` runs `pdx-bench bench …` beside the `pdx` executable
+(`<dir of pdx>/pdx-bench`, never one on the `PATH`) and passes its exit on as 0 or 1.
+`pdx` never links this crate, Criterion or `sysinfo`; `scripts/open-binary-check.sh`
+(part of `make check`) fails if its normal dependency tree holds any of them.
 
 `pdx-bench golden`:
 
@@ -72,6 +84,102 @@ Nothing in a fetched repository is ever executed: no hook, build, package manage
 script. The source never leaves the cache: a golden holds qualified names, kinds and
 bands only.
 
+## Determinism and performance (P2-14, decision 49)
+
+`pdx-bench bench --determinism | --perf` (at least one; no positional argument):
+
+1. **Preflight.** Refuses to run with any engine extraction switch, `PDX_ENGINE_ISOLATE`,
+   `PDX_WORKERS` or `PDX_MEM_BUDGET_MB` set (`bench::run::REFUSED_VARIABLES`), naming
+   the variable, never its value: a baseline is the engine's defaults, in process, with
+   the harness's own limits.
+2. **Plan.** `bench/repos.lock` is authoritative. Determinism covers the ten
+   `[[golden]]` entries only; performance covers them and the `[[scale]]` entries
+   (Kubernetes, Linux). Goldens are checked as `golden` checks them; a scale entry needs
+   a safe name and URL, a full commit and `indexed_only = true`. No two entries may
+   write one result file, case-insensitively, and none may be named `summary`.
+3. **Checkouts.** Fetched exactly as `golden` fetches them (P2-12's Git settings and
+   invariants): goldens share `bench/.cache/repos/<lang>/<repo>/` with `make golden`,
+   scale repositories live in `bench/.cache/repos/scale/<name>/`.
+4. **Builds.** Each build is a fresh `pdx-bench` process, the hidden worker
+   (`__pdx-bench-worker`, served before the command line is parsed, in no help): one
+   `pdx_core::index::build_segment` with the engine in process, the repository's
+   identity derived from its URL exactly as `pdx index` derives it (so the segment is
+   the one `pdx index` writes for that commit), a cold or warm extraction cache of the
+   harness's, and the segment written below `bench/.cache/bench/`, never into the
+   checkout. It answers with one JSON object: status, hash, size, files, each stage's
+   count and nanoseconds, and the whole build's wall time, timed apart from the stages.
+   Its standard error is kept to 4 KiB.
+5. **Determinism**, per golden: A, a cold cache and one Stage 2 worker; B, an
+   independent cold cache and as many workers as the machine offers (at least 2); C,
+   B's cache, now warm, the same workers. All must be ready, A and B must have read
+   nothing from their caches, C must have read every extraction B stored, the three
+   segments must be byte-identical (compared in 64 KiB chunks, the first differing byte
+   reported) with equal hashes, and each reported hash must be its file's. A failure
+   names the repository, the two builds, their sizes, their hashes and the first
+   differing offset.
+6. **Performance**, per golden and scale repository: three samples, each a fresh
+   process with a fresh cold cache, Stage 2 at the machine's available parallelism and
+   the default 512 MiB memory budget. Each must be ready, read nothing from its cache
+   and have its resident memory observed; the three must build the same segment. The
+   baseline is the median throughput, the median of each stage and of the whole build,
+   and the largest peak resident memory; every sample is kept.
+7. **Results.** Staged under `bench/.cache/bench/results/<version>/`, then promoted
+   into `bench/results/<version>/` only when every repository has succeeded. A failure
+   part-way leaves every result file as it was.
+
+Stage times come from the pipeline's own progress events: each of the five stages must
+start once and finish once, in order, or the build is an error. Throughput is the files
+given to extraction (`Finished(Extract)`) per second of extraction and resolution
+together, computed in integers and divided once; a zero duration is an error.
+
+Resident memory is sampled from this process (`sysinfo`, system information only)
+every 10 ms, plus a sample immediately after the worker starts; the last is taken just
+before its exit is seen. A worker whose sample exceeds the 6 GiB ceiling
+(`bench::process::MEMORY_CEILING_BYTES`) is stopped at once: a golden then fails the
+run, and a scale repository records `out_of_memory`, with the peak seen, the stage it
+had reached, the stages it finished with their counts and durations, and the clean
+extractions its cold cache held, and takes no further sample (the driver's decision,
+issue 82). `bench/README.md` states the methodology for readers of the results.
+
+### Result files
+
+`bench/results/<version>/<repo>.json` (`<repo>` a golden's repository or a scale
+repository's name) and `summary.json`, results format 1, canonical JSON (keys sorted at
+every level, two-space indentation, a final newline):
+
+- `provenance`: `pdx_version`, `engine_version`, `segment_schema_version`,
+  `language_matrix_version`, `repository` (the key), `kind` (`golden` or `scale`),
+  `language` (goldens) and `commit`. Never a branch, a path, a host name, a user or a
+  time.
+- `determinism`: `cold_single_hash`, `cold_parallel_hash`, `warm_parallel_hash`,
+  `cold_builds_byte_identical`, `cold_warm_byte_identical`, `rebuild_equivalent`,
+  `workers_single`, `workers_parallel`, the segment's size and files, and the cache
+  traffic that proves B cold and C warm.
+- `performance`: `outcome` `completed` (the host, the sampling interval and ceiling,
+  the hash, files, `median_files_per_second`, `median_<stage>_ns`,
+  `median_total_wall_ns`, `peak_rss_bytes`, and every sample with its files, workers,
+  memory budget, stage nanoseconds, wall time, throughput, peak and hash) or
+  `out_of_memory` (as above).
+- The summary: `determinism` (`repositories_tested`, `repositories_identical`,
+  `determinism_rate`, `cold_warm_equivalent`, `rebuild_equivalence_rate`) and
+  `performance` (`repositories_measured`, `goldens_measured`, `goldens_completed`,
+  `scale_repositories_measured`, `scale_repositories_completed`, `all_completed`, and
+  each repository's outcome by key, scale repositories under `scale`).
+
+A run writes the sections it measured and keeps the other from the file there, so a
+determinism run keeps a performance baseline and the reverse. A top-level field this
+format does not know is kept. A file whose provenance is not this run's has stale
+sections, which are dropped; if it also holds unknown fields it is refused, never
+rewritten. A symlink where a result belongs is refused.
+
+The host is recorded as its operating system, architecture, logical processors, total
+memory, the benchmark's workers and memory budget, and the processor's name when every
+processor reports the same plain one. Nothing identifies the machine or its user.
+
+The benchmark's working area, `bench/.cache/bench/`, is disposable. A build directory
+is emptied before use by removing only regular files and real directories below that
+area, never following a link; a symlink or anything else there stops the run.
+
 ## The golden format (plan 5.7, decision 44)
 
 ```json
@@ -104,6 +212,15 @@ bands only.
 | `golden::index` | `run_pdx`, `index_arguments`, `sibling_pdx`, `interpret` (ready only) |
 | `golden::expected` | `GoldenExpected`, `NodeKindCount`, `GoldenEdge`: `from_rows` (pure), `to_canonical_bytes`, `parse` |
 | `golden::run` | `preflight`, `workspace_root`, `run(golden_dir, cache, plan, mode, producer, out, err)`, the `Producer` trait and `PdxProducer` |
+| `bench::plan` | `bench_plan(&BenchRepos)`: `BenchPlan` (`determinism()`, `performance()`) of `BenchEntry` (golden or scale) |
+| `bench::area` | `Area` (`bench/.cache/bench/`): fresh determinism, sample and staging directories |
+| `bench::timer` | `StageTimer` (progress events to stage durations, strictly in order), `StageTimes`, `MonotonicClock` |
+| `bench::measure` | `files_per_second`, `median_u64`, `median_f64`, `maximum`, `Peak` |
+| `bench::worker` | `WORKER`, `WorkerRequest`, `WorkerResponse`, `serve`, `replay` (a progress file) |
+| `bench::process` | `run_monitored` (input, bounded output, resident-memory sampling, the ceiling), `SystemProbe`, `MEMORY_CEILING_BYTES`, `SAMPLE_INTERVAL` |
+| `bench::host` | `Host` (the machine, never named), `available_workers` |
+| `bench::results` | `ResultFile`, `SummaryFile`, `merge`, `summarise`, `canonical_bytes`, `stage_and_promote` |
+| `bench::run` | `preflight`, `Settings`, `determinism_specs`, `sample_spec`, `check_determinism`, `aggregate`, `run(run, checkouts, builder, out, err)`, the `Builder` and `Checkouts` traits, `WorkerBuilder`, `GitCheckouts` |
 
 ## Tests
 
@@ -144,6 +261,29 @@ cargo test -p pdx-bench
   - the switch preflight, and the switch list kept equal to the engine's;
   - ready-only interpretation;
   - only owned segments are removed.
+
+- `bench_run` drives synthetic builders that write the segments they are told to and
+  model a cache:
+  - the plan (goldens for determinism, scale added for performance, `indexed_only`,
+    result-name collisions, the committed lock's ten goldens and two scale entries);
+  - the preflight, its list kept equal to the engine's;
+  - the three builds' workers and caches;
+  - each determinism check made to fail alone (different bytes behind equal reported
+    hashes, a differing warm build, a warm build that reads nothing, a cold build that
+    reads a cache, a degraded build);
+  - medians and the maximum peak (throughput 100, 300, 200 to 200; peaks 10, 40, 20 to
+    40), fresh cold caches per sample, samples that disagree, unobserved memory, a zero
+    duration, a golden over the ceiling, a scale repository recorded `out_of_memory`;
+  - all-or-nothing promotion, mode merging, a later format's field kept, stale
+    sections dropped, a stale file with unknown fields refused, canonical bytes, and
+    refused links.
+- `bench_worker` runs the real worker on a project-authored Python fixture: two cold
+  builds and a warm one byte-identical, three measured samples, the checkout untouched;
+  the worker served before parsing and absent from help; a refused variable named,
+  its value never shown.
+- Unit tests in `src/bench/` cover the timer, throughput, medians, the bounded reader,
+  the resident-memory probe and ceiling, the host record, the result format and the
+  safe emptying of the area.
 
 The rest of `tests/` checks the repository itself: the lock files, the vendored
 engine, the scanners, the specification documents and the supply chain.

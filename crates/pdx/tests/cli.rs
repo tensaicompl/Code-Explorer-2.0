@@ -240,25 +240,94 @@ fn cli_help_snapshot() {
         &["index", "--help"][..],
         &["coverage", "--help"][..],
         &["version", "--help"][..],
+        &["bench", "--help"][..],
     ] {
         let output = world.pdx_in(world.elsewhere.path(), args, &[]);
         assert_eq!(code(&output), 0, "{args:?}: {}", stderr(&output));
         assert_eq!(stderr(&output), "", "{args:?}");
         let _ = write!(combined, "$ pdx {}\n{}\n", args.join(" "), stdout(&output));
     }
-    // The hidden worker and later tasks' commands are not offered.
+    // The hidden workers and later tasks' commands are not offered.
     for absent in [
         "engine-worker",
+        "pdx-bench-worker",
         "serve",
         "mcp",
         "diff",
         "install",
-        "bench",
         "precise",
     ] {
         assert!(!combined.contains(absent), "{absent} in help:\n{combined}");
     }
     insta::assert_snapshot!("cli_help_snapshot", combined);
+}
+
+// --- bench ---------------------------------------------------------------------------------
+
+/// A copy of `pdx` alone in a directory, so the harness beside it is the test's.
+fn lone_pdx(dir: &Path) -> PathBuf {
+    let pdx = dir.join(format!("pdx{}", std::env::consts::EXE_SUFFIX));
+    std::fs::copy(env!("CARGO_BIN_EXE_pdx"), &pdx).expect("copies pdx");
+    pdx
+}
+
+#[test]
+fn pdx_bench_without_the_harness_beside_it_says_so() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let pdx = lone_pdx(dir.path());
+    let output = Command::new(&pdx)
+        .args(["bench", "--perf"])
+        .output()
+        .expect("runs");
+    assert_eq!(code(&output), 1);
+    let text = stderr(&output);
+    assert!(
+        text.starts_with("pdx: pdx bench runs the benchmark harness beside pdx"),
+        "{text}"
+    );
+    assert_eq!(text.lines().count(), 1, "{text}");
+    for args in [&["bench"][..], &["bench", "--perf", "linux"]] {
+        let output = Command::new(&pdx).args(args).output().expect("runs");
+        assert_eq!(code(&output), 1, "{args:?}: a usage error exits 1, never 2");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn pdx_bench_runs_the_harness_beside_it_with_its_modes() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().expect("tempdir");
+    let pdx = lone_pdx(dir.path());
+    let seen = dir.path().join("arguments");
+    let harness = dir.path().join("pdx-bench");
+    std::fs::write(
+        &harness,
+        format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$@\" > '{}'\nexit \"${{PDX_TEST_EXIT:-0}}\"\n",
+            seen.display()
+        ),
+    )
+    .expect("writes a harness");
+    std::fs::set_permissions(&harness, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+    let output = Command::new(&pdx)
+        .args(["bench", "--perf", "--determinism"])
+        .output()
+        .expect("runs");
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert_eq!(
+        std::fs::read_to_string(&seen).expect("arguments"),
+        "bench\n--determinism\n--perf\n"
+    );
+    let failed = Command::new(&pdx)
+        .args(["bench", "--determinism"])
+        .env("PDX_TEST_EXIT", "3")
+        .output()
+        .expect("runs");
+    assert_eq!(code(&failed), 1, "any harness failure is 1");
+    assert_eq!(
+        std::fs::read_to_string(&seen).expect("arguments"),
+        "bench\n--determinism\n"
+    );
 }
 
 // --- exit codes ---------------------------------------------------------------------------

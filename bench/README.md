@@ -15,10 +15,12 @@ repins. Changing a pin is a recorded decision, not a harness run.
 ## .cache/
 
 The harness's disposable working area, git-ignored: pinned checkouts
-(`repos/<lang>/<repo>/`), the segments `pdx index` writes (`segments/`), goldens staged
-before they are compared or accepted (`generated/`), an empty hooks directory and an
-empty Git configuration. Delete any of it at will; the next run rebuilds it. Once every
-pin is here, `make golden` needs no network.
+(`repos/<lang>/<repo>/`, and `repos/scale/<name>/` for scale repositories), the
+segments `pdx index` writes (`segments/`), goldens staged before they are compared or
+accepted (`generated/`), the benchmark builds' caches, segments and staged results
+(`bench/`), an empty hooks directory and an empty Git configuration. Delete any of it
+at will; the next run rebuilds it. Once every pin is here, `make golden`,
+`make determinism` and `make perf` need no network.
 
 ## golden/
 
@@ -32,6 +34,53 @@ them. `make golden` checks them against a fresh index of every pin (see
 `crates/pdx-bench/README.md`).
 
 ## results/
+
+`results/<version>/` holds the determinism and performance baselines (P2-14,
+decision 49), one `<repo>.json` per repository and `summary.json`, written by
+`pdx bench` (`make determinism`, `make perf`); `crates/pdx-bench/README.md` gives the
+format. They are measurements of one machine, recorded with what it is, never a
+threshold: G1 sets thresholds. Normal CI does not run them: they need the network the
+first time, the scale repositories and minutes to hours.
+
+How the numbers are taken:
+
+- **Determinism.** Each golden is built three times, each in a fresh process: a cold
+  extraction cache with one Stage 2 worker; an independent cold cache with as many
+  workers as the machine offers; and the second cache again, warm. The three segments
+  must be byte-identical (compared in chunks, with the first differing byte reported),
+  and each must hash to the `content_sha256` its build reported. The cold builds must
+  have read nothing from their caches and the warm one every extraction the cold one
+  stored, so the third build proves rebuild equivalence (4.13.3).
+- **Samples.** Three per repository, each in a fresh process with a fresh, cold cache,
+  Stage 2 at the machine's available parallelism and the default 512 MiB memory
+  budget, whatever the cgroup or environment says (the harness refuses `PDX_WORKERS`,
+  `PDX_MEM_BUDGET_MB`, `PDX_ENGINE_ISOLATE` and the engine's extraction switches). The
+  engine runs in the sampled process. A baseline is ready only.
+- **Stage times.** From the pipeline's own progress events, in integer nanoseconds:
+  every stage must start and finish once, in order. The whole build's wall time is
+  measured separately, around the build. Medians are of the three samples.
+- **Throughput.** The files given to extraction per second of Stage 2 and Stage 3
+  together: `files / (extract_ns + resolve_ns)`. The median of the three is reported.
+- **Peak resident memory.** Sampled from the harness, outside the measured process, by
+  the operating system's account of its resident set: once as it starts, then every
+  10 ms, the last sample just before its exit is seen. The peak is the largest sample;
+  the baseline is the largest of the three samples' peaks, never a median. Growth
+  between the last sample and the exit is not seen, so the peak is a lower bound short
+  by at most one interval's growth. If no sample can be read, the measurement fails.
+- **The memory ceiling.** A worker whose resident memory exceeds 6 GiB is stopped at
+  once, so a repository too large for the machine ends as a recorded outcome rather
+  than taking the machine down. A golden over it fails the run. A scale repository over
+  it is recorded as `out_of_memory`, with the peak seen, the stage reached, the stages
+  finished and the extractions cached by then, and the summary says it did not
+  complete (issue 82).
+- **Nothing tuned.** The harness does not change the processor governor, set affinity,
+  disable turbo or stop other work: the numbers are those of the machine as it ran,
+  recorded beside its operating system, architecture, processors, memory and processor
+  name, never its host name, user or paths.
+- **Engine residuals.** Issues 77 to 80 (C-family callables only the expanded text
+  represents, Kotlin's delegate spans, the walk's frame leak in error-recovered regions,
+  C++ parse artefacts) are open and unchanged: the baselines measure the engine as it
+  is, residuals included.
 
 `results/legacy-compare.md` is P2-13's triage of how the legacy graph's drawn calls
 differ from PDX's drawn `CALLS` on the Python golden: counts of same, only-legacy and

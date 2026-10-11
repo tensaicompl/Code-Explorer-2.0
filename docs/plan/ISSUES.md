@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 81 | 2026-10-11 | P2-14 | third-party | resolved | P2-14's deliverables need a benchmark framework for the `resolve` and `segment write` benchmarks and a way to read a benchmark worker's resident memory and the host's processors and memory on Linux, macOS and Windows; neither was in the dependency graph | `criterion` 0.8.2 (a dev-dependency of `pdx-core` only, default features off but `cargo_bench_support`) with 13 crates of its own, `safe-to-run`; `sysinfo` 0.39.6 (a dependency of `pdx-bench` only, default features off but `system`) with 16 crates of its own, `safe-to-deploy`: 31 exact-version exemptions added by hand, each naming this issue, and the existing `syn` 2.0.119 exemption raised from `safe-to-run` to `safe-to-deploy`, because `sysinfo`'s Windows dependency builds two procedural macros with it. Exemptions, not audits: 142 exemptions, 0 audits, 0 imports. `pdx` links none of them (`scripts/open-binary-check.sh`) |
 | 80 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: error recovery in C++ makes callables of what is not one, and they own the sites they span. Examples in fmt are a `Function` named `namespace` over lines 928–1755 of `include/fmt/core.h`, and a `Method` `GoogleTestFailureException` over lines 10986–11713 of gtest's header. Overloads and templates inside such regions, or in class bodies, get no definition: `basic_specs::set_fill(basic_string_view<Char>)`, `count<B1, B2, Tail...>`, `EqHelper::Compare` behind `enable_if`. Under engine 5 the name join gave their sites to another definition with the same name. Since issue 76 they belong to the representation as it is: the enclosing artefact, or the file | Open: an extraction-quality question for C and C++, not ownership's |
 | 79 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: the unified walk keeps a function's frame open past its node. Expiry waits for the next node that is not trivia, and an error-recovered region the parser marks as an extra is walked at a greater depth, so it never comes. Lexical facts in the region (the callable a call is found in, which typed resolution joins on) name the earlier function. In jq, 8 sites in `src/jq_test.c` inside `run_jq_pthread_tests`, which has no definition, are found in `run_jq_exhaust_and_reuse_tests`. Since issue 76 graph ownership is guarded: no site is owned by a callable whose declaration does not hold it, so these are the file's | Open: an engine change to lexical facts, with typed resolution's answers to review |
 | 78 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: the Kotlin resolver positions its synthetic property-delegate `getValue` calls at the wrong bytes. The span has the property name's length but starts before it, crossing nodes. All 35 such sites in the Kotlin golden are affected, so their positions, paths and site ids are wrong. Their owner is right since issue 76: the late-site search starts at the node the bytes fall in | Open: an engine change to the Kotlin resolver's site spans |
@@ -122,6 +123,80 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 81 — P2-14 benchmark dependencies
+
+P2-14 adds two Criterion benchmarks to `pdx-core` and makes `pdx-bench` sample a
+benchmark worker's resident memory and record the host's processors and memory, on
+Linux, macOS and Windows. Neither a benchmark framework nor a cross-platform process
+and system reader was in the dependency graph, and the workspace forbids `unsafe`, so
+the operating systems' process interfaces cannot be called directly. Chosen under D1,
+pinned exactly. Reported separately:
+
+**Criterion**, a dev-dependency of `pdx-core` for `benches/resolve.rs` and
+`benches/segment_write.rs` only, so `safe-to-run`. Default features off but
+`cargo_bench_support`: no plotting backend, HTML report, async runtime or thread pool.
+
+| Package | Version | Criterion | Direct | Why |
+|---|---|---|---|---|
+| `criterion` | 0.8.2 | `safe-to-run` | yes | The benchmark framework |
+| `criterion-plot` | 0.8.2 | `safe-to-run` | no | Its plot types; no backend is enabled |
+| `alloca` | 0.4.0 | `safe-to-run` | no | Its stack-allocated measurement buffers |
+| `page_size` | 0.6.0 | `safe-to-run` | no | The page size `alloca` rounds to |
+| `anes` | 0.1.6 | `safe-to-run` | no | Its terminal escape sequences |
+| `cast` | 0.3.0 | `safe-to-run` | no | Its checked numeric casts |
+| `ciborium` | 0.2.2 | `safe-to-run` | no | The CBOR encoding of its saved baselines |
+| `ciborium-io` | 0.2.2 | `safe-to-run` | no | `ciborium`'s input and output traits |
+| `ciborium-ll` | 0.2.2 | `safe-to-run` | no | `ciborium`'s low-level codec |
+| `half` | 2.7.1 | `safe-to-run` | no | `ciborium`'s 16-bit floats |
+| `crunchy` | 0.2.4 | `safe-to-run` | no | `half`'s loop unrolling, at build time |
+| `itertools` | 0.13.0 | `safe-to-run` | no | Its iterator helpers |
+| `oorandom` | 11.1.5 | `safe-to-run` | no | Its resampling generator |
+| `tinytemplate` | 1.2.1 | `safe-to-run` | no | Its report templates; no report is enabled |
+
+**sysinfo**, a dependency of `pdx-bench` (published, so `safe-to-deploy`), never of
+`pdx`. Default features off but `system`: no disk, network, component or user
+inspection. It reads one process's resident set (the worker's, every 10 ms) and the
+host's logical processors, memory and processor name. The Windows and macOS crates
+build only on those platforms but are vetted for every target.
+
+| Package | Version | Criterion | Direct | Why |
+|---|---|---|---|---|
+| `sysinfo` | 0.39.6 | `safe-to-deploy` | yes | The worker's resident memory and the host's facts |
+| `ntapi` | 0.4.3 | `safe-to-deploy` | no | Its Windows native API bindings |
+| `winapi` | 0.3.9 | `safe-to-deploy` | no | `ntapi`'s Windows API bindings |
+| `winapi-i686-pc-windows-gnu` | 0.4.0 | `safe-to-deploy` | no | `winapi`'s import libraries, 32-bit GNU Windows |
+| `winapi-x86_64-pc-windows-gnu` | 0.4.0 | `safe-to-deploy` | no | `winapi`'s import libraries, 64-bit GNU Windows |
+| `windows` | 0.62.2 | `safe-to-deploy` | no | Its Windows API bindings |
+| `windows-core` | 0.62.2 | `safe-to-deploy` | no | The `windows` crate's core types |
+| `windows-collections` | 0.3.2 | `safe-to-deploy` | no | Its collection types |
+| `windows-future` | 0.3.2 | `safe-to-deploy` | no | Its asynchronous types |
+| `windows-implement` | 0.60.2 | `safe-to-deploy` | no | `windows-core`'s `implement` procedural macro |
+| `windows-interface` | 0.59.3 | `safe-to-deploy` | no | `windows-core`'s `interface` procedural macro |
+| `windows-numerics` | 0.3.1 | `safe-to-deploy` | no | Its numeric types |
+| `windows-result` | 0.4.1 | `safe-to-deploy` | no | Its error types |
+| `windows-strings` | 0.5.1 | `safe-to-deploy` | no | Its string types |
+| `windows-threading` | 0.2.1 | `safe-to-deploy` | no | Its thread-pool types |
+| `objc2-core-foundation` | 0.3.2 | `safe-to-deploy` | no | Its macOS Core Foundation bindings |
+| `objc2-io-kit` | 0.3.2 | `safe-to-deploy` | no | Its macOS IOKit bindings |
+
+`windows-implement` and `windows-interface` are procedural macros built with `syn`, so
+`syn` 2.0.119, already exempted at `safe-to-run` (issue 36's baseline), must now be
+`safe-to-deploy`: that existing exemption's criterion was raised and a note naming this
+issue added; no other exemption changed. `sha2` 0.11.0, which `pdx-bench` now uses
+directly to re-hash segments, was already vetted.
+
+Each new exemption is for its exact version, carries a note naming this issue and was
+added by hand to `supply-chain/config.toml`. **These are exemptions, not audits.**
+Nothing was regenerated and no audit was imported: 142 exemptions (111 before and these
+31), 0 audits, 0 imports. Licences: MIT or Apache-2.0 for all but `alloca`, `crunchy`,
+`oorandom` and `sysinfo` (MIT), the `ciborium` crates (Apache-2.0) and the `objc2`
+crates (Zlib, Apache-2.0 or MIT), all on the allow list.
+
+`pdx` links none of them: `scripts/open-binary-check.sh`, part of `make check`, fails if
+`cargo tree -p pdx --edges normal,build` holds `pdx-bench`, `sysinfo` or `criterion`.
 
 State: resolved.
 

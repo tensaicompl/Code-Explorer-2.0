@@ -1,4 +1,6 @@
-//! The public command line (P2-11): `pdx index`, `pdx coverage`, `pdx version`.
+//! The public command line (P2-11): `pdx index`, `pdx coverage`, `pdx version`, and
+//! `pdx bench` (P2-14), which runs the benchmark harness `pdx-bench` beside this
+//! executable. The harness is a separate program: `pdx` never links it.
 //!
 //! Exit codes: 0 when a command succeeds (an index that is ready), 2 when an index
 //! succeeds but its segment is degraded, 1 for every error, a usage error included
@@ -8,11 +10,11 @@
 
 use std::ffi::OsString;
 use std::io::{IsTerminal, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::error::ErrorKind;
-use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
+use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, value_parser};
 use pdx_core::config::PdxConfig;
 use pdx_core::index::extract::{ExtractCache, FsCache};
 use pdx_core::index::{IndexError, IndexRequest, Progress, build_segment};
@@ -98,6 +100,71 @@ pub fn command() -> Command {
         .subcommand(Command::new("version").about(
             "Print the versions of pdx, the engine, the segment schema and the language matrix",
         ))
+        .subcommand(
+            Command::new("bench")
+                .about("Run the benchmark harness: determinism, performance, or both")
+                .after_help(
+                    "Runs pdx-bench, which must be beside this pdx, from the workspace root; \
+                     results go to bench/results/<version>/. Exit codes: 0 success, 1 error \
+                     or segments that are not identical.",
+                )
+                .arg(
+                    Arg::new("determinism")
+                        .long("determinism")
+                        .action(ArgAction::SetTrue)
+                        .help("Build every golden repository three ways; the segments must be identical"),
+                )
+                .arg(
+                    Arg::new("perf")
+                        .long("perf")
+                        .action(ArgAction::SetTrue)
+                        .help("Time golden and scale repositories and measure their peak memory"),
+                )
+                .group(
+                    ArgGroup::new("modes")
+                        .args(["determinism", "perf"])
+                        .required(true)
+                        .multiple(true),
+                ),
+        )
+}
+
+/// The benchmark harness beside `pdx` (this executable), and its arguments.
+pub fn bench_invocation(pdx: &Path, determinism: bool, perf: bool) -> (PathBuf, Vec<OsString>) {
+    let harness = pdx
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(format!("pdx-bench{}", std::env::consts::EXE_SUFFIX));
+    let mut args = vec![OsString::from("bench")];
+    if determinism {
+        args.push(OsString::from("--determinism"));
+    }
+    if perf {
+        args.push(OsString::from("--perf"));
+    }
+    (harness, args)
+}
+
+/// `pdx bench`: the harness's own output and exit, success or error.
+fn bench(m: &ArgMatches) -> Result<Outcome, String> {
+    let pdx = std::env::current_exe()
+        .map_err(|_| "the location of this pdx cannot be determined".to_owned())?;
+    let (harness, args) = bench_invocation(&pdx, m.get_flag("determinism"), m.get_flag("perf"));
+    if !harness.is_file() {
+        return Err(format!(
+            "pdx bench runs the benchmark harness beside pdx, and there is none at {}; build it: cargo build --release -p pdx -p pdx-bench",
+            harness.display()
+        ));
+    }
+    let status = std::process::Command::new(&harness)
+        .args(args)
+        .status()
+        .map_err(|e| format!("cannot run {}: {e}", harness.display()))?;
+    Ok(if status.success() {
+        Outcome::Success
+    } else {
+        Outcome::Error
+    })
 }
 
 /// Writes to standard output, ignoring a closed pipe.
@@ -130,7 +197,7 @@ fn usage(error: &clap::Error) -> Outcome {
             Outcome::Success
         }
         ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand => {
-            fail("a command is required: index, coverage or version (see pdx --help)")
+            fail("a command is required: index, coverage, version or bench (see pdx --help)")
         }
         _ => {
             let rendered = error.render().to_string();
@@ -145,11 +212,12 @@ fn dispatch(matches: &ArgMatches) -> Outcome {
     match matches.subcommand() {
         Some(("index", m)) => index(m).unwrap_or_else(|message| fail(&message)),
         Some(("coverage", m)) => coverage(m).unwrap_or_else(|message| fail(&message)),
+        Some(("bench", m)) => bench(m).unwrap_or_else(|message| fail(&message)),
         Some(("version", _)) => {
             out(&report::version_text());
             Outcome::Success
         }
-        _ => fail("a command is required: index, coverage or version (see pdx --help)"),
+        _ => fail("a command is required: index, coverage, version or bench (see pdx --help)"),
     }
 }
 
@@ -297,7 +365,46 @@ mod tests {
     fn the_hidden_worker_is_not_a_public_command() {
         let cli = command();
         let names: Vec<&str> = cli.get_subcommands().map(Command::get_name).collect();
-        assert_eq!(names, ["index", "coverage", "version"]);
+        assert_eq!(names, ["index", "coverage", "version", "bench"]);
         assert!(parse(&[pdx_engine::isolate::WORKER_SUBCOMMAND]).is_err());
+    }
+
+    #[test]
+    fn bench_takes_determinism_perf_or_both_and_nothing_else() {
+        for (args, determinism, perf) in [
+            (&["bench", "--determinism"][..], true, false),
+            (&["bench", "--perf"], false, true),
+            (&["bench", "--determinism", "--perf"], true, true),
+        ] {
+            let m = parse(args).expect("parses");
+            let (_, bench) = m.subcommand().expect("bench");
+            assert_eq!(bench.get_flag("determinism"), determinism, "{args:?}");
+            assert_eq!(bench.get_flag("perf"), perf, "{args:?}");
+        }
+        for args in [
+            &["bench"][..],
+            &["bench", "linux"],
+            &["bench", "--perf", "kubernetes"],
+            &["bench", "--accept"],
+            &["bench", "--json", "--perf"],
+        ] {
+            assert!(parse(args).is_err(), "{args:?}");
+        }
+    }
+
+    #[test]
+    fn bench_runs_the_harness_beside_pdx() {
+        let pdx = Path::new("/opt/pdx/bin").join(format!("pdx{}", std::env::consts::EXE_SUFFIX));
+        let (harness, args) = bench_invocation(&pdx, true, false);
+        assert_eq!(
+            harness,
+            Path::new("/opt/pdx/bin").join(format!("pdx-bench{}", std::env::consts::EXE_SUFFIX))
+        );
+        assert_eq!(args, ["bench", "--determinism"]);
+        assert_eq!(bench_invocation(&pdx, false, true).1, ["bench", "--perf"]);
+        assert_eq!(
+            bench_invocation(&pdx, true, true).1,
+            ["bench", "--determinism", "--perf"]
+        );
     }
 }

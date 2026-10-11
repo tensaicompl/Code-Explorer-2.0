@@ -27,6 +27,12 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 thiserror = "2.0.21"
 toml = "1.1.6"
+# `pdx-bench bench --perf`: the resident memory of the benchmark worker, sampled from
+# this process, and the host's processors and memory. `system` only: no disk, network,
+# component or user inspection.
+sysinfo = { version = "0.39.6", default-features = false, features = ["system"] }
+# A determinism build's segment hash, recomputed from its bytes.
+sha2 = "0.11.0"
 
 [dev-dependencies]
 # Local Git repositories for the fetch tests, and synthetic segments.

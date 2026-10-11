@@ -54,6 +54,17 @@ tracing = { version = "=0.1.44", default-features = false, features = ["std"] }
 insta = { version = "1.49.0", default-features = false }
 # The identity properties of 4.2.1 (tests/ids.rs).
 proptest = { version = "1.11.0", default-features = false, features = ["std"] }
+# The `resolve` and `segment_write` benchmarks (P2-14), run by `cargo bench` only:
+# no plots, HTML reports or thread pool of its own.
+criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
+
+[[bench]]
+name = "resolve"
+harness = false
+
+[[bench]]
+name = "segment_write"
+harness = false
 
 [lints]
 workspace = true

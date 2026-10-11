@@ -1,5 +1,6 @@
 //! The command-line interface: `pdx index`, `pdx coverage` and `pdx version` (P2-11),
-//! and the hidden engine worker isolated extraction starts this program as.
+//! `pdx bench` (P2-14), and the hidden engine worker isolated extraction starts this
+//! program as.
 
 use std::ffi::OsStr;
 use std::process::ExitCode;

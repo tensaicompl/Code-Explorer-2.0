@@ -8,6 +8,16 @@ version = "0.10"
 version = "1.1.5"
 criteria = "safe-to-deploy"
 
+[[exemptions.alloca]]
+version = "0.4.0"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (its stack-allocated measurement buffers), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
+
+[[exemptions.anes]]
+version = "0.1.6"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (its terminal escape sequences), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
+
 [[exemptions.anstyle]]
 version = "1.0.14"
 criteria = "safe-to-deploy"
@@ -38,6 +48,11 @@ criteria = "safe-to-deploy"
 version = "1.13.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.cast]]
+version = "0.3.0"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (its checked numeric casts), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
+
 [[exemptions.cc]]
 version = "1.5.1"
 criteria = "safe-to-deploy"
@@ -49,6 +64,21 @@ criteria = "safe-to-deploy"
 [[exemptions.cfg-if]]
 version = "1.0.5"
 criteria = "safe-to-deploy"
+
+[[exemptions.ciborium]]
+version = "0.2.2"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (the CBOR encoding of its saved baselines), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
+
+[[exemptions.ciborium-io]]
+version = "0.2.2"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (ciborium's input and output traits), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
+
+[[exemptions.ciborium-ll]]
+version = "0.2.2"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (ciborium's low-level codec), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
 
 [[exemptions.clang-sys]]
 version = "1.9.1"
@@ -85,6 +115,16 @@ criteria = "safe-to-deploy"
 version = "0.3.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.criterion]]
+version = "0.8.2"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 (the resolve and segment_write benchmarks, a dev-dependency of pdx-core; default features off but cargo_bench_support: no plots, HTML reports or thread pool). An exemption, not an audit."
+
+[[exemptions.criterion-plot]]
+version = "0.8.2"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (its plot types; no plotting backend is enabled), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
+
 [[exemptions.crossbeam-deque]]
 version = "0.8.8"
 criteria = "safe-to-deploy"
@@ -96,6 +136,11 @@ criteria = "safe-to-deploy"
 [[exemptions.crossbeam-utils]]
 version = "0.8.23"
 criteria = "safe-to-deploy"
+
+[[exemptions.crunchy]]
+version = "0.2.4"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (half's loop unrolling, at build time), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
 
 [[exemptions.crypto-common]]
 version = "0.2.2"
@@ -154,6 +199,11 @@ criteria = "safe-to-deploy"
 version = "0.4.20"
 criteria = "safe-to-deploy"
 
+[[exemptions.half]]
+version = "2.7.1"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (ciborium's 16-bit floats), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
+
 [[exemptions.hashbrown]]
 version = "0.17.1"
 criteria = "safe-to-deploy"
@@ -174,6 +224,11 @@ criteria = "safe-to-deploy"
 version = "1.49.0"
 criteria = "safe-to-run"
 notes = "Issue 52: test-only, the snapshot tests P2-07's derive golden fixtures require. An exemption, not an audit."
+
+[[exemptions.itertools]]
+version = "0.13.0"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (its iterator helpers), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
 
 [[exemptions.itoa]]
 version = "1.0.18"
@@ -211,13 +266,38 @@ criteria = "safe-to-deploy"
 version = "7.1.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.ntapi]]
+version = "0.4.3"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (its Windows native API bindings), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
 [[exemptions.num-traits]]
 version = "0.2.19"
 criteria = "safe-to-run"
 
+[[exemptions.objc2-core-foundation]]
+version = "0.3.2"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (its macOS Core Foundation bindings), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.objc2-io-kit]]
+version = "0.3.2"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (its macOS IOKit bindings), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
 [[exemptions.once_cell]]
 version = "1.21.4"
 criteria = "safe-to-deploy"
+
+[[exemptions.oorandom]]
+version = "11.1.5"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (its resampling generator), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
+
+[[exemptions.page_size]]
+version = "0.6.0"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (the page size alloca rounds to), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
 
 [[exemptions.pin-project-lite]]
 version = "0.2.17"
@@ -364,11 +444,17 @@ criteria = "safe-to-deploy"
 
 [[exemptions.syn]]
 version = "2.0.119"
-criteria = "safe-to-run"
+criteria = "safe-to-deploy"
+notes = "Issue 81: raised from safe-to-run by P2-14: windows-implement and windows-interface, procedural macros of sysinfo's Windows dependency, need it at safe-to-deploy. An exemption, not an audit."
 
 [[exemptions.syn]]
 version = "3.0.6"
 criteria = "safe-to-deploy"
+
+[[exemptions.sysinfo]]
+version = "0.39.6"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 (pdx-bench's resident-memory sampler and host facts; default features off but system: no disk, network, component or user inspection). Never linked into pdx. An exemption, not an audit."
 
 [[exemptions.tempfile]]
 version = "3.27.0"
@@ -381,6 +467,11 @@ criteria = "safe-to-deploy"
 [[exemptions.thiserror-impl]]
 version = "2.0.21"
 criteria = "safe-to-deploy"
+
+[[exemptions.tinytemplate]]
+version = "1.2.1"
+criteria = "safe-to-run"
+notes = "Issue 81: required by P2-14 through criterion (its report templates; no report is enabled), a dev-dependency of pdx-core for its two benchmarks only. An exemption, not an audit."
 
 [[exemptions.toml]]
 version = "1.1.6+spec-1.1.0"
@@ -432,17 +523,82 @@ criteria = "safe-to-deploy"
 version = "1.0.4+wasi-0.2.12"
 criteria = "safe-to-deploy"
 
+[[exemptions.winapi]]
+version = "0.3.9"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (ntapi's Windows API bindings), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.winapi-i686-pc-windows-gnu]]
+version = "0.4.0"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (winapi's import libraries for 32-bit GNU Windows), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
 [[exemptions.winapi-util]]
 version = "0.1.11"
 criteria = "safe-to-deploy"
+
+[[exemptions.winapi-x86_64-pc-windows-gnu]]
+version = "0.4.0"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (winapi's import libraries for 64-bit GNU Windows), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.windows]]
+version = "0.62.2"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (its Windows API bindings), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.windows-collections]]
+version = "0.3.2"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (the windows crate's collection types), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.windows-core]]
+version = "0.62.2"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (the windows crate's core types), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.windows-future]]
+version = "0.3.2"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (the windows crate's asynchronous types), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.windows-implement]]
+version = "0.60.2"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (windows-core's implement procedural macro), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.windows-interface]]
+version = "0.59.3"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (windows-core's interface procedural macro), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
 
 [[exemptions.windows-link]]
 version = "0.2.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.windows-numerics]]
+version = "0.3.1"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (the windows crate's numeric types), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.windows-result]]
+version = "0.4.1"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (the windows crate's error types), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
+[[exemptions.windows-strings]]
+version = "0.5.1"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (the windows crate's string types), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
+
 [[exemptions.windows-sys]]
 version = "0.61.2"
 criteria = "safe-to-deploy"
+
+[[exemptions.windows-threading]]
+version = "0.2.1"
+criteria = "safe-to-deploy"
+notes = "Issue 81: required by P2-14 through sysinfo (the windows crate's thread-pool types), pdx-bench's resident-memory sampler; never linked into pdx. An exemption, not an audit."
 
 [[exemptions.winnow]]
 version = "1.0.4"

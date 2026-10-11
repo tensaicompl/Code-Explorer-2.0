@@ -1,10 +1,20 @@
-//! The pdx-bench harness: `pdx-bench golden [--accept]` (P2-12).
+//! The pdx-bench harness: `pdx-bench golden [--accept]` (P2-12) and `pdx-bench bench
+//! --determinism --perf` (P2-14), which `pdx bench` launches. Its benchmark worker is
+//! served before the command line is parsed, when the first argument is
+//! `pdx_bench::bench::worker::WORKER`; it is no subcommand and in no help.
 
 use std::ffi::OsString;
 use std::process::ExitCode;
 
 use clap::error::ErrorKind;
-use clap::{Arg, ArgAction, Command};
+use clap::{Arg, ArgAction, ArgGroup, Command};
+use pdx_bench::bench::area::Area;
+use pdx_bench::bench::host::Host;
+use pdx_bench::bench::plan::bench_plan;
+use pdx_bench::bench::run::{
+    self as bench_run, BenchError, GitCheckouts, Modes, Settings, WorkerBuilder,
+};
+use pdx_bench::bench::worker::{self, WORKER};
 use pdx_bench::golden::cache::Cache;
 use pdx_bench::golden::index::sibling_pdx;
 use pdx_bench::golden::plan::golden_plan;
@@ -32,10 +42,60 @@ fn command() -> Command {
                         ),
                 ),
         )
+        .subcommand(
+            Command::new("bench")
+                .about(
+                    "Build every golden repository three ways and require identical segments \
+                     (--determinism), and time and measure golden and scale repositories \
+                     (--perf); results go to bench/results/<version>/",
+                )
+                .arg(
+                    Arg::new("determinism")
+                        .long("determinism")
+                        .action(ArgAction::SetTrue)
+                        .help(
+                            "Cold with one worker, cold with many, warm with many: the \
+                             segments must be byte-identical",
+                        ),
+                )
+                .arg(
+                    Arg::new("perf")
+                        .long("perf")
+                        .action(ArgAction::SetTrue)
+                        .help(
+                            "Three cold samples per repository: stage times, files per \
+                             second and peak resident memory",
+                        ),
+                )
+                .group(
+                    ArgGroup::new("modes")
+                        .args(["determinism", "perf"])
+                        .required(true)
+                        .multiple(true),
+                ),
+        )
 }
 
 fn main() -> ExitCode {
-    run_with(std::env::args_os())
+    let mut args = std::env::args_os();
+    let program = args.next();
+    let mut rest = args.peekable();
+    if rest.peek().is_some_and(|first| first == WORKER) {
+        return serve_worker();
+    }
+    run_with(program.into_iter().chain(rest))
+}
+
+/// The benchmark worker: one build, its answer on standard output.
+fn serve_worker() -> ExitCode {
+    let mut out = std::io::stdout().lock();
+    match worker::serve(std::io::stdin().lock(), &mut out) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("pdx-bench worker: {e}");
+            ExitCode::FAILURE
+        }
+    }
 }
 
 fn run_with(args: impl IntoIterator<Item = OsString>) -> ExitCode {
@@ -56,7 +116,13 @@ fn run_with(args: impl IntoIterator<Item = OsString>) -> ExitCode {
             Mode::Accept
         } else {
             Mode::Compare
-        }),
+        })
+        .map_err(|e| e.to_string()),
+        Some(("bench", m)) => bench(Modes {
+            determinism: m.get_flag("determinism"),
+            performance: m.get_flag("perf"),
+        })
+        .map_err(|e| e.to_string()),
         _ => unreachable!("a subcommand is required"),
     };
     match result {
@@ -66,6 +132,35 @@ fn run_with(args: impl IntoIterator<Item = OsString>) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// `pdx-bench bench`.
+fn bench(modes: Modes) -> Result<(), BenchError> {
+    bench_run::preflight(|name| std::env::var_os(name).is_some())?;
+    let here = std::env::current_dir().map_err(|_| BenchError::Workspace(".".into()))?;
+    let root = run::workspace_root(&here).map_err(|_| BenchError::Workspace(here.clone()))?;
+    let repos = lock::bench_repos(&root.join("bench/repos.lock"))?;
+    let plan = bench_plan(&repos)?;
+    let harness = std::env::current_exe().map_err(|e| BenchError::Io {
+        path: "pdx-bench".into(),
+        source: e,
+    })?;
+    let cache = Cache::open(&root.join("bench/.cache"))?;
+    let area = Area::open(&cache.root().join("bench"))?;
+    let settings = Settings::current();
+    let mut checkouts = GitCheckouts::new(cache)?;
+    let mut builder = WorkerBuilder::new(harness, settings.ceiling);
+    let run = bench_run::Run {
+        plan: &plan,
+        modes,
+        settings,
+        host: Host::current(settings.perf_workers, settings.memory_budget_bytes),
+        area: &area,
+        results_root: root.join("bench/results"),
+    };
+    let mut out = std::io::stdout().lock();
+    let mut err = std::io::stderr();
+    bench_run::run(&run, &mut checkouts, &mut builder, &mut out, &mut err)
 }
 
 /// `pdx-bench golden`.
@@ -97,7 +192,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_command_line_has_golden_and_accept_only() {
+    fn the_command_line_has_golden_and_bench_only() {
         command().debug_assert();
         let m = command()
             .try_get_matches_from(["pdx-bench", "golden", "--accept"])
@@ -107,14 +202,49 @@ mod tests {
         assert!(golden.get_flag("accept"));
         let cli = command();
         let names: Vec<&str> = cli.get_subcommands().map(Command::get_name).collect();
-        assert_eq!(names, ["golden"]);
+        assert_eq!(names, ["golden", "bench"]);
         for args in [
             &["pdx-bench"][..],
             &["pdx-bench", "golden", "--determinism"],
             &["pdx-bench", "perf"],
+            &["pdx-bench", "bench"],
+            &["pdx-bench", "bench", "kubernetes"],
+            &["pdx-bench", "bench", "--perf", "kubernetes"],
+            &["pdx-bench", "bench", "--accept"],
+            &["pdx-bench", WORKER],
         ] {
             assert!(command().try_get_matches_from(args).is_err(), "{args:?}");
         }
+    }
+
+    #[test]
+    fn bench_takes_determinism_perf_or_both() {
+        for (args, determinism, perf) in [
+            (&["pdx-bench", "bench", "--determinism"][..], true, false),
+            (&["pdx-bench", "bench", "--perf"], false, true),
+            (
+                &["pdx-bench", "bench", "--perf", "--determinism"],
+                true,
+                true,
+            ),
+        ] {
+            let m = command().try_get_matches_from(args).expect("parses");
+            let (name, bench) = m.subcommand().expect("a subcommand");
+            assert_eq!(name, "bench");
+            assert_eq!(bench.get_flag("determinism"), determinism, "{args:?}");
+            assert_eq!(bench.get_flag("perf"), perf, "{args:?}");
+        }
+    }
+
+    #[test]
+    fn the_worker_is_in_no_help() {
+        let mut cli = command();
+        let help = cli.render_long_help().to_string();
+        assert!(!help.contains(WORKER) && !help.contains("worker"), "{help}");
+        let bench = cli.find_subcommand_mut("bench").expect("bench");
+        let help = bench.render_long_help().to_string();
+        assert!(!help.contains(WORKER), "{help}");
+        assert!(help.contains("--determinism") && help.contains("--perf"));
     }
 
     #[test]
@@ -126,6 +256,10 @@ mod tests {
         assert_eq!(
             run_with(["pdx-bench", "--help"].map(OsString::from)),
             ExitCode::SUCCESS
+        );
+        assert_eq!(
+            run_with(["pdx-bench", "bench"].map(OsString::from)),
+            ExitCode::FAILURE
         );
     }
 }

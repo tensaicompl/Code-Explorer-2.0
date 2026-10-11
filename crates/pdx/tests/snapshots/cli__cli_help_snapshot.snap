@@ -11,6 +11,7 @@ Commands:
   index     Build the structural segment of the repository's HEAD commit
   coverage  Print the coverage of the repository's segment, .pdx/segment.db
   version   Print the versions of pdx, the engine, the segment schema and the language matrix
+  bench     Run the benchmark harness: determinism, performance, or both
 
 Options:
   -h, --help  Print help
@@ -49,3 +50,15 @@ Usage: pdx version
 
 Options:
   -h, --help  Print help
+
+$ pdx bench --help
+Run the benchmark harness: determinism, performance, or both
+
+Usage: pdx bench <--determinism|--perf>
+
+Options:
+      --determinism  Build every golden repository three ways; the segments must be identical
+      --perf         Time golden and scale repositories and measure their peak memory
+  -h, --help         Print help
+
+Runs pdx-bench, which must be beside this pdx, from the workspace root; results go to bench/results/<version>/. Exit codes: 0 success, 1 error or segments that are not identical.

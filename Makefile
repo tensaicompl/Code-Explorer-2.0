@@ -146,14 +146,21 @@ check-asan:
 
 asan: check-asan
 
+# Determinism and performance baselines (P2-14, decision 49): `pdx bench` runs the
+# release pdx-bench beside the release pdx. They fetch the pinned repositories and
+# write bench/results/<version>/, so they are nightly (check-full) only, never part of
+# check. perf indexes the scale repositories too: run it in a memory-capped scope on a
+# small machine (bench/README.md).
 determinism:
-	@scripts/pending-target.sh determinism P2-14
+	$(CARGO) build --release -p pdx -p pdx-bench
+	$(CARGO) run --release --quiet -p pdx -- bench --determinism
 
 engine-differential:
 	@scripts/pending-target.sh engine-differential P2-16
 
 perf:
-	@scripts/pending-target.sh perf P2-14
+	$(CARGO) build --release -p pdx -p pdx-bench
+	$(CARGO) run --release --quiet -p pdx -- bench --perf
 
 # --- maintenance -----------------------------------------------------------
 
