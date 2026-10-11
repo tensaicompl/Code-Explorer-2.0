@@ -24,13 +24,19 @@
 //! | [`Detector::PrivateKey`] | A PEM `BEGIN` marker of a `PRIVATE KEY`, `RSA PRIVATE KEY`, `EC PRIVATE KEY`, `DSA PRIVATE KEY` or `OPENSSH PRIVATE KEY`, to the `END` marker with the same label, or to the end of the input if there is none | Every base64 byte between the markers (`A-Z a-z 0-9 + / =`), except the `n`, `r` or `t` of an escape after a backslash |
 //! | [`Detector::BearerToken`] | `Bearer`, any case, at a word boundary, then spaces or tabs and a token of at least 16 of `A-Z a-z 0-9 - . _ ~ + /`, running on over those and `=` (its padding, and anything after it in the same run) | The token |
 //! | [`Detector::CredentialAssignment`] | A key ending, in any case, with one of [`CREDENTIAL_KEYS`] (its words joined by `_`, `-` or nothing), an optional closing quote, then `=`, `:`, `:=` or `=>`, then a value | The value: inside its quotes when quoted; a bare value only in a language whose bare values are literals ([`BARE_VALUE_LANGUAGES`]) |
-//! | [`Detector::UriPassword`] | `scheme://user:password@` | The password |
+//! | [`Detector::UriPassword`] | `scheme://user:password@`: the scheme a letter, then letters, digits, `+`, `-` and `.`, starting at the start of the input or after a byte no scheme holds (`_` included); or, before `://`, a bearer token as [`Detector::BearerToken`] finds one, which masking makes a scheme | The password |
 //! | [`Detector::CloudAccessKeyId`] | `AKIA` or `ASIA` and 16 of `A-Z 0-9`, at word boundaries | All 20 bytes |
 //!
 //! A value that is wholly a placeholder (`${NAME}`, `$NAME`, `{{ … }}`) is a reference
 //! to a secret, not one, and is left as it is: configuration resolution reads it.
 //! Ranges found by different detectors may overlap; they are merged before masking,
 //! so the result does not depend on the order the detectors run in.
+//!
+//! Every detector reads the original bytes, once; masking happens once, after. Masked
+//! output is never read again: normalising it changes nothing because no detector can
+//! find in it what it did not find in the source (issue 72), never because it is
+//! rescanned until it stops changing. A detector whose match one byte of another's
+//! mask could complete must find that match in the source itself.
 
 use std::collections::BTreeSet;
 use std::ops::Range;
@@ -122,7 +128,7 @@ impl Detector {
                 };
                 values(pattern, bytes, out);
             }
-            Self::UriPassword => values(&URI_PASSWORD, bytes, out),
+            Self::UriPassword => uri_passwords(bytes, out),
             Self::CloudAccessKeyId => groups(&ACCESS_KEY_ID, bytes, out),
         }
     }
@@ -174,6 +180,8 @@ static CREDENTIAL_KEY: LazyLock<Regex> = LazyLock::new(|| {
 /// many bytes were masked. The length never changes, and neither does any carriage
 /// return or line feed.
 pub fn normalise_in_place(bytes: &mut [u8], language: &str) -> usize {
+    // The detectors inspect these original bytes once; their ranges are merged before
+    // any byte is changed. Never mask and detect again (issue 72).
     let ranges = secret_ranges(bytes, language);
     mask(bytes, &ranges)
 }
@@ -220,20 +228,35 @@ static PRIVATE_KEY_BEGIN: LazyLock<Regex> = LazyLock::new(|| {
     regex(&format!("(?-u)-----BEGIN ({})-----", labels.join("|")))
 });
 
-/// `Bearer` and its token, group 1. The token runs on over `=` and what follows it in
-/// the same run, so padding never ends a match early: masking turns `=` into a token
-/// byte, and a token that stopped there would grow on a second pass (issue 44).
-static BEARER: LazyLock<Regex> = LazyLock::new(|| {
-    regex(r"(?-u)(?i)\bbearer[ \t]+([A-Za-z0-9\-._~+/]{16,}[A-Za-z0-9\-._~+/=]*)")
-});
+/// A bearer token: at least 16 token bytes, then any run of token bytes and `=`. It runs
+/// on over `=` and what follows it in the same run, so padding never ends a match
+/// early: masking turns `=` into a token byte, and a token that stopped there would
+/// grow on a second pass (issue 44).
+const BEARER_TOKEN: &str = r"[A-Za-z0-9\-._~+/]{16,}[A-Za-z0-9\-._~+/=]*";
+
+/// `Bearer` and its token, group 1.
+static BEARER: LazyLock<Regex> =
+    LazyLock::new(|| regex(&format!(r"(?-u)(?i)\bbearer[ \t]+({BEARER_TOKEN})")));
 
 /// An access key identifier, group 1.
 static ACCESS_KEY_ID: LazyLock<Regex> =
     LazyLock::new(|| regex(r"(?-u)\b((?:AKIA|ASIA)[A-Z0-9]{16})\b"));
 
-/// A password in a URI's user information, group 1.
-static URI_PASSWORD: LazyLock<Regex> =
-    LazyLock::new(|| regex(r#"(?-u)(?i)\b[a-z][a-z0-9+.\-]*://[^\s/?#@"'<>:]*:([^\s/?#@"'<>]+)@"#));
+/// A password in a URI's user information, group 1 (issue 72). What stands before `://`
+/// is either
+///
+/// - a scheme, as URI grammar has it (a letter, then letters, digits, `+`, `-` and
+///   `.`), starting at the start of the input or right after a byte no scheme can
+///   hold; never at a regex word boundary, which refuses a scheme after `_`. The byte
+///   before the scheme is matched, never captured; or
+/// - a bearer token, [`BEARER`]'s exactly: masked, it is a run of [`MASK`], itself a
+///   scheme, so a password after it must be found now, on the original bytes, or a
+///   second pass would find it.
+static URI_PASSWORD: LazyLock<Regex> = LazyLock::new(|| {
+    regex(&format!(
+        r#"(?-u)(?:(?:\A|[^A-Za-z0-9+.\-])[A-Za-z][A-Za-z0-9+.\-]*|(?i:\bbearer)[ \t]+{BEARER_TOKEN})://[^\s/?#@"'<>:]*:([^\s/?#@"'<>]+)@"#
+    ))
+});
 
 /// A credential key, an optional closing quote and a separator. A key's words may be
 /// joined by `_`, `-` or nothing, so `access_key` is also `access-key`, `accesskey`
@@ -293,6 +316,22 @@ fn values(pattern: &Regex, bytes: &[u8], out: &mut Vec<Range<usize>>) {
         {
             out.push(m.range());
         }
+    }
+}
+
+/// The password of every URI with one, unless it is a placeholder.
+fn uri_passwords(bytes: &[u8], out: &mut Vec<Range<usize>>) {
+    let mut from = 0;
+    while let Some(caps) = URI_PASSWORD.captures_at(bytes, from) {
+        let whole = caps.get(0).expect("the whole match");
+        let password = caps.get(1).expect("the password");
+        if !PLACEHOLDER.is_match(password.as_bytes()) {
+            out.push(password.range());
+        }
+        // A match ends with its `@`, a byte no scheme holds, so a scheme may start
+        // right after it: the next search starts on it, where the pattern can read it
+        // as the byte before a scheme.
+        from = whole.end() - 1;
     }
 }
 

@@ -717,16 +717,20 @@ fn cache_object_id_fixed_vector() {
         "the vector below is engine 3's and matrix 2's"
     );
     assert_eq!(
-        SECRET_DETECTOR_VERSION, 2,
-        "the vector below is detector 2's, through the policy digest"
+        SECRET_DETECTOR_VERSION, 3,
+        "the vector below is detector 3's, through the policy digest"
     );
+    // Over "pdx-extract-cache" 0x00, u32 BE 5, 3 and 2, the policy digest
+    // de4ad6db…7776 of {"detector_version":3,"patterns":["*.key","*.pem","*id_rsa*",
+    // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Detector
+    // 2's was 6ff3be1c…d177: the policy moved, so every key did, and the format did not.
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "6ff3be1cc5bd32cd0a68c2f69bfda4c4b247f85746c8abf5e4a3ac46168ed177"
+        "c1c95f71c9f8f53e2aa52ddd6fde0338880765b5e111e4b219d59af1e43b8e28"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v5").join("6f").join(&id));
+    assert_eq!(path, Path::new("cache").join("v5").join("c1").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();

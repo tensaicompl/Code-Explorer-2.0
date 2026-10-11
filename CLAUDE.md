@@ -96,7 +96,11 @@ secret values in the same buffer and gives the engine only the normalised bytes:
 original bytes never reach the engine, the cache, an error or a log, and a redacted
 file is never opened. Masking preserves length and never touches CR or LF (issue 37);
 a change to what the detectors match bumps `SECRET_DETECTOR_VERSION` (2 since a
-bearer token runs on over its `=` padding, issue 44). The extraction cache key is
+bearer token runs on over its `=` padding, issue 44; 3 since a URI scheme starts
+where URI grammar says, not at a regex word boundary, and a bearer token before `://`
+counts as a scheme, issue 72). Detectors read the original bytes once and their
+ranges are masked once: idempotence must come from detection, never from rescanning
+masked output. The extraction cache key is
 `(engine_version, language_matrix_version, secret_policy_digest, language_id,
 rel_path, blob_sha)`; only clean extractions (not truncated, no
 `extraction_lost`) are cached; with any `pdx_engine::EXTRACTION_SWITCHES` variable set

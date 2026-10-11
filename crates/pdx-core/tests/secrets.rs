@@ -90,21 +90,22 @@ fn digest_of(config: &str) -> SecretPolicyDigest {
 
 #[test]
 fn secret_policy_digest_fixed_vector() {
-    // sha256 of the canonical form, computed independently:
-    //   {"detector_version":2,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
-    assert_eq!(SECRET_DETECTOR_VERSION, 2);
+    // sha256 of the canonical form, computed independently (Python `hashlib`, which
+    // first reproduced detector 2's values below):
+    //   {"detector_version":3,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
+    assert_eq!(SECRET_DETECTOR_VERSION, 3);
     let default = SecretPolicyDigest::of(&PdxConfig::default().secrets);
     assert_eq!(
         default.to_string(),
-        "2d31e6c1829c821c29d11db44835995830ea3df0819a22b3736ffbf071ef07e8"
+        "de4ad6db03d6d5ed4acb6db7119afc5cc7f54db7e434df08f0ab5f26fe487776"
     );
     // A repository adding patterns: the effective set is the default and its own,
-    //   {"detector_version":2,"patterns":["*.key","*.p12","*.pem","*id_rsa*",".env*",
+    //   {"detector_version":3,"patterns":["*.key","*.p12","*.pem","*id_rsa*",".env*",
     //    "config/credentials.yml"]}
     let custom = digest_of("[secrets]\npatterns = [\"config/credentials.yml\", \"*.p12\"]\n");
     assert_eq!(
         custom.to_string(),
-        "76c75e1ce153c396e3333fc4c68564c250ab2d7be41777f67bf6aa4733726bf3"
+        "e4eeb594585a1f1b469d6c7deddf7316829a60afbf9eaa2811b35054773275d0"
     );
     // Order and repetition mean nothing, and a default restated changes nothing.
     assert_eq!(
@@ -118,19 +119,28 @@ fn secret_policy_digest_fixed_vector() {
 
 #[test]
 fn detector_version_enters_secret_policy_digest() {
-    // The same patterns under detector version 1, before issue 44, computed
-    // independently:
+    // The same patterns under the earlier detector versions, computed independently:
+    // version 1, before issue 44, and version 2, before issue 72:
     //   {"detector_version":1,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
+    //   {"detector_version":2,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
     let patterns = PdxConfig::default().secrets.patterns;
     let v1 = SecretPolicyDigest::for_policy(1, &patterns);
     let v2 = SecretPolicyDigest::for_policy(2, &patterns);
-    assert_eq!(v2, SecretPolicyDigest::of(&PdxConfig::default().secrets));
+    let v3 = SecretPolicyDigest::for_policy(3, &patterns);
+    assert_eq!(v3, SecretPolicyDigest::of(&PdxConfig::default().secrets));
     assert_eq!(
         v1.to_string(),
         "b9e1601f738d0ef897c6d316535f86fb31ecae8f6ab50676678a91209dd21b0c"
     );
+    assert_eq!(
+        v2.to_string(),
+        "2d31e6c1829c821c29d11db44835995830ea3df0819a22b3736ffbf071ef07e8"
+    );
+    // Every version its own policy: an extraction cached under detector 2 is a miss.
     assert_ne!(v1, v2);
-    // And no pattern at all is a policy too, distinct from both.
+    assert_ne!(v2, v3);
+    assert_ne!(v1, v3);
+    // And no pattern at all is a policy too, distinct from the default's.
     assert_ne!(SecretPolicyDigest::for_policy(1, &BTreeSet::new()), v1);
 }
 
@@ -297,6 +307,332 @@ fn uri_passwords_are_masked_and_the_rest_kept() {
     // No user information, nothing to mask.
     let plain = format!("url = \"{scheme}://db.internal:5432/app\"\n");
     assert_eq!(normalised(&plain, "python"), plain);
+    // A password that is wholly a placeholder is a reference, not a secret.
+    let reference = format!("url = \"{scheme}://svc_user:${{DB_PASSWORD}}@db.internal/app\"\n");
+    assert_eq!(normalised(&reference, "python"), reference);
+}
+
+/// The range of the one occurrence of `needle` in `haystack`.
+fn range_of(haystack: &str, needle: &str) -> std::ops::Range<usize> {
+    assert_eq!(
+        haystack.matches(needle).count(),
+        1,
+        "{needle} in {haystack}"
+    );
+    let start = haystack.find(needle).expect("present");
+    start..start + needle.len()
+}
+
+#[test]
+fn bearer_adjacent_uri_password_is_idempotent() {
+    // The minimal input of CI run 38098740924, attempt 1 (issue 72), as YAML:
+    // `Bearer <token>_mysql://u:<password>@h`. `_` is a bearer-token byte, so the token
+    // runs on over `_mysql`; `_` is no scheme byte, so `mysql` is a scheme. Under
+    // detector 2 the URI detector missed it (a word boundary is not where a scheme
+    // starts), and masking the token made `XXXX…://` a URI a second pass then found.
+    let token = format!("{}_mysql", bearer_token());
+    let password = value(22);
+    let source = format!("Authorization: Bearer {token}://u:{password}@h");
+    let bytes = source.as_bytes();
+
+    // Detection first: on the original bytes, each detector by itself finds its own.
+    assert_eq!(
+        secrets::secret_ranges_with(&[Detector::BearerToken], bytes, "yaml"),
+        vec![range_of(&source, &token)]
+    );
+    assert_eq!(
+        secrets::secret_ranges_with(&[Detector::UriPassword], bytes, "yaml"),
+        vec![range_of(&source, &password)]
+    );
+    assert_eq!(
+        secrets::secret_ranges(bytes, "yaml"),
+        vec![range_of(&source, &token), range_of(&source, &password)]
+    );
+
+    // One pass masks both secrets and keeps the scheme separator, the user, `:`, `@`
+    // and the host.
+    let once = normalised(&source, "yaml");
+    assert_eq!(
+        once,
+        format!(
+            "Authorization: Bearer {}://u:{}@h",
+            "X".repeat(token.len()),
+            "X".repeat(password.len())
+        )
+    );
+    assert!(!once.contains(&bearer_token()) && !once.contains(&password));
+    assert_lengths_and_line_endings_kept(bytes, once.as_bytes());
+    // A second pass changes nothing.
+    assert_eq!(normalised(&once, "yaml"), once);
+
+    // The same with a line ending after it, in every language the property uses.
+    for eol in ["\n", "\r\n", "\r"] {
+        for language in ["yaml", "python", "json", "properties"] {
+            let source = format!("{source}{eol}");
+            let once = normalised(&source, language);
+            assert_eq!(
+                once,
+                with_masked(&source, &[&token, &password]),
+                "{language} {eol:?}"
+            );
+            assert_lengths_and_line_endings_kept(source.as_bytes(), once.as_bytes());
+            assert_eq!(normalised(&once, language), once, "{language} {eol:?}");
+        }
+    }
+}
+
+#[test]
+fn uri_scheme_boundary_uses_scheme_grammar_not_word_boundary() {
+    let password = value(40);
+    // A scheme starts at the start of the input or right after any byte no scheme
+    // holds: `_` (a regex word byte, the case detector 2 missed), `~`, `/` and the
+    // rest. Schemes hold letters, then letters, digits, `+`, `-` and `.`.
+    for before in ["", " ", "_", "~", "/", "=", "\"", "'", "(", ":", "\t", "\n"] {
+        for scheme in [
+            "mysql", "postgres", "https", "foo+bar", "foo.bar", "foo-bar", "s3", "a1b2",
+        ] {
+            let source = format!("{before}{scheme}://u:{password}@h\n");
+            assert_eq!(
+                secrets::secret_ranges_with(&[Detector::UriPassword], source.as_bytes(), "yaml"),
+                vec![range_of(&source, &password)],
+                "{source:?}"
+            );
+            let once = normalised(&source, "python");
+            assert_eq!(once, with_masked(&source, &[&password]), "{source:?}");
+            assert_eq!(normalised(&once, "python"), once, "{source:?}");
+        }
+    }
+    // A scheme right after the `@` that ends another URI's match: the byte before it
+    // is no scheme byte, though the other match took it.
+    let (first, second) = (value(41), value(42));
+    let source = format!("a://u:{first}@b://u:{second}@h\n");
+    assert_eq!(
+        normalised(&source, "python"),
+        with_masked(&source, &[&first, &second])
+    );
+    // Not a URI password: no `://`, no `@`, no `:` between user and password, no
+    // scheme, or a scheme that would start with a digit, with no letter-led scheme
+    // before it.
+    for source in [
+        format!("mysql:/u:{password}@h\n"),
+        format!("mysql//u:{password}@h\n"),
+        format!("mysql://u:{password}\n"),
+        format!("mysql://u{password}@h\n"),
+        format!("://u:{password}@h\n"),
+        format!(" ://u:{password}@h\n"),
+        format!("9mysql://u:{password}@h\n"),
+        format!("1.mysql://u:{password}@h\n"),
+    ] {
+        assert_eq!(normalised(&source, "python"), source, "{source:?}");
+    }
+}
+
+/// A source in which two detectors' secrets meet: its language, the two detectors and
+/// the secrets planted in it.
+struct Meeting {
+    source: String,
+    language: &'static str,
+    detectors: [Detector; 2],
+    planted: Vec<String>,
+}
+
+/// Sources that put two detectors' secrets against each other.
+fn meetings() -> Vec<Meeting> {
+    use Detector::{BearerToken, CloudAccessKeyId, CredentialAssignment, UriPassword};
+    let (token, id, password) = (bearer_token(), access_key_id("ASIA"), value(50));
+    let digits = "0".repeat(16);
+    let meet = |source: String, language, detectors, planted: &[&str]| Meeting {
+        source,
+        language,
+        detectors,
+        planted: planted.iter().map(|s| (*s).to_owned()).collect(),
+    };
+    let bearer_uri = [BearerToken, UriPassword];
+    vec![
+        // A bearer token running into `://`: masked, the token is a scheme, so the
+        // password after it is found on the original bytes, whatever the token ends
+        // with (issue 72).
+        meet(
+            format!("Authorization: Bearer {token}_mysql://u:{password}@h\n"),
+            "yaml",
+            bearer_uri,
+            &[&token, &password],
+        ),
+        meet(
+            format!("Authorization: Bearer {token}_9mysql://u:{password}@h\n"),
+            "yaml",
+            bearer_uri,
+            &[&token, &password],
+        ),
+        meet(
+            format!("Authorization: Bearer {token}_-mysql://u:{password}@h\r\n"),
+            "json",
+            bearer_uri,
+            &[&token, &password],
+        ),
+        meet(
+            format!("Authorization: Bearer {token}_://u:{password}@h\n"),
+            "python",
+            bearer_uri,
+            &[&token, &password],
+        ),
+        meet(
+            format!("Authorization: Bearer {token}=://u:{password}@h\n"),
+            "properties",
+            bearer_uri,
+            &[&token, &password],
+        ),
+        meet(
+            format!("Authorization: bearer\t{token}~1mysql://u:{password}@h\n"),
+            "yaml",
+            bearer_uri,
+            &[&token, &password],
+        ),
+        meet(
+            format!("Authorization: Bearer {digits}://u:{password}@h\n"),
+            "yaml",
+            bearer_uri,
+            &[&digits, &password],
+        ),
+        // A credential assignment whose value is a bearer header.
+        meet(
+            format!("token: \"Bearer {token}\"\n"),
+            "yaml",
+            [CredentialAssignment, BearerToken],
+            &[&token],
+        ),
+        meet(
+            format!("auth_token=Bearer {token}\n"),
+            "properties",
+            [CredentialAssignment, BearerToken],
+            &[&token],
+        ),
+        // A credential assignment whose value is a URI with a password.
+        meet(
+            format!("password: mysql://u:{password}@h\n"),
+            "yaml",
+            [CredentialAssignment, UriPassword],
+            &[&password],
+        ),
+        meet(
+            format!("db_password = \"postgres://u:{password}@h/app\"\n"),
+            "python",
+            [CredentialAssignment, UriPassword],
+            &[&password],
+        ),
+        // An access key id as a URI's user, and as what stands before `://`.
+        meet(
+            format!("url: s3://{id}:{password}@bucket\n"),
+            "yaml",
+            [CloudAccessKeyId, UriPassword],
+            &[&id, &password],
+        ),
+        meet(
+            format!("{id}://u:{password}@h\n"),
+            "properties",
+            [CloudAccessKeyId, UriPassword],
+            &[&id, &password],
+        ),
+    ]
+}
+
+#[test]
+fn cross_detector_boundaries_are_idempotent() {
+    // Each source puts two detectors' secrets against each other; every planted secret
+    // must be gone after one pass, which a second pass then leaves alone.
+    for Meeting {
+        source,
+        language,
+        detectors,
+        planted,
+    } in &meetings()
+    {
+        let language = *language;
+        let bytes = source.as_bytes();
+        for detector in detectors {
+            assert!(
+                !secrets::secret_ranges_with(&[*detector], bytes, language).is_empty(),
+                "{detector:?} finds nothing in {source:?}"
+            );
+        }
+        // The merged ranges are the same in every order of the five detectors.
+        let expected = secrets::secret_ranges(bytes, language);
+        let mut order = Detector::ALL.to_vec();
+        permute(&mut order, 0, &mut |order| {
+            assert_eq!(
+                secrets::secret_ranges_with(order, bytes, language),
+                expected,
+                "{order:?} {source:?}"
+            );
+        });
+        let once = normalised(source, language);
+        for secret in planted {
+            assert!(!once.contains(secret), "{secret} survived in {once:?}");
+        }
+        assert_lengths_and_line_endings_kept(bytes, once.as_bytes());
+        assert_eq!(normalised(&once, language), once, "{source:?}");
+    }
+    // The bearer clause is the bearer detector's shape exactly: no bearer token (too
+    // short, or `bearer` inside a word), no clause, and nothing changes on either pass.
+    let (token, password) = (bearer_token(), value(50));
+    for source in [
+        format!("Authorization: Bearer short_9mysql://u:{password}@h\n"),
+        format!("xBearer {token}_9mysql://u:{password}@h\n"),
+    ] {
+        assert_eq!(normalised(&source, "yaml"), source, "{source:?}");
+    }
+}
+
+#[test]
+fn uri_boundary_change_leaves_ordinary_sources_alone() {
+    // Detector 2's URI pattern, kept here to compare: where a scheme starts at a word
+    // boundary that is also a scheme boundary, detector 3 finds exactly what it found.
+    let detector_2 = regex::bytes::Regex::new(
+        r#"(?-u)(?i)\b[a-z][a-z0-9+.\-]*://[^\s/?#@"'<>:]*:([^\s/?#@"'<>]+)@"#,
+    )
+    .expect("a pattern");
+    let old = |bytes: &[u8]| -> Vec<std::ops::Range<usize>> {
+        detector_2
+            .captures_iter(bytes)
+            .filter_map(|c| c.get(1).map(|m| m.range()))
+            .collect()
+    };
+    let p = value(60);
+    // The web schemes assembled at run time, as the provenance scan requires.
+    let (web, plain) = (["ht", "tps"].concat(), ["ht", "tp"].concat());
+    let ordinary = [
+        format!("url = \"postgres://svc_user:{p}@db.internal:5432/app\"\n"),
+        format!("DATABASE_URL=mysql://root:{p}@localhost/db\n"),
+        format!("{{\"dsn\": \"redis://:{p}@cache:6379/0\"}}\n"),
+        format!("jdbc:mysql://app:{p}@db/x\n"),
+        format!("git+ssh://deploy:{p}@git.example/repo.git\n"),
+        format!("see {web}://user:{p}@git.example/a and ftp://u:{p}@files\n"),
+        format!("(amqp://guest:{p}@broker)\n"),
+        format!("mongodb+srv://u:{p}@cluster/db?retryWrites=true\n"),
+        format!("a://u:{p}@b://u:{p}@h\n"),
+        format!("{plain}://git.example/path\n"),
+    ];
+    for source in &ordinary {
+        assert_eq!(
+            secrets::secret_ranges_with(&[Detector::UriPassword], source.as_bytes(), "yaml"),
+            old(source.as_bytes()),
+            "{source:?}"
+        );
+    }
+    // And over the sanitizer corpus, every file of every language.
+    let corpus = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bench/corpus");
+    let mut files = 0;
+    for language in std::fs::read_dir(&corpus).expect("the corpus") {
+        for file in std::fs::read_dir(language.expect("an entry").path()).expect("a language") {
+            let bytes = std::fs::read(file.expect("an entry").path()).expect("a file");
+            assert_eq!(
+                secrets::secret_ranges_with(&[Detector::UriPassword], &bytes, "yaml"),
+                old(&bytes)
+            );
+            files += 1;
+        }
+    }
+    assert!(files > 50, "{files} corpus files");
 }
 
 #[test]
@@ -357,9 +693,18 @@ fn secret_detector_overlap_is_order_independent() {
         a.iter()
             .any(|x| b.iter().any(|y| x.start < y.end && y.start < x.end))
     };
-    let (assignment, bearer, uri, cloud) = (&single[2], &single[1], &single[3], &single[4]);
+    // Each detector by name, never by its place in `Detector::ALL`.
+    let by = |d: Detector| secrets::secret_ranges_with(&[d], &source, "python");
+    let (assignment, bearer, uri, cloud) = (
+        by(Detector::CredentialAssignment),
+        by(Detector::BearerToken),
+        by(Detector::UriPassword),
+        by(Detector::CloudAccessKeyId),
+    );
     assert!(
-        overlapping(assignment, bearer) && overlapping(bearer, cloud) && overlapping(uri, cloud)
+        overlapping(&assignment, &bearer)
+            && overlapping(&bearer, &cloud)
+            && overlapping(&uri, &cloud)
     );
 
     let expected = secrets::secret_ranges(&source, "python");
@@ -403,10 +748,18 @@ fn permute(items: &mut Vec<Detector>, k: usize, visit: &mut dyn FnMut(&[Detector
     }
 }
 
+/// Bytes a bearer token may hold, every one of its punctuation bytes among them: `_`,
+/// `~`, `/` and `=` hold no scheme, digits and `+ - .` start none.
+const TOKEN_BYTES: &[u8] = b"aZ09-._~+/=";
+
 /// Source made of pieces, some of them secrets, joined by line endings of either kind.
+/// Short runs of bearer-token bytes and a URI without a scheme let a secret's piece run
+/// into another's, as issue 72's did.
 fn pieces() -> impl Strategy<Value = Vec<u8>> {
     let piece = prop_oneof![
         proptest::collection::vec(any::<u8>(), 0..24),
+        proptest::collection::vec(prop::sample::select(TOKEN_BYTES.to_vec()), 1..4),
+        Just(format!("://u:{}@h", value(23)).into_bytes()),
         Just(format!("password: \"{}\"", value(20)).into_bytes()),
         Just(format!("{}: {}", CREDENTIAL_KEYS[13], value(21)).into_bytes()),
         Just(format!("Authorization: Bearer {}", bearer_token()).into_bytes()),
