@@ -33,7 +33,7 @@ use crate::index::extract::{
 };
 use crate::resolve::registry::{RegistryError, SymbolRegistry};
 use crate::resolve::stages::{ResolutionError, resolve};
-use crate::segment::{SegmentError, SegmentMeta, SegmentProfile, SegmentWriter};
+use crate::segment::{RepoIdSource, SegmentError, SegmentMeta, SegmentProfile, SegmentWriter};
 
 pub use report::{
     DegradedReason, DeriveSummary, FileCounts, ResolutionSummary, RowCounts, SegmentReport,
@@ -95,8 +95,12 @@ pub enum Progress {
 pub struct IndexRequest<'a> {
     /// The checkout.
     pub root: &'a Path,
-    /// The repository's registered identity.
+    /// The repository's identity (`meta.repo_id`): the server's registered one, or
+    /// one derived from `repo_url`, as `repo_id_source` says.
     pub repo_id: RepoId,
+    /// Where `repo_id` came from (`meta.repo_id_source`): with
+    /// [`RepoIdSource::Url`], `repo_id` must be `repo_id_from_url(repo_url)`.
+    pub repo_id_source: RepoIdSource,
     /// The repository's URL (`meta.repo_url`).
     pub repo_url: String,
     /// The repository's name, shown on its node; no part of any identity.
@@ -163,6 +167,7 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
     let IndexRequest {
         root,
         repo_id,
+        repo_id_source,
         repo_url,
         repo_name,
         commit_sha,
@@ -180,6 +185,7 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
     let report = Reporter(progress);
     let meta = SegmentMeta::new(
         repo_id.clone(),
+        repo_id_source,
         &repo_url,
         &commit_sha,
         SegmentProfile::Structural,

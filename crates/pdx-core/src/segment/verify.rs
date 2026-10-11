@@ -6,12 +6,12 @@
 use rusqlite::Connection;
 
 use super::queries;
-use super::{PreciseSource, SegmentError, SegmentMeta, SegmentProfile};
+use super::{PreciseSource, RepoIdSource, SegmentError, SegmentMeta, SegmentProfile};
 use crate::consts::SEGMENT_SCHEMA_VERSION;
-use crate::ids::RepoId;
+use crate::ids::{RepoId, repo_id_from_url};
 
 /// Every meta key a segment has, sorted: the order the writer stores them in.
-pub(crate) const META_KEYS: [&str; 9] = [
+pub(crate) const META_KEYS: [&str; 10] = [
     "commit_sha",
     "engine_version",
     "language_matrix_version",
@@ -19,6 +19,7 @@ pub(crate) const META_KEYS: [&str; 9] = [
     "precise_sources",
     "profile",
     "repo_id",
+    "repo_id_source",
     "repo_url",
     "schema_version",
 ];
@@ -31,7 +32,8 @@ const FOREIGN_KEY_CHECK: &str = "PRAGMA foreign_key_check";
 /// # Errors
 ///
 /// [`SegmentError::InvalidRow`] if the meta cannot be stored: another schema version,
-/// precise sources on a structural segment, or a malformed commit.
+/// precise sources on a structural segment, a malformed commit, or a URL-sourced
+/// `repo_id` that is not the URL's.
 pub(crate) fn meta_rows(meta: &SegmentMeta) -> Result<Vec<(&'static str, String)>, SegmentError> {
     let invalid = |reason: String| SegmentError::InvalidRow {
         table: "meta",
@@ -49,7 +51,7 @@ pub(crate) fn meta_rows(meta: &SegmentMeta) -> Result<Vec<(&'static str, String)
         meta.profile,
         &sources,
         &meta.commit_sha,
-        &meta.repo_url,
+        (&meta.repo_id, meta.repo_id_source, &meta.repo_url),
         &meta.pdx_version,
     )
     .map_err(|(_, reason)| invalid(reason))?;
@@ -65,6 +67,7 @@ pub(crate) fn meta_rows(meta: &SegmentMeta) -> Result<Vec<(&'static str, String)
         ("precise_sources", sources),
         ("profile", meta.profile.as_str().to_owned()),
         ("repo_id", meta.repo_id.as_str().to_owned()),
+        ("repo_id_source", meta.repo_id_source.as_str().to_owned()),
         ("repo_url", meta.repo_url.clone()),
         ("schema_version", meta.schema_version.to_string()),
     ];
@@ -73,13 +76,15 @@ pub(crate) fn meta_rows(meta: &SegmentMeta) -> Result<Vec<(&'static str, String)
 }
 
 /// What every meta value must be beyond its own syntax; `Err((key, reason))`.
+/// `repository` is `(repo_id, repo_id_source, repo_url)`.
 fn check_meta_fields(
     profile: SegmentProfile,
     sorted_sources: &[PreciseSource],
     commit_sha: &str,
-    repo_url: &str,
+    repository: (&RepoId, RepoIdSource, &str),
     pdx_version: &str,
 ) -> Result<(), (&'static str, String)> {
+    let (repo_id, repo_id_source, repo_url) = repository;
     if profile == SegmentProfile::Structural && !sorted_sources.is_empty() {
         return Err((
             "precise_sources",
@@ -103,6 +108,19 @@ fn check_meta_fields(
     }
     if repo_url.is_empty() {
         return Err(("repo_url", "empty".to_owned()));
+    }
+    // A URL-sourced identity is the URL's and nothing else; a registered one is the
+    // server's and is never derived, so it is not compared with the URL.
+    if repo_id_source == RepoIdSource::Url
+        && repo_id_from_url(repo_url).ok().as_ref() != Some(repo_id)
+    {
+        return Err((
+            "repo_id",
+            format!(
+                "a repo_id_source of `url` needs repo_id to be derived from repo_url, \
+                 and {repo_id} is not"
+            ),
+        ));
     }
     if pdx_version.is_empty() {
         return Err(("pdx_version", "empty".to_owned()));
@@ -166,6 +184,14 @@ pub(crate) fn read_meta(conn: &Connection) -> Result<SegmentMeta, SegmentError> 
     let repo_id_text = value("repo_id")?;
     let repo_id = RepoId::parse(repo_id_text)
         .map_err(|e| malformed("repo_id", repo_id_text, e.to_string()))?;
+    let id_source_text = value("repo_id_source")?;
+    let repo_id_source = RepoIdSource::parse(id_source_text).ok_or_else(|| {
+        malformed(
+            "repo_id_source",
+            id_source_text,
+            "neither `url` nor `registered`".to_owned(),
+        )
+    })?;
     let profile_text = value("profile")?;
     let profile = SegmentProfile::parse(profile_text)
         .ok_or_else(|| malformed("profile", profile_text, "not a profile".to_owned()))?;
@@ -182,6 +208,7 @@ pub(crate) fn read_meta(conn: &Connection) -> Result<SegmentMeta, SegmentError> 
     let meta = SegmentMeta {
         schema_version,
         repo_id,
+        repo_id_source,
         repo_url: value("repo_url")?.to_owned(),
         commit_sha: value("commit_sha")?.to_owned(),
         profile,
@@ -197,7 +224,7 @@ pub(crate) fn read_meta(conn: &Connection) -> Result<SegmentMeta, SegmentError> 
         meta.profile,
         &meta.precise_sources,
         &meta.commit_sha,
-        &meta.repo_url,
+        (&meta.repo_id, meta.repo_id_source, &meta.repo_url),
         &meta.pdx_version,
     )
     .map_err(|(key, reason)| {

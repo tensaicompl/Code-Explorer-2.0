@@ -58,6 +58,9 @@ pub struct IndexReport {
 pub struct RepositoryReport {
     /// Its identity.
     pub repo_id: String,
+    /// Where the identity came from: `url` (derived from the clone URL) or
+    /// `registered` (a server's), as the segment records it.
+    pub repo_id_source: &'static str,
     /// Its canonical clone URL.
     pub repo_url: String,
     /// Its name.
@@ -227,6 +230,7 @@ impl IndexReport {
             profile: report.meta.profile.as_str(),
             repository: RepositoryReport {
                 repo_id: report.meta.repo_id.as_str().to_owned(),
+                repo_id_source: report.meta.repo_id_source.as_str(),
                 repo_url: report.meta.repo_url.clone(),
                 name: identity.name.clone(),
                 commit_sha: report.meta.commit_sha.clone(),
@@ -383,6 +387,8 @@ pub fn index_text(report: &IndexReport) -> String {
 pub struct CoverageReport {
     /// The segment's repository.
     pub repo_id: String,
+    /// Where the identity came from, as the segment records it.
+    pub repo_id_source: &'static str,
     /// Its canonical clone URL.
     pub repo_url: String,
     /// The commit it is of.
@@ -398,6 +404,7 @@ impl CoverageReport {
     pub fn new(meta: &SegmentMeta, coverage: Vec<Coverage>) -> Self {
         Self {
             repo_id: meta.repo_id.as_str().to_owned(),
+            repo_id_source: meta.repo_id_source.as_str(),
             repo_url: meta.repo_url.clone(),
             commit_sha: meta.commit_sha.clone(),
             profile: meta.profile.as_str(),
@@ -513,7 +520,7 @@ mod tests {
 
     #[test]
     fn the_version_names_the_four_versions() {
-        assert_eq!(version_text(), "pdx 0.1.0\nengine 3\nschema 2\nmatrix 2\n");
+        assert_eq!(version_text(), "pdx 0.1.0\nengine 3\nschema 3\nmatrix 2\n");
     }
 
     #[test]

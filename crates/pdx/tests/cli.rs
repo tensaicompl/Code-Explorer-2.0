@@ -177,6 +177,8 @@ fn cli_index_fixture() {
     // The segment is the repository's, where the report says.
     assert!(world.segment().is_file());
     assert_eq!(report["segment"]["output"], ".pdx/segment.db");
+    // The identity is the URL's, and the report says so (issue 71).
+    assert_eq!(report["repository"]["repo_id_source"], "url");
     insta::assert_snapshot!("cli_index_fixture", text);
 }
 
@@ -636,7 +638,7 @@ fn cli_version_prints_four_versions() {
     let output = world.pdx_in(world.elsewhere.path(), &["version"], &[]);
     assert_eq!(code(&output), 0);
     // Written out here, not taken from the code under test.
-    assert_eq!(stdout(&output), "pdx 0.1.0\nengine 3\nschema 2\nmatrix 2\n");
+    assert_eq!(stdout(&output), "pdx 0.1.0\nengine 3\nschema 3\nmatrix 2\n");
     assert_eq!(stderr(&output), "");
 }
 
@@ -678,6 +680,12 @@ fn cli_coverage_reads_the_repository_segment() {
     let coverage = json(&output);
     assert_eq!(coverage["coverage"], report["coverage"]);
     assert_eq!(coverage["repo_id"], report["repository"]["repo_id"]);
+    // The source the segment recorded, read back: the index report's, and `url`.
+    assert_eq!(
+        coverage["repo_id_source"],
+        report["repository"]["repo_id_source"]
+    );
+    assert_eq!(coverage["repo_id_source"], "url");
     assert_eq!(coverage["commit_sha"], report["repository"]["commit_sha"]);
     assert_eq!(coverage["profile"], "structural");
     for row in coverage["coverage"].as_array().expect("rows") {

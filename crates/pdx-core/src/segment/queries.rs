@@ -212,6 +212,8 @@ pub mod testing {
     pub const SET_CANDIDATE_BAND: &str = "UPDATE candidates SET band = ?2 WHERE site_id = ?1";
     /// Sets a coverage row's band counts.
     pub const SET_COVERAGE_BANDS: &str = "UPDATE coverage SET by_band = ?2 WHERE language = ?1";
+    /// Every meta row, by key.
+    pub const META_ROWS: &str = "SELECT key, value FROM meta ORDER BY key";
     /// Every schema object: its type and name, by name.
     pub const SCHEMA_OBJECTS: &str =
         "SELECT type, name FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY name";

@@ -156,8 +156,12 @@ and the segment writer refuse one without (`EdgeKind::requires_site`). An entry 
 is Appendix B.2's, decided here (tests, route handlers, each language's conventional
 `main`, the framework bootstraps); the engine's own flag is `props.engine_entry_point`
 and never makes one (issue 55). Segments are
-`SEGMENT_SCHEMA_VERSION` 2 (`candidates.engine_candidates`, nullable `blob_sha` and
-`line_count` for files never read; issues 50 and 51). The golden fixtures are `insta`
+`SEGMENT_SCHEMA_VERSION` 3: version 2 added `candidates.engine_candidates` and nullable
+`blob_sha` and `line_count` for files never read (issues 50 and 51); version 3 added the
+required meta key `repo_id_source`, exactly `url` or `registered` (issue 71, decision
+40). With `url`, the writer and reader refuse a `repo_id` that is not
+`repo_id_from_url(repo_url)`; a `registered` id is never compared with the URL. Older
+segments are refused and re-indexed, never migrated. The golden fixtures are `insta`
 snapshots in `crates/pdx-core/tests/snapshots/`: review a changed one, never accept it
 blind.
 
@@ -205,8 +209,10 @@ Layer roles and metrics (P2-09) are Stage 4's last parts, after contracts.
     walk; recursive symbols get `props.recursive = true`.
   - Fans count drawn `CALLS` weights only.
   - `importance` takes unknown visibility as 0.6. The engine's visibility is
-    evidence only in Go and Python, so `props.visibility` is stored only there
-    (issue 68).
+    evidence only in Go and Python, so `props.visibility` is stored only there.
+    This is ratified as PDX 2.0's behaviour (issue 68, decision 41, option B): no
+    engine change, and the limitation is on the trust page (4.13.2). Visibility in
+    another language is an SCR with engine, cache, protocol and surface moves.
   - A static test keeps both modules free of fs, net, process, env, clock and
     randomness.
 
@@ -253,7 +259,9 @@ paths), `report` (JSON and text reports, progress).
 - **Identity** comes from origin's HTTPS URL via `canonical_clone_url` and
   `repo_id_from_url` (decision 36). SSH and other remotes are refused, never guessed
   or echoed. `pdx.toml [server]` refuses (P4-06 owns registered ids). The name comes
-  from the URL, never the checkout directory. `repo_id_source` is SCR 71: no meta key.
+  from the URL, never the checkout directory. The segment records
+  `repo_id_source = url` (`IndexRequest::repo_id_source`, decision 40), and both JSON
+  reports carry it; `registered` is P4-06's, and there is no switch for it.
 - **Git** is run as `git -C <path> …`: no shell, GIT_DIR and the other routing
   variables cleared, no prompt, bounded stdout, stderr never shown.
 - **Limits** (decision 37): workers are the min of `available_parallelism`, the

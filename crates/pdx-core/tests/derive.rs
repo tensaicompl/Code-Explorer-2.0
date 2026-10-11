@@ -1954,13 +1954,14 @@ fn derive_is_invariant_to_input_order() {
 #[test]
 fn derived_graph_writes_a_segment() {
     use pdx_core::segment::{
-        SegmentData, SegmentMeta, SegmentProfile, SegmentReader, SegmentWriter,
+        RepoIdSource, SegmentData, SegmentMeta, SegmentProfile, SegmentReader, SegmentWriter,
     };
     let checkout = Checkout::new(&everything());
     let run = run(&checkout);
     let g = &run.graph;
     let mut data = SegmentData::new(SegmentMeta::new(
         repo(),
+        RepoIdSource::Url,
         "https://github.com/tensaicompl/Code-Explorer-2.0",
         "0123456789abcdef0123456789abcdef01234567",
         SegmentProfile::Structural,

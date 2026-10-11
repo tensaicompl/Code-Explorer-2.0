@@ -14,8 +14,8 @@ use pdx_core::model::{
 };
 use pdx_core::segment::queries::testing;
 use pdx_core::segment::{
-    PreciseSource, SegmentData, SegmentError, SegmentMeta, SegmentProfile, SegmentReader,
-    SegmentWriter, WrittenSegment,
+    PreciseSource, RepoIdSource, SegmentData, SegmentError, SegmentMeta, SegmentProfile,
+    SegmentReader, SegmentWriter, WrittenSegment,
 };
 use serde_json::json;
 use sha2::{Digest, Sha256};
@@ -103,6 +103,7 @@ fn props(pairs: &[(&str, serde_json::Value)]) -> Props {
 fn fixture() -> SegmentData {
     let meta = SegmentMeta::new(
         repo(),
+        RepoIdSource::Url,
         "https://github.com/tensaicompl/Code-Explorer-2.0",
         COMMIT,
         SegmentProfile::Precise,
@@ -753,16 +754,17 @@ fn segment_is_byte_identical_across_builds() {
 fn reader_refuses_wrong_schema_version() {
     let scratch = Scratch::new();
     let segment = write(&fixture(), &scratch, "versions");
-    // A version-1 segment (before `candidates.engine_candidates`, issue 50) is
-    // refused, never read as the current version; so is a later one.
-    for (name, found) in [("v1.db", 1), ("v3.db", 3)] {
+    // An earlier segment (version 1, before `candidates.engine_candidates`, issue 50;
+    // version 2, before `repo_id_source`, issue 71) is refused, never read as the
+    // current version; so is a later one.
+    for (name, found) in [("v1.db", 1), ("v2.db", 2), ("v4.db", 4)] {
         let (damaged, conn) = damaged_copy(&segment, &scratch, name);
         conn.execute(testing::SET_META, ["schema_version", &found.to_string()])
             .expect("damaged");
         drop(conn);
         match SegmentReader::open(&damaged) {
             Err(SegmentError::WrongSchemaVersion {
-                expected: 2,
+                expected: 3,
                 found: f,
             }) if f == found => {}
             other => panic!("expected a wrong-schema refusal of {found}, got {other:?}"),
@@ -772,7 +774,7 @@ fn reader_refuses_wrong_schema_version() {
             .expect_err("refused")
             .to_string();
         assert!(
-            message.contains('2') && message.contains(&found.to_string()),
+            message.contains('3') && message.contains(&found.to_string()),
             "{message}"
         );
     }
@@ -897,6 +899,7 @@ fn equal_scores_are_ordered_by_node_id() {
     let scratch = Scratch::new();
     let mut data = SegmentData::new(SegmentMeta::new(
         repo(),
+        RepoIdSource::Url,
         "https://github.com/tensaicompl/Code-Explorer-2.0",
         COMMIT,
         SegmentProfile::Structural,
@@ -1214,6 +1217,307 @@ fn reader_refuses_malformed_meta() {
         SegmentReader::open(&copy),
         Err(SegmentError::MalformedMeta { .. })
     ));
+}
+
+// --- repository identity provenance (issue 71) -------------------------------------
+
+/// The meta table's rows, by key, as stored.
+fn meta_rows(path: &Path) -> Vec<(String, String)> {
+    let conn =
+        rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)
+            .expect("a connection");
+    let mut statement = conn.prepare(testing::META_ROWS).expect("a statement");
+    statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .expect("rows")
+        .collect::<Result<_, _>>()
+        .expect("rows")
+}
+
+/// The URL `repo()` is derived from, and one it is not.
+const OWN_URL: &str = "https://github.com/tensaicompl/Code-Explorer-2.0";
+const OTHER_URL: &str = "https://git.example/acme/shop";
+
+/// The fixture with this identity source and URL; `repo()` is the id either way.
+fn with_identity(source: RepoIdSource, url: &str) -> SegmentData {
+    let mut data = fixture();
+    data.meta.repo_id_source = source;
+    url.clone_into(&mut data.meta.repo_url);
+    data
+}
+
+#[test]
+fn repo_id_source_vocabulary_is_closed() {
+    assert_eq!(
+        RepoIdSource::ALL,
+        [RepoIdSource::Url, RepoIdSource::Registered]
+    );
+    assert_eq!(RepoIdSource::Url.as_str(), "url");
+    assert_eq!(RepoIdSource::Registered.as_str(), "registered");
+    for source in RepoIdSource::ALL {
+        assert_eq!(RepoIdSource::parse(source.as_str()), Some(*source));
+    }
+    for alias in [
+        "URL",
+        "Url",
+        "registered ",
+        "server",
+        "derived",
+        "mystery",
+        "",
+    ] {
+        assert_eq!(RepoIdSource::parse(alias), None, "{alias:?}");
+    }
+    // The fixture's id is its URL's: the fixtures that say `url` are telling the truth.
+    assert_eq!(ids::repo_id_from_url(OWN_URL).expect("an id"), repo());
+    assert_ne!(ids::repo_id_from_url(OTHER_URL).expect("an id"), repo());
+}
+
+#[test]
+fn segment_meta_round_trips_repo_id_source() {
+    let scratch = Scratch::new();
+    for (name, source, stored) in [
+        ("url", RepoIdSource::Url, "url"),
+        ("registered", RepoIdSource::Registered, "registered"),
+    ] {
+        let data = with_identity(source, OWN_URL);
+        let segment = write(&data, &scratch, name);
+        let reader = SegmentReader::open(&segment.path).expect("the segment opens");
+        assert_eq!(reader.meta().repo_id_source, source);
+        assert_eq!(reader.meta().repo_id, repo());
+        let rows = meta_rows(&segment.path);
+        assert!(
+            rows.contains(&("repo_id_source".to_owned(), stored.to_owned())),
+            "{rows:?}"
+        );
+    }
+}
+
+#[test]
+fn url_repo_id_source_must_match_repo_url() {
+    let scratch = Scratch::new();
+    // The writer: a `url` identity that is not the URL's is refused, before anything
+    // is written; so is one whose URL no id can be derived from.
+    for (name, url) in [
+        ("other.db", OTHER_URL),
+        ("ssh.db", "ssh://git.example/acme/shop"),
+    ] {
+        let data = with_identity(RepoIdSource::Url, url);
+        assert!(
+            matches!(
+                data.meta.check(),
+                Err(SegmentError::InvalidRow { table: "meta", .. })
+            ),
+            "{url}"
+        );
+        let destination = scratch.dir(name).join("segment.db");
+        let written = SegmentWriter::new()
+            .build_in(&scratch.dir(&format!("{name}-build")))
+            .write(&data, &destination);
+        assert!(
+            matches!(written, Err(SegmentError::InvalidRow { table: "meta", .. })),
+            "{url}: {written:?}"
+        );
+        assert!(!destination.exists(), "{url}");
+    }
+
+    // The reader: the same mismatch, persisted, is refused, whichever side moved.
+    let segment = write(&with_identity(RepoIdSource::Url, OWN_URL), &scratch, "url");
+    let other_id = ids::repo_id_from_url(OTHER_URL).expect("an id");
+    for (name, key, value) in [
+        ("moved-url.db", "repo_url", OTHER_URL),
+        ("moved-id.db", "repo_id", other_id.as_str()),
+        ("ssh-url.db", "repo_url", "ssh://git.example/acme/shop"),
+    ] {
+        let (copy, conn) = damaged_copy(&segment, &scratch, name);
+        conn.execute(testing::SET_META, [key, value])
+            .expect("damaged");
+        drop(conn);
+        match SegmentReader::open(&copy) {
+            Err(SegmentError::MalformedMeta { key, .. }) => assert_eq!(key, "repo_id"),
+            other => panic!("{name}: expected a refused repo_id, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn registered_repo_id_source_does_not_derive_from_url() {
+    let scratch = Scratch::new();
+    // A registered identity is the server's: it may differ from the URL's, and it
+    // survives the repository moving to a URL it was never derived from.
+    for (name, url) in [
+        ("other", OTHER_URL),
+        ("own", OWN_URL),
+        ("ssh", "ssh://git.example/acme/shop"),
+    ] {
+        let data = with_identity(RepoIdSource::Registered, url);
+        data.meta.check().expect("a registered identity is any id");
+        let segment = write(&data, &scratch, name);
+        let reader = SegmentReader::open(&segment.path).expect("the segment opens");
+        let mut expected = data.meta.clone();
+        expected.precise_sources.sort();
+        assert_eq!(reader.meta(), &expected);
+    }
+    // A registered segment whose repository moved is still read.
+    let segment = write(
+        &with_identity(RepoIdSource::Registered, OWN_URL),
+        &scratch,
+        "moving",
+    );
+    let (copy, conn) = damaged_copy(&segment, &scratch, "moved.db");
+    conn.execute(testing::SET_META, ["repo_url", OTHER_URL])
+        .expect("moved");
+    drop(conn);
+    let reader = SegmentReader::open(&copy).expect("a registered identity is not the URL's");
+    assert_eq!(reader.meta().repo_id, repo());
+    assert_eq!(reader.meta().repo_url, OTHER_URL);
+}
+
+#[test]
+fn missing_repo_id_source_is_refused() {
+    let scratch = Scratch::new();
+    let segment = write(&fixture(), &scratch, "source");
+    let (copy, conn) = damaged_copy(&segment, &scratch, "without-source.db");
+    conn.execute(testing::DELETE_META, ["repo_id_source"])
+        .expect("damaged");
+    drop(conn);
+    let error = SegmentReader::open(&copy).expect_err("refused");
+    assert!(
+        matches!(error, SegmentError::MissingMeta("repo_id_source")),
+        "{error:?}"
+    );
+    assert!(error.to_string().contains("repo_id_source"), "{error}");
+}
+
+#[test]
+fn unknown_repo_id_source_is_refused() {
+    let scratch = Scratch::new();
+    let segment = write(&fixture(), &scratch, "source");
+    for (i, value) in ["mystery", "URL", "Registered", "url ", "", "server"]
+        .iter()
+        .enumerate()
+    {
+        let (copy, conn) = damaged_copy(&segment, &scratch, &format!("source{i}.db"));
+        conn.execute(testing::SET_META, ["repo_id_source", value])
+            .expect("damaged");
+        drop(conn);
+        match SegmentReader::open(&copy) {
+            Err(SegmentError::MalformedMeta {
+                key, value: found, ..
+            }) => {
+                assert_eq!(key, "repo_id_source");
+                assert_eq!(found, *value);
+            }
+            other => panic!("{value:?}: expected a refused repo_id_source, got {other:?}"),
+        }
+    }
+}
+
+#[test]
+fn schema_two_segment_is_refused() {
+    let scratch = Scratch::new();
+    let segment = write(&fixture(), &scratch, "current");
+    // A schema-2 segment, as schema 2's writer stored it: the same tables (schema 3
+    // changed the meta table only) and exactly these nine meta keys, with
+    // `schema_version` 2 and no `repo_id_source`.
+    let (copy, conn) = damaged_copy(&segment, &scratch, "schema-2.db");
+    conn.execute(testing::DELETE_META, ["repo_id_source"])
+        .expect("schema 2");
+    conn.execute(testing::SET_META, ["schema_version", "2"])
+        .expect("schema 2");
+    drop(conn);
+    let keys: Vec<String> = meta_rows(&copy).into_iter().map(|(k, _)| k).collect();
+    assert_eq!(
+        keys,
+        [
+            "commit_sha",
+            "engine_version",
+            "language_matrix_version",
+            "pdx_version",
+            "precise_sources",
+            "profile",
+            "repo_id",
+            "repo_url",
+            "schema_version",
+        ]
+    );
+    // Refused for its version, before its missing key is looked for: a schema-2
+    // segment is re-indexed, never migrated or read as schema 3.
+    let error = SegmentReader::open(&copy).expect_err("refused");
+    assert!(
+        matches!(
+            error,
+            SegmentError::WrongSchemaVersion {
+                expected: 3,
+                found: 2
+            }
+        ),
+        "{error:?}"
+    );
+    // The same segment with `repo_id_source` planted is still schema 2, and refused.
+    let (copy, conn) = damaged_copy(&segment, &scratch, "schema-2-planted.db");
+    conn.execute(testing::SET_META, ["schema_version", "2"])
+        .expect("schema 2");
+    drop(conn);
+    assert!(matches!(
+        SegmentReader::open(&copy),
+        Err(SegmentError::WrongSchemaVersion {
+            expected: 3,
+            found: 2
+        })
+    ));
+}
+
+#[test]
+fn meta_keys_are_exactly_the_ten() {
+    const KEYS: [&str; 10] = [
+        "commit_sha",
+        "engine_version",
+        "language_matrix_version",
+        "pdx_version",
+        "precise_sources",
+        "profile",
+        "repo_id",
+        "repo_id_source",
+        "repo_url",
+        "schema_version",
+    ];
+    let scratch = Scratch::new();
+    let segment = write(&fixture(), &scratch, "keys");
+    let rows = meta_rows(&segment.path);
+    let keys: Vec<&str> = rows.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(keys, KEYS);
+    SegmentReader::open(&segment.path).expect("all ten present: accepted");
+
+    // Any one missing is refused, naming it.
+    for key in KEYS {
+        let (copy, conn) = damaged_copy(&segment, &scratch, &format!("without-{key}.db"));
+        conn.execute(testing::DELETE_META, [key]).expect("damaged");
+        drop(conn);
+        let error = SegmentReader::open(&copy).expect_err("refused");
+        assert!(
+            matches!(error, SegmentError::MissingMeta(k) if k == key),
+            "{key}: {error:?}"
+        );
+    }
+    // Any one more is refused, naming it, with no version in the message.
+    for (i, extra) in ["built_at", "repo_id_origin", "source"].iter().enumerate() {
+        let (copy, conn) = damaged_copy(&segment, &scratch, &format!("extra{i}.db"));
+        conn.execute(testing::ADD_META, [extra, "x"])
+            .expect("damaged");
+        drop(conn);
+        let error = SegmentReader::open(&copy).expect_err("refused");
+        let SegmentError::UnexpectedMeta(found) = &error else {
+            panic!("{extra}: {error:?}");
+        };
+        assert_eq!(found, extra);
+        let message = error.to_string();
+        assert_eq!(
+            message,
+            format!("the meta table holds `{extra}`, which this segment schema does not define")
+        );
+        assert!(!message.contains("version"), "{message}");
+    }
 }
 
 #[test]

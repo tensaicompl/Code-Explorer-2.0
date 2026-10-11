@@ -69,8 +69,8 @@ pub enum SegmentError {
         /// What is wrong with it.
         reason: String,
     },
-    /// The meta table holds a key no segment of this version has.
-    #[error("the meta table holds `{0}`, which no version 1 segment has")]
+    /// The meta table holds a key no segment of this schema version has.
+    #[error("the meta table holds `{0}`, which this segment schema does not define")]
     UnexpectedMeta(String),
     /// A row refers to a row that is not there.
     #[error("{count} broken reference(s); the first, from {table} row {rowid}, to {parent}")]
@@ -175,6 +175,18 @@ vocabulary! {
     }
 }
 
+vocabulary! {
+    /// Where a segment's `repo_id` came from (4.2, 4.3): derived from its clone URL by
+    /// a binary with no server, or the identity a server registered it with.
+    pub enum RepoIdSource {
+        /// `repo_id_from_url(repo_url)`: a local binary with no server.
+        Url => "url",
+        /// The server's registered identity, which survives the repository moving and
+        /// is never derived from the URL.
+        Registered => "registered",
+    }
+}
+
 /// A compiler-backed source merged into a precise segment: one entry of `meta`'s
 /// `precise_sources`.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -198,6 +210,9 @@ pub struct SegmentMeta {
     pub schema_version: u32,
     /// `repo_id`.
     pub repo_id: RepoId,
+    /// `repo_id_source`: where `repo_id` came from. With [`RepoIdSource::Url`] it is
+    /// exactly `repo_id_from_url(repo_url)`; a registered one may be anything.
+    pub repo_id_source: RepoIdSource,
     /// `repo_url`.
     pub repo_url: String,
     /// `commit_sha`: the commit, in lower-case hex.
@@ -220,6 +235,7 @@ impl SegmentMeta {
     /// matrix versions are this build's, from `consts`, and so is the PDX version.
     pub fn new(
         repo_id: RepoId,
+        repo_id_source: RepoIdSource,
         repo_url: &str,
         commit_sha: &str,
         profile: SegmentProfile,
@@ -228,6 +244,7 @@ impl SegmentMeta {
         Self {
             schema_version: SEGMENT_SCHEMA_VERSION,
             repo_id,
+            repo_id_source,
             repo_url: repo_url.to_owned(),
             commit_sha: commit_sha.to_owned(),
             profile,
@@ -241,8 +258,9 @@ impl SegmentMeta {
 
 impl SegmentMeta {
     /// Checks the meta is one the writer stores: this build's schema version, a commit
-    /// of 40 or 64 lower-case hex characters, a repository URL and PDX version, and no
-    /// precise source in a structural segment.
+    /// of 40 or 64 lower-case hex characters, a repository URL and PDX version, a
+    /// URL-sourced `repo_id` that is the URL's, and no precise source in a structural
+    /// segment.
     ///
     /// # Errors
     ///

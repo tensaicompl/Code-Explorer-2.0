@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use pdx_core::ids::RepoId;
 use pdx_core::index::extract::ExtractLimits;
 use pdx_core::index::{IndexRequest, SegmentStatus, build_segment};
+use pdx_core::segment::RepoIdSource;
 
 /// What `pdx-core` emitted: each span's name and the fields its callsite declares, the
 /// fields recorded on each span, each event's fields, and every value, as written.
@@ -115,6 +116,7 @@ fn request<'a>(root: &'a Path, out: &Path, name: &str) -> IndexRequest<'a> {
     IndexRequest {
         root,
         repo_id: RepoId::parse("ce63551447285fd4").expect("a repo id"),
+        repo_id_source: RepoIdSource::Registered,
         repo_url: "https://git.example/acme/shop.git".to_owned(),
         repo_name: "shop".to_owned(),
         commit_sha: "0123456789abcdef0123456789abcdef01234567".to_owned(),

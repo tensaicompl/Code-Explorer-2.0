@@ -18,7 +18,7 @@
 // the one it was built against, and the server re-indexes rather than guessing.
 
 /// Layout of a segment file, the immutable graph of one repository at one commit.
-pub const SEGMENT_SCHEMA_VERSION: u32 = 2;
+pub const SEGMENT_SCHEMA_VERSION: u32 = 3;
 
 /// Layout of the control plane's relational schema.
 pub const CONTROL_SCHEMA_VERSION: u32 = 1;

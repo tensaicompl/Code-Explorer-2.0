@@ -28,7 +28,7 @@ use pdx_core::kinds::{EdgeKind, NodeKind};
 use pdx_core::model::{Coverage, FileStatus};
 use pdx_core::resolve::registry::SymbolRegistry;
 use pdx_core::resolve::stages::{ResolveReport, resolve};
-use pdx_core::segment::SegmentReader;
+use pdx_core::segment::{RepoIdSource, SegmentReader};
 use pdx_engine::isolate::{ExtractFailure, ExtractOutcome, Extractor, IsolationError, SourceFile};
 use pdx_engine::{Engine, EngineError};
 use sha2::{Digest, Sha256};
@@ -76,6 +76,8 @@ impl Checkout {
         IndexRequest {
             root: self.root(),
             repo_id: RepoId::parse(REPO).expect("a repo id"),
+            // Not the URL's id: a registered identity, which may be anything.
+            repo_id_source: RepoIdSource::Registered,
             repo_url: "https://git.example/acme/shop.git".to_owned(),
             repo_name: "shop".to_owned(),
             commit_sha: COMMIT.to_owned(),
@@ -482,6 +484,7 @@ fn build_segment_end_to_end() {
     let reader = SegmentReader::open(&path).expect("the segment opens");
     let meta = reader.meta();
     assert_eq!(meta.repo_id.as_str(), REPO);
+    assert_eq!(meta.repo_id_source, RepoIdSource::Registered);
     assert_eq!(meta.commit_sha, COMMIT);
     assert_eq!(reader.coverage_all().expect("coverage"), report.coverage);
     assert_eq!(
@@ -996,4 +999,78 @@ fn repeated_builds_are_deterministic() {
     assert_eq!(a.segment.content_sha256, c.segment.content_sha256);
     assert_eq!(a.coverage, c.coverage);
     assert_eq!(a.rows, c.rows);
+}
+
+#[test]
+fn repo_id_source_is_no_part_of_any_identity() {
+    // `REPO` is the id this URL derives, so the one build can say either source; each
+    // is passed through to the meta, and nothing else differs: no node, site or edge
+    // identity, and no row, depends on where the id came from.
+    let url = "https://github.com/tensaicompl/Code-Explorer-2.0";
+    assert_eq!(
+        pdx_core::ids::repo_id_from_url(url)
+            .expect("an id")
+            .as_str(),
+        REPO
+    );
+    let checkout = mixed();
+    let s = stages(&checkout);
+    let mut built = Vec::new();
+    for (name, source) in [
+        ("url.db", RepoIdSource::Url),
+        ("registered.db", RepoIdSource::Registered),
+    ] {
+        let mut request = checkout.request(name);
+        request.repo_id_source = source;
+        url.clone_into(&mut request.repo_url);
+        let report = build_segment(request).expect("the build succeeds");
+        assert_eq!(report.meta.repo_id_source, source);
+        let reader = SegmentReader::open(&checkout.destination(name)).expect("opens");
+        assert_eq!(reader.meta().repo_id_source, source);
+        built.push((report, reader));
+    }
+    let [
+        (url_report, url_reader),
+        (registered_report, registered_reader),
+    ] = <[_; 2]>::try_from(built).expect("two builds");
+    assert_eq!(url_report.rows, registered_report.rows);
+    assert_eq!(url_report.coverage, registered_report.coverage);
+    for n in &s.graph.nodes {
+        let stored = Some(n.clone());
+        assert_eq!(url_reader.node(&n.node_id).expect("a query"), stored);
+        assert_eq!(registered_reader.node(&n.node_id).expect("a query"), stored);
+        assert_eq!(
+            url_reader
+                .edges_from(&n.node_id, Band::ALL)
+                .expect("a query"),
+            registered_reader
+                .edges_from(&n.node_id, Band::ALL)
+                .expect("a query")
+        );
+    }
+    for site in &s.graph.sites {
+        let stored = Some(site.clone());
+        assert_eq!(url_reader.site(&site.site_id).expect("a query"), stored);
+        assert_eq!(
+            registered_reader.site(&site.site_id).expect("a query"),
+            stored
+        );
+    }
+    let edges: usize = s
+        .graph
+        .nodes
+        .iter()
+        .map(|n| {
+            url_reader
+                .edges_from(&n.node_id, Band::ALL)
+                .expect("a query")
+                .len()
+        })
+        .sum();
+    assert_eq!(edges, s.graph.edges.len());
+    // The meta row is the only difference, so the two files differ.
+    assert_ne!(
+        url_report.segment.content_sha256,
+        registered_report.segment.content_sha256
+    );
 }

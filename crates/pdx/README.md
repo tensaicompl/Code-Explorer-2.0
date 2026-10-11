@@ -20,7 +20,8 @@ pdx version
     `.pdx/` in `.gitignore`.
   - The repository's identity comes from its `origin` remote, which must be an HTTPS
     clone URL: its canonical form is `repo_url`, and `repo_id` is derived from it
-    (4.2.1, decision 36). Any other remote is refused, never guessed into HTTPS, and
+    (4.2.1, decision 36), so the segment records `repo_id_source = "url"` (decision
+    40). Any other remote is refused, never guessed into HTTPS, and
     never printed. A repository with a server configured (`pdx.toml [server]`) is
     refused: its identity is the server's registered one, which this build cannot ask
     for.
@@ -29,12 +30,12 @@ pdx version
     made, never through a symlink. An existing segment is never overwritten.
   - `--profile` accepts `structural` only.
   - Without `--json`, a summary goes to standard output; with it, one JSON report
-    (status, repository, segment, files, rows, resolution, coverage, unportable paths,
-    degraded reasons). Neither holds anything about the machine that built it.
+    (status, repository with its `repo_id_source`, segment, files, rows, resolution,
+    coverage, unportable paths, degraded reasons). Neither holds anything about the machine that built it.
   - Progress goes to standard error, one line per stage, only when it is a terminal.
 - **`pdx coverage`** prints the coverage rows of the current repository's
   `.pdx/segment.db`, opened read-only and verified by the segment reader; `--json` for
-  JSON. It indexes nothing and needs no clean tree.
+  JSON, with the segment's identity and its `repo_id_source`. It indexes nothing and needs no clean tree.
 - **`pdx version`** prints `pdx`, the engine, the segment schema and the language
   matrix versions.
 

@@ -7,13 +7,14 @@ expression: text
   "profile": "structural",
   "repository": {
     "repo_id": "09365e7fa98ebdf2",
+    "repo_id_source": "url",
     "repo_url": "https://git.example/acme/shop",
     "name": "shop",
     "commit_sha": "cd5952872419226222f367121bb1a6ea0bff191c"
   },
   "segment": {
     "output": ".pdx/segment.db",
-    "content_sha256": "74f173fcf14701600a60a59eb0059acad3cda293d333181f879d5b4d5ea27bd5",
+    "content_sha256": "9c3b45eb2110e390dc3d85dd0e62eb82c9932810faca7b35f1071f10ffd018a4",
     "size_bytes": 176128
   },
   "files": {

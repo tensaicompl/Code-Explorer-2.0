@@ -1,6 +1,7 @@
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
--- keys: schema_version, repo_id, repo_url, commit_sha, profile, engine_version,
---       pdx_version, language_matrix_version, precise_sources (json array)
+-- keys: schema_version, repo_id, repo_id_source ('url' | 'registered'), repo_url,
+--       commit_sha, profile, engine_version, pdx_version, language_matrix_version,
+--       precise_sources (json array)
 
 CREATE TABLE files (
   file_id TEXT PRIMARY KEY,            -- node_id of the File node

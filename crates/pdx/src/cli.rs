@@ -16,7 +16,7 @@ use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use pdx_core::config::PdxConfig;
 use pdx_core::index::extract::{ExtractCache, FsCache};
 use pdx_core::index::{IndexError, IndexRequest, Progress, build_segment};
-use pdx_core::segment::{SegmentError, SegmentReader};
+use pdx_core::segment::{RepoIdSource, SegmentError, SegmentReader};
 
 use crate::local::{self, Output};
 use crate::report::{self, CoverageReport, IndexReport};
@@ -180,6 +180,8 @@ fn index(m: &ArgMatches) -> Result<Outcome, String> {
     let request = IndexRequest {
         root: &root,
         repo_id: identity.repo_id.clone(),
+        // `repository::identity` refuses a configured server: the identity is the URL's.
+        repo_id_source: RepoIdSource::Url,
         repo_url: identity.repo_url.clone(),
         repo_name: identity.name.clone(),
         commit_sha,
