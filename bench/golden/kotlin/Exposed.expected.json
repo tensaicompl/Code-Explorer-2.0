@@ -9947,6 +9947,18 @@
       "band": "inheritance-guided"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.aliasOnlyExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.aliasOnlyExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "inheritance-guided"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
       "kind": "CALLS",
@@ -10059,6 +10071,12 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Join.Join",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.wrapAsExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Column.Column.copyWithAnotherColumnType",
@@ -10809,6 +10827,12 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.VarCharColumnType.preciseType",
       "kind": "CALLS",
       "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.columnTransformer",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.ColumnTransformer.unwrap",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.resolveColumnType",
@@ -15777,6 +15801,12 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.TableDepthGraph.TableDepthGraph.sorted",
       "kind": "CALLS",
       "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.TableDepthGraph.TableDepthGraph.hasCycle",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.TestUtils.any",
+      "kind": "CALLS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.TableDepthGraph.TableDepthGraph.hasCycle",
@@ -21035,24 +21065,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/Alias.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/Alias.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/Alias.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/Column.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Column.Column.isOneColumnPK",
       "kind": "CALLS",
@@ -21087,12 +21099,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.BooleanColumnType",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/ColumnType.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.ColumnTransformer.unwrap",
-      "kind": "CALLS",
-      "band": "scoped"
     },
     {
       "src_qn": "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/ColumnType.kt",
@@ -21547,12 +21553,6 @@
     {
       "src_qn": "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/TableDepthGraph.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.TableDepthGraph.TableDepthGraph.fetchAllTables",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/TableDepthGraph.kt",
-      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.TestUtils.any",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -22421,6 +22421,30 @@
       "band": "typed"
     },
     {
+      "src_qn": "exposed-crypt.src.test.kotlin.org.jetbrains.exposed.v1.crypt.EncryptedColumnTests.EncryptedColumnTests.testOutputLengthOfEncryption",
+      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.encrypt",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-crypt.src.test.kotlin.org.jetbrains.exposed.v1.crypt.EncryptedColumnTests.EncryptedColumnTests.testOutputLengthOfEncryption",
+      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.encrypt",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-crypt.src.test.kotlin.org.jetbrains.exposed.v1.crypt.EncryptedColumnTests.EncryptedColumnTests.testOutputLengthOfEncryption",
+      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.maxColLength",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-crypt.src.test.kotlin.org.jetbrains.exposed.v1.crypt.EncryptedColumnTests.EncryptedColumnTests.testOutputLengthOfEncryption",
+      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.maxColLength",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-crypt.src.test.kotlin.org.jetbrains.exposed.v1.crypt.EncryptedColumnTests.EncryptedColumnTests.testUpdateEncryptedColumnType",
       "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Algorithms.Algorithms.AES_256_PBE_CBC",
       "kind": "CALLS",
@@ -23247,18 +23271,6 @@
       "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Tables.encryptedVarchar",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-crypt/src/test/kotlin/org/jetbrains/exposed/v1/crypt/EncryptedColumnTests.kt",
-      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.encrypt",
-      "kind": "CALLS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "exposed-crypt/src/test/kotlin/org/jetbrains/exposed/v1/crypt/EncryptedColumnTests.kt",
-      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.maxColLength",
-      "kind": "CALLS",
-      "band": "typed"
     },
     {
       "src_qn": "exposed-crypt/src/test/kotlin/org/jetbrains/exposed/v1/crypt/HashedColumnDaoTests.kt",
@@ -26934,6 +26946,18 @@
     },
     {
       "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityTests.EntityTests.testExplicitEntityConstructor",
+      "dst_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityTests.Board",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityTests.EntityTests.testExplicitEntityConstructor",
+      "dst_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityTests.Board",
+      "kind": "TESTS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityTests.EntityTests.testExplicitEntityConstructor",
       "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
       "kind": "CALLS",
       "band": "import-guided"
@@ -27605,6 +27629,30 @@
       "band": "inheritance-guided"
     },
     {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testChainedOrderBy",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testChainedOrderBy",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testChainedOrderBy",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testChainedOrderBy",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
       "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testDefaultOrder",
       "dst_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.withOrderedReferenceTestTables",
       "kind": "CALLS",
@@ -27627,6 +27675,78 @@
       "dst_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.withOrderedReferenceTestTables",
       "kind": "TESTS",
       "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
+      "kind": "TESTS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
@@ -29879,12 +29999,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/EntityTests.kt",
-      "dst_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityTests.Board",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
       "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/EntityWithBlobTests.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.blob",
       "kind": "CALLS",
@@ -30024,18 +30138,6 @@
     },
     {
       "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/OrderedReferenceTest.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
       "band": "exact"
@@ -30045,42 +30147,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
     },
     {
       "src_qn": "exposed-dao-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/tests/shared/RollbackEntityStateTests.kt",
@@ -31697,6 +31763,18 @@
       "band": "inheritance-guided"
     },
     {
+      "src_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EntityCache.EntityCache.partitionEntitiesForInsert",
+      "dst_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EntityCache.EntityCache.dirtyValues",
+      "kind": "CALLS",
+      "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EntityCache.EntityCache.partitionEntitiesForInsert",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.TestUtils.any",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EntityCache.EntityCache.promoteUncommittedState",
       "dst_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.Entity.Entity.updateByCommittedValues",
       "kind": "CALLS",
@@ -33102,12 +33180,6 @@
     },
     {
       "src_qn": "exposed-dao-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/EntityCache.kt",
-      "dst_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EntityCache.EntityCache.dirtyValues",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/EntityCache.kt",
       "dst_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.LinkedIdentityHashSet.LinkedIdentityHashSet",
       "kind": "CALLS",
       "band": "scoped"
@@ -33117,12 +33189,6 @@
       "dst_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.LinkedIdentityHashSet.LinkedIdentityHashSet",
       "kind": "CALLS",
       "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-dao-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/EntityCache.kt",
-      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.TestUtils.any",
-      "kind": "CALLS",
-      "band": "typed"
     },
     {
       "src_qn": "exposed-dao-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/dao/r2dbc/EntityHook.kt",
@@ -35064,6 +35130,36 @@
     },
     {
       "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
+      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.lookup",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
+      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.lookup",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
+      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.lookup",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
+      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.lookup",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
+      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.storeReferenceInCache",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
       "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.EntityClass.EntityClass.warmUpCompositeIdReferences",
       "kind": "CALLS",
       "band": "scoped"
@@ -35130,6 +35226,18 @@
     },
     {
       "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
+      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.getCompositeID",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
+      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.getCompositeID",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
       "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.getReferenceObjectFromDelegatedProperty",
       "kind": "CALLS",
       "band": "scoped"
@@ -35169,6 +35277,12 @@
       "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
       "kind": "CALLS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
+      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.TestUtils.any",
+      "kind": "CALLS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
@@ -35346,36 +35460,6 @@
     },
     {
       "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
-      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.lookup",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
-      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.lookup",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
-      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.lookup",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
-      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.lookup",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
-      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.storeReferenceInCache",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
       "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.Referrers",
       "kind": "CALLS",
       "band": "scoped"
@@ -35395,24 +35479,6 @@
     {
       "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
       "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.checkReference",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
-      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.getCompositeID",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
-      "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.getCompositeID",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-dao/src/main/kotlin/org/jetbrains/exposed/v1/dao/References.kt",
-      "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.tests.TestUtils.any",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -35463,6 +35529,18 @@
       "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationGenerator.MigrationGenerator.generate",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.GenerateMigrationsWorker.GenerateMigrationsWorker.execute",
+      "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationLogger.MigrationLogger.debug",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.GenerateMigrationsWorker.GenerateMigrationsWorker.execute",
+      "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationLogger.MigrationLogger.lifecycle",
+      "kind": "CALLS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.GenerateMigrationsWorker.GenerateMigrationsWorker.toMigrationConfig",
@@ -35653,18 +35731,6 @@
     {
       "src_qn": "exposed-gradle-plugin/build.gradle.kts",
       "dst_qn": "buildSrc.src.main.kotlin.org.jetbrains.exposed.gradle.TestDbDsl.TestDb.dependencies",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-gradle-plugin/src/main/kotlin/org/jetbrains/exposed/v1/gradle/plugin/GenerateMigrationsWorker.kt",
-      "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationLogger.MigrationLogger.debug",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-gradle-plugin/src/main/kotlin/org/jetbrains/exposed/v1/gradle/plugin/GenerateMigrationsWorker.kt",
-      "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationLogger.MigrationLogger.lifecycle",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -36366,6 +36432,30 @@
     },
     {
       "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -36507,6 +36597,18 @@
       "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.assertEqualDateTime",
       "kind": "TESTS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.DefaultsTest.DefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.DefaultsTest.DefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.DefaultsTest.DefaultsTest.testDefaults01",
@@ -39048,6 +39150,18 @@
     },
     {
       "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -39081,6 +39195,18 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.text",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-java-time.src.main.kotlin.org.jetbrains.exposed.v1.javatime.JavaDateColumnType.JavaLocalDateTimeColumnType",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-java-time.src.main.kotlin.org.jetbrains.exposed.v1.javatime.JavaDateColumnType.JavaLocalDateTimeColumnType",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
@@ -39207,24 +39333,6 @@
       "dst_qn": "exposed-java-time.src.main.kotlin.org.jetbrains.exposed.v1.javatime.JavaDateColumnType.timestamp",
       "kind": "CALLS",
       "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-java-time/src/test/kotlin/org/jetbrains/exposed/v1/javatime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-java-time/src/test/kotlin/org/jetbrains/exposed/v1/javatime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-java-time/src/test/kotlin/org/jetbrains/exposed/v1/javatime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
-      "kind": "CALLS",
-      "band": "import-guided"
     },
     {
       "src_qn": "exposed-java-time/src/test/kotlin/org/jetbrains/exposed/v1/javatime/DefaultsTest.kt",
@@ -39389,18 +39497,6 @@
       "band": "scoped"
     },
     {
-      "src_qn": "exposed-java-time/src/test/kotlin/org/jetbrains/exposed/v1/javatime/sqlserver/SQLServerDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-java-time/src/test/kotlin/org/jetbrains/exposed/v1/javatime/sqlserver/SQLServerDefaultsTest.kt",
-      "dst_qn": "exposed-java-time.src.main.kotlin.org.jetbrains.exposed.v1.javatime.JavaDateColumnType.JavaLocalDateTimeColumnType",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "exposed-jdbc-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.test.mixed.MixedDatabasesConnectionTests.MixedDatabasesConnectionTests.testConnectionToJdbcAndR2dbcDatabases",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.transactions.Transactions.transaction",
       "kind": "CALLS",
@@ -39553,6 +39649,48 @@
     {
       "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.emptySized",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.EmptySizedIterable",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.EmptySizedIterable.hasNext",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
       "kind": "CALLS",
       "band": "scoped"
     },
@@ -39831,6 +39969,12 @@
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.DeleteBlockingExecutable.DeleteBlockingExecutable",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Queries.executeBatch",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.BatchInsertStatement.BatchInsertStatement.removeLastBatch",
+      "kind": "CALLS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Queries.executeBatch",
@@ -40146,6 +40290,12 @@
     },
     {
       "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.count",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.api.IdentifierManagerApi.IdentifierManagerApi.quoteIfNecessary",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.count",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Queries.selectAll",
       "kind": "CALLS",
       "band": "scoped"
@@ -40163,13 +40313,13 @@
       "band": "inheritance-guided"
     },
     {
-      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.iterator",
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.fetchBatchedResults",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.adjustWhere",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.iterator",
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.fetchBatchedResults",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.iterator",
       "kind": "CALLS",
       "band": "inheritance-guided"
@@ -41011,6 +41161,30 @@
     {
       "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcConnectionImpl.JdbcConnectionImpl.commit",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcConnectionImpl.JdbcConnectionImpl.commit",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcConnectionImpl.JdbcConnectionImpl.executeInBatch",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcPreparedStatementImpl.JdbcPreparedStatementImpl.addBatch",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcConnectionImpl.JdbcConnectionImpl.executeInBatch",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcPreparedStatementImpl.JdbcPreparedStatementImpl.closeIfPossible",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcConnectionImpl.JdbcConnectionImpl.executeInBatch",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcPreparedStatementImpl.JdbcPreparedStatementImpl.executeBatch",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcConnectionImpl.JdbcConnectionImpl.executeInBatch",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcPreparedStatementImpl.JdbcPreparedStatementImpl.executeUpdate",
       "kind": "CALLS",
       "band": "scoped"
     },
@@ -42377,68 +42551,14 @@
       "band": "import-guided"
     },
     {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/IterableEx.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.EmptySizedIterable.hasNext",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/IterableEx.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/IterableEx.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/IterableEx.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/IterableEx.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/IterableEx.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/IterableEx.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
       "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/JdbcTransaction.kt",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.JdbcTransaction.JdbcTransaction.addLogger",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/Queries.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.BatchInsertStatement.BatchInsertStatement.removeLastBatch",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/Query.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.targetTables",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/Query.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.api.IdentifierManagerApi.IdentifierManagerApi.quoteIfNecessary",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -42501,30 +42621,6 @@
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcDatabaseMetadataImpl.JdbcDatabaseMetadataImpl",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/statements/jdbc/JdbcConnectionImpl.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcPreparedStatementImpl.JdbcPreparedStatementImpl.addBatch",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/statements/jdbc/JdbcConnectionImpl.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcPreparedStatementImpl.JdbcPreparedStatementImpl.closeIfPossible",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/statements/jdbc/JdbcConnectionImpl.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcPreparedStatementImpl.JdbcPreparedStatementImpl.executeBatch",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/statements/jdbc/JdbcConnectionImpl.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcPreparedStatementImpl.JdbcPreparedStatementImpl.executeUpdate",
-      "kind": "CALLS",
-      "band": "scoped"
     },
     {
       "src_qn": "exposed-jdbc/src/main/kotlin/org/jetbrains/exposed/v1/jdbc/statements/jdbc/JdbcDatabaseMetadataImpl.kt",
@@ -43320,6 +43416,30 @@
     },
     {
       "src_qn": "exposed-jodatime.src.test.kotlin.org.jetbrains.exposed.v1.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-jodatime.src.test.kotlin.org.jetbrains.exposed.v1.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-jodatime.src.test.kotlin.org.jetbrains.exposed.v1.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-jodatime.src.test.kotlin.org.jetbrains.exposed.v1.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-jodatime.src.test.kotlin.org.jetbrains.exposed.v1.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -43485,6 +43605,18 @@
       "dst_qn": "exposed-jodatime.src.test.kotlin.org.jetbrains.exposed.v1.jodatime.JodaTimeTests.assertEqualDateTime",
       "kind": "TESTS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-jodatime.src.test.kotlin.org.jetbrains.exposed.v1.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-jodatime.src.test.kotlin.org.jetbrains.exposed.v1.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-jodatime.src.test.kotlin.org.jetbrains.exposed.v1.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaults01",
@@ -45267,24 +45399,6 @@
       "dst_qn": "exposed-jodatime.src.main.kotlin.org.jetbrains.exposed.v1.jodatime.DateColumnType.datetime",
       "kind": "CALLS",
       "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-jodatime/src/test/kotlin/org/jetbrains/exposed/v1/jodatime/JodaTimeDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-jodatime/src/test/kotlin/org/jetbrains/exposed/v1/jodatime/JodaTimeDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-jodatime/src/test/kotlin/org/jetbrains/exposed/v1/jodatime/JodaTimeDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
-      "kind": "CALLS",
-      "band": "import-guided"
     },
     {
       "src_qn": "exposed-jodatime/src/test/kotlin/org/jetbrains/exposed/v1/jodatime/JodaTimeDefaultsTest.kt",
@@ -48300,6 +48414,30 @@
     },
     {
       "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -48429,6 +48567,18 @@
       "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.datetime",
       "kind": "TESTS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.DefaultsTest.DefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.DefaultsTest.DefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.DefaultsTest.DefaultsTest.testDefaults01",
@@ -51012,6 +51162,18 @@
     },
     {
       "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -51055,6 +51217,18 @@
     {
       "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.SchemaUtils.SchemaUtils.drop",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.KotlinLocalDateTimeColumnType",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.KotlinLocalDateTimeColumnType",
       "kind": "TESTS",
       "band": "import-guided"
     },
@@ -51183,24 +51357,6 @@
       "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.xTimestamp",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-kotlin-datetime/src/test/kotlin/org/jetbrains/exposed/v1/datetime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-kotlin-datetime/src/test/kotlin/org/jetbrains/exposed/v1/datetime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-kotlin-datetime/src/test/kotlin/org/jetbrains/exposed/v1/datetime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
-      "kind": "CALLS",
-      "band": "import-guided"
     },
     {
       "src_qn": "exposed-kotlin-datetime/src/test/kotlin/org/jetbrains/exposed/v1/datetime/DefaultsTest.kt",
@@ -51359,18 +51515,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "exposed-kotlin-datetime/src/test/kotlin/org/jetbrains/exposed/v1/datetime/sqlserver/SQLServerDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-kotlin-datetime/src/test/kotlin/org/jetbrains/exposed/v1/datetime/sqlserver/SQLServerDefaultsTest.kt",
-      "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.KotlinLocalDateTimeColumnType",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "exposed-maven-plugin.src.main.kotlin.org.jetbrains.exposed.v1.maven.plugin.GenerateMigrationsMojo.GenerateMigrationsMojo.execute",
       "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationGenerator.MigrationGenerator",
       "kind": "CALLS",
@@ -51381,6 +51525,12 @@
       "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationGenerator.MigrationGenerator.generate",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "exposed-maven-plugin.src.main.kotlin.org.jetbrains.exposed.v1.maven.plugin.GenerateMigrationsMojo.GenerateMigrationsMojo.execute",
+      "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationLogger.MigrationLogger.debug",
+      "kind": "CALLS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-maven-plugin.src.test.kotlin.org.jetbrains.exposed.v1.maven.plugin.integrations.MavenProcessTest.MavenProcessTest.`it should fail with message if misconfigured`",
@@ -52629,12 +52779,6 @@
       "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationConfig.MigrationConfig",
       "kind": "CALLS",
       "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-maven-plugin/src/main/kotlin/org/jetbrains/exposed/v1/maven/plugin/GenerateMigrationsMojo.kt",
-      "dst_qn": "exposed-plugin-core.src.main.kotlin.org.jetbrains.exposed.v1.plugin.core.migration.MigrationLogger.MigrationLogger.debug",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "exposed-maven-plugin/src/test/kotlin/org/jetbrains/exposed/v1/maven/plugin/integrations/helpers/MavenProjectGeneration.kt",
@@ -66167,6 +66311,30 @@
       "band": "typed"
     },
     {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.crypt.EncryptedColumnTests.EncryptedColumnTests.testOutputLengthOfEncryption",
+      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.encrypt",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.crypt.EncryptedColumnTests.EncryptedColumnTests.testOutputLengthOfEncryption",
+      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.encrypt",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.crypt.EncryptedColumnTests.EncryptedColumnTests.testOutputLengthOfEncryption",
+      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.maxColLength",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.crypt.EncryptedColumnTests.EncryptedColumnTests.testOutputLengthOfEncryption",
+      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.maxColLength",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.crypt.EncryptedColumnTests.EncryptedColumnTests.testUpdateEncryptedColumnType",
       "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Algorithms.Algorithms.AES_256_PBE_CBC",
       "kind": "CALLS",
@@ -67770,6 +67938,30 @@
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -67875,6 +68067,18 @@
       "dst_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualDateTime",
       "kind": "TESTS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.DefaultsTest.DefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.DefaultsTest.DefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.DefaultsTest.DefaultsTest.testDefaults01",
@@ -69162,6 +69366,18 @@
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -69195,6 +69411,18 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.text",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-java-time.src.main.kotlin.org.jetbrains.exposed.v1.javatime.JavaDateColumnType.JavaLocalDateTimeColumnType",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-java-time.src.main.kotlin.org.jetbrains.exposed.v1.javatime.JavaDateColumnType.JavaLocalDateTimeColumnType",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
@@ -69402,6 +69630,30 @@
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaultExpressions01",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -69543,6 +69795,18 @@
       "dst_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.jodatime.JodaTimeTests.assertEqualDateTime",
       "kind": "TESTS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.jodatime.JodaTimeDefaultsTest.JodaTimeDefaultsTest.testDefaults01",
@@ -71958,6 +72222,30 @@
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.DefaultsTest.DefaultsTest.testDefaultExpressions01",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -72049,6 +72337,18 @@
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.DefaultsTest.DefaultsTest.testDefaultExpressions02",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.datetime.LocalDateColumnType.atStartOfDayIn",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.DefaultsTest.DefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.DefaultsTest.DefaultsTest.testDefaults01",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
       "kind": "TESTS",
       "band": "exact"
     },
@@ -73740,6 +74040,18 @@
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
       "kind": "CALLS",
       "band": "exact"
@@ -73773,6 +74085,18 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.text",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.KotlinLocalDateTimeColumnType",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
+      "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.KotlinLocalDateTimeColumnType",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.sqlserver.SQLServerDefaultsTest.SQLServerDefaultsTest.testDefaultExpressionsForTemporalTable",
@@ -74460,6 +74784,18 @@
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.AliasesTests.AliasesTests.testColumnCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.AliasesTests.AliasesTests.testColumnCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.AliasesTests.AliasesTests.testColumnCastedToExpression",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
       "band": "exact"
@@ -74580,6 +74916,18 @@
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.AliasesTests.AliasesTests.testExpressionAliasCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.AliasesTests.AliasesTests.testExpressionAliasCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.AliasesTests.AliasesTests.testExpressionAliasCastedToExpression",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.sum",
       "kind": "CALLS",
       "band": "exact"
@@ -74695,6 +75043,18 @@
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.AliasesTests.AliasesTests.testExpressionWithColumnTypeAlias",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.long",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.AliasesTests.AliasesTests.testExpressionWithColumnTypeAliasCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.AliasesTests.AliasesTests.testExpressionWithColumnTypeAliasCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
       "kind": "TESTS",
       "band": "exact"
     },
@@ -75716,6 +76076,18 @@
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.CoroutineTests.CoroutineTests.nestedSuspendTxTest",
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.transactions.Transactions.inTopLevelSuspendTransaction",
       "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.CoroutineTests.CoroutineTests.nestedSuspendTxTest",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.transactions.Transactions.inTopLevelSuspendTransaction",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.CoroutineTests.CoroutineTests.nestedSuspendTxTest",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.transactions.Transactions.inTopLevelSuspendTransaction",
+      "kind": "TESTS",
       "band": "import-guided"
     },
     {
@@ -88445,9 +88817,15 @@
       "band": "exact"
     },
     {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.AdjustQueryTests.AdjustQueryTests.repr",
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.AdjustQueryTests.AdjustQueryTests.testAdjustQueryColumnSet",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
       "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.AdjustQueryTests.AdjustQueryTests.testAdjustQueryColumnSet",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "TESTS",
       "band": "exact"
     },
     {
@@ -89687,6 +90065,18 @@
       "band": "scoped"
     },
     {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.ColumnWithTransformTest.ColumnWithTransformTest.testReadObjectPassedToDelegate",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.registerColumn",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.ColumnWithTransformTest.ColumnWithTransformTest.testReadObjectPassedToDelegate",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.registerColumn",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.ColumnWithTransformTest.ColumnWithTransformTest.testReadTransformedValuesFromInsertStatement",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
@@ -91884,6 +92274,18 @@
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.GroupByTests.GroupByTests.testGroupConcat",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.GroupByTests.GroupByTests.testGroupConcat",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.GroupByTests.GroupByTests.testGroupConcat",
       "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.DMLTestsData.withCitiesAndUsers",
       "kind": "CALLS",
       "band": "scoped"
@@ -92923,6 +93325,30 @@
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.InsertTests.InsertTests.testInsertWithColumnExpression",
       "dst_qn": "exposed-maven-plugin.src.test.kotlin.org.jetbrains.exposed.v1.maven.plugin.integrations.helpers.MavenProjectGeneration.TestMavenProject.verify",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.InsertTests.InsertTests.testInsertWithExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.InsertTests.InsertTests.testInsertWithExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.InsertTests.InsertTests.testInsertWithExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.LiteralOp.stringLiteral",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.InsertTests.InsertTests.testInsertWithExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.LiteralOp.stringLiteral",
       "kind": "TESTS",
       "band": "exact"
     },
@@ -99285,6 +99711,42 @@
       "dst_qn": "exposed-r2dbc-tests.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.dml.DMLTestsData.withCitiesAndUsers",
       "kind": "TESTS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Function.CustomOperator",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Function.CustomOperator",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.QueryParameter.intParam",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.QueryParameter.intParam",
+      "kind": "TESTS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
@@ -109997,18 +110459,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/crypt/EncryptedColumnTests.kt",
-      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.encrypt",
-      "kind": "CALLS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/crypt/EncryptedColumnTests.kt",
-      "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Encryptor.Encryptor.maxColLength",
-      "kind": "CALLS",
-      "band": "typed"
-    },
-    {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/crypt/HashedColumnTests.kt",
       "dst_qn": "exposed-crypt.src.main.kotlin.org.jetbrains.exposed.v1.crypt.Hasher.Hashed",
       "kind": "CALLS",
@@ -110095,24 +110545,6 @@
     {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/javatime/DateTimeLiteralTest.kt",
       "dst_qn": "exposed-java-time.src.main.kotlin.org.jetbrains.exposed.v1.javatime.JavaDateColumnType.timestamp",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/javatime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/javatime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/javatime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
       "kind": "CALLS",
       "band": "import-guided"
     },
@@ -110243,38 +110675,8 @@
       "band": "import-guided"
     },
     {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/javatime/sqlserver/SQLServerDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/javatime/sqlserver/SQLServerDefaultsTest.kt",
-      "dst_qn": "exposed-java-time.src.main.kotlin.org.jetbrains.exposed.v1.javatime.JavaDateColumnType.JavaLocalDateTimeColumnType",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/jodatime/JodaDateTimeLiteralTest.kt",
       "dst_qn": "exposed-jodatime.src.main.kotlin.org.jetbrains.exposed.v1.jodatime.DateColumnType.datetime",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/jodatime/JodaTimeDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/jodatime/JodaTimeDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/jodatime/JodaTimeDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
       "kind": "CALLS",
       "band": "import-guided"
     },
@@ -110401,24 +110803,6 @@
     {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/kotlindatetime/DateTimeLiteralTest.kt",
       "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.xTimestamp",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/kotlindatetime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/kotlindatetime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/kotlindatetime/DefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
       "kind": "CALLS",
       "band": "import-guided"
     },
@@ -110579,18 +110963,6 @@
       "band": "import-guided"
     },
     {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/kotlindatetime/sqlserver/SQLServerDefaultsTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.IExpressionAlias.queryBuilder",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/kotlindatetime/sqlserver/SQLServerDefaultsTest.kt",
-      "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.KotlinLocalDateTimeColumnType",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/mysql/MysqlTests.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.copyTo",
       "kind": "CALLS",
@@ -110673,24 +111045,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.varchar",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/AliasesTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/AliasesTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/AliasesTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
-      "kind": "CALLS",
-      "band": "import-guided"
     },
     {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/AliasesTests.kt",
@@ -110871,12 +111225,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/CoroutineTests.kt",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.transactions.Transactions.inTopLevelSuspendTransaction",
-      "kind": "CALLS",
-      "band": "import-guided"
     },
     {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/DDLTests.kt",
@@ -111216,12 +111564,6 @@
     },
     {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/dml/ColumnWithTransformTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.registerColumn",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/dml/ColumnWithTransformTest.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.varchar",
       "kind": "CALLS",
       "band": "exact"
@@ -111297,30 +111639,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.varchar",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/dml/ExplainTests.kt",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.ExplainSuspendExecutable.explain",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/dml/GroupByTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/dml/InsertTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/dml/InsertTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.LiteralOp.stringLiteral",
-      "kind": "CALLS",
-      "band": "import-guided"
     },
     {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/dml/InsertTests.kt",
@@ -111501,24 +111819,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.varchar",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/functions/FunctionsTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/functions/FunctionsTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Function.CustomOperator",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/functions/FunctionsTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.QueryParameter.intParam",
-      "kind": "CALLS",
-      "band": "typed"
     },
     {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/shared/functions/StatisticsFunctionTests.kt",
@@ -111809,6 +112109,42 @@
       "band": "scoped"
     },
     {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Queries.batchInsert",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.StatementBuilder.buildStatement",
       "kind": "CALLS",
@@ -111969,6 +112305,12 @@
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.statements.DeleteSuspendExecutable.DeleteSuspendExecutable",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Queries.executeBatch",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.BatchInsertStatement.BatchInsertStatement.removeLastBatch",
+      "kind": "CALLS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Queries.insert",
@@ -112289,12 +112631,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.collect",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.adjustWhere",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.copy",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.copyTo",
       "kind": "CALLS",
@@ -112305,6 +112641,12 @@
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query",
       "kind": "CALLS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.count",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.api.IdentifierManagerApi.IdentifierManagerApi.quoteIfNecessary",
+      "kind": "CALLS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.count",
@@ -112341,6 +112683,12 @@
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.ExposedR2dbcException.getContexts",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.fetchBatchedResults",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.adjustWhere",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.withDistinctOn",
@@ -112467,6 +112815,12 @@
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.statements.SuspendExecutable.SuspendExecutable",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.R2dbcTransaction.R2dbcTransaction.exec",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.statements.api.R2dbcResult.R2dbcResult.mapRows",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.R2dbcTransaction.R2dbcTransaction.execInBatch",
@@ -114887,56 +115241,8 @@
       "band": "scoped"
     },
     {
-      "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/IterableEx.kt",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/IterableEx.kt",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/IterableEx.kt",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/IterableEx.kt",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/IterableEx.kt",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/IterableEx.kt",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.IterableEx.mapLazy",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/Queries.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.BatchInsertStatement.BatchInsertStatement.removeLastBatch",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/Query.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.targetTables",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/Query.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.api.IdentifierManagerApi.IdentifierManagerApi.quoteIfNecessary",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -115227,12 +115533,6 @@
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.R2dbcTransaction.R2dbcTransaction.addLogger",
       "kind": "CALLS",
       "band": "scoped"
-    },
-    {
-      "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/R2dbcTransaction.kt",
-      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.statements.api.R2dbcResult.R2dbcResult.mapRows",
-      "kind": "CALLS",
-      "band": "typed"
     },
     {
       "src_qn": "exposed-r2dbc/src/main/kotlin/org/jetbrains/exposed/v1/r2dbc/SetOperations.kt",
@@ -119436,6 +119736,18 @@
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.AliasesTests.AliasesTests.testColumnCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.AliasesTests.AliasesTests.testColumnCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.AliasesTests.AliasesTests.testColumnCastedToExpression",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
       "band": "exact"
@@ -119556,6 +119868,18 @@
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.AliasesTests.AliasesTests.testExpressionAliasCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.AliasesTests.AliasesTests.testExpressionAliasCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.AliasesTests.AliasesTests.testExpressionAliasCastedToExpression",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.sum",
       "kind": "CALLS",
       "band": "exact"
@@ -119685,6 +120009,18 @@
       "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.JdbcTransactionCloseOrderTests.RecordingExecutable.prepareSQL",
       "kind": "TESTS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.AliasesTests.AliasesTests.testExpressionWithColumnTypeAliasCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.AliasesTests.AliasesTests.testExpressionWithColumnTypeAliasCastedToExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "TESTS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.AliasesTests.AliasesTests.testExpressionWithColumnTypeAliasCastedToExpression",
@@ -120302,6 +120638,18 @@
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.CoroutineTests.CoroutineTests.nestedSuspendTxTest",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.transactions.experimental.Suspended.newSuspendedTransaction",
       "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.CoroutineTests.CoroutineTests.nestedSuspendTxTest",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.transactions.experimental.Suspended.newSuspendedTransaction",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.CoroutineTests.CoroutineTests.nestedSuspendTxTest",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.transactions.experimental.Suspended.newSuspendedTransaction",
+      "kind": "TESTS",
       "band": "typed"
     },
     {
@@ -133205,9 +133553,15 @@
       "band": "exact"
     },
     {
-      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.AdjustQueryTests.AdjustQueryTests.repr",
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.AdjustQueryTests.AdjustQueryTests.testAdjustQueryColumnSet",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
       "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.AdjustQueryTests.AdjustQueryTests.testAdjustQueryColumnSet",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
+      "kind": "TESTS",
       "band": "exact"
     },
     {
@@ -134385,6 +134739,18 @@
       "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.ColumnWithTransformTest.DataHolderNullTransformer",
       "kind": "TESTS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.ColumnWithTransformTest.ColumnWithTransformTest.testReadObjectPassedToDelegate",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.registerColumn",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.ColumnWithTransformTest.ColumnWithTransformTest.testReadObjectPassedToDelegate",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.registerColumn",
+      "kind": "TESTS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.ColumnWithTransformTest.ColumnWithTransformTest.testReadTransformedValuesFromInsertStatement",
@@ -136752,6 +137118,18 @@
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.GroupByTests.GroupByTests.testGroupConcat",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.GroupByTests.GroupByTests.testGroupConcat",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.GroupByTests.GroupByTests.testGroupConcat",
       "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.DMLTestData.withCitiesAndUsers",
       "kind": "CALLS",
       "band": "scoped"
@@ -137791,6 +138169,30 @@
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.InsertTests.InsertTests.testInsertWithColumnExpression",
       "dst_qn": "exposed-maven-plugin.src.test.kotlin.org.jetbrains.exposed.v1.maven.plugin.integrations.helpers.MavenProjectGeneration.TestMavenProject.verify",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.InsertTests.InsertTests.testInsertWithExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.InsertTests.InsertTests.testInsertWithExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.InsertTests.InsertTests.testInsertWithExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.LiteralOp.stringLiteral",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.InsertTests.InsertTests.testInsertWithExpression",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.LiteralOp.stringLiteral",
       "kind": "TESTS",
       "band": "exact"
     },
@@ -145055,6 +145457,18 @@
       "band": "import-guided"
     },
     {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.EntityTests.EntityTests.testExplicitEntityConstructor",
+      "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.EntityTests.Board",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.EntityTests.EntityTests.testExplicitEntityConstructor",
+      "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.EntityTests.Board",
+      "kind": "TESTS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.EntityTests.EntityTests.testIterationOverSizedIterableWithPreload",
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.transactions.Transactions.inTopLevelTransaction",
       "kind": "CALLS",
@@ -145344,6 +145758,30 @@
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testChainedOrderBy",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testChainedOrderBy",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testChainedOrderBy",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testChainedOrderBy",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testChainedOrderBy",
       "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.withOrderedReferenceTestTables",
       "kind": "CALLS",
       "band": "inheritance-guided"
@@ -145368,6 +145806,54 @@
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
+      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testMultiColumnOrder",
       "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.withOrderedReferenceTestTables",
       "kind": "CALLS",
       "band": "inheritance-guided"
@@ -145377,6 +145863,30 @@
       "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.withOrderedReferenceTestTables",
       "kind": "TESTS",
       "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
+      "kind": "TESTS",
+      "band": "exact"
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.OrderedReferenceTest.OrderedReferenceTest.testNoDuplicatedOrderByPartsInQuery",
@@ -146325,6 +146835,42 @@
       "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.dml.DMLTestData.withCitiesAndUsers",
       "kind": "TESTS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Function.CustomOperator",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Function.CustomOperator",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.QueryParameter.intParam",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.QueryParameter.intParam",
+      "kind": "TESTS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.functions.FunctionsTests.FunctionsTests.testCustomOperator",
@@ -157937,24 +158483,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/AliasesTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/AliasesTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/AliasesTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/ConnectionExceptions.kt",
       "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.ConnectionExceptions.CloseException",
       "kind": "CALLS",
@@ -158025,12 +158553,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/CoroutineTests.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.transactions.experimental.Suspended.newSuspendedTransaction",
-      "kind": "CALLS",
-      "band": "typed"
     },
     {
       "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/DDLTests.kt",
@@ -158442,12 +158964,6 @@
     },
     {
       "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/dml/ColumnWithTransformTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.registerColumn",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/dml/ColumnWithTransformTest.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.varchar",
       "kind": "CALLS",
       "band": "exact"
@@ -158595,30 +159111,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.varchar",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/dml/ExplainTests.kt",
-      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.ExplainBlockingExecutable.explain",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/dml/GroupByTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/dml/InsertTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/dml/InsertTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.LiteralOp.stringLiteral",
-      "kind": "CALLS",
-      "band": "import-guided"
     },
     {
       "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/dml/InsertTests.kt",
@@ -159329,12 +159821,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/EntityTests.kt",
-      "dst_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.entities.EntityTests.Board",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
       "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/EntityWithBlobTests.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.blob",
       "kind": "CALLS",
@@ -159486,18 +159972,6 @@
     },
     {
       "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.FunctionBuilder.trim",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/OrderedReferenceTest.kt",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
       "band": "exact"
@@ -159507,42 +159981,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/OrderedReferenceTest.kt",
-      "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
-      "kind": "CALLS",
-      "band": "import-guided"
     },
     {
       "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/entities/SelfReferenceTest.kt",
@@ -159783,24 +160221,6 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.integer",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/functions/FunctionsTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IntegerColumnType",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/functions/FunctionsTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Function.CustomOperator",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/functions/FunctionsTests.kt",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.QueryParameter.intParam",
-      "kind": "CALLS",
-      "band": "typed"
     },
     {
       "src_qn": "exposed-tests/src/test/kotlin/org/jetbrains/exposed/v1/tests/shared/functions/StatisticsFunctionTests.kt",

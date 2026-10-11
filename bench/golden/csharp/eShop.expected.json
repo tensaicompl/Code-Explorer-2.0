@@ -3515,6 +3515,18 @@
       "band": "exact"
     },
     {
+      "src_qn": "src.WebApp.Services.BasketState.BasketState.FetchBasketItemsAsync",
+      "dst_qn": "src.WebApp.Services.BasketItem.BasketItem",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src.WebApp.Services.BasketState.BasketState.FetchBasketItemsAsync",
+      "dst_qn": "src.WebApp.Services.BasketService.BasketService.GetBasketAsync",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "src.WebApp.Services.BasketState.BasketState.GetBasketItemsAsync",
       "dst_qn": "src.WebApp.Services.BasketState.BasketState.FetchBasketItemsAsync",
       "kind": "CALLS",
@@ -4785,18 +4797,6 @@
       "dst_qn": "tests.eShop.AppHost.UnitTests.AppHostConfigurationTests.AppHostConfigurationTests.CreateBuilder",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "src/WebApp/Services/BasketState.cs",
-      "dst_qn": "src.WebApp.Services.BasketItem.BasketItem",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "src/WebApp/Services/BasketState.cs",
-      "dst_qn": "src.WebApp.Services.BasketService.BasketService.GetBasketAsync",
-      "kind": "CALLS",
-      "band": "scoped"
     },
     {
       "src_qn": "src/WebApp/wwwroot/js/cart-quantity.js",

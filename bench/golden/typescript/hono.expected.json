@@ -1578,6 +1578,18 @@
     },
     {
       "src_qn": "src.context.Context.html",
+      "dst_qn": "src.context.Context.#newResponse",
+      "kind": "CALLS",
+      "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "src.context.Context.html",
+      "dst_qn": "src.context.setDefaultContentType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.context.Context.html",
       "dst_qn": "src.utils.html.resolveCallback",
       "kind": "CALLS",
       "band": "import-guided"
@@ -1632,12 +1644,6 @@
     },
     {
       "src_qn": "src.context.Context.res",
-      "dst_qn": "src.context.Context.#newResponse",
-      "kind": "CALLS",
-      "band": "inheritance-guided"
-    },
-    {
-      "src_qn": "src.context.Context.res",
       "dst_qn": "src.context.createResponseInstance",
       "kind": "CALLS",
       "band": "exact"
@@ -1645,12 +1651,6 @@
     {
       "src_qn": "src.context.Context.res",
       "dst_qn": "src.context.createResponseInstance",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.context.Context.res",
-      "dst_qn": "src.context.setDefaultContentType",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -2586,6 +2586,12 @@
     },
     {
       "src_qn": "src.hono-base.Hono.mount",
+      "dst_qn": "src.hono.test.replaceRequest",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.hono-base.Hono.mount",
       "dst_qn": "src.utils.url.mergePath",
       "kind": "CALLS",
       "band": "typed"
@@ -2760,9 +2766,33 @@
     },
     {
       "src_qn": "src.jsx.base.JSXNode.toString",
+      "dst_qn": "src.jsx.base.JSXNode.toStringToBuffer",
+      "kind": "CALLS",
+      "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "src.jsx.base.JSXNode.toString",
       "dst_qn": "src.jsx.context.runWithRenderContext",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "src.jsx.base.JSXNode.toString",
+      "dst_qn": "src.utils.html.raw",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.jsx.base.JSXNode.toString",
+      "dst_qn": "src.utils.html.resolveCallbackSync",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.jsx.base.JSXNode.toString",
+      "dst_qn": "src.utils.html.stringBufferToString",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "src.jsx.base.JSXNode.toStringToBuffer",
@@ -9203,6 +9233,12 @@
       "band": "import-guided"
     },
     {
+      "src_qn": "src.utils.stream.StreamingApi.constructor",
+      "dst_qn": "src.utils.stream.StreamingApi.abort",
+      "kind": "CALLS",
+      "band": "inheritance-guided"
+    },
+    {
       "src_qn": "src.utils.url._decodeURI",
       "dst_qn": "src.utils.url.tryDecodeURIComponent",
       "kind": "CALLS",
@@ -15395,12 +15431,6 @@
       "band": "scoped"
     },
     {
-      "src_qn": "src/hono-base.ts",
-      "dst_qn": "src.hono.test.replaceRequest",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src/hono.test.ts",
       "dst_qn": "src.client.client.hc",
       "kind": "CALLS",
@@ -17953,24 +17983,6 @@
     {
       "src_qn": "src/jsx/base.test.tsx",
       "dst_qn": "src.jsx.base.jsx",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/jsx/base.ts",
-      "dst_qn": "src.utils.html.raw",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/jsx/base.ts",
-      "dst_qn": "src.utils.html.resolveCallbackSync",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/jsx/base.ts",
-      "dst_qn": "src.utils.html.stringBufferToString",
       "kind": "CALLS",
       "band": "import-guided"
     },
@@ -28833,12 +28845,6 @@
       "dst_qn": "src.utils.stream.StreamingApi",
       "kind": "CALLS",
       "band": "import-guided"
-    },
-    {
-      "src_qn": "src/utils/stream.ts",
-      "dst_qn": "src.utils.stream.StreamingApi.abort",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src/utils/url.test.ts",
