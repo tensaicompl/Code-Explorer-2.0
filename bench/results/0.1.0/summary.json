@@ -1,0 +1,122 @@
+{
+  "determinism": {
+    "cold_warm_equivalent": 10,
+    "determinism_rate": 1.0,
+    "rebuild_equivalence_rate": 1.0,
+    "repositories": [
+      "ada/Ada_Drivers_Library",
+      "c/jq",
+      "cpp/fmt",
+      "csharp/eShop",
+      "go/gin",
+      "java/spring-petclinic",
+      "kotlin/Exposed",
+      "python/flask",
+      "rust/axum",
+      "typescript/hono"
+    ],
+    "repositories_identical": 10,
+    "repositories_tested": 10
+  },
+  "performance": {
+    "all_completed": false,
+    "goldens": {
+      "ada/Ada_Drivers_Library": {
+        "files": 1363,
+        "median_files_per_second": 1874.1887172623678,
+        "median_total_wall_ns": 1250158907,
+        "outcome": "completed",
+        "peak_rss_bytes": 502837248
+      },
+      "c/jq": {
+        "files": 397,
+        "median_files_per_second": 733.661110202012,
+        "median_total_wall_ns": 692474790,
+        "outcome": "completed",
+        "peak_rss_bytes": 195878912
+      },
+      "cpp/fmt": {
+        "files": 145,
+        "median_files_per_second": 37.24640101698971,
+        "median_total_wall_ns": 4360996466,
+        "outcome": "completed",
+        "peak_rss_bytes": 423849984
+      },
+      "csharp/eShop": {
+        "files": 1142,
+        "median_files_per_second": 3063.722498382317,
+        "median_total_wall_ns": 600301369,
+        "outcome": "completed",
+        "peak_rss_bytes": 198934528
+      },
+      "go/gin": {
+        "files": 130,
+        "median_files_per_second": 378.08430927605946,
+        "median_total_wall_ns": 515224853,
+        "outcome": "completed",
+        "peak_rss_bytes": 159174656
+      },
+      "java/spring-petclinic": {
+        "files": 132,
+        "median_files_per_second": 1585.5374576197548,
+        "median_total_wall_ns": 121032979,
+        "outcome": "completed",
+        "peak_rss_bytes": 53346304
+      },
+      "kotlin/Exposed": {
+        "files": 5593,
+        "median_files_per_second": 1149.3433617043993,
+        "median_total_wall_ns": 7564940429,
+        "outcome": "completed",
+        "peak_rss_bytes": 1323765760
+      },
+      "python/flask": {
+        "files": 236,
+        "median_files_per_second": 774.8394755865417,
+        "median_total_wall_ns": 382337729,
+        "outcome": "completed",
+        "peak_rss_bytes": 86024192
+      },
+      "rust/axum": {
+        "files": 498,
+        "median_files_per_second": 556.9455572140878,
+        "median_total_wall_ns": 1143376460,
+        "outcome": "completed",
+        "peak_rss_bytes": 219791360
+      },
+      "typescript/hono": {
+        "files": 483,
+        "median_files_per_second": 496.7881223353649,
+        "median_total_wall_ns": 1658873896,
+        "outcome": "completed",
+        "peak_rss_bytes": 488263680
+      }
+    },
+    "goldens_completed": 10,
+    "goldens_measured": 10,
+    "repositories_measured": 12,
+    "scale": {
+      "kubernetes": {
+        "memory_ceiling_bytes": 6442450944,
+        "outcome": "out_of_memory",
+        "peak_rss_bytes": 6443593728,
+        "stage_reached": "extract"
+      },
+      "linux": {
+        "memory_ceiling_bytes": 6442450944,
+        "outcome": "out_of_memory",
+        "peak_rss_bytes": 6448656384,
+        "stage_reached": "extract"
+      }
+    },
+    "scale_repositories_completed": 0,
+    "scale_repositories_measured": 2
+  },
+  "provenance": {
+    "engine_version": 6,
+    "language_matrix_version": 2,
+    "pdx_version": "0.1.0",
+    "segment_schema_version": 3
+  },
+  "results_format_version": 1
+}

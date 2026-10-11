@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 82 | 2026-10-11 | P2-14 | blocker | open | P2-14's performance run cannot complete either scale repository on the measuring machine (a 10 GB VM, 28 logical processors). Stage 2 keeps every file's extraction resident until the stage ends, at about 300 to 360 KB of resident memory per extraction completed, so a worker passes the harness's 6 GiB ceiling during extraction: Kubernetes (`6c1c770`, 25,930 files discovered) after 9.6 s with 21,211 extractions cached, Linux (`72d3fcf`, 95,723 files) after 14.2 s with 17,625. Not a defect of the harness: the goldens' peaks are 50 to 1,262 MiB. Blocks G1's scale criterion (peak RSS ≤ 4 GiB and ≥ 400 files/s on `kubernetes`), not P2-14 | Open. By the driver's decision P2-14 records each as `out_of_memory` data (peak, stage reached, stages finished, extractions cached) and its summary marks scale incomplete; nothing is optimised in P2-14. Needs Stage 2 and the registry to hold less per file (or stream into Stage 3) before G1 |
 | 81 | 2026-10-11 | P2-14 | third-party | resolved | P2-14's deliverables need a benchmark framework for the `resolve` and `segment write` benchmarks and a way to read a benchmark worker's resident memory and the host's processors and memory on Linux, macOS and Windows; neither was in the dependency graph | `criterion` 0.8.2 (a dev-dependency of `pdx-core` only, default features off but `cargo_bench_support`) with 13 crates of its own, `safe-to-run`; `sysinfo` 0.39.6 (a dependency of `pdx-bench` only, default features off but `system`) with 16 crates of its own, `safe-to-deploy`: 31 exact-version exemptions added by hand, each naming this issue, and the existing `syn` 2.0.119 exemption raised from `safe-to-run` to `safe-to-deploy`, because `sysinfo`'s Windows dependency builds two procedural macros with it. Exemptions, not audits: 142 exemptions, 0 audits, 0 imports. `pdx` links none of them (`scripts/open-binary-check.sh`) |
 | 80 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: error recovery in C++ makes callables of what is not one, and they own the sites they span. Examples in fmt are a `Function` named `namespace` over lines 928–1755 of `include/fmt/core.h`, and a `Method` `GoogleTestFailureException` over lines 10986–11713 of gtest's header. Overloads and templates inside such regions, or in class bodies, get no definition: `basic_specs::set_fill(basic_string_view<Char>)`, `count<B1, B2, Tail...>`, `EqHelper::Compare` behind `enable_if`. Under engine 5 the name join gave their sites to another definition with the same name. Since issue 76 they belong to the representation as it is: the enclosing artefact, or the file | Open: an extraction-quality question for C and C++, not ownership's |
 | 79 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: the unified walk keeps a function's frame open past its node. Expiry waits for the next node that is not trivia, and an error-recovered region the parser marks as an extra is walked at a greater depth, so it never comes. Lexical facts in the region (the callable a call is found in, which typed resolution joins on) name the earlier function. In jq, 8 sites in `src/jq_test.c` inside `run_jq_pthread_tests`, which has no definition, are found in `run_jq_exhaust_and_reuse_tests`. Since issue 76 graph ownership is guarded: no site is owned by a callable whose declaration does not hold it, so these are the file's | Open: an engine change to lexical facts, with typed resolution's answers to review |
@@ -125,6 +126,48 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 82 — The scale repositories exhaust memory in Stage 2
+
+P2-14's performance run (`make perf`, decision 49) measured all ten goldens to
+completion and neither scale repository. Each scale worker was stopped at the harness's
+6 GiB resident-memory ceiling during Stage 2, before extraction finished. Measured on a
+WSL 2 VM with 10 GB of memory and 28 logical processors (Intel Core i7-14700F), Stage 2
+at 28 workers and the default 512 MiB budget, engine 6:
+
+| Repository | Commit | Files discovered | Discovery | Stopped after | Peak resident | Extractions cached |
+|---|---|---|---|---|---|---|
+| `kubernetes` | `6c1c7702cf20` | 25,930 | 1.78 s | 9.58 s | 6,443,593,728 B (6,145 MiB) | 21,211 |
+| `linux` | `72d3fcf802c4` | 95,723 | 8.85 s | 14.19 s | 6,448,656,384 B (6,149 MiB) | 17,625 |
+
+Resident memory grows with the extractions completed: about 304 KB per cached extraction
+for Kubernetes and 366 KB for Linux. These are upper estimates per file, since the
+resident set also holds the engine, the 28 workers' working memory and source in flight
+(at most the 512 MiB budget), and the cache holds only clean extractions, a lower bound
+on the files extracted. Stage 2 returns every file's `FileExtract` (definitions, calls
+with their `ast_path` node-type strings, imports, routes) to be held until the registry
+is built, so the whole repository's extraction is resident at once. An earlier probe
+of Kubernetes outside the harness, four Stage 2 workers included, saw the same linear
+growth, to about 7.1 GB by the end of extraction, and more in Stage 3.
+
+The harness behaved as specified. The goldens peak at 50 MiB (spring-petclinic) to
+1,262 MiB (Exposed), and the ceiling stopped each scale worker within one sampling
+interval of crossing it (1 and 5 MiB over).
+
+**Driver decision (P2-14).** Record the outcome as data rather than raise the ceiling or
+optimise inside P2-14. `bench/results/0.1.0/kubernetes.json` and `linux.json` hold
+`outcome: out_of_memory`, the peak, the stage reached (`extract`), the stages finished
+(discovery, with its count and duration), the files discovered and the extractions
+cached at the stop. No further sample is taken once one is stopped. The summary has
+`scale_repositories_completed: 0` and `all_completed: false`.
+
+**Consequence.** G1's performance criterion ("≥ 400 files/s … on `kubernetes`, peak
+RSS ≤ 4 GiB on `kubernetes`") cannot be met until Stage 2 and Stage 3 hold far less per
+file, for example by storing extractions compactly (the `ast_path` strings repeat
+across sites) or by streaming extractions into the registry instead of holding them
+all. That is a pipeline change for a later task, decided at G1, not in P2-14.
+
+State: open.
 
 ### 81 — P2-14 benchmark dependencies
 

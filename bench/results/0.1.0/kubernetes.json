@@ -1,0 +1,42 @@
+{
+  "performance": {
+    "cached_extractions_at_stop": 21211,
+    "completed_stages": [
+      {
+        "duration_ns": 1784313185,
+        "items": 25930,
+        "stage": "discover"
+      }
+    ],
+    "files_discovered": 25930,
+    "host": {
+      "architecture": "x86_64",
+      "benchmark_memory_budget_bytes": 536870912,
+      "benchmark_workers": 28,
+      "cpu_brand": "Intel(R) Core(TM) i7-14700F",
+      "logical_cpus": 28,
+      "os": "linux",
+      "total_memory_bytes": 10424033280
+    },
+    "memory_budget_bytes": 536870912,
+    "memory_ceiling_bytes": 6442450944,
+    "outcome": "out_of_memory",
+    "peak_rss_bytes": 6443593728,
+    "rss_sample_interval_ms": 10,
+    "rss_samples": 919,
+    "sample": 1,
+    "stage_reached": "extract",
+    "wall_ns_at_stop": 9576593897,
+    "workers": 28
+  },
+  "provenance": {
+    "commit": "6c1c7702cf2052245ef10e699d45f071af306f59",
+    "engine_version": 6,
+    "kind": "scale",
+    "language_matrix_version": 2,
+    "pdx_version": "0.1.0",
+    "repository": "kubernetes",
+    "segment_schema_version": 3
+  },
+  "results_format_version": 1
+}

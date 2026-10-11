@@ -1,0 +1,42 @@
+{
+  "performance": {
+    "cached_extractions_at_stop": 17625,
+    "completed_stages": [
+      {
+        "duration_ns": 8852514650,
+        "items": 95723,
+        "stage": "discover"
+      }
+    ],
+    "files_discovered": 95723,
+    "host": {
+      "architecture": "x86_64",
+      "benchmark_memory_budget_bytes": 536870912,
+      "benchmark_workers": 28,
+      "cpu_brand": "Intel(R) Core(TM) i7-14700F",
+      "logical_cpus": 28,
+      "os": "linux",
+      "total_memory_bytes": 10424033280
+    },
+    "memory_budget_bytes": 536870912,
+    "memory_ceiling_bytes": 6442450944,
+    "outcome": "out_of_memory",
+    "peak_rss_bytes": 6448656384,
+    "rss_sample_interval_ms": 10,
+    "rss_samples": 1366,
+    "sample": 1,
+    "stage_reached": "extract",
+    "wall_ns_at_stop": 14187985623,
+    "workers": 28
+  },
+  "provenance": {
+    "commit": "72d3fcf802c45d00b300f25b848a93c3a2bd7c7e",
+    "engine_version": 6,
+    "kind": "scale",
+    "language_matrix_version": 2,
+    "pdx_version": "0.1.0",
+    "repository": "linux",
+    "segment_schema_version": 3
+  },
+  "results_format_version": 1
+}
