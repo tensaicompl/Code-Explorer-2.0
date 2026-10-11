@@ -464,7 +464,12 @@ version = "0.1.0"
 name = "pdx-bench"
 version = "0.1.0"
 dependencies = [
+ "clap",
+ "pdx-core",
+ "pdx-engine",
  "serde",
+ "serde_json",
+ "tempfile",
  "thiserror",
  "toml",
 ]

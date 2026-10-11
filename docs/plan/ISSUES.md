@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 74 | 2026-10-11 | P2-12 | blocker | open | P2-12's first `pdx-bench golden --accept` over the ten pinned goldens cannot complete: `cpp/fmt` indexes degraded (`pdx index` exit 2), reason `extraction_lost` on `test/gtest/gmock-gtest-all.cc`, a 533 KB, 14,442-line amalgamated test framework. The vendored engine's C/C++ typed resolver has a compiled-in per-file expression-evaluation step budget (`C_EVAL_MAX_STEPS_PER_FILE`, 10,000). It runs out on that file and counts as lost work (issue 21), so the segment is degraded. Deterministic: the same segment under one worker, isolation, a 4 GiB budget and every extraction switch raised. The other nine goldens are ready. Nothing was accepted; no golden is committed | Open, for the driver. A golden is ready-only (P2-12) and G1 needs every golden ready, so it must be resolved before the baseline. Options: (A) an engine change raising or scaling the C/C++ step budget, which moves `ENGINE_VERSION` and invalidates the extraction cache; (B) a specification change making a typed-resolution budget a run-health fact rather than a degraded reason (4.5, decision 34); (C) another disposition. The harness is implemented and tested on the task branch, unmerged |
 | 73 | 2026-10-11 | P2-04 | scr | resolved | Issue 72's detector version 3 fixed cross-detector idempotence but narrowed URI-password protection relative to detector 2: by treating `+`, `-`, `.` and the other scheme bytes as forbidden before an embedded scheme, it stopped masking passwords detector 2 masked (`-mysql://u:p@h`, `+mysql://…`, `.mysql://…`, `1.mysql://…`). Rejected by independent review before P2-12's golden baselines: a secret detector may mask more, never less, without an approved SCR | Decision 43: a letter-led scheme is recognised at the input's start or after any byte that is not an ASCII letter or digit, which keeps every detector-2 start (its word boundary allowed punctuation) and adds `_`; the mask `X` is a letter, so masking never opens a boundary. Issue 72's bearer-before-`://` clause, shared `BEARER_TOKEN`, `@` continuation and one-pass normalisation are kept. `SECRET_DETECTOR_VERSION` 3 → 4; the cache format stays 5. Monotonicity against detector 2's pattern as a test oracle: `uri_detector_preserves_detector_two_coverage`, `uri_detector_covers_detector_two_on_the_corpus`, the property `uri_detector_never_loses_a_detector_two_password` (200,000 cases); lost ranges 0 |
 | 72 | 2026-10-11 | P2-04 | scr | resolved | CI run 38098740924 (P2-11 review closure), attempt 1, failed on Windows in P2-04's property `secret_normalisation_preserves_offsets`: minimal YAML input `Authorization: Bearer <token>_mysql://u:<password>@h`. The same input fails identically on Linux; the defect predates the P2-11 closure: the word-boundary URI pattern dates from P2-04's first commit, 8f89f38, and the secrets code last changed in P2-08. Normalisation was not idempotent: the bearer token ran over `_mysql`, the URI detector, starting a scheme at a regex word boundary, missed `mysql` after `_`, and the masked token, a run of `X`, read as a scheme on a second pass, which masked the password then. The password reached the engine. Issue 44's claim that no other detector had the defect held per detector; this is one detector's mask completing another's match | URI password schemes follow URI grammar: a letter, then letters, digits, `+`, `-` and `.`, starting at the input's start or after a byte no scheme holds (`_` included), never at a regex word boundary. That alone left a class open (`Bearer <tok>_9mysql://…`, `<tok>_://…`, `<tok>=://…`, `Bearer 0000000000000000://…`: the masked token is always a scheme, the original need not be one), so by the driver's decision a bearer token before `://`, in the bearer detector's exact shape, also counts (decision 42). Every detector still reads the original bytes once, the ranges still merge, and masking still happens once. `SECRET_DETECTOR_VERSION` 2 → 3: the policy digest and every extraction cache key move (an older entry is a miss); `EXTRACT_CACHE_FORMAT_VERSION` stays 5, as do the segment schema, matrix, engine, protocol and surface. Regressions `bearer_adjacent_uri_password_is_idempotent`, `uri_scheme_boundary_uses_scheme_grammar_not_word_boundary`, `cross_detector_boundaries_are_idempotent`, `uri_boundary_change_leaves_ordinary_sources_alone`; the property, its pieces widened, passes 20,000 and 200,000 cases |
 | 71 | 2026-10-11 | P2-11 | scr | resolved | 4.2.1 says a local binary with no server "records `repo_id_source = \"url\"` in `meta`", but 4.3's `meta` keys do not include it and the reader refuses a key it does not know, so no segment can record it without a schema change | Resolved by the P2-11 review closure on 2026-10-11 (decision 40): 4.3 gains the required meta key `repo_id_source`, `url` or `registered` (`segment::RepoIdSource`), and `SEGMENT_SCHEMA_VERSION` moves 2 → 3 (no other version moves). With `url` the writer and the reader refuse a `repo_id` that is not `repo_id_from_url(repo_url)`; a `registered` id is never derived from or compared with the URL. A schema-2 segment is refused and re-indexed, never migrated. `pdx index` writes `url`, reports it in its JSON and `pdx coverage`'s, and still refuses a configured server |
@@ -117,6 +118,66 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 74 — The fmt golden indexes degraded
+
+P2-12's harness is implemented: fetch at the pin, `pdx index`, golden built from the
+segment, compare or accept, all or nothing. Its first `pdx-bench golden --accept` over
+the ten `[[golden]]` entries of `bench/repos.lock` stopped at `cpp/fmt`, with nothing
+promoted:
+
+```text
+cpp/fmt: pdx index produced a degraded segment, which is no golden baseline:
+  extraction_lost (1 file(s): test/gtest/gmock-gtest-all.cc)
+```
+
+A diagnostic run of the same `pdx index` on every pin (outside the harness, nothing
+committed) gave:
+
+| Golden | Status | Files (parsed / skipped) | Nodes | Edges |
+|---|---|---|---|---|
+| ada | ready | 1,363 (1,134 / 216) | 18,332 | 906 |
+| c | ready | 397 (65 / 310) | 2,840 | 5,900 |
+| cpp | **degraded**: `extraction_lost`, one file | 145 (70 / 36) | 7,633 | 7,544 |
+| csharp | ready | 1,142 (680 / 230) | 8,453 | 1,205 |
+| go | ready | 130 (119 / 8) | 2,419 | 5,516 |
+| java | ready | 132 (85 / 32) | 1,556 | 531 |
+| kotlin | ready | 5,593 (1,056 / 4,476) | 42,405 | 28,198 |
+| python | ready | 236 (106 / 123) | 1,727 | 916 |
+| rust | ready | 498 (419 / 66) | 5,312 | 3,618 |
+| typescript | ready | 483 (441 / 27) | 5,763 | 4,944 |
+
+The file is `test/gtest/gmock-gtest-all.cc`: 533 KB, 14,442 lines, the amalgamated
+test framework the repository vendors. The engine's C/C++ typed resolver evaluates
+expression types under a per-file step budget, `C_EVAL_MAX_STEPS_PER_FILE` (10,000).
+The budget is compiled into the vendored resolver, a guard so that a pathological
+expression degrades to an unknown type rather than hanging. Its exhaustion is counted
+as lost work since issue 21, and lost work is a degraded reason (4.5, decision 34). The
+engine's own debug output confirms the budget running out inside that file.
+
+The result is deterministic: the same segment, `041d066d…`, as is, with one worker,
+with isolated extraction, with a 4 GiB memory budget, and with
+`PDX_ENGINE_WALK_DEFS_MAX`, `PDX_ENGINE_WALK_MAX_NODES` and
+`PDX_ENGINE_LSP_MAX_WALK_DEPTH` raised. No setting lifts the constant.
+
+P2-12 accepts only ready goldens, so as not to freeze a defect as the expected answer,
+and G1 requires every golden repository to index ready. The baseline therefore waits.
+Nothing was accepted, the harness was not loosened, and no repository or pin was
+changed.
+
+For the driver:
+
+- **A. An engine change.** Raise, or scale with file size, the C/C++ step budget. This
+  is an engine behaviour change: `ENGINE_VERSION` moves (invalidating the extraction
+  cache), a vendored patch is recorded, and the sanitizer run applies.
+- **B. A specification change.** Make a typed-resolution budget a run-health fact
+  instead of a degraded reason. Extraction itself is complete here; only some
+  expression types in one file stayed unknown. This changes what degraded means
+  (4.5, decision 34, issue 21).
+- **C. Another disposition.** For example, a different golden for C++ under D5's rule,
+  which today covers only fetch and licence failures.
+
+State: open.
 
 ### 73 — Detector 3 narrowed URI-password coverage
 

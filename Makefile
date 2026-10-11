@@ -119,10 +119,16 @@ provenance-scan:
 
 # --- nightly ---------------------------------------------------------------
 
+# Every golden repository of bench/repos.lock fetched at its pin into bench/.cache/,
+# indexed by the pdx built here, and compared with bench/golden/ (P2-12). Verifies
+# only: replacing a golden takes `pdx-bench golden --accept` and a justification in
+# the commit body. Needs the network until the cache holds every pin.
+golden:
+	$(CARGO) build --release -p pdx -p pdx-bench
+	$(CARGO) run --release --quiet -p pdx-bench -- golden
+
 # Targets whose owning tasks have not landed stand in with an explicit skip, so a
 # red nightly means a real regression (scripts/pending-target.sh).
-golden:
-	@scripts/pending-target.sh golden P2-12
 
 oracle:
 	@scripts/pending-target.sh oracle P5-06

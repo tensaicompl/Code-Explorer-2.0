@@ -117,6 +117,26 @@ impl SegmentReader {
         self.one(queries::NODE_BY_ID, id.as_str(), node)
     }
 
+    /// Every node of the segment, by node id, each decoded as [`SegmentReader::node`]
+    /// decodes one.
+    ///
+    /// # Errors
+    ///
+    /// As [`SegmentReader::node`].
+    pub fn nodes_all(&self) -> Result<Vec<Node>, SegmentError> {
+        self.all(queries::NODES_ALL, params![], node)
+    }
+
+    /// Every edge of the segment, of every band, by edge id, each decoded as
+    /// [`SegmentReader::edges_from`] decodes one. Drawing is the caller's policy.
+    ///
+    /// # Errors
+    ///
+    /// As [`SegmentReader::node`].
+    pub fn edges_all(&self) -> Result<Vec<Edge>, SegmentError> {
+        self.all(queries::EDGES_ALL, params![], edge)
+    }
+
     /// The node's children in the containment tree, by node id.
     ///
     /// # Errors

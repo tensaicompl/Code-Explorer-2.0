@@ -100,6 +100,9 @@ pub(crate) const NODE_BY_ID: &str = node_select!("WHERE node_id = ?1");
 
 pub(crate) const CHILDREN: &str = node_select!("WHERE parent_id = ?1 ORDER BY node_id");
 
+/// Every node, by node id.
+pub(crate) const NODES_ALL: &str = node_select!("ORDER BY node_id");
+
 macro_rules! edge_select {
     ($tail:literal) => {
         concat!(
@@ -109,6 +112,9 @@ macro_rules! edge_select {
         )
     };
 }
+
+/// Every edge, by edge id.
+pub(crate) const EDGES_ALL: &str = edge_select!("ORDER BY edge_id");
 
 /// Edges from `?1`; `?2` is NULL for every band, or a JSON array of the bands wanted.
 pub(crate) const EDGES_FROM: &str = edge_select!(

@@ -580,6 +580,57 @@ fn segments_hold_exactly_the_schema() {
 // --- acceptance ------------------------------------------------------------------
 
 #[test]
+fn segment_reader_nodes_all_are_id_sorted() {
+    let scratch = Scratch::new();
+    let data = fixture();
+    let segment = write(&data, &scratch, "nodes-all");
+    let reader = SegmentReader::open(&segment.path).expect("the segment opens");
+    let all = reader.nodes_all().expect("a query");
+    // Every node, exactly as written, by node id.
+    let mut expected = data.nodes.clone();
+    expected.sort_by(|a, b| a.node_id.as_str().cmp(b.node_id.as_str()));
+    assert_eq!(all, expected);
+    assert!(
+        all.windows(2)
+            .all(|w| w[0].node_id.as_str() < w[1].node_id.as_str())
+    );
+    // Decoded as one node is.
+    for node in &all {
+        assert_eq!(
+            reader.node(&node.node_id).expect("a query").as_ref(),
+            Some(node)
+        );
+    }
+}
+
+#[test]
+fn segment_reader_edges_all_are_id_sorted() {
+    let scratch = Scratch::new();
+    let data = fixture();
+    let segment = write(&data, &scratch, "edges-all");
+    let reader = SegmentReader::open(&segment.path).expect("the segment opens");
+    let all = reader.edges_all().expect("a query");
+    // Every edge of every band, exactly as written, by edge id.
+    let mut expected = data.edges.clone();
+    expected.sort_by(|a, b| a.edge_id.as_str().cmp(b.edge_id.as_str()));
+    assert_eq!(all, expected);
+    assert!(!all.is_empty());
+    assert!(
+        all.windows(2)
+            .all(|w| w[0].edge_id.as_str() < w[1].edge_id.as_str())
+    );
+    // Decoded as edges from a node are.
+    for edge in &all {
+        assert!(
+            reader
+                .edges_from(&edge.src, &[])
+                .expect("a query")
+                .contains(edge)
+        );
+    }
+}
+
+#[test]
 fn segment_roundtrip() {
     let scratch = Scratch::new();
     let data = fixture();

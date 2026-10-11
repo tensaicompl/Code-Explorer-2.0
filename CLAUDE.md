@@ -38,7 +38,7 @@ this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` is the CLI (`index`, `coverage`, `version`, and the hidden `engine-worker`); the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` is the CLI (`index`, `coverage`, `version`, and the hidden `engine-worker`); `pdx-bench` is the benchmark harness (the lock files, and the golden harness: `pdx-bench golden [--accept]`); the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`) |
@@ -280,6 +280,31 @@ paths), `report` (JSON and text reports, progress).
 - **The hidden worker** is served before parsing, unchanged.
 - **Test fixtures** are real Git repositories with fixed author, committer, dates and
   autocrlf, and with `GIT_CONFIG_GLOBAL` pointed at an empty file.
+
+The golden harness (P2-12) is `crates/pdx-bench` (`golden::{plan, cache, git, index,
+expected, run}`) and `make golden`.
+
+- **Pins.** Only `bench/repos.lock`'s `[[golden]]` entries, never `[[scale]]`, each at
+  its exact pinned commit. The commit is fetched by its id over `https://<lock url>`
+  into the disposable `bench/.cache/repos/`, and is never followed by a branch.
+- **Git.** Runs without a shell, with no prompt, an empty global configuration of the
+  harness's, no system configuration, `core.hooksPath` pointed at an empty directory,
+  no submodules, and LF checkouts. Nothing in a fetched repository is ever executed.
+  Symlinks in the cache or `bench/golden/` are refused.
+- **Index.** The real `pdx` beside `pdx-bench` runs
+  `pdx index <checkout> --out <bench/.cache/segments/…> --profile structural --json`.
+  Only a ready index (exit 0) makes a golden; degraded (exit 2) fails the run.
+- **Golden.** Read with `SegmentReader::nodes_all`/`edges_all`, no SQL in the harness.
+  The format is decision 44: every `NodeKind` with its count (zeros included) sorted by
+  spelling, and every stored drawn edge (`Band::is_drawn`, duplicates kept) as
+  `(src_qn, dst_qn, kind, band)`, sorted by that tuple. No ids, paths, source,
+  timestamps or machine state.
+- **Accept.** Comparison never writes `bench/golden/`. `--accept` stages every golden
+  under `bench/.cache/generated/` and promotes them only when all succeeded. A changed
+  golden needs a justification in the commit body.
+- **Tests.** `cargo test` never touches the network: `golden_files_sorted` reads the
+  committed files, and fetch tests use local repositories.
+- **Baseline.** The committed baseline is pending issue 74.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file
