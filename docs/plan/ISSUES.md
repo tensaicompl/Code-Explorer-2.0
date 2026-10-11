@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 73 | 2026-10-11 | P2-04 | scr | resolved | Issue 72's detector version 3 fixed cross-detector idempotence but narrowed URI-password protection relative to detector 2: by treating `+`, `-`, `.` and the other scheme bytes as forbidden before an embedded scheme, it stopped masking passwords detector 2 masked (`-mysql://u:p@h`, `+mysql://…`, `.mysql://…`, `1.mysql://…`). Rejected by independent review before P2-12's golden baselines: a secret detector may mask more, never less, without an approved SCR | Decision 43: a letter-led scheme is recognised at the input's start or after any byte that is not an ASCII letter or digit, which keeps every detector-2 start (its word boundary allowed punctuation) and adds `_`; the mask `X` is a letter, so masking never opens a boundary. Issue 72's bearer-before-`://` clause, shared `BEARER_TOKEN`, `@` continuation and one-pass normalisation are kept. `SECRET_DETECTOR_VERSION` 3 → 4; the cache format stays 5. Monotonicity against detector 2's pattern as a test oracle: `uri_detector_preserves_detector_two_coverage`, `uri_detector_covers_detector_two_on_the_corpus`, the property `uri_detector_never_loses_a_detector_two_password` (200,000 cases); lost ranges 0 |
 | 72 | 2026-10-11 | P2-04 | scr | resolved | CI run 38098740924 (P2-11 review closure), attempt 1, failed on Windows in P2-04's property `secret_normalisation_preserves_offsets`: minimal YAML input `Authorization: Bearer <token>_mysql://u:<password>@h`. The same input fails identically on Linux; the defect predates the P2-11 closure: the word-boundary URI pattern dates from P2-04's first commit, 8f89f38, and the secrets code last changed in P2-08. Normalisation was not idempotent: the bearer token ran over `_mysql`, the URI detector, starting a scheme at a regex word boundary, missed `mysql` after `_`, and the masked token, a run of `X`, read as a scheme on a second pass, which masked the password then. The password reached the engine. Issue 44's claim that no other detector had the defect held per detector; this is one detector's mask completing another's match | URI password schemes follow URI grammar: a letter, then letters, digits, `+`, `-` and `.`, starting at the input's start or after a byte no scheme holds (`_` included), never at a regex word boundary. That alone left a class open (`Bearer <tok>_9mysql://…`, `<tok>_://…`, `<tok>=://…`, `Bearer 0000000000000000://…`: the masked token is always a scheme, the original need not be one), so by the driver's decision a bearer token before `://`, in the bearer detector's exact shape, also counts (decision 42). Every detector still reads the original bytes once, the ranges still merge, and masking still happens once. `SECRET_DETECTOR_VERSION` 2 → 3: the policy digest and every extraction cache key move (an older entry is a miss); `EXTRACT_CACHE_FORMAT_VERSION` stays 5, as do the segment schema, matrix, engine, protocol and surface. Regressions `bearer_adjacent_uri_password_is_idempotent`, `uri_scheme_boundary_uses_scheme_grammar_not_word_boundary`, `cross_detector_boundaries_are_idempotent`, `uri_boundary_change_leaves_ordinary_sources_alone`; the property, its pieces widened, passes 20,000 and 200,000 cases |
 | 71 | 2026-10-11 | P2-11 | scr | resolved | 4.2.1 says a local binary with no server "records `repo_id_source = \"url\"` in `meta`", but 4.3's `meta` keys do not include it and the reader refuses a key it does not know, so no segment can record it without a schema change | Resolved by the P2-11 review closure on 2026-10-11 (decision 40): 4.3 gains the required meta key `repo_id_source`, `url` or `registered` (`segment::RepoIdSource`), and `SEGMENT_SCHEMA_VERSION` moves 2 → 3 (no other version moves). With `url` the writer and the reader refuse a `repo_id` that is not `repo_id_from_url(repo_url)`; a `registered` id is never derived from or compared with the URL. A schema-2 segment is refused and re-indexed, never migrated. `pdx index` writes `url`, reports it in its JSON and `pdx coverage`'s, and still refuses a configured server |
 | 70 | 2026-10-11 | P2-11 | third-party | resolved | `pdx`'s command line (P2-11) needs an argument parser with subcommands, typed values and help; none was in the dependency graph | `clap` 4.6.7, pinned exactly, builder API, default features off but `std`, `help`, `usage`, `error-context` (no colour, suggestions, wrapping, environment arguments or derive macros), with `clap_builder` 4.6.7, `clap_lex` 1.1.1 and `anstyle` 1.0.14: four exact-version `safe-to-deploy` exemptions added by hand, each naming this issue. Exemptions, not audits: 111 exemptions, 0 audits, 0 imports |
@@ -114,6 +115,70 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 73 — Detector 3 narrowed URI-password coverage
+
+Issue 72's resolution (decision 42) made the URI password detector start a scheme only
+at the start of the input or after a byte that cannot belong to a scheme: anything but
+a letter, a digit, `+`, `-` or `.`. That fixed the idempotence defect, but it also
+stopped masking passwords detector 2 masked. Detector 2's regex word boundary already
+let a letter-led scheme start after any punctuation, `+`, `-` and `.` included.
+Detector 3 lost, among others:
+
+```text
+-mysql://u:<password>@h
++mysql://u:<password>@h
+.mysql://u:<password>@h
+1.mysql://u:<password>@h
+```
+
+Independent review rejected the narrowing before P2-12's golden baselines. A secret
+detector's job is to keep a password in a connection-string-shaped substring from
+reaching the engine, the cache, the segment, the lexical index, embeddings, snippets
+and model requests. It does not need the surrounding text to be one formally valid
+URI. Detection must be monotonic: what an earlier version masked, a later one masks,
+unless an approved specification change accepts the loss. None was.
+
+Resolution (decision 43, superseding only decision 42's ordinary delimiter):
+
+- **The final ordinary delimiter.** A letter-led scheme (a letter, then letters,
+  digits, `+`, `-` and `.`) is recognised at the start of the input or right after any
+  byte that is not an ASCII letter or digit. Every byte detector 2's word boundary
+  accepted before a letter is accepted, and so is `_`. After a letter or digit no
+  scheme starts (`9mysql://u:p@h` holds no URI password), and since the mask `X` is a
+  letter, masking never opens a boundary. At the start of the input `xmysql://` and
+  `abc9mysql://` are schemes of their own, masked as detector 2 masked them.
+- **Kept from issue 72.** The bearer-before-`://` clause (a masked bearer token is a
+  scheme even where the original is not one: `Bearer 0000000000000000://…`,
+  `<token>_://…`, `<token>=://…`), the shared `BEARER_TOKEN` pattern, resuming the
+  search on a match's `@` (`a://u:p@b://u:q@h` masks both), and one pass over the
+  original bytes with one mask. Issue 72 stays resolved; its root cause and bearer
+  rule stand.
+- **Versions.** `SECRET_DETECTOR_VERSION` 3 → 4. The default policy digest moves from
+  `de4ad6db…7776` to `05f97f16…6904`, the custom vector from `e4eeb594…75d0` to
+  `92d35bc7…3be7`, and the cache object vector from `c1c95f71…8e28` to
+  `088819a1…0d81` (`v5/08/…`). Detector-3 entries are misses, needing no migration.
+  The cache format stays 5, and nothing else moves.
+- **Monotonicity.** Detector 2's URI pattern and placeholder exemption are kept in
+  the tests as an oracle, never used to compute the detector's own ranges.
+  - `uri_detector_preserves_detector_two_coverage`: the lost cases, issue 72's
+    additions, and every byte value before a scheme after nothing, a digit, letters
+    and `x.` (1,024 sources).
+  - `uri_detector_covers_detector_two_on_the_corpus`: replaces
+    `uri_boundary_change_leaves_ordinary_sources_alone`, asserting a superset rather
+    than equality. The 65 sanitizer-corpus files hold no URI password, so 0 and 0
+    ranges; over all 1,171 tracked files, a one-off run gave detector 2 34 ranges and
+    detector 4 37, lost 0, added 3, the `_mysql` cases.
+  - The property `uri_detector_never_loses_a_detector_two_password`: 200,000 cases,
+    lost 0.
+  - `uri_scheme_boundary_uses_scheme_grammar_not_word_boundary` is renamed
+    `uri_password_boundary_is_security_conservative`, with a table over every class
+    of preceding byte.
+  - The idempotence property still passes 200,000 cases.
+- **4.5** now describes the boundary as a secret detector's, not a URI lexer's, with
+  the security reason, and the bearer rule as the cross-detector fixed point.
 
 State: resolved.
 
