@@ -16,7 +16,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
 | 76 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 75: a represented callable whose unified-walk qualified name differs from its definition's still loses ownership of its sites. The walk names a frame by `compute_func_qn`, the definition extractor by its own rules; when they disagree, no definition carries the frame's name and the call's caller is the file. Examples: Rust trait methods on a generic type (`impl<F> Debug for WebSocketUpgrade<F>`, whose definition drops `<F>`), a Rust test whose name carries its `cfg` attribute, minified JavaScript, Ada specification files, C and C++ template and macro forms. Under engine 5, the call sites inside a represented callable's span with no enclosing node number: ada 475, c 190, cpp 9,200, kotlin repository 7,081 (6,651 in its documentation JavaScript), rust 1,756, typescript 6; csharp, go, java and python 0. The same sites had no owner under engine 4 | Open, for the driver. Not issue 75 (no nested callable is involved) and not changed by it; engine 5 only starts these sites' paths at the root, as 4.2.1 says for a site with no represented enclosing definition. Aligning the two names is an engine change with its own version and golden review |
-| 75 | 2026-10-11 | P2-13 | scr | open | Found by P2-13's legacy comparison: a call inside a definition nested in a function body (a decorated inner view, a decorator's wrapper, a closure) has no enclosing definition in the segment. The segment has no node for the nested definition, and the site's `enclosing_node_id` is empty rather than the outer definition's, so a drawn edge from it has the File node as its source. 4.2.1 reserves an empty `enclosing_node_id` for a site outside every definition. In the Python golden, 449 of 3,840 call sites lie inside a definition's span with no enclosing node (119 drawn `CALLS` rows from the File), against 236 genuinely at module level | The driver chose nearest already-modelled enclosing-function ownership, rather than minting local-definition nodes (decision 47). A function boundary owns graph facts only when its exact declaration occurrence is among the definitions extracted before the unified walk. An unmodelled nested callable keeps its lexical scope, and its sites, callers and paths belong to the nearest represented definition (patch 0013). `ENGINE_VERSION` 4 → 5; schema 3, cache format 5, protocol 6 and surface 4 unchanged. Open until the engine and derive regressions pass, the Python golden no longer shows the defect, all ten goldens are ready with their changes reviewed and accepted, `make check-asan` is clean, `make vendor-verify` is exact and `make check` is green |
+| 75 | 2026-10-11 | P2-13 | scr | resolved | Found by P2-13's legacy comparison: a call inside a definition nested in a function body (a decorated inner view, a decorator's wrapper, a closure) has no enclosing definition in the segment. The segment has no node for the nested definition, and the site's `enclosing_node_id` is empty rather than the outer definition's, so a drawn edge from it has the File node as its source. 4.2.1 reserves an empty `enclosing_node_id` for a site outside every definition. In the Python golden, 449 of 3,840 call sites lie inside a definition's span with no enclosing node (119 drawn `CALLS` rows from the File), against 236 genuinely at module level | Resolved by decision 47 (patch 0013). The driver selected the nearest already-modelled enclosing function rather than minting local-definition nodes. Modelled function boundaries are identified from the definitions extracted before the unified walk, by declaration occurrence (qualified name, first and last line), never the name alone. Unmodelled nested callables keep their lexical scope (and the name typed resolution joins on) but are not graph-ownership frames, so `Call.caller` and `ast_path` agree on the represented enclosing definition. C, C++ and CUDA keep ownership by name, because definitions are adopted after their walk. `ENGINE_VERSION` 4 → 5; schema 3, cache format 5, protocol 6 and surface 4 unchanged. All ten goldens are ready. Python golden, engine 4 → 5: call sites inside a callable's span with no enclosing node 441 → 0; File-sourced `CALLS` from them 118 → 0; module-level sites 244 → 244; nodes, sites, candidates and `CALLS` rows unchanged; coverage call sites 3,861 unchanged. Five goldens refreshed after review (csharp, kotlin, python, rust, typescript), five byte-identical. The residual class of issue 76 is separate |
 | 74 | 2026-10-11 | P2-12 | scr | resolved | P2-12's first `pdx-bench golden --accept` over the ten pinned goldens cannot complete: `cpp/fmt` indexes degraded (`pdx index` exit 2), reason `extraction_lost` on `test/gtest/gmock-gtest-all.cc`, a 533 KB, 14,442-line amalgamated test framework. The vendored engine's C/C++ typed resolver has a compiled-in per-file expression-evaluation step budget (`C_EVAL_MAX_STEPS_PER_FILE`, 10,000). It runs out on that file and counts as lost work (issue 21), so the segment is degraded. Deterministic: the same segment under one worker, isolation, a 4 GiB budget and every extraction switch raised. The other nine goldens are ready. Nothing was accepted; no golden is committed | Option A selected by the driver; B (making the budget run health) and C (another golden) rejected: a budget running out is real lost evidence, and replacing the golden would hide a G1 engine limitation. The C/C++ expression evaluation budget changed from a fixed 10,000 threshold to a deterministic source-size-aware budget: 10,000 per started 32 KiB, minimum 10,000, hard maximum 320,000 (patch 0012, decision 45, 4.5). Budget exhaustion remains lost work and remains a degraded reason. `ENGINE_VERSION` 3 → 4. The extraction cache format remains 5, because `engine_version` is already in the key. Resolved: all ten goldens index ready with engine 4. The file (532,839 bytes, budget 170,000) extracts with `extraction_lost` 0 (engine 3: 2), and `cpp/fmt` is ready with 7,633 nodes (unchanged) and 7,547 drawn edges (was 7,544), every change in that file. The other nine are row-for-row identical to engine 3. `make check-asan` is clean, `make vendor-verify` is exact, and the initial baselines are accepted |
 | 73 | 2026-10-11 | P2-04 | scr | resolved | Issue 72's detector version 3 fixed cross-detector idempotence but narrowed URI-password protection relative to detector 2: by treating `+`, `-`, `.` and the other scheme bytes as forbidden before an embedded scheme, it stopped masking passwords detector 2 masked (`-mysql://u:p@h`, `+mysql://…`, `.mysql://…`, `1.mysql://…`). Rejected by independent review before P2-12's golden baselines: a secret detector may mask more, never less, without an approved SCR | Decision 43: a letter-led scheme is recognised at the input's start or after any byte that is not an ASCII letter or digit, which keeps every detector-2 start (its word boundary allowed punctuation) and adds `_`; the mask `X` is a letter, so masking never opens a boundary. Issue 72's bearer-before-`://` clause, shared `BEARER_TOKEN`, `@` continuation and one-pass normalisation are kept. `SECRET_DETECTOR_VERSION` 3 → 4; the cache format stays 5. Monotonicity against detector 2's pattern as a test oracle: `uri_detector_preserves_detector_two_coverage`, `uri_detector_covers_detector_two_on_the_corpus`, the property `uri_detector_never_loses_a_detector_two_password` (200,000 cases); lost ranges 0 |
 | 72 | 2026-10-11 | P2-04 | scr | resolved | CI run 38098740924 (P2-11 review closure), attempt 1, failed on Windows in P2-04's property `secret_normalisation_preserves_offsets`: minimal YAML input `Authorization: Bearer <token>_mysql://u:<password>@h`. The same input fails identically on Linux; the defect predates the P2-11 closure: the word-boundary URI pattern dates from P2-04's first commit, 8f89f38, and the secrets code last changed in P2-08. Normalisation was not idempotent: the bearer token ran over `_mysql`, the URI detector, starting a scheme at a regex word boundary, missed `mysql` after `_`, and the masked token, a run of `X`, read as a scheme on a second pass, which masked the password then. The password reached the engine. Issue 44's claim that no other detector had the defect held per detector; this is one detector's mask completing another's match | URI password schemes follow URI grammar: a letter, then letters, digits, `+`, `-` and `.`, starting at the input's start or after a byte no scheme holds (`_` included), never at a regex word boundary. That alone left a class open (`Bearer <tok>_9mysql://…`, `<tok>_://…`, `<tok>=://…`, `Bearer 0000000000000000://…`: the masked token is always a scheme, the original need not be one), so by the driver's decision a bearer token before `://`, in the bearer detector's exact shape, also counts (decision 42). Every detector still reads the original bytes once, the ranges still merge, and masking still happens once. `SECRET_DETECTOR_VERSION` 2 → 3: the policy digest and every extraction cache key move (an older entry is a miss); `EXTRACT_CACHE_FORMAT_VERSION` stays 5, as do the segment schema, matrix, engine, protocol and surface. Regressions `bearer_adjacent_uri_password_is_idempotent`, `uri_scheme_boundary_uses_scheme_grammar_not_word_boundary`, `cross_detector_boundaries_are_idempotent`, `uri_boundary_change_leaves_ordinary_sources_alone`; the property, its pieces widened, passes 20,000 and 200,000 cases |
@@ -202,7 +202,68 @@ represented, so ownership stays by name, as before.
 
 4.2.1 and 4.5 state the rule. `ENGINE_VERSION` 4 → 5; nothing else moves.
 
-State: open, until the goldens are refreshed and validated under engine 5.
+#### Result
+
+Engine 5 removes the defect from every golden where it is the cause. Counted the same
+way before and after: call and reference sites inside a Function, Method, Test or
+Constructor span with no enclosing node.
+
+| Golden | Engine 4 | Engine 5 |
+|---|---|---|
+| python | 441 | 0 |
+| csharp | 15 | 0 |
+| go, java | 0 | 0 |
+| typescript, rust, kotlin repository | 20, 1,993, 7,632 | 6, 1,756, 7,081 |
+| ada, c, cpp | 475, 190, 9,200 | unchanged |
+
+What remains is issue 76's class, not a nested callable. P2-13 counted 449 sites
+because it also took class spans.
+
+On the Python golden:
+
+| Measure | Engine 4 | Engine 5 |
+|---|---|---|
+| `CALLS` rows | 639 | 639 |
+| Unique `CALLS` pairs | 468 | 506 |
+| File-sourced `CALLS` | 141 | 23, all at module level |
+| `TESTS` edges | 229 | 325 (+96) |
+
+- **Unchanged:** nodes 1,727, sites 3,892, candidates 3,205 and `CALL_REFERENCE` 17.
+- **`fan_out`** changes on 85 nodes, while `fan_in`, `importance` and
+  `transitive_loop_depth` are unchanged.
+- **Coverage:** 3,861 call sites, unchanged; 11 sites move to `inheritance-guided`
+  from `exact` (10) and `scoped` (1), with the same targets, now that Stage 3 knows the
+  caller's class.
+- **Discovery:** files, statuses and blobs are identical.
+
+Across the five changed goldens every tuple was reviewed against the engine-4
+segments, matched by site position and callee. The changes are:
+
+- **Source attribution** moves to the represented callable. In the Kotlin repository
+  a few move away from a different declaration that only shared the qualified name.
+- **`TESTS` edges** follow calls now owned by tests.
+- **Stage 3 caller effects:**
+  - same-target band changes;
+  - one TypeScript candidate resolving inside its own former set;
+  - two Kotlin bare calls in a test class withheld by the implicit-receiver rule;
+  - two Kotlin candidate sets gaining one overload node.
+
+Typed answers are unchanged.
+
+During review a first implementation, which moved the caller's name itself, was
+rejected because typed answers for calls in nested functions stopped joining. Two
+tests now guard that: `typed_answers_still_join_calls_in_unmodelled_nested_callables`
+and `nested_typed_answers_are_the_same_from_a_cached_extraction`.
+
+Validation:
+
+- 11 deliberate mutations, all killed.
+- `make check-asan`: 37 tests, no report.
+- `make vendor-verify`: exact.
+- `make check`: green.
+- `make golden`: ten match, also from a clean checkout.
+
+State: resolved.
 
 ### 74 — The fmt golden indexes degraded
 
