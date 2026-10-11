@@ -15,7 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 74 | 2026-10-11 | P2-12 | scr | open | P2-12's first `pdx-bench golden --accept` over the ten pinned goldens cannot complete: `cpp/fmt` indexes degraded (`pdx index` exit 2), reason `extraction_lost` on `test/gtest/gmock-gtest-all.cc`, a 533 KB, 14,442-line amalgamated test framework. The vendored engine's C/C++ typed resolver has a compiled-in per-file expression-evaluation step budget (`C_EVAL_MAX_STEPS_PER_FILE`, 10,000). It runs out on that file and counts as lost work (issue 21), so the segment is degraded. Deterministic: the same segment under one worker, isolation, a 4 GiB budget and every extraction switch raised. The other nine goldens are ready. Nothing was accepted; no golden is committed | Option A selected by the driver; B (making the budget run health) and C (another golden) rejected: a budget running out is real lost evidence, and replacing the golden would hide a G1 engine limitation. The C/C++ expression evaluation budget changed from a fixed 10,000 threshold to a deterministic source-size-aware budget: 10,000 per started 32 KiB, minimum 10,000, hard maximum 320,000 (patch 0012, decision 45, 4.5). Budget exhaustion remains lost work and remains a degraded reason. `ENGINE_VERSION` 3 → 4. The extraction cache format remains 5, because `engine_version` is already in the key. Open until all ten goldens index ready with the corrected engine |
+| 74 | 2026-10-11 | P2-12 | scr | resolved | P2-12's first `pdx-bench golden --accept` over the ten pinned goldens cannot complete: `cpp/fmt` indexes degraded (`pdx index` exit 2), reason `extraction_lost` on `test/gtest/gmock-gtest-all.cc`, a 533 KB, 14,442-line amalgamated test framework. The vendored engine's C/C++ typed resolver has a compiled-in per-file expression-evaluation step budget (`C_EVAL_MAX_STEPS_PER_FILE`, 10,000). It runs out on that file and counts as lost work (issue 21), so the segment is degraded. Deterministic: the same segment under one worker, isolation, a 4 GiB budget and every extraction switch raised. The other nine goldens are ready. Nothing was accepted; no golden is committed | Option A selected by the driver; B (making the budget run health) and C (another golden) rejected: a budget running out is real lost evidence, and replacing the golden would hide a G1 engine limitation. The C/C++ expression evaluation budget changed from a fixed 10,000 threshold to a deterministic source-size-aware budget: 10,000 per started 32 KiB, minimum 10,000, hard maximum 320,000 (patch 0012, decision 45, 4.5). Budget exhaustion remains lost work and remains a degraded reason. `ENGINE_VERSION` 3 → 4. The extraction cache format remains 5, because `engine_version` is already in the key. Resolved: all ten goldens index ready with engine 4. The file (532,839 bytes, budget 170,000) extracts with `extraction_lost` 0 (engine 3: 2), and `cpp/fmt` is ready with 7,633 nodes (unchanged) and 7,547 drawn edges (was 7,544), every change in that file. The other nine are row-for-row identical to engine 3. `make check-asan` is clean, `make vendor-verify` is exact, and the initial baselines are accepted |
 | 73 | 2026-10-11 | P2-04 | scr | resolved | Issue 72's detector version 3 fixed cross-detector idempotence but narrowed URI-password protection relative to detector 2: by treating `+`, `-`, `.` and the other scheme bytes as forbidden before an embedded scheme, it stopped masking passwords detector 2 masked (`-mysql://u:p@h`, `+mysql://…`, `.mysql://…`, `1.mysql://…`). Rejected by independent review before P2-12's golden baselines: a secret detector may mask more, never less, without an approved SCR | Decision 43: a letter-led scheme is recognised at the input's start or after any byte that is not an ASCII letter or digit, which keeps every detector-2 start (its word boundary allowed punctuation) and adds `_`; the mask `X` is a letter, so masking never opens a boundary. Issue 72's bearer-before-`://` clause, shared `BEARER_TOKEN`, `@` continuation and one-pass normalisation are kept. `SECRET_DETECTOR_VERSION` 3 → 4; the cache format stays 5. Monotonicity against detector 2's pattern as a test oracle: `uri_detector_preserves_detector_two_coverage`, `uri_detector_covers_detector_two_on_the_corpus`, the property `uri_detector_never_loses_a_detector_two_password` (200,000 cases); lost ranges 0 |
 | 72 | 2026-10-11 | P2-04 | scr | resolved | CI run 38098740924 (P2-11 review closure), attempt 1, failed on Windows in P2-04's property `secret_normalisation_preserves_offsets`: minimal YAML input `Authorization: Bearer <token>_mysql://u:<password>@h`. The same input fails identically on Linux; the defect predates the P2-11 closure: the word-boundary URI pattern dates from P2-04's first commit, 8f89f38, and the secrets code last changed in P2-08. Normalisation was not idempotent: the bearer token ran over `_mysql`, the URI detector, starting a scheme at a regex word boundary, missed `mysql` after `_`, and the masked token, a run of `X`, read as a scheme on a second pass, which masked the password then. The password reached the engine. Issue 44's claim that no other detector had the defect held per detector; this is one detector's mask completing another's match | URI password schemes follow URI grammar: a letter, then letters, digits, `+`, `-` and `.`, starting at the input's start or after a byte no scheme holds (`_` included), never at a regex word boundary. That alone left a class open (`Bearer <tok>_9mysql://…`, `<tok>_://…`, `<tok>=://…`, `Bearer 0000000000000000://…`: the masked token is always a scheme, the original need not be one), so by the driver's decision a bearer token before `://`, in the bearer detector's exact shape, also counts (decision 42). Every detector still reads the original bytes once, the ranges still merge, and masking still happens once. `SECRET_DETECTOR_VERSION` 2 → 3: the policy digest and every extraction cache key move (an older entry is a miss); `EXTRACT_CACHE_FORMAT_VERSION` stays 5, as do the segment schema, matrix, engine, protocol and surface. Regressions `bearer_adjacent_uri_password_is_idempotent`, `uri_scheme_boundary_uses_scheme_grammar_not_word_boundary`, `cross_detector_boundaries_are_idempotent`, `uri_boundary_change_leaves_ordinary_sources_alone`; the property, its pieces widened, passes 20,000 and 200,000 cases |
 | 71 | 2026-10-11 | P2-11 | scr | resolved | 4.2.1 says a local binary with no server "records `repo_id_source = \"url\"` in `meta`", but 4.3's `meta` keys do not include it and the reader refuses a key it does not know, so no segment can record it without a schema change | Resolved by the P2-11 review closure on 2026-10-11 (decision 40): 4.3 gains the required meta key `repo_id_source`, `url` or `registered` (`segment::RepoIdSource`), and `SEGMENT_SCHEMA_VERSION` moves 2 → 3 (no other version moves). With `url` the writer and the reader refuse a `repo_id` that is not `repo_id_from_url(repo_url)`; a `registered` id is never derived from or compared with the URL. A schema-2 segment is refused and re-indexed, never migrated. `pdx index` writes `url`, reports it in its JSON and `pdx coverage`'s, and still refuses a configured server |
@@ -217,7 +217,40 @@ and the format stays 5. The schema, matrix, detector, protocol and surface versi
 not move. A segment's bytes move with its `engine_version` meta value even where its
 rows do not.
 
-State: open, until all ten goldens index ready with engine 4.
+#### Result
+
+All ten goldens index ready with engine 4, under the P2-12 harness itself (`pdx-bench
+golden`, staging only; then `--accept`; then `make golden`, all ten matching):
+
+- **The file.** 532,839 bytes, 17 started tranches, budget 170,000. It extracts with
+  `extraction_lost` 0. Engine 3 reported 2, one for each evaluator pass (the source,
+  and its macro-expanded text), and the engine's debug output, which then showed the
+  budget running out twice, shows it no more.
+- **`cpp/fmt`.** Ready (exit 0, no degraded reason), segment `0f5f9228…c108`, the same
+  in three repeated runs, with one worker and with an empty extraction cache.
+  - Nodes stay 7,633. Drawn edges are 7,547, from 7,544.
+  - The whole change is in that one file. 29 `exact` edges are now `typed`, with the
+    same source, target and kind: typed resolution confirms what the textual stage
+    found.
+  - Two `candidate` sites are now drawn `typed` edges, and one more call site is
+    settled by typed resolution. So `typed` gains 32 and `exact` loses 29.
+- **The other nine.** Row-for-row identical to engine 3 (nodes, edges, candidates),
+  `c/jq` included: its files never reached the old budget. Their segment hashes move
+  only with `meta.engine_version`.
+- **Sanitizers.** `make check-asan` (clang): 37 tests, among them `c_eval_budget` at
+  `INT_MAX` and `INT_MIN`. No ASan, UBSan or leak report.
+- **Vendoring.** `make vendor-verify`: the refresh with patches 0001 to 0012
+  reproduces the committed engine exactly.
+- **Mutations.** Seven, all killed and restored:
+  - a fixed 10,000 budget;
+  - no cap;
+  - a minimum below 10,000;
+  - no `pdxe_lost_work`;
+  - Rust's version left at 3;
+  - the engine's string left at 3;
+  - cache keys built as engine 3.
+
+State: resolved.
 
 ### 73 — Detector 3 narrowed URI-password coverage
 

@@ -1,0 +1,5654 @@
+{
+  "node_counts": [
+    {
+      "kind": "ApiContract",
+      "count": 0
+    },
+    {
+      "kind": "Artifact",
+      "count": 0
+    },
+    {
+      "kind": "ArtifactVersion",
+      "count": 0
+    },
+    {
+      "kind": "BatchJob",
+      "count": 0
+    },
+    {
+      "kind": "BoundedContext",
+      "count": 0
+    },
+    {
+      "kind": "Broker",
+      "count": 0
+    },
+    {
+      "kind": "Channel",
+      "count": 0
+    },
+    {
+      "kind": "Class",
+      "count": 125
+    },
+    {
+      "kind": "Column",
+      "count": 0
+    },
+    {
+      "kind": "ConfigKey",
+      "count": 0
+    },
+    {
+      "kind": "Constructor",
+      "count": 0
+    },
+    {
+      "kind": "Database",
+      "count": 0
+    },
+    {
+      "kind": "Deployment",
+      "count": 0
+    },
+    {
+      "kind": "Doc",
+      "count": 0
+    },
+    {
+      "kind": "Enum",
+      "count": 0
+    },
+    {
+      "kind": "Field",
+      "count": 0
+    },
+    {
+      "kind": "File",
+      "count": 236
+    },
+    {
+      "kind": "Folder",
+      "count": 51
+    },
+    {
+      "kind": "Frontend",
+      "count": 0
+    },
+    {
+      "kind": "Function",
+      "count": 157
+    },
+    {
+      "kind": "Interface",
+      "count": 0
+    },
+    {
+      "kind": "LayerRole",
+      "count": 0
+    },
+    {
+      "kind": "Library",
+      "count": 0
+    },
+    {
+      "kind": "Macro",
+      "count": 0
+    },
+    {
+      "kind": "Method",
+      "count": 308
+    },
+    {
+      "kind": "Module",
+      "count": 83
+    },
+    {
+      "kind": "Repo",
+      "count": 1
+    },
+    {
+      "kind": "Resource",
+      "count": 0
+    },
+    {
+      "kind": "Route",
+      "count": 31
+    },
+    {
+      "kind": "RpcMethod",
+      "count": 0
+    },
+    {
+      "kind": "Service",
+      "count": 0
+    },
+    {
+      "kind": "Struct",
+      "count": 0
+    },
+    {
+      "kind": "System",
+      "count": 0
+    },
+    {
+      "kind": "Table",
+      "count": 0
+    },
+    {
+      "kind": "Test",
+      "count": 392
+    },
+    {
+      "kind": "Trait",
+      "count": 0
+    },
+    {
+      "kind": "TypeAlias",
+      "count": 0
+    },
+    {
+      "kind": "Variable",
+      "count": 343
+    }
+  ],
+  "drawn_edges": [
+    {
+      "src_qn": "docs.conf.setup",
+      "dst_qn": "docs.conf.github_link",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.celery.src.task_app.create_app",
+      "dst_qn": "examples.celery.src.task_app.celery_init_app",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.celery.src.task_app.create_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.celery.src.task_app.views.add",
+      "dst_qn": "{\"handler\":\"examples.celery.src.task_app.views.add\",\"method\":\"POST\",\"path\":\"/add\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.celery.src.task_app.views.block",
+      "dst_qn": "{\"handler\":\"examples.celery.src.task_app.views.block\",\"method\":\"POST\",\"path\":\"/block\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.celery.src.task_app.views.process",
+      "dst_qn": "{\"handler\":\"examples.celery.src.task_app.views.process\",\"method\":\"POST\",\"path\":\"/process\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.celery.src.task_app.views.result",
+      "dst_qn": "{\"handler\":\"examples.celery.src.task_app.views.result\",\"method\":\"GET\",\"path\":\"/result/<id>\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.javascript.js_example.views.add",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.javascript.js_example.views.add",
+      "dst_qn": "{\"handler\":\"examples.javascript.js_example.views.add\",\"method\":\"POST\",\"path\":\"/add\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.javascript.js_example.views.index",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.javascript.js_example.views.index",
+      "dst_qn": "{\"handler\":\"examples.javascript.js_example.views.index\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.javascript.js_example.views.index",
+      "dst_qn": "{\"handler\":\"examples.javascript.js_example.views.index\",\"method\":\"ANY\",\"path\":\"/<any(xhr, jquery, fetch):js>\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.javascript.tests.conftest.client",
+      "dst_qn": "src.flask.app.Flask.test_client",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.auth.load_logged_in_user",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.auth.login",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.auth.login",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.auth.login",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.auth.logout",
+      "dst_qn": "{\"handler\":\"examples.tutorial.flaskr.auth.logout\",\"method\":\"ANY\",\"path\":\"/logout\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.auth.register",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.auth.register",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.auth.register",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.create",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.create",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.create",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.delete",
+      "dst_qn": "examples.tutorial.flaskr.blog.get_post",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.delete",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.get_post",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.index",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.index",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.index",
+      "dst_qn": "{\"handler\":\"examples.tutorial.flaskr.blog.index\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.update",
+      "dst_qn": "examples.tutorial.flaskr.blog.get_post",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.update",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.update",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.update",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.create_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.db.init_app",
+      "dst_qn": "examples.tutorial.flaskr.db.close_db",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.db.init_db",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.db.init_db_command",
+      "dst_qn": "examples.tutorial.flaskr.db.init_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.conftest.app",
+      "dst_qn": "examples.tutorial.flaskr.create_app",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.conftest.app",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.conftest.app",
+      "dst_qn": "examples.tutorial.flaskr.db.init_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.conftest.auth",
+      "dst_qn": "examples.tutorial.tests.conftest.AuthActions",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_auth.test_register",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_auth.test_register",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_blog.test_author_required",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_blog.test_author_required",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_blog.test_create",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_blog.test_create",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_blog.test_delete",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_blog.test_delete",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_blog.test_update",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_blog.test_update",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_db.test_get_close_db",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_db.test_get_close_db",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_db.test_get_close_db",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_db.test_get_close_db",
+      "dst_qn": "examples.tutorial.flaskr.db.get_db",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_factory.test_config",
+      "dst_qn": "examples.tutorial.flaskr.create_app",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_factory.test_config",
+      "dst_qn": "examples.tutorial.flaskr.create_app",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_factory.test_config",
+      "dst_qn": "examples.tutorial.flaskr.create_app",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "examples.tutorial.tests.test_factory.test_config",
+      "dst_qn": "examples.tutorial.flaskr.create_app",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "examples/celery/make_celery.py",
+      "dst_qn": "examples.celery.src.task_app.create_app",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "examples/celery/src/task_app/__init__.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples/javascript/js_example/__init__.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples/javascript/js_example/views.py",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold.route",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples/javascript/js_example/views.py",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold.route",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples/javascript/js_example/views.py",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold.route",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.__call__",
+      "dst_qn": "src.flask.app.Flask.wsgi_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.__init__",
+      "dst_qn": "src.flask.cli.AppGroup",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.__init__",
+      "dst_qn": "src.flask.sansio.app.App.add_url_rule",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.__init_subclass__",
+      "dst_qn": "src.flask.app.add_ctx",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.__init_subclass__",
+      "dst_qn": "src.flask.app.remove_ctx",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.app_context",
+      "dst_qn": "src.flask.ctx.AppContext",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.create_jinja_environment",
+      "dst_qn": "src.flask.app.Flask.url_for",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.create_jinja_environment",
+      "dst_qn": "src.flask.helpers.get_flashed_messages",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.dispatch_request",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.dispatch_request",
+      "dst_qn": "src.flask.app.Flask.make_default_options_response",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.dispatch_request",
+      "dst_qn": "src.flask.app.Flask.raise_routing_exception",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.do_teardown_appcontext",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.do_teardown_appcontext",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.do_teardown_appcontext",
+      "dst_qn": "src.flask.helpers._CollectErrors",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.do_teardown_appcontext",
+      "dst_qn": "src.flask.helpers._CollectErrors.raise_any",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.do_teardown_request",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.do_teardown_request",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.do_teardown_request",
+      "dst_qn": "src.flask.helpers._CollectErrors",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.do_teardown_request",
+      "dst_qn": "src.flask.helpers._CollectErrors.raise_any",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.ensure_sync",
+      "dst_qn": "src.flask.app.Flask.async_to_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.finalize_request",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.finalize_request",
+      "dst_qn": "src.flask.app.Flask.make_response",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.finalize_request",
+      "dst_qn": "src.flask.app.Flask.process_response",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.full_dispatch_request",
+      "dst_qn": "src.flask.app.Flask.dispatch_request",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.full_dispatch_request",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.full_dispatch_request",
+      "dst_qn": "src.flask.app.Flask.finalize_request",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.full_dispatch_request",
+      "dst_qn": "src.flask.app.Flask.handle_user_exception",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.full_dispatch_request",
+      "dst_qn": "src.flask.app.Flask.preprocess_request",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_exception",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_exception",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_exception",
+      "dst_qn": "src.flask.app.Flask.finalize_request",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_exception",
+      "dst_qn": "src.flask.app.Flask.log_exception",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_exception",
+      "dst_qn": "src.flask.sansio.app.App._find_error_handler",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_http_exception",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_http_exception",
+      "dst_qn": "src.flask.sansio.app.App._find_error_handler",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_user_exception",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_user_exception",
+      "dst_qn": "src.flask.app.Flask.handle_http_exception",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_user_exception",
+      "dst_qn": "src.flask.sansio.app.App._find_error_handler",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.handle_user_exception",
+      "dst_qn": "src.flask.sansio.app.App.trap_http_exception",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.preprocess_request",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.process_response",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.process_response",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.process_response",
+      "dst_qn": "src.flask.ctx.AppContext._get_session",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.process_response",
+      "dst_qn": "src.flask.ctx.AppContext._get_session",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.process_response",
+      "dst_qn": "src.flask.sessions.SessionInterface.is_null_session",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.process_response",
+      "dst_qn": "src.flask.sessions.SessionInterface.save_session",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.raise_routing_exception",
+      "dst_qn": "src.flask.debughelpers.FormDataRoutingRedirect",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.request_context",
+      "dst_qn": "src.flask.ctx.AppContext.from_environ",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.run",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.run",
+      "dst_qn": "src.flask.cli.show_server_banner",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.run",
+      "dst_qn": "src.flask.helpers.get_debug_flag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.run",
+      "dst_qn": "src.flask.helpers.get_load_dotenv",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.send_static_file",
+      "dst_qn": "src.flask.app.Flask.get_send_file_max_age",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.send_static_file",
+      "dst_qn": "src.flask.helpers.send_from_directory",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.test_request_context",
+      "dst_qn": "src.flask.app.Flask.request_context",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.test_request_context",
+      "dst_qn": "src.flask.testing.EnvironBuilder",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.update_template_context",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.url_for",
+      "dst_qn": "src.flask.app.Flask.create_url_adapter",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.url_for",
+      "dst_qn": "src.flask.sansio.app.App.handle_url_build_error",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.url_for",
+      "dst_qn": "src.flask.sansio.app.App.inject_url_defaults",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.wsgi_app",
+      "dst_qn": "src.flask.app.Flask.full_dispatch_request",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.wsgi_app",
+      "dst_qn": "src.flask.app.Flask.handle_exception",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.app.Flask.wsgi_app",
+      "dst_qn": "src.flask.app.Flask.request_context",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.blueprints.Blueprint.__init__",
+      "dst_qn": "src.flask.cli.AppGroup",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.blueprints.Blueprint.send_static_file",
+      "dst_qn": "src.flask.blueprints.Blueprint.get_send_file_max_age",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.blueprints.Blueprint.send_static_file",
+      "dst_qn": "src.flask.helpers.send_from_directory",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.AppGroup.group",
+      "dst_qn": "src.flask.cli.AppGroup.group",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.cli.FlaskGroup.get_command",
+      "dst_qn": "src.flask.cli.FlaskGroup._load_plugin_commands",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.FlaskGroup.get_command",
+      "dst_qn": "src.flask.cli.FlaskGroup.get_command",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.cli.FlaskGroup.get_command",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.cli.FlaskGroup.list_commands",
+      "dst_qn": "src.flask.cli.FlaskGroup._load_plugin_commands",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.FlaskGroup.list_commands",
+      "dst_qn": "src.flask.cli.FlaskGroup.list_commands",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.cli.FlaskGroup.make_context",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.cli.FlaskGroup.make_context",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.FlaskGroup.parse_args",
+      "dst_qn": "src.flask.cli.FlaskGroup.parse_args",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.cli.ScriptInfo.__init__",
+      "dst_qn": "src.flask.helpers.get_load_dotenv",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.ScriptInfo.load_app",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.ScriptInfo.load_app",
+      "dst_qn": "src.flask.cli.prepare_import",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.ScriptInfo.load_app",
+      "dst_qn": "src.flask.cli.prepare_import",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.ScriptInfo.load_app",
+      "dst_qn": "src.flask.helpers.get_debug_flag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli._env_file_callback",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_app_by_string",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.cli.find_app_by_string",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_app_by_string",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_app_by_string",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_app_by_string",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_app_by_string",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_app_by_string",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_app_by_string",
+      "dst_qn": "src.flask.cli._called_with_wrong_args",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_best_app",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_best_app",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_best_app",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.find_best_app",
+      "dst_qn": "src.flask.cli._called_with_wrong_args",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.locate_app",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.locate_app",
+      "dst_qn": "src.flask.cli.NoAppException",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.locate_app",
+      "dst_qn": "src.flask.cli.find_app_by_string",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.locate_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.run_command",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.run_command",
+      "dst_qn": "src.flask.cli.show_server_banner",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.run_command",
+      "dst_qn": "src.flask.helpers.get_debug_flag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.cli.shell_command",
+      "dst_qn": "src.flask.app.Flask.make_shell_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.config.Config.from_envvar",
+      "dst_qn": "src.flask.config.Config.from_pyfile",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.config.Config.from_file",
+      "dst_qn": "src.flask.config.Config.from_mapping",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.config.Config.from_pyfile",
+      "dst_qn": "src.flask.config.Config.from_object",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.ctx.AppContext.pop",
+      "dst_qn": "src.flask.helpers._CollectErrors",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.ctx.AppContext.pop",
+      "dst_qn": "src.flask.helpers._CollectErrors.raise_any",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.ctx.AppContext.push",
+      "dst_qn": "src.flask.ctx.AppContext._get_session",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.ctx.AppContext.push",
+      "dst_qn": "src.flask.ctx.AppContext.match_request",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.ctx.AppContext.session",
+      "dst_qn": "src.flask.ctx.AppContext._get_session",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.debughelpers.explain_template_loading_attempts",
+      "dst_qn": "src.flask.debughelpers._dump_loader_info",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.helpers._prepare_send_file_kwargs",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.helpers._split_blueprint_path",
+      "dst_qn": "src.flask.helpers._split_blueprint_path",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.helpers.flash",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.helpers.make_response",
+      "dst_qn": "src.flask.helpers.make_response",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src.flask.helpers.send_file",
+      "dst_qn": "src.flask.helpers._prepare_send_file_kwargs",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.helpers.send_from_directory",
+      "dst_qn": "src.flask.helpers._prepare_send_file_kwargs",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.helpers.url_for",
+      "dst_qn": "src.flask.helpers.url_for",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src.flask.json.dump",
+      "dst_qn": "src.flask.json.dump",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src.flask.json.dumps",
+      "dst_qn": "src.flask.json.dumps",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src.flask.json.loads",
+      "dst_qn": "src.flask.json.loads",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src.flask.json.provider.DefaultJSONProvider.response",
+      "dst_qn": "src.flask.json.provider.DefaultJSONProvider.dumps",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.provider.DefaultJSONProvider.response",
+      "dst_qn": "src.flask.json.provider.JSONProvider._prepare_response_obj",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.provider.JSONProvider.dump",
+      "dst_qn": "src.flask.json.provider.JSONProvider.dumps",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.provider.JSONProvider.load",
+      "dst_qn": "src.flask.json.provider.JSONProvider.loads",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.provider.JSONProvider.response",
+      "dst_qn": "src.flask.json.provider.JSONProvider._prepare_response_obj",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.provider.JSONProvider.response",
+      "dst_qn": "src.flask.json.provider.JSONProvider.dumps",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.PassDict.to_json",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.tag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.PassList.to_json",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.tag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TagDict.to_json",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.tag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TagTuple.to_json",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.tag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer.__init__",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer._untag_scan",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer._untag_scan",
+      "kind": "CALLS",
+      "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer._untag_scan",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer._untag_scan",
+      "kind": "CALLS",
+      "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer._untag_scan",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.untag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer.dumps",
+      "dst_qn": "src.flask.json.dumps",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer.dumps",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.tag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer.loads",
+      "dst_qn": "src.flask.json.loads",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer.loads",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer._untag_scan",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer.tag",
+      "dst_qn": "src.flask.json.tag.JSONTag.check",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer.tag",
+      "dst_qn": "src.flask.json.tag.JSONTag.tag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.TaggedJSONSerializer.untag",
+      "dst_qn": "src.flask.json.tag.JSONTag.to_python",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.logging.create_logger",
+      "dst_qn": "src.flask.logging.has_level_handler",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.__init__",
+      "dst_qn": "src.flask.sansio.app.App.auto_find_instance_path",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.__init__",
+      "dst_qn": "src.flask.sansio.app.App.make_aborter",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.__init__",
+      "dst_qn": "src.flask.sansio.app.App.make_config",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App._find_error_handler",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold._get_exc_class_and_code",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.add_url_rule",
+      "dst_qn": "src.flask.sansio.scaffold._endpoint_from_view_func",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.auto_find_instance_path",
+      "dst_qn": "src.flask.sansio.scaffold.find_package",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.create_global_jinja_loader",
+      "dst_qn": "src.flask.templating.DispatchingJinjaLoader",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.inject_url_defaults",
+      "dst_qn": "src.flask.helpers._split_blueprint_path",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.jinja_env",
+      "dst_qn": "src.flask.sansio.app.App.create_jinja_environment",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.logger",
+      "dst_qn": "src.flask.logging.create_logger",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.make_config",
+      "dst_qn": "src.flask.helpers.get_debug_flag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.template_filter",
+      "dst_qn": "src.flask.sansio.app.App.add_template_filter",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.template_global",
+      "dst_qn": "src.flask.sansio.app.App.add_template_global",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.app.App.template_test",
+      "dst_qn": "src.flask.sansio.app.App.add_template_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.add_app_template_filter",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.add_app_template_global",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.add_app_template_test",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.add_url_rule",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.after_app_request",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.app_context_processor",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.app_template_filter",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.add_app_template_filter",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.app_template_global",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.add_app_template_global",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.app_template_test",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.add_app_template_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.app_url_defaults",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.app_url_value_preprocessor",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.before_app_request",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.make_setup_state",
+      "dst_qn": "src.flask.sansio.blueprints.BlueprintSetupState",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.register",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint._merge_blueprint_funcs",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.register",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.make_setup_state",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.register",
+      "dst_qn": "src.flask.sansio.blueprints.BlueprintSetupState.add_url_rule",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.Blueprint.teardown_app_request",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.blueprints.BlueprintSetupState.add_url_rule",
+      "dst_qn": "src.flask.sansio.scaffold._endpoint_from_view_func",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.Scaffold.__init__",
+      "dst_qn": "src.flask.helpers.get_root_path",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.Scaffold._method_route",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold.route",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.Scaffold.delete",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold._method_route",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.Scaffold.get",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold._method_route",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.Scaffold.patch",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold._method_route",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.Scaffold.post",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold._method_route",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.Scaffold.put",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold._method_route",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.Scaffold.query",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold._method_route",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.Scaffold.register_error_handler",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold._get_exc_class_and_code",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sansio.scaffold.find_package",
+      "dst_qn": "src.flask.sansio.scaffold._find_package_path",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.open_session",
+      "dst_qn": "src.flask.sessions.SecureCookieSessionInterface.get_signing_serializer",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.open_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_cookie_name",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SecureCookieSessionInterface.get_signing_serializer",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_cookie_domain",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_cookie_httponly",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_cookie_name",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_cookie_partitioned",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_cookie_path",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_cookie_samesite",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_cookie_secure",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_expiration_time",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.sessions.SecureCookieSessionInterface.save_session",
+      "dst_qn": "src.flask.sessions.SessionInterface.should_set_cookie",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.templating.DispatchingJinjaLoader._get_source_explained",
+      "dst_qn": "src.flask.debughelpers.explain_template_loading_attempts",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.templating.DispatchingJinjaLoader._get_source_explained",
+      "dst_qn": "src.flask.templating.DispatchingJinjaLoader._iter_loaders",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.templating.DispatchingJinjaLoader._get_source_fast",
+      "dst_qn": "src.flask.templating.DispatchingJinjaLoader._iter_loaders",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.templating.DispatchingJinjaLoader.get_source",
+      "dst_qn": "src.flask.templating.DispatchingJinjaLoader._get_source_explained",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.templating.DispatchingJinjaLoader.get_source",
+      "dst_qn": "src.flask.templating.DispatchingJinjaLoader._get_source_fast",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.templating._default_template_ctx_processor",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.templating.render_template",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.templating.render_template",
+      "dst_qn": "src.flask.templating._render",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.templating.render_template_string",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.templating.render_template_string",
+      "dst_qn": "src.flask.templating._render",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.templating.stream_template",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.templating.stream_template",
+      "dst_qn": "src.flask.templating._stream",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.templating.stream_template_string",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.templating.stream_template_string",
+      "dst_qn": "src.flask.templating._stream",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.testing.FlaskCliRunner.invoke",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.testing.FlaskCliRunner.invoke",
+      "dst_qn": "src.flask.testing.FlaskCliRunner.invoke",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src.flask.testing.FlaskClient.__init__",
+      "dst_qn": "src.flask.testing._get_werkzeug_version",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.testing.FlaskClient._request_from_builder_args",
+      "dst_qn": "src.flask.testing.EnvironBuilder",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.testing.FlaskClient._request_from_builder_args",
+      "dst_qn": "src.flask.testing.FlaskClient._copy_environ",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.testing.FlaskClient.open",
+      "dst_qn": "src.flask.testing.FlaskClient._copy_environ",
+      "kind": "CALLS",
+      "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "src.flask.testing.FlaskClient.open",
+      "dst_qn": "src.flask.testing.FlaskClient._copy_environ",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.testing.FlaskClient.open",
+      "dst_qn": "src.flask.testing.FlaskClient._copy_environ",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.testing.FlaskClient.open",
+      "dst_qn": "src.flask.testing.FlaskClient._request_from_builder_args",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.views.MethodView.__init_subclass__",
+      "dst_qn": "src.flask.views.MethodView.__init_subclass__",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src.flask.views.MethodView.dispatch_request",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.wrappers.Request._load_form_data",
+      "dst_qn": "src.flask.debughelpers.attach_enctype_error_multidict",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.wrappers.Request._load_form_data",
+      "dst_qn": "src.flask.wrappers.Request._load_form_data",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.flask.wrappers.Request.blueprints",
+      "dst_qn": "src.flask.helpers._split_blueprint_path",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.flask.wrappers.Request.on_json_loading_failed",
+      "dst_qn": "src.flask.wrappers.Request.on_json_loading_failed",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/app.py",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/app.py",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/app.py",
+      "dst_qn": "src.flask.sessions.SecureCookieSessionInterface",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/flask/cli.py",
+      "dst_qn": "src.flask.cli.AppGroup.command",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/cli.py",
+      "dst_qn": "src.flask.cli.CertParamType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/cli.py",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/cli.py",
+      "dst_qn": "src.flask.cli.SeparatedPathType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/cli.py",
+      "dst_qn": "src.flask.cli.SeparatedPathType",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/cli.py",
+      "dst_qn": "src.flask.cli.with_appcontext",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/debughelpers.py",
+      "dst_qn": "src.flask.debughelpers.DebugFilesKeyError",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/sansio/app.py",
+      "dst_qn": "src.flask.sansio.app.App.add_template_filter",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/sansio/app.py",
+      "dst_qn": "src.flask.sansio.app.App.add_template_global",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/sansio/app.py",
+      "dst_qn": "src.flask.sansio.app.App.add_template_test",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/sansio/blueprints.py",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.add_app_template_filter",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/sansio/blueprints.py",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.add_app_template_global",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/sansio/blueprints.py",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.add_app_template_test",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/sansio/blueprints.py",
+      "dst_qn": "src.flask.sansio.blueprints.Blueprint.record_once",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/sansio/scaffold.py",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold._check_setup_finished",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src/flask/sansio/scaffold.py",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold.add_url_rule",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "src/flask/sansio/scaffold.py",
+      "dst_qn": "src.flask.sansio.scaffold.Scaffold.register_error_handler",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/sessions.py",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/flask/views.py",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src/flask/views.py",
+      "dst_qn": "src.flask.app.Flask.ensure_sync",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.conftest.app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.conftest.leak_detector",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_app_context_provides_current_app",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_app_context_provides_current_app",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_app_ctx_globals_methods",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_app_ctx_globals_methods",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_app_ctx_globals_methods",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_app_ctx_globals_methods",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_custom_app_ctx_globals_class",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_custom_app_ctx_globals_class",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_request_context_means_app_context",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_appctx.test_request_context_means_app_context",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.admin.index",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.admin.index",
+      "dst_qn": "{\"handler\":\"tests.test_apps.blueprintapp.apps.admin.index\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.admin.index2",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.admin.index2",
+      "dst_qn": "{\"handler\":\"tests.test_apps.blueprintapp.apps.admin.index2\",\"method\":\"ANY\",\"path\":\"/index2\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.frontend.index",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.frontend.index",
+      "dst_qn": "{\"handler\":\"tests.test_apps.blueprintapp.apps.frontend.index\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.frontend.missing_template",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.frontend.missing_template",
+      "dst_qn": "{\"handler\":\"tests.test_apps.blueprintapp.apps.frontend.missing_template\",\"method\":\"ANY\",\"path\":\"/missing\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.cliapp.factory.create_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.cliapp.factory.create_app2",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_apps.helloworld.hello.hello",
+      "dst_qn": "{\"handler\":\"tests.test_apps.helloworld.hello.hello\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_async._async_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_async._async_app",
+      "dst_qn": "src.flask.views.View.as_view",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_async._async_app",
+      "dst_qn": "src.flask.views.View.as_view",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_async.test_async_before_after_request",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_async.test_async_before_after_request",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_app_freed_on_zero_refcount",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_app_freed_on_zero_refcount",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_flashes",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_flashes",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_flashes",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_flashes",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_flashes",
+      "dst_qn": "src.flask.helpers.get_flashed_messages",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_flashes",
+      "dst_qn": "src.flask.helpers.get_flashed_messages",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_jsonify_args_and_kwargs_check",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_jsonify_args_and_kwargs_check",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_jsonify_mimetype",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_jsonify_mimetype",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_make_response_with_response_instance",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_make_response_with_response_instance",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_make_response_with_response_instance",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_make_response_with_response_instance",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_make_response_with_response_instance",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_make_response_with_response_instance",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_max_cookie_size",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_max_cookie_size",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_max_cookie_size",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_max_cookie_size",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_multi_route_class_views",
+      "dst_qn": "src.flask.views.View",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_multi_route_class_views",
+      "dst_qn": "src.flask.views.View",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_response_type_errors",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_response_type_errors",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_server_name_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_server_name_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_server_name_subdomain",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_server_name_subdomain",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_folder_with_ending_slash",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_folder_with_ending_slash",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_folder_with_pathlib_path",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_folder_with_pathlib_path",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_route_with_host_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_route_with_host_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_route_with_host_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_route_with_host_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_route_with_host_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_route_with_host_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_route_with_host_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_route_with_host_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_url_empty_path",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_url_empty_path",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_url_empty_path_default",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_url_empty_path_default",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_url_path",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_url_path",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_url_path_with_ending_slash",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_static_url_path_with_ending_slash",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_subdomain_basic_support",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_subdomain_basic_support",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_subdomain_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_subdomain_matching",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_subdomain_matching_other_name",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_subdomain_matching_other_name",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_subdomain_matching_with_ports",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_basic.test_subdomain_matching_with_ports",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_templates_and_static",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_templates_and_static",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_templates_and_static",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_templates_and_static",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_templates_and_static",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_blueprints.test_templates_and_static",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.invoke",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_host",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_host",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_host",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_host",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_no_routes",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_no_routes",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_no_routes",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_no_routes",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_simple",
+      "dst_qn": "tests.test_cli.TestRoutes.expect_order",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_simple",
+      "dst_qn": "tests.test_cli.TestRoutes.expect_order",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_sort",
+      "dst_qn": "tests.test_cli.TestRoutes.expect_order",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_sort",
+      "dst_qn": "tests.test_cli.TestRoutes.expect_order",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_sort",
+      "dst_qn": "tests.test_cli.TestRoutes.expect_order",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_sort",
+      "dst_qn": "tests.test_cli.TestRoutes.expect_order",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_sort",
+      "dst_qn": "tests.test_cli.TestRoutes.expect_order",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_sort",
+      "dst_qn": "tests.test_cli.TestRoutes.expect_order",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_subdomain",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_subdomain",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_subdomain",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.TestRoutes.test_subdomain",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_app_cli_has_app_context",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_app_cli_has_app_context",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_appgroup_app_context",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_appgroup_app_context",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_appgroup_app_context",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_appgroup_app_context",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_disable_dotenv_from_env",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_disable_dotenv_from_env",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_dotenv_optional",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_dotenv_optional",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_dotenv_path",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_dotenv_path",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_find_best_app",
+      "dst_qn": "src.flask.cli.find_best_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_flaskgroup_nested",
+      "dst_qn": "src.flask.cli.AppGroup.command",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_flaskgroup_nested",
+      "dst_qn": "src.flask.cli.AppGroup.command",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_flaskgroup_nested",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_flaskgroup_nested",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_get_version",
+      "dst_qn": "src.flask.cli.get_version",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_get_version",
+      "dst_qn": "src.flask.cli.get_version",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_help_echo_exception",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_help_echo_exception",
+      "dst_qn": "src.flask.cli.FlaskGroup",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_load_dotenv",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_load_dotenv",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_load_dotenv",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_load_dotenv",
+      "dst_qn": "src.flask.cli.load_dotenv",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_prepare_import",
+      "dst_qn": "src.flask.cli.prepare_import",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_prepare_import",
+      "dst_qn": "src.flask.cli.prepare_import",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_adhoc",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_adhoc",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_adhoc",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_adhoc",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_adhoc",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_adhoc",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_import",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_import",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_import",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_import",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_import",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_import",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_import",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_import",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_no_ssl",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_no_ssl",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_path",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_path",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_path",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_path",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_path",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_path",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_path",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_cert_path",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_exclude_patterns",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_run_exclude_patterns",
+      "dst_qn": "src.flask.cli.FlaskGroup.make_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_scriptinfo",
+      "dst_qn": "src.flask.cli.ScriptInfo.load_app",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_with_appcontext",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_with_appcontext",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_cli.test_with_appcontext",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_cli.test_with_appcontext",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_class",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_class",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_class",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_class",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_envvar",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_envvar",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_envvar",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_envvar",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_envvar_missing",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_envvar_missing",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_file_json",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_file_json",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_file_json",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_file_json",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_file_toml",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_file_toml",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_file_toml",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_file_toml",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_mapping",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_object",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_object",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_object",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_object",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_pyfile",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_pyfile",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_pyfile",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_from_pyfile",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_missing",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_missing",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_missing_file",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_config_missing_file",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_custom_config_class",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_custom_config_class",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_custom_config_class",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_custom_config_class",
+      "dst_qn": "tests.test_config.common_object_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_config.test_from_prefixed_env",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_from_prefixed_env",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_from_prefixed_env_custom_prefix",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_from_prefixed_env_custom_prefix",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_from_prefixed_env_nested",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_from_prefixed_env_nested",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_from_pyfile_weird_encoding",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_from_pyfile_weird_encoding",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_get_namespace",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_get_namespace",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_session_lifetime",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_config.test_session_lifetime",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestHelpers.test_get_debug_flag",
+      "dst_qn": "src.flask.helpers.get_debug_flag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestHelpers.test_get_debug_flag",
+      "dst_qn": "src.flask.helpers.get_debug_flag",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestHelpers.test_make_response",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestHelpers.test_make_response",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestNoImports.test_name_with_import_error",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestNoImports.test_name_with_import_error",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_send_file",
+      "dst_qn": "src.flask.helpers.send_file",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_send_file",
+      "dst_qn": "src.flask.helpers.send_file",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_send_from_directory",
+      "dst_qn": "src.flask.helpers.send_from_directory",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_send_from_directory",
+      "dst_qn": "src.flask.helpers.send_from_directory",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_static_file",
+      "dst_qn": "src.flask.helpers.send_file",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_static_file",
+      "dst_qn": "src.flask.helpers.send_file",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_static_file",
+      "dst_qn": "src.flask.helpers.send_file",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_static_file",
+      "dst_qn": "src.flask.helpers.send_file",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_static_file",
+      "dst_qn": "src.flask.helpers.send_file",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_static_file",
+      "dst_qn": "src.flask.helpers.send_file",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_static_file",
+      "dst_qn": "tests.test_helpers.FakePath",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_helpers.TestSendfile.test_static_file",
+      "dst_qn": "tests.test_helpers.FakePath",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_abort_no_app",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_abort_no_app",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_abort_no_app",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_abort_no_app",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_abort_with_app",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_abort_with_app",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_open_resource",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_open_resource",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_open_resource_exceptions",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_open_resource_exceptions",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_open_resource_with_encoding",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_helpers.test_open_resource_with_encoding",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_instance_config.test_explicit_instance_paths",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_instance_config.test_explicit_instance_paths",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_instance_config.test_explicit_instance_paths",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_instance_config.test_explicit_instance_paths",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_json.test_html_method",
+      "dst_qn": "src.flask.json.dumps",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "tests.test_json.test_html_method",
+      "dst_qn": "src.flask.json.dumps",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "tests.test_json.test_jsonify_aware_datetimes",
+      "dst_qn": "tests.test_json.FixedOffset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json.test_jsonify_aware_datetimes",
+      "dst_qn": "tests.test_json.FixedOffset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json.test_jsonify_aware_datetimes",
+      "dst_qn": "tests.test_json.FixedOffset",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json.test_jsonify_aware_datetimes",
+      "dst_qn": "tests.test_json.FixedOffset",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json.test_jsonify_basic_types",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_json.test_jsonify_basic_types",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_json.test_jsonify_uuid_types",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_json.test_jsonify_uuid_types",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_json.test_tojson_filter",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_json.test_tojson_filter",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_custom_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_custom_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_custom_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.dumps",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_custom_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.dumps",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_custom_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.loads",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_custom_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.loads",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_custom_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_custom_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_dump_load_unchanged",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_dump_load_unchanged",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_dump_load_unchanged",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.dumps",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_dump_load_unchanged",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.dumps",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_dump_load_unchanged",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.loads",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_dump_load_unchanged",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.loads",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_duplicate_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_duplicate_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_duplicate_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_duplicate_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_duplicate_tag",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_interface",
+      "dst_qn": "src.flask.json.tag.JSONTag",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_interface",
+      "dst_qn": "src.flask.json.tag.JSONTag",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_interface",
+      "dst_qn": "src.flask.json.tag.JSONTag.check",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_interface",
+      "dst_qn": "src.flask.json.tag.JSONTag.to_python",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_order",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_order",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_order",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_order",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_order",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_order",
+      "dst_qn": "src.flask.json.tag.TaggedJSONSerializer.register",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_logging.test_has_level_handler",
+      "dst_qn": "src.flask.logging.has_level_handler",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_logging.test_has_level_handler",
+      "dst_qn": "src.flask.logging.has_level_handler",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_logging.test_has_level_handler",
+      "dst_qn": "src.flask.logging.has_level_handler",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_logging.test_has_level_handler",
+      "dst_qn": "src.flask.logging.has_level_handler",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_logging.test_has_level_handler",
+      "dst_qn": "src.flask.logging.has_level_handler",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_logging.test_has_level_handler",
+      "dst_qn": "src.flask.logging.has_level_handler",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_logging.test_has_level_handler",
+      "dst_qn": "src.flask.logging.has_level_handler",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_logging.test_has_level_handler",
+      "dst_qn": "src.flask.logging.has_level_handler",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_logging.test_wsgi_errors_stream",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_logging.test_wsgi_errors_stream",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_logging.test_wsgi_errors_stream",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_logging.test_wsgi_errors_stream",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_reqctx.test_context_test",
+      "dst_qn": "src.flask.ctx.has_request_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_reqctx.test_context_test",
+      "dst_qn": "src.flask.ctx.has_request_context",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_reqctx.test_context_test",
+      "dst_qn": "src.flask.ctx.has_request_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_reqctx.test_context_test",
+      "dst_qn": "src.flask.ctx.has_request_context",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_request.test_limit_config",
+      "dst_qn": "src.flask.wrappers.Request",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_request.test_limit_config",
+      "dst_qn": "src.flask.wrappers.Request",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_session_interface.test_open_session_with_endpoint",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_session_interface.test_open_session_with_endpoint",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_signals.test_before_render_template",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_signals.test_before_render_template",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_signals.test_request_exception_signal",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_signals.test_request_exception_signal",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_signals.test_request_signals",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_signals.test_request_signals",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_add_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_add_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_add_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_add_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_add_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_add_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_add_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_add_template_global",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_escaping_without_template_filename",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_escaping_without_template_filename",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_escaping_without_template_filename",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_escaping_without_template_filename",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_macros",
+      "dst_qn": "src.flask.helpers.get_template_attribute",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_macros",
+      "dst_qn": "src.flask.helpers.get_template_attribute",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_request_less_rendering",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_request_less_rendering",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_templating.test_templates_auto_reload",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_blueprint_with_subdomain",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_blueprint_with_subdomain",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_cli_custom_obj",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_testing.test_cli_custom_obj",
+      "dst_qn": "src.flask.cli.ScriptInfo",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_testing.test_client_open_environ",
+      "dst_qn": "src.flask.testing.EnvironBuilder",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_testing.test_client_open_environ",
+      "dst_qn": "src.flask.testing.EnvironBuilder",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_testing.test_environbuilder_json_dumps",
+      "dst_qn": "src.flask.testing.EnvironBuilder",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_testing.test_environbuilder_json_dumps",
+      "dst_qn": "src.flask.testing.EnvironBuilder",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_testing.test_path_is_url",
+      "dst_qn": "src.flask.testing.EnvironBuilder",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_testing.test_path_is_url",
+      "dst_qn": "src.flask.testing.EnvironBuilder",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_testing.test_session_transactions_keep_context",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_session_transactions_keep_context",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_session_transactions_keep_context",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_session_transactions_keep_context",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_session_transactions_no_null_sessions",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_session_transactions_no_null_sessions",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_subdomain",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_testing.test_subdomain",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_user_error_handler.test_default_error_handler",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_user_error_handler.test_default_error_handler",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "TESTS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.test_views.test_basic_view",
+      "dst_qn": "tests.test_views.common_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_views.test_basic_view",
+      "dst_qn": "tests.test_views.common_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_views.test_endpoint_override",
+      "dst_qn": "tests.test_views.common_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_views.test_endpoint_override",
+      "dst_qn": "tests.test_views.common_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_views.test_method_based_view",
+      "dst_qn": "tests.test_views.common_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_views.test_method_based_view",
+      "dst_qn": "tests.test_views.common_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_views.test_view_patching",
+      "dst_qn": "tests.test_views.common_test",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_views.test_view_patching",
+      "dst_qn": "tests.test_views.common_test",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.type_check.typing_app_decorators.after_async",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_app_decorators.after_sync",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.RenderTemplateView.dispatch_request",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.async_route",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.async_route\",\"method\":\"ANY\",\"path\":\"/async\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_bytes",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_bytes\",\"method\":\"ANY\",\"path\":\"/bytes\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_generator",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_generator\",\"method\":\"ANY\",\"path\":\"/generator\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_generator_expression",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_generator_expression\",\"method\":\"ANY\",\"path\":\"/generator-expression\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_iterator",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_iterator\",\"method\":\"ANY\",\"path\":\"/iterator\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_json",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_json",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_json\",\"method\":\"ANY\",\"path\":\"/json\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_json_dict",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_json_dict\",\"method\":\"ANY\",\"path\":\"/json/dict\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_json_list",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_json_list\",\"method\":\"ANY\",\"path\":\"/json/dict\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_str",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_str\",\"method\":\"ANY\",\"path\":\"/str\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.return_template",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.return_template",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.return_template\",\"method\":\"ANY\",\"path\":\"/template\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.return_template",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.return_template\",\"method\":\"ANY\",\"path\":\"/template/<name>\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.return_template_stream",
+      "dst_qn": "src.flask.templating.stream_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.return_template_stream",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.return_template_stream\",\"method\":\"ANY\",\"path\":\"/template\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.tuple_headers",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.tuple_headers\",\"method\":\"ANY\",\"path\":\"/headers\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.tuple_status",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.tuple_status\",\"method\":\"ANY\",\"path\":\"/status\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.tuple_status",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.tuple_status\",\"method\":\"ANY\",\"path\":\"/status/<int:code>\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.tuple_status_enum",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.tuple_status_enum\",\"method\":\"ANY\",\"path\":\"/status-enum\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.typed_dict",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.typed_dict\",\"method\":\"ANY\",\"path\":\"/typed-dict\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_appctx.py",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_apps/blueprintapp/__init__.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_apps/cliapp/app.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_apps/cliapp/importerrorapp.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_apps/cliapp/inner1/__init__.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_apps/cliapp/inner1/inner2/flask.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_apps/cliapp/multiapp.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_apps/cliapp/multiapp.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_apps/helloworld/hello.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_async.py",
+      "dst_qn": "tests.test_async.AppError",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_async.py",
+      "dst_qn": "tests.test_async.BlueprintError",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.get_flashed_messages",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.get_flashed_messages",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.get_flashed_messages",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.get_flashed_messages",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.helpers.get_flashed_messages",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_basic.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_blueprints.py",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "src.flask.globals.ProxyMixin._get_current_object",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_cli.py",
+      "dst_qn": "tests.test_cli.dotenv_not_available",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_helpers.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_helpers.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_helpers.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_helpers.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_helpers.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_json.py",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_json.py",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_json.py",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_json.py",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_json.py",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_json.py",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_json.py",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_regression.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_reqctx.py",
+      "dst_qn": "src.flask.sessions.SessionInterface.get_cookie_name",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_session_interface.py",
+      "dst_qn": "src.flask.ctx.AppContext.match_request",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_signals.py",
+      "dst_qn": "src.flask.helpers.flash",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_signals.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_signals.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.render_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_templating.py",
+      "dst_qn": "src.flask.templating.stream_template_string",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_testing.py",
+      "dst_qn": "src.flask.json.jsonify",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "tests/test_user_error_handler.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_user_error_handler.py",
+      "dst_qn": "src.flask.helpers.abort",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_user_error_handler.py",
+      "dst_qn": "tests.test_user_error_handler.TestGenericHandlers.Custom",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_user_error_handler.py",
+      "dst_qn": "tests.test_user_error_handler.TestGenericHandlers.report_error",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_user_error_handler.py",
+      "dst_qn": "tests.test_user_error_handler.TestGenericHandlers.report_error",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_views.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/test_views.py",
+      "dst_qn": "src.flask.wrappers.Response",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/type_check/typing_app_decorators.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/type_check/typing_error_handler.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "tests/type_check/typing_route.py",
+      "dst_qn": "src.flask.app.Flask",
+      "kind": "CALLS",
+      "band": "exact"
+    }
+  ]
+}
