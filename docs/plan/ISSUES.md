@@ -19,7 +19,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 79 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: the unified walk keeps a function's frame open past its node. Expiry waits for the next node that is not trivia, and an error-recovered region the parser marks as an extra is walked at a greater depth, so it never comes. Lexical facts in the region (the callable a call is found in, which typed resolution joins on) name the earlier function. In jq, 8 sites in `src/jq_test.c` inside `run_jq_pthread_tests`, which has no definition, are found in `run_jq_exhaust_and_reuse_tests`. Since issue 76 graph ownership is guarded: no site is owned by a callable whose declaration does not hold it, so these are the file's | Open: an engine change to lexical facts, with typed resolution's answers to review |
 | 78 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: the Kotlin resolver positions its synthetic property-delegate `getValue` calls at the wrong bytes. The span has the property name's length but starts before it, crossing nodes. All 35 such sites in the Kotlin golden are affected, so their positions, paths and site ids are wrong. Their owner is right since issue 76: the late-site search starts at the node the bytes fall in | Open: an engine change to the Kotlin resolver's site spans |
 | 77 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: in C, C++ and CUDA, a callable only the macro-expanded text represents, with no raw function node that can stand for it, leaves its raw sites to the file. The preprocessor maps lines, not bytes, and decision 48 aliases a raw node only on an exact, unique line match with the name on the first line. jq has 149 stored sites, in split-brace functions whose raw parse has no function node: `strptime` 89, `bind_bytecoded_builtins` 34, `gen_last_1` 26. fmt has 4, where the line match is not unique: gmock's `NaggyMock` 2 and gtest's `Matcher` specialisations 2. They were file-owned under engine 5 too | Open: needs a byte or token map from the preprocessor, or the adoption recording the raw region it rescued |
-| 76 | 2026-10-11 | P2-13 | scr | open | Found closing issue 75: a represented callable whose unified-walk qualified name differs from its definition's still loses ownership of its sites. The walk names a frame by `compute_func_qn`, the definition extractor by its own rules; when they disagree, no definition carries the frame's name and the call's caller is the file. Examples: Rust trait methods on a generic type (`impl<F> Debug for WebSocketUpgrade<F>`, whose definition drops `<F>`), a Rust test whose name carries its `cfg` attribute, minified JavaScript, Ada specification files, C and C++ template and macro forms. Under engine 5, the call sites inside a represented callable's span with no enclosing node number: ada 475, c 190, cpp 9,200, kotlin repository 7,081 (6,651 in its documentation JavaScript), rust 1,756, typescript 6; csharp, go, java and python 0. The same sites had no owner under engine 4 | The driver chose the exact declaration occurrence as the private join (decision 48, patch 0014). Open until the goldens are refreshed and validated under engine 6 |
+| 76 | 2026-10-11 | P2-13 | scr | resolved | Found closing issue 75: a represented callable whose unified-walk qualified name differs from its definition's still loses ownership of its sites. The walk names a frame by `compute_func_qn`, the definition extractor by its own rules; when they disagree, no definition carries the frame's name and the call's caller is the file. Examples: Rust trait methods on a generic type (`impl<F> Debug for WebSocketUpgrade<F>`, whose definition drops `<F>`), a Rust test whose name carries its `cfg` attribute, minified JavaScript, Ada specification files, C and C++ template and macro forms. Under engine 5, the call sites inside a represented callable's span with no enclosing node number: ada 475, c 190, cpp 9,200, kotlin repository 7,081 (6,651 in its documentation JavaScript), rust 1,756, typescript 6; csharp, go, java and python 0. The same sites had no owner under engine 4 | Resolved by decision 48 (patch 0014). Graph ownership no longer depends on qualified-name equality: the exact private declaration occurrence (source buffer and the byte span of the callable's function node) is authoritative, and qualified names stay lexical and semantic data. Typed resolution still joins on `enclosing_func_qn`; typed answers are unchanged at every site of the ten goldens. C, C++ and CUDA use the final adopted definitions, including the preprocessed supersession path, through private aliases; what exact bytes and the adoption's own evidence cannot join is issue 77. `ENGINE_VERSION` 5 → 6; schema 3, cache format 5, protocol 6 and surface 4 unchanged. Byte-precise census of represented-callable orphans, engine 5 → 6: ada 475 → 0, c 41 → 0, cpp 9,153 → 0, kotlin 430 → 0, rust 1,756 → 0, csharp, go, java, python and typescript 0 → 0. Every represented-callable orphan on the ten goldens is 0. Five goldens refreshed after review (ada, c, cpp, kotlin, rust), five byte-identical |
 | 75 | 2026-10-11 | P2-13 | scr | resolved | Found by P2-13's legacy comparison: a call inside a definition nested in a function body (a decorated inner view, a decorator's wrapper, a closure) has no enclosing definition in the segment. The segment has no node for the nested definition, and the site's `enclosing_node_id` is empty rather than the outer definition's, so a drawn edge from it has the File node as its source. 4.2.1 reserves an empty `enclosing_node_id` for a site outside every definition. In the Python golden, 449 of 3,840 call sites lie inside a definition's span with no enclosing node (119 drawn `CALLS` rows from the File), against 236 genuinely at module level | Resolved by decision 47 (patch 0013). The driver selected the nearest already-modelled enclosing function rather than minting local-definition nodes. Modelled function boundaries are identified from the definitions extracted before the unified walk, by declaration occurrence (qualified name, first and last line), never the name alone. Unmodelled nested callables keep their lexical scope (and the name typed resolution joins on) but are not graph-ownership frames, so `Call.caller` and `ast_path` agree on the represented enclosing definition. C, C++ and CUDA keep ownership by name, because definitions are adopted after their walk. `ENGINE_VERSION` 4 → 5; schema 3, cache format 5, protocol 6 and surface 4 unchanged. All ten goldens are ready. Python golden, engine 4 → 5: call sites inside a callable's span with no enclosing node 441 → 0; File-sourced `CALLS` from them 118 → 0; module-level sites 244 → 244; nodes, sites, candidates and `CALLS` rows unchanged; coverage call sites 3,861 unchanged. Five goldens refreshed after review (csharp, kotlin, python, rust, typescript), five byte-identical. The residual class of issue 76 is separate |
 | 74 | 2026-10-11 | P2-12 | scr | resolved | P2-12's first `pdx-bench golden --accept` over the ten pinned goldens cannot complete: `cpp/fmt` indexes degraded (`pdx index` exit 2), reason `extraction_lost` on `test/gtest/gmock-gtest-all.cc`, a 533 KB, 14,442-line amalgamated test framework. The vendored engine's C/C++ typed resolver has a compiled-in per-file expression-evaluation step budget (`C_EVAL_MAX_STEPS_PER_FILE`, 10,000). It runs out on that file and counts as lost work (issue 21), so the segment is degraded. Deterministic: the same segment under one worker, isolation, a 4 GiB budget and every extraction switch raised. The other nine goldens are ready. Nothing was accepted; no golden is committed | Option A selected by the driver; B (making the budget run health) and C (another golden) rejected: a budget running out is real lost evidence, and replacing the golden would hide a G1 engine limitation. The C/C++ expression evaluation budget changed from a fixed 10,000 threshold to a deterministic source-size-aware budget: 10,000 per started 32 KiB, minimum 10,000, hard maximum 320,000 (patch 0012, decision 45, 4.5). Budget exhaustion remains lost work and remains a degraded reason. `ENGINE_VERSION` 3 → 4. The extraction cache format remains 5, because `engine_version` is already in the key. Resolved: all ten goldens index ready with engine 4. The file (532,839 bytes, budget 170,000) extracts with `extraction_lost` 0 (engine 3: 2), and `cpp/fmt` is ready with 7,633 nodes (unchanged) and 7,547 drawn edges (was 7,544), every change in that file. The other nine are row-for-row identical to engine 3. `make check-asan` is clean, `make vendor-verify` is exact, and the initial baselines are accepted |
 | 73 | 2026-10-11 | P2-04 | scr | resolved | Issue 72's detector version 3 fixed cross-detector idempotence but narrowed URI-password protection relative to detector 2: by treating `+`, `-`, `.` and the other scheme bytes as forbidden before an embedded scheme, it stopped masking passwords detector 2 masked (`-mysql://u:p@h`, `+mysql://…`, `.mysql://…`, `1.mysql://…`). Rejected by independent review before P2-12's golden baselines: a secret detector may mask more, never less, without an approved SCR | Decision 43: a letter-led scheme is recognised at the input's start or after any byte that is not an ASCII letter or digit, which keeps every detector-2 start (its word boundary allowed punctuation) and adds `_`; the mask `X` is a letter, so masking never opens a boundary. Issue 72's bearer-before-`://` clause, shared `BEARER_TOKEN`, `@` continuation and one-pass normalisation are kept. `SECRET_DETECTOR_VERSION` 3 → 4; the cache format stays 5. Monotonicity against detector 2's pattern as a test oracle: `uri_detector_preserves_detector_two_coverage`, `uri_detector_covers_detector_two_on_the_corpus`, the property `uri_detector_never_loses_a_detector_two_password` (200,000 cases); lost ranges 0 |
@@ -162,7 +162,78 @@ cannot join is issue 77.
 A call with no position in the file is never a site, and keeps the callable its name
 names as resolution context (the driver's choice).
 
-State: open, until the goldens are refreshed and validated under engine 6.
+#### Result
+
+The recorded counts were line-based, so a site on the same line as a callable counted
+as inside it. Engine 5's counts reproduced exactly. Counted by bytes against the
+engine's own declaration occurrences (`scripts/owner-census.py`, the engine's
+`owner_census`):
+
+| Golden | Engine 5, by lines | Engine 5, by bytes | Engine 6, by bytes |
+|---|---|---|---|
+| ada | 475 | 475 | 0 |
+| c | 190 | 41 | 0 |
+| cpp | 9,200 | 9,153 | 0 |
+| kotlin repository | 7,081 | 430 (all Kotlin) | 0 |
+| rust | 1,756 | 1,756 | 0 |
+| typescript | 6 | 0 | 0 |
+| csharp, go, java, python | 0 | 0 | 0 |
+
+Why the line and byte counts differ:
+
+- **JavaScript and TypeScript.** The 6,651 sites in the Kotlin repository's minified
+  documentation JavaScript, and TypeScript's 6, only share lines with callables.
+- **C.** 149 of jq's 190 lie in functions only the macro-expanded text defines, with
+  no raw function node (issue 77). Their owner was the file under engine 5 too.
+- **C++.** The 47 in fmt lie in template headers, outside the function node (as
+  decorators do), or in 4 adopted callables with no unique raw node (issue 77).
+
+The goldens were reviewed against the engine-5 segments, site by site, matched by
+byte position and callee:
+
+- **Unchanged everywhere:** node counts, site counts, coverage call sites, and file
+  statuses and blobs.
+- **Typed answers:** the same at all 7,896 typed sites, with none changed, lost or
+  new.
+- **Owner corrections.** Sites move from the file to the represented callable:
+  ada 475, c 41, rust 1,756 (191 of them to tests), kotlin 430.
+- **cpp test macros.** fmt's `TEST` bodies, 7,818 sites, now belong to their Test
+  nodes, adding 3,598 `TESTS` edges.
+- **Same-name corrections.** Sites move to the right one of several definitions of one
+  kind and one name, such as overloads, which the golden's tuples cannot show.
+  - Goldens whose tuples changed: ada 2,239, cpp 1,173, kotlin 3,427, c 61, rust 40.
+  - Goldens byte-identical: csharp 252, java 8, python 39, typescript 1,069 and
+    go 91.
+  - Across kinds, sites move from a struct, class, field, variable or macro named like
+    their callable: go's `Negotiate`, 18; jq's lexer macros, 55; and a few elsewhere.
+- **Stage 3, now that the caller's class or module is known.** Bands move with the
+  same target: exact or scoped → inheritance-guided, 49 in rust and 28 in kotlin.
+  Candidates are drawn: 11 in rust, 13 in kotlin, 219 in cpp. Four Kotlin
+  `super.prepareSQL` calls, which engine 5 drew to the overriding method itself, now
+  resolve through the caller's class hierarchy: two to the parent's method, two to
+  its candidates.
+- **Back to the file:** sites that no represented callable holds.
+  - jq's leaked frame (issue 79).
+  - fmt's template headers, its overloads with no definition, and its parse
+    artefacts (issue 80).
+  - 5 minified ui-kit sites.
+
+Drawn edges went ada 906 → 906, c 5,900 → 5,900, cpp 7,547 → 11,360, kotlin
+28,268 → 28,279 and rust 3,649 → 3,709. Five goldens are byte-identical, and all ten
+are ready.
+
+Validation:
+
+- 16 `occurrence_ownership` tests (11 failing on engine 5), and 4 `derive` tests (all
+  failing on engine 5).
+- `engine/tests/owner_occurrence`: the index, and the corpus invariant over 735 sites.
+- 14 deliberate mutations, all killed. The late-site search is guarded by the census
+  of the Kotlin golden, whose two misplaced `getValue` spans (issue 78) depend on it.
+- `make check`, `make check-asan` (38 tests, no report) and `make vendor-verify`
+  (exact): all green.
+- `make golden`: ten match, from a clean checkout and an empty cache.
+
+State: resolved.
 
 ### 75 — Calls inside nested definitions have no enclosing definition
 
