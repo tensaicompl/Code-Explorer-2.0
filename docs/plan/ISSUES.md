@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 75 | 2026-10-11 | P2-13 | ambiguity | open | Found by P2-13's legacy comparison: a call inside a definition nested in a function body (a decorated inner view, a decorator's wrapper, a closure) has no enclosing definition in the segment. The segment has no node for the nested definition, and the site's `enclosing_node_id` is empty rather than the outer definition's, so a drawn edge from it has the File node as its source. 4.2.1 reserves an empty `enclosing_node_id` for a site outside every definition. In the Python golden, 449 of 3,840 call sites lie inside a definition's span with no enclosing node (119 drawn `CALLS` rows from the File), against 236 genuinely at module level | Open, for the driver. Nothing changed in P2-13. Whether nested definitions should become nodes, or their sites attribute to the nearest enclosing definition the graph has, is a model decision. Either moves `site_id` (its encoding includes `enclosing_node_id`) and the drawn sources, so it is a stored-identity change for an SCR. Evidence: `bench/results/legacy-compare.md` |
 | 74 | 2026-10-11 | P2-12 | scr | resolved | P2-12's first `pdx-bench golden --accept` over the ten pinned goldens cannot complete: `cpp/fmt` indexes degraded (`pdx index` exit 2), reason `extraction_lost` on `test/gtest/gmock-gtest-all.cc`, a 533 KB, 14,442-line amalgamated test framework. The vendored engine's C/C++ typed resolver has a compiled-in per-file expression-evaluation step budget (`C_EVAL_MAX_STEPS_PER_FILE`, 10,000). It runs out on that file and counts as lost work (issue 21), so the segment is degraded. Deterministic: the same segment under one worker, isolation, a 4 GiB budget and every extraction switch raised. The other nine goldens are ready. Nothing was accepted; no golden is committed | Option A selected by the driver; B (making the budget run health) and C (another golden) rejected: a budget running out is real lost evidence, and replacing the golden would hide a G1 engine limitation. The C/C++ expression evaluation budget changed from a fixed 10,000 threshold to a deterministic source-size-aware budget: 10,000 per started 32 KiB, minimum 10,000, hard maximum 320,000 (patch 0012, decision 45, 4.5). Budget exhaustion remains lost work and remains a degraded reason. `ENGINE_VERSION` 3 → 4. The extraction cache format remains 5, because `engine_version` is already in the key. Resolved: all ten goldens index ready with engine 4. The file (532,839 bytes, budget 170,000) extracts with `extraction_lost` 0 (engine 3: 2), and `cpp/fmt` is ready with 7,633 nodes (unchanged) and 7,547 drawn edges (was 7,544), every change in that file. The other nine are row-for-row identical to engine 3. `make check-asan` is clean, `make vendor-verify` is exact, and the initial baselines are accepted |
 | 73 | 2026-10-11 | P2-04 | scr | resolved | Issue 72's detector version 3 fixed cross-detector idempotence but narrowed URI-password protection relative to detector 2: by treating `+`, `-`, `.` and the other scheme bytes as forbidden before an embedded scheme, it stopped masking passwords detector 2 masked (`-mysql://u:p@h`, `+mysql://…`, `.mysql://…`, `1.mysql://…`). Rejected by independent review before P2-12's golden baselines: a secret detector may mask more, never less, without an approved SCR | Decision 43: a letter-led scheme is recognised at the input's start or after any byte that is not an ASCII letter or digit, which keeps every detector-2 start (its word boundary allowed punctuation) and adds `_`; the mask `X` is a letter, so masking never opens a boundary. Issue 72's bearer-before-`://` clause, shared `BEARER_TOKEN`, `@` continuation and one-pass normalisation are kept. `SECRET_DETECTOR_VERSION` 3 → 4; the cache format stays 5. Monotonicity against detector 2's pattern as a test oracle: `uri_detector_preserves_detector_two_coverage`, `uri_detector_covers_detector_two_on_the_corpus`, the property `uri_detector_never_loses_a_detector_two_password` (200,000 cases); lost ranges 0 |
 | 72 | 2026-10-11 | P2-04 | scr | resolved | CI run 38098740924 (P2-11 review closure), attempt 1, failed on Windows in P2-04's property `secret_normalisation_preserves_offsets`: minimal YAML input `Authorization: Bearer <token>_mysql://u:<password>@h`. The same input fails identically on Linux; the defect predates the P2-11 closure: the word-boundary URI pattern dates from P2-04's first commit, 8f89f38, and the secrets code last changed in P2-08. Normalisation was not idempotent: the bearer token ran over `_mysql`, the URI detector, starting a scheme at a regex word boundary, missed `mysql` after `_`, and the masked token, a run of `X`, read as a scheme on a second pass, which masked the password then. The password reached the engine. Issue 44's claim that no other detector had the defect held per detector; this is one detector's mask completing another's match | URI password schemes follow URI grammar: a letter, then letters, digits, `+`, `-` and `.`, starting at the input's start or after a byte no scheme holds (`_` included), never at a regex word boundary. That alone left a class open (`Bearer <tok>_9mysql://…`, `<tok>_://…`, `<tok>=://…`, `Bearer 0000000000000000://…`: the masked token is always a scheme, the original need not be one), so by the driver's decision a bearer token before `://`, in the bearer detector's exact shape, also counts (decision 42). Every detector still reads the original bytes once, the ranges still merge, and masking still happens once. `SECRET_DETECTOR_VERSION` 2 → 3: the policy digest and every extraction cache key move (an older entry is a miss); `EXTRACT_CACHE_FORMAT_VERSION` stays 5, as do the segment schema, matrix, engine, protocol and surface. Regressions `bearer_adjacent_uri_password_is_idempotent`, `uri_scheme_boundary_uses_scheme_grammar_not_word_boundary`, `cross_detector_boundaries_are_idempotent`, `uri_boundary_change_leaves_ordinary_sources_alone`; the property, its pieces widened, passes 20,000 and 200,000 cases |
@@ -118,6 +119,54 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 75 — Calls inside nested definitions have no enclosing definition
+
+P2-13 compared the legacy graph's calls with PDX's on the Python golden. One class of
+difference was not about resolution at all: where a call sits.
+
+Both pipelines see these calls. The legacy graph makes a node of every definition,
+nested ones included, and draws the call from the innermost one. The segment has no
+node for a definition nested in a function body, and its site has no enclosing
+definition at all: `enclosing_node_id` is empty. The drawn edge therefore comes from the
+File node, although the call is inside a definition the segment does have. Examples
+from the pinned commit:
+
+- **A decorator's wrapper.** In `src/flask/sansio/scaffold.py:46`, the call inside the
+  wrapper nested in the decorator `setupmethod` is drawn from the file, not from
+  `setupmethod`.
+- **Views nested in tests.** In `tests/test_blueprints.py:917` and the five lines like
+  it, the calls are inside `before_request` functions nested in a test function, and
+  are drawn from the test file.
+- **A view nested in a fixture.** In `tests/test_async.py:56`, the call is inside an
+  async view nested in a fixture, and is drawn from the test file.
+
+A class nested in a test function behaves differently: calls in its body are
+attributed to the enclosing test (`tests/test_cli.py:49`).
+
+Across the golden there are 3,840 call sites:
+
+| Call sites | Count |
+|---|---|
+| Inside a definition's span, with an enclosing node | 3,155 (498 drawn `CALLS`) |
+| Inside a definition's span, with no enclosing node | 449 (119 drawn `CALLS`, 330 not drawn) |
+| At module level, with no enclosing node (as 4.2.1 intends) | 236 (22 drawn `CALLS`) |
+
+4.2.1 defines an empty `enclosing_node_id` as a site outside every definition, which
+these sites are not.
+
+For the driver:
+
+- **A.** Make nested definitions nodes.
+- **B.** Attribute their sites to the nearest enclosing definition that is a node.
+- **C.** Ratify the current behaviour and say so in 4.2.1.
+
+A and B change `enclosing_node_id`, and with it `site_id` and every affected edge's
+source: a stored-identity change, so an SCR. The engine's node-type path (`ast_path`)
+starts at the innermost enclosing function, which matters for B. P2-13 changes nothing;
+this is triage input.
+
+State: open.
 
 ### 74 — The fmt golden indexes degraded
 
