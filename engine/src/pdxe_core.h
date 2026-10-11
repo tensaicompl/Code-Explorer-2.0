@@ -191,6 +191,39 @@ typedef enum {
     PDXE_LANG_COUNT
 } PDXELanguage;
 
+/* Issue 76: where a callable is declared, the private identity that joins a site to
+ * the definition owning it in the graph (decision 48). A callable definition records
+ * the occurrence of its function node: the node the unified walk opens the callable's
+ * frame at, which for a C++ template is the declaration inside it, not the template.
+ * A function frame looks up its own node's. Qualified names are never compared for
+ * this: the walk and the definition extractor qualify a callable by rules of their
+ * own, which differ for some declarations. Byte offsets mean something only in the
+ * buffer that produced them, so the buffer (a PDXESourceOrigin) is part of the
+ * identity. Valid when end_byte > start_byte. Never part of the interface, a surface
+ * or a cache: it lives only until an extraction is translated. */
+typedef struct {
+    uint32_t start_byte;
+    uint32_t end_byte;
+    uint8_t origin;
+} PDXECallableOccurrence;
+
+/* Who owns a site in the graph (issue 76), decided where the site is found. When
+ * `decided`, `declaration` is the owning callable's occurrence, or not valid when
+ * the file owns the site. A site added after the unified walk is decided from the
+ * tree afterwards (pdxe_stamp_late_site_owners); one that cannot be placed in the
+ * file stays undecided, and is never a site. */
+typedef struct {
+    PDXECallableOccurrence declaration;
+    bool decided;
+} PDXESiteOwner;
+
+/* A raw callable the preprocessed pass of C, C++ and CUDA superseded, and the index
+ * in the result's definitions of the definition it adopted in its place (issue 76). */
+typedef struct {
+    PDXECallableOccurrence superseded;
+    int replacement;
+} PDXEOwnerAlias;
+
 // --- Extraction result structs ---
 
 /* One HTTP route binding a decorator or annotation declares for a definition, with
@@ -217,6 +250,9 @@ typedef struct {
     const char *file_path;      // relative path
     uint32_t start_line;
     uint32_t end_line;
+    /* A callable's declaration occurrence (issue 76); not valid for any other
+     * definition. Private, as PDXECallableOccurrence says. */
+    PDXECallableOccurrence occurrence;
     const char *signature;              // parameter text (NULL if none)
     const char *return_type;            // return type text (NULL if none)
     const char *receiver;               // Go method receiver (NULL if none)
@@ -283,11 +319,12 @@ typedef enum {
 typedef struct {
     const char *callee_name;       // raw callee text ("pkg.Func", "foo")
     const char *enclosing_func_qn; // QN of enclosing function (or module QN)
-    /* Issue 75: the enclosing callable the result represents, which owns the call
-     * in the graph; enclosing_func_qn can name a nested callable it does not. NULL
-     * when not recorded, meaning enclosing_func_qn. Never encoded in a surface:
-     * typed resolution joins on enclosing_func_qn. */
-    const char *owner_qn;
+    /* Issues 75 and 76: the represented callable that owns the call in the graph,
+     * by its declaration occurrence. enclosing_func_qn names the callable the call
+     * was found in, which may be a nested one the result does not represent, or a
+     * represented one named otherwise than its definition. Never encoded in a
+     * surface: typed resolution joins on enclosing_func_qn. */
+    PDXESiteOwner owner;
     const char *first_string_arg;  // first string literal argument (URL, topic, key) or NULL
     const char *second_arg_name;   // second argument identifier (handler ref) or NULL
     /* First arg_count captured arguments, arena-allocated on first capture;
@@ -341,7 +378,7 @@ typedef enum {
 typedef struct {
     const char *ref_name;          // referenced identifier
     const char *enclosing_func_qn; // QN of enclosing function (or module QN)
-    const char *owner_qn;          // as PDXECall.owner_qn (issue 75)
+    PDXESiteOwner owner;           // as PDXECall.owner (issues 75 and 76)
     /* Fixed-width fields grouped so the record packs to 40 bytes (was 48; the
      * Go corpus holds 4.68M of these). Field meanings unchanged. */
     uint32_t lexical_scope_id;       // extraction-local scope instance; never graph identity
@@ -634,6 +671,13 @@ typedef struct PDXEFileResult {
     // by pdxe_free_result(); ordinary single-file results leave these zeroed.
     struct PDXEFileResult **owned_results;
     int owned_result_count;
+
+    /* Issue 76: the sites a superseded raw callable owned are owned by the
+     * definition the preprocessed pass adopted in its place (PDXEOwnerAlias). Set
+     * where the raw definitions are dropped, read only by the translation; private,
+     * never part of the interface or a surface. NULL and 0 for none. */
+    PDXEOwnerAlias *owner_aliases;
+    int owner_alias_count;
 } PDXEFileResult;
 
 // --- Enclosing function cache ---
@@ -720,13 +764,16 @@ typedef struct {
     /* How many nodes the unified walk actually visited (whether or not it ran
      * out of budget) — the measurement the budget has to be expressed in. */
     uint32_t walk_nodes_visited;
-    /* Definitions may still be adopted after the unified walk: the preprocessed
-     * second pass of C, C++ and CUDA rescues definitions from the macro-expanded
-     * text afterwards (#961, #1989). The walk then cannot tell a callable the
-     * result will represent from one it will not, so every named callable
-     * boundary owns its sites by qualified name, as before issue 75, and the
-     * qualified-name translation after extraction decides. */
-    bool defs_incomplete;
+    /* The buffer this context reads (issue 76): the declaration occurrences of its
+     * definitions and the owners of its sites are in its coordinates. */
+    PDXESourceOrigin source_origin;
+    /* This buffer's definitions are extracted after the unified walk: the
+     * preprocessed second pass of C, C++ and CUDA adopts some from the
+     * macro-expanded text afterwards (#961, #1989). The walk cannot tell a callable
+     * that will be represented from one that will not, so every function frame
+     * records its own declaration as the owner of its sites, and the translation
+     * keeps it only if an adopted definition has that occurrence. */
+    bool defs_after_walk;
 } PDXEExtractCtx;
 
 // --- Public API ---
@@ -924,6 +971,39 @@ void pdxe_infrabinding_push(PDXEInfraBindingArray *arr, PDXEArena *a, PDXEInfraB
 void pdxe_impltrait_push(PDXEImplTraitArray *arr, PDXEArena *a, PDXEImplTrait it);
 void pdxe_resolvedcall_push(PDXEResolvedCallArray *arr, PDXEArena *a, PDXEResolvedCall rc);
 void pdxe_channels_push(PDXEChannelArray *arr, PDXEArena *a, PDXEChannel ch);
+
+/* Issue 76: callable declaration occurrences (PDXECallableOccurrence). One
+ * convention for every language: the occurrence of `node` in the context's buffer.
+ * A definition records its function node's (pdxe_def_record_occurrence); a function
+ * frame looks up its own node's. */
+PDXECallableOccurrence pdxe_callable_occurrence(const PDXEExtractCtx *ctx, TSNode node);
+void pdxe_def_record_occurrence(const PDXEExtractCtx *ctx, PDXEDefinition *def, TSNode node);
+bool pdxe_occurrence_valid(PDXECallableOccurrence occurrence);
+bool pdxe_occurrence_equal(PDXECallableOccurrence a, PDXECallableOccurrence b);
+
+/* The definitions of one result by declaration occurrence, indexed once in an
+ * open-addressing table of definition indices + 1 (0 is empty). When the table
+ * cannot be allocated, lookups scan the same definitions: the same answer, more
+ * slowly. */
+typedef struct {
+    const PDXEDefinition *items;
+    int count;
+    int32_t *slots;
+    uint32_t mask;
+} PDXEOccurrenceIndex;
+
+enum {
+    PDXE_OCCURRENCE_NONE = -1,     /* no definition has the occurrence */
+    PDXE_OCCURRENCE_AMBIGUOUS = -2 /* more than one has it: none may be chosen */
+};
+
+/* Indexes the first `count` definitions of `items` that have a valid occurrence. */
+void pdxe_occurrence_index_build(PDXEOccurrenceIndex *index, const PDXEDefinition *items,
+                                 int count);
+/* The index of the one definition with `occurrence`, or PDXE_OCCURRENCE_NONE or
+ * PDXE_OCCURRENCE_AMBIGUOUS. */
+int pdxe_occurrence_index_find(const PDXEOccurrenceIndex *index, PDXECallableOccurrence occurrence);
+void pdxe_occurrence_index_free(PDXEOccurrenceIndex *index);
 
 // --- Sub-extractor entry points ---
 

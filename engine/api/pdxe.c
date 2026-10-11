@@ -42,8 +42,10 @@
  * per-file step budget grows with the source, 10000 steps per started 32 KiB up to
  * 320000 (issue 74, patch 0012). 5: sites inside a nested callable the extractor does
  * not represent belong to the nearest represented callable, whose node their path
- * starts at, while keeping their nested lexical scope (issue 75, patch 0013). */
-static const char ENGINE_VERSION_STRING[] = "5";
+ * starts at, while keeping their nested lexical scope (issue 75, patch 0013). 6: a
+ * site's owner is joined to its definition by the declaration occurrence of the
+ * callable around it, never by comparing qualified names (issue 76, patch 0014). */
+static const char ENGINE_VERSION_STRING[] = "6";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;
@@ -405,6 +407,10 @@ static bool adopt(result_holder *h, char *s) {
     return true;
 }
 
+const PDXEFileResult *pdxe_result_engine(const pdxe_file_result *r) {
+    return r ? ((const result_holder *)r)->engine : NULL;
+}
+
 void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r) {
     (void)ctx;
     holder_free((result_holder *)r);
@@ -522,11 +528,102 @@ static uint32_t count_strings(const char *const *v) {
     return n;
 }
 
-/* `graph_owner`: report the represented callable that owns the call (issue 75), as a
- * file's own calls do. A resolution's site names the callable the call was found in,
- * which is all a surface records, so cached and fresh answers agree. */
+/*
+ * Who owns a call or callable reference in the graph (issues 75 and 76; decision 48).
+ *
+ * The engine decides it where it finds the site: the declaration occurrence of the
+ * represented callable around it, or the file (PDXESiteOwner). The caller is the
+ * definition with that occurrence, found in an index built once per file. Qualified
+ * names are not compared: the callable a call was found in can be named otherwise than
+ * its definition, and they still join. A raw site's owner is decided by occurrence
+ * alone; where none is a definition's, it is the file's, through the definition a
+ * superseded C-family callable was replaced by when there is one (PDXEOwnerAlias).
+ *
+ * A site with no position in the file is never a site: what C, C++ and CUDA find in
+ * the macro-expanded text, and what a resolver adds where nothing can be located.
+ * Its caller is context for resolution only, never ownership in the graph: the
+ * expanded definition with its owner's occurrence when the preprocessed pass adopted
+ * one, otherwise the callable its own name names, as the engine has always reported.
+ */
+typedef struct {
+    const PDXEFileResult *engine;
+    PDXEOccurrenceIndex occurrences; /* the engine's definitions */
+    uint32_t *position;              /* engine definition -> interface position */
+    uint32_t file;                   /* the file's own module definition */
+} owner_join;
+
+/* The interface position of each engine definition, or PDXE_NO_PARENT for one the
+ * translation omits. */
+static uint32_t *definition_positions(const PDXEDefArray *defs) {
+    uint32_t *position = (uint32_t *)calloc(defs->count > 0 ? (size_t)defs->count : 1,
+                                            sizeof(uint32_t));
+    if (!position) {
+        return NULL;
+    }
+    uint32_t kept = 0;
+    for (int i = 0; i < defs->count; i++) {
+        position[i] = is_synthetic(&defs->items[i]) ? PDXE_NO_PARENT : kept++;
+    }
+    return position;
+}
+
+static bool owner_join_open(owner_join *join, const PDXEFileResult *engine) {
+    join->engine = engine;
+    join->position = definition_positions(&engine->defs);
+    if (!join->position) {
+        return false;
+    }
+    pdxe_occurrence_index_build(&join->occurrences, engine->defs.items, engine->defs.count);
+    join->file = index_of_qn(&engine->defs, engine->module_qn);
+    return true;
+}
+
+static void owner_join_close(owner_join *join) {
+    pdxe_occurrence_index_free(&join->occurrences);
+    free(join->position);
+}
+
+/* The interface position of the definition with `declaration`, through a supersession
+ * alias for a raw one; PDXE_NO_PARENT when there is none, or more than one. */
+static uint32_t owner_position(const owner_join *join, PDXECallableOccurrence declaration) {
+    int found = pdxe_occurrence_index_find(&join->occurrences, declaration);
+    if (found == PDXE_OCCURRENCE_NONE) {
+        for (int i = 0; i < join->engine->owner_alias_count; i++) {
+            const PDXEOwnerAlias *alias = &join->engine->owner_aliases[i];
+            if (pdxe_occurrence_equal(alias->superseded, declaration)) {
+                found = alias->replacement;
+                break;
+            }
+        }
+    }
+    return found >= 0 && found < join->engine->defs.count ? join->position[found]
+                                                          : PDXE_NO_PARENT;
+}
+
+/* The caller a call or callable reference reports: see owner_join. */
+static uint32_t caller_position(const owner_join *join, PDXESiteOwner owner,
+                                PDXESourceOrigin origin, const char *enclosing_func_qn) {
+    if (owner.decided && origin == PDXE_SOURCE_ORIGIN_RAW) {
+        if (!pdxe_occurrence_valid(owner.declaration)) {
+            return join->file;
+        }
+        uint32_t position = owner_position(join, owner.declaration);
+        return position != PDXE_NO_PARENT ? position : join->file;
+    }
+    if (owner.decided) {
+        uint32_t position = owner_position(join, owner.declaration);
+        if (position != PDXE_NO_PARENT) {
+            return position;
+        }
+    }
+    return index_of_qn(&join->engine->defs, enclosing_func_qn);
+}
+
+/* `join`: report the represented callable that owns the call, as a file's own calls
+ * do (owner_join); NULL for a resolution's site, which names the callable the call was
+ * found in, all a surface records, so cached and fresh answers agree. */
 static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const PDXECall *c,
-                         bool graph_owner) {
+                         const owner_join *join) {
     pdxe_call o = {0};
     /* The engine's own static node types, borrowed; arguments are attached by the
      * caller, which owns the array they go in. */
@@ -538,8 +635,8 @@ static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const P
      * a receiver is only ever split off by the resolver that needs it.
      */
     o.receiver_text = NULL;
-    o.caller_index =
-        index_of_qn(defs, graph_owner && c->owner_qn ? c->owner_qn : c->enclosing_func_qn);
+    o.caller_index = join ? caller_position(join, c->owner, c->source_origin, c->enclosing_func_qn)
+                          : index_of_qn(defs, c->enclosing_func_qn);
     o.span = site_span(li, c->source_origin, c->site_start_byte, c->site_end_byte, c->start_line);
     o.is_reference = 0;
     o.typed_only = c->requires_lsp_resolution ? 1 : 0;
@@ -549,14 +646,14 @@ static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const P
 
 /* The interface's description of a usage that may be a call reference. */
 static pdxe_call reference_of(const PDXEDefArray *defs, const line_index *li, const PDXEUsage *u,
-                              bool graph_owner) {
+                              const owner_join *join) {
     pdxe_call o = {0};
     o.callee_text = u->ref_name;
     o.receiver_text = NULL;
     o.n_ast_path = count_strings(u->ast_path);
     o.ast_path = o.n_ast_path ? u->ast_path : NULL;
-    o.caller_index =
-        index_of_qn(defs, graph_owner && u->owner_qn ? u->owner_qn : u->enclosing_func_qn);
+    o.caller_index = join ? caller_position(join, u->owner, u->source_origin, u->enclosing_func_qn)
+                          : index_of_qn(defs, u->enclosing_func_qn);
     o.span = site_span(li, u->source_origin, u->site_start_byte, u->site_end_byte, 0);
     o.is_reference = 1;
     o.typed_only = 0;
@@ -711,13 +808,20 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
     const PDXEUsageArray *usages = &engine->usages;
     uint32_t n_refs = count_reference_sites(usages);
     r->calls = ALLOC_ARRAY(pdxe_call, (uint32_t)calls->count + n_refs);
-    if (!r->calls) {
+    owner_join join;
+    if (!r->calls || !owner_join_open(&join, engine)) {
         holder_free(h);
         return PDXE_E_NOMEM;
     }
     for (int i = 0; i < calls->count; i++) {
-        r->calls[r->n_calls++] = call_of(defs, li, &calls->items[i], true);
+        r->calls[r->n_calls++] = call_of(defs, li, &calls->items[i], &join);
     }
+    for (int i = 0; i < usages->count; i++) {
+        if (is_reference_site(&usages->items[i])) {
+            r->calls[r->n_calls++] = reference_of(defs, li, &usages->items[i], &join);
+        }
+    }
+    owner_join_close(&join);
     /* The calls' captured arguments, translated into one array (issue 47). */
     size_t n_args = 0;
     for (int i = 0; i < calls->count; i++) {
@@ -747,11 +851,6 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
                 r->calls[i].n_args++;
             }
             next += (size_t)c->arg_count;
-        }
-    }
-    for (int i = 0; i < usages->count; i++) {
-        if (is_reference_site(&usages->items[i])) {
-            r->calls[r->n_calls++] = reference_of(defs, li, &usages->items[i], true);
         }
     }
 
@@ -2109,7 +2208,7 @@ static int collect_calls(pdxe_project *p, int i, uint32_t n_refs, resolution_lis
         }
         /* The resolver's own calls follow extraction's calls and references. */
         o->call_index = j < st->n_calls_before ? (uint32_t)j : (uint32_t)j + n_refs;
-        o->site = call_of(&res->defs, &st->li, call, false);
+        o->site = call_of(&res->defs, &st->li, call, NULL);
         o->target_qualified_name = strip_project(target->qualified_name);
         o->target_rel_path = target_path(target);
         o->score = (double)lsp->confidence;
@@ -2154,7 +2253,7 @@ static int collect_references(pdxe_project *p, int i, resolution_list *out) {
             return PDXE_E_NOMEM;
         }
         o->call_index = call_index;
-        o->site = reference_of(&res->defs, &st->li, usage, false);
+        o->site = reference_of(&res->defs, &st->li, usage, NULL);
         o->target_qualified_name =
             strip_project(target ? target->qualified_name : ref->callee_qn);
         o->target_rel_path = target_path(target);

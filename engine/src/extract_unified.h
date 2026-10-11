@@ -13,6 +13,11 @@
 #define SCOPE_BRANCH 6
 #define SCOPE_LEXICAL 7
 #define SCOPE_NAMESPACE 8
+/* Issue 76: a represented callable's function node the walk opens no function frame
+ * for (it can give it no name). It owns the sites under it and starts their path;
+ * it changes no lexical fact: the callable they are found in, and its scope, stay
+ * the enclosing ones. */
+#define SCOPE_OWNER 9
 
 #define MAX_SCOPES 64
 #define INLINE_LEXICAL_SCOPES 64
@@ -67,6 +72,9 @@ typedef struct {
     uint32_t depth;
     uint32_t lexical_scope_id;
     uint8_t kind;
+    /* A function frame's: the owner of the sites under it (issue 76), the same as
+     * the walk state's owners[depth] when it opened a represented callable. */
+    PDXECallableOccurrence owner;
     PDXEInvocationKind invocation_kind;
     TSNode callee_expr;
     TSNode callee_leaf;
@@ -213,23 +221,17 @@ typedef struct {
 
     os_type_map_t os_type_map; // ObjectScript variable → type mapping
 
-    /* Issue 75. The file's extracted definitions as exact declaration occurrences
-     * (qualified name, first line, last line): an open-addressing set of the
-     * indices + 1 (0 is empty) of the first modeled_def_count definitions, built
-     * with the C library's allocator. If it cannot be, modeled_slots is NULL and
-     * lookups scan those same definitions, the same answer more slowly, so
-     * nothing is lost (as the C resolver's negative memo). Not built while
-     * definitions may still be adopted after the walk (ctx->defs_incomplete). */
-    int32_t *modeled_slots;
-    uint32_t modeled_mask;
-    int modeled_def_count;
-    /* By cursor depth, the represented callable whose function frame opened
-     * there; a site's owner is the one at enclosing_func_depth (the module at
-     * 0). Grown in the arena; when it cannot grow, owner_qns_failed, and the
-     * owner is read from the open frames instead. */
-    const char **owner_qns;
-    uint32_t owner_qns_capacity;
-    bool owner_qns_failed;
+    /* Issues 75 and 76. The definitions extracted before the walk, indexed once by
+     * declaration occurrence (pdxe_occurrence_index_build). A function frame is a
+     * represented callable's exactly when its node's occurrence is one of theirs. */
+    PDXEOccurrenceIndex represented;
+    /* By cursor depth, the declaration occurrence of the represented callable whose
+     * function frame opened there; a site's owner is the one at
+     * enclosing_func_depth (the file at 0). Grown in the arena; when it cannot
+     * grow, owners_failed, and the owner is read from the open frames instead. */
+    PDXECallableOccurrence *owners;
+    uint32_t owners_capacity;
+    bool owners_failed;
 } WalkState;
 
 /* #1912: is `name` bound as a parameter by a Python function or lambda scope

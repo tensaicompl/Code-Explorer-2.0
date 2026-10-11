@@ -4349,6 +4349,8 @@ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpe
     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
+    /* Issue 76: the function node, inside a C++ template, owns the sites under it. */
+    pdxe_def_record_occurrence(ctx, &def, func_node);
     def.is_exported = pdxe_is_exported(name, ctx->language);
     if (ctx->language == PDXE_LANG_RUST &&
         strcmp(ts_node_type(node), "function_signature_item") == 0) {
@@ -5603,6 +5605,8 @@ static void push_method_def(PDXEExtractCtx *ctx, TSNode child, TSNode class_node
     def.start_line = ts_node_start_point(child).row + TS_LINE_OFFSET;
     def.end_line = ts_node_end_point(child).row + TS_LINE_OFFSET;
     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
+    /* Issue 76: as extract_func_def's, from the method's function node. */
+    pdxe_def_record_occurrence(ctx, &def, unwrap_template_inner(child, ctx->language));
     def.is_exported = pdxe_is_exported(name, ctx->language);
     if (ctx->language == PDXE_LANG_RUST &&
         strcmp(ts_node_type(child), "function_signature_item") == 0) {
@@ -5884,6 +5888,7 @@ static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSp
         def.impl_trait = impl_trait;
         def.start_line = ts_node_start_point(child).row + TS_LINE_OFFSET;
         def.end_line = ts_node_end_point(child).row + TS_LINE_OFFSET;
+        pdxe_def_record_occurrence(ctx, &def, child); /* issue 76 */
         def.is_exported = pdxe_is_exported(name, ctx->language);
 
         TSNode params = ts_node_child_by_field_name(child, TS_FIELD("parameters"));
@@ -5947,6 +5952,7 @@ static void extract_elixir_func_def(PDXEExtractCtx *ctx, TSNode node, const char
     def.label = "Function";
     def.file_path = ctx->rel_path;
     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
+    pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
     def.is_exported = (strcmp(macro, "def") == 0 || strcmp(macro, "defmacro") == 0);
     pdxe_defs_push(&ctx->result->defs, a, def);
@@ -8046,6 +8052,7 @@ static void extract_cfml_function_tag(PDXEExtractCtx *ctx, TSNode node) {
     def.label = "Function";
     def.file_path = ctx->rel_path;
     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
+    pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
     def.is_exported = true;
@@ -8080,6 +8087,7 @@ static void extract_gotemplate_define(PDXEExtractCtx *ctx, TSNode node) {
     def.label = "Function";
     def.file_path = ctx->rel_path;
     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
+    pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
     def.is_exported = true;
@@ -8135,6 +8143,9 @@ static void extract_janet_def(PDXEExtractCtx *ctx, TSNode node) {
     def.label = is_class ? "Class" : "Function";
     def.file_path = ctx->rel_path;
     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
+    if (!is_class) {
+        pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
+    }
     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
     def.is_exported = true;
@@ -8308,6 +8319,9 @@ static void extract_lisp_def(PDXEExtractCtx *ctx, TSNode node) {
     def.label = lisp_label;
     def.file_path = ctx->rel_path;
     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
+    if (strcmp(lisp_label, "Function") == 0) {
+        pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
+    }
     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
     def.is_exported = true;

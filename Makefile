@@ -76,6 +76,7 @@ engine-clean:
 test: engine
 	PDX_REQUIRE_ENGINE=1 $(CARGO) test --workspace --all-features
 	python3 scripts/test_compare_legacy.py
+	python3 scripts/test_owner_census.py
 
 # Every third-party crate in Cargo.lock is covered by supply-chain/: audited, imported
 # by an owner's decision, or exempted on the record (Part 5.12, issue 36). Needs the

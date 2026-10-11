@@ -261,6 +261,9 @@ if(PDXE_BUILD_TESTS)
   # files (engine/tests/corpus_extracts.c). make check-asan runs it under the sanitizers.
   set(PDXE_CORPUS ${PDXE_ROOT}/../bench/corpus)
   add_test(NAME corpus_extracts COMMAND corpus_extracts ${PDXE_CORPUS})
+  # Sites joined to their owners by declaration occurrence, over the same corpus
+  # (engine/tests/owner_occurrence.c; issue 76).
+  add_test(NAME owner_occurrence COMMAND owner_occurrence ${PDXE_CORPUS})
   # The bytes fixtures are source that is not valid UTF-8: a surface keeps it exactly.
   add_test(NAME abi_result_build_roundtrip
     COMMAND abi_result_build_roundtrip ${PDXE_SMOKE_FIXTURES} ${PDXE_RESOLVE_FIXTURE_ROOT}

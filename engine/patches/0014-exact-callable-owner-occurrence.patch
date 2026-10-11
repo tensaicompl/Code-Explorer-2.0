@@ -1,0 +1,1255 @@
+--- a/engine/src/extract_defs.c
++++ b/engine/src/extract_defs.c
+@@ -4349,6 +4349,8 @@ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpe
+     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
+     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
+     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
++    /* Issue 76: the function node, inside a C++ template, owns the sites under it. */
++    pdxe_def_record_occurrence(ctx, &def, func_node);
+     def.is_exported = pdxe_is_exported(name, ctx->language);
+     if (ctx->language == PDXE_LANG_RUST &&
+         strcmp(ts_node_type(node), "function_signature_item") == 0) {
+@@ -5603,6 +5605,8 @@ static void push_method_def(PDXEExtractCtx *ctx, TSNode child, TSNode class_node
+     def.start_line = ts_node_start_point(child).row + TS_LINE_OFFSET;
+     def.end_line = ts_node_end_point(child).row + TS_LINE_OFFSET;
+     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
++    /* Issue 76: as extract_func_def's, from the method's function node. */
++    pdxe_def_record_occurrence(ctx, &def, unwrap_template_inner(child, ctx->language));
+     def.is_exported = pdxe_is_exported(name, ctx->language);
+     if (ctx->language == PDXE_LANG_RUST &&
+         strcmp(ts_node_type(child), "function_signature_item") == 0) {
+@@ -5884,6 +5888,7 @@ static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSp
+         def.impl_trait = impl_trait;
+         def.start_line = ts_node_start_point(child).row + TS_LINE_OFFSET;
+         def.end_line = ts_node_end_point(child).row + TS_LINE_OFFSET;
++        pdxe_def_record_occurrence(ctx, &def, child); /* issue 76 */
+         def.is_exported = pdxe_is_exported(name, ctx->language);
+ 
+         TSNode params = ts_node_child_by_field_name(child, TS_FIELD("parameters"));
+@@ -5947,6 +5952,7 @@ static void extract_elixir_func_def(PDXEExtractCtx *ctx, TSNode node, const char
+     def.label = "Function";
+     def.file_path = ctx->rel_path;
+     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
++    pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
+     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
+     def.is_exported = (strcmp(macro, "def") == 0 || strcmp(macro, "defmacro") == 0);
+     pdxe_defs_push(&ctx->result->defs, a, def);
+@@ -8046,6 +8052,7 @@ static void extract_cfml_function_tag(PDXEExtractCtx *ctx, TSNode node) {
+     def.label = "Function";
+     def.file_path = ctx->rel_path;
+     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
++    pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
+     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
+     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
+     def.is_exported = true;
+@@ -8080,6 +8087,7 @@ static void extract_gotemplate_define(PDXEExtractCtx *ctx, TSNode node) {
+     def.label = "Function";
+     def.file_path = ctx->rel_path;
+     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
++    pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
+     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
+     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
+     def.is_exported = true;
+@@ -8135,6 +8143,9 @@ static void extract_janet_def(PDXEExtractCtx *ctx, TSNode node) {
+     def.label = is_class ? "Class" : "Function";
+     def.file_path = ctx->rel_path;
+     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
++    if (!is_class) {
++        pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
++    }
+     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
+     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
+     def.is_exported = true;
+@@ -8308,6 +8319,9 @@ static void extract_lisp_def(PDXEExtractCtx *ctx, TSNode node) {
+     def.label = lisp_label;
+     def.file_path = ctx->rel_path;
+     def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
++    if (strcmp(lisp_label, "Function") == 0) {
++        pdxe_def_record_occurrence(ctx, &def, node); /* issue 76 */
++    }
+     def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
+     def.lines = (int)(def.end_line - def.start_line + TS_LINE_OFFSET);
+     def.is_exported = true;
+--- a/engine/src/extract_unified.c
++++ b/engine/src/extract_unified.c
+@@ -415,189 +415,154 @@ static bool push_function_scope(WalkState *state, uint32_t depth, const char *fu
+                                             PDXE_LEXICAL_SCOPE_FUNCTION);
+ }
+ 
+-/* ── Issue 75: the owner of a site is a callable the result represents ────────
++/* ── Issues 75 and 76: the owner of a site is a callable the result represents ─
+  *
+  * A function frame names the enclosing callable (enclosing_func_qn) for every fact
+  * found under it, opens the callable's lexical scope, and starts the node-type path
+  * of every site under it (enclosing_func_depth). The first two are lexical facts and
+  * stay as they were for every callable: typed resolution joins its answers to calls
+  * by that name, and parameters and locals bind in that scope. The path start, and
+- * the definition a call or callable reference is attributed to (owner_qn), are graph
+- * facts: they belong to a callable the graph has a node for.
++ * the definition a call or callable reference is attributed to (its owner), are graph
++ * facts: they belong to a callable the result has a definition for.
+  *
+  * Definitions are extracted before this walk, so which callables those are is
+- * known: a callable is represented exactly when its declaration occurrence
+- * (qualified name, first line, last line) is one of the file's definitions. The
+- * qualified name alone is not enough, since a `def helper` nested in a function
+- * has the qualified name of a top-level `helper`. A callable that is not
+- * represented (a function nested in a function, in the languages whose definition
+- * walk does not descend into function bodies) gets its frame as before, but the
+- * path keeps starting at the represented callable around it, which owns its sites;
+- * at file scope, the file does.
++ * known: a callable is represented exactly when the declaration occurrence of the
++ * node its frame is opened for (the byte span, in this buffer) is a definition's,
++ * looked up in an index built once. Names are never compared (issue 76): the walk
++ * qualifies a frame by rules of its own and the extractor a definition by others,
++ * and the two differ for some declarations (a Rust method of a generic type, a
++ * function under a `cfg` attribute, an Ada subprogram in a package specification, a
++ * C++ test macro). A callable that is not represented (issue 75: a function nested
++ * in a function, in the languages whose definition walk does not descend into
++ * function bodies) gets its frame as before, but the path keeps starting at the
++ * represented callable around it, which owns its sites; at file scope, the file does.
+  *
+- * Where the engine adopts more definitions after this walk (the preprocessed pass
+- * of C, C++ and CUDA, whose error-recovered raw tree can even nest one function in
+- * another), the walk cannot know which callables will be represented, so every
+- * callable owns its sites, as before (ctx->defs_incomplete). */
+-
+-static uint64_t modeled_def_hash(const char *qn, uint32_t start_line, uint32_t end_line) {
+-    uint64_t h = 1469598103934665603ULL; /* FNV-1a */
+-    for (const unsigned char *p = (const unsigned char *)qn; *p; p++) {
+-        h ^= (uint64_t)*p;
+-        h *= 1099511628211ULL;
+-    }
+-    h ^= ((uint64_t)start_line << 32) | (uint64_t)end_line;
+-    h *= 1099511628211ULL;
+-    return h;
+-}
+-
+-static bool modeled_def_matches(const PDXEDefinition *def, const char *qn, uint32_t start_line,
+-                                uint32_t end_line) {
+-    return def->qualified_name && strcmp(def->qualified_name, qn) == 0 &&
+-           def->start_line == start_line && def->end_line == end_line;
+-}
+-
+-/* Indexes the definitions extracted so far. Without the index (none, or no memory)
+- * lookups scan the same definitions: the answer never depends on it. */
+-static void modeled_defs_build(WalkState *state, const PDXEExtractCtx *ctx) {
+-    const PDXEDefArray *defs = &ctx->result->defs;
+-    state->modeled_slots = NULL;
+-    state->modeled_mask = 0;
+-    state->modeled_def_count = defs->count > 0 ? defs->count : 0;
+-    if (ctx->defs_incomplete || state->modeled_def_count == 0 ||
+-        state->modeled_def_count > INT32_MAX / 4) {
++ * Where this buffer's definitions are extracted only after the walk (the
++ * preprocessed pass of C, C++ and CUDA, ctx->defs_after_walk), every frame records
++ * its own declaration as the owner, and the translation keeps it only if an adopted
++ * definition has that occurrence. */
++
++/* Records `owner` as the owner of the sites under the frame opened at `depth`. */
++static void note_owner(WalkState *state, uint32_t depth, PDXECallableOccurrence owner) {
++    state->scopes[state->scope_top - SKIP_ONE].owner = owner;
++    if (state->owners_failed) {
+         return;
+     }
+-    uint32_t capacity = 16;
+-    while (capacity < (uint32_t)state->modeled_def_count * 2U) {
+-        capacity *= 2;
+-    }
+-    int32_t *slots = (int32_t *)calloc(capacity, sizeof(int32_t));
+-    if (!slots) {
+-        return;
+-    }
+-    uint32_t mask = capacity - 1;
+-    for (int i = 0; i < state->modeled_def_count; i++) {
+-        const PDXEDefinition *def = &defs->items[i];
+-        if (!def->qualified_name) {
+-            continue;
+-        }
+-        uint32_t k =
+-            (uint32_t)modeled_def_hash(def->qualified_name, def->start_line, def->end_line) & mask;
+-        while (slots[k] != 0) {
+-            k = (k + 1) & mask;
+-        }
+-        slots[k] = i + 1;
+-    }
+-    state->modeled_slots = slots;
+-    state->modeled_mask = mask;
+-}
+-
+-/* Whether the callable declared at `decl` (whose lines a definition of it records)
+- * with qualified name `qn` is one of the file's extracted definitions. */
+-static bool function_occurrence_is_modeled(const PDXEExtractCtx *ctx, const WalkState *state,
+-                                           const char *qn, TSNode decl) {
+-    uint32_t start_line = ts_node_start_point(decl).row + TS_LINE_OFFSET;
+-    uint32_t end_line = ts_node_end_point(decl).row + TS_LINE_OFFSET;
+-    const PDXEDefinition *items = ctx->result->defs.items;
+-    if (state->modeled_slots) {
+-        uint32_t mask = state->modeled_mask;
+-        for (uint32_t k = (uint32_t)modeled_def_hash(qn, start_line, end_line) & mask;
+-             state->modeled_slots[k] != 0; k = (k + 1) & mask) {
+-            if (modeled_def_matches(&items[state->modeled_slots[k] - 1], qn, start_line,
+-                                    end_line)) {
+-                return true;
+-            }
+-        }
+-        return false;
+-    }
+-    for (int i = 0; i < state->modeled_def_count; i++) {
+-        if (modeled_def_matches(&items[i], qn, start_line, end_line)) {
+-            return true;
+-        }
+-    }
+-    return false;
+-}
+-
+-/* Records `qn` as the owner of the sites under the frame opened at `depth`. */
+-static void note_owner(WalkState *state, uint32_t depth, const char *qn) {
+-    if (state->owner_qns_failed) {
+-        return;
+-    }
+-    if (depth >= state->owner_qns_capacity) {
+-        uint32_t capacity = state->owner_qns_capacity ? state->owner_qns_capacity * 2 : 64;
++    if (depth >= state->owners_capacity) {
++        uint32_t capacity = state->owners_capacity ? state->owners_capacity * 2 : 64;
+         while (capacity <= depth) {
+             capacity *= 2;
+         }
+-        const char **grown =
+-            (const char **)pdxe_arena_alloc(state->arena, (size_t)capacity * sizeof(char *));
++        PDXECallableOccurrence *grown = (PDXECallableOccurrence *)pdxe_arena_alloc(
++            state->arena, (size_t)capacity * sizeof(PDXECallableOccurrence));
+         if (!grown) {
+-            state->owner_qns_failed = true;
++            state->owners_failed = true;
+             return;
+         }
+-        memset((void *)grown, 0, (size_t)capacity * sizeof(char *));
+-        if (state->owner_qns) {
+-            memcpy((void *)grown, (const void *)state->owner_qns,
+-                   (size_t)state->owner_qns_capacity * sizeof(char *));
++        memset((void *)grown, 0, (size_t)capacity * sizeof(PDXECallableOccurrence));
++        if (state->owners) {
++            memcpy((void *)grown, (const void *)state->owners,
++                   (size_t)state->owners_capacity * sizeof(PDXECallableOccurrence));
+         }
+-        state->owner_qns = grown;
+-        state->owner_qns_capacity = capacity;
++        state->owners = grown;
++        state->owners_capacity = capacity;
+     }
+-    state->owner_qns[depth] = qn;
++    state->owners[depth] = owner;
+ }
+ 
+-/* The represented callable that owns a site here: the one whose frame is at
+- * enclosing_func_depth, or the module at file scope. */
+-static const char *current_owner_qn(const PDXEExtractCtx *ctx, const WalkState *state) {
++/* The declaration of the represented callable that owns a site here: the one whose
++ * frame is at enclosing_func_depth; not valid at file scope. */
++static PDXECallableOccurrence current_owner(const WalkState *state) {
+     uint32_t depth = state->enclosing_func_depth;
+     if (depth == 0) {
+-        return ctx->module_qn;
++        return (PDXECallableOccurrence){0};
+     }
+-    if (!state->owner_qns_failed && depth < state->owner_qns_capacity &&
+-        state->owner_qns[depth]) {
+-        return state->owner_qns[depth];
++    if (!state->owners_failed && depth < state->owners_capacity) {
++        return state->owners[depth];
+     }
+     for (int i = state->scope_top - 1; i >= 0; i--) {
+-        if (state->scopes[i].kind == SCOPE_FUNC && state->scopes[i].depth == depth) {
+-            return state->scopes[i].qn;
++        if ((state->scopes[i].kind == SCOPE_FUNC || state->scopes[i].kind == SCOPE_OWNER) &&
++            state->scopes[i].depth == depth) {
++            return state->scopes[i].owner;
+         }
+     }
+-    return ctx->module_qn;
++    return (PDXECallableOccurrence){0};
+ }
+ 
+ /* Settles the function frame just pushed for the callable declared at `decl`: the
+  * owner of the sites under it when represented, otherwise a frame that leaves them,
+  * and their path, to the represented callable around it. */
+ static void settle_function_frame(const PDXEExtractCtx *ctx, WalkState *state, uint32_t depth,
+-                                  const char *qn, TSNode decl) {
+-    if (ctx->defs_incomplete || function_occurrence_is_modeled(ctx, state, qn, decl)) {
+-        note_owner(state, depth, qn);
++                                  TSNode decl) {
++    PDXECallableOccurrence occurrence = pdxe_callable_occurrence(ctx, decl);
++    if (ctx->defs_after_walk ||
++        pdxe_occurrence_index_find(&state->represented, occurrence) != PDXE_OCCURRENCE_NONE) {
++        note_owner(state, depth, occurrence);
+     } else {
++        state->scopes[state->scope_top - SKIP_ONE].owner = (PDXECallableOccurrence){0};
+         state->enclosing_func_depth =
+             state->scopes[state->scope_top - SKIP_ONE].prev_enclosing_func_depth;
+     }
+ }
+ 
++/* A frame can outlive its node: expiry waits for the next node that is not trivia, and
++ * an error-recovered region the parser marks as trivia is walked inside it. No site is
++ * owned by a callable whose declaration does not hold it: here the owner, and the start
++ * of the path, fall back to the nearest open represented callable that holds the node,
++ * or to the file. Lexical facts are left as they are. */
++static void contain_owner(WalkState *state, TSNode node) {
++    if (state->enclosing_func_depth == 0) {
++        return;
++    }
++    uint32_t start = ts_node_start_byte(node);
++    uint32_t end = ts_node_end_byte(node);
++    PDXECallableOccurrence owner = current_owner(state);
++    if (owner.start_byte <= start && end <= owner.end_byte) {
++        return;
++    }
++    uint32_t depth = 0;
++    for (int i = state->scope_top - 1; i >= 0; i--) {
++        const PDXEWalkScope *f = &state->scopes[i];
++        if ((f->kind == SCOPE_FUNC || f->kind == SCOPE_OWNER) && pdxe_occurrence_valid(f->owner) &&
++            f->depth < state->enclosing_func_depth && f->owner.start_byte <= start &&
++            end <= f->owner.end_byte) {
++            depth = f->depth;
++            break;
++        }
++    }
++    state->enclosing_func_depth = depth;
++}
++
++/* A represented callable's function node that got no function frame (the walk could
++ * not name it, as a Kotlin secondary constructor) still owns the sites under it, and
++ * starts their path (SCOPE_OWNER). */
++static void own_unframed_callable(const PDXEExtractCtx *ctx, WalkState *state, uint32_t depth,
++                                  TSNode node) {
++    if (ctx->defs_after_walk) {
++        return;
++    }
++    PDXECallableOccurrence occurrence = pdxe_callable_occurrence(ctx, node);
++    if (pdxe_occurrence_index_find(&state->represented, occurrence) == PDXE_OCCURRENCE_NONE ||
++        !push_scope(state, SCOPE_OWNER, depth, NULL)) {
++        return;
++    }
++    state->enclosing_func_depth = depth;
++    note_owner(state, depth, occurrence);
++}
++
+ /* Gives the calls and possible callable references this node added the owner of
+- * their sites, where it is not the callable they name. */
++ * their sites: the node's position decides it, as it decides their path. */
+ static void stamp_site_owners(PDXEExtractCtx *ctx, const WalkState *state, int calls_before,
+                               int usages_before) {
+-    const char *named = state->enclosing_func_qn ? state->enclosing_func_qn : ctx->module_qn;
+-    const char *owner = current_owner_qn(ctx, state);
+-    if (!owner || !named || strcmp(owner, named) == 0) {
++    if (calls_before == ctx->result->calls.count && usages_before == ctx->result->usages.count) {
+         return;
+     }
++    PDXESiteOwner owner = {current_owner(state), true};
+     for (int i = calls_before; i < ctx->result->calls.count; i++) {
+-        PDXECall *call = &ctx->result->calls.items[i];
+-        if (call->enclosing_func_qn && strcmp(call->enclosing_func_qn, named) == 0) {
+-            call->owner_qn = owner;
+-        }
++        ctx->result->calls.items[i].owner = owner;
+     }
+     for (int i = usages_before; i < ctx->result->usages.count; i++) {
+-        PDXEUsage *usage = &ctx->result->usages.items[i];
+-        if (usage->enclosing_func_qn && strcmp(usage->enclosing_func_qn, named) == 0) {
+-            usage->owner_qn = owner;
+-        }
++        ctx->result->usages.items[i].owner = owner;
+     }
+ }
+ 
+@@ -2461,7 +2426,7 @@ static bool push_pre_node_scope(PDXEExtractCtx *ctx, TSNode node, const PDXELang
+                                                     state->flat_function_scope_id, node)
+                       : push_function_scope(state, depth, fqn, node);
+     if (pushed) {
+-        note_owner(state, depth, fqn); /* a flat routine is never nested in a callable */
++        settle_function_frame(ctx, state, depth, label); /* never nested in a callable */
+     }
+     if (pushed && !same_flat_callable) {
+         state->flat_function_scope_id = state->scopes[state->scope_top - SKIP_ONE].lexical_scope_id;
+@@ -2578,10 +2543,12 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
+                 }
+             }
+         }
+-        if (!skip_nested) {
+-            const char *fqn = compute_func_qn(ctx, node, spec, state);
+-            if (fqn && push_function_scope(state, depth, fqn, node)) {
+-                settle_function_frame(ctx, state, depth, fqn, node);
++        const char *fqn = skip_nested ? NULL : compute_func_qn(ctx, node, spec, state);
++        if (!fqn) {
++            own_unframed_callable(ctx, state, depth, node);
++        } else {
++            if (push_function_scope(state, depth, fqn, node)) {
++                settle_function_frame(ctx, state, depth, node);
+                 const char *node_kind = ts_node_type(node);
+                 bool split_signature = (ctx->language == PDXE_LANG_DART &&
+                                         (strcmp(node_kind, "function_signature") == 0 ||
+@@ -2700,7 +2667,7 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
+                                                                 node)
+                                   : push_function_scope(state, depth, fqn, node);
+                 if (pushed) {
+-                    settle_function_frame(ctx, state, depth, fqn, prev);
++                    settle_function_frame(ctx, state, depth, prev);
+                 }
+                 state->split_function_scope_id = 0;
+                 state->split_function_qn = NULL;
+@@ -2730,7 +2697,7 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
+                                                                 node)
+                                   : push_function_scope(state, depth, fqn, node);
+                 if (pushed) {
+-                    settle_function_frame(ctx, state, depth, fqn, previous);
++                    settle_function_frame(ctx, state, depth, previous);
+                 }
+                 state->split_function_scope_id = 0;
+                 state->split_function_qn = NULL;
+@@ -2876,7 +2843,8 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
+     state.inside_import = false;
+     state.loop_depth = 0;
+     state.branch_depth = 0;
+-    modeled_defs_build(&state, ctx);
++    pdxe_occurrence_index_build(&state.represented, ctx->result->defs.items,
++                                ctx->defs_after_walk ? 0 : ctx->result->defs.count);
+ 
+     uint32_t depth = 0;
+     uint32_t visited = 0;
+@@ -2916,6 +2884,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
+              * quadratic on the deep-nesting torture tests. */
+             pop_expired_scopes(&state, depth);
+             (void)push_pre_node_scope(ctx, node, spec, &state, depth);
++            contain_owner(&state, node);
+             int calls_before = ctx->result->calls.count;
+             int usages_before = ctx->result->usages.count;
+ 
+@@ -2961,7 +2930,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
+             break;
+         }
+     }
+-    free(state.modeled_slots);
++    pdxe_occurrence_index_free(&state.represented);
+ 
+     pdxe_finalize_lexical_usages(ctx, &state);
+     ctx->walk_nodes_visited = visited;
+--- a/engine/src/extract_unified.h
++++ b/engine/src/extract_unified.h
+@@ -13,6 +13,11 @@
+ #define SCOPE_BRANCH 6
+ #define SCOPE_LEXICAL 7
+ #define SCOPE_NAMESPACE 8
++/* Issue 76: a represented callable's function node the walk opens no function frame
++ * for (it can give it no name). It owns the sites under it and starts their path;
++ * it changes no lexical fact: the callable they are found in, and its scope, stay
++ * the enclosing ones. */
++#define SCOPE_OWNER 9
+ 
+ #define MAX_SCOPES 64
+ #define INLINE_LEXICAL_SCOPES 64
+@@ -67,6 +72,9 @@ typedef struct {
+     uint32_t depth;
+     uint32_t lexical_scope_id;
+     uint8_t kind;
++    /* A function frame's: the owner of the sites under it (issue 76), the same as
++     * the walk state's owners[depth] when it opened a represented callable. */
++    PDXECallableOccurrence owner;
+     PDXEInvocationKind invocation_kind;
+     TSNode callee_expr;
+     TSNode callee_leaf;
+@@ -213,23 +221,17 @@ typedef struct {
+ 
+     os_type_map_t os_type_map; // ObjectScript variable → type mapping
+ 
+-    /* Issue 75. The file's extracted definitions as exact declaration occurrences
+-     * (qualified name, first line, last line): an open-addressing set of the
+-     * indices + 1 (0 is empty) of the first modeled_def_count definitions, built
+-     * with the C library's allocator. If it cannot be, modeled_slots is NULL and
+-     * lookups scan those same definitions, the same answer more slowly, so
+-     * nothing is lost (as the C resolver's negative memo). Not built while
+-     * definitions may still be adopted after the walk (ctx->defs_incomplete). */
+-    int32_t *modeled_slots;
+-    uint32_t modeled_mask;
+-    int modeled_def_count;
+-    /* By cursor depth, the represented callable whose function frame opened
+-     * there; a site's owner is the one at enclosing_func_depth (the module at
+-     * 0). Grown in the arena; when it cannot grow, owner_qns_failed, and the
+-     * owner is read from the open frames instead. */
+-    const char **owner_qns;
+-    uint32_t owner_qns_capacity;
+-    bool owner_qns_failed;
++    /* Issues 75 and 76. The definitions extracted before the walk, indexed once by
++     * declaration occurrence (pdxe_occurrence_index_build). A function frame is a
++     * represented callable's exactly when its node's occurrence is one of theirs. */
++    PDXEOccurrenceIndex represented;
++    /* By cursor depth, the declaration occurrence of the represented callable whose
++     * function frame opened there; a site's owner is the one at
++     * enclosing_func_depth (the file at 0). Grown in the arena; when it cannot
++     * grow, owners_failed, and the owner is read from the open frames instead. */
++    PDXECallableOccurrence *owners;
++    uint32_t owners_capacity;
++    bool owners_failed;
+ } WalkState;
+ 
+ /* #1912: is `name` bound as a parameter by a Python function or lambda scope
+--- a/engine/src/pdxe_core.c
++++ b/engine/src/pdxe_core.c
+@@ -26,6 +26,7 @@
+ #include "foundation/hash_table.h" // PDXEHashTable — crash-supervisor quarantine set
+ #include "tree_sitter/api.h" // TSParser, TSNode, TSTree, TSInput, TSLanguage, TSPoint, TSParseOptions, TSParseState
+ #include "foundation/constants.h"
++#include "lost_work.h" // pdxe_lost_work -- a declaration occurrence two definitions share
+ #include "mimalloc.h" // mi_malloc/mi_calloc/mi_realloc/mi_free/mi_usable_size — bind 3rd-party allocators (#424)
+ #if defined(PDXE_BIND_TS_ALLOCATOR) && PDXE_BIND_TS_ALLOCATOR
+ #include "sqlite3.h" // sqlite3_mem_methods, sqlite3_config, SQLITE_CONFIG_MALLOC — bind sqlite to mimalloc
+@@ -267,6 +268,109 @@ void pdxe_channels_push(PDXEChannelArray *arr, PDXEArena *a, PDXEChannel ch) {
+     arr->items[arr->count++] = ch;
+ }
+ 
++/* ── Issue 76: callable declaration occurrences ─────────────────────────────── */
++
++PDXECallableOccurrence pdxe_callable_occurrence(const PDXEExtractCtx *ctx, TSNode node) {
++    PDXECallableOccurrence occurrence = {0};
++    if (ts_node_is_null(node)) {
++        return occurrence;
++    }
++    occurrence.start_byte = ts_node_start_byte(node);
++    occurrence.end_byte = ts_node_end_byte(node);
++    occurrence.origin = (uint8_t)ctx->source_origin;
++    return occurrence;
++}
++
++void pdxe_def_record_occurrence(const PDXEExtractCtx *ctx, PDXEDefinition *def, TSNode node) {
++    def->occurrence = pdxe_callable_occurrence(ctx, node);
++}
++
++bool pdxe_occurrence_valid(PDXECallableOccurrence occurrence) {
++    return occurrence.end_byte > occurrence.start_byte;
++}
++
++bool pdxe_occurrence_equal(PDXECallableOccurrence a, PDXECallableOccurrence b) {
++    return a.start_byte == b.start_byte && a.end_byte == b.end_byte && a.origin == b.origin;
++}
++
++static uint32_t occurrence_hash(PDXECallableOccurrence occurrence) {
++    uint64_t h = 1469598103934665603ULL; /* FNV-1a over the three fields */
++    const uint64_t fields[] = {occurrence.start_byte, occurrence.end_byte, occurrence.origin};
++    for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
++        h ^= fields[i];
++        h *= 1099511628211ULL;
++    }
++    return (uint32_t)(h ^ (h >> 32));
++}
++
++void pdxe_occurrence_index_build(PDXEOccurrenceIndex *index, const PDXEDefinition *items,
++                                 int count) {
++    index->items = items;
++    index->count = count > 0 ? count : 0;
++    index->slots = NULL;
++    index->mask = 0;
++    if (index->count == 0 || index->count > INT32_MAX / 4) {
++        return;
++    }
++    uint32_t capacity = 16;
++    while (capacity < (uint32_t)index->count * 2U) {
++        capacity *= 2;
++    }
++    int32_t *slots = (int32_t *)calloc(capacity, sizeof(int32_t));
++    if (!slots) {
++        return;
++    }
++    uint32_t mask = capacity - 1;
++    for (int i = 0; i < index->count; i++) {
++        if (!pdxe_occurrence_valid(items[i].occurrence)) {
++            continue;
++        }
++        uint32_t k = occurrence_hash(items[i].occurrence) & mask;
++        while (slots[k] != 0) {
++            k = (k + 1) & mask;
++        }
++        slots[k] = i + 1;
++    }
++    index->slots = slots;
++    index->mask = mask;
++}
++
++int pdxe_occurrence_index_find(const PDXEOccurrenceIndex *index, PDXECallableOccurrence occurrence) {
++    if (!pdxe_occurrence_valid(occurrence)) {
++        return PDXE_OCCURRENCE_NONE;
++    }
++    int found = PDXE_OCCURRENCE_NONE;
++    if (index->slots) {
++        for (uint32_t k = occurrence_hash(occurrence) & index->mask; index->slots[k] != 0;
++             k = (k + 1) & index->mask) {
++            int i = index->slots[k] - 1;
++            if (pdxe_occurrence_equal(index->items[i].occurrence, occurrence)) {
++                if (found != PDXE_OCCURRENCE_NONE) {
++                    return PDXE_OCCURRENCE_AMBIGUOUS;
++                }
++                found = i;
++            }
++        }
++        return found;
++    }
++    for (int i = 0; i < index->count; i++) {
++        if (pdxe_occurrence_valid(index->items[i].occurrence) &&
++            pdxe_occurrence_equal(index->items[i].occurrence, occurrence)) {
++            if (found != PDXE_OCCURRENCE_NONE) {
++                return PDXE_OCCURRENCE_AMBIGUOUS;
++            }
++            found = i;
++        }
++    }
++    return found;
++}
++
++void pdxe_occurrence_index_free(PDXEOccurrenceIndex *index) {
++    free(index->slots);
++    index->slots = NULL;
++    index->mask = 0;
++}
++
+ // --- String input reader (for parse_with_options) ---
+ 
+ typedef struct {
+@@ -2045,7 +2149,7 @@ static const char *pdxe_error_ranges_str(PDXEArena *a, const pdxe_error_regions_
+ }
+ 
+ /* Whether a language has the preprocessed second pass, which also adopts
+- * definitions after the unified walk (issue 75: see defs_incomplete). */
++ * definitions after the unified walk (issue 76: see defs_after_walk). */
+ static bool has_preprocessed_pass(PDXELanguage language) {
+     return language == PDXE_LANG_C || language == PDXE_LANG_CPP || language == PDXE_LANG_CUDA;
+ }
+@@ -2063,6 +2167,342 @@ PDXEFileResult *pdxe_engine_extract_file(const char *source, int source_len, PDX
+     return r;
+ }
+ 
++/* Issue 76: records, before the superseded raw definitions are dropped, which adopted
++ * definition replaced each superseded raw callable, at the index it will have once
++ * they are: the adopted definitions sit after the raw ones, and move down by the
++ * number dropped. Only the supersession's own evidence links the two; a raw callable
++ * whose replacement was not adopted gets no alias, and its sites are the file's. */
++static void record_owner_aliases(PDXEArena *a, PDXEFileResult *result, const char *superseded,
++                                 const int *superseded_by, const int *adopted_at,
++                                 int defs_before) {
++    int dropped = 0;
++    int aliases = 0;
++    for (int j = 0; j < defs_before; j++) {
++        if (!superseded[j]) {
++            continue;
++        }
++        dropped++;
++        if (superseded_by[j] >= 0 && adopted_at[superseded_by[j] - defs_before] >= 0 &&
++            pdxe_occurrence_valid(result->defs.items[j].occurrence)) {
++            aliases++;
++        }
++    }
++    if (aliases == 0) {
++        return;
++    }
++    PDXEOwnerAlias *grown = (PDXEOwnerAlias *)pdxe_arena_alloc(
++        a, (size_t)(result->owner_alias_count + aliases) * sizeof(PDXEOwnerAlias));
++    if (!grown) {
++        return; /* the arena counts the failure as lost work */
++    }
++    if (result->owner_alias_count > 0) {
++        memcpy(grown, result->owner_aliases,
++               (size_t)result->owner_alias_count * sizeof(PDXEOwnerAlias));
++    }
++    for (int j = 0; j < defs_before; j++) {
++        if (!superseded[j] || superseded_by[j] < 0 ||
++            adopted_at[superseded_by[j] - defs_before] < 0 ||
++            !pdxe_occurrence_valid(result->defs.items[j].occurrence)) {
++            continue;
++        }
++        PDXEOwnerAlias *alias = &grown[result->owner_alias_count++];
++        alias->superseded = result->defs.items[j].occurrence;
++        alias->replacement = adopted_at[superseded_by[j] - defs_before] - dropped;
++    }
++    result->owner_aliases = grown;
++}
++
++/* Issue 76: two definitions with one declaration occurrence would leave the owner of
++ * the sites there a guess. The extractors make one callable definition per function
++ * node, so it does not happen (engine/tests/owner_occurrence.c). If it ever did, the
++ * translation picks neither, and the work is counted as lost. */
++static void check_occurrences_unique(const PDXEFileResult *result) {
++    PDXEOccurrenceIndex index;
++    pdxe_occurrence_index_build(&index, result->defs.items, result->defs.count);
++    for (int i = 0; i < result->defs.count; i++) {
++        if (pdxe_occurrence_index_find(&index, result->defs.items[i].occurrence) ==
++            PDXE_OCCURRENCE_AMBIGUOUS) {
++            pdxe_lost_work();
++            break;
++        }
++    }
++    pdxe_occurrence_index_free(&index);
++}
++
++/* Issue 76: a raw function node a callable adopted from the macro-expanded text stands
++ * for, with how many steps up from it the owner of the sites around it is (the nearest
++ * represented raw callable, or the root at file scope). */
++typedef struct {
++    TSNode node;
++    PDXECallableOccurrence occurrence;
++    PDXECallableOccurrence owner;
++    uint32_t steps;
++    int definition;
++} adopted_frame;
++
++/* Whether the walk took `occurrence` for a represented callable's: a definition's, or a
++ * raw callable's the preprocessed pass has since superseded (PDXEOwnerAlias). */
++static bool walked_as_represented(const PDXEOccurrenceIndex *represented,
++                                  const PDXEFileResult *result, PDXECallableOccurrence occurrence) {
++    if (pdxe_occurrence_index_find(represented, occurrence) != PDXE_OCCURRENCE_NONE) {
++        return true;
++    }
++    for (int i = 0; i < result->owner_alias_count; i++) {
++        if (pdxe_occurrence_equal(result->owner_aliases[i].superseded, occurrence)) {
++            return true;
++        }
++    }
++    return false;
++}
++
++static bool same_lines(TSNode node, const PDXEDefinition *d) {
++    return ts_node_start_point(node).row + TS_LINE_OFFSET == d->start_line &&
++           ts_node_end_point(node).row + TS_LINE_OFFSET == d->end_line;
++}
++
++/* The raw function nodes, none represented by a raw definition and none a C++ template
++ * around one, with the lines of the adopted callable `d`: at most `cap` of them. */
++static int raw_frames_on_lines(const PDXEExtractCtx *ctx, const PDXELangSpec *spec,
++                               const PDXEOccurrenceIndex *represented,
++                               const PDXEFileResult *result, const PDXEDefinition *d, TSNode *out,
++                               int cap) {
++    int found = 0;
++    TSTreeCursor cursor = ts_tree_cursor_new(ctx->root);
++    for (;;) {
++        TSNode node = ts_tree_cursor_current_node(&cursor);
++        uint32_t first = ts_node_start_point(node).row + TS_LINE_OFFSET;
++        uint32_t last = ts_node_end_point(node).row + TS_LINE_OFFSET;
++        bool descend = first <= d->start_line && d->end_line <= last;
++        if (descend && same_lines(node, d) && spec->function_node_types &&
++            pdxe_kind_in_set(node, spec->function_node_types) &&
++            strcmp(ts_node_type(node), "template_declaration") != 0 &&
++            !walked_as_represented(represented, result, pdxe_callable_occurrence(ctx, node))) {
++            if (found < cap) {
++                out[found] = node;
++            }
++            found++;
++        }
++        if (descend && ts_tree_cursor_goto_first_child(&cursor)) {
++            continue;
++        }
++        bool moved = false;
++        do {
++            if (ts_tree_cursor_goto_next_sibling(&cursor)) {
++                moved = true;
++                break;
++            }
++        } while (ts_tree_cursor_goto_parent(&cursor));
++        if (!moved) {
++            break;
++        }
++    }
++    ts_tree_cursor_delete(&cursor);
++    return found;
++}
++
++/* Issue 76 (decision 48): gives the raw sites of a callable that only the macro-expanded
++ * text represents (#961, #1989) to its adopted definition. No byte of the raw source
++ * maps to that text, so the link is the adoption's own evidence: the raw function node
++ * spans exactly the definition's original lines, its start line holds the
++ * definition's name (the check adoption made), and no other raw function node and no
++ * other adopted callable has those lines. Without all of that there is no alias, and
++ * the sites stay with the represented callable around them, or the file. With it, a
++ * site under the node whose owner is the callable the walk took as around it (a
++ * superseded one included), or the file, is owned by the node, mapped to the
++ * definition (PDXEOwnerAlias), and its path starts at the node. Runs after the
++ * superseded definitions are dropped and their aliases recorded. */
++static void alias_adopted_callables(PDXEArena *a, PDXEFileResult *result, const PDXEExtractCtx *ctx,
++                                    const PDXELangSpec *spec) {
++    PDXEOccurrenceIndex represented;
++    pdxe_occurrence_index_build(&represented, result->defs.items, result->defs.count);
++    int n_frames = 0;
++    adopted_frame *frames = NULL;
++    for (int i = 0; i < result->defs.count; i++) {
++        const PDXEDefinition *d = &result->defs.items[i];
++        if (!pdxe_occurrence_valid(d->occurrence) ||
++            d->occurrence.origin != PDXE_SOURCE_ORIGIN_PREPROCESSED ||
++            !pdxe_line_contains(ctx->source, ctx->source_len, d->start_line, d->name)) {
++            continue;
++        }
++        int same = 0;
++        for (int j = 0; j < result->defs.count; j++) {
++            const PDXEDefinition *o = &result->defs.items[j];
++            if (pdxe_occurrence_valid(o->occurrence) &&
++                o->occurrence.origin == PDXE_SOURCE_ORIGIN_PREPROCESSED &&
++                o->start_line == d->start_line && o->end_line == d->end_line) {
++                same++;
++            }
++        }
++        TSNode node;
++        if (same != 1 || raw_frames_on_lines(ctx, spec, &represented, result, d, &node, 1) != 1) {
++            continue;
++        }
++        adopted_frame *grown = (adopted_frame *)pdxe_arena_alloc(
++            a, (size_t)(n_frames + 1) * sizeof(adopted_frame));
++        if (!grown) {
++            break; /* the arena counts the failure as lost work */
++        }
++        if (n_frames > 0) {
++            memcpy(grown, frames, (size_t)n_frames * sizeof(adopted_frame));
++        }
++        frames = grown;
++        adopted_frame *f = &frames[n_frames++];
++        f->node = node;
++        f->occurrence = pdxe_callable_occurrence(ctx, node);
++        f->owner = (PDXECallableOccurrence){0};
++        f->steps = 0;
++        f->definition = i;
++        for (TSNode at = node; !ts_node_is_null(at); at = ts_node_parent(at)) {
++            PDXECallableOccurrence o = pdxe_callable_occurrence(ctx, at);
++            if (!ts_node_eq(at, node) && walked_as_represented(&represented, result, o)) {
++                f->owner = o;
++                break;
++            }
++            if (ts_node_is_null(ts_node_parent(at))) {
++                break; /* the root: file scope */
++            }
++            f->steps++;
++        }
++    }
++    pdxe_occurrence_index_free(&represented);
++    if (n_frames == 0) {
++        return;
++    }
++    PDXEOwnerAlias *aliases = (PDXEOwnerAlias *)pdxe_arena_alloc(
++        a, (size_t)(result->owner_alias_count + n_frames) * sizeof(PDXEOwnerAlias));
++    if (!aliases) {
++        return;
++    }
++    if (result->owner_alias_count > 0) {
++        memcpy(aliases, result->owner_aliases,
++               (size_t)result->owner_alias_count * sizeof(PDXEOwnerAlias));
++    }
++    for (int k = 0; k < n_frames; k++) {
++        aliases[result->owner_alias_count++] =
++            (PDXEOwnerAlias){frames[k].occurrence, frames[k].definition};
++    }
++    result->owner_aliases = aliases;
++    for (int i = 0; i < result->calls.count + result->usages.count; i++) {
++        bool is_call = i < result->calls.count;
++        PDXECall *c = is_call ? &result->calls.items[i] : NULL;
++        PDXEUsage *u = is_call ? NULL : &result->usages.items[i - result->calls.count];
++        PDXESiteOwner *owner = is_call ? &c->owner : &u->owner;
++        uint32_t start = is_call ? c->site_start_byte : u->site_start_byte;
++        uint32_t end = is_call ? c->site_end_byte : u->site_end_byte;
++        const char ***path = is_call ? &c->ast_path : &u->ast_path;
++        PDXESourceOrigin origin = is_call ? c->source_origin : u->source_origin;
++        if (!owner->decided || origin != PDXE_SOURCE_ORIGIN_RAW || end <= start) {
++            continue;
++        }
++        const adopted_frame *inner = NULL;
++        for (int k = 0; k < n_frames; k++) {
++            const adopted_frame *f = &frames[k];
++            if (f->occurrence.start_byte <= start && end <= f->occurrence.end_byte &&
++                (pdxe_occurrence_valid(f->owner)
++                     ? pdxe_occurrence_equal(f->owner, owner->declaration)
++                     : !pdxe_occurrence_valid(owner->declaration)) &&
++                (!inner || inner->occurrence.start_byte <= f->occurrence.start_byte)) {
++                inner = f;
++            }
++        }
++        if (!inner) {
++            continue;
++        }
++        uint32_t length = 0;
++        while (*path && (*path)[length]) {
++            length++;
++        }
++        if (*path && (inner->steps >= length ||
++                      strcmp((*path)[inner->steps], ts_node_type(inner->node)) != 0)) {
++            continue; /* the path does not run through the node: leave the site as it is */
++        }
++        owner->declaration = inner->occurrence;
++        if (*path) {
++            *path += inner->steps;
++        }
++    }
++}
++
++/* Issue 76: the node-type path from `from` (the root at file scope) down to `site`,
++ * NULL-terminated, in the arena; NULL when memory runs out. */
++static const char **owner_site_path(PDXEArena *a, TSNode from, TSNode site) {
++    uint32_t n = 0;
++    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
++        n++;
++        if (ts_node_eq(at, from)) {
++            break;
++        }
++    }
++    const char **path = (const char **)pdxe_arena_alloc(a, ((size_t)n + 1) * sizeof(char *));
++    if (!path) {
++        return NULL;
++    }
++    path[n] = NULL;
++    uint32_t i = n;
++    for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
++        path[--i] = ts_node_type(at);
++    }
++    return path;
++}
++
++/* Issue 76: decides a site added after the walk, at bytes [start, end) of the raw
++ * source, as the walk decides its own: its owner is the nearest node holding its bytes
++ * whose declaration occurrence is a definition's (the walk opens a represented
++ * callable's frame at exactly that node), the file when there is none, and its path
++ * runs from that node, or the root, down to the smallest node holding the site. That
++ * node is the callable's own when the site's bytes cross its children. Undecided when
++ * the site cannot be located. */
++static void decide_late_site(PDXEArena *a, const PDXEExtractCtx *ctx,
++                             const PDXEOccurrenceIndex *represented, uint32_t start, uint32_t end,
++                             PDXESiteOwner *owner, const char ***ast_path) {
++    TSNode site = ts_node_descendant_for_byte_range(ctx->root, start, end);
++    if (ts_node_is_null(site)) {
++        return;
++    }
++    TSNode from = ctx->root;
++    PDXECallableOccurrence declaration = {0};
++    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
++        PDXECallableOccurrence occurrence = pdxe_callable_occurrence(ctx, at);
++        if (pdxe_occurrence_index_find(represented, occurrence) != PDXE_OCCURRENCE_NONE) {
++            from = at;
++            declaration = occurrence;
++            break;
++        }
++    }
++    *ast_path = owner_site_path(a, from, site);
++    owner->declaration = declaration;
++    owner->decided = true;
++}
++
++/* Gives every call, and every possible callable reference, added after the walk at a
++ * position in the raw source its owner and a path from that owner (decide_late_site).
++ * The path replaces the one stamp_late_site_paths gave it from the nearest function
++ * node, which need not be represented. Runs before the preprocessed pass, while every
++ * definition is the raw source's. */
++static void stamp_late_site_owners(PDXEArena *a, PDXEFileResult *result, const PDXEExtractCtx *ctx) {
++    PDXEOccurrenceIndex represented;
++    pdxe_occurrence_index_build(&represented, result->defs.items, result->defs.count);
++    for (int i = 0; i < result->calls.count; i++) {
++        PDXECall *c = &result->calls.items[i];
++        if (!c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
++            c->site_end_byte > c->site_start_byte) {
++            decide_late_site(a, ctx, &represented, c->site_start_byte, c->site_end_byte, &c->owner,
++                             &c->ast_path);
++        }
++    }
++    for (int i = 0; i < result->usages.count; i++) {
++        PDXEUsage *u = &result->usages.items[i];
++        bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
++                                  (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
++        if (possible_reference && !u->owner.decided && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
++            u->site_end_byte > u->site_start_byte) {
++            decide_late_site(a, ctx, &represented, u->site_start_byte, u->site_end_byte, &u->owner,
++                             &u->ast_path);
++        }
++    }
++    pdxe_occurrence_index_free(&represented);
++}
++
+ /* Initial block for the per-file traversal scratch arena, chosen by measuring
+  * arena_grow on a 14k-file TypeScript tree: it fires on one file in 12,000 at
+  * both this size and at 1 MB, and on most files at 256 KB, where the two
+@@ -2312,7 +2752,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+         .macro_table = macro_table,
+         .return_type_table = return_type_table,
+         .walk_budget_nodes = pdxe_walk_max_nodes(),
+-        .defs_incomplete = has_preprocessed_pass(language),
++        .source_origin = PDXE_SOURCE_ORIGIN_RAW,
+     };
+ 
+     // Run extractors: defs + imports use separate walks (unique recursion patterns),
+@@ -2404,6 +2844,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+     // which must not be used for the def line-range attribution of the bottleneck
+     // metrics. Remember the boundary.
+     int orig_calls_count = result->calls.count;
++    stamp_late_site_owners(a, result, &ctx);
+ 
+     /* Phase 2 line map, built by the second (preprocessed) pass below and read
+      * by the parse-coverage block near the end of this function. Stays NULL
+@@ -2465,7 +2906,8 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+                         .rel_path = rel_path,
+                         .module_qn = result->module_qn,
+                         .root = pp_root,
+-                        .defs_incomplete = true,
++                        .source_origin = PDXE_SOURCE_ORIGIN_PREPROCESSED,
++                        .defs_after_walk = true,
+                     };
+                     // Re-run unified extraction on expanded source.
+                     // This adds macro-expanded calls; duplicates with original calls are
+@@ -2531,10 +2973,38 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+                             pdxe_extract_definitions(&pp_ctx);
+                             int w = defs_before;
+                             char *superseded = NULL;
++                            /* Issue 76: which expanded def superseded each raw def, and
++                             * where each expanded def was adopted (-1: none), so the
++                             * sites a superseded raw callable owned can be given to
++                             * its replacement (PDXEOwnerAlias). */
++                            int *superseded_by = NULL;
++                            int *adopted_at = NULL;
+                             if (export_cand_count > 0 && defs_before > 0) {
+                                 superseded =
+                                     (char *)pdxe_calloc(PDXE_MEM_CLASS_EXTRACT, (size_t)defs_before);
+                             }
++                            if (superseded) {
++                                /* Failing to allocate these loses the aliases only, and
++                                 * the memory core counts it. */
++                                superseded_by = (int *)pdxe_calloc(PDXE_MEM_CLASS_EXTRACT,
++                                                                  (size_t)defs_before * sizeof(int));
++                                adopted_at = (int *)pdxe_calloc(
++                                    PDXE_MEM_CLASS_EXTRACT,
++                                    (size_t)(result->defs.count - defs_before + 1) * sizeof(int));
++                                if (!superseded_by || !adopted_at) {
++                                    pdxe_free(PDXE_MEM_CLASS_EXTRACT, superseded_by);
++                                    pdxe_free(PDXE_MEM_CLASS_EXTRACT, adopted_at);
++                                    superseded_by = NULL;
++                                    adopted_at = NULL;
++                                } else {
++                                    for (int j = 0; j < defs_before; j++) {
++                                        superseded_by[j] = -1;
++                                    }
++                                    for (int k = 0; k <= result->defs.count - defs_before; k++) {
++                                        adopted_at[k] = -1;
++                                    }
++                                }
++                            }
+                             /* #1989: spans of defs already adopted from the
+                              * expanded tree. A def nested inside one of these
+                              * (an inline method of a rescued class) was dropped
+@@ -2649,6 +3119,9 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+                                             r->start_line == d->start_line &&
+                                             r->end_line == d->end_line && superseded) {
+                                             superseded[j] = 1;
++                                            if (superseded_by) {
++                                                superseded_by[j] = i;
++                                            }
+                                             continue;
+                                         }
+                                         adopt = false;
+@@ -2658,6 +3131,9 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+                                     if (supersede_j >= 0 && supersede_j < defs_before &&
+                                         superseded) {
+                                         superseded[supersede_j] = 1;
++                                        if (superseded_by) {
++                                            superseded_by[supersede_j] = i;
++                                        }
+                                     }
+                                     /* Phantom-artifact suppression (#1989): on the
+                                      * raw tree `class MOD_API Foo : public Base
+@@ -2683,6 +3159,9 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+                                             for (const char **b = d->base_classes; *b; b++) {
+                                                 if (strcmp(*b, r->name) == 0) {
+                                                     superseded[j] = 1;
++                                                    if (superseded_by) {
++                                                        superseded_by[j] = i;
++                                                    }
+                                                     break;
+                                                 }
+                                             }
+@@ -2693,10 +3172,19 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+                                         rescued_spans[rescued_count].end = d->end_line;
+                                         rescued_count++;
+                                     }
++                                    if (adopted_at) {
++                                        adopted_at[i - defs_before] = w;
++                                    }
+                                     result->defs.items[w++] = *d;
+                                 }
+                             }
+                             if (superseded) {
++                                if (superseded_by) {
++                                    record_owner_aliases(a, result, superseded, superseded_by,
++                                                         adopted_at, defs_before);
++                                }
++                                pdxe_free(PDXE_MEM_CLASS_EXTRACT, superseded_by);
++                                pdxe_free(PDXE_MEM_CLASS_EXTRACT, adopted_at);
+                                 int rw = 0;
+                                 for (int j = 0; j < defs_before; j++) {
+                                     if (!superseded[j]) {
+@@ -2713,6 +3201,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+                                 pdxe_free(PDXE_MEM_CLASS_EXTRACT, superseded);
+                             }
+                             result->defs.count = w;
++                            alias_adopted_callables(a, result, &ctx, spec);
+                         }
+                     }
+ 
+@@ -2931,6 +3420,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+         }
+     }
+ 
++    check_occurrences_unique(result);
+     result->imports_count = result->imports.count;
+ 
+     // Accumulate profiling counters
+--- a/engine/src/pdxe_core.h
++++ b/engine/src/pdxe_core.h
+@@ -191,6 +191,39 @@ typedef enum {
+     PDXE_LANG_COUNT
+ } PDXELanguage;
+ 
++/* Issue 76: where a callable is declared, the private identity that joins a site to
++ * the definition owning it in the graph (decision 48). A callable definition records
++ * the occurrence of its function node: the node the unified walk opens the callable's
++ * frame at, which for a C++ template is the declaration inside it, not the template.
++ * A function frame looks up its own node's. Qualified names are never compared for
++ * this: the walk and the definition extractor qualify a callable by rules of their
++ * own, which differ for some declarations. Byte offsets mean something only in the
++ * buffer that produced them, so the buffer (a PDXESourceOrigin) is part of the
++ * identity. Valid when end_byte > start_byte. Never part of the interface, a surface
++ * or a cache: it lives only until an extraction is translated. */
++typedef struct {
++    uint32_t start_byte;
++    uint32_t end_byte;
++    uint8_t origin;
++} PDXECallableOccurrence;
++
++/* Who owns a site in the graph (issue 76), decided where the site is found. When
++ * `decided`, `declaration` is the owning callable's occurrence, or not valid when
++ * the file owns the site. A site added after the unified walk is decided from the
++ * tree afterwards (pdxe_stamp_late_site_owners); one that cannot be placed in the
++ * file stays undecided, and is never a site. */
++typedef struct {
++    PDXECallableOccurrence declaration;
++    bool decided;
++} PDXESiteOwner;
++
++/* A raw callable the preprocessed pass of C, C++ and CUDA superseded, and the index
++ * in the result's definitions of the definition it adopted in its place (issue 76). */
++typedef struct {
++    PDXECallableOccurrence superseded;
++    int replacement;
++} PDXEOwnerAlias;
++
+ // --- Extraction result structs ---
+ 
+ /* One HTTP route binding a decorator or annotation declares for a definition, with
+@@ -217,6 +250,9 @@ typedef struct {
+     const char *file_path;      // relative path
+     uint32_t start_line;
+     uint32_t end_line;
++    /* A callable's declaration occurrence (issue 76); not valid for any other
++     * definition. Private, as PDXECallableOccurrence says. */
++    PDXECallableOccurrence occurrence;
+     const char *signature;              // parameter text (NULL if none)
+     const char *return_type;            // return type text (NULL if none)
+     const char *receiver;               // Go method receiver (NULL if none)
+@@ -283,11 +319,12 @@ typedef enum {
+ typedef struct {
+     const char *callee_name;       // raw callee text ("pkg.Func", "foo")
+     const char *enclosing_func_qn; // QN of enclosing function (or module QN)
+-    /* Issue 75: the enclosing callable the result represents, which owns the call
+-     * in the graph; enclosing_func_qn can name a nested callable it does not. NULL
+-     * when not recorded, meaning enclosing_func_qn. Never encoded in a surface:
+-     * typed resolution joins on enclosing_func_qn. */
+-    const char *owner_qn;
++    /* Issues 75 and 76: the represented callable that owns the call in the graph,
++     * by its declaration occurrence. enclosing_func_qn names the callable the call
++     * was found in, which may be a nested one the result does not represent, or a
++     * represented one named otherwise than its definition. Never encoded in a
++     * surface: typed resolution joins on enclosing_func_qn. */
++    PDXESiteOwner owner;
+     const char *first_string_arg;  // first string literal argument (URL, topic, key) or NULL
+     const char *second_arg_name;   // second argument identifier (handler ref) or NULL
+     /* First arg_count captured arguments, arena-allocated on first capture;
+@@ -341,7 +378,7 @@ typedef enum {
+ typedef struct {
+     const char *ref_name;          // referenced identifier
+     const char *enclosing_func_qn; // QN of enclosing function (or module QN)
+-    const char *owner_qn;          // as PDXECall.owner_qn (issue 75)
++    PDXESiteOwner owner;           // as PDXECall.owner (issues 75 and 76)
+     /* Fixed-width fields grouped so the record packs to 40 bytes (was 48; the
+      * Go corpus holds 4.68M of these). Field meanings unchanged. */
+     uint32_t lexical_scope_id;       // extraction-local scope instance; never graph identity
+@@ -634,6 +671,13 @@ typedef struct PDXEFileResult {
+     // by pdxe_free_result(); ordinary single-file results leave these zeroed.
+     struct PDXEFileResult **owned_results;
+     int owned_result_count;
++
++    /* Issue 76: the sites a superseded raw callable owned are owned by the
++     * definition the preprocessed pass adopted in its place (PDXEOwnerAlias). Set
++     * where the raw definitions are dropped, read only by the translation; private,
++     * never part of the interface or a surface. NULL and 0 for none. */
++    PDXEOwnerAlias *owner_aliases;
++    int owner_alias_count;
+ } PDXEFileResult;
+ 
+ // --- Enclosing function cache ---
+@@ -720,13 +764,16 @@ typedef struct {
+     /* How many nodes the unified walk actually visited (whether or not it ran
+      * out of budget) — the measurement the budget has to be expressed in. */
+     uint32_t walk_nodes_visited;
+-    /* Definitions may still be adopted after the unified walk: the preprocessed
+-     * second pass of C, C++ and CUDA rescues definitions from the macro-expanded
+-     * text afterwards (#961, #1989). The walk then cannot tell a callable the
+-     * result will represent from one it will not, so every named callable
+-     * boundary owns its sites by qualified name, as before issue 75, and the
+-     * qualified-name translation after extraction decides. */
+-    bool defs_incomplete;
++    /* The buffer this context reads (issue 76): the declaration occurrences of its
++     * definitions and the owners of its sites are in its coordinates. */
++    PDXESourceOrigin source_origin;
++    /* This buffer's definitions are extracted after the unified walk: the
++     * preprocessed second pass of C, C++ and CUDA adopts some from the
++     * macro-expanded text afterwards (#961, #1989). The walk cannot tell a callable
++     * that will be represented from one that will not, so every function frame
++     * records its own declaration as the owner of its sites, and the translation
++     * keeps it only if an adopted definition has that occurrence. */
++    bool defs_after_walk;
+ } PDXEExtractCtx;
+ 
+ // --- Public API ---
+@@ -925,6 +972,39 @@ void pdxe_impltrait_push(PDXEImplTraitArray *arr, PDXEArena *a, PDXEImplTrait it
+ void pdxe_resolvedcall_push(PDXEResolvedCallArray *arr, PDXEArena *a, PDXEResolvedCall rc);
+ void pdxe_channels_push(PDXEChannelArray *arr, PDXEArena *a, PDXEChannel ch);
+ 
++/* Issue 76: callable declaration occurrences (PDXECallableOccurrence). One
++ * convention for every language: the occurrence of `node` in the context's buffer.
++ * A definition records its function node's (pdxe_def_record_occurrence); a function
++ * frame looks up its own node's. */
++PDXECallableOccurrence pdxe_callable_occurrence(const PDXEExtractCtx *ctx, TSNode node);
++void pdxe_def_record_occurrence(const PDXEExtractCtx *ctx, PDXEDefinition *def, TSNode node);
++bool pdxe_occurrence_valid(PDXECallableOccurrence occurrence);
++bool pdxe_occurrence_equal(PDXECallableOccurrence a, PDXECallableOccurrence b);
++
++/* The definitions of one result by declaration occurrence, indexed once in an
++ * open-addressing table of definition indices + 1 (0 is empty). When the table
++ * cannot be allocated, lookups scan the same definitions: the same answer, more
++ * slowly. */
++typedef struct {
++    const PDXEDefinition *items;
++    int count;
++    int32_t *slots;
++    uint32_t mask;
++} PDXEOccurrenceIndex;
++
++enum {
++    PDXE_OCCURRENCE_NONE = -1,     /* no definition has the occurrence */
++    PDXE_OCCURRENCE_AMBIGUOUS = -2 /* more than one has it: none may be chosen */
++};
++
++/* Indexes the first `count` definitions of `items` that have a valid occurrence. */
++void pdxe_occurrence_index_build(PDXEOccurrenceIndex *index, const PDXEDefinition *items,
++                                 int count);
++/* The index of the one definition with `occurrence`, or PDXE_OCCURRENCE_NONE or
++ * PDXE_OCCURRENCE_AMBIGUOUS. */
++int pdxe_occurrence_index_find(const PDXEOccurrenceIndex *index, PDXECallableOccurrence occurrence);
++void pdxe_occurrence_index_free(PDXEOccurrenceIndex *index);
++
+ // --- Sub-extractor entry points ---
+ 
+ void pdxe_extract_definitions(PDXEExtractCtx *ctx);

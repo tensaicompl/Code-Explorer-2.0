@@ -288,7 +288,9 @@ pub struct Call {
     pub receiver_text: Option<String>,
     /// The definition making the call, as an index into the file's definitions: the
     /// innermost enclosing definition the extractor represents, never a nested callable
-    /// it does not (issue 75); `None` at file scope.
+    /// it does not (issue 75), joined to it by its declaration occurrence however the
+    /// engine names it (issue 76); `None` at file scope. For a call with no position in
+    /// the file, never a site, the callable its name names: context for resolution.
     pub caller: Option<u32>,
     /// Where the site is.
     pub span: Option<Span>,

@@ -112,7 +112,7 @@ const FACT_STRUCTURES: [&str; 16] = [
 ];
 
 /// Members of the file result a surface does not carry, and why.
-const NOT_IN_A_SURFACE: [(&str, &str); 6] = [
+const NOT_IN_A_SURFACE: [(&str, &str); 8] = [
     (
         "arena",
         "the memory the result lives in; a rebuilt result has its own",
@@ -137,20 +137,36 @@ const NOT_IN_A_SURFACE: [(&str, &str); 6] = [
         "owned_result_count",
         "parts of other files an aggregate result owns",
     ),
+    (
+        "owner_aliases",
+        "graph ownership of the file's own sites (issue 76), read by its translation only; \
+         resolution never reads it",
+    ),
+    (
+        "owner_alias_count",
+        "graph ownership of the file's own sites (issue 76), read by its translation only; \
+         resolution never reads it",
+    ),
 ];
 
 /// Fields of facts a surface does not carry, and why. Each must be one the resolver
 /// never reads, or cached answers would differ from fresh ones.
-const FACT_FIELDS_NOT_IN_A_SURFACE: [(&str, &str, &str); 2] = [
+const FACT_FIELDS_NOT_IN_A_SURFACE: [(&str, &str, &str); 3] = [
+    (
+        "PDXEDefinition",
+        "occurrence",
+        "the declaration occurrence that joins a site to its owner in the graph (issue 76), \
+         read by the file's own translation only; resolution never reads it",
+    ),
     (
         "PDXECall",
-        "owner_qn",
-        "the graph owner, reported in the file's own calls (issue 75); resolution joins on \
-         enclosing_func_qn and reports a site's caller from it",
+        "owner",
+        "the graph owner, reported in the file's own calls (issues 75 and 76); resolution \
+         joins on enclosing_func_qn and reports a site's caller from it",
     ),
     (
         "PDXEUsage",
-        "owner_qn",
+        "owner",
         "as PDXECall's: reported in the file's own callable references only",
     ),
 ];

@@ -713,8 +713,8 @@ fn cache_object_id_fixed_vector() {
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (5, 2),
-        "the vector below is engine 5's and matrix 2's"
+        (6, 2),
+        "the vector below is engine 6's and matrix 2's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 4,
@@ -729,10 +729,10 @@ fn cache_object_id_fixed_vector() {
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "582d9e04b87ea15ae0be90d6148ac695df5f3f50702a667d2510b4bee43a2bd4"
+        "c44fe66761974e125a70281ccdcb36a855b93278cc9fe4fd41364a56a8f50069"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v5").join("58").join(&id));
+    assert_eq!(path, Path::new("cache").join("v5").join("c4").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -743,8 +743,8 @@ fn cache_object_id_fixed_vector() {
 
 #[test]
 fn cache_key_includes_engine_version() {
-    // An engine whose output can differ is another key: what engine 3 or 4 cached is
-    // never found by engine 5, and the cache format stays 5 (issues 74 and 75).
+    // An engine whose output can differ is another key: what engine 3, 4 or 5 cached is
+    // never found by engine 6, and the cache format stays 5 (issues 74 to 76).
     // Independently computed, as the vector above, with each engine version.
     let key = CacheKey::new(
         SecretPolicyDigest::of(&PdxConfig::default().secrets),
@@ -767,6 +767,10 @@ fn cache_key_includes_engine_version() {
             5,
             "582d9e04b87ea15ae0be90d6148ac695df5f3f50702a667d2510b4bee43a2bd4",
         ),
+        (
+            6,
+            "c44fe66761974e125a70281ccdcb36a855b93278cc9fe4fd41364a56a8f50069",
+        ),
     ] {
         let mut versioned = key.clone();
         versioned.engine_version = engine;
@@ -779,9 +783,10 @@ fn cache_key_includes_engine_version() {
         assert!(path.starts_with(Path::new("cache").join("v5")), "{path:?}");
         ids.push(versioned.object_id());
     }
-    assert_eq!(key.object_id(), ids[2], "the current key is engine 5's");
+    assert_eq!(key.object_id(), ids[3], "the current key is engine 6's");
+    ids.sort();
     ids.dedup();
-    assert_eq!(ids.len(), 3, "each engine version is another key");
+    assert_eq!(ids.len(), 4, "each engine version is another key");
 }
 
 #[test]
@@ -789,9 +794,10 @@ fn engine_version_is_the_engines() {
     // The version every cache key and segment records is the one the linked engine
     // reports of itself: neither may move without the other.
     assert_eq!(ENGINE_VERSION.to_string(), Engine::version());
-    // An engine change is an engine version, not a segment layout: issue 75 changed
-    // the facts the engine supplies to unchanged identity encodings and DDL, and
-    // engine_version already enters the cache key and the build key (decision 47).
+    // An engine change is an engine version, not a segment layout: issues 75 and 76
+    // changed the facts the engine supplies to unchanged identity encodings and DDL,
+    // and engine_version already enters the cache key and the build key (decisions 47
+    // and 48).
     assert_eq!(SEGMENT_SCHEMA_VERSION, 3);
 }
 

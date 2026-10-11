@@ -12,6 +12,7 @@
 
 #include <stdint.h>
 
+#include "pdxe.h"
 #include "graph_buffer/graph_buffer.h"
 #include "store/store.h"
 
@@ -115,6 +116,14 @@ struct pdxe_project;
 void pdxe_project_debug_raw_resolutions(struct pdxe_project *p, pdxe_raw_resolution_fn fn,
                                         void *userdata);
 void pdxe_project_debug_imports(struct pdxe_project *p, pdxe_import_edge_fn fn, void *userdata);
+
+/*
+ * The engine's own result behind a result extraction returned, with what the engine
+ * keeps private: the declaration occurrences that join sites to the definitions owning
+ * them (issue 76). NULL for a result rebuilt from a cache. For tests and diagnostics
+ * (engine/tests/owner_census.c). Not part of the public interface.
+ */
+const struct PDXEFileResult *pdxe_result_engine(const pdxe_file_result *r);
 
 #ifdef __cplusplus
 }

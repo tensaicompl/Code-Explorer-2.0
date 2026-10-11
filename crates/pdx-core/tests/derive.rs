@@ -2546,3 +2546,121 @@ fn nested_site_ids_survive_line_insertion() {
     };
     assert_eq!(ids(""), ids("\n\n    # a comment\n\n"));
 }
+
+// --- issue 76: sites in a callable the walk names otherwise than its definition ------
+
+const GENERIC_PATH: &str = "src/upgrade.rs";
+
+/// `run` is a method of a generic type: the walk names it `Upgrade<F>.run`, the
+/// definition `Upgrade.run`. `pad` goes before the impl, to move it without changing
+/// any structure.
+fn generic_checkout(pad: &str) -> Checkout {
+    let source = format!(
+        "pub struct Upgrade<F> {{\n    callback: F,\n}}\n{pad}\nimpl<F> Upgrade<F> {{\n    pub fn run(&self) {{\n        audit_debug();\n        mystery();\n    }}\n}}\n\nfn audit_debug() {{}}\n"
+    );
+    Checkout::new(&[(GENERIC_PATH, source.as_str())])
+}
+
+#[test]
+fn renamed_callable_call_is_derived_from_its_definition() {
+    let run = run(&generic_checkout(""));
+    let graph = &run.graph;
+    let method = node(graph, NodeKind::Method, "run");
+    let callee = node(graph, NodeKind::Function, "audit_debug");
+    let site = nested_site(graph, "audit_debug", true);
+    assert_eq!(site.enclosing_node_id.as_ref(), Some(&method.node_id));
+    let edges: Vec<_> = graph
+        .edges
+        .iter()
+        .filter(|e| e.kind == EdgeKind::Calls && e.site_id.as_ref() == Some(&site.site_id))
+        .collect();
+    assert_eq!(edges.len(), 1, "{edges:#?}");
+    assert_eq!(
+        edges[0].src, method.node_id,
+        "the source is the method, not the file"
+    );
+    assert_eq!(edges[0].dst, callee.node_id);
+}
+
+#[test]
+fn renamed_callable_candidate_is_sourced_from_its_definition() {
+    let run = run(&generic_checkout(""));
+    let graph = &run.graph;
+    let method = node(graph, NodeKind::Method, "run");
+    let site = nested_site(graph, "mystery", true);
+    assert_eq!(site.enclosing_node_id.as_ref(), Some(&method.node_id));
+    let candidate = graph
+        .candidates
+        .iter()
+        .find(|c| c.site_id == site.site_id)
+        .expect("the undefined call is a candidate row");
+    assert_eq!(
+        candidate.src, method.node_id,
+        "the source is the method, not the file"
+    );
+}
+
+#[test]
+fn renamed_callable_site_identity_is_rebuilt_from_its_parts() {
+    use pdx_core::ids::{SiteKey, ast_fingerprint, edge_id};
+    use pdx_core::kinds::SiteKind;
+    let run = run(&generic_checkout(""));
+    let graph = &run.graph;
+    let method = node(graph, NodeKind::Method, "run");
+    let callee = node(graph, NodeKind::Function, "audit_debug");
+    let site = nested_site(graph, "audit_debug", true);
+    // Written out: from the method's node, not the file's root, to the call.
+    let fingerprint = ast_fingerprint(
+        &[
+            "function_item",
+            "block",
+            "expression_statement",
+            "call_expression",
+        ],
+        "audit_debug",
+        "",
+        1,
+    )
+    .unwrap();
+    assert_eq!(site.ast_fingerprint, fingerprint);
+    let key = SiteKey::new(
+        GENERIC_PATH,
+        Some(method.node_id.clone()),
+        SiteKind::Call,
+        fingerprint,
+    );
+    assert_eq!(site.site_id, key.site_id().unwrap());
+    let edge = graph
+        .edges
+        .iter()
+        .find(|e| e.site_id.as_ref() == Some(&site.site_id))
+        .expect("the call is drawn");
+    assert_eq!(
+        edge.edge_id,
+        edge_id(
+            &method.node_id,
+            &callee.node_id,
+            EdgeKind::Calls,
+            Some(&site.site_id)
+        )
+    );
+}
+
+#[test]
+fn renamed_callable_site_ids_survive_line_insertion() {
+    let ids = |pad: &str| {
+        let run = run(&generic_checkout(pad));
+        let graph = &run.graph;
+        let method = node(graph, NodeKind::Method, "run").node_id.clone();
+        let site = nested_site(graph, "audit_debug", true).site_id.clone();
+        let edge = graph
+            .edges
+            .iter()
+            .find(|e| e.site_id.as_ref() == Some(&site))
+            .expect("drawn")
+            .edge_id
+            .clone();
+        (method, site, edge)
+    };
+    assert_eq!(ids(""), ids("\n\n// a comment\n\n"));
+}

@@ -26,6 +26,7 @@
 #include "foundation/hash_table.h" // PDXEHashTable — crash-supervisor quarantine set
 #include "tree_sitter/api.h" // TSParser, TSNode, TSTree, TSInput, TSLanguage, TSPoint, TSParseOptions, TSParseState
 #include "foundation/constants.h"
+#include "lost_work.h" // pdxe_lost_work -- a declaration occurrence two definitions share
 #include "mimalloc.h" // mi_malloc/mi_calloc/mi_realloc/mi_free/mi_usable_size — bind 3rd-party allocators (#424)
 #if defined(PDXE_BIND_TS_ALLOCATOR) && PDXE_BIND_TS_ALLOCATOR
 #include "sqlite3.h" // sqlite3_mem_methods, sqlite3_config, SQLITE_CONFIG_MALLOC — bind sqlite to mimalloc
@@ -265,6 +266,109 @@ void pdxe_resolvedcall_push(PDXEResolvedCallArray *arr, PDXEArena *a, PDXEResolv
 void pdxe_channels_push(PDXEChannelArray *arr, PDXEArena *a, PDXEChannel ch) {
     GROW_ARRAY(arr, a);
     arr->items[arr->count++] = ch;
+}
+
+/* ── Issue 76: callable declaration occurrences ─────────────────────────────── */
+
+PDXECallableOccurrence pdxe_callable_occurrence(const PDXEExtractCtx *ctx, TSNode node) {
+    PDXECallableOccurrence occurrence = {0};
+    if (ts_node_is_null(node)) {
+        return occurrence;
+    }
+    occurrence.start_byte = ts_node_start_byte(node);
+    occurrence.end_byte = ts_node_end_byte(node);
+    occurrence.origin = (uint8_t)ctx->source_origin;
+    return occurrence;
+}
+
+void pdxe_def_record_occurrence(const PDXEExtractCtx *ctx, PDXEDefinition *def, TSNode node) {
+    def->occurrence = pdxe_callable_occurrence(ctx, node);
+}
+
+bool pdxe_occurrence_valid(PDXECallableOccurrence occurrence) {
+    return occurrence.end_byte > occurrence.start_byte;
+}
+
+bool pdxe_occurrence_equal(PDXECallableOccurrence a, PDXECallableOccurrence b) {
+    return a.start_byte == b.start_byte && a.end_byte == b.end_byte && a.origin == b.origin;
+}
+
+static uint32_t occurrence_hash(PDXECallableOccurrence occurrence) {
+    uint64_t h = 1469598103934665603ULL; /* FNV-1a over the three fields */
+    const uint64_t fields[] = {occurrence.start_byte, occurrence.end_byte, occurrence.origin};
+    for (size_t i = 0; i < sizeof(fields) / sizeof(fields[0]); i++) {
+        h ^= fields[i];
+        h *= 1099511628211ULL;
+    }
+    return (uint32_t)(h ^ (h >> 32));
+}
+
+void pdxe_occurrence_index_build(PDXEOccurrenceIndex *index, const PDXEDefinition *items,
+                                 int count) {
+    index->items = items;
+    index->count = count > 0 ? count : 0;
+    index->slots = NULL;
+    index->mask = 0;
+    if (index->count == 0 || index->count > INT32_MAX / 4) {
+        return;
+    }
+    uint32_t capacity = 16;
+    while (capacity < (uint32_t)index->count * 2U) {
+        capacity *= 2;
+    }
+    int32_t *slots = (int32_t *)calloc(capacity, sizeof(int32_t));
+    if (!slots) {
+        return;
+    }
+    uint32_t mask = capacity - 1;
+    for (int i = 0; i < index->count; i++) {
+        if (!pdxe_occurrence_valid(items[i].occurrence)) {
+            continue;
+        }
+        uint32_t k = occurrence_hash(items[i].occurrence) & mask;
+        while (slots[k] != 0) {
+            k = (k + 1) & mask;
+        }
+        slots[k] = i + 1;
+    }
+    index->slots = slots;
+    index->mask = mask;
+}
+
+int pdxe_occurrence_index_find(const PDXEOccurrenceIndex *index, PDXECallableOccurrence occurrence) {
+    if (!pdxe_occurrence_valid(occurrence)) {
+        return PDXE_OCCURRENCE_NONE;
+    }
+    int found = PDXE_OCCURRENCE_NONE;
+    if (index->slots) {
+        for (uint32_t k = occurrence_hash(occurrence) & index->mask; index->slots[k] != 0;
+             k = (k + 1) & index->mask) {
+            int i = index->slots[k] - 1;
+            if (pdxe_occurrence_equal(index->items[i].occurrence, occurrence)) {
+                if (found != PDXE_OCCURRENCE_NONE) {
+                    return PDXE_OCCURRENCE_AMBIGUOUS;
+                }
+                found = i;
+            }
+        }
+        return found;
+    }
+    for (int i = 0; i < index->count; i++) {
+        if (pdxe_occurrence_valid(index->items[i].occurrence) &&
+            pdxe_occurrence_equal(index->items[i].occurrence, occurrence)) {
+            if (found != PDXE_OCCURRENCE_NONE) {
+                return PDXE_OCCURRENCE_AMBIGUOUS;
+            }
+            found = i;
+        }
+    }
+    return found;
+}
+
+void pdxe_occurrence_index_free(PDXEOccurrenceIndex *index) {
+    free(index->slots);
+    index->slots = NULL;
+    index->mask = 0;
 }
 
 // --- String input reader (for parse_with_options) ---
@@ -2045,7 +2149,7 @@ static const char *pdxe_error_ranges_str(PDXEArena *a, const pdxe_error_regions_
 }
 
 /* Whether a language has the preprocessed second pass, which also adopts
- * definitions after the unified walk (issue 75: see defs_incomplete). */
+ * definitions after the unified walk (issue 76: see defs_after_walk). */
 static bool has_preprocessed_pass(PDXELanguage language) {
     return language == PDXE_LANG_C || language == PDXE_LANG_CPP || language == PDXE_LANG_CUDA;
 }
@@ -2061,6 +2165,342 @@ PDXEFileResult *pdxe_engine_extract_file(const char *source, int source_len, PDX
         pdxe_engine_extract_file_ex(source, source_len, language, project, rel_path, timeout_micros,
                             extra_defines, include_paths, NULL, NULL);
     return r;
+}
+
+/* Issue 76: records, before the superseded raw definitions are dropped, which adopted
+ * definition replaced each superseded raw callable, at the index it will have once
+ * they are: the adopted definitions sit after the raw ones, and move down by the
+ * number dropped. Only the supersession's own evidence links the two; a raw callable
+ * whose replacement was not adopted gets no alias, and its sites are the file's. */
+static void record_owner_aliases(PDXEArena *a, PDXEFileResult *result, const char *superseded,
+                                 const int *superseded_by, const int *adopted_at,
+                                 int defs_before) {
+    int dropped = 0;
+    int aliases = 0;
+    for (int j = 0; j < defs_before; j++) {
+        if (!superseded[j]) {
+            continue;
+        }
+        dropped++;
+        if (superseded_by[j] >= 0 && adopted_at[superseded_by[j] - defs_before] >= 0 &&
+            pdxe_occurrence_valid(result->defs.items[j].occurrence)) {
+            aliases++;
+        }
+    }
+    if (aliases == 0) {
+        return;
+    }
+    PDXEOwnerAlias *grown = (PDXEOwnerAlias *)pdxe_arena_alloc(
+        a, (size_t)(result->owner_alias_count + aliases) * sizeof(PDXEOwnerAlias));
+    if (!grown) {
+        return; /* the arena counts the failure as lost work */
+    }
+    if (result->owner_alias_count > 0) {
+        memcpy(grown, result->owner_aliases,
+               (size_t)result->owner_alias_count * sizeof(PDXEOwnerAlias));
+    }
+    for (int j = 0; j < defs_before; j++) {
+        if (!superseded[j] || superseded_by[j] < 0 ||
+            adopted_at[superseded_by[j] - defs_before] < 0 ||
+            !pdxe_occurrence_valid(result->defs.items[j].occurrence)) {
+            continue;
+        }
+        PDXEOwnerAlias *alias = &grown[result->owner_alias_count++];
+        alias->superseded = result->defs.items[j].occurrence;
+        alias->replacement = adopted_at[superseded_by[j] - defs_before] - dropped;
+    }
+    result->owner_aliases = grown;
+}
+
+/* Issue 76: two definitions with one declaration occurrence would leave the owner of
+ * the sites there a guess. The extractors make one callable definition per function
+ * node, so it does not happen (engine/tests/owner_occurrence.c). If it ever did, the
+ * translation picks neither, and the work is counted as lost. */
+static void check_occurrences_unique(const PDXEFileResult *result) {
+    PDXEOccurrenceIndex index;
+    pdxe_occurrence_index_build(&index, result->defs.items, result->defs.count);
+    for (int i = 0; i < result->defs.count; i++) {
+        if (pdxe_occurrence_index_find(&index, result->defs.items[i].occurrence) ==
+            PDXE_OCCURRENCE_AMBIGUOUS) {
+            pdxe_lost_work();
+            break;
+        }
+    }
+    pdxe_occurrence_index_free(&index);
+}
+
+/* Issue 76: a raw function node a callable adopted from the macro-expanded text stands
+ * for, with how many steps up from it the owner of the sites around it is (the nearest
+ * represented raw callable, or the root at file scope). */
+typedef struct {
+    TSNode node;
+    PDXECallableOccurrence occurrence;
+    PDXECallableOccurrence owner;
+    uint32_t steps;
+    int definition;
+} adopted_frame;
+
+/* Whether the walk took `occurrence` for a represented callable's: a definition's, or a
+ * raw callable's the preprocessed pass has since superseded (PDXEOwnerAlias). */
+static bool walked_as_represented(const PDXEOccurrenceIndex *represented,
+                                  const PDXEFileResult *result, PDXECallableOccurrence occurrence) {
+    if (pdxe_occurrence_index_find(represented, occurrence) != PDXE_OCCURRENCE_NONE) {
+        return true;
+    }
+    for (int i = 0; i < result->owner_alias_count; i++) {
+        if (pdxe_occurrence_equal(result->owner_aliases[i].superseded, occurrence)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool same_lines(TSNode node, const PDXEDefinition *d) {
+    return ts_node_start_point(node).row + TS_LINE_OFFSET == d->start_line &&
+           ts_node_end_point(node).row + TS_LINE_OFFSET == d->end_line;
+}
+
+/* The raw function nodes, none represented by a raw definition and none a C++ template
+ * around one, with the lines of the adopted callable `d`: at most `cap` of them. */
+static int raw_frames_on_lines(const PDXEExtractCtx *ctx, const PDXELangSpec *spec,
+                               const PDXEOccurrenceIndex *represented,
+                               const PDXEFileResult *result, const PDXEDefinition *d, TSNode *out,
+                               int cap) {
+    int found = 0;
+    TSTreeCursor cursor = ts_tree_cursor_new(ctx->root);
+    for (;;) {
+        TSNode node = ts_tree_cursor_current_node(&cursor);
+        uint32_t first = ts_node_start_point(node).row + TS_LINE_OFFSET;
+        uint32_t last = ts_node_end_point(node).row + TS_LINE_OFFSET;
+        bool descend = first <= d->start_line && d->end_line <= last;
+        if (descend && same_lines(node, d) && spec->function_node_types &&
+            pdxe_kind_in_set(node, spec->function_node_types) &&
+            strcmp(ts_node_type(node), "template_declaration") != 0 &&
+            !walked_as_represented(represented, result, pdxe_callable_occurrence(ctx, node))) {
+            if (found < cap) {
+                out[found] = node;
+            }
+            found++;
+        }
+        if (descend && ts_tree_cursor_goto_first_child(&cursor)) {
+            continue;
+        }
+        bool moved = false;
+        do {
+            if (ts_tree_cursor_goto_next_sibling(&cursor)) {
+                moved = true;
+                break;
+            }
+        } while (ts_tree_cursor_goto_parent(&cursor));
+        if (!moved) {
+            break;
+        }
+    }
+    ts_tree_cursor_delete(&cursor);
+    return found;
+}
+
+/* Issue 76 (decision 48): gives the raw sites of a callable that only the macro-expanded
+ * text represents (#961, #1989) to its adopted definition. No byte of the raw source
+ * maps to that text, so the link is the adoption's own evidence: the raw function node
+ * spans exactly the definition's original lines, its start line holds the
+ * definition's name (the check adoption made), and no other raw function node and no
+ * other adopted callable has those lines. Without all of that there is no alias, and
+ * the sites stay with the represented callable around them, or the file. With it, a
+ * site under the node whose owner is the callable the walk took as around it (a
+ * superseded one included), or the file, is owned by the node, mapped to the
+ * definition (PDXEOwnerAlias), and its path starts at the node. Runs after the
+ * superseded definitions are dropped and their aliases recorded. */
+static void alias_adopted_callables(PDXEArena *a, PDXEFileResult *result, const PDXEExtractCtx *ctx,
+                                    const PDXELangSpec *spec) {
+    PDXEOccurrenceIndex represented;
+    pdxe_occurrence_index_build(&represented, result->defs.items, result->defs.count);
+    int n_frames = 0;
+    adopted_frame *frames = NULL;
+    for (int i = 0; i < result->defs.count; i++) {
+        const PDXEDefinition *d = &result->defs.items[i];
+        if (!pdxe_occurrence_valid(d->occurrence) ||
+            d->occurrence.origin != PDXE_SOURCE_ORIGIN_PREPROCESSED ||
+            !pdxe_line_contains(ctx->source, ctx->source_len, d->start_line, d->name)) {
+            continue;
+        }
+        int same = 0;
+        for (int j = 0; j < result->defs.count; j++) {
+            const PDXEDefinition *o = &result->defs.items[j];
+            if (pdxe_occurrence_valid(o->occurrence) &&
+                o->occurrence.origin == PDXE_SOURCE_ORIGIN_PREPROCESSED &&
+                o->start_line == d->start_line && o->end_line == d->end_line) {
+                same++;
+            }
+        }
+        TSNode node;
+        if (same != 1 || raw_frames_on_lines(ctx, spec, &represented, result, d, &node, 1) != 1) {
+            continue;
+        }
+        adopted_frame *grown = (adopted_frame *)pdxe_arena_alloc(
+            a, (size_t)(n_frames + 1) * sizeof(adopted_frame));
+        if (!grown) {
+            break; /* the arena counts the failure as lost work */
+        }
+        if (n_frames > 0) {
+            memcpy(grown, frames, (size_t)n_frames * sizeof(adopted_frame));
+        }
+        frames = grown;
+        adopted_frame *f = &frames[n_frames++];
+        f->node = node;
+        f->occurrence = pdxe_callable_occurrence(ctx, node);
+        f->owner = (PDXECallableOccurrence){0};
+        f->steps = 0;
+        f->definition = i;
+        for (TSNode at = node; !ts_node_is_null(at); at = ts_node_parent(at)) {
+            PDXECallableOccurrence o = pdxe_callable_occurrence(ctx, at);
+            if (!ts_node_eq(at, node) && walked_as_represented(&represented, result, o)) {
+                f->owner = o;
+                break;
+            }
+            if (ts_node_is_null(ts_node_parent(at))) {
+                break; /* the root: file scope */
+            }
+            f->steps++;
+        }
+    }
+    pdxe_occurrence_index_free(&represented);
+    if (n_frames == 0) {
+        return;
+    }
+    PDXEOwnerAlias *aliases = (PDXEOwnerAlias *)pdxe_arena_alloc(
+        a, (size_t)(result->owner_alias_count + n_frames) * sizeof(PDXEOwnerAlias));
+    if (!aliases) {
+        return;
+    }
+    if (result->owner_alias_count > 0) {
+        memcpy(aliases, result->owner_aliases,
+               (size_t)result->owner_alias_count * sizeof(PDXEOwnerAlias));
+    }
+    for (int k = 0; k < n_frames; k++) {
+        aliases[result->owner_alias_count++] =
+            (PDXEOwnerAlias){frames[k].occurrence, frames[k].definition};
+    }
+    result->owner_aliases = aliases;
+    for (int i = 0; i < result->calls.count + result->usages.count; i++) {
+        bool is_call = i < result->calls.count;
+        PDXECall *c = is_call ? &result->calls.items[i] : NULL;
+        PDXEUsage *u = is_call ? NULL : &result->usages.items[i - result->calls.count];
+        PDXESiteOwner *owner = is_call ? &c->owner : &u->owner;
+        uint32_t start = is_call ? c->site_start_byte : u->site_start_byte;
+        uint32_t end = is_call ? c->site_end_byte : u->site_end_byte;
+        const char ***path = is_call ? &c->ast_path : &u->ast_path;
+        PDXESourceOrigin origin = is_call ? c->source_origin : u->source_origin;
+        if (!owner->decided || origin != PDXE_SOURCE_ORIGIN_RAW || end <= start) {
+            continue;
+        }
+        const adopted_frame *inner = NULL;
+        for (int k = 0; k < n_frames; k++) {
+            const adopted_frame *f = &frames[k];
+            if (f->occurrence.start_byte <= start && end <= f->occurrence.end_byte &&
+                (pdxe_occurrence_valid(f->owner)
+                     ? pdxe_occurrence_equal(f->owner, owner->declaration)
+                     : !pdxe_occurrence_valid(owner->declaration)) &&
+                (!inner || inner->occurrence.start_byte <= f->occurrence.start_byte)) {
+                inner = f;
+            }
+        }
+        if (!inner) {
+            continue;
+        }
+        uint32_t length = 0;
+        while (*path && (*path)[length]) {
+            length++;
+        }
+        if (*path && (inner->steps >= length ||
+                      strcmp((*path)[inner->steps], ts_node_type(inner->node)) != 0)) {
+            continue; /* the path does not run through the node: leave the site as it is */
+        }
+        owner->declaration = inner->occurrence;
+        if (*path) {
+            *path += inner->steps;
+        }
+    }
+}
+
+/* Issue 76: the node-type path from `from` (the root at file scope) down to `site`,
+ * NULL-terminated, in the arena; NULL when memory runs out. */
+static const char **owner_site_path(PDXEArena *a, TSNode from, TSNode site) {
+    uint32_t n = 0;
+    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
+        n++;
+        if (ts_node_eq(at, from)) {
+            break;
+        }
+    }
+    const char **path = (const char **)pdxe_arena_alloc(a, ((size_t)n + 1) * sizeof(char *));
+    if (!path) {
+        return NULL;
+    }
+    path[n] = NULL;
+    uint32_t i = n;
+    for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
+        path[--i] = ts_node_type(at);
+    }
+    return path;
+}
+
+/* Issue 76: decides a site added after the walk, at bytes [start, end) of the raw
+ * source, as the walk decides its own: its owner is the nearest node holding its bytes
+ * whose declaration occurrence is a definition's (the walk opens a represented
+ * callable's frame at exactly that node), the file when there is none, and its path
+ * runs from that node, or the root, down to the smallest node holding the site. That
+ * node is the callable's own when the site's bytes cross its children. Undecided when
+ * the site cannot be located. */
+static void decide_late_site(PDXEArena *a, const PDXEExtractCtx *ctx,
+                             const PDXEOccurrenceIndex *represented, uint32_t start, uint32_t end,
+                             PDXESiteOwner *owner, const char ***ast_path) {
+    TSNode site = ts_node_descendant_for_byte_range(ctx->root, start, end);
+    if (ts_node_is_null(site)) {
+        return;
+    }
+    TSNode from = ctx->root;
+    PDXECallableOccurrence declaration = {0};
+    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
+        PDXECallableOccurrence occurrence = pdxe_callable_occurrence(ctx, at);
+        if (pdxe_occurrence_index_find(represented, occurrence) != PDXE_OCCURRENCE_NONE) {
+            from = at;
+            declaration = occurrence;
+            break;
+        }
+    }
+    *ast_path = owner_site_path(a, from, site);
+    owner->declaration = declaration;
+    owner->decided = true;
+}
+
+/* Gives every call, and every possible callable reference, added after the walk at a
+ * position in the raw source its owner and a path from that owner (decide_late_site).
+ * The path replaces the one stamp_late_site_paths gave it from the nearest function
+ * node, which need not be represented. Runs before the preprocessed pass, while every
+ * definition is the raw source's. */
+static void stamp_late_site_owners(PDXEArena *a, PDXEFileResult *result, const PDXEExtractCtx *ctx) {
+    PDXEOccurrenceIndex represented;
+    pdxe_occurrence_index_build(&represented, result->defs.items, result->defs.count);
+    for (int i = 0; i < result->calls.count; i++) {
+        PDXECall *c = &result->calls.items[i];
+        if (!c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+            c->site_end_byte > c->site_start_byte) {
+            decide_late_site(a, ctx, &represented, c->site_start_byte, c->site_end_byte, &c->owner,
+                             &c->ast_path);
+        }
+    }
+    for (int i = 0; i < result->usages.count; i++) {
+        PDXEUsage *u = &result->usages.items[i];
+        bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
+                                  (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
+        if (possible_reference && !u->owner.decided && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+            u->site_end_byte > u->site_start_byte) {
+            decide_late_site(a, ctx, &represented, u->site_start_byte, u->site_end_byte, &u->owner,
+                             &u->ast_path);
+        }
+    }
+    pdxe_occurrence_index_free(&represented);
 }
 
 /* Initial block for the per-file traversal scratch arena, chosen by measuring
@@ -2312,7 +2752,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
         .macro_table = macro_table,
         .return_type_table = return_type_table,
         .walk_budget_nodes = pdxe_walk_max_nodes(),
-        .defs_incomplete = has_preprocessed_pass(language),
+        .source_origin = PDXE_SOURCE_ORIGIN_RAW,
     };
 
     // Run extractors: defs + imports use separate walks (unique recursion patterns),
@@ -2404,6 +2844,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
     // which must not be used for the def line-range attribution of the bottleneck
     // metrics. Remember the boundary.
     int orig_calls_count = result->calls.count;
+    stamp_late_site_owners(a, result, &ctx);
 
     /* Phase 2 line map, built by the second (preprocessed) pass below and read
      * by the parse-coverage block near the end of this function. Stays NULL
@@ -2465,7 +2906,8 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                         .rel_path = rel_path,
                         .module_qn = result->module_qn,
                         .root = pp_root,
-                        .defs_incomplete = true,
+                        .source_origin = PDXE_SOURCE_ORIGIN_PREPROCESSED,
+                        .defs_after_walk = true,
                     };
                     // Re-run unified extraction on expanded source.
                     // This adds macro-expanded calls; duplicates with original calls are
@@ -2531,9 +2973,37 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                             pdxe_extract_definitions(&pp_ctx);
                             int w = defs_before;
                             char *superseded = NULL;
+                            /* Issue 76: which expanded def superseded each raw def, and
+                             * where each expanded def was adopted (-1: none), so the
+                             * sites a superseded raw callable owned can be given to
+                             * its replacement (PDXEOwnerAlias). */
+                            int *superseded_by = NULL;
+                            int *adopted_at = NULL;
                             if (export_cand_count > 0 && defs_before > 0) {
                                 superseded =
                                     (char *)pdxe_calloc(PDXE_MEM_CLASS_EXTRACT, (size_t)defs_before);
+                            }
+                            if (superseded) {
+                                /* Failing to allocate these loses the aliases only, and
+                                 * the memory core counts it. */
+                                superseded_by = (int *)pdxe_calloc(PDXE_MEM_CLASS_EXTRACT,
+                                                                  (size_t)defs_before * sizeof(int));
+                                adopted_at = (int *)pdxe_calloc(
+                                    PDXE_MEM_CLASS_EXTRACT,
+                                    (size_t)(result->defs.count - defs_before + 1) * sizeof(int));
+                                if (!superseded_by || !adopted_at) {
+                                    pdxe_free(PDXE_MEM_CLASS_EXTRACT, superseded_by);
+                                    pdxe_free(PDXE_MEM_CLASS_EXTRACT, adopted_at);
+                                    superseded_by = NULL;
+                                    adopted_at = NULL;
+                                } else {
+                                    for (int j = 0; j < defs_before; j++) {
+                                        superseded_by[j] = -1;
+                                    }
+                                    for (int k = 0; k <= result->defs.count - defs_before; k++) {
+                                        adopted_at[k] = -1;
+                                    }
+                                }
                             }
                             /* #1989: spans of defs already adopted from the
                              * expanded tree. A def nested inside one of these
@@ -2649,6 +3119,9 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                                             r->start_line == d->start_line &&
                                             r->end_line == d->end_line && superseded) {
                                             superseded[j] = 1;
+                                            if (superseded_by) {
+                                                superseded_by[j] = i;
+                                            }
                                             continue;
                                         }
                                         adopt = false;
@@ -2658,6 +3131,9 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                                     if (supersede_j >= 0 && supersede_j < defs_before &&
                                         superseded) {
                                         superseded[supersede_j] = 1;
+                                        if (superseded_by) {
+                                            superseded_by[supersede_j] = i;
+                                        }
                                     }
                                     /* Phantom-artifact suppression (#1989): on the
                                      * raw tree `class MOD_API Foo : public Base
@@ -2683,6 +3159,9 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                                             for (const char **b = d->base_classes; *b; b++) {
                                                 if (strcmp(*b, r->name) == 0) {
                                                     superseded[j] = 1;
+                                                    if (superseded_by) {
+                                                        superseded_by[j] = i;
+                                                    }
                                                     break;
                                                 }
                                             }
@@ -2693,10 +3172,19 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                                         rescued_spans[rescued_count].end = d->end_line;
                                         rescued_count++;
                                     }
+                                    if (adopted_at) {
+                                        adopted_at[i - defs_before] = w;
+                                    }
                                     result->defs.items[w++] = *d;
                                 }
                             }
                             if (superseded) {
+                                if (superseded_by) {
+                                    record_owner_aliases(a, result, superseded, superseded_by,
+                                                         adopted_at, defs_before);
+                                }
+                                pdxe_free(PDXE_MEM_CLASS_EXTRACT, superseded_by);
+                                pdxe_free(PDXE_MEM_CLASS_EXTRACT, adopted_at);
                                 int rw = 0;
                                 for (int j = 0; j < defs_before; j++) {
                                     if (!superseded[j]) {
@@ -2713,6 +3201,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                                 pdxe_free(PDXE_MEM_CLASS_EXTRACT, superseded);
                             }
                             result->defs.count = w;
+                            alias_adopted_callables(a, result, &ctx, spec);
                         }
                     }
 
@@ -2931,6 +3420,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
         }
     }
 
+    check_occurrences_unique(result);
     result->imports_count = result->imports.count;
 
     // Accumulate profiling counters

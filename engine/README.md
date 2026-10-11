@@ -89,7 +89,12 @@ Everything goes through `include/pdxe.h`. In outline:
   during the walk (issue 46). A nested callable the extractor does not represent owns
   no site: its sites belong to the nearest represented one around it, while it keeps
   its own lexical scope (`patches/0013-nested-modeled-call-ownership.patch`,
-  issue 75).
+  issue 75). Which definition represents a callable is decided by its declaration
+  occurrence (its buffer and the byte span of its function node), never by comparing
+  the walk's name for it with the definition's
+  (`patches/0014-exact-callable-owner-occurrence.patch`, issue 76). The occurrence is
+  private to the engine and its translation: no part of the interface, a surface or a
+  cache.
   Every route binding a definition's annotations or decorators declare crosses as a
   `pdxe_route`, with the declaring node's position and node-type path
   (`patches/0011-route-facts.patch`, issue 54).
@@ -126,7 +131,9 @@ environment variable turns them on.
 | `abi_throws`, `abi_truncated` | Throws cross the interface with their exception and definition; a walk cut short by the node budget says so; a rebuilt result carries no throws, truncation or lost work |
 | `abi_run_health_*` | Whether a run did all its work: clean with no answers to find, and with definitions typed resolution keeps none of; degraded by a skipped file or a lost answer, even with no answers, keeping the answers it found |
 | `abi_result_build_roundtrip` | A rebuilt result equals the original field by field, base classes, `impl Trait for Type` relations, node-type paths, call arguments, decorators, parameter types, routes and route facts included and copied (rebuilt from copies that are then overwritten and freed); definitions with no base, one and several, files with no relation, one and several, each kind of derivation fact, and definitions with one route fact and with several all occur (`fixtures/bases`, `fixtures/facts`), and every call and route fact positioned in the file has a path; a surface decodes and re-encodes to the same bytes; malformed surfaces, bases counted without an array or with a NULL, relations counted without an array or with a NULL string, decorators counted without an array, parameter types holding a NULL, a node-type path counted without an array or holding a NULL, arguments counted without an array or one without its text, and route facts counted without an array, missing a method, or with a path counted without an array or holding a NULL, are refused; resolving a project leaves every file's surface as it was |
+| `owner_occurrence` | Sites are joined to their owners by declaration occurrence (issue 76): the index finds a definition by its exact occurrence, buffer included, so a raw and a macro-expanded occurrence at the same numeric span are two; two definitions with one occurrence are ambiguous, never the first; a scan answers as the table does. Over the corpus, no two callables share an occurrence, no site inside a callable is the file's, and no site is owned by a raw callable that does not hold it |
 | `c_eval_budget` | The C and C++ expression evaluator's budget for a source's length: zero, negative and the largest int, the boundaries of a tranche and of the cap, and every length to past the cap against a 64-bit reference; a generated source four tranches long, taking about twice the old fixed 10,000 steps, extracts losing nothing, and one under a tranche that runs its budget out still reports lost work (issue 74) |
+| `owner_census` (a diagnostic, not a test) | Counts a list of files' sites by owner from the engine's own occurrences: `scripts/owner-census.py <segment> <checkout>` runs it over a segment's files; `orphan` must be 0 |
 | `api_warnings_are_errors` | Each warning class exempt in vendored code is still an error in the interface layer, compiled with the build's own flags |
 | one per `tests/fixtures/resolve/<name>` | Typed resolution on that fixture matches the reference engine's recorded answer, the fixture's own assertions hold, and neither the order files are added in nor resolving them from a cache changes the answer |
 
