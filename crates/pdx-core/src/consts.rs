@@ -48,8 +48,10 @@ pub const ENGINE_VERSION: u32 = 3;
 /// extraction cached under the old behaviour stops matching. 2 since a bearer token
 /// runs on over its `=` padding and what follows it (issue 44); 3 since a URI's scheme
 /// starts where URI grammar says, not at a regex word boundary, and a bearer token
-/// before `://` counts as one (issue 72).
-pub const SECRET_DETECTOR_VERSION: u32 = 3;
+/// before `://` counts as one (issue 72); 4 since a scheme is recognised after any byte
+/// that is not an ASCII letter or digit, so no password detector 2 masked is left
+/// unmasked (issue 73).
+pub const SECRET_DETECTOR_VERSION: u32 = 4;
 
 /// Layout of an entry of the extraction cache: the envelope that holds a cached
 /// extraction and the key it was stored under. An entry of another version is never

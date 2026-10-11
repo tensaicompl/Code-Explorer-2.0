@@ -91,21 +91,22 @@ fn digest_of(config: &str) -> SecretPolicyDigest {
 #[test]
 fn secret_policy_digest_fixed_vector() {
     // sha256 of the canonical form, computed independently (Python `hashlib`, which
-    // first reproduced detector 2's values below):
-    //   {"detector_version":3,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
-    assert_eq!(SECRET_DETECTOR_VERSION, 3);
+    // first reproduced detectors 1, 2 and 3's values):
+    //   {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
+    assert_eq!(SECRET_DETECTOR_VERSION, 4);
     let default = SecretPolicyDigest::of(&PdxConfig::default().secrets);
     assert_eq!(
         default.to_string(),
-        "de4ad6db03d6d5ed4acb6db7119afc5cc7f54db7e434df08f0ab5f26fe487776"
+        "05f97f160819d54c5aba9054efa8af77190d043feb6f03baec871b2b0c9d6904"
     );
     // A repository adding patterns: the effective set is the default and its own,
-    //   {"detector_version":3,"patterns":["*.key","*.p12","*.pem","*id_rsa*",".env*",
+    //   {"detector_version":4,"patterns":["*.key","*.p12","*.pem","*id_rsa*",".env*",
     //    "config/credentials.yml"]}
+    // Detector 3's was e4eeb594…75d0, detector 2's 76c75e1c…6bf3.
     let custom = digest_of("[secrets]\npatterns = [\"config/credentials.yml\", \"*.p12\"]\n");
     assert_eq!(
         custom.to_string(),
-        "e4eeb594585a1f1b469d6c7deddf7316829a60afbf9eaa2811b35054773275d0"
+        "92d35bc773d88ab8790b11010792d9dd37db41389e16c435360a3fd6d2f43be7"
     );
     // Order and repetition mean nothing, and a default restated changes nothing.
     assert_eq!(
@@ -119,15 +120,18 @@ fn secret_policy_digest_fixed_vector() {
 
 #[test]
 fn detector_version_enters_secret_policy_digest() {
-    // The same patterns under the earlier detector versions, computed independently:
-    // version 1, before issue 44, and version 2, before issue 72:
+    // The same patterns under every earlier detector version, each a policy builds
+    // were made under, computed independently: version 1, before issue 44; 2, before
+    // issue 72; 3, before issue 73.
     //   {"detector_version":1,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
     //   {"detector_version":2,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
+    //   {"detector_version":3,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
     let patterns = PdxConfig::default().secrets.patterns;
-    let v1 = SecretPolicyDigest::for_policy(1, &patterns);
-    let v2 = SecretPolicyDigest::for_policy(2, &patterns);
-    let v3 = SecretPolicyDigest::for_policy(3, &patterns);
-    assert_eq!(v3, SecretPolicyDigest::of(&PdxConfig::default().secrets));
+    let versions: Vec<SecretPolicyDigest> = (1..=4)
+        .map(|v| SecretPolicyDigest::for_policy(v, &patterns))
+        .collect();
+    let (v1, v2, v3, v4) = (versions[0], versions[1], versions[2], versions[3]);
+    assert_eq!(v4, SecretPolicyDigest::of(&PdxConfig::default().secrets));
     assert_eq!(
         v1.to_string(),
         "b9e1601f738d0ef897c6d316535f86fb31ecae8f6ab50676678a91209dd21b0c"
@@ -136,10 +140,17 @@ fn detector_version_enters_secret_policy_digest() {
         v2.to_string(),
         "2d31e6c1829c821c29d11db44835995830ea3df0819a22b3736ffbf071ef07e8"
     );
-    // Every version its own policy: an extraction cached under detector 2 is a miss.
-    assert_ne!(v1, v2);
-    assert_ne!(v2, v3);
-    assert_ne!(v1, v3);
+    assert_eq!(
+        v3.to_string(),
+        "de4ad6db03d6d5ed4acb6db7119afc5cc7f54db7e434df08f0ab5f26fe487776"
+    );
+    // Every version its own policy: an extraction cached under any earlier detector
+    // is a miss.
+    for (i, a) in versions.iter().enumerate() {
+        for b in &versions[i + 1..] {
+            assert_ne!(a, b);
+        }
+    }
     // And no pattern at all is a policy too, distinct from the default's.
     assert_ne!(SecretPolicyDigest::for_policy(1, &BTreeSet::new()), v1);
 }
@@ -382,12 +393,15 @@ fn bearer_adjacent_uri_password_is_idempotent() {
 }
 
 #[test]
-fn uri_scheme_boundary_uses_scheme_grammar_not_word_boundary() {
+fn uri_password_boundary_is_security_conservative() {
     let password = value(40);
-    // A scheme starts at the start of the input or right after any byte no scheme
-    // holds: `_` (a regex word byte, the case detector 2 missed), `~`, `/` and the
-    // rest. Schemes hold letters, then letters, digits, `+`, `-` and `.`.
-    for before in ["", " ", "_", "~", "/", "=", "\"", "'", "(", ":", "\t", "\n"] {
+    // A scheme (a letter, then letters, digits, `+`, `-` and `.`) is recognised at the
+    // start of the input or right after any byte that is not an ASCII letter or digit
+    // (decision 43): punctuation of every kind, `_`, and bytes outside ASCII.
+    for before in [
+        "", " ", "\t", "\n", "_", "-", "+", ".", "/", ":", "=", "~", "\"", "'", "(", "[", ",", "@",
+        "1.", "/foo.", "\u{e9}",
+    ] {
         for scheme in [
             "mysql", "postgres", "https", "foo+bar", "foo.bar", "foo-bar", "s3", "a1b2",
         ] {
@@ -402,17 +416,57 @@ fn uri_scheme_boundary_uses_scheme_grammar_not_word_boundary() {
             assert_eq!(normalised(&once, "python"), once, "{source:?}");
         }
     }
+
+    // The byte before `mysql` alone decides when nothing earlier can start a scheme:
+    // after a leading `9` none can, so `9<byte>mysql://…` is a URI password exactly
+    // when the byte is no ASCII letter or digit.
+    let delimiters: [(&str, &[u8], bool); 15] = [
+        ("start", b"", true),
+        ("ASCII letter", b"9x", false),
+        ("ASCII digit", b"91", false),
+        ("_", b"9_", true),
+        ("-", b"9-", true),
+        ("+", b"9+", true),
+        (".", b"9.", true),
+        ("/", b"9/", true),
+        ("space", b"9 ", true),
+        ("quote", b"9\"", true),
+        ("colon", b"9:", true),
+        ("equals", b"9=", true),
+        ("tilde", b"9~", true),
+        ("non-ASCII", b"9\xff", true),
+        ("letters and a digit", b"0abc9", false),
+    ];
+    for (category, prefix, masks) in delimiters {
+        let source = [prefix, b"mysql://u:", password.as_bytes(), b"@h\n"].concat();
+        let at = prefix.len() + "mysql://u:".len();
+        let found = secrets::secret_ranges_with(&[Detector::UriPassword], &source, "yaml");
+        let expected: Vec<_> = masks
+            .then_some(at..at + password.len())
+            .into_iter()
+            .collect();
+        assert_eq!(found, expected, "{category}");
+        let mut once = source.clone();
+        secrets::normalise_in_place(&mut once, "yaml");
+        let mut again = once.clone();
+        secrets::normalise_in_place(&mut again, "yaml");
+        assert_eq!(again, once, "{category}");
+    }
+
     // A scheme right after the `@` that ends another URI's match: the byte before it
-    // is no scheme byte, though the other match took it.
+    // is no letter or digit, though the other match took it.
     let (first, second) = (value(41), value(42));
     let source = format!("a://u:{first}@b://u:{second}@h\n");
     assert_eq!(
         normalised(&source, "python"),
         with_masked(&source, &[&first, &second])
     );
+
     // Not a URI password: no `://`, no `@`, no `:` between user and password, no
-    // scheme, or a scheme that would start with a digit, with no letter-led scheme
-    // before it.
+    // scheme or one that would start with a digit or a sign, or a putative `mysql`
+    // right after a letter or digit with no letter-led scheme before it. (At the
+    // start of the input, `xmysql://` and `abc9mysql://` are schemes of their own,
+    // masked as detector 2 masked them.)
     for source in [
         format!("mysql:/u:{password}@h\n"),
         format!("mysql//u:{password}@h\n"),
@@ -420,11 +474,100 @@ fn uri_scheme_boundary_uses_scheme_grammar_not_word_boundary() {
         format!("mysql://u{password}@h\n"),
         format!("://u:{password}@h\n"),
         format!(" ://u:{password}@h\n"),
+        format!("9://u:{password}@h\n"),
+        format!("-://u:{password}@h\n"),
         format!("9mysql://u:{password}@h\n"),
-        format!("1.mysql://u:{password}@h\n"),
+        format!("9xmysql://u:{password}@h\n"),
+        format!("0abc9mysql://u:{password}@h\n"),
     ] {
         assert_eq!(normalised(&source, "python"), source, "{source:?}");
     }
+}
+
+/// Detector 2's URI password pattern and its placeholder exemption, kept only as an
+/// oracle: what detector 2 found, which the detector must still find (issue 73). It is
+/// never used to work out what the detector itself finds.
+fn detector_two_uri_passwords(bytes: &[u8]) -> Vec<std::ops::Range<usize>> {
+    static PATTERN: std::sync::LazyLock<regex::bytes::Regex> = std::sync::LazyLock::new(|| {
+        regex::bytes::Regex::new(
+            r#"(?-u)(?i)\b[a-z][a-z0-9+.\-]*://[^\s/?#@"'<>:]*:([^\s/?#@"'<>]+)@"#,
+        )
+        .expect("detector 2's pattern")
+    });
+    static PLACEHOLDER: std::sync::LazyLock<regex::bytes::Regex> = std::sync::LazyLock::new(|| {
+        regex::bytes::Regex::new(r"(?-u)\A(?:\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\{\{[^}]*\}\})\z")
+            .expect("detector 2's placeholder")
+    });
+    PATTERN
+        .captures_iter(bytes)
+        .filter_map(|c| c.get(1))
+        .filter(|m| !PLACEHOLDER.is_match(m.as_bytes()))
+        .map(|m| m.range())
+        .collect()
+}
+
+/// The URI password ranges the detector finds.
+fn uri_passwords(bytes: &[u8]) -> Vec<std::ops::Range<usize>> {
+    secrets::secret_ranges_with(&[Detector::UriPassword], bytes, "yaml")
+}
+
+/// The ranges of `old` that `new` does not have.
+fn lost(
+    old: &[std::ops::Range<usize>],
+    new: &[std::ops::Range<usize>],
+) -> Vec<std::ops::Range<usize>> {
+    old.iter().filter(|r| !new.contains(r)).cloned().collect()
+}
+
+#[test]
+fn uri_detector_preserves_detector_two_coverage() {
+    let password = value(70);
+    let token = bearer_token();
+    // Detector 2 found these and detector 3 lost them: a scheme after punctuation that
+    // can also sit in a scheme. They must never be lost again.
+    for before in ["-", "+", ".", "1.", "/", ":", " ", "/foo.", ""] {
+        let source = format!("{before}mysql://u:{password}@h\n");
+        let old = detector_two_uri_passwords(source.as_bytes());
+        assert_eq!(old, vec![range_of(&source, &password)], "{source:?}");
+        assert_eq!(uri_passwords(source.as_bytes()), old, "{source:?}");
+        assert_eq!(
+            normalised(&source, "yaml"),
+            with_masked(&source, &[&password]),
+            "{source:?}"
+        );
+    }
+    // Detector 3's additions, kept: `_` before a scheme, and a bearer token before
+    // `://` (issue 72), each masked where detector 2 may not have found it.
+    let digits = "0".repeat(16);
+    for source in [
+        format!("_mysql://u:{password}@h\n"),
+        format!("Authorization: Bearer {token}_mysql://u:{password}@h\n"),
+        format!("Authorization: Bearer {token}_9mysql://u:{password}@h\n"),
+        format!("Authorization: Bearer {token}_-mysql://u:{password}@h\n"),
+        format!("Authorization: Bearer {token}_://u:{password}@h\n"),
+        format!("Authorization: Bearer {token}=://u:{password}@h\n"),
+        format!("Authorization: Bearer {digits}://u:{password}@h\n"),
+    ] {
+        let new = uri_passwords(source.as_bytes());
+        assert_eq!(new, vec![range_of(&source, &password)], "{source:?}");
+        assert!(lost(&detector_two_uri_passwords(source.as_bytes()), &new).is_empty());
+    }
+    // Every byte before a scheme, after nothing, after a digit and after a letter:
+    // nothing detector 2 found is lost.
+    let mut cases = 0;
+    for prefix in [&b""[..], b"9", b"ab", b"x."] {
+        for byte in 0..=u8::MAX {
+            let source = [prefix, &[byte], b"mysql://u:", password.as_bytes(), b"@h"].concat();
+            let old = detector_two_uri_passwords(&source);
+            assert!(
+                lost(&old, &uri_passwords(&source)).is_empty(),
+                "{:?}",
+                String::from_utf8_lossy(&source)
+            );
+            cases += 1;
+        }
+    }
+    assert_eq!(cases, 4 * 256);
 }
 
 /// A source in which two detectors' secrets meet: its language, the two detectors and
@@ -584,19 +727,9 @@ fn cross_detector_boundaries_are_idempotent() {
 }
 
 #[test]
-fn uri_boundary_change_leaves_ordinary_sources_alone() {
-    // Detector 2's URI pattern, kept here to compare: where a scheme starts at a word
-    // boundary that is also a scheme boundary, detector 3 finds exactly what it found.
-    let detector_2 = regex::bytes::Regex::new(
-        r#"(?-u)(?i)\b[a-z][a-z0-9+.\-]*://[^\s/?#@"'<>:]*:([^\s/?#@"'<>]+)@"#,
-    )
-    .expect("a pattern");
-    let old = |bytes: &[u8]| -> Vec<std::ops::Range<usize>> {
-        detector_2
-            .captures_iter(bytes)
-            .filter_map(|c| c.get(1).map(|m| m.range()))
-            .collect()
-    };
+fn uri_detector_covers_detector_two_on_the_corpus() {
+    // What detector 2 found in ordinary sources and in the sanitizer corpus, the
+    // detector still finds: it may find more, never less (issue 73).
     let p = value(60);
     // The web schemes assembled at run time, as the provenance scan requires.
     let (web, plain) = (["ht", "tps"].concat(), ["ht", "tp"].concat());
@@ -613,26 +746,31 @@ fn uri_boundary_change_leaves_ordinary_sources_alone() {
         format!("{plain}://git.example/path\n"),
     ];
     for source in &ordinary {
-        assert_eq!(
-            secrets::secret_ranges_with(&[Detector::UriPassword], source.as_bytes(), "yaml"),
-            old(source.as_bytes()),
+        let old = detector_two_uri_passwords(source.as_bytes());
+        assert!(
+            lost(&old, &uri_passwords(source.as_bytes())).is_empty(),
             "{source:?}"
         );
     }
-    // And over the sanitizer corpus, every file of every language.
     let corpus = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bench/corpus");
-    let mut files = 0;
+    let (mut files, mut old_ranges, mut new_ranges, mut lost_ranges, mut added) = (0, 0, 0, 0, 0);
     for language in std::fs::read_dir(&corpus).expect("the corpus") {
         for file in std::fs::read_dir(language.expect("an entry").path()).expect("a language") {
             let bytes = std::fs::read(file.expect("an entry").path()).expect("a file");
-            assert_eq!(
-                secrets::secret_ranges_with(&[Detector::UriPassword], &bytes, "yaml"),
-                old(&bytes)
-            );
+            let (old, new) = (detector_two_uri_passwords(&bytes), uri_passwords(&bytes));
+            lost_ranges += lost(&old, &new).len();
+            added += lost(&new, &old).len();
+            old_ranges += old.len();
+            new_ranges += new.len();
             files += 1;
         }
     }
+    eprintln!(
+        "bench/corpus: {files} files, detector 2 {old_ranges} URI password ranges, \
+         detector {SECRET_DETECTOR_VERSION} {new_ranges}, lost {lost_ranges}, added {added}"
+    );
     assert!(files > 50, "{files} corpus files");
+    assert_eq!(lost_ranges, 0);
 }
 
 #[test]
@@ -797,6 +935,51 @@ proptest! {
         let mut again = bytes.clone();
         secrets::normalise_in_place(&mut again, language);
         prop_assert_eq!(again, bytes);
+    }
+}
+
+/// A connection-string-shaped piece: something before it, a scheme, `://`, a user,
+/// `:`, a password, `@`, a host and something after. Every part may be malformed.
+fn uri_shaped() -> impl Strategy<Value = Vec<u8>> {
+    let around = prop_oneof![
+        proptest::collection::vec(any::<u8>(), 0..6),
+        proptest::collection::vec(prop::sample::select(b"aZ09-+._/:~ @".to_vec()), 0..4),
+        Just(b"Bearer ".to_vec()),
+        Just(format!("Bearer {}", bearer_token()).into_bytes()),
+        Just(b"Bearer 0000000000000000".to_vec()),
+    ];
+    let scheme = prop_oneof![
+        Just(b"mysql".to_vec()),
+        proptest::collection::vec(prop::sample::select(b"aZm9+.-_~/".to_vec()), 0..6),
+    ];
+    let part = proptest::collection::vec(prop::sample::select(b"uZ09-._~%!$:@/ {}".to_vec()), 0..6);
+    (around.clone(), scheme, part.clone(), part, around).prop_map(
+        |(before, scheme, user, password, after)| {
+            [
+                before,
+                scheme,
+                b"://".to_vec(),
+                user,
+                b":".to_vec(),
+                password,
+                b"@h".to_vec(),
+                after,
+            ]
+            .concat()
+        },
+    )
+}
+
+proptest! {
+    #[test]
+    fn uri_detector_never_loses_a_detector_two_password(
+        pieces in proptest::collection::vec(uri_shaped(), 1..4),
+    ) {
+        // Detector 2's ranges come from its own pattern, never from the detector.
+        let source = pieces.concat();
+        let old = detector_two_uri_passwords(&source);
+        let missing = lost(&old, &uri_passwords(&source));
+        prop_assert!(missing.is_empty(), "{:?} lost {:?}", String::from_utf8_lossy(&source), missing);
     }
 }
 

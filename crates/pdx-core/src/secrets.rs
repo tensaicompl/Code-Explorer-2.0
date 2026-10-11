@@ -24,7 +24,7 @@
 //! | [`Detector::PrivateKey`] | A PEM `BEGIN` marker of a `PRIVATE KEY`, `RSA PRIVATE KEY`, `EC PRIVATE KEY`, `DSA PRIVATE KEY` or `OPENSSH PRIVATE KEY`, to the `END` marker with the same label, or to the end of the input if there is none | Every base64 byte between the markers (`A-Z a-z 0-9 + / =`), except the `n`, `r` or `t` of an escape after a backslash |
 //! | [`Detector::BearerToken`] | `Bearer`, any case, at a word boundary, then spaces or tabs and a token of at least 16 of `A-Z a-z 0-9 - . _ ~ + /`, running on over those and `=` (its padding, and anything after it in the same run) | The token |
 //! | [`Detector::CredentialAssignment`] | A key ending, in any case, with one of [`CREDENTIAL_KEYS`] (its words joined by `_`, `-` or nothing), an optional closing quote, then `=`, `:`, `:=` or `=>`, then a value | The value: inside its quotes when quoted; a bare value only in a language whose bare values are literals ([`BARE_VALUE_LANGUAGES`]) |
-//! | [`Detector::UriPassword`] | `scheme://user:password@`: the scheme a letter, then letters, digits, `+`, `-` and `.`, starting at the start of the input or after a byte no scheme holds (`_` included); or, before `://`, a bearer token as [`Detector::BearerToken`] finds one, which masking makes a scheme | The password |
+//! | [`Detector::UriPassword`] | `scheme://user:password@`: the scheme a letter, then letters, digits, `+`, `-` and `.`, recognised at the start of the input or after any byte that is not an ASCII letter or digit (punctuation and `_` included); or, before `://`, a bearer token as [`Detector::BearerToken`] finds one, which masking makes a scheme | The password |
 //! | [`Detector::CloudAccessKeyId`] | `AKIA` or `ASIA` and 16 of `A-Z 0-9`, at word boundaries | All 20 bytes |
 //!
 //! A value that is wholly a placeholder (`${NAME}`, `$NAME`, `{{ … }}`) is a reference
@@ -242,19 +242,23 @@ static BEARER: LazyLock<Regex> =
 static ACCESS_KEY_ID: LazyLock<Regex> =
     LazyLock::new(|| regex(r"(?-u)\b((?:AKIA|ASIA)[A-Z0-9]{16})\b"));
 
-/// A password in a URI's user information, group 1 (issue 72). What stands before `://`
-/// is either
+/// A password in a URI's user information, group 1 (issues 72 and 73). What stands
+/// before `://` is either
 ///
-/// - a scheme, as URI grammar has it (a letter, then letters, digits, `+`, `-` and
-///   `.`), starting at the start of the input or right after a byte no scheme can
-///   hold; never at a regex word boundary, which refuses a scheme after `_`. The byte
-///   before the scheme is matched, never captured; or
+/// - a scheme (a letter, then letters, digits, `+`, `-` and `.`) recognised at the
+///   start of the input or right after any byte that is not an ASCII letter or digit.
+///   This is a secret detector's boundary, not a URI lexer's: punctuation before a
+///   connection string (`-`, `+`, `.`, `_`, `/`, `:` …) never stops its password being
+///   masked, so everything detector 2's word boundary found is still found, and `_`
+///   too. After a letter or digit no scheme starts, and masking makes a letter, so a
+///   mask never opens a boundary. The byte before the scheme is matched, never
+///   captured; or
 /// - a bearer token, [`BEARER`]'s exactly: masked, it is a run of [`MASK`], itself a
 ///   scheme, so a password after it must be found now, on the original bytes, or a
 ///   second pass would find it.
 static URI_PASSWORD: LazyLock<Regex> = LazyLock::new(|| {
     regex(&format!(
-        r#"(?-u)(?:(?:\A|[^A-Za-z0-9+.\-])[A-Za-z][A-Za-z0-9+.\-]*|(?i:\bbearer)[ \t]+{BEARER_TOKEN})://[^\s/?#@"'<>:]*:([^\s/?#@"'<>]+)@"#
+        r#"(?-u)(?:(?:\A|[^A-Za-z0-9])[A-Za-z][A-Za-z0-9+.\-]*|(?i:\bbearer)[ \t]+{BEARER_TOKEN})://[^\s/?#@"'<>:]*:([^\s/?#@"'<>]+)@"#
     ))
 });
 
@@ -328,9 +332,9 @@ fn uri_passwords(bytes: &[u8], out: &mut Vec<Range<usize>>) {
         if !PLACEHOLDER.is_match(password.as_bytes()) {
             out.push(password.range());
         }
-        // A match ends with its `@`, a byte no scheme holds, so a scheme may start
-        // right after it: the next search starts on it, where the pattern can read it
-        // as the byte before a scheme.
+        // A match ends with its `@`, which is no letter or digit, so a scheme may
+        // start right after it: the next search starts on it, where the pattern can
+        // read it as the byte before a scheme.
         from = whole.end() - 1;
     }
 }

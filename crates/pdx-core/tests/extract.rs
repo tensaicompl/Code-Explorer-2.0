@@ -717,20 +717,21 @@ fn cache_object_id_fixed_vector() {
         "the vector below is engine 3's and matrix 2's"
     );
     assert_eq!(
-        SECRET_DETECTOR_VERSION, 3,
-        "the vector below is detector 3's, through the policy digest"
+        SECRET_DETECTOR_VERSION, 4,
+        "the vector below is detector 4's, through the policy digest"
     );
     // Over "pdx-extract-cache" 0x00, u32 BE 5, 3 and 2, the policy digest
-    // de4ad6db…7776 of {"detector_version":3,"patterns":["*.key","*.pem","*id_rsa*",
+    // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Detector
-    // 2's was 6ff3be1c…d177: the policy moved, so every key did, and the format did not.
+    // 3's was c1c95f71…8e28 and detector 2's 6ff3be1c…d177: each policy moved every
+    // key, and the format did not move.
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "c1c95f71c9f8f53e2aa52ddd6fde0338880765b5e111e4b219d59af1e43b8e28"
+        "088819a16f0e7ea2db898b4c188e0f71e1e91b6560a8fd4945c24c173dd80d81"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v5").join("c1").join(&id));
+    assert_eq!(path, Path::new("cache").join("v5").join("08").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
