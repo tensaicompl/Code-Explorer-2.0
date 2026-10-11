@@ -285,6 +285,14 @@ paths), `report` (JSON and text reports, progress).
 - **Test fixtures** are real Git repositories with fixed author, committer, dates and
   autocrlf, and with `GIT_CONFIG_GLOBAL` pointed at an empty file.
 
+The legacy comparison (P2-13) is `scripts/compare-legacy.py`, tested network-free by
+`scripts/test_compare_legacy.py` (part of `make test`), and its triage report
+`bench/results/legacy-compare.md`. It runs `legacy/` through its own Compose file as
+the isolated project `pdx-p2-13` and never modifies it; the legacy tree stays
+read-only. The comparison is pair-level, legacy endpoints are mapped without guessing,
+and the legacy graph is never an oracle (decision 46). It is not part of `make check`
+or the nightly build.
+
 The golden harness (P2-12) is `crates/pdx-bench` (`golden::{plan, cache, git, index,
 expected, run}`) and `make golden`.
 

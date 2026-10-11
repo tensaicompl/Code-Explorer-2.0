@@ -31,6 +31,16 @@ and bands only: never source, paths, ids or anything about the machine that buil
 them. `make golden` checks them against a fresh index of every pin (see
 `crates/pdx-bench/README.md`).
 
+## results/
+
+`results/legacy-compare.md` is P2-13's triage of how the legacy graph's drawn calls
+differ from PDX's drawn `CALLS` on the Python golden: counts of same, only-legacy and
+only-new source/target pairs, and 20 sampled differences explained by reading the
+source. It is no accuracy oracle: the legacy graph is evidence of where the two differ,
+not of which is right. `scripts/compare-legacy.py` produces the counts and the
+evidence, under the ignored `.cache/legacy-compare/` with the rest of the raw run; the
+explanations are written by hand, never by the script.
+
 ## corpus/
 
 The sanitizer corpus: small source files that `make check-asan` extracts with the
