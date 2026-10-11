@@ -15,10 +15,10 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 71 | 2026-10-11 | P2-11 | scr | open | 4.2.1 says a local binary with no server "records `repo_id_source = \"url\"` in `meta`", but 4.3's `meta` keys do not include it and the reader refuses a key it does not know, so no segment can record it without a schema change | P2-11 derives the URL identity and writes no such key: a segment's `meta` is 4.3's keys exactly, `SEGMENT_SCHEMA_VERSION` stays 2. Owner to decide: add the key to 4.3 (a schema change) or drop the clause from 4.2.1 (a local segment's id is URL-derived exactly when no server is configured, which the CLI decides) |
+| 71 | 2026-10-11 | P2-11 | scr | resolved | 4.2.1 says a local binary with no server "records `repo_id_source = \"url\"` in `meta`", but 4.3's `meta` keys do not include it and the reader refuses a key it does not know, so no segment can record it without a schema change | Resolved by the P2-11 review closure on 2026-10-11 (decision 40): 4.3 gains the required meta key `repo_id_source`, `url` or `registered` (`segment::RepoIdSource`), and `SEGMENT_SCHEMA_VERSION` moves 2 → 3 (no other version moves). With `url` the writer and the reader refuse a `repo_id` that is not `repo_id_from_url(repo_url)`; a `registered` id is never derived from or compared with the URL. A schema-2 segment is refused and re-indexed, never migrated. `pdx index` writes `url`, reports it in its JSON and `pdx coverage`'s, and still refuses a configured server |
 | 70 | 2026-10-11 | P2-11 | third-party | resolved | `pdx`'s command line (P2-11) needs an argument parser with subcommands, typed values and help; none was in the dependency graph | `clap` 4.6.7, pinned exactly, builder API, default features off but `std`, `help`, `usage`, `error-context` (no colour, suggestions, wrapping, environment arguments or derive macros), with `clap_builder` 4.6.7, `clap_lex` 1.1.1 and `anstyle` 1.0.14: four exact-version `safe-to-deploy` exemptions added by hand, each naming this issue. Exemptions, not audits: 111 exemptions, 0 audits, 0 imports |
 | 69 | 2026-10-10 | P2-10 | third-party | resolved | P2-10's deliverable puts `build_segment`'s stages in `tracing` spans (Part 9's logging rule), and no tracing crate was in the dependency graph | `tracing` 0.1.44, pinned exactly, without default features (no attribute macros) but `std`, with `tracing-core` 0.1.36 and `pin-project-lite` 0.2.17: three exact-version `safe-to-deploy` exemptions added by hand, each naming this issue. Exemptions, not audits: 107 exemptions, 0 audits, 0 imports. No subscriber is installed by the library; spans carry stage names and counts only (decision 35) |
-| 68 | 2026-10-10 | P2-09 | third-party | open | The engine's per-definition visibility is evidence only in Go (exported identifiers) and Python (a leading underscore): elsewhere it does not read a declaration's modifiers, so Java and Kotlin `public` methods come back non-public, and Rust, TypeScript, JavaScript, C#, C, C++, PHP, Scala and Ada private declarations public | Stage 4 stores `props.visibility` only for Go and Python and leaves it absent (unknown) elsewhere, never stored wrong (`visibility_props_only_where_engine_evidence`); `importance` takes an unknown visibility as not public (decision 28). Restoring it elsewhere needs an engine fact that reads declaration modifiers, an append-only change that moves `ENGINE_VERSION`, the cache format, the worker protocol and the surface version. The conservative behaviour was approved by the P2-09 driver review on 2026-10-10. Review checkpoint: before P2-12's golden snapshots are accepted, the driver chooses (A) modifier-derived visibility as a versioned engine fact, with the version moves and rebuilds, or (B) unknown visibility and 0.6 ratified as PDX 2.0's behaviour, the limitation kept in product and trust documentation. Until then it blocks neither P2-10 nor P2-11 |
+| 68 | 2026-10-10 | P2-09 | third-party | resolved | The engine's per-definition visibility is evidence only in Go (exported identifiers) and Python (a leading underscore): elsewhere it does not read a declaration's modifiers, so Java and Kotlin `public` methods come back non-public, and Rust, TypeScript, JavaScript, C#, C, C++, PHP, Scala and Ada private declarations public | Stage 4 stores `props.visibility` only for Go and Python and leaves it absent (unknown) elsewhere, never stored wrong (`visibility_props_only_where_engine_evidence`); `importance` takes an unknown visibility as not public (decision 28). Restoring it elsewhere needs an engine fact that reads declaration modifiers, an append-only change that moves `ENGINE_VERSION`, the cache format, the worker protocol and the surface version. Resolved at the pre-P2-12 checkpoint by the P2-11 review closure on 2026-10-11, option B (decision 41): Go and Python are PDX 2.0's only evidence-bearing visibility languages, every other language's visibility is unknown (`props.visibility` absent) and `importance` takes 0.6 for it; no engine change. Stated in 4.12.1 and on the trust page (4.13.2). Visibility in another language is a later SCR |
 | 67 | 2026-10-10 | P2-09 | scr | resolved | 4.12.1 names `cyclomatic`, `cognitive` and `loop_depth` without defining them, and the engine's facts (Appendix D.4) are not the textbook metrics: its count is of each language table's branching node types, so boolean operators and conditional expressions are no decision, `try`, `with`, `defer` and `go` are, and a `switch` or `match` counts itself as well as each case | Ratified by the P2-09 driver review on 2026-10-10 (decision 32). For PDX 2.0, for callables only (decision 29): `cyclomatic` = 1 + the engine's branching-node count, `cognitive` = the engine's cognitive count, `loop_depth` = the engine's deepest loop nesting. The documented engine-specific deviations (below) are intentional product semantics; the metrics are not identical to every textbook definition. The acceptance fixtures on Java, Python, Go, TypeScript, Rust and C lock the definition (`cyclomatic_known_values`, `cognitive_and_loop_depth_known_values`, `complexity_engine_facts_cross_stage_boundary`). A later change of these semantics is a specification change, with the compatibility and build-identity treatment it needs before published segments can coexist with it |
 | 66 | 2026-10-10 | P6-02 | blocker | open | 4.7.1 also takes namespace identities from sources no repository's Stage 4 has: a provider's Kubernetes `Service` name and `Ingress`/`Route` host, `pdx-arch.yaml`'s hostnames, brokers, data sources and contexts, a consumer's declared alias, and a protobuf file shared as an artifact across repositories | Missing facts: deployment resources (`Service`, `Ingress`) and the estate model are not inputs of Stage 4, and sharing is a cross-repository relation. Contracts stay `unresolved` without `pdx.toml [identity]`, never guessed from a manifest's name (`missing_fact_identity_from_deployment_and_estate_model`). P6-02 (estate model, `DEPLOYED_AS`) supplies them; P6-01 applies them when linking |
 | 65 | 2026-10-10 | P6-01 | blocker | open | Two 4.7.1 forms carry their full meaning in a value bound before the call: a JMS producer created for a destination sends with none in its own arguments, and a route registered on a group, scope, nest or mounted router has a prefix composed at run time | Missing fact: local value flow (which value a local or a receiver holds). A JMS send with no destination gives nothing (`missing_fact_destination_bound_before_the_call`); a registration in a callable that composes a prefixed router, or on a parameter declared as a group, is withheld with `PrefixUnknown` (`missing_fact_router_prefixes_withhold_routes`); a router mounted from another callable or file is not visible and keeps the path it declares. P6-01 decides before drawing links whether to add the fact |
@@ -135,7 +135,36 @@ writer, reader and verifier), or 4.2.1 drops the clause (a local segment's ident
 URL-derived exactly when no server is configured, which the binary decides, and the
 re-keying 4.2.1 describes is the local cache's, not the segment's).
 
-State: open.
+Resolution (P2-11 review closure, 2026-10-11, decision 40): the first. A segment
+records where its identity came from, because a registered id and a URL-derived one
+look alike (16 hex characters) and only the source says whether the id must follow
+the URL.
+
+- `pdx_core::segment::RepoIdSource` is a closed vocabulary, stored exactly as `url` or
+  `registered`, with no alias. `SegmentMeta::repo_id_source` is a first-class field
+  and `SegmentMeta::new(repo_id, repo_id_source, repo_url, commit_sha, profile,
+  precise_sources)` has no default for it.
+- The meta table has ten keys: `commit_sha`, `engine_version`,
+  `language_matrix_version`, `pdx_version`, `precise_sources`, `profile`, `repo_id`,
+  `repo_id_source`, `repo_url`, `schema_version`. The reader requires every one and
+  refuses any other key and any other value.
+- With `url`, the writer and the reader refuse a segment whose `repo_id` is not
+  `repo_id_from_url(repo_url)`. With `registered`, `repo_id` is the server's: never
+  derived from the URL and never compared with it, so it survives the repository
+  moving.
+- `SEGMENT_SCHEMA_VERSION` 2 → 3; the language matrix (2), engine (3), cache format
+  (5), worker protocol (6) and surface (4) versions are unchanged. A schema-2 segment
+  is refused as another schema version (`schema_two_segment_is_refused`) and indexed
+  again; there is no migration. The source is no input to any node, site or edge id
+  (`repo_id_source_is_no_part_of_any_identity`).
+- `IndexRequest::repo_id_source` is passed through by `build_segment` to the meta and
+  changes nothing else. `pdx index` sets `url`, has no switch for the other and still
+  refuses a configured server; its JSON report's `repository` and `pdx coverage`'s
+  JSON carry `repo_id_source`. `pdx version` prints `schema 3`.
+- 4.2.1 (rule 5) and 4.3 (section 5, the DDL's meta comment) say so; the
+  `UnexpectedMeta` message no longer names a schema version.
+
+State: resolved.
 
 ### 70 — P2-11 command-line parser
 
@@ -220,7 +249,25 @@ before golden output is frozen, where the limitation is consciously dispositione
 Until then the conservative behaviour stays correct and blocks neither P2-10 nor
 P2-11.
 
-State: open.
+Resolution (P2-11 review closure, 2026-10-11, before P2-12; decision 41): **B**. Go
+and Python are the only languages whose visibility is evidence; in every other
+language visibility is unknown, `props.visibility` is absent, and `importance` takes
+the 0.6 factor. There is no engine change. Why:
+
+- It is conservative: a known-false visibility is never persisted, and an unknown one
+  never inflates `importance`.
+- The alternative is a new engine fact across many languages, which moves the engine's
+  interface, `ENGINE_VERSION`, the extraction cache format, the worker protocol and the
+  surface version, and rebuilds every segment: too much for a secondary factor.
+- Visibility is a secondary factor of `importance` (1.0 against 0.6), beside `fan_in`
+  and the test penalty.
+- Improving it later is a specification change (an SCR) with those version moves, not
+  a tuning change.
+
+4.12.1 states the rule and its reasons; 4.13.2 puts the limitation on the trust page.
+`visibility_props_only_where_engine_evidence` and `importance_formula` hold it.
+
+State: resolved.
 
 ### 67 — What `cyclomatic`, `cognitive` and `loop_depth` are
 
