@@ -134,6 +134,7 @@ environment variable turns them on.
 | `owner_occurrence` | Sites are joined to their owners by declaration occurrence (issue 76): the index finds a definition by its exact occurrence, buffer included, so a raw and a macro-expanded occurrence at the same numeric span are two; two definitions with one occurrence are ambiguous, never the first; a scan answers as the table does. Over the corpus, no two callables share an occurrence, no site inside a callable is the file's, and no site is owned by a raw callable that does not hold it |
 | `c_eval_budget` | The C and C++ expression evaluator's budget for a source's length: zero, negative and the largest int, the boundaries of a tranche and of the cap, and every length to past the cap against a 64-bit reference; a generated source four tranches long, taking about twice the old fixed 10,000 steps, extracts losing nothing, and one under a tranche that runs its budget out still reports lost work (issue 74) |
 | `owner_census` (a diagnostic, not a test) | Counts a list of files' sites by owner from the engine's own occurrences: `scripts/owner-census.py <segment> <checkout>` runs it over a segment's files; `orphan` must be 0 |
+| `differential_dump` (the engine differential's vendored side, not a test) | Prints every row of the engine differential for a list of files: each file's extraction once the cross-file typed pass has written into it, and each file's cross-file surface from a second run in which every file comes from its exported surface; refuses a run that is not clean (P2-16, below) |
 | `api_warnings_are_errors` | Each warning class exempt in vendored code is still an error in the interface layer, compiled with the build's own flags |
 | one per `tests/fixtures/resolve/<name>` | Typed resolution on that fixture matches the reference engine's recorded answer, the fixture's own assertions hold, and neither the order files are added in nor resolving them from a cache changes the answer |
 
@@ -152,6 +153,32 @@ reference outside the tree (`scripts/engine/reference-build.sh`), indexes the fi
 with it, and reads the typed edges from the graph it builds. The recorded files let
 the comparison run anywhere without the reference; re-recording is how a change on
 either side is caught. The details are in `scripts/engine/typed-differential.py`.
+
+### The engine differential (P2-16)
+
+`make engine-differential`, nightly only (`check-full`), compares the whole of what
+the engine produces with the pinned, unmodified reference engine, on the same inputs:
+every corpus of `bench/engine-differential.toml` (every resolution fixture, at least
+one per typed-tier language, and a bounded subset of every typed-tier golden), row for
+row. The rows (`tests/differential_rows.h`, decision 50) are each file's definitions,
+call sites and callable references, imports and typed answers, as the cross-file typed
+pass leaves them, and each file's cross-file surface: the definitions both engines'
+surface codec (`src/resolve/lsp_surface.c`) writes. Only fields both engines' structures
+have are read. The vendored side is `tests/differential_dump`, which builds its surfaces
+through `pdxe_project_debug_lsp_surfaces` (internal, `api/shim_internal.h`, tests only)
+after a run whose files all came from their exported surfaces. The reference side is a
+build of its pinned checkout outside the tree with an observation hook linked in
+(`scripts/engine/differential_hook.c`, translated to the reference's names by the rename
+map, inverted), and the surfaces it stores. `scripts/engine/differential.py` stages
+each corpus, runs both, canonicalises the rows (the project name wrapping qualified
+names becomes `@`, and each engine label gets the kind `api/pdxe.c` maps it to) and
+fails on any difference; nothing can be accepted.
+
+Both engines' C and C++ preprocessing reads the files a source includes from disk,
+relative to the working directory (issue 83), so the differential runs both in the
+corpus root. Normal CI runs the comparison's own tests
+(`scripts/engine/test_differential.py`, and `engine_differential_identical` in
+`crates/pdx-bench`), never the reference.
 
 ## For the Rust stages
 

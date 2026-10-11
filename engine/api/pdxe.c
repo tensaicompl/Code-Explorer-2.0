@@ -25,6 +25,7 @@
 #include "foundation/str_util.h"
 #include "lsp/rust_cargo.h"
 #include "pipeline/lsp_resolve.h"
+#include "pipeline/lsp_surface.h"
 #include "pipeline/pass_lsp_cross.h"
 #include "pipeline/pipeline_internal.h"
 #include "lost_work.h"
@@ -2553,4 +2554,38 @@ void pdxe_project_debug_imports(struct pdxe_project *p, pdxe_import_edge_fn fn, 
                target ? target->label : NULL, userdata);
         }
     }
+}
+
+void pdxe_project_debug_lsp_surfaces(struct pdxe_project *p, pdxe_lsp_surface_fn fn,
+                                     void *userdata) {
+    if (!p || !fn || !p->ran || p->n_files <= 0) {
+        return;
+    }
+    char **modules = (char **)calloc((size_t)p->n_files, sizeof(char *));
+    int *starts = (int *)calloc((size_t)p->n_files + 1, sizeof(int));
+    PDXEArena arena;
+    pdxe_arena_init(&arena);
+    if (modules && starts) {
+        int count = 0;
+        PDXELSPDef *defs = pdxe_pxc_collect_all_defs(&p->pctx, &arena, p->cache, p->files,
+                                                    p->n_files, PROJECT_SENTINEL, modules,
+                                                    &count, starts);
+        pdxe_lsp_surface_row_t *rows = NULL;
+        int n = 0;
+        /* As the pass does: no definitions anywhere, no rows at all. */
+        if (defs && pdxe_lsp_surface_build_rows(&p->pctx, PROJECT_SENTINEL, p->cache, p->files,
+                                                p->n_files, defs, starts, &rows, &n) == 0) {
+            for (int i = 0; i < n; i++) {
+                fn(rows[i].rel_path, rows[i].defs_json, userdata);
+            }
+            pdxe_store_free_lsp_surfaces(rows, n);
+        }
+        free(defs);
+    }
+    for (int i = 0; modules && i < p->n_files; i++) {
+        free(modules[i]);
+    }
+    free(modules);
+    free(starts);
+    pdxe_arena_destroy(&arena);
 }

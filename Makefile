@@ -77,6 +77,8 @@ test: engine
 	PDX_REQUIRE_ENGINE=1 $(CARGO) test --workspace --all-features
 	python3 scripts/test_compare_legacy.py
 	python3 scripts/test_owner_census.py
+	python3 scripts/engine/test_differential.py
+	python3 scripts/engine/test_typed_differential.py
 
 # Every third-party crate in Cargo.lock is covered by supply-chain/: audited, imported
 # by an owner's decision, or exempted on the record (Part 5.12, issue 36). Needs the
@@ -155,8 +157,17 @@ determinism:
 	$(CARGO) build --release -p pdx -p pdx-bench
 	$(CARGO) run --release --quiet -p pdx -- bench --determinism
 
-engine-differential:
-	@scripts/pending-target.sh engine-differential P2-16
+# The engine differential (P2-16, decision 50): the vendored engine against the pinned,
+# unmodified reference engine, row for row (definitions, calls, imports, cross-file
+# surfaces, typed resolutions), over every corpus of bench/engine-differential.toml.
+# The reference is fetched to $${PDX_REF_DIR:-/tmp/ref}/engine-ref by
+# scripts/vendor/fetch-engine.sh and built outside the tree with an observation hook
+# (scripts/engine/differential.py). Nightly (check-full) only: it needs the reference
+# and, the first time, the network; normal CI runs its offline tests.
+engine-differential: engine
+	$(CARGO) build --release -p pdx-bench
+	@scripts/vendor/fetch-engine.sh
+	python3 scripts/engine/differential.py run --pdx-bench target/release/pdx-bench
 
 perf:
 	$(CARGO) build --release -p pdx -p pdx-bench

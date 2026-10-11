@@ -1,0 +1,9 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything. PHP across namespaces: a function imported with
+# 'use function' resolves to its definition in another namespace, both imports are
+# bound, and no call is drawn to a function nothing defines.
++	CALLS	src.App.Service.Service.__construct	src.Core.Repo.make_repo	php_function_global_fallback
++	IMPORTS	FILE:src/App/Service.php	*	Repo
++	IMPORTS	FILE:src/App/Service.php	*	make_repo
+-	CALLS	src.App.Service.Service.missing	*	*

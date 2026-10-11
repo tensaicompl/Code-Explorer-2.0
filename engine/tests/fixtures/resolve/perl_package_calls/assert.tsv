@@ -1,0 +1,9 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything. Perl packages: a method call whose receiver
+# typed resolution leaves untyped is marked unresolved_member, in the script and in
+# the module, and no call is drawn from the script's top level, where the only call
+# that is no builtin names a sub nothing defines.
++	SITE	bin.service.lookup	find	unresolved_member
++	SITE	lib.Acme.Repo.describe	find	unresolved_member
+-	CALLS	FILE:bin/service.pl	*	*

@@ -1,8 +1,9 @@
 # pdx-bench
 
 The benchmark harness: accuracy, timing and determinism. Today it runs the structural
-golden graphs (P2-12) and the determinism and performance baselines (P2-14); the
-oracle and engine-differential suites arrive with their own tasks.
+golden graphs (P2-12) and the determinism and performance baselines (P2-14), and
+prepares the engine differential's corpora (P2-16); the oracle suite arrives with its
+own task.
 
 Open. Apache-2.0; see `LICENSE` at the repository root.
 
@@ -18,6 +19,9 @@ pdx bench --perf            # three cold samples per golden and scale repository
 pdx bench --determinism --perf
 make determinism            # builds pdx and pdx-bench (release), then pdx bench --determinism
 make perf                   # the same, then pdx bench --perf
+
+pdx-bench differential-corpora   # the engine differential's corpora, checked, as JSON
+make engine-differential         # the engine against the reference engine (nightly)
 ```
 
 Run from the workspace root (the directory holding `Cargo.toml`, `bench/repos.lock` and
@@ -138,8 +142,9 @@ before its exit is seen. A worker whose sample exceeds the 6 GiB ceiling
 (`bench::process::MEMORY_CEILING_BYTES`) is stopped at once: a golden then fails the
 run, and a scale repository records `out_of_memory`, with the peak seen, the stage it
 had reached, the stages it finished with their counts and durations, and the clean
-extractions its cold cache held, and takes no further sample (the driver's decision,
-issue 82). `bench/README.md` states the methodology for readers of the results.
+extractions its cold cache held, and takes no further sample (Decision 49's P2-14
+measurement policy, issue 82). `bench/README.md` states the methodology for readers of
+the results.
 
 ### Result files
 
@@ -179,6 +184,28 @@ processor reports the same plain one. Nothing identifies the machine or its user
 The benchmark's working area, `bench/.cache/bench/`, is disposable. A build directory
 is emptied before use by removing only regular files and real directories below that
 area, never following a link; a symlink or anything else there stops the run.
+
+## The engine differential's corpora (P2-16, decision 50)
+
+`pdx-bench differential-corpora` reads `bench/engine-differential.toml` and prints every
+corpus as one JSON document (`{"format": 1, "corpora": [...]}`): its name, kind,
+language, root, a golden's commit, its files with the engine language each is read in,
+and its support files. `scripts/engine/differential.py` runs both engines over them.
+Before printing anything it checks (`differential::check_manifest`):
+
+- every fixture directory under `engine/tests/fixtures/resolve` is listed, and nothing
+  else; every file of a fixture is compared, support, or its `assert.tsv` or
+  `expected.tsv`;
+- every typed-tier language of the matrix has a fixture, and every typed-tier golden of
+  `bench/repos.lock` exactly one subset, at the commit the lock pins, of 2 to 10 files;
+- names and paths are sorted, unique and safe on every platform;
+- every file is a regular file reached through real directories, of the corpus's
+  language by the matrix's own detection (a header's content and siblings included),
+  each extension of one engine language (`.tsx` is `tsx`), and a golden's C or C++ file
+  at most 32 KiB.
+
+The golden checkouts are prepared exactly as `golden` prepares them (P2-12's Git
+settings and invariants); nothing else here fetches.
 
 ## The golden format (plan 5.7, decision 44)
 
@@ -220,6 +247,7 @@ area, never following a link; a symlink or anything else there stops the run.
 | `bench::process` | `run_monitored` (input, bounded output, resident-memory sampling, the ceiling), `SystemProbe`, `MEMORY_CEILING_BYTES`, `SAMPLE_INTERVAL` |
 | `bench::host` | `Host` (the machine, never named), `available_workers` |
 | `bench::results` | `ResultFile`, `SummaryFile`, `merge`, `summarise`, `canonical_bytes`, `stage_and_promote` |
+| `differential` | `parse`, `check_manifest`, `fixture_corpus`, `golden_corpus`, `check_files`, `typed_languages`, `typed_goldens`: the engine differential's corpora |
 | `bench::run` | `preflight`, `Settings`, `determinism_specs`, `sample_spec`, `check_determinism`, `aggregate`, `run(run, checkouts, builder, out, err)`, the `Builder` and `Checkouts` traits, `WorkerBuilder`, `GitCheckouts` |
 
 ## Tests
@@ -284,6 +312,15 @@ cargo test -p pdx-bench
 - Unit tests in `src/bench/` cover the timer, throughput, medians, the bounded reader,
   the resident-memory probe and ceiling, the host record, the result format and the
   safe emptying of the area.
+
+- `engine_differential` holds `engine_differential_identical`: the differential's
+  canonical comparison, on a committed synthetic pair of row dumps
+  (`tests/data/engine-differential/`), gives the same bytes for the same facts whatever
+  their order and project name, maps a `Property` to a field on both sides, and fails
+  with a bounded account when one call changes. It also checks the committed manifest:
+  its rules, a fixture for every typed-tier language, a subset for every typed-tier
+  golden, every fixture file its corpus's language, and `resolve_dump`'s extension
+  table against the matrix.
 
 The rest of `tests/` checks the repository itself: the lock files, the vendored
 engine, the scanners, the specification documents and the supply chain.

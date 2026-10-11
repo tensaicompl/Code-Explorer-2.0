@@ -15,3 +15,12 @@ extra_flags_variable	CFLAGS_EXTRA
 binary	codebase-memory-mcp
 cache_variable	CBM_CACHE_DIR
 index_arguments	cli --quiet index_repository
+
+# The engine differential (scripts/engine/differential.py) runs the reference with its
+# process environment emptied of the reference's own variables, and with a language
+# for every file's extension in its global configuration, so it reads each file as
+# this project's language matrix does; both live in a configuration directory of the
+# harness's own, never the user's.
+environment_prefix	CBM_
+language_config	codebase-memory-mcp/config.json
+language_config_key	extra_extensions

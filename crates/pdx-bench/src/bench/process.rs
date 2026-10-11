@@ -315,7 +315,16 @@ mod tests {
             .spawn()
             .expect("spawns");
         let mut probe = SystemProbe::new();
-        let rss = probe.sample(child.id());
+        // A child sampled before its exec completes can read as empty, so the probe
+        // gets a moment, as the harness's own repeated sampling does.
+        let mut rss = None;
+        for _ in 0..200 {
+            rss = probe.sample(child.id());
+            if rss.is_some_and(|bytes| bytes > 0) {
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
         stop(&mut child);
         assert!(rss.is_some_and(|bytes| bytes > 0), "{rss:?}");
     }

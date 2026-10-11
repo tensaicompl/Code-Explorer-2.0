@@ -18,9 +18,33 @@ The harness's disposable working area, git-ignored: pinned checkouts
 (`repos/<lang>/<repo>/`, and `repos/scale/<name>/` for scale repositories), the
 segments `pdx index` writes (`segments/`), goldens staged before they are compared or
 accepted (`generated/`), the benchmark builds' caches, segments and staged results
-(`bench/`), an empty hooks directory and an empty Git configuration. Delete any of it
+(`bench/`), the engine differential's canonical rows and differences
+(`engine-differential/`), an empty hooks directory and an empty Git configuration. Delete any of it
 at will; the next run rebuilds it. Once every pin is here, `make golden`,
 `make determinism` and `make perf` need no network.
+
+## engine-differential.toml
+
+The engine differential's corpora (P2-16, decision 50): what `make engine-differential`
+runs the vendored engine and the pinned, unmodified reference engine over, nightly, and
+compares row for row: definitions, call sites and callable references, imports, each
+file's cross-file surface and every typed answer. Every corpus is an explicit, sorted
+list of files, so a change in what is compared is a reviewed change to this file:
+
+- `[[fixture]]`: every typed-resolution fixture of `engine/tests/fixtures/resolve`,
+  every file of it listed as compared or as support (metadata staged for the engines,
+  never compared). Every typed-tier language of the matrix has at least one.
+- `[[golden]]`: 2 to 10 related files of every typed-tier golden repository at the
+  commit `repos.lock` pins, with a sentence on what they exercise. Only the paths are
+  committed; the source is read from the golden checkout under `.cache/repos/`. A
+  subset is staged without repository metadata, so its relations are chosen to need
+  none, and each C or C++ file is at most 32 KiB.
+
+`pdx-bench differential-corpora` checks it against the language matrix and the lock
+(a test does so on every `make check`) and fetches the goldens as `make golden` does.
+A difference is a finding, never a new baseline: there is nothing to accept. The full
+canonical rows and any difference of the last run are under
+`.cache/engine-differential/<corpus>/`.
 
 ## golden/
 

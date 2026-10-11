@@ -15,7 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 82 | 2026-10-11 | P2-14 | blocker | open | P2-14's performance run cannot complete either scale repository on the measuring machine (a 10 GB VM, 28 logical processors). Stage 2 keeps every file's extraction resident until the stage ends, at about 300 to 360 KB of resident memory per extraction completed, so a worker passes the harness's 6 GiB ceiling during extraction: Kubernetes (`6c1c770`, 25,930 files discovered) after 9.6 s with 21,211 extractions cached, Linux (`72d3fcf`, 95,723 files) after 14.2 s with 17,625. Not a defect of the harness: the goldens' peaks are 50 to 1,262 MiB. Blocks G1's scale criterion (peak RSS ≤ 4 GiB and ≥ 400 files/s on `kubernetes`), not P2-14 | Open. By the driver's decision P2-14 records each as `out_of_memory` data (peak, stage reached, stages finished, extractions cached) and its summary marks scale incomplete; nothing is optimised in P2-14. Needs Stage 2 and the registry to hold less per file (or stream into Stage 3) before G1 |
+| 83 | 2026-10-12 | P2-16 | blocker | open | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Open, not fixed in P2-16. Stage 2's invariants do not hold for C-family files: the engine reads files Stage 2 never gave it, unmasked and unredacted, possibly outside the repository; an extraction cached by its file's bytes does not change when a header it includes does; and the result depends on where `pdx index` runs. A fix is an engine change (preprocessing from the source alone, or from includes Stage 2 supplies) with an `ENGINE_VERSION` move: the driver's decision |
+| 82 | 2026-10-11 | P2-14 | blocker | open | P2-14's performance run cannot complete either scale repository on the measuring machine (a 10 GB VM, 28 logical processors). Stage 2 keeps every file's extraction resident until the stage ends, at about 300 to 360 KB of resident memory per extraction completed, so a worker passes the harness's 6 GiB ceiling during extraction: Kubernetes (`6c1c770`, 25,930 files discovered) after 9.6 s with 21,211 extractions cached, Linux (`72d3fcf`, 95,723 files) after 14.2 s with 17,625. Not a defect of the harness: the goldens' peaks are 50 to 1,262 MiB. Blocks G1's scale criterion (peak RSS ≤ 4 GiB and ≥ 400 files/s on `kubernetes`), not P2-14 | Open. Under Decision 49's P2-14 measurement policy, P2-14 records each as `out_of_memory` data (peak, stage reached, stages finished, extractions cached) and its summary marks scale incomplete; nothing is optimised in P2-14. Needs Stage 2 and the registry to hold less per file (or stream into Stage 3) before G1 |
 | 81 | 2026-10-11 | P2-14 | third-party | resolved | P2-14's deliverables need a benchmark framework for the `resolve` and `segment write` benchmarks and a way to read a benchmark worker's resident memory and the host's processors and memory on Linux, macOS and Windows; neither was in the dependency graph | `criterion` 0.8.2 (a dev-dependency of `pdx-core` only, default features off but `cargo_bench_support`) with 13 crates of its own, `safe-to-run`; `sysinfo` 0.39.6 (a dependency of `pdx-bench` only, default features off but `system`) with 16 crates of its own, `safe-to-deploy`: 31 exact-version exemptions added by hand, each naming this issue, and the existing `syn` 2.0.119 exemption raised from `safe-to-run` to `safe-to-deploy`, because `sysinfo`'s Windows dependency builds two procedural macros with it. Exemptions, not audits: 142 exemptions, 0 audits, 0 imports. `pdx` links none of them (`scripts/open-binary-check.sh`) |
 | 80 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: error recovery in C++ makes callables of what is not one, and they own the sites they span. Examples in fmt are a `Function` named `namespace` over lines 928–1755 of `include/fmt/core.h`, and a `Method` `GoogleTestFailureException` over lines 10986–11713 of gtest's header. Overloads and templates inside such regions, or in class bodies, get no definition: `basic_specs::set_fill(basic_string_view<Char>)`, `count<B1, B2, Tail...>`, `EqHelper::Compare` behind `enable_if`. Under engine 5 the name join gave their sites to another definition with the same name. Since issue 76 they belong to the representation as it is: the enclosing artefact, or the file | Open: an extraction-quality question for C and C++, not ownership's |
 | 79 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: the unified walk keeps a function's frame open past its node. Expiry waits for the next node that is not trivia, and an error-recovered region the parser marks as an extra is walked at a greater depth, so it never comes. Lexical facts in the region (the callable a call is found in, which typed resolution joins on) name the earlier function. In jq, 8 sites in `src/jq_test.c` inside `run_jq_pthread_tests`, which has no definition, are found in `run_jq_exhaust_and_reuse_tests`. Since issue 76 graph ownership is guarded: no site is owned by a callable whose declaration does not hold it, so these are the file's | Open: an engine change to lexical facts, with typed resolution's answers to review |
@@ -127,6 +128,46 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 83 — C-family preprocessing reads included files from disk
+
+P2-16's engine differential first ran the vendored engine with the workspace root as
+its working directory and the reference engine in the staged corpus root. Every
+golden subset agreed but jq's and fmt's, where the sites found in the macro-expanded
+text (`origin` 1) were the same calls, callers and arguments at other lines and bytes:
+`abort` in `memory_exhausted` of jq's `src/jv_alloc.c` at line 134 for the vendored
+engine and 398 for the reference. Run in the corpus root too, the vendored engine gives
+398: the sides then agree row for row (decision 50).
+
+The cause is in both engines. C, C++ and CUDA sources with preprocessor work are
+expanded by the vendored preprocessing library (`engine/src/preprocessor.cpp`), whose
+include loading opens a quoted include relative to the including file's path, which
+the interface gives as the repository-relative path, so it is resolved against the
+process's working directory. `src/jv_alloc.c` includes `jv.h`: run from the repository's
+root, `src/jv.h` is read from disk and expanded, 264 lines ahead of the first function;
+run elsewhere it is not found. `pdxe_extract_file`, which Stage 2 calls, is the path
+measured.
+
+What this breaks, for C-family files only:
+
+- **Stage 2's inputs.** The engine reads files Stage 2 never gave it: not normalised by
+  the secret detectors, not checked against the redaction patterns, and, for an include
+  that climbs out of the repository or a working directory elsewhere, possibly not the
+  repository's at all.
+- **The cache.** An extraction is cached by its own file's bytes and the versions; a
+  change to a header it includes does not change its key.
+- **Reproducibility.** The same commit indexed from two working directories can give
+  two segments. The goldens and the P2-14 baselines were built from the workspace root
+  (`pdx-bench` runs `pdx` there, and its builds run there), consistently, but not in the
+  repository's root.
+
+Nothing else differs: with one working directory the two engines agree on every
+corpus, so this is no fidelity defect of the vendoring, and P2-16 changes no engine
+behaviour. The fix is an engine change: preprocess from the source alone (no include
+loading), or from includes Stage 2 supplies, masked and confined to the repository. It
+moves `ENGINE_VERSION` and is the driver's decision.
+
+State: open.
+
 ### 82 — The scale repositories exhaust memory in Stage 2
 
 P2-14's performance run (`make perf`, decision 49) measured all ten goldens to
@@ -154,8 +195,8 @@ The harness behaved as specified. The goldens peak at 50 MiB (spring-petclinic) 
 1,262 MiB (Exposed), and the ceiling stopped each scale worker within one sampling
 interval of crossing it (1 and 5 MiB over).
 
-**Driver decision (P2-14).** Record the outcome as data rather than raise the ceiling or
-optimise inside P2-14. `bench/results/0.1.0/kubernetes.json` and `linux.json` hold
+**Decision 49's P2-14 measurement policy.** The outcome is recorded as data, rather than
+the ceiling raised or anything optimised inside P2-14. `bench/results/0.1.0/kubernetes.json` and `linux.json` hold
 `outcome: out_of_memory`, the peak, the stage reached (`extract`), the stages finished
 (discovery, with its count and duration), the files discovered and the extractions
 cached at the stop. No further sample is taken once one is stopped. The summary has

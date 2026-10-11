@@ -31,17 +31,18 @@ and run nightly under the address, undefined-behaviour and leak sanitizers over 
 committed corpus; it also transcribed the language matrix (`pdx_core::languages`).
 The previous implementation is in `legacy/`, read-only until the retirement task
 removes it. The local CLI has `pdx index`, `pdx coverage` and `pdx version` (P2-11), and
-`pdx bench` (P2-14); there is no query surface (MCP, server, UI) yet.
+`pdx bench` (P2-14); the engine differential (P2-16) closes P2; there is no query
+surface (MCP, server, UI) yet.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` is the CLI (`index`, `coverage`, `version`, `bench`, and the hidden `engine-worker`); `pdx-bench` is the benchmark harness (the lock files, the golden harness: `pdx-bench golden [--accept]`, and the determinism and performance baselines: `pdx-bench bench --determinism --perf`, with its hidden worker); the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` is the CLI (`index`, `coverage`, `version`, `bench`, and the hidden `engine-worker`); `pdx-bench` is the benchmark harness (the lock files, the golden harness: `pdx-bench golden [--accept]`, the determinism and performance baselines: `pdx-bench bench --determinism --perf`, with its hidden worker, and the engine differential's corpora: `pdx-bench differential-corpora`); the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
-| `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`), the goldens (`golden/`) and the baselines (`results/<version>/`) |
+| `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`), the goldens (`golden/`), the baselines (`results/<version>/`) and the engine differential's corpora (`engine-differential.toml`) |
 | `ada-indexer/`, `deploy/` | Skeleton and placeholder; contents arrive in their phases |
 | `legacy/` | The previous implementation. Do not fix, extend or import from it |
 
@@ -365,7 +366,7 @@ The determinism and performance baselines (P2-14, decision 49) are `pdx bench
   extract + resolve time; medians, the maximum peak RSS, hashes equal, every sample kept.
 - **RSS.** Sampled from the parent with `sysinfo` every 10 ms. Above the 6 GiB ceiling
   the worker is stopped: a golden fails, a scale repository records `out_of_memory`
-  (driver's decision; issue 82: Stage 2 retains about 330 KB per file, so Kubernetes and
+  (Decision 49's P2-14 measurement policy; issue 82: Stage 2 retains about 330 KB per file, so Kubernetes and
   Linux do not complete on this machine).
 - **Results** are `bench/results/<version>/<repo>.json` and `summary.json`, results
   format 1. Canonical JSON, provenance without branch or path, staged then promoted all
@@ -377,6 +378,35 @@ The determinism and performance baselines (P2-14, decision 49) are `pdx bench
 - **CI.** Normal CI does not run network performance benchmarks: `determinism` and
   `perf` are in `check-full` only. On a small machine run them in a capped scope above
   the ceiling (`MemoryMax=7G`).
+
+The engine differential (P2-16, decision 50) is `make engine-differential`: the vendored
+engine against the pinned, unmodified reference engine, row for row, over every corpus
+of `bench/engine-differential.toml`.
+
+- **Corpora.** Every typed-resolution fixture (Kotlin, PHP and Perl ones were added, so
+  every typed-tier language has one) and 2 to 10 related files of every typed-tier
+  golden, as committed paths at the lock's pin (C/C++ files at most 32 KiB, where patch
+  0012's budget is the reference's). `pdx-bench differential-corpora` checks them against
+  the matrix and the lock and fetches the goldens with P2-12's machinery.
+- **Observation.** Each file's extraction once the cross-file typed pass has written into
+  it: `engine/tests/differential_dump` for ours; for the reference, a hook
+  (`scripts/engine/differential_hook.c`) linked into its own build with `--wrap` around
+  its calls pass, its names translated by `scripts/vendor/rename-map.txt` inverted, built
+  outside the tree by `scripts/engine/reference-build.sh` (`PDX_REFERENCE_JOBS`,
+  `PDX_REFERENCE_EXTRA_FLAGS`; on this machine zlib's headers come from an unpacked
+  `zlib1g-dev`). One row printer, `engine/tests/differential_rows.h`, common fields only.
+- **Surfaces** are the cross-file definitions of the one shared surface codec: the
+  reference's as stored, ours from a run whose files came from exported surfaces, via the
+  internal test accessor `pdxe_project_debug_lsp_surfaces`.
+- **Canonical form.** Only the project wrapper becomes `@`; the kind comes from
+  `normalise_kind` in `engine/api/pdxe.c`, read from that file. Multisets, sorted, no
+  allowlist, no accept. Both engines get the same bytes, the same working directory (the
+  corpus root: issue 83, C-family preprocessing reads includes from disk), the same
+  language per file (the reference configured through its own extension configuration)
+  and the same metadata.
+- **Tests.** `engine_differential_identical` (crates/pdx-bench) and
+  `scripts/engine/test_differential.py` run in `make check`; the live comparison never
+  does. All 32 corpora were identical at P2-16.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file
@@ -401,7 +431,8 @@ exemptions.
 
 Engine-specific targets: `make engine-test` (the interface tests),
 `make engine-typed-reference` (re-record the reference engine's answers for the
-typed-resolution fixtures; needs the pinned checkout), `make vendor-verify` (a
+typed-resolution fixtures; needs the pinned checkout), `make engine-differential` (the
+engine against the reference engine, nightly; needs the pinned checkout), `make vendor-verify` (a
 refresh at the pinned commit must reproduce `engine/` exactly), `make vendor-refresh`.
 
 Requires Rust 1.98.1 (pinned in `rust-toolchain.toml`), gcc 13 or clang 17+,

@@ -1,0 +1,407 @@
+# The engine differential's corpora (P2-16, decision 50): what make engine-differential
+# runs the vendored engine and the pinned, unmodified reference engine over, and
+# compares row for row. pdx-bench differential-corpora checks this file against the
+# language matrix and bench/repos.lock; scripts/engine/differential.py runs it.
+#
+# Every corpus is an explicit, sorted list of files, never discovered, so a change in
+# what is compared is a reviewed change to this file.
+#
+#   [[fixture]]  every typed-resolution fixture of engine/tests/fixtures/resolve, every
+#                file listed: compared sources, and support files staged for the engines
+#                but never compared (pdx-metadata.txt for the vendored engine and the
+#                native manifest it stands for, which the reference reads). Every
+#                typed-tier language has at least one.
+#   [[golden]]   a bounded cluster of related files of every typed-tier golden
+#                repository, at the commit bench/repos.lock pins; only paths are
+#                committed, never source. A subset stages its sources alone, so neither
+#                engine receives repository metadata; each cluster's relations need none
+#                (one Go package, Python relative imports, TypeScript relative imports, a
+#                Rust crate's modules, Java and Kotlin packages, C# namespaces, C and
+#                C++ includes within the subset). A C or C++ file is at most 32 KiB, where
+#                patch 0012's evaluation budget equals the reference's.
+
+format = 1
+
+[[fixture]]
+name = "c_header_include"
+language = "c"
+root = "engine/tests/fixtures/resolve/c_header_include"
+files = [
+    "include/util.h",
+    "src/main.c",
+    "src/util.c",
+]
+support = []
+
+[[fixture]]
+name = "cpp_header_include"
+language = "cpp"
+root = "engine/tests/fixtures/resolve/cpp_header_include"
+files = [
+    "main.cpp",
+    "shapes.cpp",
+    "shapes.hpp",
+]
+support = []
+
+[[fixture]]
+name = "csharp_namespace_using"
+language = "csharp"
+root = "engine/tests/fixtures/resolve/csharp_namespace_using"
+files = [
+    "App/Service.cs",
+    "Core/Repo.cs",
+]
+support = []
+
+[[fixture]]
+name = "go_import_differential_no_pkgmap"
+language = "go"
+root = "engine/tests/fixtures/resolve/go_import_differential_no_pkgmap"
+files = [
+    "cmd/app/main.go",
+    "internal/foo/foo.go",
+]
+support = []
+
+[[fixture]]
+name = "go_import_resolves_with_supplied_pkgmap"
+language = "go"
+root = "engine/tests/fixtures/resolve/go_import_resolves_with_supplied_pkgmap"
+files = [
+    "cmd/app/main.go",
+    "internal/foo/foo.go",
+]
+support = [
+    "go.mod",
+    "pdx-metadata.txt",
+]
+
+[[fixture]]
+name = "java_constructor_cross_file"
+language = "java"
+root = "engine/tests/fixtures/resolve/java_constructor_cross_file"
+files = [
+    "src/main/java/com/acme/app/Service.java",
+    "src/main/java/com/acme/core/Repo.java",
+]
+support = []
+
+[[fixture]]
+name = "java_package_class_import"
+language = "java"
+root = "engine/tests/fixtures/resolve/java_package_class_import"
+files = [
+    "src/main/java/com/acme/app/Service.java",
+    "src/main/java/com/acme/core/Repo.java",
+]
+support = []
+
+[[fixture]]
+name = "js_import_member_calls"
+language = "javascript"
+root = "engine/tests/fixtures/resolve/js_import_member_calls"
+files = [
+    "app.js",
+    "lib/counter.js",
+]
+support = []
+
+[[fixture]]
+name = "kotlin_package_import_calls"
+language = "kotlin"
+root = "engine/tests/fixtures/resolve/kotlin_package_import_calls"
+files = [
+    "src/main/kotlin/com/acme/app/Service.kt",
+    "src/main/kotlin/com/acme/core/Repo.kt",
+]
+support = []
+
+[[fixture]]
+name = "perl_package_calls"
+language = "perl"
+root = "engine/tests/fixtures/resolve/perl_package_calls"
+files = [
+    "bin/service.pl",
+    "lib/Acme/Repo.pm",
+]
+support = []
+
+[[fixture]]
+name = "php_namespace_use_calls"
+language = "php"
+root = "engine/tests/fixtures/resolve/php_namespace_use_calls"
+files = [
+    "src/App/Service.php",
+    "src/Core/Repo.php",
+]
+support = []
+
+[[fixture]]
+name = "python_ambiguous_same_name"
+language = "python"
+root = "engine/tests/fixtures/resolve/python_ambiguous_same_name"
+files = [
+    "main.py",
+    "other.py",
+    "pkg_a/tools.py",
+    "pkg_b/tools.py",
+    "third.py",
+]
+support = []
+
+[[fixture]]
+name = "python_cross_file_calls"
+language = "python"
+root = "engine/tests/fixtures/resolve/python_cross_file_calls"
+files = [
+    "app/models.py",
+    "app/service.py",
+]
+support = []
+
+[[fixture]]
+name = "python_locally_bound_call"
+language = "python"
+root = "engine/tests/fixtures/resolve/python_locally_bound_call"
+files = [
+    "app/runner.py",
+    "lib/jobs.py",
+]
+support = []
+
+[[fixture]]
+name = "python_self_rooted_member_call"
+language = "python"
+root = "engine/tests/fixtures/resolve/python_self_rooted_member_call"
+files = [
+    "app/query.py",
+    "lib/conv.py",
+]
+support = []
+
+[[fixture]]
+name = "python_unresolvable_import"
+language = "python"
+root = "engine/tests/fixtures/resolve/python_unresolvable_import"
+files = [
+    "local.py",
+    "main.py",
+]
+support = []
+
+[[fixture]]
+name = "python_unresolved_member_call"
+language = "python"
+root = "engine/tests/fixtures/resolve/python_unresolved_member_call"
+files = [
+    "app/service.py",
+    "lib/tools.py",
+]
+support = []
+
+[[fixture]]
+name = "rust_workspace_with_supplied_manifest"
+language = "rust"
+root = "engine/tests/fixtures/resolve/rust_workspace_with_supplied_manifest"
+files = [
+    "crates/alpha/src/lib.rs",
+    "crates/beta/src/main.rs",
+]
+support = [
+    "Cargo.toml",
+    "pdx-metadata.txt",
+]
+
+[[fixture]]
+name = "rust_workspace_without_manifest"
+language = "rust"
+root = "engine/tests/fixtures/resolve/rust_workspace_without_manifest"
+files = [
+    "crates/alpha/src/lib.rs",
+    "crates/beta/src/main.rs",
+]
+support = []
+
+[[fixture]]
+name = "ts_import_member_calls"
+language = "typescript"
+root = "engine/tests/fixtures/resolve/ts_import_member_calls"
+files = [
+    "src/main.ts",
+    "src/util.ts",
+]
+support = []
+
+[[fixture]]
+name = "ts_path_alias_with_metadata"
+language = "typescript"
+root = "engine/tests/fixtures/resolve/ts_path_alias_with_metadata"
+files = [
+    "src/app/show.ts",
+    "src/lib/format.ts",
+]
+support = [
+    "pdx-metadata.txt",
+    "tsconfig.json",
+]
+
+[[fixture]]
+name = "ts_path_alias_without_metadata"
+language = "typescript"
+root = "engine/tests/fixtures/resolve/ts_path_alias_without_metadata"
+files = [
+    "src/app/show.ts",
+    "src/lib/format.ts",
+]
+support = []
+
+[[fixture]]
+name = "ts_unresolved_member_call"
+language = "typescript"
+root = "engine/tests/fixtures/resolve/ts_unresolved_member_call"
+files = [
+    "app/service.ts",
+    "lib/tools.ts",
+]
+support = []
+
+[[golden]]
+key = "c/jq"
+commit = "9a75bb0d4318bb6f6509635d89319ff40ee9ecac"
+cluster = "The value allocator, file reading, Unicode and location tables around jv.h: allocation calls between jv_alloc.c and its header, jv_file.c reading through jv.h and the allocator, the UTF-8 decoder and its tables, and the location file."
+files = [
+    "src/jv.h",
+    "src/jv_alloc.c",
+    "src/jv_alloc.h",
+    "src/jv_file.c",
+    "src/jv_unicode.c",
+    "src/jv_unicode.h",
+    "src/jv_utf8_tables.h",
+    "src/locfile.c",
+    "src/locfile.h",
+]
+
+[[golden]]
+key = "cpp/fmt"
+commit = "5da4e9a3fb15626ba92969199061e0169ebc8a00"
+cluster = "The operating-system layer and the test utilities around it: os.h declared and defined in os.cc, and the test helpers (util, gtest-extra, the assertion and allocator mocks) that call into it."
+files = [
+    "include/fmt/os.h",
+    "src/os.cc",
+    "test/gtest-extra.cc",
+    "test/gtest-extra.h",
+    "test/mock-allocator.h",
+    "test/test-assert.h",
+    "test/util.cc",
+    "test/util.h",
+]
+
+[[golden]]
+key = "csharp/eShop"
+commit = "b4a40872005d4bb29e5b1fa1ff7e244143d39215"
+cluster = "The ordering domain: the Order aggregate with its items, address and status, the seed-work base types it derives from, its domain exception and events, and the global usings that bind their namespaces."
+files = [
+    "src/Ordering.Domain/AggregatesModel/OrderAggregate/Address.cs",
+    "src/Ordering.Domain/AggregatesModel/OrderAggregate/Order.cs",
+    "src/Ordering.Domain/AggregatesModel/OrderAggregate/OrderItem.cs",
+    "src/Ordering.Domain/AggregatesModel/OrderAggregate/OrderStatus.cs",
+    "src/Ordering.Domain/Events/OrderStartedDomainEvent.cs",
+    "src/Ordering.Domain/Exceptions/OrderingDomainException.cs",
+    "src/Ordering.Domain/GlobalUsings.cs",
+    "src/Ordering.Domain/SeedWork/Entity.cs",
+    "src/Ordering.Domain/SeedWork/IAggregateRoot.cs",
+    "src/Ordering.Domain/SeedWork/ValueObject.cs",
+]
+
+[[golden]]
+key = "go/gin"
+commit = "1bd0ecf2d3e08da37efa270bb7be20c1eddb0d68"
+cluster = "The engine and its router group in one package: gin.go's Engine, routergroup.go's handlers registering through it, context.go's Context the handlers receive, and the helpers they call (auth, debug, errors, mode, path, utils)."
+files = [
+    "auth.go",
+    "context.go",
+    "debug.go",
+    "errors.go",
+    "gin.go",
+    "mode.go",
+    "path.go",
+    "routergroup.go",
+    "utils.go",
+]
+
+[[golden]]
+key = "java/spring-petclinic"
+commit = "818c4136ea971c21674525f9053de0d9c7ad8cfe"
+cluster = "The owner package and the model it builds on: Owner, Pet, PetType and Visit extending the model's Person, NamedEntity and BaseEntity, the repository and the controller calling them."
+files = [
+    "src/main/java/org/springframework/samples/petclinic/model/BaseEntity.java",
+    "src/main/java/org/springframework/samples/petclinic/model/NamedEntity.java",
+    "src/main/java/org/springframework/samples/petclinic/model/Person.java",
+    "src/main/java/org/springframework/samples/petclinic/owner/Owner.java",
+    "src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java",
+    "src/main/java/org/springframework/samples/petclinic/owner/OwnerRepository.java",
+    "src/main/java/org/springframework/samples/petclinic/owner/Pet.java",
+    "src/main/java/org/springframework/samples/petclinic/owner/PetType.java",
+    "src/main/java/org/springframework/samples/petclinic/owner/Visit.java",
+]
+
+[[golden]]
+key = "kotlin/Exposed"
+commit = "023a6a3a73c5a3717b824a152b506edc28b662f0"
+cluster = "The core transactions package: the transaction interface and manager API, the per-thread stack and managers container, the holder and scope, and the database manager, calling each other within one package."
+files = [
+    "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/transactions/DatabasesManager.kt",
+    "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/transactions/ThreadLocalTransactionsStack.kt",
+    "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/transactions/TransactionInterface.kt",
+    "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/transactions/TransactionManagerApi.kt",
+    "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/transactions/TransactionManagersContainer.kt",
+    "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/transactions/TransactionScope.kt",
+    "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/transactions/Transactions.kt",
+    "exposed-core/src/main/kotlin/org/jetbrains/exposed/v1/core/transactions/TransactionsHolder.kt",
+]
+
+[[golden]]
+key = "python/flask"
+commit = "d73fa1cdcbd8b1465c151db8924ba58b1dd14e35"
+cluster = "Blueprints: flask's Blueprint over the sansio Blueprint and Scaffold it derives from, the helpers and globals they call, the views and the typing aliases they import, all by relative import."
+files = [
+    "src/flask/blueprints.py",
+    "src/flask/globals.py",
+    "src/flask/helpers.py",
+    "src/flask/sansio/blueprints.py",
+    "src/flask/sansio/scaffold.py",
+    "src/flask/typing.py",
+    "src/flask/views.py",
+]
+
+[[golden]]
+key = "rust/axum"
+commit = "bc8d4912435204a4a073cea70355ae0328d263fe"
+cluster = "axum-core's extractors: the extract module's traits, its option, rejection, request-parts, tuple and body-limit modules, the body and error types they use, and the crate root declaring them."
+files = [
+    "axum-core/src/body.rs",
+    "axum-core/src/error.rs",
+    "axum-core/src/extract/default_body_limit.rs",
+    "axum-core/src/extract/from_ref.rs",
+    "axum-core/src/extract/mod.rs",
+    "axum-core/src/extract/option.rs",
+    "axum-core/src/extract/rejection.rs",
+    "axum-core/src/extract/request_parts.rs",
+    "axum-core/src/extract/tuple.rs",
+    "axum-core/src/lib.rs",
+]
+
+[[golden]]
+key = "typescript/hono"
+commit = "52f6c7ec865b31001a14eed9b323a0235f0a3156"
+cluster = "The application core: hono.ts over hono-base.ts, the router interface, compose's middleware chain, and the context, request and HTTP exception they pass along, by relative import."
+files = [
+    "src/compose.ts",
+    "src/context.ts",
+    "src/hono-base.ts",
+    "src/hono.ts",
+    "src/http-exception.ts",
+    "src/request.ts",
+    "src/router.ts",
+]

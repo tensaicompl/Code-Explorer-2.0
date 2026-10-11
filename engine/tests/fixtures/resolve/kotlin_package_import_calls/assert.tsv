@@ -1,0 +1,9 @@
+# What this fixture proves, independently of the reference: '+' rows must be
+# present and '-' rows absent. Fields: sign, kind, source, target, strategy or
+# local name; '*' matches anything. Kotlin across packages: a typed call through a
+# constructor in another package, its imports bound, and no call drawn from a
+# name nothing defines.
++	CALLS	src.main.kotlin.com.acme.app.Service.Service.direct	src.main.kotlin.com.acme.core.Repo.Repo.find	lsp_kt_method
++	IMPORTS	FILE:src/main/kotlin/com/acme/app/Service.kt	*	Repo
++	IMPORTS	FILE:src/main/kotlin/com/acme/app/Service.kt	*	makeRepo
+-	CALLS	src.main.kotlin.com.acme.app.Service.Service.unknown	*	*

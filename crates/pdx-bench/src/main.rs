@@ -1,5 +1,6 @@
-//! The pdx-bench harness: `pdx-bench golden [--accept]` (P2-12) and `pdx-bench bench
-//! --determinism --perf` (P2-14), which `pdx bench` launches. Its benchmark worker is
+//! The pdx-bench harness: `pdx-bench golden [--accept]` (P2-12), `pdx-bench bench
+//! --determinism --perf` (P2-14), which `pdx bench` launches, and `pdx-bench
+//! differential-corpora` (P2-16), which the engine differential reads. Its benchmark worker is
 //! served before the command line is parsed, when the first argument is
 //! `pdx_bench::bench::worker::WORKER`; it is no subcommand and in no help.
 
@@ -15,7 +16,9 @@ use pdx_bench::bench::run::{
     self as bench_run, BenchError, GitCheckouts, Modes, Settings, WorkerBuilder,
 };
 use pdx_bench::bench::worker::{self, WORKER};
+use pdx_bench::differential;
 use pdx_bench::golden::cache::Cache;
+use pdx_bench::golden::git::{Git, Prepared, prepare_checkout};
 use pdx_bench::golden::index::sibling_pdx;
 use pdx_bench::golden::plan::golden_plan;
 use pdx_bench::golden::run::{self, GoldenError, Mode, PdxProducer};
@@ -74,6 +77,12 @@ fn command() -> Command {
                         .multiple(true),
                 ),
         )
+        .subcommand(Command::new("differential-corpora").about(
+            "Check bench/engine-differential.toml against the language matrix and \
+             bench/repos.lock, fetch the golden repositories it names at their pinned \
+             commits, and print every corpus of the engine differential as JSON \
+             (scripts/engine/differential.py reads it)",
+        ))
 }
 
 fn main() -> ExitCode {
@@ -123,6 +132,7 @@ fn run_with(args: impl IntoIterator<Item = OsString>) -> ExitCode {
             performance: m.get_flag("perf"),
         })
         .map_err(|e| e.to_string()),
+        Some(("differential-corpora", _)) => differential_corpora(),
         _ => unreachable!("a subcommand is required"),
     };
     match result {
@@ -161,6 +171,45 @@ fn bench(modes: Modes) -> Result<(), BenchError> {
     let mut out = std::io::stdout().lock();
     let mut err = std::io::stderr();
     bench_run::run(&run, &mut checkouts, &mut builder, &mut out, &mut err)
+}
+
+/// `pdx-bench differential-corpora`: the engine differential's corpora, checked, the
+/// goldens fetched as `golden` fetches them, as one JSON document on standard output.
+fn differential_corpora() -> Result<(), String> {
+    let here = std::env::current_dir().map_err(|e| e.to_string())?;
+    let root = run::workspace_root(&here).map_err(|e| e.to_string())?;
+    let text = std::fs::read_to_string(root.join(differential::MANIFEST))
+        .map_err(|e| format!("{}: {e}", differential::MANIFEST))?;
+    let manifest = differential::parse(&text).map_err(|e| e.to_string())?;
+    let repos = lock::bench_repos(&root.join("bench/repos.lock")).map_err(|e| e.to_string())?;
+    let dirs = differential::fixture_dirs(&root).map_err(|e| e.to_string())?;
+    differential::check_manifest(&manifest, &repos, &dirs).map_err(|e| e.to_string())?;
+    let mut corpora = Vec::new();
+    for fixture in &manifest.fixture {
+        corpora.push(differential::fixture_corpus(&root, fixture).map_err(|e| e.to_string())?);
+    }
+    let cache = Cache::open(&root.join("bench/.cache")).map_err(|e| e.to_string())?;
+    let git = Git::new(
+        cache.no_hooks().map_err(|e| e.to_string())?,
+        cache.git_global().map_err(|e| e.to_string())?,
+    );
+    let goldens = differential::typed_goldens(&repos).map_err(|e| e.to_string())?;
+    for (subset, entry) in manifest.golden.iter().zip(&goldens) {
+        let checkout = cache.checkout(entry).map_err(|e| e.to_string())?;
+        let prepared = prepare_checkout(&git, &checkout, &entry.fetch_url(), &entry.commit)
+            .map_err(|e| format!("{}: {e}", entry.key()))?;
+        let how = match prepared {
+            Prepared::Reused => "checkout reused",
+            Prepared::Fetched => "commit fetched",
+        };
+        eprintln!("pdx-bench: {}: {how}", entry.key());
+        corpora.push(
+            differential::golden_corpus(subset, entry, &checkout).map_err(|e| e.to_string())?,
+        );
+    }
+    let document = serde_json::json!({ "format": differential::FORMAT, "corpora": corpora });
+    println!("{document}");
+    Ok(())
 }
 
 /// `pdx-bench golden`.
@@ -202,7 +251,7 @@ mod tests {
         assert!(golden.get_flag("accept"));
         let cli = command();
         let names: Vec<&str> = cli.get_subcommands().map(Command::get_name).collect();
-        assert_eq!(names, ["golden", "bench"]);
+        assert_eq!(names, ["golden", "bench", "differential-corpora"]);
         for args in [
             &["pdx-bench"][..],
             &["pdx-bench", "golden", "--determinism"],

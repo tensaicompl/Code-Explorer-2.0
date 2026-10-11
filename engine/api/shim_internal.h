@@ -118,6 +118,21 @@ void pdxe_project_debug_raw_resolutions(struct pdxe_project *p, pdxe_raw_resolut
 void pdxe_project_debug_imports(struct pdxe_project *p, pdxe_import_edge_fn fn, void *userdata);
 
 /*
+ * Each file's cross-file surface as the reference persists it for its incremental
+ * builds: the definitions the cross-file pass registers from the file and the names
+ * only the registry serves, as the JSON the engine's own codec writes
+ * (resolve/lsp_surface.c), built after the run from the project's results and context
+ * exactly as the pass builds them. A run never builds these (the interface gives the
+ * pass no pipeline to hand them to). For the engine differential (P2-16), which
+ * compares them with the reference's; a file whose results came from surfaces
+ * (pdxe_surface_import) is built from what the surface carried. Qualified names keep
+ * the project sentinel. Not part of the public interface.
+ */
+typedef void (*pdxe_lsp_surface_fn)(const char *rel_path, const char *defs_json, void *userdata);
+void pdxe_project_debug_lsp_surfaces(struct pdxe_project *p, pdxe_lsp_surface_fn fn,
+                                     void *userdata);
+
+/*
  * The engine's own result behind a result extraction returned, with what the engine
  * keeps private: the declaration occurrences that join sites to the definitions owning
  * them (issue 76). NULL for a result rebuilt from a cache. For tests and diagnostics
