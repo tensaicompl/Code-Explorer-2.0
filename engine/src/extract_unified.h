@@ -212,6 +212,24 @@ typedef struct {
     PDXELanguage language;
 
     os_type_map_t os_type_map; // ObjectScript variable → type mapping
+
+    /* Issue 75. The file's extracted definitions as exact declaration occurrences
+     * (qualified name, first line, last line): an open-addressing set of the
+     * indices + 1 (0 is empty) of the first modeled_def_count definitions, built
+     * with the C library's allocator. If it cannot be, modeled_slots is NULL and
+     * lookups scan those same definitions, the same answer more slowly, so
+     * nothing is lost (as the C resolver's negative memo). Not built while
+     * definitions may still be adopted after the walk (ctx->defs_incomplete). */
+    int32_t *modeled_slots;
+    uint32_t modeled_mask;
+    int modeled_def_count;
+    /* By cursor depth, the represented callable whose function frame opened
+     * there; a site's owner is the one at enclosing_func_depth (the module at
+     * 0). Grown in the arena; when it cannot grow, owner_qns_failed, and the
+     * owner is read from the open frames instead. */
+    const char **owner_qns;
+    uint32_t owner_qns_capacity;
+    bool owner_qns_failed;
 } WalkState;
 
 /* #1912: is `name` bound as a parameter by a Python function or lambda scope

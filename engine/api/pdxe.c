@@ -40,8 +40,10 @@
 /* 2: sites carry their node-type path (issue 46). 3: definitions carry every route
  * binding with its declaring node (issue 54). 4: the C and C++ expression evaluator's
  * per-file step budget grows with the source, 10000 steps per started 32 KiB up to
- * 320000 (issue 74, patch 0012). */
-static const char ENGINE_VERSION_STRING[] = "4";
+ * 320000 (issue 74, patch 0012). 5: sites inside a nested callable the extractor does
+ * not represent belong to the nearest represented callable, whose node their path
+ * starts at, while keeping their nested lexical scope (issue 75, patch 0013). */
+static const char ENGINE_VERSION_STRING[] = "5";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;
@@ -520,7 +522,11 @@ static uint32_t count_strings(const char *const *v) {
     return n;
 }
 
-static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const PDXECall *c) {
+/* `graph_owner`: report the represented callable that owns the call (issue 75), as a
+ * file's own calls do. A resolution's site names the callable the call was found in,
+ * which is all a surface records, so cached and fresh answers agree. */
+static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const PDXECall *c,
+                         bool graph_owner) {
     pdxe_call o = {0};
     /* The engine's own static node types, borrowed; arguments are attached by the
      * caller, which owns the array they go in. */
@@ -532,7 +538,8 @@ static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const P
      * a receiver is only ever split off by the resolver that needs it.
      */
     o.receiver_text = NULL;
-    o.caller_index = index_of_qn(defs, c->enclosing_func_qn);
+    o.caller_index =
+        index_of_qn(defs, graph_owner && c->owner_qn ? c->owner_qn : c->enclosing_func_qn);
     o.span = site_span(li, c->source_origin, c->site_start_byte, c->site_end_byte, c->start_line);
     o.is_reference = 0;
     o.typed_only = c->requires_lsp_resolution ? 1 : 0;
@@ -541,13 +548,15 @@ static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const P
 }
 
 /* The interface's description of a usage that may be a call reference. */
-static pdxe_call reference_of(const PDXEDefArray *defs, const line_index *li, const PDXEUsage *u) {
+static pdxe_call reference_of(const PDXEDefArray *defs, const line_index *li, const PDXEUsage *u,
+                              bool graph_owner) {
     pdxe_call o = {0};
     o.callee_text = u->ref_name;
     o.receiver_text = NULL;
     o.n_ast_path = count_strings(u->ast_path);
     o.ast_path = o.n_ast_path ? u->ast_path : NULL;
-    o.caller_index = index_of_qn(defs, u->enclosing_func_qn);
+    o.caller_index =
+        index_of_qn(defs, graph_owner && u->owner_qn ? u->owner_qn : u->enclosing_func_qn);
     o.span = site_span(li, u->source_origin, u->site_start_byte, u->site_end_byte, 0);
     o.is_reference = 1;
     o.typed_only = 0;
@@ -707,7 +716,7 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
         return PDXE_E_NOMEM;
     }
     for (int i = 0; i < calls->count; i++) {
-        r->calls[r->n_calls++] = call_of(defs, li, &calls->items[i]);
+        r->calls[r->n_calls++] = call_of(defs, li, &calls->items[i], true);
     }
     /* The calls' captured arguments, translated into one array (issue 47). */
     size_t n_args = 0;
@@ -742,7 +751,7 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
     }
     for (int i = 0; i < usages->count; i++) {
         if (is_reference_site(&usages->items[i])) {
-            r->calls[r->n_calls++] = reference_of(defs, li, &usages->items[i]);
+            r->calls[r->n_calls++] = reference_of(defs, li, &usages->items[i], true);
         }
     }
 
@@ -2100,7 +2109,7 @@ static int collect_calls(pdxe_project *p, int i, uint32_t n_refs, resolution_lis
         }
         /* The resolver's own calls follow extraction's calls and references. */
         o->call_index = j < st->n_calls_before ? (uint32_t)j : (uint32_t)j + n_refs;
-        o->site = call_of(&res->defs, &st->li, call);
+        o->site = call_of(&res->defs, &st->li, call, false);
         o->target_qualified_name = strip_project(target->qualified_name);
         o->target_rel_path = target_path(target);
         o->score = (double)lsp->confidence;
@@ -2145,7 +2154,7 @@ static int collect_references(pdxe_project *p, int i, resolution_list *out) {
             return PDXE_E_NOMEM;
         }
         o->call_index = call_index;
-        o->site = reference_of(&res->defs, &st->li, usage);
+        o->site = reference_of(&res->defs, &st->li, usage, false);
         o->target_qualified_name =
             strip_project(target ? target->qualified_name : ref->callee_qn);
         o->target_rel_path = target_path(target);

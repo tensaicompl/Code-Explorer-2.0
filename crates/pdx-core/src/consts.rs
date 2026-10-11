@@ -41,9 +41,12 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// definition's decorators or annotations declare, with the declaring node's position
 /// and node-type path (issue 54); 4 since the C and C++ expression evaluator's per-file
 /// step budget grows with the source, 10,000 steps per started 32 KiB up to 320,000,
-/// so a large file resolves what a fixed 10,000 cut short (issue 74, decision 45).
+/// so a large file resolves what a fixed 10,000 cut short (issue 74, decision 45); 5
+/// since a site inside a nested callable the extractor does not represent is owned by
+/// the nearest represented callable, whose node its path starts at, while its nested
+/// lexical scope is kept (issue 75, decision 47).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
-pub const ENGINE_VERSION: u32 = 4;
+pub const ENGINE_VERSION: u32 = 5;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the

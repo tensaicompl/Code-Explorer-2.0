@@ -2044,6 +2044,12 @@ static const char *pdxe_error_ranges_str(PDXEArena *a, const pdxe_error_regions_
     return buf;
 }
 
+/* Whether a language has the preprocessed second pass, which also adopts
+ * definitions after the unified walk (issue 75: see defs_incomplete). */
+static bool has_preprocessed_pass(PDXELanguage language) {
+    return language == PDXE_LANG_C || language == PDXE_LANG_CPP || language == PDXE_LANG_CUDA;
+}
+
 /* Public entry: run the extraction and journal completion. The DONE mark on
  * every ordinary return (including error/timeout results) tells the crash
  * supervisor this file did NOT kill the worker — only a file whose S has no
@@ -2306,6 +2312,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
         .macro_table = macro_table,
         .return_type_table = return_type_table,
         .walk_budget_nodes = pdxe_walk_max_nodes(),
+        .defs_incomplete = has_preprocessed_pass(language),
     };
 
     // Run extractors: defs + imports use separate walks (unique recursion patterns),
@@ -2408,7 +2415,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
 
     // Second pass: preprocess C/C++/CUDA and extract additional macro-hidden calls.
     // Defs keep original-source line numbers; only CALLS are extracted from expanded source.
-    if (language == PDXE_LANG_C || language == PDXE_LANG_CPP || language == PDXE_LANG_CUDA) {
+    if (has_preprocessed_pass(language)) {
         uint64_t pp_start = now_ns();
         /* #1989: collect build-system export-macro candidates from the raw
          * source. They are predefined empty in the expanded buffer (see
@@ -2458,6 +2465,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                         .rel_path = rel_path,
                         .module_qn = result->module_qn,
                         .root = pp_root,
+                        .defs_incomplete = true,
                     };
                     // Re-run unified extraction on expanded source.
                     // This adds macro-expanded calls; duplicates with original calls are

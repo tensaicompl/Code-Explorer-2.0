@@ -283,6 +283,11 @@ typedef enum {
 typedef struct {
     const char *callee_name;       // raw callee text ("pkg.Func", "foo")
     const char *enclosing_func_qn; // QN of enclosing function (or module QN)
+    /* Issue 75: the enclosing callable the result represents, which owns the call
+     * in the graph; enclosing_func_qn can name a nested callable it does not. NULL
+     * when not recorded, meaning enclosing_func_qn. Never encoded in a surface:
+     * typed resolution joins on enclosing_func_qn. */
+    const char *owner_qn;
     const char *first_string_arg;  // first string literal argument (URL, topic, key) or NULL
     const char *second_arg_name;   // second argument identifier (handler ref) or NULL
     /* First arg_count captured arguments, arena-allocated on first capture;
@@ -336,6 +341,7 @@ typedef enum {
 typedef struct {
     const char *ref_name;          // referenced identifier
     const char *enclosing_func_qn; // QN of enclosing function (or module QN)
+    const char *owner_qn;          // as PDXECall.owner_qn (issue 75)
     /* Fixed-width fields grouped so the record packs to 40 bytes (was 48; the
      * Go corpus holds 4.68M of these). Field meanings unchanged. */
     uint32_t lexical_scope_id;       // extraction-local scope instance; never graph identity
@@ -714,6 +720,13 @@ typedef struct {
     /* How many nodes the unified walk actually visited (whether or not it ran
      * out of budget) — the measurement the budget has to be expressed in. */
     uint32_t walk_nodes_visited;
+    /* Definitions may still be adopted after the unified walk: the preprocessed
+     * second pass of C, C++ and CUDA rescues definitions from the macro-expanded
+     * text afterwards (#961, #1989). The walk then cannot tell a callable the
+     * result will represent from one it will not, so every named callable
+     * boundary owns its sites by qualified name, as before issue 75, and the
+     * qualified-name translation after extraction decides. */
+    bool defs_incomplete;
 } PDXEExtractCtx;
 
 // --- Public API ---

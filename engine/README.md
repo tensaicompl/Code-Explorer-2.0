@@ -84,8 +84,12 @@ Everything goes through `include/pdxe.h`. In outline:
   and Rust's `impl Trait for Type` relations, empty blocks included (issue 42). Each
   definition also carries its decorators, declared parameter types and, for a Spring
   or `FastAPI` handler, its route; each call its arguments (issue 47) and, for a site
-  positioned in the file, its node-type path from the innermost enclosing function,
-  which `patches/0010-site-node-type-paths.patch` records during the walk (issue 46).
+  positioned in the file, its node-type path from the innermost enclosing definition
+  the result represents, which `patches/0010-site-node-type-paths.patch` records
+  during the walk (issue 46). A nested callable the extractor does not represent owns
+  no site: its sites belong to the nearest represented one around it, while it keeps
+  its own lexical scope (`patches/0013-nested-modeled-call-ownership.patch`,
+  issue 75).
   Every route binding a definition's annotations or decorators declare crosses as a
   `pdxe_route`, with the declaring node's position and node-type path
   (`patches/0011-route-facts.patch`, issue 54).

@@ -1,0 +1,387 @@
+--- a/engine/src/extract_unified.c
++++ b/engine/src/extract_unified.c
+@@ -415,6 +415,192 @@ static bool push_function_scope(WalkState *state, uint32_t depth, const char *fu
+                                             PDXE_LEXICAL_SCOPE_FUNCTION);
+ }
+ 
++/* ── Issue 75: the owner of a site is a callable the result represents ────────
++ *
++ * A function frame names the enclosing callable (enclosing_func_qn) for every fact
++ * found under it, opens the callable's lexical scope, and starts the node-type path
++ * of every site under it (enclosing_func_depth). The first two are lexical facts and
++ * stay as they were for every callable: typed resolution joins its answers to calls
++ * by that name, and parameters and locals bind in that scope. The path start, and
++ * the definition a call or callable reference is attributed to (owner_qn), are graph
++ * facts: they belong to a callable the graph has a node for.
++ *
++ * Definitions are extracted before this walk, so which callables those are is
++ * known: a callable is represented exactly when its declaration occurrence
++ * (qualified name, first line, last line) is one of the file's definitions. The
++ * qualified name alone is not enough, since a `def helper` nested in a function
++ * has the qualified name of a top-level `helper`. A callable that is not
++ * represented (a function nested in a function, in the languages whose definition
++ * walk does not descend into function bodies) gets its frame as before, but the
++ * path keeps starting at the represented callable around it, which owns its sites;
++ * at file scope, the file does.
++ *
++ * Where the engine adopts more definitions after this walk (the preprocessed pass
++ * of C, C++ and CUDA, whose error-recovered raw tree can even nest one function in
++ * another), the walk cannot know which callables will be represented, so every
++ * callable owns its sites, as before (ctx->defs_incomplete). */
++
++static uint64_t modeled_def_hash(const char *qn, uint32_t start_line, uint32_t end_line) {
++    uint64_t h = 1469598103934665603ULL; /* FNV-1a */
++    for (const unsigned char *p = (const unsigned char *)qn; *p; p++) {
++        h ^= (uint64_t)*p;
++        h *= 1099511628211ULL;
++    }
++    h ^= ((uint64_t)start_line << 32) | (uint64_t)end_line;
++    h *= 1099511628211ULL;
++    return h;
++}
++
++static bool modeled_def_matches(const PDXEDefinition *def, const char *qn, uint32_t start_line,
++                                uint32_t end_line) {
++    return def->qualified_name && strcmp(def->qualified_name, qn) == 0 &&
++           def->start_line == start_line && def->end_line == end_line;
++}
++
++/* Indexes the definitions extracted so far. Without the index (none, or no memory)
++ * lookups scan the same definitions: the answer never depends on it. */
++static void modeled_defs_build(WalkState *state, const PDXEExtractCtx *ctx) {
++    const PDXEDefArray *defs = &ctx->result->defs;
++    state->modeled_slots = NULL;
++    state->modeled_mask = 0;
++    state->modeled_def_count = defs->count > 0 ? defs->count : 0;
++    if (ctx->defs_incomplete || state->modeled_def_count == 0 ||
++        state->modeled_def_count > INT32_MAX / 4) {
++        return;
++    }
++    uint32_t capacity = 16;
++    while (capacity < (uint32_t)state->modeled_def_count * 2U) {
++        capacity *= 2;
++    }
++    int32_t *slots = (int32_t *)calloc(capacity, sizeof(int32_t));
++    if (!slots) {
++        return;
++    }
++    uint32_t mask = capacity - 1;
++    for (int i = 0; i < state->modeled_def_count; i++) {
++        const PDXEDefinition *def = &defs->items[i];
++        if (!def->qualified_name) {
++            continue;
++        }
++        uint32_t k =
++            (uint32_t)modeled_def_hash(def->qualified_name, def->start_line, def->end_line) & mask;
++        while (slots[k] != 0) {
++            k = (k + 1) & mask;
++        }
++        slots[k] = i + 1;
++    }
++    state->modeled_slots = slots;
++    state->modeled_mask = mask;
++}
++
++/* Whether the callable declared at `decl` (whose lines a definition of it records)
++ * with qualified name `qn` is one of the file's extracted definitions. */
++static bool function_occurrence_is_modeled(const PDXEExtractCtx *ctx, const WalkState *state,
++                                           const char *qn, TSNode decl) {
++    uint32_t start_line = ts_node_start_point(decl).row + TS_LINE_OFFSET;
++    uint32_t end_line = ts_node_end_point(decl).row + TS_LINE_OFFSET;
++    const PDXEDefinition *items = ctx->result->defs.items;
++    if (state->modeled_slots) {
++        uint32_t mask = state->modeled_mask;
++        for (uint32_t k = (uint32_t)modeled_def_hash(qn, start_line, end_line) & mask;
++             state->modeled_slots[k] != 0; k = (k + 1) & mask) {
++            if (modeled_def_matches(&items[state->modeled_slots[k] - 1], qn, start_line,
++                                    end_line)) {
++                return true;
++            }
++        }
++        return false;
++    }
++    for (int i = 0; i < state->modeled_def_count; i++) {
++        if (modeled_def_matches(&items[i], qn, start_line, end_line)) {
++            return true;
++        }
++    }
++    return false;
++}
++
++/* Records `qn` as the owner of the sites under the frame opened at `depth`. */
++static void note_owner(WalkState *state, uint32_t depth, const char *qn) {
++    if (state->owner_qns_failed) {
++        return;
++    }
++    if (depth >= state->owner_qns_capacity) {
++        uint32_t capacity = state->owner_qns_capacity ? state->owner_qns_capacity * 2 : 64;
++        while (capacity <= depth) {
++            capacity *= 2;
++        }
++        const char **grown =
++            (const char **)pdxe_arena_alloc(state->arena, (size_t)capacity * sizeof(char *));
++        if (!grown) {
++            state->owner_qns_failed = true;
++            return;
++        }
++        memset((void *)grown, 0, (size_t)capacity * sizeof(char *));
++        if (state->owner_qns) {
++            memcpy((void *)grown, (const void *)state->owner_qns,
++                   (size_t)state->owner_qns_capacity * sizeof(char *));
++        }
++        state->owner_qns = grown;
++        state->owner_qns_capacity = capacity;
++    }
++    state->owner_qns[depth] = qn;
++}
++
++/* The represented callable that owns a site here: the one whose frame is at
++ * enclosing_func_depth, or the module at file scope. */
++static const char *current_owner_qn(const PDXEExtractCtx *ctx, const WalkState *state) {
++    uint32_t depth = state->enclosing_func_depth;
++    if (depth == 0) {
++        return ctx->module_qn;
++    }
++    if (!state->owner_qns_failed && depth < state->owner_qns_capacity &&
++        state->owner_qns[depth]) {
++        return state->owner_qns[depth];
++    }
++    for (int i = state->scope_top - 1; i >= 0; i--) {
++        if (state->scopes[i].kind == SCOPE_FUNC && state->scopes[i].depth == depth) {
++            return state->scopes[i].qn;
++        }
++    }
++    return ctx->module_qn;
++}
++
++/* Settles the function frame just pushed for the callable declared at `decl`: the
++ * owner of the sites under it when represented, otherwise a frame that leaves them,
++ * and their path, to the represented callable around it. */
++static void settle_function_frame(const PDXEExtractCtx *ctx, WalkState *state, uint32_t depth,
++                                  const char *qn, TSNode decl) {
++    if (ctx->defs_incomplete || function_occurrence_is_modeled(ctx, state, qn, decl)) {
++        note_owner(state, depth, qn);
++    } else {
++        state->enclosing_func_depth =
++            state->scopes[state->scope_top - SKIP_ONE].prev_enclosing_func_depth;
++    }
++}
++
++/* Gives the calls and possible callable references this node added the owner of
++ * their sites, where it is not the callable they name. */
++static void stamp_site_owners(PDXEExtractCtx *ctx, const WalkState *state, int calls_before,
++                              int usages_before) {
++    const char *named = state->enclosing_func_qn ? state->enclosing_func_qn : ctx->module_qn;
++    const char *owner = current_owner_qn(ctx, state);
++    if (!owner || !named || strcmp(owner, named) == 0) {
++        return;
++    }
++    for (int i = calls_before; i < ctx->result->calls.count; i++) {
++        PDXECall *call = &ctx->result->calls.items[i];
++        if (call->enclosing_func_qn && strcmp(call->enclosing_func_qn, named) == 0) {
++            call->owner_qn = owner;
++        }
++    }
++    for (int i = usages_before; i < ctx->result->usages.count; i++) {
++        PDXEUsage *usage = &ctx->result->usages.items[i];
++        if (usage->enclosing_func_qn && strcmp(usage->enclosing_func_qn, named) == 0) {
++            usage->owner_qn = owner;
++        }
++    }
++}
++
+ static void push_call_scope(WalkState *state, uint32_t depth,
+                             const PDXEInvocationDescriptor *invocation) {
+     if (!invocation ||
+@@ -2274,6 +2460,9 @@ static bool push_pre_node_scope(PDXEExtractCtx *ctx, TSNode node, const PDXELang
+                       ? push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
+                                                     state->flat_function_scope_id, node)
+                       : push_function_scope(state, depth, fqn, node);
++    if (pushed) {
++        note_owner(state, depth, fqn); /* a flat routine is never nested in a callable */
++    }
+     if (pushed && !same_flat_callable) {
+         state->flat_function_scope_id = state->scopes[state->scope_top - SKIP_ONE].lexical_scope_id;
+         state->flat_anchor_start_byte = anchor_start;
+@@ -2392,6 +2581,7 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
+         if (!skip_nested) {
+             const char *fqn = compute_func_qn(ctx, node, spec, state);
+             if (fqn && push_function_scope(state, depth, fqn, node)) {
++                settle_function_frame(ctx, state, depth, fqn, node);
+                 const char *node_kind = ts_node_type(node);
+                 bool split_signature = (ctx->language == PDXE_LANG_DART &&
+                                         (strcmp(node_kind, "function_signature") == 0 ||
+@@ -2504,11 +2694,13 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
+                     strcmp(state->split_function_qn, fqn) == 0 &&
+                     state->split_signature_start_byte == ts_node_start_byte(prev) &&
+                     state->split_signature_end_byte == ts_node_end_byte(prev);
+-                if (exact_pending) {
+-                    push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
+-                                                state->split_function_scope_id, node);
+-                } else {
+-                    push_function_scope(state, depth, fqn, node);
++                bool pushed = exact_pending
++                                  ? push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
++                                                                state->split_function_scope_id,
++                                                                node)
++                                  : push_function_scope(state, depth, fqn, node);
++                if (pushed) {
++                    settle_function_frame(ctx, state, depth, fqn, prev);
+                 }
+                 state->split_function_scope_id = 0;
+                 state->split_function_qn = NULL;
+@@ -2532,11 +2724,13 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
+                     strcmp(state->split_function_qn, fqn) == 0 &&
+                     state->split_signature_start_byte == ts_node_start_byte(previous) &&
+                     state->split_signature_end_byte == ts_node_end_byte(previous);
+-                if (exact_pending) {
+-                    push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
+-                                                state->split_function_scope_id, node);
+-                } else {
+-                    push_function_scope(state, depth, fqn, node);
++                bool pushed = exact_pending
++                                  ? push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
++                                                                state->split_function_scope_id,
++                                                                node)
++                                  : push_function_scope(state, depth, fqn, node);
++                if (pushed) {
++                    settle_function_frame(ctx, state, depth, fqn, previous);
+                 }
+                 state->split_function_scope_id = 0;
+                 state->split_function_qn = NULL;
+@@ -2682,6 +2876,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
+     state.inside_import = false;
+     state.loop_depth = 0;
+     state.branch_depth = 0;
++    modeled_defs_build(&state, ctx);
+ 
+     uint32_t depth = 0;
+     uint32_t visited = 0;
+@@ -2721,6 +2916,8 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
+              * quadratic on the deep-nesting torture tests. */
+             pop_expired_scopes(&state, depth);
+             (void)push_pre_node_scope(ctx, node, spec, &state, depth);
++            int calls_before = ctx->result->calls.count;
++            int usages_before = ctx->result->usages.count;
+ 
+             handle_string_constants(ctx, node, &state);
+             handle_objectscript_type_map(ctx, node, &state);
+@@ -2735,6 +2932,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
+             handle_string_refs(ctx, node, &state);
+             handle_yaml_nested(ctx, node);
+             scan_infra_bindings(ctx, node);
++            stamp_site_owners(ctx, &state, calls_before, usages_before);
+ 
+             push_boundary_scopes(ctx, node, spec, &state, depth, &invocation);
+         }
+@@ -2763,6 +2961,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
+             break;
+         }
+     }
++    free(state.modeled_slots);
+ 
+     pdxe_finalize_lexical_usages(ctx, &state);
+     ctx->walk_nodes_visited = visited;
+--- a/engine/src/extract_unified.h
++++ b/engine/src/extract_unified.h
+@@ -212,6 +212,24 @@ typedef struct {
+     PDXELanguage language;
+ 
+     os_type_map_t os_type_map; // ObjectScript variable → type mapping
++
++    /* Issue 75. The file's extracted definitions as exact declaration occurrences
++     * (qualified name, first line, last line): an open-addressing set of the
++     * indices + 1 (0 is empty) of the first modeled_def_count definitions, built
++     * with the C library's allocator. If it cannot be, modeled_slots is NULL and
++     * lookups scan those same definitions, the same answer more slowly, so
++     * nothing is lost (as the C resolver's negative memo). Not built while
++     * definitions may still be adopted after the walk (ctx->defs_incomplete). */
++    int32_t *modeled_slots;
++    uint32_t modeled_mask;
++    int modeled_def_count;
++    /* By cursor depth, the represented callable whose function frame opened
++     * there; a site's owner is the one at enclosing_func_depth (the module at
++     * 0). Grown in the arena; when it cannot grow, owner_qns_failed, and the
++     * owner is read from the open frames instead. */
++    const char **owner_qns;
++    uint32_t owner_qns_capacity;
++    bool owner_qns_failed;
+ } WalkState;
+ 
+ /* #1912: is `name` bound as a parameter by a Python function or lambda scope
+--- a/engine/src/pdxe_core.c
++++ b/engine/src/pdxe_core.c
+@@ -2044,6 +2044,12 @@ static const char *pdxe_error_ranges_str(PDXEArena *a, const pdxe_error_regions_
+     return buf;
+ }
+ 
++/* Whether a language has the preprocessed second pass, which also adopts
++ * definitions after the unified walk (issue 75: see defs_incomplete). */
++static bool has_preprocessed_pass(PDXELanguage language) {
++    return language == PDXE_LANG_C || language == PDXE_LANG_CPP || language == PDXE_LANG_CUDA;
++}
++
+ /* Public entry: run the extraction and journal completion. The DONE mark on
+  * every ordinary return (including error/timeout results) tells the crash
+  * supervisor this file did NOT kill the worker — only a file whose S has no
+@@ -2306,6 +2312,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+         .macro_table = macro_table,
+         .return_type_table = return_type_table,
+         .walk_budget_nodes = pdxe_walk_max_nodes(),
++        .defs_incomplete = has_preprocessed_pass(language),
+     };
+ 
+     // Run extractors: defs + imports use separate walks (unique recursion patterns),
+@@ -2408,7 +2415,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+ 
+     // Second pass: preprocess C/C++/CUDA and extract additional macro-hidden calls.
+     // Defs keep original-source line numbers; only CALLS are extracted from expanded source.
+-    if (language == PDXE_LANG_C || language == PDXE_LANG_CPP || language == PDXE_LANG_CUDA) {
++    if (has_preprocessed_pass(language)) {
+         uint64_t pp_start = now_ns();
+         /* #1989: collect build-system export-macro candidates from the raw
+          * source. They are predefined empty in the expanded buffer (see
+@@ -2458,6 +2465,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+                         .rel_path = rel_path,
+                         .module_qn = result->module_qn,
+                         .root = pp_root,
++                        .defs_incomplete = true,
+                     };
+                     // Re-run unified extraction on expanded source.
+                     // This adds macro-expanded calls; duplicates with original calls are
+--- a/engine/src/pdxe_core.h
++++ b/engine/src/pdxe_core.h
+@@ -283,6 +283,11 @@ typedef enum {
+ typedef struct {
+     const char *callee_name;       // raw callee text ("pkg.Func", "foo")
+     const char *enclosing_func_qn; // QN of enclosing function (or module QN)
++    /* Issue 75: the enclosing callable the result represents, which owns the call
++     * in the graph; enclosing_func_qn can name a nested callable it does not. NULL
++     * when not recorded, meaning enclosing_func_qn. Never encoded in a surface:
++     * typed resolution joins on enclosing_func_qn. */
++    const char *owner_qn;
+     const char *first_string_arg;  // first string literal argument (URL, topic, key) or NULL
+     const char *second_arg_name;   // second argument identifier (handler ref) or NULL
+     /* First arg_count captured arguments, arena-allocated on first capture;
+@@ -336,6 +341,7 @@ typedef enum {
+ typedef struct {
+     const char *ref_name;          // referenced identifier
+     const char *enclosing_func_qn; // QN of enclosing function (or module QN)
++    const char *owner_qn;          // as PDXECall.owner_qn (issue 75)
+     /* Fixed-width fields grouped so the record packs to 40 bytes (was 48; the
+      * Go corpus holds 4.68M of these). Field meanings unchanged. */
+     uint32_t lexical_scope_id;       // extraction-local scope instance; never graph identity
+@@ -714,6 +720,13 @@ typedef struct {
+     /* How many nodes the unified walk actually visited (whether or not it ran
+      * out of budget) — the measurement the budget has to be expressed in. */
+     uint32_t walk_nodes_visited;
++    /* Definitions may still be adopted after the unified walk: the preprocessed
++     * second pass of C, C++ and CUDA rescues definitions from the macro-expanded
++     * text afterwards (#961, #1989). The walk then cannot tell a callable the
++     * result will represent from one it will not, so every named callable
++     * boundary owns its sites by qualified name, as before issue 75, and the
++     * qualified-name translation after extraction decides. */
++    bool defs_incomplete;
+ } PDXEExtractCtx;
+ 
+ // --- Public API ---

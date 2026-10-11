@@ -125,11 +125,20 @@ extraction cache is format 5 and the worker protocol 6 (issues 40 to 42, 46, 47 
 54): calls carry their node-type path (`ast_path`, computed by the engine since patch
 0010) and arguments, and definitions their decorators, parameter types and every route
 binding with its declaring node's position and path (`routes`, patch 0011);
-`ENGINE_VERSION` is 4 (issue 74, decision 45): the C and C++ expression
+`ENGINE_VERSION` is 5. Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
-never by weakening `degraded`.
+never by weakening `degraded`. Issue 75 (decision 47, engine 5): a site's owner, the
+caller a call names, its `enclosing_node_id` and the start of its `ast_path`, is the
+nearest enclosing definition the extractor represents, decided by the exact
+declaration occurrence (qualified name and lines), never the name alone. A nested
+callable the extractor does not represent keeps its own lexical scope and stays the
+name typed resolution joins on (the owner is an internal, unserialised field), but
+owns nothing; no local-function nodes are added (patch 0013). C, C++ and CUDA keep
+ownership by name, because their definitions can be adopted after the walk. Fix
+ownership in the engine, never by span lookups in Rust. Issue 76 (open): a represented
+callable whose walk name differs from its definition's still loses its sites.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4

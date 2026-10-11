@@ -286,8 +286,9 @@ pub struct Call {
     pub callee_text: String,
     /// The receiver, where the engine splits it off.
     pub receiver_text: Option<String>,
-    /// The definition making the call, as an index into the file's definitions;
-    /// `None` at file scope.
+    /// The definition making the call, as an index into the file's definitions: the
+    /// innermost enclosing definition the extractor represents, never a nested callable
+    /// it does not (issue 75); `None` at file scope.
     pub caller: Option<u32>,
     /// Where the site is.
     pub span: Option<Span>,

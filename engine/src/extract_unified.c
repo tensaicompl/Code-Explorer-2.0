@@ -415,6 +415,192 @@ static bool push_function_scope(WalkState *state, uint32_t depth, const char *fu
                                             PDXE_LEXICAL_SCOPE_FUNCTION);
 }
 
+/* ── Issue 75: the owner of a site is a callable the result represents ────────
+ *
+ * A function frame names the enclosing callable (enclosing_func_qn) for every fact
+ * found under it, opens the callable's lexical scope, and starts the node-type path
+ * of every site under it (enclosing_func_depth). The first two are lexical facts and
+ * stay as they were for every callable: typed resolution joins its answers to calls
+ * by that name, and parameters and locals bind in that scope. The path start, and
+ * the definition a call or callable reference is attributed to (owner_qn), are graph
+ * facts: they belong to a callable the graph has a node for.
+ *
+ * Definitions are extracted before this walk, so which callables those are is
+ * known: a callable is represented exactly when its declaration occurrence
+ * (qualified name, first line, last line) is one of the file's definitions. The
+ * qualified name alone is not enough, since a `def helper` nested in a function
+ * has the qualified name of a top-level `helper`. A callable that is not
+ * represented (a function nested in a function, in the languages whose definition
+ * walk does not descend into function bodies) gets its frame as before, but the
+ * path keeps starting at the represented callable around it, which owns its sites;
+ * at file scope, the file does.
+ *
+ * Where the engine adopts more definitions after this walk (the preprocessed pass
+ * of C, C++ and CUDA, whose error-recovered raw tree can even nest one function in
+ * another), the walk cannot know which callables will be represented, so every
+ * callable owns its sites, as before (ctx->defs_incomplete). */
+
+static uint64_t modeled_def_hash(const char *qn, uint32_t start_line, uint32_t end_line) {
+    uint64_t h = 1469598103934665603ULL; /* FNV-1a */
+    for (const unsigned char *p = (const unsigned char *)qn; *p; p++) {
+        h ^= (uint64_t)*p;
+        h *= 1099511628211ULL;
+    }
+    h ^= ((uint64_t)start_line << 32) | (uint64_t)end_line;
+    h *= 1099511628211ULL;
+    return h;
+}
+
+static bool modeled_def_matches(const PDXEDefinition *def, const char *qn, uint32_t start_line,
+                                uint32_t end_line) {
+    return def->qualified_name && strcmp(def->qualified_name, qn) == 0 &&
+           def->start_line == start_line && def->end_line == end_line;
+}
+
+/* Indexes the definitions extracted so far. Without the index (none, or no memory)
+ * lookups scan the same definitions: the answer never depends on it. */
+static void modeled_defs_build(WalkState *state, const PDXEExtractCtx *ctx) {
+    const PDXEDefArray *defs = &ctx->result->defs;
+    state->modeled_slots = NULL;
+    state->modeled_mask = 0;
+    state->modeled_def_count = defs->count > 0 ? defs->count : 0;
+    if (ctx->defs_incomplete || state->modeled_def_count == 0 ||
+        state->modeled_def_count > INT32_MAX / 4) {
+        return;
+    }
+    uint32_t capacity = 16;
+    while (capacity < (uint32_t)state->modeled_def_count * 2U) {
+        capacity *= 2;
+    }
+    int32_t *slots = (int32_t *)calloc(capacity, sizeof(int32_t));
+    if (!slots) {
+        return;
+    }
+    uint32_t mask = capacity - 1;
+    for (int i = 0; i < state->modeled_def_count; i++) {
+        const PDXEDefinition *def = &defs->items[i];
+        if (!def->qualified_name) {
+            continue;
+        }
+        uint32_t k =
+            (uint32_t)modeled_def_hash(def->qualified_name, def->start_line, def->end_line) & mask;
+        while (slots[k] != 0) {
+            k = (k + 1) & mask;
+        }
+        slots[k] = i + 1;
+    }
+    state->modeled_slots = slots;
+    state->modeled_mask = mask;
+}
+
+/* Whether the callable declared at `decl` (whose lines a definition of it records)
+ * with qualified name `qn` is one of the file's extracted definitions. */
+static bool function_occurrence_is_modeled(const PDXEExtractCtx *ctx, const WalkState *state,
+                                           const char *qn, TSNode decl) {
+    uint32_t start_line = ts_node_start_point(decl).row + TS_LINE_OFFSET;
+    uint32_t end_line = ts_node_end_point(decl).row + TS_LINE_OFFSET;
+    const PDXEDefinition *items = ctx->result->defs.items;
+    if (state->modeled_slots) {
+        uint32_t mask = state->modeled_mask;
+        for (uint32_t k = (uint32_t)modeled_def_hash(qn, start_line, end_line) & mask;
+             state->modeled_slots[k] != 0; k = (k + 1) & mask) {
+            if (modeled_def_matches(&items[state->modeled_slots[k] - 1], qn, start_line,
+                                    end_line)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    for (int i = 0; i < state->modeled_def_count; i++) {
+        if (modeled_def_matches(&items[i], qn, start_line, end_line)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Records `qn` as the owner of the sites under the frame opened at `depth`. */
+static void note_owner(WalkState *state, uint32_t depth, const char *qn) {
+    if (state->owner_qns_failed) {
+        return;
+    }
+    if (depth >= state->owner_qns_capacity) {
+        uint32_t capacity = state->owner_qns_capacity ? state->owner_qns_capacity * 2 : 64;
+        while (capacity <= depth) {
+            capacity *= 2;
+        }
+        const char **grown =
+            (const char **)pdxe_arena_alloc(state->arena, (size_t)capacity * sizeof(char *));
+        if (!grown) {
+            state->owner_qns_failed = true;
+            return;
+        }
+        memset((void *)grown, 0, (size_t)capacity * sizeof(char *));
+        if (state->owner_qns) {
+            memcpy((void *)grown, (const void *)state->owner_qns,
+                   (size_t)state->owner_qns_capacity * sizeof(char *));
+        }
+        state->owner_qns = grown;
+        state->owner_qns_capacity = capacity;
+    }
+    state->owner_qns[depth] = qn;
+}
+
+/* The represented callable that owns a site here: the one whose frame is at
+ * enclosing_func_depth, or the module at file scope. */
+static const char *current_owner_qn(const PDXEExtractCtx *ctx, const WalkState *state) {
+    uint32_t depth = state->enclosing_func_depth;
+    if (depth == 0) {
+        return ctx->module_qn;
+    }
+    if (!state->owner_qns_failed && depth < state->owner_qns_capacity &&
+        state->owner_qns[depth]) {
+        return state->owner_qns[depth];
+    }
+    for (int i = state->scope_top - 1; i >= 0; i--) {
+        if (state->scopes[i].kind == SCOPE_FUNC && state->scopes[i].depth == depth) {
+            return state->scopes[i].qn;
+        }
+    }
+    return ctx->module_qn;
+}
+
+/* Settles the function frame just pushed for the callable declared at `decl`: the
+ * owner of the sites under it when represented, otherwise a frame that leaves them,
+ * and their path, to the represented callable around it. */
+static void settle_function_frame(const PDXEExtractCtx *ctx, WalkState *state, uint32_t depth,
+                                  const char *qn, TSNode decl) {
+    if (ctx->defs_incomplete || function_occurrence_is_modeled(ctx, state, qn, decl)) {
+        note_owner(state, depth, qn);
+    } else {
+        state->enclosing_func_depth =
+            state->scopes[state->scope_top - SKIP_ONE].prev_enclosing_func_depth;
+    }
+}
+
+/* Gives the calls and possible callable references this node added the owner of
+ * their sites, where it is not the callable they name. */
+static void stamp_site_owners(PDXEExtractCtx *ctx, const WalkState *state, int calls_before,
+                              int usages_before) {
+    const char *named = state->enclosing_func_qn ? state->enclosing_func_qn : ctx->module_qn;
+    const char *owner = current_owner_qn(ctx, state);
+    if (!owner || !named || strcmp(owner, named) == 0) {
+        return;
+    }
+    for (int i = calls_before; i < ctx->result->calls.count; i++) {
+        PDXECall *call = &ctx->result->calls.items[i];
+        if (call->enclosing_func_qn && strcmp(call->enclosing_func_qn, named) == 0) {
+            call->owner_qn = owner;
+        }
+    }
+    for (int i = usages_before; i < ctx->result->usages.count; i++) {
+        PDXEUsage *usage = &ctx->result->usages.items[i];
+        if (usage->enclosing_func_qn && strcmp(usage->enclosing_func_qn, named) == 0) {
+            usage->owner_qn = owner;
+        }
+    }
+}
+
 static void push_call_scope(WalkState *state, uint32_t depth,
                             const PDXEInvocationDescriptor *invocation) {
     if (!invocation ||
@@ -2274,6 +2460,9 @@ static bool push_pre_node_scope(PDXEExtractCtx *ctx, TSNode node, const PDXELang
                       ? push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
                                                     state->flat_function_scope_id, node)
                       : push_function_scope(state, depth, fqn, node);
+    if (pushed) {
+        note_owner(state, depth, fqn); /* a flat routine is never nested in a callable */
+    }
     if (pushed && !same_flat_callable) {
         state->flat_function_scope_id = state->scopes[state->scope_top - SKIP_ONE].lexical_scope_id;
         state->flat_anchor_start_byte = anchor_start;
@@ -2392,6 +2581,7 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
         if (!skip_nested) {
             const char *fqn = compute_func_qn(ctx, node, spec, state);
             if (fqn && push_function_scope(state, depth, fqn, node)) {
+                settle_function_frame(ctx, state, depth, fqn, node);
                 const char *node_kind = ts_node_type(node);
                 bool split_signature = (ctx->language == PDXE_LANG_DART &&
                                         (strcmp(node_kind, "function_signature") == 0 ||
@@ -2504,11 +2694,13 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
                     strcmp(state->split_function_qn, fqn) == 0 &&
                     state->split_signature_start_byte == ts_node_start_byte(prev) &&
                     state->split_signature_end_byte == ts_node_end_byte(prev);
-                if (exact_pending) {
-                    push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
-                                                state->split_function_scope_id, node);
-                } else {
-                    push_function_scope(state, depth, fqn, node);
+                bool pushed = exact_pending
+                                  ? push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
+                                                                state->split_function_scope_id,
+                                                                node)
+                                  : push_function_scope(state, depth, fqn, node);
+                if (pushed) {
+                    settle_function_frame(ctx, state, depth, fqn, prev);
                 }
                 state->split_function_scope_id = 0;
                 state->split_function_qn = NULL;
@@ -2532,11 +2724,13 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
                     strcmp(state->split_function_qn, fqn) == 0 &&
                     state->split_signature_start_byte == ts_node_start_byte(previous) &&
                     state->split_signature_end_byte == ts_node_end_byte(previous);
-                if (exact_pending) {
-                    push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
-                                                state->split_function_scope_id, node);
-                } else {
-                    push_function_scope(state, depth, fqn, node);
+                bool pushed = exact_pending
+                                  ? push_existing_lexical_scope(state, SCOPE_FUNC, depth, fqn,
+                                                                state->split_function_scope_id,
+                                                                node)
+                                  : push_function_scope(state, depth, fqn, node);
+                if (pushed) {
+                    settle_function_frame(ctx, state, depth, fqn, previous);
                 }
                 state->split_function_scope_id = 0;
                 state->split_function_qn = NULL;
@@ -2682,6 +2876,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
     state.inside_import = false;
     state.loop_depth = 0;
     state.branch_depth = 0;
+    modeled_defs_build(&state, ctx);
 
     uint32_t depth = 0;
     uint32_t visited = 0;
@@ -2721,6 +2916,8 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
              * quadratic on the deep-nesting torture tests. */
             pop_expired_scopes(&state, depth);
             (void)push_pre_node_scope(ctx, node, spec, &state, depth);
+            int calls_before = ctx->result->calls.count;
+            int usages_before = ctx->result->usages.count;
 
             handle_string_constants(ctx, node, &state);
             handle_objectscript_type_map(ctx, node, &state);
@@ -2735,6 +2932,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
             handle_string_refs(ctx, node, &state);
             handle_yaml_nested(ctx, node);
             scan_infra_bindings(ctx, node);
+            stamp_site_owners(ctx, &state, calls_before, usages_before);
 
             push_boundary_scopes(ctx, node, spec, &state, depth, &invocation);
         }
@@ -2763,6 +2961,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
             break;
         }
     }
+    free(state.modeled_slots);
 
     pdxe_finalize_lexical_usages(ctx, &state);
     ctx->walk_nodes_visited = visited;

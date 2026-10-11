@@ -2396,3 +2396,153 @@ fn duplicate_noncallables_have_unique_deterministic_ids() {
         }
     }
 }
+
+// --- issue 75: sites in a nested callable the extractor does not represent ----------
+
+const NESTED_PATH: &str = "app/nested.py";
+
+/// `inner` is nested in `outer` and is not extracted; `helper` and `outer` are.
+/// `pad` goes before `inner`, to move it without changing any structure.
+fn nested_checkout(pad: &str) -> Checkout {
+    let source = format!(
+        "def helper():\n    return 1\n\n\ndef outer():\n{pad}    def inner():\n        helper()\n        mystery()\n    return inner\n\n\nhelper()\n"
+    );
+    Checkout::new(&[(NESTED_PATH, source.as_str())])
+}
+
+/// The one site of `kind` in the nested file whose callee is `callee`.
+fn nested_site<'g>(
+    graph: &'g DerivedGraph,
+    callee: &str,
+    enclosed: bool,
+) -> &'g pdx_core::model::Site {
+    let found: Vec<&pdx_core::model::Site> = graph
+        .sites
+        .iter()
+        .filter(|s| {
+            s.callee_text.as_deref() == Some(callee) && s.enclosing_node_id.is_some() == enclosed
+        })
+        .collect();
+    assert_eq!(found.len(), 1, "{callee}: {found:#?}");
+    found[0]
+}
+
+#[test]
+fn nested_unmodelled_call_is_derived_from_the_outer_definition() {
+    let run = run(&nested_checkout(""));
+    let graph = &run.graph;
+    let outer = node(graph, NodeKind::Function, "outer");
+    let helper = node(graph, NodeKind::Function, "helper");
+    assert!(
+        graph.nodes.iter().all(|n| n.name != "inner"),
+        "a nested callable is not a node"
+    );
+    let site = nested_site(graph, "helper", true);
+    assert_eq!(site.enclosing_node_id.as_ref(), Some(&outer.node_id));
+    let edges: Vec<_> = graph
+        .edges
+        .iter()
+        .filter(|e| e.kind == EdgeKind::Calls && e.site_id.as_ref() == Some(&site.site_id))
+        .collect();
+    assert_eq!(edges.len(), 1, "{edges:#?}");
+    assert_eq!(
+        edges[0].src, outer.node_id,
+        "the source is outer, not the file"
+    );
+    assert_eq!(edges[0].dst, helper.node_id);
+    // The module-level call is still the file's.
+    let module_site = nested_site(graph, "helper", false);
+    let file = &graph.file_nodes[NESTED_PATH];
+    assert_eq!(module_site.enclosing_node_id, None);
+    let module_edge = graph
+        .edges
+        .iter()
+        .find(|e| e.site_id.as_ref() == Some(&module_site.site_id))
+        .expect("the module-level call is drawn");
+    assert_eq!(&module_edge.src, file);
+}
+
+#[test]
+fn nested_unmodelled_candidate_is_sourced_from_the_outer_definition() {
+    let run = run(&nested_checkout(""));
+    let graph = &run.graph;
+    let outer = node(graph, NodeKind::Function, "outer");
+    let site = nested_site(graph, "mystery", true);
+    assert_eq!(site.enclosing_node_id.as_ref(), Some(&outer.node_id));
+    let candidate = graph
+        .candidates
+        .iter()
+        .find(|c| c.site_id == site.site_id)
+        .expect("the undefined call is a candidate row");
+    assert_eq!(
+        candidate.src, outer.node_id,
+        "the source is outer, not the file"
+    );
+}
+
+#[test]
+fn nested_site_identity_is_rebuilt_from_its_parts() {
+    use pdx_core::ids::{SiteKey, ast_fingerprint, edge_id};
+    use pdx_core::kinds::SiteKind;
+    let run = run(&nested_checkout(""));
+    let graph = &run.graph;
+    let outer = node(graph, NodeKind::Function, "outer");
+    let helper = node(graph, NodeKind::Function, "helper");
+    let site = nested_site(graph, "helper", true);
+    // Written out: from outer's node, through inner's definition, to the call.
+    let fingerprint = ast_fingerprint(
+        &[
+            "function_definition",
+            "block",
+            "function_definition",
+            "block",
+            "expression_statement",
+            "call",
+        ],
+        "helper",
+        "",
+        1,
+    )
+    .unwrap();
+    assert_eq!(site.ast_fingerprint, fingerprint);
+    let key = SiteKey::new(
+        NESTED_PATH,
+        Some(outer.node_id.clone()),
+        SiteKind::Call,
+        fingerprint,
+    );
+    assert_eq!(site.site_id, key.site_id().unwrap());
+    let edge = graph
+        .edges
+        .iter()
+        .find(|e| e.site_id.as_ref() == Some(&site.site_id))
+        .expect("the nested call is drawn");
+    assert_eq!(
+        edge.edge_id,
+        edge_id(
+            &outer.node_id,
+            &helper.node_id,
+            EdgeKind::Calls,
+            Some(&site.site_id)
+        )
+    );
+}
+
+#[test]
+fn nested_site_ids_survive_line_insertion() {
+    let ids = |pad: &str| {
+        let run = run(&nested_checkout(pad));
+        let graph = &run.graph;
+        let outer = node(graph, NodeKind::Function, "outer").node_id.clone();
+        let site = nested_site(graph, "helper", true).site_id.clone();
+        let edge = graph
+            .edges
+            .iter()
+            .find(|e| e.site_id.as_ref() == Some(&site))
+            .expect("drawn")
+            .edge_id
+            .clone();
+        (outer, site, edge)
+    };
+    assert_eq!(ids(""), ids("\n\n    # a comment\n\n"));
+}

@@ -139,6 +139,22 @@ const NOT_IN_A_SURFACE: [(&str, &str); 6] = [
     ),
 ];
 
+/// Fields of facts a surface does not carry, and why. Each must be one the resolver
+/// never reads, or cached answers would differ from fresh ones.
+const FACT_FIELDS_NOT_IN_A_SURFACE: [(&str, &str, &str); 2] = [
+    (
+        "PDXECall",
+        "owner_qn",
+        "the graph owner, reported in the file's own calls (issue 75); resolution joins on \
+         enclosing_func_qn and reports a site's caller from it",
+    ),
+    (
+        "PDXEUsage",
+        "owner_qn",
+        "as PDXECall's: reported in the file's own callable references only",
+    ),
+];
+
 #[test]
 fn every_field_of_every_fact_is_in_the_surface() {
     let header = read("engine/src/pdxe_core.h");
@@ -150,7 +166,19 @@ fn every_field_of_every_fact_is_in_the_surface() {
             !declared.is_empty(),
             "{name}: no fields found in the header"
         );
-        let missing: Vec<_> = declared.difference(&encoded).collect();
+        let excluded: BTreeSet<String> = FACT_FIELDS_NOT_IN_A_SURFACE
+            .iter()
+            .filter(|(fact, _, _)| *fact == name)
+            .map(|(_, field, _)| (*field).to_owned())
+            .collect();
+        assert!(
+            excluded.is_subset(&declared),
+            "{name}: an excluded field is not declared: {excluded:?}"
+        );
+        let missing: Vec<_> = declared
+            .difference(&encoded)
+            .filter(|f| !excluded.contains(*f))
+            .collect();
         let unknown: Vec<_> = encoded.difference(&declared).collect();
         assert!(
             missing.is_empty() && unknown.is_empty(),
