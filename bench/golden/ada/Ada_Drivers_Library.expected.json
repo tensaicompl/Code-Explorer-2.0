@@ -155,6 +155,12 @@
   ],
   "drawn_edges": [
     {
+      "src_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-gpio-tasks_and_events.Acknowledge_Channel_Interrupt",
+      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-gpio-tasks_and_events.Channel_Event_Set",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
       "src_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-interrupts.GNAT_IRQ_Handler",
       "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-interrupts.Handlers",
       "kind": "CALLS",
@@ -171,6 +177,36 @@
       "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-interrupts.Handlers",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-timers.Set_Bitmode",
+      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-timers.Bitmode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Master_Receive",
+      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Master_Transmit",
+      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Mem_Read",
+      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Mem_Write",
+      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "arch.ARM.STM32.driver_demos.demo_L3GD20_dataready_int.src.gyro_interrupts.IRQ_Handler",
@@ -225,6 +261,54 @@
       "dst_qn": "arch.ARM.STM32.drivers.fsmc.stm32-fsmc.BWTR_List",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.i2c_stm32f4.stm32-i2c.Disable_Interrupt",
+      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f4.stm32-i2c.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.i2c_stm32f4.stm32-i2c.Enable_Interrupt",
+      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f4.stm32-i2c.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Master_Receive",
+      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Master_Transmit",
+      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Mem_Read",
+      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Mem_Write",
+      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "arch.ARM.STM32.drivers.ltdc.stm32-ltdc.Layer_Init",
@@ -318,6 +402,18 @@
     },
     {
       "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Configure_Injected_Conversions",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Injected_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Configure_Injected_Conversions",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.EOC_Selection_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Configure_Injected_Conversions",
       "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Enable_VBat_Connection",
       "kind": "CALLS",
       "band": "scoped"
@@ -348,6 +444,12 @@
     },
     {
       "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Configure_Regular_Conversions",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.EOC_Selection_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Configure_Regular_Conversions",
       "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Enable_VBat_Connection",
       "kind": "CALLS",
       "band": "scoped"
@@ -357,6 +459,12 @@
       "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Enable_VRef_TemperatureSensor_Connection",
       "kind": "CALLS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Configure_Regular_Conversions",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Scan_Mode_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
     },
     {
       "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Configure_Regular_Conversions",
@@ -371,8 +479,146 @@
       "band": "exact"
     },
     {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Configure_Unit",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Current_Alignment",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Configure_Unit",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Current_Resolution",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Disable_DMA_After_Last_Transfer",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.DMA_Enabled_After_Last_Transfer",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Disable_Discontinuous_Mode_Injected",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Injected_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Disable_Discontinuous_Mode_Regular",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Regular_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Enable_DMA_After_Last_Transfer",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.DMA_Enabled_After_Last_Transfer",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Enable_Discontinuous_Mode",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.AutoInjection_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Enable_Discontinuous_Mode",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Injected_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Enable_Discontinuous_Mode",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Injected_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Enable_Discontinuous_Mode",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Regular_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Enable_Discontinuous_Mode",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Regular_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
       "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Poll_For_Status",
       "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Status",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Start_Conversion",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Regular_Conversions_Expected",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Start_Injected_Conversion",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Injected_Conversions_Expected",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Disable",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enable_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enable_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enable_Channels",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enable_Channels",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Attach_PWM_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Complementary_Output_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Attach_PWM_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Current_Duty_Cycle",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Attach_PWM_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Current_Duty_Cycle",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Attach_PWM_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Output_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Attach_PWM_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Output_Enabled",
       "kind": "CALLS",
       "band": "scoped"
     },
@@ -389,10 +635,46 @@
       "band": "exact"
     },
     {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Disable_Complementary_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Complementary_Output_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Disable_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Output_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Enable_Complementary_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Complementary_Output_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Enable_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Output_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Microseconds_Per_Period",
       "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Has_APB1_Frequency",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Set_Duty_Cycle",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Current_Duty_Cycle",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-pwm.Set_Duty_Time",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Microseconds_Per_Period",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "arch.ARM.STM32.drivers.stm32-spi-dma.Configure",
@@ -593,10 +875,400 @@
       "band": "scoped"
     },
     {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Clear_Status",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Status",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Autoreload",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Autoreload",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Autoreload",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Clock_Division",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Counter_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Prescaler",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Prescaler",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Prescaler",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Channel_Input",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Channel_Input",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Channel_Input_PWM",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Channel_Input_PWM",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Channel_Input_PWM",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Input_Prescaler",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Channel_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Channel_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Channel_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Channel_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Configure_Prescaler",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Prescaler",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Disable",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Disable",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.No_Outputs_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Disable_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Disable_Complementary_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Complementary_Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Disable_DMA_Source",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.DMA_Source_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Disable_Interrupt",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Interrupt_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Disable_Main_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Main_Output_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Disable_Main_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.No_Outputs_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Enable",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Enable_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Enable_Complementary_Channel",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Complementary_Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Enable_DMA_Source",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.DMA_Source_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Enable_Interrupt",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Interrupt_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Enable_Interrupt",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Interrupt_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Enable_Main_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Main_Output_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Select_One_Pulse_Mode",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Autoreload",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Autoreload",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Clear_Control",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Clock_Division",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Clock_Division",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Counter",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Counter",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Counter",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Counter",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Counter_Mode",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Counter_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Input_Prescaler",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Input_Prescaler",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Input_Prescaler",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Output_Compare_Mode",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Output_Fast_Enable",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Output_Forced_Action",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Output_Preload_Enable",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Set_Single_Output",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.stm32-timers.Write_Channel_Input_Description",
+      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Disable",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Disable_DMA_Receive_Requests",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Receive_Requests_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Disable_DMA_Transmit_Requests",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Transmit_Requests_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Disable_Interrupts",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Interrupt_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enable",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enable_DMA_Receive_Requests",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Receive_Requests_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enable_DMA_Transmit_Requests",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Transmit_Requests_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enable_Interrupts",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Interrupt_Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Receive",
       "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Current_Input",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Receive",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Data_Size",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Receive",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Data_Size",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Resume_DMA_Reception",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Receive_Requests_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Resume_DMA_Reception",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Resume_DMA_Transmission",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Transmit_Requests_Enabled",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Resume_DMA_Transmission",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Transmit",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Data_Size",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Transmit",
+      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Data_Size",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "arch.RISC-V.SiFive.drivers.fe310-performance_monitor.Set_Commit_Events",
@@ -653,180 +1325,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "arch/ARM/Nordic/drivers/nrf_common/nrf-gpio-tasks_and_events.ads",
-      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-gpio-tasks_and_events.Channel_Event_Set",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/Nordic/drivers/nrf_common/nrf-timers.ads",
-      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-timers.Bitmode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/Nordic/drivers/nrf_common/nrf-twi.ads",
-      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/Nordic/drivers/nrf_common/nrf-twi.ads",
-      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/Nordic/drivers/nrf_common/nrf-twi.ads",
-      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/Nordic/drivers/nrf_common/nrf-twi.ads",
-      "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-twi.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/i2c_stm32f4/stm32-i2c.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f4.stm32-i2c.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/i2c_stm32f4/stm32-i2c.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f4.stm32-i2c.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/i2c_stm32f7/stm32-i2c.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/i2c_stm32f7/stm32-i2c.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/i2c_stm32f7/stm32-i2c.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/i2c_stm32f7/stm32-i2c.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/i2c_stm32f7/stm32-i2c.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/i2c_stm32f7/stm32-i2c.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.i2c_stm32f7.stm32-i2c.Is_Configured",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.AutoInjection_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Current_Alignment",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Current_Resolution",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.DMA_Enabled_After_Last_Transfer",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.DMA_Enabled_After_Last_Transfer",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Injected_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Injected_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Injected_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Injected_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Regular_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Regular_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Discontinuous_Mode_Regular_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.EOC_Selection_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.EOC_Selection_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Injected_Conversions_Expected",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
       "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Injected_Conversions_Expected",
       "kind": "CALLS",
@@ -835,18 +1333,6 @@
     {
       "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
       "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Regular_Conversions_Expected",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Regular_Conversions_Expected",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Scan_Mode_Enabled",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -873,492 +1359,6 @@
       "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.VRef_TemperatureSensor_Conversion",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-adc.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-adc.Watchdog_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Complementary_Output_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Complementary_Output_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Complementary_Output_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Current_Duty_Cycle",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Current_Duty_Cycle",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Current_Duty_Cycle",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Microseconds_Per_Period",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Output_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Output_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Output_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-pwm.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-pwm.Output_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Complementary_Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Complementary_Channel_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Autoreload",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Autoreload",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Autoreload",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Autoreload",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Capture_Compare_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Clock_Division",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Clock_Division",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Counter",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Counter",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Counter_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Counter_Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Input_Prescaler",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Input_Prescaler",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Prescaler",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Prescaler",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Prescaler",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Current_Prescaler",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.DMA_Source_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.DMA_Source_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Interrupt_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Interrupt_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Interrupt_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Main_Output_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Main_Output_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.No_Outputs_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.No_Outputs_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/stm32-timers.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.stm32-timers.Status",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Receive_Requests_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Receive_Requests_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Receive_Requests_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Transmit_Requests_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Transmit_Requests_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.DMA_Transmit_Requests_Enabled",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Data_Size",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Data_Size",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Data_Size",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Data_Size",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Interrupt_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "arch/ARM/STM32/drivers/uart_stm32f4/stm32-usarts.ads",
-      "dst_qn": "arch.ARM.STM32.drivers.uart_stm32f4.stm32-usarts.Interrupt_Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
     },
     {
       "src_qn": "arch/ARM/cortex_m/src/cache/cortex_m-cache.adb",
@@ -1955,6 +1955,30 @@
       "band": "exact"
     },
     {
+      "src_qn": "boards.MicroBit.src.microbit-time.Tick_Subscribe",
+      "dst_qn": "boards.MicroBit.src.microbit-time.Tick_Subscriber",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "boards.MicroBit.src.microbit-time.Tick_Subscribe",
+      "dst_qn": "boards.MicroBit.src.microbit-time.Tick_Subscriber",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "boards.MicroBit.src.microbit-time.Tick_Unsubscribe",
+      "dst_qn": "boards.MicroBit.src.microbit-time.Tick_Subscriber",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "boards.MicroBit.src.microbit-time.Tick_Unsubscribe",
+      "dst_qn": "boards.MicroBit.src.microbit-time.Tick_Subscriber",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "boards.NRF52_DK.src.nrf52_dk-ios.Configure_PPI",
       "dst_qn": "arch.ARM.Nordic.drivers.nrf_common.nrf-gpio-tasks_and_events.Out_Task",
       "kind": "CALLS",
@@ -1991,6 +2015,36 @@
       "band": "exact"
     },
     {
+      "src_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscribe",
+      "dst_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscriber",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscribe",
+      "dst_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscriber",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Unsubscribe",
+      "dst_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscriber",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Unsubscribe",
+      "dst_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscriber",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "boards.native.src.filesystem-native.Open",
+      "dst_qn": "boards.native.src.filesystem-native.Is_Subdirectory",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "boards.stm32_common.dma2d.stm32-dma2d_bitmap.Copy_Rect",
       "dst_qn": "arch.ARM.cortex_m.src.cortex_m-cache.Clean_DCache",
       "kind": "CALLS",
@@ -2001,6 +2055,24 @@
       "dst_qn": "arch.ARM.cortex_m.src.cortex_m-cache.Clean_Invalidate_DCache",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Initialize_Layer",
+      "dst_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Max_Layers",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Initialize_Layer",
+      "dst_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Supported",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Initialized",
+      "dst_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Max_Layers",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Internal_Update_Layer",
@@ -2081,82 +2153,10 @@
       "band": "scoped"
     },
     {
-      "src_qn": "boards/MicroBit/src/microbit-time.ads",
-      "dst_qn": "boards.MicroBit.src.microbit-time.Tick_Subscriber",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/MicroBit/src/microbit-time.ads",
-      "dst_qn": "boards.MicroBit.src.microbit-time.Tick_Subscriber",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/MicroBit/src/microbit-time.ads",
-      "dst_qn": "boards.MicroBit.src.microbit-time.Tick_Subscriber",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/MicroBit/src/microbit-time.ads",
-      "dst_qn": "boards.MicroBit.src.microbit-time.Tick_Subscriber",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/NRF52_DK/src/nrf52_dk-time.ads",
-      "dst_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscriber",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/NRF52_DK/src/nrf52_dk-time.ads",
-      "dst_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscriber",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/NRF52_DK/src/nrf52_dk-time.ads",
-      "dst_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscriber",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/NRF52_DK/src/nrf52_dk-time.ads",
-      "dst_qn": "boards.NRF52_DK.src.nrf52_dk-time.Tick_Subscriber",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
       "src_qn": "boards/board_projects_generator.py",
       "dst_qn": "boards.board_projects_generator.gen_project",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "boards/native/src/filesystem-native.ads",
-      "dst_qn": "boards.native.src.filesystem-native.Is_Subdirectory",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/stm32_common/ltdc/framebuffer_ltdc.ads",
-      "dst_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Max_Layers",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/stm32_common/ltdc/framebuffer_ltdc.ads",
-      "dst_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Max_Layers",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "boards/stm32_common/ltdc/framebuffer_ltdc.ads",
-      "dst_qn": "boards.stm32_common.ltdc.framebuffer_ltdc.Supported",
-      "kind": "CALLS",
-      "band": "scoped"
     },
     {
       "src_qn": "boards/stm32_common/stm32f429disco/framebuffer_ili9341.ads",
@@ -2271,6 +2271,12 @@
       "dst_qn": "components.src.camera.OV2640.ov2640.OV2640.Resolutions",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "components.src.environment.lps25h.Get_Data",
+      "dst_qn": "components.src.environment.lps25h.Is_Initialized",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "components.src.io_expander.AdaFruit_Trellis.adafruit-trellis.Key",
@@ -2395,6 +2401,54 @@
     {
       "src_qn": "components.src.motion.l3gd20.l3gd20.Swap2",
       "dst_qn": "components.src.motion.l3gd20.l3gd20.Bswap_16",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.motion.lis3dsh.lis3dsh.Configure",
+      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.motion.lis3dsh.lis3dsh.Configure_Click_Interrupt",
+      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.motion.lis3dsh.lis3dsh.Configure_Interrupts",
+      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.motion.lis3dsh.lis3dsh.Get_Accelerations",
+      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.motion.lis3dsh.lis3dsh.Selected_Sensitivity",
+      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.motion.lis3dsh.lis3dsh.Set_Data_Rate",
+      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.motion.lis3dsh.lis3dsh.Set_Full_Scale",
+      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.motion.lis3dsh.lis3dsh.Set_Low_Power",
+      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -2765,6 +2819,24 @@
       "band": "exact"
     },
     {
+      "src_qn": "components.src.motion.pmw3901.pmw3901.Calibrate",
+      "dst_qn": "components.src.motion.pmw3901.pmw3901.Is_Initialized",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.motion.pmw3901.pmw3901.Initialize",
+      "dst_qn": "components.src.motion.pmw3901.pmw3901.Is_Initialized",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.motion.pmw3901.pmw3901.Read_Motion",
+      "dst_qn": "components.src.motion.pmw3901.pmw3901.Is_Initialized",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "components.src.radio.hm11.hm11.Find_Characteristic_UUID",
       "dst_qn": "components.src.radio.hm11.hm11.Local_From",
       "kind": "CALLS",
@@ -2819,12 +2891,78 @@
       "band": "exact"
     },
     {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Perform_Ref_Calibration",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Range_Value_Available",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Read_Range_Millimeters",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Range_Value_Available",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Read_Range_Single_Millimeters",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Set_GPIO_Config",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Set_VCSEL_Pulse_Period_Final_Range",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Set_VCSEL_Pulse_Period_Pre_Range",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Set_VCSel_Pulse_Period",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Set_VCSel_Pulse_Period",
       "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Steps_Enabled",
       "kind": "CALLS",
       "band": "exact"
     },
     {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Start_Continuous",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Start_Range_Single_Millimeters",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Static_Init",
+      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Static_Init",
       "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Ref_SPAD_Map",
       "kind": "CALLS",
@@ -2833,6 +2971,132 @@
     {
       "src_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Static_Init",
       "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Ref_SPAD_Map",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Boot_Device",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Is_Booted",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Boot_Device",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Is_Booted",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Clear_Interrupt",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Get_Distance_Mode",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Get_Inter_Measurement_Time",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Get_Measurement",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Get_Measurement_Budget",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Is_Measurement_Ready",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Init",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Is_Booted",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Init",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Set_Device_Address",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Is_Booted",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Set_Distance_Mode",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Set_Inter_Measurement_Time",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Set_Inter_Measurement_Time",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Set_Measurement_Budget",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Set_Measurement_Budget",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Start_Ranging",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Start_Ranging",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Stop_Ranging",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Stop_Ranging",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Wait_For_Measurement",
+      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -3037,270 +3301,6 @@
     {
       "src_qn": "components/eth/stm32-eth.adb",
       "dst_qn": "components.eth.stm32-eth.Rx_Descs",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/environment/lps25h.ads",
-      "dst_qn": "components.src.environment.lps25h.Is_Initialized",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/motion/lis3dsh/lis3dsh.ads",
-      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/motion/lis3dsh/lis3dsh.ads",
-      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/motion/lis3dsh/lis3dsh.ads",
-      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/motion/lis3dsh/lis3dsh.ads",
-      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/motion/lis3dsh/lis3dsh.ads",
-      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/motion/lis3dsh/lis3dsh.ads",
-      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/motion/lis3dsh/lis3dsh.ads",
-      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/motion/lis3dsh/lis3dsh.ads",
-      "dst_qn": "components.src.motion.lis3dsh.lis3dsh.Configured",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/motion/pmw3901/pmw3901.ads",
-      "dst_qn": "components.src.motion.pmw3901.pmw3901.Is_Initialized",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/motion/pmw3901/pmw3901.ads",
-      "dst_qn": "components.src.motion.pmw3901.pmw3901.Is_Initialized",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/motion/pmw3901/pmw3901.ads",
-      "dst_qn": "components.src.motion.pmw3901.pmw3901.Is_Initialized",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Get_GPIO_Functionality",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L0X/vl53l0x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L0X.vl53l0x.Range_Value_Available",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Is_Booted",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Is_Booted",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Is_Booted",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Is_Booted",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Ranging_Started",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "components/src/range_sensor/VL53L1X/vl53l1x.ads",
-      "dst_qn": "components.src.range_sensor.VL53L1X.vl53l1x.Sensor_Initialized",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -3629,158 +3629,194 @@
       "band": "exact"
     },
     {
-      "src_qn": "examples.shared.si4432.src.si4432_example.Si4432_Example",
-      "dst_qn": "examples.shared.si4432.src.si4432_example.RX_Status",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.si4432.src.si4432_example.Si4432_Example",
-      "dst_qn": "examples.shared.si4432.src.si4432_example.TX_Status",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.si4432.src.si4432_example.Wait_For_RX",
-      "dst_qn": "examples.shared.si4432.src.si4432_example.RX_Status",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.si4432.src.si4432_example.Wait_For_RX",
-      "dst_qn": "examples.shared.si4432.src.si4432_example.RX_Status",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.si4432.src.si4432_example.Wait_For_TX",
-      "dst_qn": "examples.shared.si4432.src.si4432_example.TX_Status",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.si4432.src.si4432_example.Wait_For_TX",
-      "dst_qn": "examples.shared.si4432.src.si4432_example.TX_Status",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
-      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L4_CLUT",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
-      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L4_CLUT",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
-      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L4_Data",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
-      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L4_Data",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
-      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L8_CLUT",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
-      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L8_CLUT",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
-      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L8_Data",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
-      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L8_Data",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
-      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Content",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
-      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Content",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Append",
       "dst_qn": "examples.shared.serial_ports.src.message_buffers.Content_At",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Append",
+      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Append",
+      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Clear",
+      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Content",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Clear",
+      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Content_At",
+      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Set",
+      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Content",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Set",
       "dst_qn": "examples.shared.serial_ports.src.message_buffers.Content_At",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Set",
       "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Set",
       "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
-      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
-      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
-      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
-      "dst_qn": "examples.shared.serial_ports.src.message_buffers.Length",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "examples/shared/serial_ports/src/message_buffers.ads",
+      "src_qn": "examples.shared.serial_ports.src.message_buffers.Set_Terminator",
       "dst_qn": "examples.shared.serial_ports.src.message_buffers.Terminator",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
+      "src_qn": "examples.shared.si4432.src.si4432_example.Si4432_Example",
+      "dst_qn": "examples.shared.si4432.src.si4432_example.RX_Status",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.si4432.src.si4432_example.Si4432_Example",
+      "dst_qn": "examples.shared.si4432.src.si4432_example.TX_Status",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.si4432.src.si4432_example.Wait_For_RX",
+      "dst_qn": "examples.shared.si4432.src.si4432_example.RX_Status",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.si4432.src.si4432_example.Wait_For_RX",
+      "dst_qn": "examples.shared.si4432.src.si4432_example.RX_Status",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.si4432.src.si4432_example.Wait_For_TX",
+      "dst_qn": "examples.shared.si4432.src.si4432_example.TX_Status",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.si4432.src.si4432_example.Wait_For_TX",
+      "dst_qn": "examples.shared.si4432.src.si4432_example.TX_Status",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
+      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L4_CLUT",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
+      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L4_CLUT",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
+      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L4_Data",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
+      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L4_Data",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
+      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L8_CLUT",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
+      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L8_CLUT",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
+      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L8_Data",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "examples.shared.stm32_dma2d.src.dma2d.Dma2d",
+      "dst_qn": "examples.shared.stm32_dma2d.src.dma2d.L8_Data",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
       "src_qn": "examples/stm32_f4ve/lcd_spi/spi/display_ili9341.ads",
       "dst_qn": "examples.shared.Bmp280.src.bmp280_example.Device",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "hal.src.hal-filesystem.Open",
+      "dst_qn": "hal.src.hal-filesystem.Is_Subdirectory",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "hal.src.hal-filesystem.Read",
+      "dst_qn": "hal.src.hal-filesystem.Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "hal.src.hal-filesystem.Write",
+      "dst_qn": "hal.src.hal-filesystem.Mode",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "hal.src.hal-flash.Erase",
+      "dst_qn": "hal.src.hal-flash.Erasable_Region",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "hal.src.hal-gpio.Set_Mode",
+      "dst_qn": "hal.src.hal-gpio.Support",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "hal.src.hal-gpio.Set_Pull_Resistor",
+      "dst_qn": "hal.src.hal-gpio.Support",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -3821,85 +3857,49 @@
       "band": "scoped"
     },
     {
-      "src_qn": "hal/src/hal-filesystem.ads",
-      "dst_qn": "hal.src.hal-filesystem.Is_Subdirectory",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "hal/src/hal-filesystem.ads",
-      "dst_qn": "hal.src.hal-filesystem.Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "hal/src/hal-filesystem.ads",
-      "dst_qn": "hal.src.hal-filesystem.Mode",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "hal/src/hal-flash.ads",
-      "dst_qn": "hal.src.hal-flash.Erasable_Region",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "hal/src/hal-gpio.ads",
-      "dst_qn": "hal.src.hal-gpio.Support",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "hal/src/hal-gpio.ads",
-      "dst_qn": "hal.src.hal-gpio.Support",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "hal/src/hal-spi.ads",
+      "src_qn": "hal.src.hal-spi.Receive",
       "dst_qn": "hal.src.hal-spi.Data_Size",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "hal/src/hal-spi.ads",
+      "src_qn": "hal.src.hal-spi.Receive",
       "dst_qn": "hal.src.hal-spi.Data_Size",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "hal/src/hal-spi.ads",
+      "src_qn": "hal.src.hal-spi.Transmit",
       "dst_qn": "hal.src.hal-spi.Data_Size",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "hal/src/hal-spi.ads",
+      "src_qn": "hal.src.hal-spi.Transmit",
       "dst_qn": "hal.src.hal-spi.Data_Size",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "hal/src/hal-uart.ads",
+      "src_qn": "hal.src.hal-uart.Receive",
       "dst_qn": "hal.src.hal-uart.Data_Size",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "hal/src/hal-uart.ads",
+      "src_qn": "hal.src.hal-uart.Receive",
       "dst_qn": "hal.src.hal-uart.Data_Size",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "hal/src/hal-uart.ads",
+      "src_qn": "hal.src.hal-uart.Transmit",
       "dst_qn": "hal.src.hal-uart.Data_Size",
       "kind": "CALLS",
       "band": "scoped"
     },
     {
-      "src_qn": "hal/src/hal-uart.ads",
+      "src_qn": "hal.src.hal-uart.Transmit",
       "dst_qn": "hal.src.hal-uart.Data_Size",
       "kind": "CALLS",
       "band": "scoped"
@@ -4415,6 +4415,30 @@
       "band": "exact"
     },
     {
+      "src_qn": "middleware.src.utils.logging.Disable",
+      "dst_qn": "middleware.src.utils.logging.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "middleware.src.utils.logging.Enable",
+      "dst_qn": "middleware.src.utils.logging.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "middleware.src.utils.logging.Set_Priority",
+      "dst_qn": "middleware.src.utils.logging.Priority",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
+      "src_qn": "middleware.src.utils.logging_with_categories.Disable",
+      "dst_qn": "middleware.src.utils.logging_with_categories.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
+    },
+    {
       "src_qn": "middleware.src.utils.logging_with_categories.Disable",
       "dst_qn": "middleware.src.utils.logging_with_categories.Is_Enabled",
       "kind": "CALLS",
@@ -4425,6 +4449,12 @@
       "dst_qn": "middleware.src.utils.logging_with_categories.Prefix_Enabled",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "middleware.src.utils.logging_with_categories.Enable",
+      "dst_qn": "middleware.src.utils.logging_with_categories.Enabled",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "middleware.src.utils.logging_with_categories.Enable",
@@ -4467,6 +4497,12 @@
       "dst_qn": "middleware.src.utils.logging_with_categories.Cat_Priorities",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "middleware.src.utils.logging_with_categories.Set_Priority",
+      "dst_qn": "middleware.src.utils.logging_with_categories.Priority",
+      "kind": "CALLS",
+      "band": "scoped"
     },
     {
       "src_qn": "middleware.src.utils.logging_with_priority.Allocate",
@@ -4637,24 +4673,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "middleware/src/utils/logging.ads",
-      "dst_qn": "middleware.src.utils.logging.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "middleware/src/utils/logging.ads",
-      "dst_qn": "middleware.src.utils.logging.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "middleware/src/utils/logging.ads",
-      "dst_qn": "middleware.src.utils.logging.Priority",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
       "src_qn": "middleware/src/utils/logging_with_categories.adb",
       "dst_qn": "middleware.src.utils.logging_with_categories.Cat_Priorities",
       "kind": "CALLS",
@@ -4665,24 +4683,6 @@
       "dst_qn": "middleware.src.utils.logging_with_categories.Is_Enabled",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "middleware/src/utils/logging_with_categories.ads",
-      "dst_qn": "middleware.src.utils.logging_with_categories.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "middleware/src/utils/logging_with_categories.ads",
-      "dst_qn": "middleware.src.utils.logging_with_categories.Enabled",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "middleware/src/utils/logging_with_categories.ads",
-      "dst_qn": "middleware.src.utils.logging_with_categories.Priority",
-      "kind": "CALLS",
-      "band": "scoped"
     },
     {
       "src_qn": "scripts.build_all_examples.gprbuild",

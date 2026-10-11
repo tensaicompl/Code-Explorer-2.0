@@ -24312,6 +24312,12 @@
     },
     {
       "src_qn": "src.jv_print.jv_dump_term",
+      "dst_qn": "src.jv.JV_PRINT_INDENT_FLAGS",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.jv_print.jv_dump_term",
       "dst_qn": "src.jv.jv_array_foreach",
       "kind": "CALLS",
       "band": "import-guided"
@@ -24331,6 +24337,12 @@
     {
       "src_qn": "src.jv_print.jv_dump_term",
       "dst_qn": "src.jv.jv_array_length",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.jv_print.jv_dump_term",
+      "dst_qn": "src.jv.jv_copy",
       "kind": "CALLS",
       "band": "import-guided"
     },
@@ -24504,6 +24516,12 @@
     },
     {
       "src_qn": "src.jv_print.jv_dump_term",
+      "dst_qn": "src.jv.jv_string",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.jv_print.jv_dump_term",
       "dst_qn": "src.jv.jvp_number_is_nan",
       "kind": "CALLS",
       "band": "import-guided"
@@ -24517,6 +24535,12 @@
     {
       "src_qn": "src.jv_print.jv_dump_term",
       "dst_qn": "src.jv_dtoa.jvp_dtoa_fmt",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.jv_print.jv_dump_term",
+      "dst_qn": "src.jv_dtoa_tsd.tsd_dtoa_context_get",
       "kind": "CALLS",
       "band": "import-guided"
     },
@@ -24547,6 +24571,18 @@
     {
       "src_qn": "src.jv_print.jv_dump_term",
       "dst_qn": "src.jv_print.jv_dump_term",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.jv_print.jv_dump_term",
+      "dst_qn": "src.jv_print.jv_dump_term",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.jv_print.jv_dump_term",
+      "dst_qn": "src.jv_print.jv_dumpf",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -29477,6 +29513,210 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.compile.block_free",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.jv.jv_free",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.jv.jv_free",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.jv.jv_free",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.jv.jv_free",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.jv.jv_free",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.jv.jv_free",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.jv.jv_free",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "src.parser.yydestruct",
+      "dst_qn": "src.jv.jv_free",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
       "src_qn": "src.parser.yylex",
       "dst_qn": "src.jv.jv_copy",
       "kind": "CALLS",
@@ -34067,42 +34307,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "src/jv_print.c",
-      "dst_qn": "src.jv.JV_PRINT_INDENT_FLAGS",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/jv_print.c",
-      "dst_qn": "src.jv.jv_copy",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/jv_print.c",
-      "dst_qn": "src.jv.jv_string",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/jv_print.c",
-      "dst_qn": "src.jv_dtoa_tsd.tsd_dtoa_context_get",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/jv_print.c",
-      "dst_qn": "src.jv_print.jv_dump_term",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/jv_print.c",
-      "dst_qn": "src.jv_print.jv_dumpf",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src/lexer.c",
       "dst_qn": "src.jv.jv_copy",
       "kind": "CALLS",
@@ -34567,210 +34771,6 @@
     {
       "src_qn": "src/opcode_list.h",
       "dst_qn": "src.bytecode.OP",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.compile.block_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.jv.jv_free",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.jv.jv_free",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.jv.jv_free",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.jv.jv_free",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.jv.jv_free",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.jv.jv_free",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.jv.jv_free",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/parser.c",
-      "dst_qn": "src.jv.jv_free",
       "kind": "CALLS",
       "band": "exact"
     },
