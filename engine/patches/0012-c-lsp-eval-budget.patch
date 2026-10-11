@@ -1,0 +1,76 @@
+--- a/engine/src/lsp/c_lsp.c
++++ b/engine/src/lsp/c_lsp.c
+@@ -53,6 +53,33 @@ static char *c_node_text(CLSPContext *ctx, TSNode node) {
+     return pdxe_node_text(ctx->arena, node, ctx->source);
+ }
+ 
++// --- Expression evaluation budget ---
++
++/* Expression type evaluation is bounded per file, so that a pathological input ends
++ * in unknown types instead of hanging indexing. The work an ordinary file needs grows
++ * with its length, so a fixed bound starved large files: one many times the usual
++ * size ran out and lost typed evidence that was there to find. The budget therefore
++ * grows with the length of the source the evaluator runs over, one tranche of steps
++ * for every started tranche of bytes. It never falls below one tranche, so a small
++ * file keeps the protection it always had, and never exceeds the cap, so any input,
++ * adversarial ones included, has a fixed finite ceiling. It depends on the length
++ * alone: every run gives a file the same budget, whatever the machine. Running it out
++ * is lost work (c_eval_expr_type), and the recursion-depth limit is separate. */
++#define C_EVAL_STEPS_PER_TRANCHE 10000
++#define C_EVAL_SOURCE_TRANCHE_BYTES 32768
++#define C_EVAL_MAX_STEP_BUDGET 320000
++
++int c_eval_step_budget_for_source_len(int source_len) {
++    if (source_len <= C_EVAL_SOURCE_TRANCHE_BYTES)
++        return C_EVAL_STEPS_PER_TRANCHE;
++    /* Started tranches by quotient and remainder: no intermediate can overflow. */
++    int tranches = source_len / C_EVAL_SOURCE_TRANCHE_BYTES +
++                   (source_len % C_EVAL_SOURCE_TRANCHE_BYTES != 0 ? 1 : 0);
++    if (tranches >= C_EVAL_MAX_STEP_BUDGET / C_EVAL_STEPS_PER_TRANCHE)
++        return C_EVAL_MAX_STEP_BUDGET;
++    return tranches * C_EVAL_STEPS_PER_TRANCHE;
++}
++
+ // --- Initialization ---
+ 
+ void c_lsp_init(CLSPContext *ctx, PDXEArena *arena, const char *source, int source_len,
+@@ -62,6 +89,7 @@ void c_lsp_init(CLSPContext *ctx, PDXEArena *arena, const char *source, int sour
+     ctx->arena = arena;
+     ctx->source = source;
+     ctx->source_len = source_len;
++    ctx->eval_step_budget = c_eval_step_budget_for_source_len(source_len);
+     ctx->registry = registry;
+     ctx->registry_head = (PDXETypeRegistry *)registry;
+     ctx->module_qn = module_qn;
+@@ -1475,7 +1503,9 @@ static const char *type_to_qn(const PDXEType *t) {
+ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node);
+ 
+ #define C_EVAL_DEPTH_LIMIT 256
+-#define C_EVAL_MAX_STEPS_PER_FILE 10000
++/* This file's step budget, sized from its source when the context was set up
++ * (c_eval_step_budget_for_source_len). */
++#define C_EVAL_MAX_STEPS_PER_FILE (ctx->eval_step_budget)
+ 
+ const PDXEType *c_eval_expr_type(CLSPContext *ctx, TSNode node) {
+     if (ts_node_is_null(node))
+--- a/engine/src/lsp/c_lsp.h
++++ b/engine/src/lsp/c_lsp.h
+@@ -101,6 +101,7 @@ typedef struct {
+     bool debug;
+     int eval_depth;         // recursion depth for c_eval_expr_type (crash guard)
+     int eval_steps;         // total expression eval calls for current file (hang guard)
++    int eval_step_budget;   // eval_steps this file may take (c_eval_step_budget_for_source_len)
+     int walk_depth;         // c_resolve_calls_in_node self-recursion (AST nesting)
+     int control_flow_depth; // if/loop/switch/catch nesting; assignments merge fail-closed
+ } CLSPContext;
+@@ -113,6 +114,10 @@ void c_lsp_init(CLSPContext *ctx, PDXEArena *arena, const char *source, int sour
+ 
+ void c_lsp_add_include(CLSPContext *ctx, const char *header_path, const char *ns_qn);
+ 
++// The expression-evaluation step budget of a source this long: 10000 steps per
++// started 32 KiB, at least 10000 and at most 320000. Depends on the length alone.
++int c_eval_step_budget_for_source_len(int source_len);
++
+ void c_lsp_process_file(CLSPContext *ctx, TSNode root);
+ 
+ const PDXEType *c_eval_expr_type(CLSPContext *ctx, TSNode node);

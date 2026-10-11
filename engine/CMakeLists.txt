@@ -320,6 +320,10 @@ if(PDXE_BUILD_TESTS)
   set_tests_properties(abi_run_health_answer_lost PROPERTIES
     ENVIRONMENT PDX_ENGINE_TEST_FAIL_ANSWER_ON=make_user)
 
+  # The C and C++ expression evaluator's step budget grows with the source and is
+  # capped, and running it out is still lost work (issue 74, patches/0012).
+  add_test(NAME c_eval_budget COMMAND c_eval_budget)
+
   # The warning exemptions reach vendored sources and never the interface layer.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME api_warnings_are_errors

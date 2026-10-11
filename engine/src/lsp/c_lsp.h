@@ -101,6 +101,7 @@ typedef struct {
     bool debug;
     int eval_depth;         // recursion depth for c_eval_expr_type (crash guard)
     int eval_steps;         // total expression eval calls for current file (hang guard)
+    int eval_step_budget;   // eval_steps this file may take (c_eval_step_budget_for_source_len)
     int walk_depth;         // c_resolve_calls_in_node self-recursion (AST nesting)
     int control_flow_depth; // if/loop/switch/catch nesting; assignments merge fail-closed
 } CLSPContext;
@@ -112,6 +113,10 @@ void c_lsp_init(CLSPContext *ctx, PDXEArena *arena, const char *source, int sour
                 PDXEResolvedCallArray *out);
 
 void c_lsp_add_include(CLSPContext *ctx, const char *header_path, const char *ns_qn);
+
+// The expression-evaluation step budget of a source this long: 10000 steps per
+// started 32 KiB, at least 10000 and at most 320000. Depends on the length alone.
+int c_eval_step_budget_for_source_len(int source_len);
 
 void c_lsp_process_file(CLSPContext *ctx, TSNode root);
 

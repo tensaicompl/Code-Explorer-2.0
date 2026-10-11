@@ -75,7 +75,10 @@ Everything goes through `include/pdxe.h`. In outline:
   file. The result says whether the walk stopped at the node budget (`truncated`) and
   how much work extraction lost (`extraction_lost`: failed allocations and exhausted
   budgets, the count the file's surface carries), so a cache never keeps a degraded
-  extraction (issue 26). A result rebuilt from a cache has neither. Each definition
+  extraction (issue 26). The C and C++ expression evaluator's budget is per file and
+  grows with the source, 10,000 steps per started 32 KiB, from 10,000 up to 320,000
+  (`patches/0012-c-lsp-eval-budget.patch`, issue 74): a large file gets the work it
+  needs, every input still has a ceiling, and running it out is still lost work. A result rebuilt from a cache has neither. Each definition
   carries the bases it names, as the engine recorded them (issue 40), and the result
   the package or namespace the file declares, where the engine reads one (issue 41),
   and Rust's `impl Trait for Type` relations, empty blocks included (issue 42). Each
@@ -119,6 +122,7 @@ environment variable turns them on.
 | `abi_throws`, `abi_truncated` | Throws cross the interface with their exception and definition; a walk cut short by the node budget says so; a rebuilt result carries no throws, truncation or lost work |
 | `abi_run_health_*` | Whether a run did all its work: clean with no answers to find, and with definitions typed resolution keeps none of; degraded by a skipped file or a lost answer, even with no answers, keeping the answers it found |
 | `abi_result_build_roundtrip` | A rebuilt result equals the original field by field, base classes, `impl Trait for Type` relations, node-type paths, call arguments, decorators, parameter types, routes and route facts included and copied (rebuilt from copies that are then overwritten and freed); definitions with no base, one and several, files with no relation, one and several, each kind of derivation fact, and definitions with one route fact and with several all occur (`fixtures/bases`, `fixtures/facts`), and every call and route fact positioned in the file has a path; a surface decodes and re-encodes to the same bytes; malformed surfaces, bases counted without an array or with a NULL, relations counted without an array or with a NULL string, decorators counted without an array, parameter types holding a NULL, a node-type path counted without an array or holding a NULL, arguments counted without an array or one without its text, and route facts counted without an array, missing a method, or with a path counted without an array or holding a NULL, are refused; resolving a project leaves every file's surface as it was |
+| `c_eval_budget` | The C and C++ expression evaluator's budget for a source's length: zero, negative and the largest int, the boundaries of a tranche and of the cap, and every length to past the cap against a 64-bit reference; a generated source four tranches long, taking about twice the old fixed 10,000 steps, extracts losing nothing, and one under a tranche that runs its budget out still reports lost work (issue 74) |
 | `api_warnings_are_errors` | Each warning class exempt in vendored code is still an error in the interface layer, compiled with the build's own flags |
 | one per `tests/fixtures/resolve/<name>` | Typed resolution on that fixture matches the reference engine's recorded answer, the fixture's own assertions hold, and neither the order files are added in nor resolving them from a cache changes the answer |
 

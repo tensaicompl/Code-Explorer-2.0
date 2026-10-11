@@ -6,7 +6,7 @@ ready structural segment of https://git.example/acme/shop
   repo_id   09365e7fa98ebdf2
   commit    cd5952872419226222f367121bb1a6ea0bff191c
   segment   .pdx/segment.db
-  sha256    9c3b45eb2110e390dc3d85dd0e62eb82c9932810faca7b35f1071f10ffd018a4
+  sha256    564e6f9e8d28e554d9e705e05f54467633def7e7b61475f9c8b303b169b4acac
   size      176128 bytes
 files      5 (4 parsed, 0 partial, 0 failed, 1 skipped, 0 binary, 0 redacted)
 graph      16 nodes, 4 edges, 3 sites, 0 candidates, 0 contracts, 32 metrics

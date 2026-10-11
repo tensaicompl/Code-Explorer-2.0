@@ -3,7 +3,8 @@
 //! Work lost to a budget running out, or to an allocation failing, crosses the
 //! interface as `FileExtract::extraction_lost`; a walk stopped by the node budget, as
 //! `truncated` (docs/plan/ISSUES.md, issues 21, 25 and 26). Each budget is set in a
-//! child process, so no other test sees it.
+//! child process, so no other test sees it. The C and C++ expression evaluator's
+//! budget is set by nothing but the source's length (issue 74).
 //!
 //! Every switch of the engine's that changes what it extracts is named in
 //! `EXTRACTION_SWITCHES`, and every other variable the engine reads is accounted for
@@ -12,6 +13,7 @@
 mod common;
 
 use std::collections::BTreeSet;
+use std::fmt::Write as _;
 use std::path::Path;
 
 use pdx_engine::{EXTRACTION_SWITCHES, Engine, NODE_BUDGET_ENV, extraction_switch_set};
@@ -58,6 +60,67 @@ fn a_starved_budget_is_reported_as_lost_work() {
     assert!(extract.extraction_lost > 0, "nothing reported lost");
     // The surface carries the same loss, so a run resolving the file counts it.
     assert!(!extract.truncated);
+}
+
+/// Project-authored C++: a cursor type and, for each unit, a record type and a function
+/// that reads a value through `chain` member calls on the cursor. The C++ expression
+/// evaluator takes a fixed number of steps per unit (about 37 at a chain of 3, about
+/// 175 at 5), and a unit is about 200 bytes.
+fn cursor_source(units: usize, chain: usize) -> String {
+    let mut out = String::from(
+        "namespace sample {\n\nstruct Cursor {\n    Cursor &next();\n    int value() const;\n};\n\n",
+    );
+    let calls = ".next()".repeat(chain);
+    for u in 0..units {
+        write!(
+            out,
+            "// Record {u} holds one row of the sample table.\nstruct Record{u} {{\n    int id;\n    \
+             int weight;\n    const char *label;\n}};\n\nint score_{u}(Cursor &cursor) {{\n    \
+             return cursor{calls}.value();\n}}\n\n"
+        )
+        .expect("writing to a String cannot fail");
+    }
+    out.push_str("}  // namespace sample\n");
+    out
+}
+
+#[test]
+fn cpp_expression_budget_scales_with_source() {
+    // About 20,000 evaluation steps, twice the fixed 10,000 the evaluator once allowed
+    // every file, in a source of four 32 KiB tranches, whose budget is 40,000: a large
+    // file gets the work it needs (issue 74).
+    let source = cursor_source(540, 3);
+    assert!(
+        (3 * 32 * 1024 + 1..=4 * 32 * 1024).contains(&source.len()),
+        "{} bytes",
+        source.len()
+    );
+    let engine = Engine::new().unwrap();
+    let extract = engine
+        .extract("cpp", "src/sample.cpp", source.as_bytes())
+        .unwrap();
+    assert!(!extract.truncated);
+    assert_eq!(
+        extract.extraction_lost, 0,
+        "the budget did not grow with the source"
+    );
+}
+
+#[test]
+fn cpp_expression_budget_running_out_is_lost_work() {
+    // About 20,000 evaluation steps in a source under one tranche, whose budget stays
+    // 10,000: the budget runs out, and the extraction says so.
+    let source = cursor_source(120, 5);
+    assert!(source.len() <= 32 * 1024, "{} bytes", source.len());
+    let engine = Engine::new().unwrap();
+    let extract = engine
+        .extract("cpp", "src/sample.cpp", source.as_bytes())
+        .unwrap();
+    assert!(!extract.truncated);
+    assert!(
+        extract.extraction_lost > 0,
+        "the budget ran out and nothing was reported lost"
+    );
 }
 
 #[test]

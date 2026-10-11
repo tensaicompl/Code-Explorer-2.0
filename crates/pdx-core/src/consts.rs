@@ -39,8 +39,11 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// since extraction records each call's and possible reference's node-type path, which
 /// it did not compute before (issue 46); 3 since it records every route binding a
 /// definition's decorators or annotations declare, with the declaring node's position
-/// and node-type path (issue 54).
-pub const ENGINE_VERSION: u32 = 3;
+/// and node-type path (issue 54); 4 since the C and C++ expression evaluator's per-file
+/// step budget grows with the source, 10,000 steps per started 32 KiB up to 320,000,
+/// so a large file resolves what a fixed 10,000 cut short (issue 74, decision 45).
+/// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
+pub const ENGINE_VERSION: u32 = 4;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the

@@ -15,7 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 74 | 2026-10-11 | P2-12 | blocker | open | P2-12's first `pdx-bench golden --accept` over the ten pinned goldens cannot complete: `cpp/fmt` indexes degraded (`pdx index` exit 2), reason `extraction_lost` on `test/gtest/gmock-gtest-all.cc`, a 533 KB, 14,442-line amalgamated test framework. The vendored engine's C/C++ typed resolver has a compiled-in per-file expression-evaluation step budget (`C_EVAL_MAX_STEPS_PER_FILE`, 10,000). It runs out on that file and counts as lost work (issue 21), so the segment is degraded. Deterministic: the same segment under one worker, isolation, a 4 GiB budget and every extraction switch raised. The other nine goldens are ready. Nothing was accepted; no golden is committed | Open, for the driver. A golden is ready-only (P2-12) and G1 needs every golden ready, so it must be resolved before the baseline. Options: (A) an engine change raising or scaling the C/C++ step budget, which moves `ENGINE_VERSION` and invalidates the extraction cache; (B) a specification change making a typed-resolution budget a run-health fact rather than a degraded reason (4.5, decision 34); (C) another disposition. The harness is implemented and tested on the task branch, unmerged |
+| 74 | 2026-10-11 | P2-12 | scr | open | P2-12's first `pdx-bench golden --accept` over the ten pinned goldens cannot complete: `cpp/fmt` indexes degraded (`pdx index` exit 2), reason `extraction_lost` on `test/gtest/gmock-gtest-all.cc`, a 533 KB, 14,442-line amalgamated test framework. The vendored engine's C/C++ typed resolver has a compiled-in per-file expression-evaluation step budget (`C_EVAL_MAX_STEPS_PER_FILE`, 10,000). It runs out on that file and counts as lost work (issue 21), so the segment is degraded. Deterministic: the same segment under one worker, isolation, a 4 GiB budget and every extraction switch raised. The other nine goldens are ready. Nothing was accepted; no golden is committed | Option A selected by the driver; B (making the budget run health) and C (another golden) rejected: a budget running out is real lost evidence, and replacing the golden would hide a G1 engine limitation. The C/C++ expression evaluation budget changed from a fixed 10,000 threshold to a deterministic source-size-aware budget: 10,000 per started 32 KiB, minimum 10,000, hard maximum 320,000 (patch 0012, decision 45, 4.5). Budget exhaustion remains lost work and remains a degraded reason. `ENGINE_VERSION` 3 → 4. The extraction cache format remains 5, because `engine_version` is already in the key. Open until all ten goldens index ready with the corrected engine |
 | 73 | 2026-10-11 | P2-04 | scr | resolved | Issue 72's detector version 3 fixed cross-detector idempotence but narrowed URI-password protection relative to detector 2: by treating `+`, `-`, `.` and the other scheme bytes as forbidden before an embedded scheme, it stopped masking passwords detector 2 masked (`-mysql://u:p@h`, `+mysql://…`, `.mysql://…`, `1.mysql://…`). Rejected by independent review before P2-12's golden baselines: a secret detector may mask more, never less, without an approved SCR | Decision 43: a letter-led scheme is recognised at the input's start or after any byte that is not an ASCII letter or digit, which keeps every detector-2 start (its word boundary allowed punctuation) and adds `_`; the mask `X` is a letter, so masking never opens a boundary. Issue 72's bearer-before-`://` clause, shared `BEARER_TOKEN`, `@` continuation and one-pass normalisation are kept. `SECRET_DETECTOR_VERSION` 3 → 4; the cache format stays 5. Monotonicity against detector 2's pattern as a test oracle: `uri_detector_preserves_detector_two_coverage`, `uri_detector_covers_detector_two_on_the_corpus`, the property `uri_detector_never_loses_a_detector_two_password` (200,000 cases); lost ranges 0 |
 | 72 | 2026-10-11 | P2-04 | scr | resolved | CI run 38098740924 (P2-11 review closure), attempt 1, failed on Windows in P2-04's property `secret_normalisation_preserves_offsets`: minimal YAML input `Authorization: Bearer <token>_mysql://u:<password>@h`. The same input fails identically on Linux; the defect predates the P2-11 closure: the word-boundary URI pattern dates from P2-04's first commit, 8f89f38, and the secrets code last changed in P2-08. Normalisation was not idempotent: the bearer token ran over `_mysql`, the URI detector, starting a scheme at a regex word boundary, missed `mysql` after `_`, and the masked token, a run of `X`, read as a scheme on a second pass, which masked the password then. The password reached the engine. Issue 44's claim that no other detector had the defect held per detector; this is one detector's mask completing another's match | URI password schemes follow URI grammar: a letter, then letters, digits, `+`, `-` and `.`, starting at the input's start or after a byte no scheme holds (`_` included), never at a regex word boundary. That alone left a class open (`Bearer <tok>_9mysql://…`, `<tok>_://…`, `<tok>=://…`, `Bearer 0000000000000000://…`: the masked token is always a scheme, the original need not be one), so by the driver's decision a bearer token before `://`, in the bearer detector's exact shape, also counts (decision 42). Every detector still reads the original bytes once, the ranges still merge, and masking still happens once. `SECRET_DETECTOR_VERSION` 2 → 3: the policy digest and every extraction cache key move (an older entry is a miss); `EXTRACT_CACHE_FORMAT_VERSION` stays 5, as do the segment schema, matrix, engine, protocol and surface. Regressions `bearer_adjacent_uri_password_is_idempotent`, `uri_scheme_boundary_uses_scheme_grammar_not_word_boundary`, `cross_detector_boundaries_are_idempotent`, `uri_boundary_change_leaves_ordinary_sources_alone`; the property, its pieces widened, passes 20,000 and 200,000 cases |
 | 71 | 2026-10-11 | P2-11 | scr | resolved | 4.2.1 says a local binary with no server "records `repo_id_source = \"url\"` in `meta`", but 4.3's `meta` keys do not include it and the reader refuses a key it does not know, so no segment can record it without a schema change | Resolved by the P2-11 review closure on 2026-10-11 (decision 40): 4.3 gains the required meta key `repo_id_source`, `url` or `registered` (`segment::RepoIdSource`), and `SEGMENT_SCHEMA_VERSION` moves 2 → 3 (no other version moves). With `url` the writer and the reader refuse a `repo_id` that is not `repo_id_from_url(repo_url)`; a `registered` id is never derived from or compared with the URL. A schema-2 segment is refused and re-indexed, never migrated. `pdx index` writes `url`, reports it in its JSON and `pdx coverage`'s, and still refuses a configured server |
@@ -177,7 +177,47 @@ For the driver:
 - **C. Another disposition.** For example, a different golden for C++ under D5's rule,
   which today covers only fetch and licence failures.
 
-State: open.
+#### Disposition: option A
+
+The driver chose A. B is rejected: `pdxe_lost_work` means a work budget ran out, so
+work that could have produced evidence was not done. Issue 21 made that observable on
+purpose, and decision 34 makes it a degraded reason. Relabelling it healthy would also
+leave this file not clean enough to cache but clean enough to publish as ready. C is
+rejected: the repository is fetchable and permissively licensed, and it exposes a real
+engine scalability limit that G1, which needs every golden ready, must not hide. G1,
+decision 34, `index::report::assess`, the degraded reasons, Stage 2's lost-work
+propagation and the cache's clean-entry rule are all unchanged.
+
+The fixed budget becomes a bounded, source-size-aware one (patch
+`0012-c-lsp-eval-budget.patch`, decision 45):
+
+```text
+chunks = max(1, ceil(L / 32768))      L = length of the source the evaluator runs over
+budget = min(320000, chunks * 10000)
+```
+
+The rule has these properties:
+
+- **Small files** keep the old 10,000-step protection.
+- **Larger files** receive proportionally more work.
+- **Deterministic.** The cost depends only on the source length: never the machine,
+  CPU or worker count, memory, clock, path or environment. No switch sets it.
+- **Bounded.** The budget never exceeds 320,000, so an adversarial input still has a
+  hard finite ceiling. The recursion-depth guard (256) stays independently active.
+- **Overflow-safe.** It is computed once per evaluation context, by quotient and
+  remainder, so no intermediate can overflow up to `INT_MAX`.
+- **Still observable.** Running it out is still lost work, counted once per file. The
+  first exhaustion is counted by `0006`'s unchanged lines.
+
+The file here is 532,839 bytes, 17 started tranches, so its budget is 170,000.
+`ENGINE_VERSION` moves 3 → 4: Rust's constant and the engine's `pdxe_version`, which
+`engine_version_is_the_engines` keeps equal. Extraction-cache keys move with it (fixed
+vector `ba0eb494…1508`, engine 3's `088819a1…0d81`), so an engine-3 entry is a miss,
+and the format stays 5. The schema, matrix, detector, protocol and surface versions do
+not move. A segment's bytes move with its `engine_version` meta value even where its
+rows do not.
+
+State: open, until all ten goldens index ready with engine 4.
 
 ### 73 — Detector 3 narrowed URI-password coverage
 

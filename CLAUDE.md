@@ -125,7 +125,11 @@ extraction cache is format 5 and the worker protocol 6 (issues 40 to 42, 46, 47 
 54): calls carry their node-type path (`ast_path`, computed by the engine since patch
 0010) and arguments, and definitions their decorators, parameter types and every route
 binding with its declaring node's position and path (`routes`, patch 0011);
-`ENGINE_VERSION` is 3.
+`ENGINE_VERSION` is 4 (issue 74, decision 45): the C and C++ expression
+evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
+10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
+lost work and still degrades; a budget that starves real code is fixed in the engine,
+never by weakening `degraded`.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4

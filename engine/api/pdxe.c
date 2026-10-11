@@ -38,8 +38,10 @@
  * a cached extraction from an older engine is never mistaken for a current one.
  */
 /* 2: sites carry their node-type path (issue 46). 3: definitions carry every route
- * binding with its declaring node (issue 54). */
-static const char ENGINE_VERSION_STRING[] = "3";
+ * binding with its declaring node (issue 54). 4: the C and C++ expression evaluator's
+ * per-file step budget grows with the source, 10000 steps per started 32 KiB up to
+ * 320000 (issue 74, patch 0012). */
+static const char ENGINE_VERSION_STRING[] = "4";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;

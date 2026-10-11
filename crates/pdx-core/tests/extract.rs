@@ -713,31 +713,64 @@ fn cache_object_id_fixed_vector() {
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (3, 2),
-        "the vector below is engine 3's and matrix 2's"
+        (4, 2),
+        "the vector below is engine 4's and matrix 2's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 4,
         "the vector below is detector 4's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 5, 3 and 2, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 5, 4 and 2, the policy digest
     // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
-    // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Detector
-    // 3's was c1c95f71…8e28 and detector 2's 6ff3be1c…d177: each policy moved every
-    // key, and the format did not move.
+    // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engine
+    // 3's was 088819a1…0d81 (cache_key_includes_engine_version). Detector 3's was
+    // c1c95f71…8e28 and detector 2's 6ff3be1c…d177: each policy moved every key, and
+    // the format did not move.
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "088819a16f0e7ea2db898b4c188e0f71e1e91b6560a8fd4945c24c173dd80d81"
+        "ba0eb49490a193a5bd3e296d630ef793b1b340aca73a138a8234e9474ce61508"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v5").join("08").join(&id));
+    assert_eq!(path, Path::new("cache").join("v5").join("ba").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
     shifted.language_id = "pythons".into();
     shifted.rel_path = "rc/app.py".into();
     assert_ne!(shifted.object_id(), key.object_id());
+}
+
+#[test]
+fn cache_key_includes_engine_version() {
+    // An engine whose output can differ is another key: what engine 3 cached is never
+    // found by engine 4, and the cache format stays 5 (issue 74). Independently
+    // computed, as the vector above, with engine 3 in place of 4.
+    let key = CacheKey::new(
+        SecretPolicyDigest::of(&PdxConfig::default().secrets),
+        "python",
+        "src/app.py",
+        BlobSha::of(b"print('hi')\n"),
+    );
+    let mut older = key.clone();
+    older.engine_version = 3;
+    assert_eq!(
+        older.object_id().to_string(),
+        "088819a16f0e7ea2db898b4c188e0f71e1e91b6560a8fd4945c24c173dd80d81"
+    );
+    assert_ne!(older.object_id(), key.object_id());
+    let cache = FsCache::at("cache");
+    assert_ne!(cache.object_path(&older), cache.object_path(&key));
+    for path in [cache.object_path(&older), cache.object_path(&key)] {
+        assert!(path.starts_with(Path::new("cache").join("v5")), "{path:?}");
+    }
+}
+
+#[test]
+fn engine_version_is_the_engines() {
+    // The version every cache key and segment records is the one the linked engine
+    // reports of itself: neither may move without the other.
+    assert_eq!(ENGINE_VERSION.to_string(), Engine::version());
 }
 
 #[test]
