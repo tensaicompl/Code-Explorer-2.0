@@ -113,7 +113,13 @@ static char *extract(int lang, const char *rel, const char *source) {
         printf("FAIL no temporary file\n");
         exit(1);
     }
+    /* The engine ran under the locale being tested; the rows are printed in the C one,
+     * since the printer writes a score with printf, whose decimal point is the locale's. */
+    char numeric[256];
+    snprintf(numeric, sizeof(numeric), "%s", setlocale(LC_NUMERIC, NULL));
+    setlocale(LC_NUMERIC, "C");
     diff_rows_file(o, rel, engine);
+    setlocale(LC_NUMERIC, numeric);
     fputs("{\"c\":\"surface\",\"json\":", o);
     fwrite(surface, 1, surface_len, o);
     fputs("}\n", o);

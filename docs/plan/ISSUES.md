@@ -207,9 +207,19 @@ The driver decided both (decision 53), and the fix is on
   `date_and_time_cannot_change_a_cached_extraction` requires a cold cache under
   `TZ=UTC0`, a warm hit under `NZST-12` and a fresh run under `PST8` to give one
   extraction, with the call's arguments `"Jan 01 1970"` and `"00:00:00"`.
+- **Locale.** The first macOS CI run (38225693037), on a machine with German, French
+  and Polish locales, failed the engine test. The cause was the test's own row printer,
+  which writes a score with `printf` and so used the decimal comma under them. The
+  engine's extraction was byte-identical under all three: reproduced on Linux with those
+  locales built under `LOCPATH`, holding `LC_NUMERIC` at C changes nothing else. The
+  rows are now printed in the C numeric locale while the engine runs under the locale
+  being tested. A `__DATE__` formatted from a fixed epoch through `%b` fails the test
+  under the French and Polish locales (mutation P). PDX never sets a locale, so its
+  processes run in the C locale whatever `LC_*` says.
 - **Mutations.** All killed: the clock `__DATE__` (K) and `__TIME__` (L); the epoch
-  through `localtime`, so the zone moves it (M); a clock `__TIMESTAMP__` (N); and the
-  setting off at engine 7 (O).
+  through `localtime`, so the zone moves it (M); a clock `__TIMESTAMP__` (N); the
+  setting off at engine 7 (O); and a fixed date formatted through the locale's month
+  name (P).
 
 State: resolved.
 
