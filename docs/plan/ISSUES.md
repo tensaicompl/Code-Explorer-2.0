@@ -15,7 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 85 | 2026-10-12 | P2-16 | ambiguity | open | Found by issue 84's audit: C and C++ preprocessing evaluates `sizeof(type)` inside `#if` with the type sizes of the engine binary's own build (`long` is 8 bytes on Linux and macOS, 4 on Windows), so such a source can extract differently on different platforms under one `ENGINE_VERSION`. No ambient input (one binary, one answer) and inert in practice: no C or C++ compiler accepts the construct, and jq, fmt and the Linux checkout hold none | Open: whether extraction must be identical across build targets is unspecified; a fixed type-size table is an engine change. The driver's decision |
+| 86 | 2026-10-12 | P2-16 | blocker | open | Found by issue 85's audit: two more host data-model dependences in C and C++ preprocessing. A single-byte character constant in `#if` is evaluated as plain `char`, signed on four of the five specified targets and unsigned on linux-aarch64, so `#if '\xff' < 0` (valid C) takes opposite branches; and `#line` numbers are read with `atol`, a C `long`, so a number above 2147483647 (invalid C) gives a different `__LINE__` on Windows | Open: same input and engine version, different extraction on two specified targets, so the determinism claim of issues 83 to 85 does not yet hold on all five. A fixed choice in the engine is an engine change; the driver's decision |
+| 85 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 84's audit: C and C++ preprocessing evaluates `sizeof(type)` inside `#if` with the type sizes of the engine binary's own build (`long` is 8 bytes on Linux and macOS, 4 on Windows), so such a source can extract differently on different platforms under one `ENGINE_VERSION`. No ambient input (one binary, one answer) and inert in practice: no C or C++ compiler accepts the construct, and jq, fmt and the Linux checkout hold none | Resolved in engine 7 with issues 83 and 84 (decision 54, patch 0017): the library's twenty recognised spellings use one written-out LP64 table on every platform (char 1, short 2, int 4, long 8, long long 8, float 4, double 8, long double 16, pointers 8); a caller's table and the build's own sizes are ignored, unrecognised spellings stay unevaluated. Host ABI is no extraction input and not in the cache key. Tests simulate other platforms through a test-build seam and assert the same sizes on Linux, macOS and Windows; mutations killed. The audit found issue 86 |
 | 84 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 83's environment audit: C-family preprocessing predefined `__DATE__` and `__TIME__` from the wall clock in the process's local time zone (`localtime`, which reads `TZ` and, without it, the system's zone file) and with the locale's month name. A source macro that expanded either put the date or time into the extraction (a call's arguments and first string argument), which no cache key names | Resolved in engine 7 with issue 83 (decision 53, patch 0016): `__DATE__` is `"Jan 01 1970"` and `__TIME__` `"00:00:00"`, written out, so no clock, zone or locale is read; a source's own definitions keep precedence. The only time-derived predefined macros; `ENGINE_VERSION` stays 7. Tests fail on the clock-reading engine and pass now; mutations killed |
 | 83 | 2026-10-12 | P2-16 | blocker | resolved | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Resolved (decisions 51 and 52). Production engine: patch 0015, engine 7, opens no file, so no ambient include is consumed; specification 4.5 clarified; tests fail on engine 6 and pass on 7, mutations killed, goldens unchanged. P2-16 harness: both engines execute from a fresh empty working directory of the harness's own, an execution rule of the differential, not the fix; `make engine-differential` is 32 of 32 identical, jq and fmt included |
 | 82 | 2026-10-11 | P2-14 | blocker | open | P2-14's performance run cannot complete either scale repository on the measuring machine (a 10 GB VM, 28 logical processors). Stage 2 keeps every file's extraction resident until the stage ends, at about 300 to 360 KB of resident memory per extraction completed, so a worker passes the harness's 6 GiB ceiling during extraction: Kubernetes (`6c1c770`, 25,930 files discovered) after 9.6 s with 21,211 extractions cached, Linux (`72d3fcf`, 95,723 files) after 14.2 s with 17,625. Not a defect of the harness: the goldens' peaks are 50 to 1,262 MiB. Blocks G1's scale criterion (peak RSS ≤ 4 GiB and ≥ 400 files/s on `kubernetes`), not P2-14 | Open. Under Decision 49's P2-14 measurement policy, P2-14 records each as `out_of_memory` data (peak, stage reached, stages finished, extractions cached) and its summary marks scale incomplete; nothing is optimised in P2-14. Needs Stage 2 and the registry to hold less per file (or stream into Stage 3) before G1 |
@@ -130,6 +131,39 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 86 — Preprocessing keeps two more host data-model dependences
+
+Found by issue 85's audit of every preprocessing value that depends on the platform the
+engine is built for. Neither is a type size.
+
+- **Plain `char` signedness.** In `#if` and `#elif`, the library evaluates a single-byte
+  character constant as `static_cast<char>`. So `'\xff'` is -1 where plain `char` is
+  signed and 255 where it is unsigned. It is signed on linux-x86_64, darwin-arm64,
+  darwin-x86_64 and windows-x86_64, and unsigned on linux-aarch64, one of the five
+  targets specification 4.14.1 names. `#if '\xff' < 0` is valid C and C++, whose value
+  is implementation-defined, and it takes opposite branches on the two. This was shown
+  by building the library twice, once with `-funsigned-char`.
+- **`#line` numbers wider than 31 bits.** `#line N` and `# N "file"` read the number
+  with `atol`, which returns a C `long`: 64 bits on Linux and macOS, 32 on Windows.
+  `#line 4294967297` makes the following `__LINE__` 1 on LP64, the value cut to the
+  library's 32-bit line. Microsoft's `atol` returns `LONG_MAX` on overflow, so on
+  Windows it would be 2147483647. That is from its documentation; it was not run here.
+  C limits `#line` to 2147483647, so only an invalid directive reaches this.
+
+Same input, same engine version, different extraction on two specified targets: the
+determinism claim of issues 83 to 85 does not hold on all five until both are fixed. The
+census that issue 85 ran finds neither construct in jq, fmt, Kubernetes, Linux, the
+engine's fixtures or the sanitizer corpus. The fix is a fixed choice in the engine, for
+example plain `char` signed as on four of the five targets and `#line` read at a fixed
+64-bit width as on LP64. It is an engine change and, at the driver's choice, part of
+engine 7.
+
+Also found, and not a host dependence in practice: `#if` arithmetic that overflows, and
+shifts by 64 or more, are undefined in the library's C++. They give the same result on
+x86-64 and AArch64 (two's complement; shift counts taken modulo 64).
+
+State: open.
+
 ### 85 — Preprocessing evaluates `sizeof` in `#if` with the engine's own type sizes
 
 Found by issue 84's audit of everything C and C++ preprocessing predefines or evaluates.
@@ -153,7 +187,57 @@ lookup, which issue 83 removed.
 Whether an extraction must be identical across build targets is unspecified. Making it
 so is a fixed type-size table in the engine, an engine change. The driver's decision.
 
-State: open.
+The driver decided it must be fixed before engine 7 reaches main (decision 54). Commit
+`ef6a367` on `hotfix/issue-83-c-family-input-isolation`:
+
+- **Root cause.** The library's preprocessing builds its `sizeof` table from a caller's
+  table (`TokenList::sizeOfType`, which PDX never fills) and then the native `sizeof` of
+  twenty spellings: `char`, `short`, `short int`, `int`, `long`, `long int`, `long long`,
+  `float`, `double`, `long double`, and a pointer to each. `simplifySizeof` drops
+  `signed` or `unsigned` before a name and a second `*`, joins the rest with spaces and
+  looks the spelling up. A spelling it does not find is left unevaluated, and the
+  condition then fails to evaluate: `void *`, `wchar_t`, `size_t`, `ptrdiff_t`, `bool`,
+  `_Bool`, a lone `signed` or `unsigned`, `long long int`, qualified, array and struct
+  types. It holds for every platform alike, and is unchanged.
+- **Old values.** char 1, short 2, int 4, long long 8, float 4, double 8 and pointers 8
+  on all five targets. Long was 8 on Linux and macOS and 4 on Windows. Long double was
+  16 on Linux (x86-64 and AArch64) and Intel macOS, and 8 on Apple silicon and Windows.
+- **Model.** LP64 as 64-bit Linux has it, written out: char 1, short and short int 2,
+  int 4, long and long int 8, long long 8, float 4, double 8, long double 16, every
+  pointer 8. Patch 0017 adds the setting `fixedSizeOfTypes`, which the engine always
+  sets and which replaces the whole table, so neither the build's sizes nor a caller's
+  can enter. `ENGINE_VERSION` stays 7: patches 0015 to 0017 together are engine 7.
+- **Cache.** Host ABI is no extraction input and is not in the key, so a cache filled on
+  any platform is right on every other. The key vectors do not change: they hold
+  versions and file identity only.
+- **Tests.** `engine/tests/c_family_sizeof.c` runs under this build's sizes and four
+  simulated ones: 64-bit Windows, Apple silicon, a 32-bit build, and every size wrong.
+  The test seam `PDX_ENGINE_TEST_HOST_SIZES` simulates them, in test builds only, by
+  handing the library another platform's sizes as a caller's table. The test covers:
+  - the fixed size of all 41 spellings and folded forms, in C and C++;
+  - unrecognised spellings staying unevaluated;
+  - a bare `sizeof` giving one expansion;
+  - a full extraction whose `#if` and `#elif` choose calls by `sizeof`.
+
+  It failed 156 checks with the seam and without the fix.
+
+  `pdx-engine`'s `type_sizes` asserts the fixed model's branches, with the same
+  expectations on every platform. Simulated platforms in child processes change no
+  extraction. `pdx-core`'s `c_family_preprocessor_sizeof_is_platform_independent` runs
+  Stage 2 cold, warm and fresh, and requires the fixed model's branch. The Windows CI job
+  runs both Rust tests, so Windows must select `long` 8 and `long double` 16, as Linux and
+  macOS do. On Apple silicon `long double` was 8, so the macOS job proves that too.
+- **Mutations.** All killed: a Windows-style `long` of 4 (Q), native pointer sizes (R), a
+  table conditional on the platform (S), the setting off (T), and `long double` left to
+  the build (U).
+- **Census.** A text scan of every C-family file in the cached golden and scale
+  checkouts, the engine's fixtures and the sanitizer corpus found no `sizeof` in `#if`.
+  That is 64,685 files in jq, fmt, Kubernetes and Linux, and 16 more; the one match
+  earlier counted in Linux is in a comment.
+- **Correction.** "Nothing else in the preprocessing depends on the build target" above
+  was wrong. Issue 86 records two more dependences.
+
+State: resolved.
 
 ### 84 — C-family preprocessing expands `__DATE__` and `__TIME__` from the clock
 

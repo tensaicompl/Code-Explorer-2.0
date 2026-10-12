@@ -168,8 +168,9 @@ buffer Stage 2 supplies is the whole input.
 - **Tests.** `engine/tests/c_family_input_isolation.c` (inotify on Linux),
   `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`, the `extract`
   tests and `pdx-engine`'s `type_sizes` (which run on Windows too) prove it.
-- **Open.** Issue 85: `sizeof` in `#if` is evaluated with the engine build's own type
-  sizes (inert: no compiler accepts it).
+- **Open.** Issue 86: plain `char` signedness in `#if` character constants (unsigned on
+  linux-aarch64 only) and `#line` numbers read as a C `long` (32 bits on Windows) still
+  depend on the build target.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
