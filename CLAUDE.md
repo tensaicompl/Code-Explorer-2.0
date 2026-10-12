@@ -164,6 +164,8 @@ buffer Stage 2 supplies is the whole input.
   anything outside the repository, the time, the zone or the locale.
 - **Tests.** `engine/tests/c_family_input_isolation.c` (inotify on Linux),
   `engine/tests/c_family_date_time.c` and the `extract` tests prove it.
+- **Open.** Issue 85: `sizeof` in `#if` is evaluated with the engine build's own type
+  sizes (inert: no compiler accepts it).
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
@@ -425,9 +427,8 @@ of `bench/engine-differential.toml`.
   still reads included files from there.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
-  does. All 32 corpora were identical at P2-16; at engine 7, jq's and fmt's differ in
-  their macro-expanded rows by the headers the reference still reads, and issue 83's
-  closure is held for the driver.
+  does. All 32 corpora were identical at P2-16 and are again at engine 7, each engine
+  run from an empty working directory (issue 83, decision 52).
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

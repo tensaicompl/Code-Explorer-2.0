@@ -15,8 +15,9 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 84 | 2026-10-12 | P2-16 | blocker | open | Found by issue 83's environment audit: C-family preprocessing predefines `__DATE__` and `__TIME__` from the wall clock in the process's local time zone (`localtime`, which reads `TZ` and, without it, the system's zone file). A source macro that expands either puts the date or time into the extraction (a call's arguments and first string argument), which no cache key names | Open, not fixed: outside issue 83's file-only scope, and the driver's decision (a fixed predefinition is an engine change and an `ENGINE_VERSION` move) |
-| 83 | 2026-10-12 | P2-16 | blocker | open | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Open. Fixed on `hotfix/issue-83-c-family-input-isolation`, not merged: patch 0015 (the preprocessor opens no file), `ENGINE_VERSION` 7, decision 51, specification 4.5 clarified; the regressions fail on engine 6 and pass on 7, mutations killed, goldens unchanged. Closure is held for the driver: `make engine-differential` now differs on `golden:c/jq` and `golden:cpp/fmt`, in `origin` 1 rows only, by the header content the reference still reads from the corpus root (P2-16 defines fidelity to it) |
+| 85 | 2026-10-12 | P2-16 | ambiguity | open | Found by issue 84's audit: C and C++ preprocessing evaluates `sizeof(type)` inside `#if` with the type sizes of the engine binary's own build (`long` is 8 bytes on Linux and macOS, 4 on Windows), so such a source can extract differently on different platforms under one `ENGINE_VERSION`. No ambient input (one binary, one answer) and inert in practice: no C or C++ compiler accepts the construct, and jq, fmt and the Linux checkout hold none | Open: whether extraction must be identical across build targets is unspecified; a fixed type-size table is an engine change. The driver's decision |
+| 84 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 83's environment audit: C-family preprocessing predefined `__DATE__` and `__TIME__` from the wall clock in the process's local time zone (`localtime`, which reads `TZ` and, without it, the system's zone file) and with the locale's month name. A source macro that expanded either put the date or time into the extraction (a call's arguments and first string argument), which no cache key names | Resolved in engine 7 with issue 83 (decision 53, patch 0016): `__DATE__` is `"Jan 01 1970"` and `__TIME__` `"00:00:00"`, written out, so no clock, zone or locale is read; a source's own definitions keep precedence. The only time-derived predefined macros; `ENGINE_VERSION` stays 7. Tests fail on the clock-reading engine and pass now; mutations killed |
+| 83 | 2026-10-12 | P2-16 | blocker | resolved | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Resolved (decisions 51 and 52). Production engine: patch 0015, engine 7, opens no file, so no ambient include is consumed; specification 4.5 clarified; tests fail on engine 6 and pass on 7, mutations killed, goldens unchanged. P2-16 harness: both engines execute from a fresh empty working directory of the harness's own, an execution rule of the differential, not the fix; `make engine-differential` is 32 of 32 identical, jq and fmt included |
 | 82 | 2026-10-11 | P2-14 | blocker | open | P2-14's performance run cannot complete either scale repository on the measuring machine (a 10 GB VM, 28 logical processors). Stage 2 keeps every file's extraction resident until the stage ends, at about 300 to 360 KB of resident memory per extraction completed, so a worker passes the harness's 6 GiB ceiling during extraction: Kubernetes (`6c1c770`, 25,930 files discovered) after 9.6 s with 21,211 extractions cached, Linux (`72d3fcf`, 95,723 files) after 14.2 s with 17,625. Not a defect of the harness: the goldens' peaks are 50 to 1,262 MiB. Blocks G1's scale criterion (peak RSS ≤ 4 GiB and ≥ 400 files/s on `kubernetes`), not P2-14 | Open. Under Decision 49's P2-14 measurement policy, P2-14 records each as `out_of_memory` data (peak, stage reached, stages finished, extractions cached) and its summary marks scale incomplete; nothing is optimised in P2-14. Needs Stage 2 and the registry to hold less per file (or stream into Stage 3) before G1 |
 | 81 | 2026-10-11 | P2-14 | third-party | resolved | P2-14's deliverables need a benchmark framework for the `resolve` and `segment write` benchmarks and a way to read a benchmark worker's resident memory and the host's processors and memory on Linux, macOS and Windows; neither was in the dependency graph | `criterion` 0.8.2 (a dev-dependency of `pdx-core` only, default features off but `cargo_bench_support`) with 13 crates of its own, `safe-to-run`; `sysinfo` 0.39.6 (a dependency of `pdx-bench` only, default features off but `system`) with 16 crates of its own, `safe-to-deploy`: 31 exact-version exemptions added by hand, each naming this issue, and the existing `syn` 2.0.119 exemption raised from `safe-to-run` to `safe-to-deploy`, because `sysinfo`'s Windows dependency builds two procedural macros with it. Exemptions, not audits: 142 exemptions, 0 audits, 0 imports. `pdx` links none of them (`scripts/open-binary-check.sh`) |
 | 80 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: error recovery in C++ makes callables of what is not one, and they own the sites they span. Examples in fmt are a `Function` named `namespace` over lines 928–1755 of `include/fmt/core.h`, and a `Method` `GoogleTestFailureException` over lines 10986–11713 of gtest's header. Overloads and templates inside such regions, or in class bodies, get no definition: `basic_specs::set_fill(basic_string_view<Char>)`, `count<B1, B2, Tail...>`, `EqHelper::Compare` behind `enable_if`. Under engine 5 the name join gave their sites to another definition with the same name. Since issue 76 they belong to the representation as it is: the enclosing artefact, or the file | Open: an extraction-quality question for C and C++, not ownership's |
@@ -129,6 +130,31 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 85 — Preprocessing evaluates `sizeof` in `#if` with the engine's own type sizes
+
+Found by issue 84's audit of everything C and C++ preprocessing predefines or evaluates.
+The preprocessing library evaluates `sizeof(type)` inside `#if` and `#elif` from the
+size each type has in the build of the engine binary itself:
+
+- `long` is 8 bytes in the Linux and macOS builds and 4 in the Windows one.
+- `long double` is 16 bytes on x86-64 Linux and 8 on Apple silicon.
+
+So a source whose `#if` asks one can extract differently on the three platforms under
+one `ENGINE_VERSION`. No build key or cache key names the platform (specifications 4.3
+and 4.5).
+
+It is no ambient input: one engine binary always gives one answer and reads nothing at
+run time to make it. It is also inert in practice. `sizeof` in `#if` is invalid C and
+C++, which no compiler accepts, and jq, fmt and all 95,723 files of the Linux scale
+checkout hold none (the one match is in a comment). Nothing else in the preprocessing
+depends on the build target: absolute-path syntax does, but it only ever served include
+lookup, which issue 83 removed.
+
+Whether an extraction must be identical across build targets is unspecified. Making it
+so is a fixed type-size table in the engine, an engine change. The driver's decision.
+
+State: open.
+
 ### 84 — C-family preprocessing expands `__DATE__` and `__TIME__` from the clock
 
 Found by issue 83's audit of what `pdxe_extract_file` reads. The preprocessing library
@@ -150,7 +176,42 @@ A fix predefines both with fixed values in the engine, an engine change that mov
 `ENGINE_VERSION`. It is the driver's decision, as is whether it rides with issue 83's
 engine 7.
 
-State: open.
+The driver decided both (decision 53), and the fix is on
+`hotfix/issue-83-c-family-input-isolation`, commit `fe536c8`:
+
+- **Root cause.** The library's preprocessing inserted `__DATE__` and `__TIME__` from
+  `time` and `localtime_r` (`localtime_s` on Windows) through `strftime`'s `%b %d %Y` and
+  `%H:%M:%S`, so from the clock, the zone (`TZ`, else the system's zone file) and, for
+  the month name, `LC_TIME`.
+- **Audit.** Of everything the library predefines, only `__DATE__` and `__TIME__` were
+  time-derived. The rest are `__FILE__` (the path given), `__LINE__` and `__COUNTER__`
+  (from the source), `__STDC_VERSION__` or `__cplusplus` (from the configured standard),
+  `__STRICT_ANSI__` and `__has_include`. It predefines no `__TIMESTAMP__`,
+  `__BASE_FILE__` or `__INCLUDE_LEVEL__`, reads no file time, and takes nothing from a
+  hostname, user, process id, the working directory or the environment. One
+  build-target dependence was found: issue 85.
+- **Patch 0016.** A preprocessor setting, `fixedDateTime`, which the engine always sets:
+  `"Jan 01 1970"` and `"00:00:00"`, the start of the Unix epoch in the library's own
+  formats, written out rather than formatted. Nothing replaces the clock: no
+  `SOURCE_DATE_EPOCH`, Git or file time is read. A source's own `#define` or `#undef` of
+  either keeps its precedence, and an `#ifdef` still sees both defined. `ENGINE_VERSION`
+  stays 7: issues 83 and 84 together are engine 7, never delivered before both. The
+  cache-key vectors are unchanged, since a key holds versions and file identity only.
+  Specification 4.5 now says an extraction depends on no clock, time zone or locale.
+- **Tests.** Both failed on the clock-reading engine and pass now.
+  `engine/tests/c_family_date_time.c` failed 20 times there, with `"Oct 12 2026"` and
+  `"10:15:35"`. It requires the exact expansion in C and C++; rows and surface
+  byte-identical under four POSIX TZ rules (UTC, New Zealand, US Pacific, +05:45) and
+  every installed locale; a source's own definitions winning; and `__TIMESTAMP__`
+  staying a name. The `pdx-core` `extract` test
+  `date_and_time_cannot_change_a_cached_extraction` requires a cold cache under
+  `TZ=UTC0`, a warm hit under `NZST-12` and a fresh run under `PST8` to give one
+  extraction, with the call's arguments `"Jan 01 1970"` and `"00:00:00"`.
+- **Mutations.** All killed: the clock `__DATE__` (K) and `__TIME__` (L); the epoch
+  through `localtime`, so the zone moves it (M); a clock `__TIMESTAMP__` (N); and the
+  setting off at engine 7 (O).
+
+State: resolved.
 
 ### 83 — C-family preprocessing reads included files from disk
 
@@ -246,7 +307,38 @@ The driver chose the source alone (decision 51), and the hotfix is on
   fidelity to the reference, so the harness is left as it is, and closure is held for
   the driver.
 
-State: open.
+The driver's decision on the held differential (decision 52), commit `fe536c8`:
+
+- **Production engine.** Patch 0015 is the fix: an extraction consumes no ambient
+  include file, from any working directory.
+- **P2-16 harness.** The engine differential compares the explicit engine contract, and
+  ambient corpus files are no input. Both engines execute, for every corpus, from a fresh
+  empty working directory of the harness's own (`hermetic_cwd` in
+  `scripts/engine/differential.py`), outside the stage, the corpus and the repository,
+  and are given every input by absolute path. This is the differential's execution rule,
+  not the production fix: the canonical form, the categories and the comparison are
+  unchanged, and no row is filtered.
+- **Result.** `make engine-differential` from the committed harness is 32 of 32
+  identical, with 0 mismatches. jq (definitions 127, calls 261, imports 28, surfaces 79,
+  typed 161) and fmt (171, 645, 9, 133 and 322) are identical. The totals on each side
+  are, for the goldens, 1,505, 3,490, 413, 1,447 and 1,875, and for the fixtures, 366,
+  111, 36, 365 and 96. A live run observed the vendored engine in a fresh, empty
+  `pdx-differential-vendored-cwd-*` directory.
+- **Tests.** The harness's `HermeticRuns` tests use stand-in engines that record where
+  they run. Neither engine runs in the corpus root; files around the caller are no
+  input; every run starts in a fresh, empty directory that is removed afterwards; both
+  engines are isolated alike; the inputs are absolute and unchanged. All five failed on
+  the corpus-root harness.
+- **Mutations.** All killed. Issue 83's six (disk includes, `__has_include` from the
+  working directory, the source read from disk, absolute includes, no version move, no
+  preprocessing) were re-run with issue 84 in place. Four more cover the harness: the
+  reference in the corpus root (G), one working directory shared and never cleaned (H),
+  the engines under different rules (I), and both back in the corpus root, where the
+  live differential differs on jq and fmt again (J).
+- **Audit.** It was repeated after issue 84; see issue 84 for time-derived state. Normal
+  extraction reads no ambient source or header and no undeclared ambient state.
+
+State: resolved.
 
 ### 82 — The scale repositories exhaust memory in Stage 2
 
