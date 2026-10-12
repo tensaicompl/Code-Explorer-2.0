@@ -15,8 +15,9 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 87 | 2026-10-12 | P2-16 | blocker | open | Found by issue 86's audit: C and C++ preprocessing's work and memory are unbounded by the source. A forward `#line` within one file pads the expanded text with one line per line skipped (`#line 400000000` in a three-line source: 400 MB of text, 2.7 GB peak), and doubling macros grow exponentially (437 bytes, 22 levels: 1.3 GB, 9.8 s). Whether such a file extracts depends on the host's memory and speed, and a repository can exhaust the indexer's memory | Open: predates this hotfix and no corpus has it, but it breaks the closure condition for issues 83 to 86. A bound needs a design (a marker in place of padding, a cap on expansion reported as lost work); the driver's decision |
-| 86 | 2026-10-12 | P2-16 | blocker | open | Found by issue 85's audit: two more host data-model dependences in C and C++ preprocessing. A single-byte character constant in `#if` is evaluated as plain `char`, signed on four of the five specified targets and unsigned on linux-aarch64, so `#if '\xff' < 0` (valid C) takes opposite branches; and `#line` numbers are read with `atol`, a C `long`, so a number above 2147483647 (invalid C) gives a different `__LINE__` on Windows | Fixed on the branch, closure held. Patch 0018, decision 55, engine 7 with issues 83 to 85: a one-byte character constant is a signed 8-bit char, written out, and a multi-character one a 32-bit int; every `#line` number is its leading decimal digits read at 64 bits and clamped to 4294967295. Tests build the library with char signed and unsigned and assert the same values on Linux, macOS and Windows; mutations killed. Held because the same audit found issue 87, and the driver set its closure condition as no known host property changing extraction |
+| 88 | 2026-10-12 | P2-16 | blocker | open | Found by issue 87's security test: extraction's memory is quadratic in how deeply call sites nest, in every language. Each call site stores the node types from its owner down to it (`ast_path`, patch 0010), so n calls nested n deep store about n² entries: a 30 KB C or Python file of 10,000 nested calls stores 100,030,000, peaking at 954 MB in the engine and 6.7 GB in `build_segment`, which fails the file under an 8 GB address-space limit and is killed under a 6 GB cap; a 10,000-call method chain takes 1.6 GB and 39 s. Whether such a file extracts depends on the machine | Open: predates this hotfix (on main since patch 0010) and is not preprocessing, so patch 0019 does not reach it; no corpus here has it (largest per file 96,362 entries, longest path 214). It is issue 87's class, so it holds the closure of issues 86 and 87. A bound needs a design (a cap on the stored path, shared prefixes, or a cap reported as lost work); the driver's decision |
+| 87 | 2026-10-12 | P2-16 | blocker | open | Found by issue 86's audit: C and C++ preprocessing's work and memory are unbounded by the source. A forward `#line` within one file pads the expanded text with one line per line skipped (`#line 400000000` in a three-line source: 400 MB of text, 2.7 GB peak), and doubling macros grow exponentially (437 bytes, 22 levels: 1.3 GB, 9.8 s). Whether such a file extracts depends on the host's memory and speed, and a repository can exhaust the indexer's memory | Fixed on the branch, closure held. Patch 0019, decision 56, engine 7 with issues 83 to 86: a forward jump of more than 4,096 lines is one `#line` marker; what one file's preprocessing writes and generates, and its `#if` folding, are held to `clamp(16 × len, 256 KiB, 8 MiB)`, generated tokens and expansions to 500,000 each and nesting to 256, counted inside the work; passing one discards the expansion and is lost work once, never cached, degraded. `#if` arithmetic is 64-bit two's complement written out, literals read explicitly. The closest normal corpus file uses 10.9% of a ceiling; 5 of Linux's 64,432 pass one. Mutations killed but one equivalent. Held because its security test found issue 88, the same class outside preprocessing |
+| 86 | 2026-10-12 | P2-16 | blocker | open | Found by issue 85's audit: two more host data-model dependences in C and C++ preprocessing. A single-byte character constant in `#if` is evaluated as plain `char`, signed on four of the five specified targets and unsigned on linux-aarch64, so `#if '\xff' < 0` (valid C) takes opposite branches; and `#line` numbers are read with `atol`, a C `long`, so a number above 2147483647 (invalid C) gives a different `__LINE__` on Windows | Fixed on the branch, closure held. Patch 0018, decision 55, engine 7 with issues 83 to 85: a one-byte character constant is a signed 8-bit char, written out, and a multi-character one a 32-bit int; every `#line` number is its leading decimal digits read at 64 bits and clamped to 4294967295. Tests build the library with char signed and unsigned and assert the same values on Linux, macOS and Windows; mutations killed. Held because the same audit found issue 87, and the driver set its closure condition as no known host property changing extraction. Issue 87 is fixed (patch 0019) and its closure is held on issue 88 |
 | 85 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 84's audit: C and C++ preprocessing evaluates `sizeof(type)` inside `#if` with the type sizes of the engine binary's own build (`long` is 8 bytes on Linux and macOS, 4 on Windows), so such a source can extract differently on different platforms under one `ENGINE_VERSION`. No ambient input (one binary, one answer) and inert in practice: no C or C++ compiler accepts the construct, and jq, fmt and the Linux checkout hold none | Resolved in engine 7 with issues 83 and 84 (decision 54, patch 0017): the library's twenty recognised spellings use one written-out LP64 table on every platform (char 1, short 2, int 4, long 8, long long 8, float 4, double 8, long double 16, pointers 8); a caller's table and the build's own sizes are ignored, unrecognised spellings stay unevaluated. Host ABI is no extraction input and not in the cache key. Tests simulate other platforms through a test-build seam and assert the same sizes on Linux, macOS and Windows; mutations killed. The audit found issue 86 |
 | 84 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 83's environment audit: C-family preprocessing predefined `__DATE__` and `__TIME__` from the wall clock in the process's local time zone (`localtime`, which reads `TZ` and, without it, the system's zone file) and with the locale's month name. A source macro that expanded either put the date or time into the extraction (a call's arguments and first string argument), which no cache key names | Resolved in engine 7 with issue 83 (decision 53, patch 0016): `__DATE__` is `"Jan 01 1970"` and `__TIME__` `"00:00:00"`, written out, so no clock, zone or locale is read; a source's own definitions keep precedence. The only time-derived predefined macros; `ENGINE_VERSION` stays 7. Tests fail on the clock-reading engine and pass now; mutations killed |
 | 83 | 2026-10-12 | P2-16 | blocker | resolved | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Resolved (decisions 51 and 52). Production engine: patch 0015, engine 7, opens no file, so no ambient include is consumed; specification 4.5 clarified; tests fail on engine 6 and pass on 7, mutations killed, goldens unchanged. P2-16 harness: both engines execute from a fresh empty working directory of the harness's own, an execution rule of the differential, not the fix; `make engine-differential` is 32 of 32 identical, jq and fmt included |
@@ -132,6 +133,56 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 88 — Extraction's memory is quadratic in how deeply call sites nest
+
+Found by issue 87's security test, which first nested a macro call 10,000 deep. The
+preprocessing stopped at its depth ceiling, as it should. Extracting the file without
+the expanded pass then took 6.7 GB in `build_segment`. Under an 8 GB address-space
+limit the file failed on an allocation; under a 6 GB memory cap the build was killed.
+
+It is not preprocessing, and not C. Every call site stores the node types from its owner
+down to its own node (`ast_path`, patch 0010, issue 46), so a call n levels deep stores
+about 2n entries. n calls nested inside one another store about n² entries:
+
+| Source | Calls | Stored entries | Longest | Engine peak |
+|---|---|---|---|---|
+| `f(f(...f(0)...))`, C, 2,500 deep | 2,500 | 6,257,500 | 5,002 | 70 MB |
+| the same, 5,000 deep | 5,000 | 25,015,000 | 10,002 | 248 MB |
+| the same, 10,000 deep (30 KB) | 10,000 | 100,030,000 | 20,002 | 954 MB |
+| Python, 10,000 deep | 10,000 | — | — | 956 MB |
+
+Nesting without calls is cheap: 10,000 parentheses in C, or 10,000 nested Python lists,
+take 10 to 15 MB. The cost is per site. Two more shapes show it:
+
+- `f(0)+f(0)+...` 10,000 times, a left-deep expression, takes 418 MB.
+- A 10,000-call Python method chain takes 1.6 GB and 39 s, and loses work to the type
+  evaluator's budget.
+
+The pipeline peaks several times higher than the engine (6.7 GB against 954 MB),
+consistent with the entries being copied again as the extraction crosses into Rust.
+
+Whether such a file extracts therefore depends on the machine's memory, from repository
+bytes alone: issue 87's class, in extraction rather than preprocessing. The node budget
+does not reach it, since 10,000 nested calls are about 50,000 nodes. No corpus here has
+it: across the 175 C-family files of the fixtures, the sanitizer corpus, the jq and fmt
+goldens and Kubernetes, the most any file stores is 96,362 entries (fmt's
+`gmock-gtest-all.cc`, 12,498 calls), and the longest path is 214. Other languages and
+Linux were not measured.
+
+It predates this hotfix: it is on main, in every language, since patch 0010. Patch 0019
+does not touch it.
+
+It is not fixed: a bound needs a design, and the decision is the driver's.
+
+- Cap the stored path. The path is part of a site's identity (specification 4.2.1), so
+  a cap must be specified.
+- Share prefixes between sites.
+- Cap the whole and report what is cut as lost work.
+
+Any of these is an engine change, and may change site identities.
+
+State: open.
+
 ### 87 — C-family preprocessing's work and memory are unbounded by the source
 
 Found by issue 86's audit. Two ways a few hundred bytes of C or C++ make the
@@ -158,15 +209,115 @@ treats as untrusted.
 It predates this hotfix: the reference engine and engine 6 behave alike. No corpus
 here has it: the largest `#line` in 66,008 C-family files is 3921.
 
-It is not fixed: a bound needs a design, and the decision is the driver's. One option
-is to write a `#line` marker in place of padding beyond some jump, which changes
-expanded-text line numbers past it. Another is to cap expansion and report what is cut
-as lost work. Either is an engine change, in engine 7 if made before it is merged.
+The driver decided it must be fixed before engine 7 reaches main, as untrusted-input
+denial-of-service prevention, with no timeout, no environment override and no new
+status (decision 56). The fix is commit `52c19c6` on
+`hotfix/issue-83-c-family-input-isolation`, patch 0019:
 
-Found in the same evaluation code, and recorded here so it is not lost: in `#if`
-arithmetic, signed overflow and shifts by 64 or more are undefined in the library's C++.
-On the five targets' hardware they wrap and take shift counts modulo 64 alike, so no
-platform differs today, but the same patch could write them out.
+- **`#line`.** A forward jump of more than 4,096 lines within one file is written as one
+  `#line N "file"` marker, as a jump back already was; the line map maps the marker to 0
+  and the next line to N, so it is never a fact. A shorter jump is padded as before.
+  `#line 400000000`, 2147483647 and 4294967295 now expand to 76 to 78 bytes in 4 lines.
+- **Ceilings.** The library carries a `Budget` per thread, charged inside the work. The
+  byte budget is `clamp(16 × len, 256 KiB, 8 MiB)`, compared before multiplying. It bounds
+  the bytes written (padding and markers included), the token text expansion generates
+  (temporaries included) and the `#if` folding steps. Expansion may generate at most
+  500,000 tokens; the source's own tokens are never charged, only those created while a
+  top-level expansion runs. Three ceilings were added in implementation, for amplifiers
+  the first two do not reach: at most 500,000 expansions (doubling macros that end in an
+  empty macro create nothing and took exponential time), nesting at most 256 deep
+  (`F(F(...))` 10,000 deep overflowed the stack), and a ternary's restart counted as a
+  folding step (a long `#if` was quadratic).
+- **Exhaustion.** Passing a ceiling throws at its first step past it, from inside the
+  expansion, the fold or `stringify`, before the next allocation; none of the library's
+  handlers catches it. The engine returns no expansion (never a truncated one), counts
+  `pdxe_lost_work` once, and extracts the file from its whole normalised source without
+  the expanded pass. `extraction_lost` is 1, so the extraction is never cached and
+  degrades its segment, by the existing rules.
+- **Arithmetic.** `#if` arithmetic is 64-bit two's complement on unsigned values: `+`,
+  `-`, `*` and unary minus wrap, `INT64_MIN / -1` is `INT64_MIN` and `% -1` is 0, a shift
+  of 64 or more is 0, a negative value shifts right arithmetically (written out), and a
+  negative count fails the condition as a division by zero does. Unary minus negates the
+  number: `-(-5)` was the text `--5`, read as 0. Integer literals are read by an explicit
+  reader with libstdc++'s results (equal on 2,940,896 fuzzed strings); the stream it
+  replaces is the C++ library's own (Microsoft's on Windows), and left its result
+  unassigned for empty text.
+- **Tests.** Each fails or crashes before the fix and passes after. None needs a variable
+  or switch: the bytes alone.
+  - `preprocessor_bounds` (C++) checks every library ceiling at its use minus one, at it
+    and plus one. A doubling bomb stops one token past its ceiling, with nothing yet
+    written; padding is checked at 11 and 10 lines; and the arithmetic model.
+  - `c_family_preprocess_budget` checks the formula at its boundaries, and against a
+    64-bit reference at every length up to 600,000.
+    - `#line` 400000000, 2147483647 and 4294967295: one marker, mapped exactly, finding
+      the facts a near `#line` finds.
+    - Jumps of 4095, 4096 and 4097 lines.
+    - The engine's own ceilings at minus one, at and plus one: bytes written, bytes
+      generated, tokens generated, expansions and depth.
+    - Bombs below and above; above, lost work exactly once, the same each run.
+    - A near-2-MiB normal source preprocesses, at 71% of the token ceiling.
+  - `pdx-engine`'s `preprocess_bounds` runs on Linux, macOS and Windows: nesting 256 and
+    257 deep, 80,000 parentheses, and the arithmetic, including out-of-range literals.
+  - `pdx-core` covers the cache and the build:
+    - an exhausted extraction is never cached, and is equal cold, cold again with
+      another cache, and warm;
+    - a build with one is degraded by lost work alone;
+    - `repository_bytes_alone_cannot_exhaust_the_indexer` is the security test.
+- **Mutations.** Every one was restored byte for byte (checksums compared). All are
+  killed but AJ:
+  - full padding (AA), no marker path (AB) and a huge threshold (AC): OOM-killed under
+    a 2 GB cap, or the far-`#line` tests fail;
+  - no byte budget (AD), no token budget (AE), limits checked only after `stringify`
+    (AF), a truncated expansion (AG) and no `pdxe_lost_work` (AH): the exact-edge,
+    stop-point and lost-work tests;
+  - native signed overflow (AI): UBSan;
+  - shifts of 64 or more native (AK): the boundary tests and UBSan;
+  - `INT64_MIN / -1` native (AL): SIGFPE, and UBSan;
+  - the added ceilings, removed: no expansion count (AM; the empty bomb times out), no
+    ternary charge (AN) and no depth ceiling (AP), all killed.
+
+  AJ, a native right shift of a negative value, survives as an equivalent mutant. gcc,
+  clang and Microsoft's compiler all shift negatives arithmetically, and C++20 requires
+  it, so no behavioural test can tell it from the written-out form.
+- **Headroom.** No C-family file passes a ceiling or needs a marker among the fixtures,
+  the sanitizer corpus, the jq and fmt goldens and Kubernetes; the other goldens and
+  fixtures hold none.
+  - Largest source 532,839 bytes; largest expansion 235,614 bytes; largest ratio 1.74.
+  - Most generated tokens 6,343, expansions 902 and folding steps 968; deepest nesting
+    7; largest jump 1,515 lines.
+  - The closest file to a ceiling is fmt's `printf-test.cc`, at 10.9%.
+
+  Of Linux's 64,432 C-family files, 5 pass a ceiling. `net/mac80211/airtime.c`,
+  `lib/tests/stackinit_kunit.c`, `tools/testing/selftests/bpf/uprobe_multi.c` and
+  `arch/s390/lib/test_modules.h` pass on generated bytes, `arch/powerpc/xmon/ppc-opc.c`
+  on generated tokens. 11 files get a marker, for jumps of 4,239 to 33,345 lines. Those
+  5 files would lose work and degrade a Linux index; the limits were not retuned.
+- **Residual.** The raw token list of the source itself is not charged, as specified,
+  and grows linearly. 1.2 MB of parentheses peaked at 420 MB before stopping at its
+  budget; a 2 MiB source is about 600 to 700 MB.
+- **Audit.** Every amplifier after patch 0019:
+  - recursion: expansion nests at most 256 deep, under 512 KiB of stack; the other
+    loops are iterative;
+  - token cloning, temporaries, pasting and stringification: charged as generated
+    tokens and bytes;
+  - padding: each jump is at most 4,096 lines, and the whole is in the written-byte
+    budget;
+  - macro cycles: the library's expansion set, then the ceilings;
+  - conditional nesting: a stack linear in the source, and folding counted;
+  - integer behaviour: no signed overflow or native shift remains in `#if`, and
+    UBSan is clean;
+  - data model, files, clock, cwd and environment: patches 0015 to 0018, and the only
+    variable read is the test-build seam;
+  - locale: numbers are formatted in the classic locale and read explicitly; the C
+    locale functions run in the C locale, since neither the engine nor its host calls
+    `setlocale`.
+
+  The unmodified library's own deterministic quirks remain: `- -5 == 5` and `!00` are
+  false.
+
+Closure is held. The security test found issue 88: in every language, extraction stores
+memory quadratic in how deeply call sites nest. That is the same class of
+machine-dependent completion, outside preprocessing.
 
 State: open.
 
@@ -253,6 +404,10 @@ Closure is held. The same audit found issue 87: how much work and memory preproc
 takes is unbounded by the source, so whether an extraction completes depends on the
 host. The driver set the closure condition that no known host property may change
 extraction for the same inputs.
+
+Issue 87 is fixed (patch 0019, decision 56). Its security test found issue 88, the same
+class of machine-dependent completion in extraction outside preprocessing, so closure
+is still held.
 
 State: open.
 

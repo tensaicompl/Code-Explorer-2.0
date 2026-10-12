@@ -176,18 +176,20 @@ the buffer Stage 2 supplies is the whole input.
   to fit a test (Linux has 5 files past them).
 - **Contract.** An extraction depends on the normalised bytes, the language, the path
   and the metadata only. It never depends on the working directory, a header on disk,
-  anything outside the repository, the time, the zone, the locale or the platform.
+  anything outside the repository, the time, the zone, the locale or the platform, and
+  whether its preprocessing completes never depends on the machine.
 - **Tests.** `engine/tests/c_family_input_isolation.c` (inotify on Linux),
   `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`,
   `engine/tests/c_family_char_literals.c`, `engine/tests/c_family_preprocess_budget.c`
   and `preprocessor_bounds` (every ceiling at its edge), the `extract` and `build` tests
   and `pdx-engine`'s `type_sizes`, `literals_and_lines` and `preprocess_bounds` (which
   run on Windows too) prove it.
-- **Open.** Issue 87: preprocessing's work and memory are unbounded by the source (a
-  forward `#line` pads the expanded text one line per line skipped; doubling macros grow
-  exponentially), so whether an extraction completes depends on the host. Issue 86 is
-  fixed (patch 0018) but its closure is held on it. Tests reach large `#line` numbers
-  through a directive naming another file, which is written as a marker, never padded.
+- **Open.** Issues 86 and 87 are fixed (patches 0018 and 0019), but their closure is
+  held on issue 88. In every language, extraction stores memory quadratic in how deeply
+  call sites nest (`ast_path`: 10,000 nested calls in 30 KB store 100 million entries
+  and take 6.7 GB in the pipeline), so whether such a file extracts still depends on the
+  machine. It is outside preprocessing, on main since patch 0010; a bound is the
+  driver's decision.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
