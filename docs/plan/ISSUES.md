@@ -16,7 +16,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
 | 92 | 2026-10-12 | P2-16 | blocker | open | Found by issue 90's resource audit: per-file typed resolution and the interface's translation are quadratic in how many definitions a file holds, in every typed language, whatever its nesting. 16,000 one-method classes take 62 s in Python (677 KB), 18 s in Java (549 KB), 15 s in TypeScript, 13 s in C++ and 8 s in C# and Go, about four times as long for each doubling; 2 MiB of distinct nested Java classes take 237 s. Within the depth ceiling, JavaScript calls nested 200 deep cost the TypeScript resolver more the more of them a file holds: 2 MiB, 441 s. Past an isolated worker's 120 s timeout a file fails the build, and whether it gets there depends on the machine. Generated code (protocol buffers, models, clients) holds thousands of classes a file | Open: predates this hotfix, on main; nothing changed in this round. Whether it holds engine 7 is the driver's decision |
-| 91 | 2026-10-12 | P2-16 | third-party | open | Found by issue 90's resource audit: grammar scanners of the vendored parser keep state that grows with nesting and do not keep it within the parser's 1,024-byte state buffer. YAML's writes two bytes past it from 253 nested block mappings (a 41 KB file) and Markdown's copies its open blocks past it without a bound, so the parser's own state is overwritten: a release build, where the bound is only an assertion, crashes in the parser (a null dereference), and the address sanitizer stops at the assertion. Kotlin's calls `abort()` at 1,024 open string templates (about 6 KB). Python's can write one byte past it, not reproduced. All of it happens during the parse, before any extraction pass and before the depth ceiling. Extraction is in process unless isolation is asked for, so one such file stops `pdx index`. The same at `582b58a` and on main | Open: memory safety and a process abort from repository content. The fix belongs in the scanners' serialisers and the Kotlin scanner's push (stop at the buffer, never abort), as an engine patch; the driver's decision |
+| 91 | 2026-10-12 | P2-16 | third-party | resolved | Found by issue 90's resource audit: grammar scanners of the vendored parser keep state that grows with nesting and do not keep it within the parser's 1,024-byte state buffer. YAML's writes two bytes past it from 253 nested block mappings (a 41 KB file) and Markdown's copies its open blocks past it without a bound, so the parser's own state is overwritten: a release build, where the bound is only an assertion, crashes in the parser (a null dereference), and the address sanitizer stops at the assertion. Kotlin's calls `abort()` at 1,024 open string templates (about 6 KB). Python's can write one byte past it, not reproduced. All of it happens during the parse, before any extraction pass and before the depth ceiling. Extraction is in process unless isolation is asked for, so one such file stops `pdx index`. The same at `582b58a` and on main | Resolved. Patch 0023, decision 60, engine 7: each affected scanner holds what the buffer holds, the bound derived from it (YAML 253 indentation entries, Markdown 254 open blocks, Kotlin 1,024 delimiters, Python 2 + delimiters + 2 per level at most 1,024); a push past it is refused and its token not claimed, so the parse recovers; serializers check each complete entry, deserializers read complete entries within the length. No abort remains reachable from content. All 23 scanners audited, the other 19 already bounded. Direct canary, sweep, round-trip and malformed-length tests, end-to-end children, corpus files; release and sanitizers clean; mutations killed; the census extracts identically |
 | 90 | 2026-10-12 | P2-16 | blocker | open | Found by the closure audit of issues 88 and 89, with both in force: within issue 89's 512-depth admission, usage handling still climbs to the root with `ts_node_parent`, which descends from the root again, for every usage, so each usage costs depth², and a file holds as many deep constructs as its size allows. One admitted 400-link Python member chain (about 800 bytes) takes 3.1 s, 8 of them 25 s, a 13 KB file about 50 s; Java classes 250 deep take 0.85 s each. A call's argument text, proportional to its depth, makes 2 MiB of admitted 250-deep call chains peak at 1.33 GB in the engine | Fixed in part, closure held. 90A, patch 0022, decision 59: a usage's questions about its ancestors are answered from the unified walk's own frames, each frame's answer computed once. The 400-link chain takes 2 ms (3.71 s before), 16 of them 31 ms (54.9 s), Java classes 250 deep 15 ms (0.93 s); the counted work is linear in links and chains, with no `ts_node_parent`; all 104,730 census files extract identically; mutations killed. 90B stopped at its interface condition: the text that grows with nesting (argument expressions, callee text, Python attribute usage names, nested qualified names) is exported whole and read whole (contracts, site and definition identity), so retaining it linearly needs an interface and identity change, the driver's decision. Holds the closure of issues 86, 87 and 89; see issues 91 and 92 |
 | 89 | 2026-10-12 | P2-16 | blocker | open | Found by issue 88's extraction audit: extraction's memory and time are superlinear in syntax nesting, in many places and every language, beyond `ast_path`. Memory: each call stores its argument text and its callee text whole, so nested calls store about 1.5 n² bytes of arguments and a method chain about 2 n² bytes of callee text; nested C++ namespaces, JavaScript closures and Java `new` expressions grow ×3 to ×4 per doubling. Time: usage handling climbs to the root with `ts_node_parent`, itself a descent from the root, for every usage: O(n³). 1,000 nested Java classes (13 KB) take 56 s, 1,000 nested JavaScript functions 45 s and a 1,000-link Python member chain 50 s. Whether such a file extracts, or finishes within a worker's timeout, depends on the machine | Fixed in part, closure held. Patch 0021, decision 58, engine 7: after the parse and before any semantic pass, a cursor scan (every node, the root at depth 1) refuses a tree deeper than 512: no fact, no semantic pass, lost work once, no cross-file resolution, never cached, degraded; the expanded C and C++ tree alike, its pass alone skipped. From a census of 104,730 files (p99.9 65): the 13 past 512 are parser recovery, generated Go or expanded text. The issue's 1,000-deep reproducers take under 0.01 s; mutations killed. Held on issue 90: within the admitted depth, a file of many deep constructs still costs depth² a usage |
 | 88 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 87's security test: extraction's memory is quadratic in how deeply call sites nest, in every language. Each call site stores the node types from its owner down to it (`ast_path`, patch 0010), so n calls nested n deep store about n² entries: a 30 KB C or Python file of 10,000 nested calls stores 100,030,000, peaking at 954 MB in the engine and 6.7 GB in `build_segment`, which fails the file under an 8 GB address-space limit and is killed under a 6 GB cap; a 10,000-call method chain takes 1.6 GB and 39 s. Whether such a file extracts depends on the machine | Resolved in engine 7 (decision 57, patch 0020): a site's node-type path is complete or absent, never truncated; one per-file budget shared by every producer holds a path to 1,024 entries and the file to 500,000, checked before allocating; the first refusal is lost work once and no path is computed after it; a site without its path is counted, never stored. Of 104,730 census files only `lib/test_bpf.c` (parser recovery) passed it, and issue 89 now refuses it first; surfaces byte-identical otherwise. Mutations killed |
@@ -210,12 +210,102 @@ All of it happens during the parse, before any extraction pass, so the depth cei
 costs its file. The overruns are memory safety from repository content, the abort a
 denial of service. The same at `582b58a` and on main.
 
-The fix belongs in the scanners: a serialiser that stops before the buffer would
-overflow (the parse then continues with that state cut short, which the parser
-tolerates), and a Kotlin push that does not abort. They change the vendored grammars,
-so it is an engine patch and the driver's decision.
+The driver decided it must be fixed before merge, in the scanners: not by isolating
+extraction, not by an assertion, with no setting, every bound derived from the buffer.
 
-State: open.
+#### Resolution (patch 0023, decision 60)
+
+The census, every external scanner the engine builds (the other nine grammars, Ada, C,
+Go, GraphQL, Groovy, Java, JSON, Objective-C and protocol buffers, have none):
+
+| Scanner | Variable state | Serialized, at most | Safe before | Changed | Why |
+|---|---|---|---|---|---|
+| YAML | indentation pairs | was 1,026; now 1,022 | no | yes | `size < 1024` before a 4-byte pair |
+| Markdown | open blocks | was unbounded; now 1,021 | no | yes | no bound on the copy |
+| Python | string delimiters, indentation | was 1,025; now 1,024 | no (latent) | yes | `size < 1024` before a 2-byte entry |
+| Kotlin | string delimiters | 1,024, by `abort()`; now 1,024 | no (abort) | yes | aborted at 1,025 |
+| Bash | heredocs | under 1,024 | yes | no | checks each whole entry; past the buffer, keeps no state |
+| C# | interpolations | 1,022 | yes | no | past 255 entries, keeps no state; reads guarded |
+| C++ | raw-string delimiter | 64 | yes | no | at most 16 characters |
+| Dockerfile | heredocs | 1,024 | yes | no | checks each whole string; at most 10 |
+| HCL | template contexts | under 1,024 | yes | no | checks each whole entry; pops guarded |
+| Perl | quotes, heredoc queue | 1,024 | yes | no | caps quotes after reserving the full queue |
+| PHP | heredocs | under 1,024 | yes | no | checks each whole entry; reads guarded |
+| Ruby | literals, heredocs | under 1,024 | yes | no | checks each whole entry; reads guarded |
+| Scala | indentation | 1,024 | yes | no | past the buffer, keeps no state; pops guarded |
+| SQL | dollar-quote tag | 1,023 | yes | no | past the buffer, keeps no state |
+| XML | tag names | under 1,024 | yes | no | checks each whole name; pops guarded |
+| JavaScript, TypeScript, TSX, TOML | none | 0 | yes | no | no state |
+| Lua, Rust, Swift, properties | fixed | 1 to 4 | yes | no | fixed fields |
+
+Besides the serializers: `abort()` remains only where a scanner's own creation cannot
+allocate (Kotlin, XML), HCL's growth checks its allocation only by an `assert`, some
+scanners' creation does not check it (Python, Dockerfile, Markdown), and tree-sitter's
+array growth assumes allocation succeeds while the engine's allocator returns null. Allocation failure inside the parser is outside this issue: a residual,
+not reachable from repository content within the memory budget. `assert(size ==
+length)` in several deserializers is a debug check of the scanner's own format; Scala's
+and Python's `assert(false)` are unreachable defaults of exhaustive switches; every
+stack read and pop is guarded by a size check, or, in Perl, by the error-recovery exit
+and the quote pushed at every quote-like start.
+
+The four affected scanners now hold what the buffer holds, each bound derived from the
+buffer (`TREE_SITTER_SERIALIZATION_BUFFER_SIZE`, 1,024), its header and an entry:
+
+- **YAML:** a 10-byte header (five `int16_t`) and 4 bytes an indentation entry: (1,024 -
+  10) / 4 = 253 entries above the root. `PUSH_IND`, `PUSH_BGN_IND` and
+  `MAY_PUSH_IMP_IND` refuse a push past it and return no token, as they already did for
+  a tab. The serializer writes complete pairs only; the deserializer reads a complete
+  header and complete pairs within the length, and nothing from a length under the
+  header or past the buffer.
+- **Markdown:** a 5-byte header and `sizeof(Block)` (4) a block: 254 open blocks, which
+  also keeps the count within the 8-bit `matched` it is compared with. `push_block`
+  refuses past it, and when its growth cannot allocate, and each of the 14 block-opening
+  tokens is then not claimed. Serializer and deserializer are bounded the same way.
+- **Kotlin:** one byte a delimiter, no header: 1,024 open strings. The push refuses past
+  it and the string start is not claimed; popping an empty stack returns 0; the
+  serializer copies at most the buffer and the deserializer reads at most it.
+- **Python:** 2 bytes, then a byte for each open string delimiter (at most 255, the
+  count's width) and 2 for each indentation level above the first, all at most 1,024. A
+  delimiter or level past it is not pushed: the string start is not claimed, the indent
+  not emitted. The serializer checks each complete 2-byte entry; the deserializer clamps
+  the delimiter count to the bytes present.
+
+Past a bound the construct is not opened and the parser recovers: 254 nested YAML
+entries now parse partially (the old 510-byte crash), Markdown quotes past 254 are text,
+and Kotlin templates and Python levels past theirs are already past the depth ceiling,
+which refuses them after the parse. Below the bounds nothing changes: all 104,730
+census files extract to the same public result, surface and lost count as at
+`94003e2`.
+
+Tests:
+
+- `engine/tests/scanner_state.c` compiles the four scanners' own code into the test,
+  entry points renamed. For each: the ceiling exactly (253, 254, 1,024; Python's for 0,
+  1, 2, 3, 254 and 255 open delimiters); every state size from empty to 16 past the
+  ceiling, filled past it the way only the old code could, serialized between 64 guard
+  bytes either side of a 1,024-byte buffer (length within the buffer, guards
+  untouched, complete entries only, round trip identical); every length from 0 to 1,032
+  handed to the deserializer in a block of exactly that size; Kotlin's string start
+  refused at the ceiling and its empty pop. End to end, each in a child process so an
+  abort or crash is reported: YAML mappings and compact sequences at 252, 253, 254 and
+  400, Markdown quotes and lists at 253, 254, 255 and 300, Kotlin templates at 1,023,
+  1,024, 1,025 and 1,100, Python blocks at 510, 511, 512 and 520, each the same on two
+  runs.
+- `crates/pdx-engine/tests/scanner_state.rs`: the 510-byte reproducer is a partial parse
+  with no work lost; every shape above extracts, the same on every run.
+- The sanitizer corpus holds `yaml/recovery_deep_sequences.yaml` and
+  `markdown/recovery_deep_quotes.md`.
+- Release and `make check-asan` (address, undefined-behaviour and leak sanitizers): the
+  test and the corpus pass with no report. Before, the YAML and Markdown shapes stopped
+  the sanitizer's assertion and crashed a release build, and the Kotlin one aborted.
+- Mutations killed: BP (YAML's `size < 1024` restored), BQ (YAML writes half a pair),
+  BR (Markdown's copy unbounded again), BS (Kotlin's `abort()` restored: reported as
+  signal 6 from the child processes), BT (Kotlin claims a push it did not record), BU
+  (Python's `size < 1024` restored).
+
+`ENGINE_VERSION` stays 7: patch 0023 is part of engine 7. No stored format changes.
+
+State: resolved.
 
 ### 90 — Within the admitted depth, usage handling still costs depth² per usage
 

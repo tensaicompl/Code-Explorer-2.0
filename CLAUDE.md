@@ -152,7 +152,7 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 90 (decisions 51 and 53 to 59, engine 7, patches 0015 to 0022 together):
+Issues 83 to 91 (decisions 51 and 53 to 60, engine 7, patches 0015 to 0023 together):
 the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
@@ -185,6 +185,14 @@ the buffer Stage 2 supplies is the whole input.
   once and skips cross-file resolution (`lsp_skipped`). The expanded C/C++ tree is held
   to the same depth, its pass skipped alone. One ceiling, not a fix per mechanism: the
   algorithms that grow with nesting are bounded by it, not made linear.
+- **No parser overrun.** A grammar scanner's state between tokens stays within the
+  parser's 1,024-byte buffer, each bound derived from it (YAML 253 indentation entries,
+  Markdown 254 open blocks, Kotlin 1,024 string delimiters, Python 2 + delimiters + 2
+  per indentation level). Past it the push is refused and its token not claimed, so the
+  parse recovers; serializers check each complete entry, deserializers read complete
+  entries within the length; no scanner aborts on content. Parsing runs before the
+  depth ceiling, so that ceiling cannot be the protection. Vendored grammar changes are
+  engine patches too (0023).
 - **No depth² usage work.** The unified walk records a frame for every node it enters
   (`PDXEWalkFrame`), and usage classification answers every question about a node's
   ancestors from them, each answer computed once a frame; never `ts_node_parent`, which
@@ -200,21 +208,20 @@ the buffer Stage 2 supplies is the whole input.
   `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`,
   `engine/tests/c_family_char_literals.c`, `engine/tests/c_family_preprocess_budget.c`
   and `preprocessor_bounds` (every ceiling at its edge), `engine/tests/site_path_budget.c`,
-  `engine/tests/syntax_depth.c` and `engine/tests/usage_ancestry.c` (linear counted work,
-  frames against climbs), the `extract` and `build` tests and `pdx-engine`'s
-  `type_sizes`, `literals_and_lines`, `preprocess_bounds`, `site_path_budget`,
-  `syntax_depth` and `usage_ancestry` (which run on Windows too) prove it.
-- **Open.** Issue 88 is resolved. Issues 86, 87 and 89 are fixed, but their closure is
-  held on issue 90. Its usage half (90A) is fixed by patch 0022. Its memory half (90B)
-  stopped at the interface: argument expressions, callee text, Python attribute usage
-  names and nested qualified names grow with nesting and are exported and read whole
-  (contracts, site and definition identity), so retaining them linearly needs an
-  interface and identity change, the driver's decision. Issue 91: the YAML and Markdown
-  grammars' scanners overrun the parser's state buffer on deep nesting (a 41 KB YAML
-  file crashes the process) and Kotlin's aborts at 1,024 open string templates. Issue 92:
+  `engine/tests/syntax_depth.c`, `engine/tests/usage_ancestry.c` (linear counted work,
+  frames against climbs) and `engine/tests/scanner_state.c` (the scanners' own code:
+  ceilings, guard bytes, every malformed length, end to end in child processes), the
+  `extract` and `build` tests and `pdx-engine`'s `type_sizes`, `literals_and_lines`,
+  `preprocess_bounds`, `site_path_budget`, `syntax_depth`, `usage_ancestry` and
+  `scanner_state` (which run on Windows too) prove it.
+- **Open.** Issues 88 and 91 are resolved. Issues 86, 87 and 89 are fixed, but their
+  closure is held on issue 90. Its usage half (90A) is fixed by patch 0022. Its memory
+  half (90B) proceeds next, as an interface and identity redesign (the driver's
+  decision): argument expressions, callee text, Python attribute usage names and nested
+  qualified names grow with nesting and are exported and read whole. Then issue 92:
   per-file typed resolution and the interface's translation are quadratic in a file's
   definitions in every typed language (16,000 Python classes, 62 s), and deeply nested
-  JavaScript calls too (2 MiB, 441 s). All are on main.
+  JavaScript calls too (2 MiB, 441 s). Both must be fixed before engine 7 reaches main.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
