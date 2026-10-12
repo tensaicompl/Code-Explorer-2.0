@@ -104,7 +104,8 @@ Everything goes through `include/pdxe.h`. In outline:
   directive stays an import (`patches/0015-source-only-preprocessing.patch`, issue 83).
   Nor does it read a clock: `__DATE__` and `__TIME__` are `"Jan 01 1970"` and
   `"00:00:00"` in any time zone and locale (`patches/0016-fixed-date-time-macros.patch`,
-  issue 84).
+  issue 84). Nor does the platform it was built for matter: `sizeof` in `#if` has one
+  fixed LP64 data model (`patches/0017-fixed-preprocessor-sizeof-model.patch`, issue 85).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

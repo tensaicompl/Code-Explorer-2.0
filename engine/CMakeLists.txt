@@ -333,6 +333,9 @@ if(PDXE_BUILD_TESTS)
   # Nor any clock: __DATE__ and __TIME__ are fixed, whatever the time, the time zone
   # or the locale (issue 84, patches/0016).
   add_test(NAME c_family_date_time COMMAND c_family_date_time)
+  # Nor the platform it was built for: sizeof in #if has one fixed data model (issue 85,
+  # patches/0017).
+  add_test(NAME c_family_sizeof COMMAND c_family_sizeof)
 
   # The warning exemptions reach vendored sources and never the interface layer.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)

@@ -152,18 +152,22 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 and 84 (decisions 51 and 53, engine 7, patches 0015 and 0016 together): the
+Issues 83 to 85 (decisions 51, 53 and 54, engine 7, patches 0015 to 0017 together): the
 buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
   stay imports, and the macros and conditionals a source defines itself still expand.
 - **No clock.** `__DATE__` is `"Jan 01 1970"` and `__TIME__` `"00:00:00"`, in any time
   zone and locale; a source's own `#define` or `#undef` of either still wins.
+- **No platform.** `sizeof` in `#if` uses one written-out LP64 table (long 8, long double
+  16, pointers 8), never the build's own sizes; the test seam `PDX_ENGINE_TEST_HOST_SIZES`
+  simulates another platform's.
 - **Contract.** An extraction depends on the normalised bytes, the language, the path
   and the metadata only. It never depends on the working directory, a header on disk,
-  anything outside the repository, the time, the zone or the locale.
+  anything outside the repository, the time, the zone, the locale or the platform.
 - **Tests.** `engine/tests/c_family_input_isolation.c` (inotify on Linux),
-  `engine/tests/c_family_date_time.c` and the `extract` tests prove it.
+  `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`, the `extract`
+  tests and `pdx-engine`'s `type_sizes` (which run on Windows too) prove it.
 - **Open.** Issue 85: `sizeof` in `#if` is evaluated with the engine build's own type
   sizes (inert: no compiler accepts it).
 

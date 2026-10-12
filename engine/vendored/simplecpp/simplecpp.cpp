@@ -3325,6 +3325,20 @@ static std::string getTimeDefine(const struct tm *timep)
     return std::string("\"").append(buf).append("\"");
 }
 
+/** The type sizes of DUI::fixedSizeOfTypes: one data model, LP64 as 64-bit Linux has it,
+ *  written out, so that every platform the library is built for evaluates sizeof alike. */
+static std::map<std::string, std::size_t> fixedSizeOfTypeTable()
+{
+    return {
+        {"char", 1}, {"short", 2}, {"short int", 2}, {"int", 4},
+        {"long", 8}, {"long int", 8}, {"long long", 8},
+        {"float", 4}, {"double", 8}, {"long double", 16},
+        {"char *", 8}, {"short *", 8}, {"short int *", 8}, {"int *", 8},
+        {"long *", 8}, {"long int *", 8}, {"long long *", 8},
+        {"float *", 8}, {"double *", 8}, {"long double *", 8},
+    };
+}
+
 void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenList &rawtokens, std::vector<std::string> &files, simplecpp::FileDataCache &cache, const simplecpp::DUI &dui, simplecpp::OutputList *outputList, std::list<simplecpp::MacroUsage> *macroUsage, std::list<simplecpp::IfCond> *ifCond)
 {
 #ifdef SIMPLECPP_WINDOWS
@@ -3353,6 +3367,8 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
     sizeOfType.insert(std::make_pair("float *", sizeof(float *)));
     sizeOfType.insert(std::make_pair("double *", sizeof(double *)));
     sizeOfType.insert(std::make_pair("long double *", sizeof(long double *)));
+    if (dui.fixedSizeOfTypes)
+        sizeOfType = fixedSizeOfTypeTable();
 
     // use a dummy vector for the macros because as this is not part of the file and would add an empty entry - e.g. /usr/include/poll.h
     std::vector<std::string> dummy;

@@ -472,6 +472,9 @@ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_
         // Nor is any clock: __DATE__ and __TIME__ are fixed, so the result is the same at
         // any time, in any time zone and under any locale.
         dui.fixedDateTime = true;
+        // Nor is the platform this engine was built for: sizeof in #if has one fixed data
+        // model, so every platform extracts alike.
+        dui.fixedSizeOfTypes = true;
 
         std::string src(source, source_len);
         std::istringstream istr(src);
@@ -479,6 +482,25 @@ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_
         files.push_back(filename ? filename : "<input>");
 
         simplecpp::TokenList rawtokens(istr, files, files[0]);
+#ifdef PDXE_ENABLE_TEST_SEAMS
+        // Test builds only: the type sizes a build on another platform would read, as
+        // "type=size,...", handed to the library as a caller's table, which it prefers to
+        // its own. One machine can then show what every platform would extract.
+        if (const char *sizes = getenv("PDX_ENGINE_TEST_HOST_SIZES")) {
+            const std::string list(sizes);
+            for (size_t start = 0; start < list.size();) {
+                size_t end = list.find(',', start);
+                if (end == std::string::npos)
+                    end = list.size();
+                const std::string entry = list.substr(start, end - start);
+                const size_t eq = entry.find('=');
+                if (eq != std::string::npos)
+                    rawtokens.sizeOfType[entry.substr(0, eq)] =
+                        (std::size_t)strtoul(entry.c_str() + eq + 1, nullptr, 10);
+                start = end + 1;
+            }
+        }
+#endif
         simplecpp::TokenList output(files);
         simplecpp::FileDataCache filedata = simplecpp::load(rawtokens, files, dui);
 

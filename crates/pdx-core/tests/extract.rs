@@ -2279,3 +2279,37 @@ fn date_and_time_cannot_change_a_cached_extraction() {
         .collect();
     assert_eq!(values, ["Jan 01 1970", "00:00:00"]);
 }
+
+#[test]
+fn c_family_preprocessor_sizeof_is_platform_independent() {
+    // `sizeof` in `#if` has one fixed data model (issue 85): LP64, as 64-bit Linux has it,
+    // on every platform. The expectations are the same on Linux, macOS and Windows, and
+    // the key names no platform: a cache filled on one is right on any other.
+    let checkout = Checkout::new();
+    checkout.write(
+        "src/model.c",
+        "int model_lp64(void);\n#if sizeof(long) == 8 && sizeof(long double) == 16 && sizeof(char *) == 8\n#define MODEL() model_lp64()\n#elif sizeof(long) == 4\n#define MODEL() model_llp64()\n#else\n#define MODEL() model_other()\n#endif\nint f(void) { return MODEL(); }\n",
+    );
+    let cache = Cache::new();
+    let cold = run(&checkout, Some(&cache), &Probe::new(Twist::None));
+    let warm_probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &warm_probe);
+    let fresh = run(&checkout, None, &Probe::new(Twist::None));
+    assert_eq!(
+        warm_probe.files(),
+        0,
+        "the second run is served from the cache"
+    );
+    assert_eq!(cold.files, fresh.files);
+    assert_eq!(warm.files, fresh.files);
+    let callees: Vec<&str> = extract_of(&fresh, "src/model.c")
+        .calls
+        .iter()
+        .map(|c| c.callee_text.as_str())
+        .collect();
+    assert!(callees.contains(&"model_lp64"), "{callees:?}");
+    assert!(
+        !callees.contains(&"model_llp64") && !callees.contains(&"model_other"),
+        "{callees:?}"
+    );
+}
