@@ -152,7 +152,7 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 88 (decisions 51 and 53 to 57, engine 7, patches 0015 to 0020 together):
+Issues 83 to 89 (decisions 51 and 53 to 58, engine 7, patches 0015 to 0021 together):
 the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
@@ -179,6 +179,12 @@ the buffer Stage 2 supplies is the whole input.
   `pdxe_site_path_alloc`) serves every producer: at most 1,024 entries a path and
   500,000 a file, checked before allocating; the first refusal is lost work once and no
   path is computed after it. A site without its path is counted, never stored.
+- **No deep syntax.** A tree nested deeper than `PDXE_MAX_SYNTAX_DEPTH` (512, the root at
+  1) is not extracted: `pdxe_syntax_depth_scan` runs after the parse and before any
+  semantic pass, one cursor step a node; past it the result holds no fact, loses work
+  once and skips cross-file resolution (`lsp_skipped`). The expanded C/C++ tree is held
+  to the same depth, its pass skipped alone. One ceiling, not a fix per mechanism: the
+  algorithms that grow with nesting are bounded by it, not made linear.
 - **Contract.** An extraction depends on the normalised bytes, the language, the path
   and the metadata only. It never depends on the working directory, a header on disk,
   anything outside the repository, the time, the zone, the locale or the platform, and
@@ -186,9 +192,10 @@ the buffer Stage 2 supplies is the whole input.
 - **Tests.** `engine/tests/c_family_input_isolation.c` (inotify on Linux),
   `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`,
   `engine/tests/c_family_char_literals.c`, `engine/tests/c_family_preprocess_budget.c`
-  and `preprocessor_bounds` (every ceiling at its edge), the `extract` and `build` tests
-  and `pdx-engine`'s `type_sizes`, `literals_and_lines` and `preprocess_bounds` (which
-  run on Windows too) prove it.
+  and `preprocessor_bounds` (every ceiling at its edge), `engine/tests/site_path_budget.c`
+  and `engine/tests/syntax_depth.c`, the `extract` and `build` tests and `pdx-engine`'s
+  `type_sizes`, `literals_and_lines`, `preprocess_bounds`, `site_path_budget` and
+  `syntax_depth` (which run on Windows too) prove it.
 - **Open.** Issues 86 and 87 are fixed (patches 0018 and 0019), but their closure is
   held on issue 88. In every language, extraction stores memory quadratic in how deeply
   call sites nest (`ast_path`: 10,000 nested calls in 30 KB store 100 million entries

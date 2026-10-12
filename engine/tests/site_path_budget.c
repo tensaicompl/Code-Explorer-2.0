@@ -18,8 +18,10 @@
  *     make 500,001 refused; after a refusal nothing is asked of the arena, whatever the
  *     size, and lost work is counted once.
  *   - Whole extractions, the counts written here and found again in the counters:
- *     - C calls nested so that the innermost path is exactly 1024 entries keep every
- *       path; one level deeper, 1025, loses that one path and counts lost work once;
+ *     - C calls nested 254 deep, 512 deep as a tree (issue 89's ceiling), keep every
+ *       path, the innermost 510 entries; one call more is 514 deep and is not extracted
+ *       at all, no path asked for. A path of 1024 entries cannot be reached by an
+ *       extracted file: the per-path ceiling is the builder's, defence in depth;
  *     - statements of 100 nested calls cross the total at a call this test computes
  *       from the grammar's path shape, and every later site, a shallow one included,
  *       has no path;
@@ -229,35 +231,33 @@ static char *nested(int depth, int paren) {
 }
 
 static void check_depth(void) {
-    for (int paren = 0; paren <= 1; paren++) {
-        char *source = nested(511, paren);
+    for (int extra = 0; extra <= 1; extra++) {
+        char *source = nested(254 + extra, 0);
         extraction_t x = extract("c", "src/deep.c", source);
-        const int expected = 2 * 511 + 2 + paren;
-        int complete = 0;
-        for (int i = 0; i < x.e->calls.count; i++) {
-            const PDXECall *c = &x.e->calls.items[i];
-            if (strcmp(c->callee_name, "g") == 0) {
-                continue;
+        if (!extra) {
+            int complete = 0;
+            uint32_t longest = 0;
+            for (int i = 0; i < x.e->calls.count; i++) {
+                const PDXECall *c = &x.e->calls.items[i];
+                if (strcmp(c->callee_name, "g") == 0) {
+                    continue;
+                }
+                CHECK(c->ast_path && is_nested_call_path(c->ast_path, FILE_SCOPE, i + 1),
+                      "call %d's path is not its complete path", i);
+                complete += c->ast_path != NULL;
+                if (length_of(c->ast_path) > longest) {
+                    longest = length_of(c->ast_path);
+                }
             }
-            if (c->ast_path) {
-                CHECK(i < 510 ? is_nested_call_path(c->ast_path, FILE_SCOPE, i + 1)
-                              : length_of(c->ast_path) == (uint32_t)expected,
-                      "call %d's path is not its complete path (%u entries)", i,
-                      length_of(c->ast_path));
-                complete++;
-            }
-        }
-        if (!paren) {
-            CHECK(complete == 511 && x.lost == 0 && !x.e->site_paths.exhausted,
-                  "a path of 1024 entries was not kept (%d complete, lost %u)", complete, x.lost);
+            CHECK(complete == 254 && longest == 510 && x.lost == 0 &&
+                      !x.e->site_paths.exhausted && !x.e->syntax_rejected,
+                  "254 nested calls: %d complete paths, the longest %u, lost %u", complete,
+                  longest, x.lost);
         } else {
-            CHECK(complete == 510 && x.lost == 1 && x.e->site_paths.exhausted,
-                  "a path of 1025 entries was kept, or lost work was not once (%d, lost %u)",
-                  complete, x.lost);
-            /* The budget is spent: the later, shallow call has no path either. */
-            const PDXECall *after = &x.e->calls.items[x.e->calls.count - 1];
-            CHECK(strcmp(after->callee_name, "g") == 0 && after->ast_path == NULL,
-                  "a site after the refusal was given a path");
+            CHECK(x.e->syntax_rejected && x.lost == 1 && x.e->calls.count == 0 &&
+                      x.e->site_paths.requests == 0 && !x.e->site_paths.exhausted,
+                  "255 nested calls were not refused before any path (lost %u, %u requests)",
+                  x.lost, x.e->site_paths.requests);
         }
         pdxe_result_free(ctx, x.r);
         free(source);

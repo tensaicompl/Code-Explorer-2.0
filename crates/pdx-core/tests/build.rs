@@ -1219,3 +1219,31 @@ fn path_budget_exhaustion_degrades_the_segment_and_stores_no_site_without_its_pa
         "only the sites with their paths are stored"
     );
 }
+
+#[test]
+fn syntax_depth_refusal_degrades_the_segment() {
+    // Issue 89: a file nested deeper than the engine admits is refused its semantic
+    // extraction, which is lost work and degrades the build by the existing rule; the
+    // repository's other files are extracted as ever, and the result is the same twice.
+    let mut deep = String::from("package p;\n");
+    for i in 0..300 {
+        write!(deep, "class C{i} {{ ").unwrap();
+    }
+    deep.push_str("void m() { f(); }");
+    deep.push_str(&"}".repeat(300));
+    let checkout = Checkout::new(&[
+        ("src/main/java/p/Deep.java", deep.as_str()),
+        ("src/app.py", "def greet(name):\n    return name\n"),
+    ]);
+    let report = checkout.build();
+    assert_eq!(report.status, SegmentStatus::Degraded);
+    assert_eq!(
+        report.degraded,
+        vec![DegradedReason::ExtractionLost {
+            paths: vec!["src/main/java/p/Deep.java".to_owned()]
+        }]
+    );
+    assert_eq!(report.files.failed, 0);
+    let again = build_segment(checkout.request("again.db")).expect("the build succeeds");
+    assert_eq!(again.segment.content_sha256, report.segment.content_sha256);
+}

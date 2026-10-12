@@ -235,6 +235,33 @@ typedef struct {
 #define PDXE_AST_PATH_MAX_DEPTH 1024u
 #define PDXE_AST_PATH_MAX_TOTAL_ENTRIES 500000u
 
+/* Issue 89: how deeply a file's syntax tree may nest for its semantic extraction to run.
+ * Extraction's work and memory grow faster than linearly with nesting in many places
+ * (each call stores its argument and callee text whole, usage scopes are found by
+ * climbing to the root with ts_node_parent, itself a descent from the root), so a few
+ * KB nested 1,000 deep took up to a minute. After the parse and before any semantic
+ * pass, one cursor walk measures the tree's depth, the root at depth 1, stopping at the
+ * first node past the ceiling (pdxe_syntax_depth_scan). A deeper tree is not
+ * extracted: the result is valid, holds no fact, counts lost work once and skips
+ * cross-file resolution (lsp_skipped). The macro-expanded tree of C, C++ and CUDA is
+ * held to the same ceiling, its pass skipped alone. 512 is from a census of 104,730
+ * files (decision 58): every file past it is parser recovery, generated source or
+ * macro-expanded text. */
+#define PDXE_MAX_SYNTAX_DEPTH 512u
+
+/* What a depth scan of one syntax tree found. */
+typedef struct {
+    uint32_t depth;        /* the deepest node seen, the root at depth 1 */
+    uint32_t nodes;        /* nodes visited */
+    bool recovery_on_path; /* an ERROR or MISSING node holds the deepest node seen */
+    bool rejected;         /* a node deeper than the ceiling, or out of nodes */
+    bool out_of_nodes;     /* `max_nodes` ran out before the tree did */
+} PDXESyntaxDepthScan;
+
+/* Walks the tree under `root` once with a cursor, each node visited once, and stops at
+ * the first node deeper than `max_depth` or past `max_nodes` (0: no ceiling). */
+PDXESyntaxDepthScan pdxe_syntax_depth_scan(TSNode root, uint32_t max_depth, uint32_t max_nodes);
+
 /* One file's node-type path budget, shared by every producer of a site path. */
 typedef struct {
     uint32_t entries;  /* node types in the paths allocated, at most the total ceiling */
@@ -701,6 +728,15 @@ typedef struct PDXEFileResult {
     /* Issue 88: the node-type paths this extraction's sites hold. Private, never part
      * of the interface or a surface. */
     PDXESitePathBudget site_paths;
+
+    /* Issue 89: the depth scans of the raw tree and of the macro-expanded tree, whether
+     * either was refused its semantic passes, and how many semantic passes ran. Private,
+     * never part of the interface or a surface. */
+    PDXESyntaxDepthScan syntax;
+    PDXESyntaxDepthScan pp_syntax;
+    bool syntax_rejected;
+    bool pp_syntax_rejected;
+    uint32_t semantic_passes;
 } PDXEFileResult;
 
 /* Whether `result`'s site paths are spent: a producer computes no path once they are. */

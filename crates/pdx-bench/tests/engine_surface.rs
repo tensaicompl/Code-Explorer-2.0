@@ -112,7 +112,7 @@ const FACT_STRUCTURES: [&str; 16] = [
 ];
 
 /// Members of the file result a surface does not carry, and why.
-const NOT_IN_A_SURFACE: [(&str, &str); 9] = [
+const NOT_IN_A_SURFACE: [(&str, &str); 14] = [
     (
         "arena",
         "the memory the result lives in; a rebuilt result has its own",
@@ -151,6 +151,30 @@ const NOT_IN_A_SURFACE: [(&str, &str); 9] = [
         "site_paths",
         "the count of node-type path entries the extraction kept (issue 88), read while it \
          is made; the paths themselves are in the surface, and its loss in `lost`",
+    ),
+    (
+        "syntax",
+        "the depth scan of the raw tree (issue 89), read while the extraction is made; a \
+         refused file's surface says so by `lsp_skipped` and `lost`",
+    ),
+    (
+        "pp_syntax",
+        "the depth scan of the expanded tree (issue 89), read while the extraction is made; \
+         a refused pass shows in `lost`",
+    ),
+    (
+        "syntax_rejected",
+        "whether the raw tree was refused (issue 89); its surface says so by `lsp_skipped` \
+         and `lost`",
+    ),
+    (
+        "pp_syntax_rejected",
+        "whether the expanded tree was refused (issue 89); its surface shows it in `lost`",
+    ),
+    (
+        "semantic_passes",
+        "how many semantic passes ran (issue 89), for the engine's own tests; resolution \
+         never reads it",
     ),
 ];
 

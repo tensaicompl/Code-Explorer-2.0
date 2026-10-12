@@ -135,16 +135,18 @@ fn a_doubling_macro_above_its_ceilings_is_lost_work_once() {
 
 #[test]
 fn nesting_stops_at_its_ceiling_on_every_platform() {
-    // F(F(...F(0)...)) recursed until the stack ran out, which is a crash on one
-    // machine and not on another. 256 deep expands within half of the smallest stack an
-    // extraction runs on (a Windows main thread's 1 MiB, in the isolated worker); 257 is
-    // lost work.
+    // Macro expansion recursed as deeply as the source nested its macros, until the
+    // stack ran out: a crash on one machine and not on another. 256 levels expand within
+    // half of the smallest stack an extraction runs on (a Windows main thread's 1 MiB, in
+    // the isolated worker); 257 are lost work. Each level is a function-like macro passing
+    // its argument on, so the source's own tree stays shallow (a file nested past 512 as
+    // written is issue 89's, refused before preprocessing).
     for (depth, lost) in [(256, 0), (257, 1)] {
-        let source = format!(
-            "#define F(x) (x + 1)\nint before(void);\nint v = {}0{};\n",
-            "F(".repeat(depth),
-            ")".repeat(depth)
-        );
+        let mut source = String::from("#define G0(x) (x)\n");
+        for i in 1..depth {
+            writeln!(source, "#define G{i}(x) G{}(x)", i - 1).unwrap();
+        }
+        writeln!(source, "int before(void);\nint v = G{}(0);", depth - 1).unwrap();
         let extract = extract("c", "src/nest.c", source.as_bytes());
         assert_eq!(extract.extraction_lost, lost, "{depth} deep");
     }

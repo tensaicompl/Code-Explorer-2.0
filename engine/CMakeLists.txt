@@ -342,6 +342,9 @@ if(PDXE_BUILD_TESTS)
   # Nor how deeply its calls nest: a site's node-type path is complete or absent, and
   # one file's paths are bounded (issue 88, patches/0020).
   add_test(NAME site_path_budget COMMAND site_path_budget)
+  # Nor how deeply its syntax nests: a tree deeper than PDXE_MAX_SYNTAX_DEPTH is not
+  # extracted (issue 89, patches/0021).
+  add_test(NAME syntax_depth COMMAND syntax_depth)
 
   # Nor the compiler's char: the preprocessing library is built twice, plain char signed
   # and unsigned (as on Linux for AArch64), and both give the project's character

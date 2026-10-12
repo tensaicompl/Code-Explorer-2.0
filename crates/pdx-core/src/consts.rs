@@ -54,7 +54,8 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// numbers are read by fixed rules (issue 86, decision 55), nor the machine's memory or
 /// speed: its work is bounded by the source, and its `#if` arithmetic is defined (issue
 /// 87, decision 56), and a file's site node-type paths are bounded, complete or absent
-/// (issue 88, decision 57).
+/// (issue 88, decision 57), and a tree nested deeper than 512 is not extracted (issue 89,
+/// decision 58).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
 pub const ENGINE_VERSION: u32 = 7;
 

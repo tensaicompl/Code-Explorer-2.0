@@ -116,7 +116,10 @@ Everything goes through `include/pdxe.h`. In outline:
   (`patches/0019-bounded-deterministic-preprocessing.patch`, issue 87). A site's
   node-type path is complete or absent, at most 1,024 entries, and one file's paths at
   most 500,000 entries together, the first refusal lost work
-  (`patches/0020-bounded-site-node-type-paths.patch`, issue 88).
+  (`patches/0020-bounded-site-node-type-paths.patch`, issue 88). A tree nested deeper
+  than 512 is not extracted at all, the scan running before any semantic pass, and is
+  lost work; the expanded tree of C and C++ is held to the same depth
+  (`patches/0021-bounded-syntax-depth.patch`, issue 89).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

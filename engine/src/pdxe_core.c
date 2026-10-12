@@ -2613,6 +2613,65 @@ static void stamp_late_site_paths(PDXEArena *a, PDXEFileResult *result, TSNode r
     }
 }
 
+PDXESyntaxDepthScan pdxe_syntax_depth_scan(TSNode root, uint32_t max_depth, uint32_t max_nodes) {
+    PDXESyntaxDepthScan scan = {0};
+    if (ts_node_is_null(root)) {
+        return scan;
+    }
+    /* Depth moves by one with each cursor step, so the walk is linear in the nodes it
+     * visits; `recovery` counts the ERROR and MISSING nodes on the cursor's path. */
+    TSTreeCursor cursor = ts_tree_cursor_new(root);
+    uint32_t depth = 1;
+    uint32_t nodes = 1;
+    uint32_t recovery = (ts_node_is_error(root) || ts_node_is_missing(root)) ? 1u : 0u;
+    scan.depth = 1;
+    scan.recovery_on_path = recovery > 0;
+    for (;;) {
+        if (ts_tree_cursor_goto_first_child(&cursor)) {
+            depth++;
+            nodes++;
+            TSNode child = ts_tree_cursor_current_node(&cursor);
+            recovery += (ts_node_is_error(child) || ts_node_is_missing(child)) ? 1u : 0u;
+        } else {
+            bool done = false;
+            for (;;) {
+                TSNode leaving = ts_tree_cursor_current_node(&cursor);
+                recovery -= (ts_node_is_error(leaving) || ts_node_is_missing(leaving)) ? 1u : 0u;
+                if (ts_tree_cursor_goto_next_sibling(&cursor)) {
+                    nodes++;
+                    TSNode sibling = ts_tree_cursor_current_node(&cursor);
+                    recovery += (ts_node_is_error(sibling) || ts_node_is_missing(sibling)) ? 1u : 0u;
+                    break;
+                }
+                if (!ts_tree_cursor_goto_parent(&cursor)) {
+                    done = true;
+                    break;
+                }
+                depth--;
+            }
+            if (done) {
+                break;
+            }
+        }
+        if (depth > scan.depth) {
+            scan.depth = depth;
+            scan.recovery_on_path = recovery > 0;
+        }
+        if (max_depth && depth > max_depth) {
+            scan.rejected = true;
+            break;
+        }
+        if (max_nodes && nodes > max_nodes) {
+            scan.out_of_nodes = true;
+            scan.rejected = true;
+            break;
+        }
+    }
+    scan.nodes = nodes;
+    ts_tree_cursor_delete(&cursor);
+    return scan;
+}
+
 static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, PDXELanguage language,
                                            const char *project, const char *rel_path,
                                            int64_t timeout_micros, const char **extra_defines,
@@ -2779,6 +2838,28 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
     result->module_qn = pdxe_fqn_module_source_lang(a, project, rel_path, language);
     result->is_test_file = pdxe_is_test_file(rel_path, language);
 
+    /* Issue 89: a tree nested deeper than PDXE_MAX_SYNTAX_DEPTH is not extracted. The
+     * scan runs before any semantic pass, so none of the work that grows with nesting
+     * runs for it; the result holds no fact, loses work once and skips cross-file
+     * resolution. It inspects every node, one cursor step each, whatever the walk's
+     * operator budget (PDX_ENGINE_WALK_MAX_NODES): the tree is linear in the source the
+     * file-size limit admits, and a deep subtree the scan had not reached would reach
+     * the passes that do not count nodes. */
+    result->syntax = pdxe_syntax_depth_scan(root, PDXE_MAX_SYNTAX_DEPTH, 0);
+    if (result->syntax.rejected) {
+        result->syntax_rejected = true;
+        result->lsp_skipped = true;
+        result->tree_nodes = ts_node_descendant_count(root);
+        pdxe_lost_work();
+        pdxe_log_warn("extract.syntax.rejected", "reason", "syntax_depth", "path",
+                     rel_path ? rel_path : "");
+        ts_tree_delete(tree);
+        atomic_fetch_add(&total_parse_ns, t1 - t0);
+        atomic_fetch_add(&total_files, 1);
+        pdxe_index_mark_done(rel_path);
+        return result;
+    }
+
     // Build extraction context
     PDXEExtractCtx ctx = {
         .arena = a,
@@ -2799,6 +2880,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
 
     // Run extractors: defs + imports use separate walks (unique recursion patterns),
     // then a single unified cursor walk handles the remaining 7 extractors.
+    result->semantic_passes += 3;
     pdxe_extract_definitions(&ctx);
     pdxe_extract_imports(&ctx);
     pdxe_extract_unified(&ctx);
@@ -2938,7 +3020,20 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                 TSParseOptions pp_opts = {0};
                 TSTree *pp_tree =
                     ts_parser_parse_with_options(pp_parser, NULL, pp_ts_input, pp_opts);
+                /* Issue 89: the expanded tree is held to the same depth; past it, the
+                 * expanded pass is skipped alone, losing work once. */
                 if (pp_tree) {
+                    result->pp_syntax = pdxe_syntax_depth_scan(
+                        ts_tree_root_node(pp_tree), PDXE_MAX_SYNTAX_DEPTH, 0);
+                    if (result->pp_syntax.rejected) {
+                        result->pp_syntax_rejected = true;
+                        pdxe_lost_work();
+                        ts_tree_delete(pp_tree);
+                        pp_tree = NULL;
+                    }
+                }
+                if (pp_tree) {
+                    result->semantic_passes++;
                     TSNode pp_root = ts_tree_root_node(pp_tree);
 
                     // Build context for expanded source — extract only calls via unified extractor

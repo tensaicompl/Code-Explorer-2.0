@@ -2422,3 +2422,49 @@ fn path_budget_exhaustion_is_lost_work_and_never_cached() {
     assert_eq!(warm.files, cold.files);
     assert_eq!(other.entries(), cache.entries());
 }
+
+/// 300 Java classes nested inside one another: past the syntax depth (issue 89).
+fn java_deep_classes() -> String {
+    let mut source = String::from("package p;\n");
+    for i in 0..300 {
+        write!(source, "class C{i} {{ ").unwrap();
+    }
+    source.push_str("void m() { f(); }");
+    source.push_str(&"}".repeat(300));
+    source.push('\n');
+    source
+}
+
+#[test]
+fn syntax_depth_refusal_is_lost_work_and_never_cached() {
+    // Issue 89: a file whose tree is deeper than the engine admits is not extracted; it
+    // holds no fact, loses work once, and is never cached, so every run, cold or warm,
+    // refuses it the same way.
+    let checkout = Checkout::new();
+    checkout.write("src/main/java/p/Deep.java", java_deep_classes());
+    checkout.write("src/app.py", PYTHON);
+    let cache = Cache::new();
+    let cold = run(&checkout, Some(&cache), &Probe::new(Twist::None));
+    let refused = extract_of(&cold, "src/main/java/p/Deep.java");
+    assert_eq!(refused.extraction_lost, 1);
+    assert!(refused.definitions.is_empty() && refused.calls.is_empty());
+    assert!(cold.degraded());
+    assert_eq!(
+        cold.stats.cache_writes, 1,
+        "only the clean extraction is cached"
+    );
+
+    let other = Cache::new();
+    let second = run(&checkout, Some(&other), &Probe::new(Twist::None));
+    let warm_probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &warm_probe);
+    assert_eq!(
+        warm_probe.files(),
+        1,
+        "the refused extraction is never served"
+    );
+    assert_eq!(warm.stats.cache_hits, 1);
+    assert_eq!(second.files, cold.files);
+    assert_eq!(warm.files, cold.files);
+    assert_eq!(other.entries(), cache.entries());
+}
