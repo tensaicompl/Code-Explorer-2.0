@@ -336,6 +336,9 @@ if(PDXE_BUILD_TESTS)
   # Nor the platform it was built for: sizeof in #if has one fixed data model (issue 85,
   # patches/0017).
   add_test(NAME c_family_sizeof COMMAND c_family_sizeof)
+  # Nor its compiler's char or C long: character constants and #line numbers take fixed
+  # rules (issue 86, patches/0018).
+  add_test(NAME c_family_char_literals COMMAND c_family_char_literals)
   # Nor the machine's memory: what preprocessing writes and generates is bounded by the
   # source, and passing a ceiling is lost work (issue 87, patches/0019).
   add_test(NAME c_family_preprocess_budget COMMAND c_family_preprocess_budget)
