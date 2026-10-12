@@ -15,7 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 83 | 2026-10-12 | P2-16 | blocker | open | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Open, not fixed in P2-16. Stage 2's invariants do not hold for C-family files: the engine reads files Stage 2 never gave it, unmasked and unredacted, possibly outside the repository; an extraction cached by its file's bytes does not change when a header it includes does; and the result depends on where `pdx index` runs. A fix is an engine change (preprocessing from the source alone, or from includes Stage 2 supplies) with an `ENGINE_VERSION` move: the driver's decision |
+| 84 | 2026-10-12 | P2-16 | blocker | open | Found by issue 83's environment audit: C-family preprocessing predefines `__DATE__` and `__TIME__` from the wall clock in the process's local time zone (`localtime`, which reads `TZ` and, without it, the system's zone file). A source macro that expands either puts the date or time into the extraction (a call's arguments and first string argument), which no cache key names | Open, not fixed: outside issue 83's file-only scope, and the driver's decision (a fixed predefinition is an engine change and an `ENGINE_VERSION` move) |
+| 83 | 2026-10-12 | P2-16 | blocker | open | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Open. Fixed on `hotfix/issue-83-c-family-input-isolation`, not merged: patch 0015 (the preprocessor opens no file), `ENGINE_VERSION` 7, decision 51, specification 4.5 clarified; the regressions fail on engine 6 and pass on 7, mutations killed, goldens unchanged. Closure is held for the driver: `make engine-differential` now differs on `golden:c/jq` and `golden:cpp/fmt`, in `origin` 1 rows only, by the header content the reference still reads from the corpus root (P2-16 defines fidelity to it) |
 | 82 | 2026-10-11 | P2-14 | blocker | open | P2-14's performance run cannot complete either scale repository on the measuring machine (a 10 GB VM, 28 logical processors). Stage 2 keeps every file's extraction resident until the stage ends, at about 300 to 360 KB of resident memory per extraction completed, so a worker passes the harness's 6 GiB ceiling during extraction: Kubernetes (`6c1c770`, 25,930 files discovered) after 9.6 s with 21,211 extractions cached, Linux (`72d3fcf`, 95,723 files) after 14.2 s with 17,625. Not a defect of the harness: the goldens' peaks are 50 to 1,262 MiB. Blocks G1's scale criterion (peak RSS ≤ 4 GiB and ≥ 400 files/s on `kubernetes`), not P2-14 | Open. Under Decision 49's P2-14 measurement policy, P2-14 records each as `out_of_memory` data (peak, stage reached, stages finished, extractions cached) and its summary marks scale incomplete; nothing is optimised in P2-14. Needs Stage 2 and the registry to hold less per file (or stream into Stage 3) before G1 |
 | 81 | 2026-10-11 | P2-14 | third-party | resolved | P2-14's deliverables need a benchmark framework for the `resolve` and `segment write` benchmarks and a way to read a benchmark worker's resident memory and the host's processors and memory on Linux, macOS and Windows; neither was in the dependency graph | `criterion` 0.8.2 (a dev-dependency of `pdx-core` only, default features off but `cargo_bench_support`) with 13 crates of its own, `safe-to-run`; `sysinfo` 0.39.6 (a dependency of `pdx-bench` only, default features off but `system`) with 16 crates of its own, `safe-to-deploy`: 31 exact-version exemptions added by hand, each naming this issue, and the existing `syn` 2.0.119 exemption raised from `safe-to-run` to `safe-to-deploy`, because `sysinfo`'s Windows dependency builds two procedural macros with it. Exemptions, not audits: 142 exemptions, 0 audits, 0 imports. `pdx` links none of them (`scripts/open-binary-check.sh`) |
 | 80 | 2026-10-11 | P2-13 | ambiguity | open | Found closing issue 76: error recovery in C++ makes callables of what is not one, and they own the sites they span. Examples in fmt are a `Function` named `namespace` over lines 928–1755 of `include/fmt/core.h`, and a `Method` `GoogleTestFailureException` over lines 10986–11713 of gtest's header. Overloads and templates inside such regions, or in class bodies, get no definition: `basic_specs::set_fill(basic_string_view<Char>)`, `count<B1, B2, Tail...>`, `EqHelper::Compare` behind `enable_if`. Under engine 5 the name join gave their sites to another definition with the same name. Since issue 76 they belong to the representation as it is: the enclosing artefact, or the file | Open: an extraction-quality question for C and C++, not ownership's |
@@ -128,6 +129,29 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 84 — C-family preprocessing expands `__DATE__` and `__TIME__` from the clock
+
+Found by issue 83's audit of what `pdxe_extract_file` reads. The preprocessing library
+predefines `__DATE__` and `__TIME__` for every C, C++ and CUDA source it expands, from
+`time()` and `localtime()`. `localtime` reads `TZ`, and without it the system's zone
+file, so the values depend on the clock and the process's environment.
+
+A macro the source defines that expands either puts the value into the extraction.
+`#define STAMP() record_stamp(__DATE__, __TIME__)` and `void f(void) { STAMP(); }`
+give a call `record_stamp` (`origin` 1) whose first string argument and arguments are
+`"Oct 12 2026"` and `"09:15:31"`. The same bytes therefore extract differently on
+another day, at another time or in another zone. No cache key names those inputs, so a
+cached extraction keeps the day it was made, while a fresh one does not. That also
+contradicts specification 4.5, which issue 83 clarified: an extraction depends on the
+normalised bytes, the language and the path alone. It reads no source content, so it is
+outside issue 83's scope and was not fixed there.
+
+A fix predefines both with fixed values in the engine, an engine change that moves
+`ENGINE_VERSION`. It is the driver's decision, as is whether it rides with issue 83's
+engine 7.
+
+State: open.
+
 ### 83 — C-family preprocessing reads included files from disk
 
 P2-16's engine differential first ran the vendored engine with the workspace root as
@@ -165,6 +189,62 @@ corpus, so this is no fidelity defect of the vendoring, and P2-16 changes no eng
 behaviour. The fix is an engine change: preprocess from the source alone (no include
 loading), or from includes Stage 2 supplies, masked and confined to the repository. It
 moves `ENGINE_VERSION` and is the driver's decision.
+
+The driver chose the source alone (decision 51), and the hotfix is on
+`hotfix/issue-83-c-family-input-isolation`, from `2e6f253`, not merged:
+
+- **Root cause.** The preprocessing library's include loading (its file cache's
+  lookup, for every `#include` and forced include) and its `__has_include` (two
+  call sites) open files by a path relative to the including file, which is the
+  repository-relative path, or by an absolute one, so against the working directory
+  or anywhere. `pdxe_preprocess_with_map`, called by the second pass of
+  `pdxe_engine_extract_file` for C, C++ and CUDA, was the only route.
+- **Patch 0015.** A preprocessor setting under which no file is opened, checked
+  first in both places; the engine always sets it. An include, forced include or
+  `__has_include` target is never found, as a missing file is not. Include
+  directives stay imports, and the source's own macros and conditionals still
+  expand. `ENGINE_VERSION` 6 → 7; no other version and no interface moves.
+- **Contract.** An extraction depends on the normalised bytes, the language and the
+  path (and on the extraction switches, under which nothing is cached). It does not
+  depend on the working directory, a file on disk, or anything outside the repository
+  (specification 4.5).
+- **Tests.** Each fails on engine 6 and passes on 7.
+  `engine/tests/c_family_input_isolation.c` covers working-directory independence for
+  C and C++ (with `__has_include`), a secret header (with inotify on Linux: no file
+  opened), headers outside the repository by relative and absolute path, the
+  supplied buffer over a self-including file on disk, and include facts and
+  source-local preprocessing kept. The `pdx-core` `extract` tests are
+  `c_family_extraction_is_independent_of_the_working_directory`,
+  `ambient_header_change_cannot_change_a_cached_extraction` (a cache hit equals a
+  fresh extraction after a header changes), `cache_entries_of_engine_six_are_never_served`
+  and `c_family_engine_reads_only_the_normalised_bytes`; on engine 6, from the
+  repository root, a masked URI password came back through a self-include, and a
+  redacted key header's value came back through an include. CUDA shares the code
+  but cannot be extracted here (no grammar, no matrix language). Mutations
+  (disk loading restored, `__has_include` from the working directory, the source
+  read from disk, absolute includes allowed, no version move, no preprocessing) are
+  all killed.
+- **Audit.** From `pdxe_extract_file`, the only file reads left are the quarantine
+  file an extraction switch names (configuration, no cache) and the marker file's
+  appends (output only). The foundation's directory, spill, process and path helpers
+  and the JSON library's file reader are unreachable. No compiler is run, and no
+  system include path is read. Environment: the six extraction switches, which
+  bypass the cache; logging, debugging and marker switches, which are output only;
+  test seams in test builds only. One input materially changes extraction and is
+  named by no key: the clock and time zone behind `__DATE__` and `__TIME__`, issue 84.
+- **Goldens.** `make golden` matches all ten, unchanged: the harness indexes from the
+  workspace root, where none of the goldens' relative includes resolved.
+- **Differential.** `make engine-differential`: 30 of 32 corpora identical.
+  `golden:c/jq` differs in `src/jv_alloc.c` (calls and references: 30 rows only the
+  reference has, 28 only ours; typed: 15 and 14). `golden:cpp/fmt` differs in
+  `test/util.cc` and `test/gtest-extra.cc` (calls and references: 44 and 21; typed:
+  10 and 3). Every differing row has `origin` 1. Definitions, imports, surfaces and
+  file rows agree. The cause: the reference, run in the corpus root, still expands
+  `src/jv.h`, `test/util.h` and `test/gtest-extra.h`. Ours at engine 7 gives exactly
+  the rows engine 6 gives with no file reachable. Running both engines from an empty
+  directory (an experiment outside the tree) makes all 32 identical. P2-16 defines
+  fidelity to the reference, so the harness is left as it is, and closure is held for
+  the driver.
 
 State: open.
 

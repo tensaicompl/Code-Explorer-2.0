@@ -339,20 +339,52 @@ through the bindings, and the binary builds and its tests pass.
 
 ## G1 — after `P2-16`
 
-Status: **pending**
+Status: **pending**. Evaluated by the driver on 2026-10-12 at `2e6f253`: **fail**, and
+progression to P3 is halted. The gate records no state between `pending` and `passed`
+(`scripts/plan/plan-progress.py` reads `passed` alone), so the status stays `pending`
+and the verdict is in the log below.
 
 Criteria:
 
-- [ ] `pdx index` succeeds on all 10 golden repos with `status ∈ {ready}` (no `degraded`)
-- [ ] determinism 100%
-- [ ] golden snapshots committed
-- [ ] performance baseline recorded: ≥ 400 files/s single-node for the structural profile (extraction plus typed resolution) on `kubernetes` (nightly), peak RSS ≤ 4 GiB on `kubernetes`
-- [ ] coverage rows sum to call sites
-- [ ] `bench/results/legacy-compare.md` exists
+- [x] `pdx index` succeeds on all 10 golden repos with `status ∈ {ready}` (no `degraded`): all ten ready (`make golden`)
+- [x] determinism 100%: ten of ten byte-identical (P2-14)
+- [x] golden snapshots committed: ten, in `bench/golden/`
+- [ ] performance baseline recorded: ≥ 400 files/s single-node for the structural profile (extraction plus typed resolution) on `kubernetes` (nightly), peak RSS ≤ 4 GiB on `kubernetes`: **not met**, issue 82
+- [x] coverage rows sum to call sites: the segment writer refuses rows that do not (P2-10)
+- [x] `bench/results/legacy-compare.md` exists
 
 Evaluation log:
 
-_not yet evaluated_
+2026-10-12, at `2e6f253` (engine 6), by the driver:
+
+```
+driver verdict: FAIL — progression to P3 halted
+blocking criterion: Kubernetes performance
+blocking issue: 82
+```
+
+The Kubernetes criterion is not established. It requires at least 400 files/s and at
+most 4 GiB peak resident memory, structural profile, on the `kubernetes` nightly
+corpus. P2-14's worker exceeded the harness's 6 GiB ceiling in Stage 2, which did not
+complete, so no completed throughput or memory result exists. This is no miss of two
+points or fewer: there is no measurement. Issue 82 stays open, and is closed only by a
+completed Kubernetes measurement that meets the criterion. The other five criteria have
+evidence. Commands and their output, verbatim:
+
+```
+$ git rev-parse 2e6f253
+2e6f253034316f75b822912e6385690c43b91e3a
+$ for r in kubernetes linux; do git show 2e6f253:bench/results/0.1.0/$r.json | python3 -c 'import json,sys; d=json.load(sys.stdin); p=d["performance"]; print(d["provenance"]["repository"], "engine", d["provenance"]["engine_version"], p["outcome"], "stage", p["stage_reached"], "peak_rss", p["peak_rss_bytes"], "ceiling", p["memory_ceiling_bytes"], "files_discovered", p["files_discovered"])'; done
+kubernetes engine 6 out_of_memory stage extract peak_rss 6443593728 ceiling 6442450944 files_discovered 25930
+linux engine 6 out_of_memory stage extract peak_rss 6448656384 ceiling 6442450944 files_discovered 95723
+$ git show 2e6f253:bench/results/0.1.0/summary.json | python3 -c 'import json,sys; s=json.load(sys.stdin); d=s["determinism"]; p=s["performance"]; print("determinism_rate", d["determinism_rate"], "identical", d["repositories_identical"], "of", d["repositories_tested"]); print("goldens_completed", p["goldens_completed"], "of", p["goldens_measured"], "all_completed", p["all_completed"])'
+determinism_rate 1.0 identical 10 of 10
+goldens_completed 10 of 10 all_completed False
+$ git ls-tree --name-only 2e6f253 bench/golden/ | wc -l
+10
+$ git ls-tree --name-only 2e6f253 bench/results/legacy-compare.md
+bench/results/legacy-compare.md
+```
 
 ## G2 — after `P3-09`
 
