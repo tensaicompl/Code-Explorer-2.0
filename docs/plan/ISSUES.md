@@ -15,9 +15,11 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 88 | 2026-10-12 | P2-16 | blocker | open | Found by issue 87's security test: extraction's memory is quadratic in how deeply call sites nest, in every language. Each call site stores the node types from its owner down to it (`ast_path`, patch 0010), so n calls nested n deep store about n² entries: a 30 KB C or Python file of 10,000 nested calls stores 100,030,000, peaking at 954 MB in the engine and 6.7 GB in `build_segment`, which fails the file under an 8 GB address-space limit and is killed under a 6 GB cap; a 10,000-call method chain takes 1.6 GB and 39 s. Whether such a file extracts depends on the machine | Open: predates this hotfix (on main since patch 0010) and is not preprocessing, so patch 0019 does not reach it; no corpus here has it (largest per file 96,362 entries, longest path 214). It is issue 87's class, so it holds the closure of issues 86 and 87. A bound needs a design (a cap on the stored path, shared prefixes, or a cap reported as lost work); the driver's decision |
-| 87 | 2026-10-12 | P2-16 | blocker | open | Found by issue 86's audit: C and C++ preprocessing's work and memory are unbounded by the source. A forward `#line` within one file pads the expanded text with one line per line skipped (`#line 400000000` in a three-line source: 400 MB of text, 2.7 GB peak), and doubling macros grow exponentially (437 bytes, 22 levels: 1.3 GB, 9.8 s). Whether such a file extracts depends on the host's memory and speed, and a repository can exhaust the indexer's memory | Fixed on the branch, closure held. Patch 0019, decision 56, engine 7 with issues 83 to 86: a forward jump of more than 4,096 lines is one `#line` marker; what one file's preprocessing writes and generates, and its `#if` folding, are held to `clamp(16 × len, 256 KiB, 8 MiB)`, generated tokens and expansions to 500,000 each and nesting to 256, counted inside the work; passing one discards the expansion and is lost work once, never cached, degraded. `#if` arithmetic is 64-bit two's complement written out, literals read explicitly. The closest normal corpus file uses 10.9% of a ceiling; 5 of Linux's 64,432 pass one. Mutations killed but one equivalent. Held because its security test found issue 88, the same class outside preprocessing |
-| 86 | 2026-10-12 | P2-16 | blocker | open | Found by issue 85's audit: two more host data-model dependences in C and C++ preprocessing. A single-byte character constant in `#if` is evaluated as plain `char`, signed on four of the five specified targets and unsigned on linux-aarch64, so `#if '\xff' < 0` (valid C) takes opposite branches; and `#line` numbers are read with `atol`, a C `long`, so a number above 2147483647 (invalid C) gives a different `__LINE__` on Windows | Fixed on the branch, closure held. Patch 0018, decision 55, engine 7 with issues 83 to 85: a one-byte character constant is a signed 8-bit char, written out, and a multi-character one a 32-bit int; every `#line` number is its leading decimal digits read at 64 bits and clamped to 4294967295. Tests build the library with char signed and unsigned and assert the same values on Linux, macOS and Windows; mutations killed. Held because the same audit found issue 87, and the driver set its closure condition as no known host property changing extraction. Issue 87 is fixed (patch 0019) and its closure is held on issue 88 |
+| 90 | 2026-10-12 | P2-16 | blocker | open | Found by the closure audit of issues 88 and 89, with both in force: within issue 89's 512-depth admission, usage handling still climbs to the root with `ts_node_parent`, which descends from the root again, for every usage, so each usage costs depth², and a file holds as many deep constructs as its size allows. One admitted 400-link Python member chain (about 800 bytes) takes 3.1 s, 8 of them 25 s, a 13 KB file about 50 s; Java classes 250 deep take 0.85 s each. A call's argument text, proportional to its depth, makes 2 MiB of admitted 250-deep call chains peak at 1.33 GB in the engine | Open: predates this hotfix, on main; the same mechanism as issue 89, which bounds each construct, not their number. A bound needs a design (scope lookups from the walk's own ancestor chain, or a per-file count of semantic work as lost work); lowering the depth does not help. Holds the closure of issues 86, 87 and 89 |
+| 89 | 2026-10-12 | P2-16 | blocker | open | Found by issue 88's extraction audit: extraction's memory and time are superlinear in syntax nesting, in many places and every language, beyond `ast_path`. Memory: each call stores its argument text and its callee text whole, so nested calls store about 1.5 n² bytes of arguments and a method chain about 2 n² bytes of callee text; nested C++ namespaces, JavaScript closures and Java `new` expressions grow ×3 to ×4 per doubling. Time: usage handling climbs to the root with `ts_node_parent`, itself a descent from the root, for every usage: O(n³). 1,000 nested Java classes (13 KB) take 56 s, 1,000 nested JavaScript functions 45 s and a 1,000-link Python member chain 50 s. Whether such a file extracts, or finishes within a worker's timeout, depends on the machine | Fixed in part, closure held. Patch 0021, decision 58, engine 7: after the parse and before any semantic pass, a cursor scan (every node, the root at depth 1) refuses a tree deeper than 512: no fact, no semantic pass, lost work once, no cross-file resolution, never cached, degraded; the expanded C and C++ tree alike, its pass alone skipped. From a census of 104,730 files (p99.9 65): the 13 past 512 are parser recovery, generated Go or expanded text. The issue's 1,000-deep reproducers take under 0.01 s; mutations killed. Held on issue 90: within the admitted depth, a file of many deep constructs still costs depth² a usage |
+| 88 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 87's security test: extraction's memory is quadratic in how deeply call sites nest, in every language. Each call site stores the node types from its owner down to it (`ast_path`, patch 0010), so n calls nested n deep store about n² entries: a 30 KB C or Python file of 10,000 nested calls stores 100,030,000, peaking at 954 MB in the engine and 6.7 GB in `build_segment`, which fails the file under an 8 GB address-space limit and is killed under a 6 GB cap; a 10,000-call method chain takes 1.6 GB and 39 s. Whether such a file extracts depends on the machine | Resolved in engine 7 (decision 57, patch 0020): a site's node-type path is complete or absent, never truncated; one per-file budget shared by every producer holds a path to 1,024 entries and the file to 500,000, checked before allocating; the first refusal is lost work once and no path is computed after it; a site without its path is counted, never stored. Of 104,730 census files only `lib/test_bpf.c` (parser recovery) passed it, and issue 89 now refuses it first; surfaces byte-identical otherwise. Mutations killed |
+| 87 | 2026-10-12 | P2-16 | blocker | open | Found by issue 86's audit: C and C++ preprocessing's work and memory are unbounded by the source. A forward `#line` within one file pads the expanded text with one line per line skipped (`#line 400000000` in a three-line source: 400 MB of text, 2.7 GB peak), and doubling macros grow exponentially (437 bytes, 22 levels: 1.3 GB, 9.8 s). Whether such a file extracts depends on the host's memory and speed, and a repository can exhaust the indexer's memory | Fixed on the branch, closure held. Patch 0019, decision 56, engine 7 with issues 83 to 86: a forward jump of more than 4,096 lines is one `#line` marker; what one file's preprocessing writes and generates, and its `#if` folding, are held to `clamp(24 × len, 256 KiB, 8 MiB)` (16 until the driver's review of five Linux files admitted `stackinit_kunit.c`), generated tokens and expansions to 500,000 each and nesting to 256, counted inside the work; passing one discards the expansion and is lost work once, never cached, degraded. `#if` arithmetic is 64-bit two's complement written out, literals read explicitly. The closest normal corpus file uses 10.9% of a ceiling; 4 of Linux's 64,432 pass one, all amplification by design. Mutations killed but one equivalent. Held: its security test found issue 88 (resolved), and the closure audit issues 89 and 90 |
+| 86 | 2026-10-12 | P2-16 | blocker | open | Found by issue 85's audit: two more host data-model dependences in C and C++ preprocessing. A single-byte character constant in `#if` is evaluated as plain `char`, signed on four of the five specified targets and unsigned on linux-aarch64, so `#if '\xff' < 0` (valid C) takes opposite branches; and `#line` numbers are read with `atol`, a C `long`, so a number above 2147483647 (invalid C) gives a different `__LINE__` on Windows | Fixed on the branch, closure held. Patch 0018, decision 55, engine 7 with issues 83 to 85: a one-byte character constant is a signed 8-bit char, written out, and a multi-character one a 32-bit int; every `#line` number is its leading decimal digits read at 64 bits and clamped to 4294967295. Tests build the library with char signed and unsigned and assert the same values on Linux, macOS and Windows; mutations killed. Held because the same audit found issue 87, and the driver set its closure condition as no known host property changing extraction. Issue 87 is fixed (patch 0019) and issue 88 resolved (patch 0020); closure is held on issues 89 and 90 |
 | 85 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 84's audit: C and C++ preprocessing evaluates `sizeof(type)` inside `#if` with the type sizes of the engine binary's own build (`long` is 8 bytes on Linux and macOS, 4 on Windows), so such a source can extract differently on different platforms under one `ENGINE_VERSION`. No ambient input (one binary, one answer) and inert in practice: no C or C++ compiler accepts the construct, and jq, fmt and the Linux checkout hold none | Resolved in engine 7 with issues 83 and 84 (decision 54, patch 0017): the library's twenty recognised spellings use one written-out LP64 table on every platform (char 1, short 2, int 4, long 8, long long 8, float 4, double 8, long double 16, pointers 8); a caller's table and the build's own sizes are ignored, unrecognised spellings stay unevaluated. Host ABI is no extraction input and not in the cache key. Tests simulate other platforms through a test-build seam and assert the same sizes on Linux, macOS and Windows; mutations killed. The audit found issue 86 |
 | 84 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 83's environment audit: C-family preprocessing predefined `__DATE__` and `__TIME__` from the wall clock in the process's local time zone (`localtime`, which reads `TZ` and, without it, the system's zone file) and with the locale's month name. A source macro that expanded either put the date or time into the extraction (a call's arguments and first string argument), which no cache key names | Resolved in engine 7 with issue 83 (decision 53, patch 0016): `__DATE__` is `"Jan 01 1970"` and `__TIME__` `"00:00:00"`, written out, so no clock, zone or locale is read; a source's own definitions keep precedence. The only time-derived predefined macros; `ENGINE_VERSION` stays 7. Tests fail on the clock-reading engine and pass now; mutations killed |
 | 83 | 2026-10-12 | P2-16 | blocker | resolved | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Resolved (decisions 51 and 52). Production engine: patch 0015, engine 7, opens no file, so no ambient include is consumed; specification 4.5 clarified; tests fail on engine 6 and pass on 7, mutations killed, goldens unchanged. P2-16 harness: both engines execute from a fresh empty working directory of the harness's own, an execution rule of the differential, not the fix; `make engine-differential` is 32 of 32 identical, jq and fmt included |
@@ -133,6 +135,167 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 90 — Within the admitted depth, usage handling still costs depth² per usage
+
+Found by the closure audit of issues 88 and 89, with both in force. Issue 89's ceiling
+refuses any file deeper than 512, so no single construct costs what 1,000 levels did.
+Usage handling still climbs to the root with `ts_node_parent` for every usage, and
+`ts_node_parent` descends from the root again: depth² per usage. A file may hold as many
+deep constructs as its size allows, and their costs add up.
+
+| Source, all admitted (depth under 512) | Size | Time | Engine peak |
+|---|---|---|---|
+| one Python member chain `a.b.b...`, 100 links | small | 0.06 s | 9 MB |
+| the same, 200 links | small | 0.41 s | 9 MB |
+| the same, 400 links | about 800 B | 3.08 s | 9 MB |
+| 2, 4 and 8 such 400-link chains in one function | 1.6 to 6.4 KB | 6.1, 15.8 and 25.0 s | 10 to 13 MB |
+| Java classes nested 250 deep | about 4 KB | 0.85 s | 9 MB |
+| JavaScript functions nested 250 deep | about 4 KB | 0.70 s | 8 MB |
+| 2,700 C call chains 250 deep (argument text) | 2.0 MB | 8.1 s | 1.33 GB |
+
+- **Time.** Sampling the multi-chain Python file puts 98% of samples in
+  `handle_usages_at_node`, under `ts_node_parent` and `ts_node_child_with_descendant`:
+  the same mechanism issue 89 found. At about 3 s per 800-byte chain, a 13 KB file of
+  them takes about 50 s, and a 2 MiB one hours. Whether it extracts within an isolated
+  worker's timeout (issue 27) depends on the machine.
+- **Memory.** A call stores its argument text whole, so nested calls store text
+  proportional to their depth. That is linear in the source within the ceiling, but at
+  about 124 bytes of argument text, and about 650 bytes of engine memory, per source
+  byte: 1.33 GB for a 2 MiB file, before the extraction is copied into Rust.
+
+The normal corpora do not come near it: every census file extracted under a 1.2 GB cap,
+and the goldens and the differential are unchanged. It predates this hotfix and is on
+main.
+
+The rest of the audit, every representation an extraction holds, after issues 87 to 89:
+
+- **Bounded by the file-size limit:** the parse tree and the depth scan over it (at most
+  961,482 nodes in the census), and the preprocessor's own token list (about 600 to 700
+  MB for a 2 MiB source, linear; issue 87's residual).
+- **Bounded by the preprocessing ceilings (issue 87):** macro expansion, `#line`
+  padding, `#if` folding.
+- **Bounded by the path budget (issue 88):** site node-type paths.
+- **Bounded by the syntax depth (issue 89), linear in the source within it:**
+  - argument and callee text;
+  - the qualified names of nested definitions and namespaces;
+  - nested closures and `new` expressions;
+  - type references to nested generics;
+  - per-node climbs.
+- **Linear in the source or its evidence:** decorators, base classes, signature
+  parameter types, docstrings and signatures, route facts (each path at most 64
+  entries), throws, read and write facts, imports, usage names, channels, environment
+  accesses, `impl` relations, error ranges (capped).
+- **Bounded by the walk's node budget:** nothing by default; it is an operator switch.
+- **Defect:** usage handling's depth² per usage (time), and argument text times depth
+  (memory), within the admitted depth: this issue.
+
+It is not fixed: a bound needs a design, and the decision is the driver's. The
+mechanism is narrow. Keeping the walk's own ancestor chain for scope lookups, as the
+walk's own usage stamping already does, would make each usage cost its depth rather
+than its depth squared. A per-file count of semantic work, lost when exhausted, would
+bound the rest. Lowering the depth ceiling does not help: the cost grows with the size
+of the file as well as the depth, and normal code reaches depth 65 at p99.9.
+
+State: open.
+
+### 89 — Extraction's work and memory are superlinear in syntax nesting
+
+Found by issue 88's audit of every collection an extraction stores (its brief's §41),
+with that issue's path budget in force. Each shape below is a few KB of source,
+measured at nesting n of 1,000, 2,000 and 4,000:
+
+| Shape | Language | Peak memory | Time | Growth |
+|---|---|---|---|---|
+| `f(f(...f(0)...))`, argument text | C | 12, 19, 40 MB | — | 1.5 n² bytes of argument text |
+| `x.f().f()...`, callee text | Python, TypeScript | 20, 45, 143 MB (Python) | 0.4, 1.5, 6.0 s (Python) | 2 n² bytes of callee text |
+| nested namespaces | C++ | 20, 53, 189 MB | 0.09, 0.35, 1.38 s | ×4 |
+| nested closures as arguments | JavaScript | 16, 32, 90 MB | 0.2, 0.8, 3.3 s | ×3 to ×4 |
+| nested `new E(...)` thrown | Java | 15, 27, 71 MB | — | ×2.6 |
+| nested classes | Java | 28 MB | 56 s at 1,000; over 120 s at 2,000 | time cubic |
+| nested functions | JavaScript | 12 MB | 45 s at 1,000; over 120 s at 2,000 | time cubic |
+| member chain `a.b.b...` | Python | 11 MB | 50 s at 1,000; over 120 s at 2,000 | time cubic |
+| member chains, generic types, nested `if`, `+` chains | TypeScript, Java, C, Go | small | 1.4 to 2.7 s at 4,000 | time ×4 |
+
+- **Memory.** A call stores its argument text and its callee text as written. Every
+  inner call is inside its outer call's argument, and every link of a chain inside the
+  next link's callee, so the stored text is quadratic in the nesting.
+- **Time.** Sampling the Java and Python cases puts 89% to 90% of samples in
+  `ts_node_child_with_descendant`, under `ts_node_parent`, under
+  `handle_usages`, `record_lexical_binding` and `usage_lexical_scope_id_for_node`. For
+  every usage, the lexical-scope lookup climbs to the root one `ts_node_parent` at a
+  time, and each `ts_node_parent` descends from the root again: depth² per usage,
+  O(n³) in all. 400 levels take 3.1 to 3.4 s, 1,000 levels 50 to 56 s.
+
+Whether such a file extracts on a given machine, or within an isolated worker's
+timeout (issue 27: a timeout fails the build), depends on the machine: issue 87's and
+88's class, outside both. It predates this hotfix and is on main. The census of 104,730 files that issue 88 ran
+extracted every one under a 1.2 GB memory cap; it did not record per-file times.
+
+The driver decided it must be fixed before engine 7 reaches main, by one deterministic
+admission ceiling rather than a fix per mechanism (decision 58). The fix is commit
+`e1eb0c6`, patch 0021:
+
+- **The scan.** `pdxe_syntax_depth_scan` walks the parsed tree once with a cursor, depth
+  moving by one each step (every node counted, the root at depth 1), and stops at the
+  first node deeper than `PDXE_MAX_SYNTAX_DEPTH`, 512. It inspects every node whatever
+  the walk's operator budget: one cursor step a node, in a tree linear in the source the
+  file-size limit admits.
+- **Where.** In `extract_file_ex_body`, right after the parse and the path-only module
+  name and test flag. Every semantic pass comes after it: definitions, imports, the
+  unified walk, channels, k8s, dbt, the per-file resolvers, the late-site stamps and the
+  expanded pass.
+- **Past the ceiling.** The result is valid and holds no fact: no definition, call,
+  usage, import, resolved call or path. It counts no semantic pass, records lost work
+  once, sets `lsp_skipped` so cross-file resolution skips it, releases its tree and is
+  counted done. It is not a parse failure. It is never cached and degrades its segment.
+- **The expanded tree** of C, C++ and CUDA gets the same scan right after its parse;
+  past the ceiling, that pass alone is skipped, losing work once.
+- **The ceiling.** Of the 104,730 census files, p99 is 38 and p99.9 is 65. The deepest
+  admitted files are 262 for ordinary source (`hono/src/utils/headers.ts`), 452
+  generated and 470 parser recovery. The 13 files past 512:
+  - parser recovery: `intel-ucode-defs.h`, `test_bpf.c`, `adf_admin.c` (an unexpanded
+    `__aligned(1024)` turns a 1,024-byte table into a 1,023-deep comma expression; the
+    same table without it is 7 deep), `hal_pwr_seq.h`, `jz4780-cgu.c`, two `pwrseq.h`
+    headers and `enums_abi.autogen.h`;
+  - generated Go: two Unicode tables and two protobuf files, each a long string
+    concatenation;
+  - expanded text: `test-arm.c`, whose expanded pass alone is skipped.
+
+  Exported surfaces are byte-identical to `e7865a0` for 104,716 files. The 14 that
+  differ are those 13 and `stackinit_kunit.c`, which issue 87's factor now admits.
+- **Before and after**, by structure, never by timing in a test:
+  - Java classes 1,000 deep: 56 s before, under 0.01 s after.
+  - JavaScript functions 1,000 deep: 45 s before, under 0.01 s after.
+  - A Python member chain 1,000 long: 50 s before, under 0.01 s after.
+  - A Python method chain 10,000 long: 38 s and 1.6 GB before, 0.01 s and 11 MB after.
+- **Tests.**
+  - `syntax_depth` (engine):
+    - the scan: the root alone is 1, `int v;` is 3, k parentheses are k + 4, every node
+      visited once, stopping at the first node past a depth or count, recovery on the
+      path;
+    - depths 511 and 512 extracted, 513 refused at the 513th level with no semantic
+      pass, fact or path;
+    - the four shapes, refused at 300 levels and extracted at 150;
+    - the expanded tree refused alone;
+    - each way with issue 88.
+  - `pdx-engine`'s `syntax_depth`: the same on every platform.
+  - `pdx-core`: never cached, cold/cold/warm equal; the segment degraded by lost work
+    alone.
+- **Mutations.** Each restored byte for byte; all killed:
+  - no preflight (AX), an unbounded ceiling (AY), the check after the unified walk (AZ)
+    or between the imports and the walk (BA: "semantic work ran (3 passes, 2
+    definitions)"), no lost work (BB), a refusal by the clock in place of the depth
+    (BC), and the passes run on after the marker (BD).
+  - Each was killed by `syntax_depth`, and all but BA by `site_path_budget`'s "255
+    nested calls were not refused before any path" too.
+
+Closure is held. The closure audit found issue 90. Within the admitted depth, usage
+handling still costs depth² per usage, and a file holds as many deep constructs as it
+likes, so a few KB can still take tens of seconds. The ceiling bounds each construct,
+not the file.
+
+State: open.
+
 ### 88 — Extraction's memory is quadratic in how deeply call sites nest
 
 Found by issue 87's security test, which first nested a macro call 10,000 deep. The
@@ -172,16 +335,68 @@ Linux were not measured.
 It predates this hotfix: it is on main, in every language, since patch 0010. Patch 0019
 does not touch it.
 
-It is not fixed: a bound needs a design, and the decision is the driver's.
+The driver decided it must be fixed before engine 7 reaches main, by deterministic
+evidence budgets rather than shared prefixes, which would reach the interface, the cache
+and surface codecs and the Rust model (decision 57). The fix is commit `f3300e0` on
+`hotfix/issue-83-c-family-input-isolation`, patch 0020:
 
-- Cap the stored path. The path is part of a site's identity (specification 4.2.1), so
-  a cap must be specified.
-- Share prefixes between sites.
-- Cap the whole and report what is cut as lost work.
+- **Complete or absent.** A path is never cut, since it is part of a site's identity;
+  a site whose path is refused has none, is counted (`Missing::AstPath`) and never given
+  a stored identity or row. No empty path is ever hashed (`IdError::EmptyAstPath`).
+- **One budget per file.** `PDXESitePathBudget`, in the result, serves every producer
+  through `pdxe_site_path_alloc`: the walk's calls and possible callable references
+  (`current_site_path`), sites added after the walk (`late_site_path`,
+  `owner_site_path`) and route bindings (`route_site_path`). Owner aliases re-root an
+  existing path and allocate nothing.
+- **Ceilings.** At most 1,024 node types a path, and 500,000 kept across the file,
+  terminators not counted, checked before anything is allocated.
+- **Exhaustion.** The first refusal records lost work once. The budget is then spent:
+  no path is computed or allocated for the file after it (each producer asks
+  `pdxe_site_paths_exhausted` first, and a late path's sizing climb stops one node
+  past the deepest path allowed). The sites themselves remain.
+- **A late allocation removed.** A late site whose owner was undecided was given a path
+  by a nearest-function climb that `stamp_late_site_owners` always replaced before
+  anything read it: never observable, serialized, hashed or resolved. That allocation is
+  gone, so the budget counts what is kept. The Kotlin delegate's late `getValue` path is
+  pinned in a test exactly as engine 7 gave it before.
+- **Evidence.** The census covered 104,730 files (engine fixtures, sanitizer corpus,
+  the ten goldens, Kubernetes, Linux). Only Linux's `lib/test_bpf.c` passes a ceiling:
+  2,265,760 entries and a 2,100-deep path, from tree-sitter error recovery turning a
+  large initializer into a 2,094-deep `comma_expression`. Since issue 89 it is refused
+  for its depth before any path is asked for. The closest below:
 
-Any of these is an engine change, and may change site identities.
+  | File | Measure | Share of its ceiling |
+  |---|---|---|
+  | `hal_pwr_seq.h` | 948-entry path, a recovery artefact | 93% |
+  | Exposed's minified `main.js` | 339,520 entries | 68% |
+  | Kubernetes' `generated.pb.go` | 294,692 entries | 59% |
 
-State: open.
+  p99.9 is 66,773 entries and a 53-entry path. Exported surfaces were byte-identical
+  to `e7865a0` for 104,729 of the 104,730 files, `test_bpf.c` alone excepted.
+- **Memory.** `plain10000.c` fell from 954 MB to 174 MB; the rest was issue 89, and
+  since it, 12 MB.
+- **Tests.**
+  - `site_path_budget` (engine):
+    - the builder at 1,024 and 1,025 entries, and at 499,999, 500,000 and 500,001,
+      with no request after exhaustion;
+    - a total crossed exactly where the grammar puts it (499,948 entries in 4,873
+      paths), no path after the first absent one, every kept path complete;
+    - Python routes, calls and references on one counter;
+    - 254 nested calls kept whole, 255 refused for their depth before any path.
+  - `pdx-engine`'s `site_path_budget`: C, Python, Java and JavaScript, exactly one loss
+    more than the same function under the budget; the late path pinned.
+  - `pdx-core`: never cached, cold/cold/warm equal; the segment degraded by lost work,
+    every path-less site counted and none stored.
+- **Mutations.** Each restored byte for byte (checksums compared); all killed:
+  - no total-entry check (AQ): the 500,001st entry is given;
+  - no per-path check (AR): a 1,025-entry path is given;
+  - the check after allocation (AS): the arena is asked once more than it gives;
+  - a counter of its own for routes (AT): the counter and the paths kept disagree;
+  - asking again after exhaustion (AU): a path follows the first absent one;
+  - a cut path in place of none (AV): an incomplete path is found;
+  - no `pdxe_lost_work` (AW): no work is lost.
+
+State: resolved.
 
 ### 87 — C-family preprocessing's work and memory are unbounded by the source
 
@@ -315,9 +530,32 @@ status (decision 56). The fix is commit `52c19c6` on
   The unmodified library's own deterministic quirks remain: `- -5 == 5` and `!00` are
   false.
 
-Closure is held. The security test found issue 88: in every language, extraction stores
-memory quadratic in how deeply call sites nest. That is the same class of
-machine-dependent completion, outside preprocessing.
+- **The factor, reviewed.** The driver reviewed the five Linux files and changed one
+  constant before engine 7 was delivered: the byte budget is 24 bytes per source byte,
+  not 16 (decision 56, amended; commit `291e435`, patch 0019 carrying 24).
+  - `lib/tests/stackinit_kunit.c` is ordinary KUnit test source. It generates 398,632
+    bytes, 17.9 times its 18,591, and carries 215 callees nothing else gives. Its
+    budget is now 446,184, and it expands.
+  - The other four stay bounded, and are amplification by design:
+    - `airtime.c`: constant tables, 232 times its size;
+    - `uprobe_multi.c`: 50,000 generated functions;
+    - `test_modules.h`: a 10,000-fold repetition macro;
+    - `ppc-opc.c`: past the token ceiling, which stays at 500,000. Its 1,782,252
+      tokens and about 432 MB buy 18 calls and no new callee.
+  - Across Linux's 64,432 C-family files those four are the only ones past a ceiling.
+    The normal corpora have none.
+  - The budget's comparison is now exact for a factor that does not divide 8 MiB: a
+    length above 8 MiB / 24, rounded down, has the maximum. The 64-bit reference sweep
+    caught the old form at 349,525 bytes.
+  - The mutations were re-run after the change. All are killed but AJ, the equivalent mutant, with each restored byte for byte:
+    - AA to AN and AP again;
+    - the factor back to 16 (BE): the recorded ceiling;
+    - the comparison back to `>=` (BF): "a source of 349525 bytes has a budget of
+      8388608, not 8388600".
+
+Closure is held. Its security test found issue 88, which is resolved, and the closure
+audit found issue 89 and then issue 90: machine-dependent extraction outside
+preprocessing.
 
 State: open.
 
@@ -405,9 +643,10 @@ takes is unbounded by the source, so whether an extraction completes depends on 
 host. The driver set the closure condition that no known host property may change
 extraction for the same inputs.
 
-Issue 87 is fixed (patch 0019, decision 56). Its security test found issue 88, the same
-class of machine-dependent completion in extraction outside preprocessing, so closure
-is still held.
+Issue 87 is fixed (patch 0019, decision 56, its factor 24 since `291e435`). Its
+security test found issue 88, now resolved (patch 0020). Issue 89's depth admission is
+delivered (patch 0021), but the closure audit found issue 90 within it, so closure is
+still held.
 
 State: open.
 

@@ -196,12 +196,12 @@ the buffer Stage 2 supplies is the whole input.
   and `engine/tests/syntax_depth.c`, the `extract` and `build` tests and `pdx-engine`'s
   `type_sizes`, `literals_and_lines`, `preprocess_bounds`, `site_path_budget` and
   `syntax_depth` (which run on Windows too) prove it.
-- **Open.** Issues 86 and 87 are fixed (patches 0018 and 0019), but their closure is
-  held on issue 88. In every language, extraction stores memory quadratic in how deeply
-  call sites nest (`ast_path`: 10,000 nested calls in 30 KB store 100 million entries
-  and take 6.7 GB in the pipeline), so whether such a file extracts still depends on the
-  machine. It is outside preprocessing, on main since patch 0010; a bound is the
-  driver's decision.
+- **Open.** Issue 88 is resolved. Issues 86, 87 and 89 are fixed, but their closure is
+  held on issue 90. Within the admitted depth, usage handling climbs to the root with
+  `ts_node_parent` for every usage, depth² each, and a file holds as many deep
+  constructs as it likes: one 400-link Python member chain takes 3 s, 8 of them 25 s,
+  a 13 KB file about 50 s. Nested calls' argument text makes 2 MiB of admitted chains
+  1.3 GB. It is on main; a bound is the driver's decision.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
