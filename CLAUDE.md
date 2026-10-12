@@ -152,7 +152,7 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 87 (decisions 51 and 53 to 56, engine 7, patches 0015 to 0019 together):
+Issues 83 to 88 (decisions 51 and 53 to 57, engine 7, patches 0015 to 0020 together):
 the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
@@ -174,6 +174,11 @@ the buffer Stage 2 supplies is the whole input.
   written out, and integer literals are read by an explicit reader. No timeout and no
   environment override; a ceiling that starves real code is changed by decision, never
   to fit a test (Linux has 5 files past them).
+- **No path amplification.** A site's node-type path is complete or absent, never cut
+  (it is part of the site's identity). One per-file budget (`PDXESitePathBudget`,
+  `pdxe_site_path_alloc`) serves every producer: at most 1,024 entries a path and
+  500,000 a file, checked before allocating; the first refusal is lost work once and no
+  path is computed after it. A site without its path is counted, never stored.
 - **Contract.** An extraction depends on the normalised bytes, the language, the path
   and the metadata only. It never depends on the working directory, a header on disk,
   anything outside the repository, the time, the zone, the locale or the platform, and

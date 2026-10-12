@@ -224,6 +224,25 @@ typedef struct {
     int replacement;
 } PDXEOwnerAlias;
 
+/* Issue 88: a site's node-type path (PDXECall.ast_path, PDXEUsage.ast_path,
+ * PDXERouteFact.ast_path) is stored complete or not at all, never cut short, and one
+ * file's paths are held to two ceilings: one path to PDXE_AST_PATH_MAX_DEPTH node types,
+ * all the paths a file's extraction allocates together to PDXE_AST_PATH_MAX_TOTAL_ENTRIES
+ * (terminators not counted). Each is checked before the path is allocated
+ * (pdxe_site_path_alloc). The first request past either is lost work, once, and no path
+ * is computed or allocated for the file after it: its later sites have none, and are
+ * counted downstream, never given an identity. */
+#define PDXE_AST_PATH_MAX_DEPTH 1024u
+#define PDXE_AST_PATH_MAX_TOTAL_ENTRIES 500000u
+
+/* One file's node-type path budget, shared by every producer of a site path. */
+typedef struct {
+    uint32_t entries;  /* node types in the paths allocated, at most the total ceiling */
+    uint32_t paths;    /* paths allocated */
+    uint32_t requests; /* paths asked of the arena: one per path, none after exhaustion */
+    bool exhausted;    /* a request passed a ceiling: no path is allocated after it */
+} PDXESitePathBudget;
+
 // --- Extraction result structs ---
 
 /* One HTTP route binding a decorator or annotation declares for a definition, with
@@ -678,7 +697,20 @@ typedef struct PDXEFileResult {
      * never part of the interface or a surface. NULL and 0 for none. */
     PDXEOwnerAlias *owner_aliases;
     int owner_alias_count;
+
+    /* Issue 88: the node-type paths this extraction's sites hold. Private, never part
+     * of the interface or a surface. */
+    PDXESitePathBudget site_paths;
 } PDXEFileResult;
+
+/* Whether `result`'s site paths are spent: a producer computes no path once they are. */
+bool pdxe_site_paths_exhausted(const PDXEFileResult *result);
+
+/* A complete path of `n` node types and its NULL terminator, from `a`, within
+ * `result`'s budget: NULL when it would pass a ceiling (the first time, lost work, and
+ * the budget is spent), when the budget is already spent, or when memory runs out. The
+ * caller fills all `n` entries. */
+const char **pdxe_site_path_alloc(PDXEArena *a, PDXEFileResult *result, size_t n);
 
 // --- Enclosing function cache ---
 // Avoids repeated parent-chain walks for nodes within the same function body.

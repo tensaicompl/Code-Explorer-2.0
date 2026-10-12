@@ -1,0 +1,401 @@
+--- a/engine/src/extract_defs.c
++++ b/engine/src/extract_defs.c
+@@ -1895,8 +1895,13 @@ static void route_list_add(route_list *l, const char *s) {
+ }
+ 
+ /* The node types from the lowest node holding both `def_node` and `site` down to
+- * `site`, NULL-terminated; NULL when they cannot be found within the bounds. */
+-static const char **route_site_path(PDXEArena *a, TSNode def_node, TSNode site) {
++ * `site`, NULL-terminated; NULL when they cannot be found within the bounds, or the
++ * file's site path budget refuses them (issue 88). */
++static const char **route_site_path(PDXEArena *a, PDXEFileResult *result, TSNode def_node,
++                                    TSNode site) {
++    if (pdxe_site_paths_exhausted(result)) {
++        return NULL;
++    }
+     TSNode ancestors[ROUTE_ANCESTORS_MAX];
+     int n_ancestors = 0;
+     for (TSNode n = def_node; !ts_node_is_null(n) && n_ancestors < ROUTE_ANCESTORS_MAX;
+@@ -1909,15 +1914,13 @@ static const char **route_site_path(PDXEArena *a, TSNode def_node, TSNode site)
+         types[n_types++] = ts_node_type(n);
+         for (int i = 0; i < n_ancestors; i++) {
+             if (ts_node_eq(n, ancestors[i])) {
+-                const char **path =
+-                    (const char **)pdxe_arena_alloc(a, (size_t)(n_types + 1) * sizeof(*path));
++                const char **path = pdxe_site_path_alloc(a, result, (size_t)n_types);
+                 if (!path) {
+                     return NULL;
+                 }
+                 for (int t = 0; t < n_types; t++) {
+                     path[t] = types[n_types - 1 - t];
+                 }
+-                path[n_types] = NULL;
+                 return path;
+             }
+         }
+@@ -2187,10 +2190,11 @@ static bool route_facts_push(PDXEArena *a, route_fact_list *l, PDXERouteFact fac
+ }
+ 
+ /* One fact per method and path a declaring node binds, each joined to each prefix. */
+-static void push_bindings(PDXEArena *a, route_fact_list *out, TSNode def_node, TSNode site,
+-                          const char *callee, const char *source, const route_list *verbs,
+-                          const route_list *prefixes, const route_list *paths) {
+-    const char **ast_path = route_site_path(a, def_node, site);
++static void push_bindings(PDXEArena *a, PDXEFileResult *result, route_fact_list *out,
++                          TSNode def_node, TSNode site, const char *callee, const char *source,
++                          const route_list *verbs, const route_list *prefixes,
++                          const route_list *paths) {
++    const char **ast_path = route_site_path(a, result, def_node, site);
+     const char *text = pdxe_node_text(a, site, source);
+     for (int v = 0; v < verbs->n; v++) {
+         for (int p = 0; p < prefixes->n; p++) {
+@@ -2214,8 +2218,9 @@ static void push_bindings(PDXEArena *a, route_fact_list *out, TSNode def_node, T
+ }
+ 
+ /* Spring mapping annotations and JAX-RS verbs on a JVM method. */
+-static void jvm_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node, const char *source,
+-                            const PDXELangSpec *spec, route_fact_list *out) {
++static void jvm_route_facts(PDXEArena *a, PDXEFileResult *result, TSNode def_node,
++                            TSNode class_node, const char *source, const PDXELangSpec *spec,
++                            route_fact_list *out) {
+     route_list prefixes = {0};
+     if (!jvm_class_prefixes(a, class_node, source, spec, &prefixes)) {
+         return;
+@@ -2263,7 +2268,8 @@ static void jvm_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node, co
+         if (paths.dynamic || verbs.dynamic) {
+             continue;
+         }
+-        push_bindings(a, out, def_node, annotations[i], written, source, &verbs, &prefixes, &paths);
++        push_bindings(a, result, out, def_node, annotations[i], written, source, &verbs, &prefixes,
++                      &paths);
+     }
+ }
+ 
+@@ -2274,8 +2280,9 @@ static TSNode decorator_keyword(PDXEArena *a, TSNode args, const char *name, con
+ 
+ /* Route decorators on a Python definition: FastAPI's and Flask's, and Django REST
+  * framework's @action, in source order. */
+-static void decorator_route_facts(PDXEArena *a, TSNode def_node, const char *source,
+-                                  const PDXELangSpec *spec, route_fact_list *out) {
++static void decorator_route_facts(PDXEArena *a, PDXEFileResult *result, TSNode def_node,
++                                  const char *source, const PDXELangSpec *spec,
++                                  route_fact_list *out) {
+     TSNode decorators[ROUTE_LIST_MAX];
+     int n = 0;
+     for (TSNode prev = ts_node_prev_sibling(def_node);
+@@ -2337,14 +2344,15 @@ static void decorator_route_facts(PDXEArena *a, TSNode def_node, const char *sou
+             if (paths.dynamic || verbs.dynamic || paths.n == 0 || verbs.n == 0) {
+                 continue;
+             }
+-            push_bindings(a, out, def_node, call, callee, source, &verbs, &no_prefix, &paths);
++            push_bindings(a, result, out, def_node, call, callee, source, &verbs, &no_prefix,
++                          &paths);
+         }
+     }
+ }
+ 
+ /* Every route binding a definition's decorators or annotations declare. */
+-static void extract_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node,
+-                                const char *source, const PDXELangSpec *spec,
++static void extract_route_facts(PDXEArena *a, PDXEFileResult *result, TSNode def_node,
++                                TSNode class_node, const char *source, const PDXELangSpec *spec,
+                                 PDXEDefinition *def) {
+     def->routes = NULL;
+     def->route_count = 0;
+@@ -2354,9 +2362,9 @@ static void extract_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node
+     route_fact_list facts = {0};
+     if (spec->language == PDXE_LANG_JAVA || spec->language == PDXE_LANG_KOTLIN ||
+         spec->language == PDXE_LANG_SCALA) {
+-        jvm_route_facts(a, def_node, class_node, source, spec, &facts);
++        jvm_route_facts(a, result, def_node, class_node, source, spec, &facts);
+     } else if (spec->language == PDXE_LANG_PYTHON) {
+-        decorator_route_facts(a, def_node, source, spec, &facts);
++        decorator_route_facts(a, result, def_node, source, spec, &facts);
+     }
+     def->routes = facts.count ? facts.items : NULL;
+     def->route_count = facts.count;
+@@ -4443,7 +4451,7 @@ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpe
+     // Decorators + route extraction from decorator AST
+     def.decorators = extract_decorators(a, node, ctx->source, ctx->language, spec);
+     extract_route_from_decorators(a, node, ctx->source, spec, &def.route_path, &def.route_method);
+-    extract_route_facts(a, node, (TSNode){0}, ctx->source, spec, &def);
++    extract_route_facts(a, ctx->result, node, (TSNode){0}, ctx->source, spec, &def);
+ 
+     // Rust: disambiguate cfg-gated twin functions by folding the #[cfg(...)]
+     // predicate into the QN so both branches survive the graph upsert (#495).
+@@ -5662,7 +5670,7 @@ static void push_method_def(PDXEExtractCtx *ctx, TSNode child, TSNode class_node
+         const char *prefix = spring_class_route_prefix(a, class_node, ctx->source, spec);
+         def.route_path = join_route_paths(a, prefix, def.route_path);
+     }
+-    extract_route_facts(a, child, class_node, ctx->source, spec, &def);
++    extract_route_facts(a, ctx->result, child, class_node, ctx->source, spec, &def);
+     def.docstring = extract_docstring(a, child, ctx->source, ctx->language);
+ 
+     if (spec->branching_node_types && spec->branching_node_types[0]) {
+--- a/engine/src/extract_unified.c
++++ b/engine/src/extract_unified.c
+@@ -2752,17 +2752,16 @@ static void record_node_type(WalkState *state, uint32_t depth, const char *type)
+ }
+ 
+ /* The current node's path from the innermost function frame, NULL-terminated, in
+- * the arena; NULL when it cannot be given. */
+-static const char **current_site_path(WalkState *state) {
++ * the arena, within the file's budget (issue 88); NULL when it cannot be given. */
++static const char **current_site_path(PDXEExtractCtx *ctx, WalkState *state) {
+     uint32_t from = state->enclosing_func_depth;
+     uint32_t to = state->current_depth;
+-    if (state->node_types_failed || !state->node_types || from > to ||
+-        to >= state->node_types_capacity) {
++    if (pdxe_site_paths_exhausted(ctx->result) || state->node_types_failed ||
++        !state->node_types || from > to || to >= state->node_types_capacity) {
+         return NULL;
+     }
+     uint32_t n = to - from + 1;
+-    const char **path =
+-        (const char **)pdxe_arena_alloc(state->arena, ((size_t)n + 1) * sizeof(char *));
++    const char **path = pdxe_site_path_alloc(state->arena, ctx->result, n);
+     if (!path) {
+         return NULL;
+     }
+@@ -2784,7 +2783,7 @@ void pdxe_walk_stamp_site_paths(PDXEExtractCtx *ctx, WalkState *state, int calls
+         PDXECall *call = &ctx->result->calls.items[i];
+         if (!call->ast_path) {
+             if (!computed) {
+-                path = current_site_path(state);
++                path = current_site_path(ctx, state);
+                 computed = true;
+             }
+             call->ast_path = path;
+@@ -2797,7 +2796,7 @@ void pdxe_walk_stamp_site_paths(PDXEExtractCtx *ctx, WalkState *state, int calls
+             (usage->kind == PDXE_USAGE_VALUE && usage->may_be_call_reference);
+         if (possible_reference && !usage->ast_path) {
+             if (!computed) {
+-                path = current_site_path(state);
++                path = current_site_path(ctx, state);
+                 computed = true;
+             }
+             usage->ast_path = path;
+--- a/engine/src/pdxe_core.c
++++ b/engine/src/pdxe_core.c
+@@ -2423,21 +2423,54 @@ static void alias_adopted_callables(PDXEArena *a, PDXEFileResult *result, const
+     }
+ }
+ 
++bool pdxe_site_paths_exhausted(const PDXEFileResult *result) {
++    return !result || result->site_paths.exhausted;
++}
++
++const char **pdxe_site_path_alloc(PDXEArena *a, PDXEFileResult *result, size_t n) {
++    if (!result || result->site_paths.exhausted || n == 0) {
++        return NULL;
++    }
++    PDXESitePathBudget *budget = &result->site_paths;
++    /* Checked before anything is allocated. `entries` never passes the total, so the
++     * subtraction cannot wrap. */
++    if (n > PDXE_AST_PATH_MAX_DEPTH || n > PDXE_AST_PATH_MAX_TOTAL_ENTRIES - budget->entries) {
++        budget->exhausted = true;
++        pdxe_lost_work();
++        return NULL;
++    }
++    budget->requests++;
++    const char **path = (const char **)pdxe_arena_alloc(a, (n + 1) * sizeof(char *));
++    if (!path) {
++        return NULL;
++    }
++    budget->paths++;
++    budget->entries += (uint32_t)n;
++    path[n] = NULL;
++    return path;
++}
++
+ /* Issue 76: the node-type path from `from` (the root at file scope) down to `site`,
+- * NULL-terminated, in the arena; NULL when memory runs out. */
+-static const char **owner_site_path(PDXEArena *a, TSNode from, TSNode site) {
++ * NULL-terminated, in the arena, within the file's budget (issue 88): NULL when the
++ * budget refuses it or memory runs out. The climb stops one node past the deepest path
++ * the budget allows. */
++static const char **owner_site_path(PDXEArena *a, PDXEFileResult *result, TSNode from,
++                                    TSNode site) {
++    if (pdxe_site_paths_exhausted(result)) {
++        return NULL;
++    }
+     uint32_t n = 0;
+-    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
++    for (TSNode at = site; !ts_node_is_null(at) && n <= PDXE_AST_PATH_MAX_DEPTH;
++         at = ts_node_parent(at)) {
+         n++;
+         if (ts_node_eq(at, from)) {
+             break;
+         }
+     }
+-    const char **path = (const char **)pdxe_arena_alloc(a, ((size_t)n + 1) * sizeof(char *));
++    const char **path = pdxe_site_path_alloc(a, result, n);
+     if (!path) {
+         return NULL;
+     }
+-    path[n] = NULL;
+     uint32_t i = n;
+     for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
+         path[--i] = ts_node_type(at);
+@@ -2452,7 +2485,7 @@ static const char **owner_site_path(PDXEArena *a, TSNode from, TSNode site) {
+  * runs from that node, or the root, down to the smallest node holding the site. That
+  * node is the callable's own when the site's bytes cross its children. Undecided when
+  * the site cannot be located. */
+-static void decide_late_site(PDXEArena *a, const PDXEExtractCtx *ctx,
++static void decide_late_site(PDXEArena *a, PDXEFileResult *result, const PDXEExtractCtx *ctx,
+                              const PDXEOccurrenceIndex *represented, uint32_t start, uint32_t end,
+                              PDXESiteOwner *owner, const char ***ast_path) {
+     TSNode site = ts_node_descendant_for_byte_range(ctx->root, start, end);
+@@ -2469,7 +2502,7 @@ static void decide_late_site(PDXEArena *a, const PDXEExtractCtx *ctx,
+             break;
+         }
+     }
+-    *ast_path = owner_site_path(a, from, site);
++    *ast_path = owner_site_path(a, result, from, site);
+     owner->declaration = declaration;
+     owner->decided = true;
+ }
+@@ -2486,8 +2519,8 @@ static void stamp_late_site_owners(PDXEArena *a, PDXEFileResult *result, const P
+         PDXECall *c = &result->calls.items[i];
+         if (!c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+             c->site_end_byte > c->site_start_byte) {
+-            decide_late_site(a, ctx, &represented, c->site_start_byte, c->site_end_byte, &c->owner,
+-                             &c->ast_path);
++            decide_late_site(a, result, ctx, &represented, c->site_start_byte, c->site_end_byte,
++                             &c->owner, &c->ast_path);
+         }
+     }
+     for (int i = 0; i < result->usages.count; i++) {
+@@ -2496,8 +2529,8 @@ static void stamp_late_site_owners(PDXEArena *a, PDXEFileResult *result, const P
+                                   (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
+         if (possible_reference && !u->owner.decided && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+             u->site_end_byte > u->site_start_byte) {
+-            decide_late_site(a, ctx, &represented, u->site_start_byte, u->site_end_byte, &u->owner,
+-                             &u->ast_path);
++            decide_late_site(a, result, ctx, &represented, u->site_start_byte, u->site_end_byte,
++                             &u->owner, &u->ast_path);
+         }
+     }
+     pdxe_occurrence_index_free(&represented);
+@@ -2521,26 +2554,30 @@ enum { PDXE_EXTRACT_SCRATCH_KEEP_BYTES = 4 * PDXE_SZ_1K * PDXE_SZ_1K };
+ /* The node-type path of a site the walk did not record: from the nearest enclosing
+  * function node (the root at file scope), by the language's function node types as
+  * the walk pushes them, down to the smallest node covering the site. NULL when the
+- * site cannot be located or memory runs out. */
+-static const char **late_site_path(PDXEArena *a, TSNode root, const PDXELangSpec *spec,
+-                                   uint32_t start, uint32_t end) {
++ * site cannot be located, the file's budget refuses the path (issue 88; the climb stops
++ * one node past the deepest path it allows) or memory runs out. */
++static const char **late_site_path(PDXEArena *a, PDXEFileResult *result, TSNode root,
++                                   const PDXELangSpec *spec, uint32_t start, uint32_t end) {
++    if (pdxe_site_paths_exhausted(result)) {
++        return NULL;
++    }
+     TSNode site = ts_node_descendant_for_byte_range(root, start, end);
+     if (ts_node_is_null(site)) {
+         return NULL;
+     }
+     uint32_t n = 0;
+-    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
++    for (TSNode at = site; !ts_node_is_null(at) && n <= PDXE_AST_PATH_MAX_DEPTH;
++         at = ts_node_parent(at)) {
+         n++;
+         if (spec && spec->function_node_types && !ts_node_eq(at, site) &&
+             pdxe_kind_in_set(at, spec->function_node_types)) {
+             break;
+         }
+     }
+-    const char **path = (const char **)pdxe_arena_alloc(a, ((size_t)n + 1) * sizeof(char *));
++    const char **path = pdxe_site_path_alloc(a, result, n);
+     if (!path) {
+         return NULL;
+     }
+-    path[n] = NULL;
+     uint32_t i = n;
+     for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
+         path[--i] = ts_node_type(at);
+@@ -2550,23 +2587,28 @@ static const char **late_site_path(PDXEArena *a, TSNode root, const PDXELangSpec
+ 
+ /* Gives a node-type path to every call, and every possible callable reference, that
+  * was added to the result after the walk (a per-file resolver's desugared calls) at a
+- * position in the raw source. */
++ * position in the raw source. A site whose owner is not yet decided is skipped:
++ * stamp_late_site_owners, which runs next, gives it its path from its owner, and a path
++ * computed here would only be replaced, its entries spent from the file's budget for
++ * nothing (issue 88). */
+ static void stamp_late_site_paths(PDXEArena *a, PDXEFileResult *result, TSNode root,
+                                   const PDXELangSpec *spec) {
+     for (int i = 0; i < result->calls.count; i++) {
+         PDXECall *c = &result->calls.items[i];
+-        if (!c->ast_path && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
++        if (!c->ast_path && c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+             c->site_end_byte > c->site_start_byte) {
+-            c->ast_path = late_site_path(a, root, spec, c->site_start_byte, c->site_end_byte);
++            c->ast_path =
++                late_site_path(a, result, root, spec, c->site_start_byte, c->site_end_byte);
+         }
+     }
+     for (int i = 0; i < result->usages.count; i++) {
+         PDXEUsage *u = &result->usages.items[i];
+         bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
+                                   (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
+-        if (possible_reference && !u->ast_path && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+-            u->site_end_byte > u->site_start_byte) {
+-            u->ast_path = late_site_path(a, root, spec, u->site_start_byte, u->site_end_byte);
++        if (possible_reference && !u->ast_path && u->owner.decided &&
++            u->source_origin == PDXE_SOURCE_ORIGIN_RAW && u->site_end_byte > u->site_start_byte) {
++            u->ast_path =
++                late_site_path(a, result, root, spec, u->site_start_byte, u->site_end_byte);
+         }
+     }
+ }
+--- a/engine/src/pdxe_core.h
++++ b/engine/src/pdxe_core.h
+@@ -224,6 +224,25 @@ typedef struct {
+     int replacement;
+ } PDXEOwnerAlias;
+ 
++/* Issue 88: a site's node-type path (PDXECall.ast_path, PDXEUsage.ast_path,
++ * PDXERouteFact.ast_path) is stored complete or not at all, never cut short, and one
++ * file's paths are held to two ceilings: one path to PDXE_AST_PATH_MAX_DEPTH node types,
++ * all the paths a file's extraction allocates together to PDXE_AST_PATH_MAX_TOTAL_ENTRIES
++ * (terminators not counted). Each is checked before the path is allocated
++ * (pdxe_site_path_alloc). The first request past either is lost work, once, and no path
++ * is computed or allocated for the file after it: its later sites have none, and are
++ * counted downstream, never given an identity. */
++#define PDXE_AST_PATH_MAX_DEPTH 1024u
++#define PDXE_AST_PATH_MAX_TOTAL_ENTRIES 500000u
++
++/* One file's node-type path budget, shared by every producer of a site path. */
++typedef struct {
++    uint32_t entries;  /* node types in the paths allocated, at most the total ceiling */
++    uint32_t paths;    /* paths allocated */
++    uint32_t requests; /* paths asked of the arena: one per path, none after exhaustion */
++    bool exhausted;    /* a request passed a ceiling: no path is allocated after it */
++} PDXESitePathBudget;
++
+ // --- Extraction result structs ---
+ 
+ /* One HTTP route binding a decorator or annotation declares for a definition, with
+@@ -678,8 +697,21 @@ typedef struct PDXEFileResult {
+      * never part of the interface or a surface. NULL and 0 for none. */
+     PDXEOwnerAlias *owner_aliases;
+     int owner_alias_count;
++
++    /* Issue 88: the node-type paths this extraction's sites hold. Private, never part
++     * of the interface or a surface. */
++    PDXESitePathBudget site_paths;
+ } PDXEFileResult;
+ 
++/* Whether `result`'s site paths are spent: a producer computes no path once they are. */
++bool pdxe_site_paths_exhausted(const PDXEFileResult *result);
++
++/* A complete path of `n` node types and its NULL terminator, from `a`, within
++ * `result`'s budget: NULL when it would pass a ceiling (the first time, lost work, and
++ * the budget is spent), when the budget is already spent, or when memory runs out. The
++ * caller fills all `n` entries. */
++const char **pdxe_site_path_alloc(PDXEArena *a, PDXEFileResult *result, size_t n);
++
+ // --- Enclosing function cache ---
+ // Avoids repeated parent-chain walks for nodes within the same function body.
+ // Each entry records a function's byte range and its precomputed QN.

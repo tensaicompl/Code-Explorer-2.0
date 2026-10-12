@@ -113,7 +113,10 @@ Everything goes through `include/pdxe.h`. In outline:
   marker, what one file's preprocessing writes and generates is held to ceilings counted
   from its length, passing one discards the expansion and is lost work, and `#if`
   arithmetic is 64-bit two's complement, written out
-  (`patches/0019-bounded-deterministic-preprocessing.patch`, issue 87).
+  (`patches/0019-bounded-deterministic-preprocessing.patch`, issue 87). A site's
+  node-type path is complete or absent, at most 1,024 entries, and one file's paths at
+  most 500,000 entries together, the first refusal lost work
+  (`patches/0020-bounded-site-node-type-paths.patch`, issue 88).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

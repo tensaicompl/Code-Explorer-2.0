@@ -112,7 +112,7 @@ const FACT_STRUCTURES: [&str; 16] = [
 ];
 
 /// Members of the file result a surface does not carry, and why.
-const NOT_IN_A_SURFACE: [(&str, &str); 8] = [
+const NOT_IN_A_SURFACE: [(&str, &str); 9] = [
     (
         "arena",
         "the memory the result lives in; a rebuilt result has its own",
@@ -146,6 +146,11 @@ const NOT_IN_A_SURFACE: [(&str, &str); 8] = [
         "owner_alias_count",
         "graph ownership of the file's own sites (issue 76), read by its translation only; \
          resolution never reads it",
+    ),
+    (
+        "site_paths",
+        "the count of node-type path entries the extraction kept (issue 88), read while it \
+         is made; the paths themselves are in the surface, and its loss in `lost`",
     ),
 ];
 

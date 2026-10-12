@@ -15,7 +15,7 @@ use pdx_core::bands::Band;
 use pdx_core::config::PdxConfig;
 use pdx_core::coverage;
 use pdx_core::ids::RepoId;
-use pdx_core::index::derive::{DeriveInput, DerivedGraph, derive};
+use pdx_core::index::derive::{DeriveInput, DerivedGraph, Missing, derive};
 use pdx_core::index::discover::{DiscoveredFile, discover, split_unportable};
 use pdx_core::index::extract::{
     ExtractBackend, ExtractError, ExtractLimits, ExtractReport, ExtractStage,
@@ -1152,4 +1152,70 @@ fn repository_bytes_alone_cannot_exhaust_the_indexer() {
         }]
     );
     assert_eq!(report.files.failed, 0);
+}
+
+#[test]
+fn path_budget_exhaustion_degrades_the_segment_and_stores_no_site_without_its_path() {
+    // Issue 88: a file whose node-type paths pass the budget loses work, which degrades
+    // the build by the existing rule. Its sites without a path are counted
+    // (`Missing::AstPath`), never given an identity: no stored site lacks its path, and
+    // the sites that kept theirs are stored as before.
+    let chain = format!("{}f(0){}", "f(".repeat(99), ")".repeat(99));
+    let mut paths = String::from("void work(void) {\n");
+    for _ in 0..60 {
+        writeln!(paths, "    {chain};").unwrap();
+    }
+    paths.push_str("}\nvoid f(int x) { (void)x; }\n");
+    let checkout = Checkout::new(&[
+        ("src/paths.c", paths.as_str()),
+        ("src/app.py", "def greet(name):\n    return name\n"),
+    ]);
+    let report = checkout.build();
+    assert_eq!(report.status, SegmentStatus::Degraded);
+    assert_eq!(
+        report.degraded,
+        vec![DegradedReason::ExtractionLost {
+            paths: vec!["src/paths.c".to_owned()]
+        }]
+    );
+    let again = build_segment(checkout.request("again.db")).expect("the build succeeds");
+    assert_eq!(again.segment.content_sha256, report.segment.content_sha256);
+
+    let stages = stages(&checkout);
+    let extract = stages
+        .registry
+        .extract("src/paths.c")
+        .expect("the file was extracted");
+    let with_path = extract
+        .calls
+        .iter()
+        .filter(|c| c.span.is_some() && !c.ast_path.is_empty())
+        .count();
+    let without = extract
+        .calls
+        .iter()
+        .filter(|c| c.span.is_some() && c.ast_path.is_empty())
+        .count();
+    assert!(
+        with_path > 0 && without > 0,
+        "{with_path} with, {without} without"
+    );
+    let missing = stages
+        .graph
+        .diagnostics
+        .unmaterialized
+        .iter()
+        .filter(|u| u.site_ref.rel_path == "src/paths.c" && u.missing == Missing::AstPath)
+        .count();
+    assert_eq!(missing, without, "every site without its path is counted");
+    let stored = stages
+        .graph
+        .sites
+        .iter()
+        .filter(|s| stages.graph.file_nodes.get("src/paths.c") == Some(&s.file_id))
+        .count();
+    assert_eq!(
+        stored, with_path,
+        "only the sites with their paths are stored"
+    );
 }

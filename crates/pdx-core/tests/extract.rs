@@ -2374,3 +2374,51 @@ fn preprocessing_past_its_ceilings_is_lost_work_and_never_cached() {
     assert_eq!(warm.files, cold.files);
     assert_eq!(other.entries(), cache.entries());
 }
+
+/// 60 statements of 100 nested calls in one C function: past the file's node-type path
+/// budget (issue 88), shallow enough to reach nothing else.
+fn c_path_bomb() -> String {
+    let chain = format!("{}f(0){}", "f(".repeat(99), ")".repeat(99));
+    let mut source = String::from("void work(void) {\n");
+    for _ in 0..60 {
+        writeln!(source, "    {chain};").unwrap();
+    }
+    source.push_str("}\n");
+    source
+}
+
+#[test]
+fn path_budget_exhaustion_is_lost_work_and_never_cached() {
+    // Issue 88: an extraction whose node-type paths passed the file's budget loses work
+    // once; it is never cached, so every run, cold or warm, extracts it again and gets
+    // the same. A file under the budget is clean, and cached.
+    let checkout = Checkout::new();
+    checkout.write("src/paths.c", c_path_bomb());
+    checkout.write("src/app.py", PYTHON);
+    let cache = Cache::new();
+    let cold = run(&checkout, Some(&cache), &Probe::new(Twist::None));
+    let lossy = extract_of(&cold, "src/paths.c");
+    assert_eq!(lossy.extraction_lost, 1, "lost work is counted once");
+    assert!(lossy.calls.iter().any(|c| c.ast_path.is_empty()));
+    assert!(lossy.calls.iter().any(|c| !c.ast_path.is_empty()));
+    assert!(cold.degraded());
+    assert_eq!(
+        cold.stats.cache_writes, 1,
+        "only the clean extraction is cached"
+    );
+
+    let other = Cache::new();
+    let second = run(&checkout, Some(&other), &Probe::new(Twist::None));
+    let warm_probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &warm_probe);
+    assert_eq!(
+        warm_probe.files(),
+        1,
+        "the lossy extraction is never served"
+    );
+    assert_eq!(warm.stats.cache_hits, 1);
+    assert_eq!(warm.stats.cache_writes, 0);
+    assert_eq!(second.files, cold.files);
+    assert_eq!(warm.files, cold.files);
+    assert_eq!(other.entries(), cache.entries());
+}

@@ -339,6 +339,9 @@ if(PDXE_BUILD_TESTS)
   # Nor the machine's memory: what preprocessing writes and generates is bounded by the
   # source, and passing a ceiling is lost work (issue 87, patches/0019).
   add_test(NAME c_family_preprocess_budget COMMAND c_family_preprocess_budget)
+  # Nor how deeply its calls nest: a site's node-type path is complete or absent, and
+  # one file's paths are bounded (issue 88, patches/0020).
+  add_test(NAME site_path_budget COMMAND site_path_budget)
 
   # Nor the compiler's char: the preprocessing library is built twice, plain char signed
   # and unsigned (as on Linux for AArch64), and both give the project's character

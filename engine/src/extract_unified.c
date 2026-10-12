@@ -2752,17 +2752,16 @@ static void record_node_type(WalkState *state, uint32_t depth, const char *type)
 }
 
 /* The current node's path from the innermost function frame, NULL-terminated, in
- * the arena; NULL when it cannot be given. */
-static const char **current_site_path(WalkState *state) {
+ * the arena, within the file's budget (issue 88); NULL when it cannot be given. */
+static const char **current_site_path(PDXEExtractCtx *ctx, WalkState *state) {
     uint32_t from = state->enclosing_func_depth;
     uint32_t to = state->current_depth;
-    if (state->node_types_failed || !state->node_types || from > to ||
-        to >= state->node_types_capacity) {
+    if (pdxe_site_paths_exhausted(ctx->result) || state->node_types_failed ||
+        !state->node_types || from > to || to >= state->node_types_capacity) {
         return NULL;
     }
     uint32_t n = to - from + 1;
-    const char **path =
-        (const char **)pdxe_arena_alloc(state->arena, ((size_t)n + 1) * sizeof(char *));
+    const char **path = pdxe_site_path_alloc(state->arena, ctx->result, n);
     if (!path) {
         return NULL;
     }
@@ -2784,7 +2783,7 @@ void pdxe_walk_stamp_site_paths(PDXEExtractCtx *ctx, WalkState *state, int calls
         PDXECall *call = &ctx->result->calls.items[i];
         if (!call->ast_path) {
             if (!computed) {
-                path = current_site_path(state);
+                path = current_site_path(ctx, state);
                 computed = true;
             }
             call->ast_path = path;
@@ -2797,7 +2796,7 @@ void pdxe_walk_stamp_site_paths(PDXEExtractCtx *ctx, WalkState *state, int calls
             (usage->kind == PDXE_USAGE_VALUE && usage->may_be_call_reference);
         if (possible_reference && !usage->ast_path) {
             if (!computed) {
-                path = current_site_path(state);
+                path = current_site_path(ctx, state);
                 computed = true;
             }
             usage->ast_path = path;

@@ -53,7 +53,8 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// has one fixed data model (issue 85, decision 54), and character constants and `#line`
 /// numbers are read by fixed rules (issue 86, decision 55), nor the machine's memory or
 /// speed: its work is bounded by the source, and its `#if` arithmetic is defined (issue
-/// 87, decision 56).
+/// 87, decision 56), and a file's site node-type paths are bounded, complete or absent
+/// (issue 88, decision 57).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
 pub const ENGINE_VERSION: u32 = 7;
 

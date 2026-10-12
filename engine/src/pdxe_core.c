@@ -2423,21 +2423,54 @@ static void alias_adopted_callables(PDXEArena *a, PDXEFileResult *result, const 
     }
 }
 
+bool pdxe_site_paths_exhausted(const PDXEFileResult *result) {
+    return !result || result->site_paths.exhausted;
+}
+
+const char **pdxe_site_path_alloc(PDXEArena *a, PDXEFileResult *result, size_t n) {
+    if (!result || result->site_paths.exhausted || n == 0) {
+        return NULL;
+    }
+    PDXESitePathBudget *budget = &result->site_paths;
+    /* Checked before anything is allocated. `entries` never passes the total, so the
+     * subtraction cannot wrap. */
+    if (n > PDXE_AST_PATH_MAX_DEPTH || n > PDXE_AST_PATH_MAX_TOTAL_ENTRIES - budget->entries) {
+        budget->exhausted = true;
+        pdxe_lost_work();
+        return NULL;
+    }
+    budget->requests++;
+    const char **path = (const char **)pdxe_arena_alloc(a, (n + 1) * sizeof(char *));
+    if (!path) {
+        return NULL;
+    }
+    budget->paths++;
+    budget->entries += (uint32_t)n;
+    path[n] = NULL;
+    return path;
+}
+
 /* Issue 76: the node-type path from `from` (the root at file scope) down to `site`,
- * NULL-terminated, in the arena; NULL when memory runs out. */
-static const char **owner_site_path(PDXEArena *a, TSNode from, TSNode site) {
+ * NULL-terminated, in the arena, within the file's budget (issue 88): NULL when the
+ * budget refuses it or memory runs out. The climb stops one node past the deepest path
+ * the budget allows. */
+static const char **owner_site_path(PDXEArena *a, PDXEFileResult *result, TSNode from,
+                                    TSNode site) {
+    if (pdxe_site_paths_exhausted(result)) {
+        return NULL;
+    }
     uint32_t n = 0;
-    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
+    for (TSNode at = site; !ts_node_is_null(at) && n <= PDXE_AST_PATH_MAX_DEPTH;
+         at = ts_node_parent(at)) {
         n++;
         if (ts_node_eq(at, from)) {
             break;
         }
     }
-    const char **path = (const char **)pdxe_arena_alloc(a, ((size_t)n + 1) * sizeof(char *));
+    const char **path = pdxe_site_path_alloc(a, result, n);
     if (!path) {
         return NULL;
     }
-    path[n] = NULL;
     uint32_t i = n;
     for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
         path[--i] = ts_node_type(at);
@@ -2452,7 +2485,7 @@ static const char **owner_site_path(PDXEArena *a, TSNode from, TSNode site) {
  * runs from that node, or the root, down to the smallest node holding the site. That
  * node is the callable's own when the site's bytes cross its children. Undecided when
  * the site cannot be located. */
-static void decide_late_site(PDXEArena *a, const PDXEExtractCtx *ctx,
+static void decide_late_site(PDXEArena *a, PDXEFileResult *result, const PDXEExtractCtx *ctx,
                              const PDXEOccurrenceIndex *represented, uint32_t start, uint32_t end,
                              PDXESiteOwner *owner, const char ***ast_path) {
     TSNode site = ts_node_descendant_for_byte_range(ctx->root, start, end);
@@ -2469,7 +2502,7 @@ static void decide_late_site(PDXEArena *a, const PDXEExtractCtx *ctx,
             break;
         }
     }
-    *ast_path = owner_site_path(a, from, site);
+    *ast_path = owner_site_path(a, result, from, site);
     owner->declaration = declaration;
     owner->decided = true;
 }
@@ -2486,8 +2519,8 @@ static void stamp_late_site_owners(PDXEArena *a, PDXEFileResult *result, const P
         PDXECall *c = &result->calls.items[i];
         if (!c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
             c->site_end_byte > c->site_start_byte) {
-            decide_late_site(a, ctx, &represented, c->site_start_byte, c->site_end_byte, &c->owner,
-                             &c->ast_path);
+            decide_late_site(a, result, ctx, &represented, c->site_start_byte, c->site_end_byte,
+                             &c->owner, &c->ast_path);
         }
     }
     for (int i = 0; i < result->usages.count; i++) {
@@ -2496,8 +2529,8 @@ static void stamp_late_site_owners(PDXEArena *a, PDXEFileResult *result, const P
                                   (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
         if (possible_reference && !u->owner.decided && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
             u->site_end_byte > u->site_start_byte) {
-            decide_late_site(a, ctx, &represented, u->site_start_byte, u->site_end_byte, &u->owner,
-                             &u->ast_path);
+            decide_late_site(a, result, ctx, &represented, u->site_start_byte, u->site_end_byte,
+                             &u->owner, &u->ast_path);
         }
     }
     pdxe_occurrence_index_free(&represented);
@@ -2521,26 +2554,30 @@ enum { PDXE_EXTRACT_SCRATCH_KEEP_BYTES = 4 * PDXE_SZ_1K * PDXE_SZ_1K };
 /* The node-type path of a site the walk did not record: from the nearest enclosing
  * function node (the root at file scope), by the language's function node types as
  * the walk pushes them, down to the smallest node covering the site. NULL when the
- * site cannot be located or memory runs out. */
-static const char **late_site_path(PDXEArena *a, TSNode root, const PDXELangSpec *spec,
-                                   uint32_t start, uint32_t end) {
+ * site cannot be located, the file's budget refuses the path (issue 88; the climb stops
+ * one node past the deepest path it allows) or memory runs out. */
+static const char **late_site_path(PDXEArena *a, PDXEFileResult *result, TSNode root,
+                                   const PDXELangSpec *spec, uint32_t start, uint32_t end) {
+    if (pdxe_site_paths_exhausted(result)) {
+        return NULL;
+    }
     TSNode site = ts_node_descendant_for_byte_range(root, start, end);
     if (ts_node_is_null(site)) {
         return NULL;
     }
     uint32_t n = 0;
-    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
+    for (TSNode at = site; !ts_node_is_null(at) && n <= PDXE_AST_PATH_MAX_DEPTH;
+         at = ts_node_parent(at)) {
         n++;
         if (spec && spec->function_node_types && !ts_node_eq(at, site) &&
             pdxe_kind_in_set(at, spec->function_node_types)) {
             break;
         }
     }
-    const char **path = (const char **)pdxe_arena_alloc(a, ((size_t)n + 1) * sizeof(char *));
+    const char **path = pdxe_site_path_alloc(a, result, n);
     if (!path) {
         return NULL;
     }
-    path[n] = NULL;
     uint32_t i = n;
     for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
         path[--i] = ts_node_type(at);
@@ -2550,23 +2587,28 @@ static const char **late_site_path(PDXEArena *a, TSNode root, const PDXELangSpec
 
 /* Gives a node-type path to every call, and every possible callable reference, that
  * was added to the result after the walk (a per-file resolver's desugared calls) at a
- * position in the raw source. */
+ * position in the raw source. A site whose owner is not yet decided is skipped:
+ * stamp_late_site_owners, which runs next, gives it its path from its owner, and a path
+ * computed here would only be replaced, its entries spent from the file's budget for
+ * nothing (issue 88). */
 static void stamp_late_site_paths(PDXEArena *a, PDXEFileResult *result, TSNode root,
                                   const PDXELangSpec *spec) {
     for (int i = 0; i < result->calls.count; i++) {
         PDXECall *c = &result->calls.items[i];
-        if (!c->ast_path && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+        if (!c->ast_path && c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
             c->site_end_byte > c->site_start_byte) {
-            c->ast_path = late_site_path(a, root, spec, c->site_start_byte, c->site_end_byte);
+            c->ast_path =
+                late_site_path(a, result, root, spec, c->site_start_byte, c->site_end_byte);
         }
     }
     for (int i = 0; i < result->usages.count; i++) {
         PDXEUsage *u = &result->usages.items[i];
         bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
                                   (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
-        if (possible_reference && !u->ast_path && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
-            u->site_end_byte > u->site_start_byte) {
-            u->ast_path = late_site_path(a, root, spec, u->site_start_byte, u->site_end_byte);
+        if (possible_reference && !u->ast_path && u->owner.decided &&
+            u->source_origin == PDXE_SOURCE_ORIGIN_RAW && u->site_end_byte > u->site_start_byte) {
+            u->ast_path =
+                late_site_path(a, result, root, spec, u->site_start_byte, u->site_end_byte);
         }
     }
 }

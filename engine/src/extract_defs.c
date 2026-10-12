@@ -1895,8 +1895,13 @@ static void route_list_add(route_list *l, const char *s) {
 }
 
 /* The node types from the lowest node holding both `def_node` and `site` down to
- * `site`, NULL-terminated; NULL when they cannot be found within the bounds. */
-static const char **route_site_path(PDXEArena *a, TSNode def_node, TSNode site) {
+ * `site`, NULL-terminated; NULL when they cannot be found within the bounds, or the
+ * file's site path budget refuses them (issue 88). */
+static const char **route_site_path(PDXEArena *a, PDXEFileResult *result, TSNode def_node,
+                                    TSNode site) {
+    if (pdxe_site_paths_exhausted(result)) {
+        return NULL;
+    }
     TSNode ancestors[ROUTE_ANCESTORS_MAX];
     int n_ancestors = 0;
     for (TSNode n = def_node; !ts_node_is_null(n) && n_ancestors < ROUTE_ANCESTORS_MAX;
@@ -1909,15 +1914,13 @@ static const char **route_site_path(PDXEArena *a, TSNode def_node, TSNode site) 
         types[n_types++] = ts_node_type(n);
         for (int i = 0; i < n_ancestors; i++) {
             if (ts_node_eq(n, ancestors[i])) {
-                const char **path =
-                    (const char **)pdxe_arena_alloc(a, (size_t)(n_types + 1) * sizeof(*path));
+                const char **path = pdxe_site_path_alloc(a, result, (size_t)n_types);
                 if (!path) {
                     return NULL;
                 }
                 for (int t = 0; t < n_types; t++) {
                     path[t] = types[n_types - 1 - t];
                 }
-                path[n_types] = NULL;
                 return path;
             }
         }
@@ -2187,10 +2190,11 @@ static bool route_facts_push(PDXEArena *a, route_fact_list *l, PDXERouteFact fac
 }
 
 /* One fact per method and path a declaring node binds, each joined to each prefix. */
-static void push_bindings(PDXEArena *a, route_fact_list *out, TSNode def_node, TSNode site,
-                          const char *callee, const char *source, const route_list *verbs,
-                          const route_list *prefixes, const route_list *paths) {
-    const char **ast_path = route_site_path(a, def_node, site);
+static void push_bindings(PDXEArena *a, PDXEFileResult *result, route_fact_list *out,
+                          TSNode def_node, TSNode site, const char *callee, const char *source,
+                          const route_list *verbs, const route_list *prefixes,
+                          const route_list *paths) {
+    const char **ast_path = route_site_path(a, result, def_node, site);
     const char *text = pdxe_node_text(a, site, source);
     for (int v = 0; v < verbs->n; v++) {
         for (int p = 0; p < prefixes->n; p++) {
@@ -2214,8 +2218,9 @@ static void push_bindings(PDXEArena *a, route_fact_list *out, TSNode def_node, T
 }
 
 /* Spring mapping annotations and JAX-RS verbs on a JVM method. */
-static void jvm_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node, const char *source,
-                            const PDXELangSpec *spec, route_fact_list *out) {
+static void jvm_route_facts(PDXEArena *a, PDXEFileResult *result, TSNode def_node,
+                            TSNode class_node, const char *source, const PDXELangSpec *spec,
+                            route_fact_list *out) {
     route_list prefixes = {0};
     if (!jvm_class_prefixes(a, class_node, source, spec, &prefixes)) {
         return;
@@ -2263,7 +2268,8 @@ static void jvm_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node, co
         if (paths.dynamic || verbs.dynamic) {
             continue;
         }
-        push_bindings(a, out, def_node, annotations[i], written, source, &verbs, &prefixes, &paths);
+        push_bindings(a, result, out, def_node, annotations[i], written, source, &verbs, &prefixes,
+                      &paths);
     }
 }
 
@@ -2274,8 +2280,9 @@ static TSNode decorator_keyword(PDXEArena *a, TSNode args, const char *name, con
 
 /* Route decorators on a Python definition: FastAPI's and Flask's, and Django REST
  * framework's @action, in source order. */
-static void decorator_route_facts(PDXEArena *a, TSNode def_node, const char *source,
-                                  const PDXELangSpec *spec, route_fact_list *out) {
+static void decorator_route_facts(PDXEArena *a, PDXEFileResult *result, TSNode def_node,
+                                  const char *source, const PDXELangSpec *spec,
+                                  route_fact_list *out) {
     TSNode decorators[ROUTE_LIST_MAX];
     int n = 0;
     for (TSNode prev = ts_node_prev_sibling(def_node);
@@ -2337,14 +2344,15 @@ static void decorator_route_facts(PDXEArena *a, TSNode def_node, const char *sou
             if (paths.dynamic || verbs.dynamic || paths.n == 0 || verbs.n == 0) {
                 continue;
             }
-            push_bindings(a, out, def_node, call, callee, source, &verbs, &no_prefix, &paths);
+            push_bindings(a, result, out, def_node, call, callee, source, &verbs, &no_prefix,
+                          &paths);
         }
     }
 }
 
 /* Every route binding a definition's decorators or annotations declare. */
-static void extract_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node,
-                                const char *source, const PDXELangSpec *spec,
+static void extract_route_facts(PDXEArena *a, PDXEFileResult *result, TSNode def_node,
+                                TSNode class_node, const char *source, const PDXELangSpec *spec,
                                 PDXEDefinition *def) {
     def->routes = NULL;
     def->route_count = 0;
@@ -2354,9 +2362,9 @@ static void extract_route_facts(PDXEArena *a, TSNode def_node, TSNode class_node
     route_fact_list facts = {0};
     if (spec->language == PDXE_LANG_JAVA || spec->language == PDXE_LANG_KOTLIN ||
         spec->language == PDXE_LANG_SCALA) {
-        jvm_route_facts(a, def_node, class_node, source, spec, &facts);
+        jvm_route_facts(a, result, def_node, class_node, source, spec, &facts);
     } else if (spec->language == PDXE_LANG_PYTHON) {
-        decorator_route_facts(a, def_node, source, spec, &facts);
+        decorator_route_facts(a, result, def_node, source, spec, &facts);
     }
     def->routes = facts.count ? facts.items : NULL;
     def->route_count = facts.count;
@@ -4443,7 +4451,7 @@ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpe
     // Decorators + route extraction from decorator AST
     def.decorators = extract_decorators(a, node, ctx->source, ctx->language, spec);
     extract_route_from_decorators(a, node, ctx->source, spec, &def.route_path, &def.route_method);
-    extract_route_facts(a, node, (TSNode){0}, ctx->source, spec, &def);
+    extract_route_facts(a, ctx->result, node, (TSNode){0}, ctx->source, spec, &def);
 
     // Rust: disambiguate cfg-gated twin functions by folding the #[cfg(...)]
     // predicate into the QN so both branches survive the graph upsert (#495).
@@ -5662,7 +5670,7 @@ static void push_method_def(PDXEExtractCtx *ctx, TSNode child, TSNode class_node
         const char *prefix = spring_class_route_prefix(a, class_node, ctx->source, spec);
         def.route_path = join_route_paths(a, prefix, def.route_path);
     }
-    extract_route_facts(a, child, class_node, ctx->source, spec, &def);
+    extract_route_facts(a, ctx->result, child, class_node, ctx->source, spec, &def);
     def.docstring = extract_docstring(a, child, ctx->source, ctx->language);
 
     if (spec->branching_node_types && spec->branching_node_types[0]) {
