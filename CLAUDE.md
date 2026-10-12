@@ -152,7 +152,7 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 89 (decisions 51 and 53 to 58, engine 7, patches 0015 to 0021 together):
+Issues 83 to 90 (decisions 51 and 53 to 59, engine 7, patches 0015 to 0022 together):
 the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
@@ -185,6 +185,13 @@ the buffer Stage 2 supplies is the whole input.
   once and skips cross-file resolution (`lsp_skipped`). The expanded C/C++ tree is held
   to the same depth, its pass skipped alone. One ceiling, not a fix per mechanism: the
   algorithms that grow with nesting are bounded by it, not made linear.
+- **No depth² usage work.** The unified walk records a frame for every node it enters
+  (`PDXEWalkFrame`), and usage classification answers every question about a node's
+  ancestors from them, each answer computed once a frame; never `ts_node_parent`, which
+  descends from the root, on that path. Each scope frame keeps the lexical scope in
+  force. Answers are the climbs' exactly (the test seam `PDX_ENGINE_TEST_CLIMB_ANCESTRY`
+  answers by climbing; the 104,730-file census extracts identically). Test builds count
+  the ancestors examined and every `ts_node_parent` usage classification makes.
 - **Contract.** An extraction depends on the normalised bytes, the language, the path
   and the metadata only. It never depends on the working directory, a header on disk,
   anything outside the repository, the time, the zone, the locale or the platform, and
@@ -192,16 +199,22 @@ the buffer Stage 2 supplies is the whole input.
 - **Tests.** `engine/tests/c_family_input_isolation.c` (inotify on Linux),
   `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`,
   `engine/tests/c_family_char_literals.c`, `engine/tests/c_family_preprocess_budget.c`
-  and `preprocessor_bounds` (every ceiling at its edge), `engine/tests/site_path_budget.c`
-  and `engine/tests/syntax_depth.c`, the `extract` and `build` tests and `pdx-engine`'s
-  `type_sizes`, `literals_and_lines`, `preprocess_bounds`, `site_path_budget` and
-  `syntax_depth` (which run on Windows too) prove it.
+  and `preprocessor_bounds` (every ceiling at its edge), `engine/tests/site_path_budget.c`,
+  `engine/tests/syntax_depth.c` and `engine/tests/usage_ancestry.c` (linear counted work,
+  frames against climbs), the `extract` and `build` tests and `pdx-engine`'s
+  `type_sizes`, `literals_and_lines`, `preprocess_bounds`, `site_path_budget`,
+  `syntax_depth` and `usage_ancestry` (which run on Windows too) prove it.
 - **Open.** Issue 88 is resolved. Issues 86, 87 and 89 are fixed, but their closure is
-  held on issue 90. Within the admitted depth, usage handling climbs to the root with
-  `ts_node_parent` for every usage, depth² each, and a file holds as many deep
-  constructs as it likes: one 400-link Python member chain takes 3 s, 8 of them 25 s,
-  a 13 KB file about 50 s. Nested calls' argument text makes 2 MiB of admitted chains
-  1.3 GB. It is on main; a bound is the driver's decision.
+  held on issue 90. Its usage half (90A) is fixed by patch 0022. Its memory half (90B)
+  stopped at the interface: argument expressions, callee text, Python attribute usage
+  names and nested qualified names grow with nesting and are exported and read whole
+  (contracts, site and definition identity), so retaining them linearly needs an
+  interface and identity change, the driver's decision. Issue 91: the YAML and Markdown
+  grammars' scanners overrun the parser's state buffer on deep nesting (a 41 KB YAML
+  file crashes the process) and Kotlin's aborts at 1,024 open string templates. Issue 92:
+  per-file typed resolution and the interface's translation are quadratic in a file's
+  definitions in every typed language (16,000 Python classes, 62 s), and deeply nested
+  JavaScript calls too (2 MiB, 441 s). All are on main.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
