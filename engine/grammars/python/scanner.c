@@ -88,6 +88,31 @@ typedef struct {
     bool inside_interpolated_string;
 } Scanner;
 
+/* The serialized state is two bytes (the interpolation flag and the delimiter count),
+ * one byte for each open string delimiter (at most UINT8_MAX, the count's width) and
+ * two bytes for each indentation level above the first. It must fit the parser's
+ * TREE_SITTER_SERIALIZATION_BUFFER_SIZE bytes: 2 + delimiters + 2 * (indents - 1) at
+ * most 1024. A delimiter or an indentation level that would not fit is never pushed
+ * (the token that would push it is not claimed), and serialize checks each complete
+ * entry before writing it. */
+#define PY_SER_FIXED_BYTES 2
+#define PY_SER_INDENT_BYTES 2
+
+static inline size_t serialized_size(uint32_t delimiters, uint32_t indents) {
+    return PY_SER_FIXED_BYTES + delimiters + PY_SER_INDENT_BYTES * (indents > 0 ? indents - 1 : 0);
+}
+
+static inline bool room_for_delimiter(const Scanner *scanner) {
+    return scanner->delimiters.size < UINT8_MAX &&
+           serialized_size(scanner->delimiters.size + 1, scanner->indents.size) <=
+               TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
+}
+
+static inline bool room_for_indent(const Scanner *scanner) {
+    return serialized_size(scanner->delimiters.size, scanner->indents.size + 1) <=
+           TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
+}
+
 static inline void advance(TSLexer *lexer) { lexer->advance(lexer, false); }
 
 static inline void skip(TSLexer *lexer) { lexer->advance(lexer, true); }
@@ -268,7 +293,7 @@ bool tree_sitter_python_external_scanner_scan(void *payload, TSLexer *lexer, con
         if (scanner->indents.size > 0) {
             uint16_t current_indent_length = *array_back(&scanner->indents);
 
-            if (valid_symbols[INDENT] && indent_length > current_indent_length) {
+            if (valid_symbols[INDENT] && indent_length > current_indent_length && room_for_indent(scanner)) {
                 array_push(&scanner->indents, indent_length);
                 lexer->result_symbol = INDENT;
                 return true;
@@ -347,7 +372,7 @@ bool tree_sitter_python_external_scanner_scan(void *payload, TSLexer *lexer, con
             }
         }
 
-        if (end_character(&delimiter)) {
+        if (end_character(&delimiter) && room_for_delimiter(scanner)) {
             array_push(&scanner->delimiters, delimiter);
             lexer->result_symbol = STRING_START;
             scanner->inside_interpolated_string = is_format(&delimiter);
@@ -380,7 +405,8 @@ unsigned tree_sitter_python_external_scanner_serialize(void *payload, char *buff
     size += delimiter_count;
 
     uint32_t iter = 1;
-    for (; iter < scanner->indents.size && size < TREE_SITTER_SERIALIZATION_BUFFER_SIZE; ++iter) {
+    for (; iter < scanner->indents.size && size + PY_SER_INDENT_BYTES <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
+         ++iter) {
         uint16_t indent_value = *array_get(&scanner->indents, iter);
         buffer[size++] = (char)(indent_value & 0xFF);
         buffer[size++] = (char)((indent_value >> 8) & 0xFF);
@@ -396,12 +422,17 @@ void tree_sitter_python_external_scanner_deserialize(void *payload, const char *
     array_delete(&scanner->indents);
     array_push(&scanner->indents, 0);
 
-    if (length > 0) {
+    /* Only a complete header, and only delimiters and complete indentation levels
+     * within `length`, are read. */
+    if (length >= PY_SER_FIXED_BYTES && length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
         size_t size = 0;
 
         scanner->inside_interpolated_string = (bool)buffer[size++];
 
         size_t delimiter_count = (uint8_t)buffer[size++];
+        if (delimiter_count > length - size) {
+            delimiter_count = length - size;
+        }
         if (delimiter_count > 0) {
             array_reserve(&scanner->delimiters, delimiter_count);
             scanner->delimiters.size = delimiter_count;

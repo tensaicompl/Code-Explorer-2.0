@@ -47,13 +47,18 @@ typedef char Delimiter;
 // We use a stack to keep track of the string delimiters.
 typedef Array(Delimiter) Stack;
 
-static inline void stack_push(Stack *stack, char chr, bool triple) {
-  if (stack->size >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) abort();
+/* The serialized state is the stack itself, one byte per open delimiter, so it holds
+ * at most TREE_SITTER_SERIALIZATION_BUFFER_SIZE delimiters. A string the state could not
+ * hold is not opened: the push is refused, the string start is not claimed, and the
+ * parser recovers. Nothing here ends the process. */
+static inline bool stack_push(Stack *stack, char chr, bool triple) {
+  if (stack->size >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) return false;
   array_push(stack, (Delimiter)(triple ? (chr + 1) : chr));
+  return true;
 }
 
 static inline Delimiter stack_pop(Stack *stack) {
-  if (stack->size == 0) abort();
+  if (stack->size == 0) return 0;
   return array_pop(stack);
 }
 
@@ -70,14 +75,12 @@ static bool scan_string_start(TSLexer *lexer, Stack *stack) {
   for (unsigned count = 1; count < DELIMITER_LENGTH; ++count) {
     if (lexer->lookahead != '"') {
       // It's not a triple quoted delimiter.
-      stack_push(stack, '"', false);
-      return true;
+      return stack_push(stack, '"', false);
     }
     advance(lexer);
   }
   lexer->mark_end(lexer);
-  stack_push(stack, '"', true);
-  return true;
+  return stack_push(stack, '"', true);
 }
 
 static bool scan_string_content(TSLexer *lexer, Stack *stack) {
@@ -939,15 +942,19 @@ void tree_sitter_kotlin_external_scanner_destroy(void *payload) {
 
 unsigned tree_sitter_kotlin_external_scanner_serialize(void *payload, char *buffer) {
   Stack *stack = (Stack *)payload;
-  if (stack->size > 0) {
+  unsigned size = stack->size <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE
+                      ? stack->size
+                      : TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
+  if (size > 0) {
     // it's an undefined behavior to memcpy 0 bytes
-    memcpy(buffer, stack->contents, stack->size);
+    memcpy(buffer, stack->contents, size);
   }
-  return stack->size;
+  return size;
 }
 
 void tree_sitter_kotlin_external_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
   Stack *stack = (Stack *)payload;
+  if (length > TREE_SITTER_SERIALIZATION_BUFFER_SIZE) length = TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
   if (length > 0) {
     array_reserve(stack, length);
     memcpy(stack->contents, buffer, length);

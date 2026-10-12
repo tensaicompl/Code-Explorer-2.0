@@ -351,6 +351,16 @@ if(PDXE_BUILD_TESTS)
   # Nor how deeply its usages sit: a usage's ancestors are answered from the walk's own
   # path, the work linear in the nesting (issue 90, patches/0022).
   add_test(NAME usage_ancestry COMMAND usage_ancestry)
+  # Nor can its syntax drive a grammar scanner past the parser's state buffer, or end
+  # the process: four scanners' own code is compiled into the test a second time, entry
+  # points renamed, so it reaches their state directly; their warnings are the vendored
+  # code's (issue 91, patches/0023).
+  set(PDXE_SCANNER_STATE_UNITS
+    ${PDXE_ROOT}/tests/scanner_state/yaml.c ${PDXE_ROOT}/tests/scanner_state/markdown.c
+    ${PDXE_ROOT}/tests/scanner_state/kotlin.c ${PDXE_ROOT}/tests/scanner_state/python.c)
+  target_sources(scanner_state PRIVATE ${PDXE_SCANNER_STATE_UNITS})
+  set_source_files_properties(${PDXE_SCANNER_STATE_UNITS} PROPERTIES COMPILE_OPTIONS "-w")
+  add_test(NAME scanner_state COMMAND scanner_state)
 
   # Nor the compiler's char: the preprocessing library is built twice, plain char signed
   # and unsigned (as on Linux for AArch64), and both give the project's character

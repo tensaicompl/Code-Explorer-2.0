@@ -92,11 +92,18 @@ typedef enum {
         pop_ind(scanner);                                                                                              \
     }
 
-#define PUSH_IND(TYP, LEN) push_ind(scanner, TYP, LEN)
+/* An indentation entry the serialized state could not hold is never opened: the
+ * token that would open it is not claimed (see YAML_MAX_IND_ENTRIES). */
+#define PUSH_IND(TYP, LEN)                                                                                             \
+    {                                                                                                                  \
+        if (!ind_has_room(scanner))                                                                                    \
+            return false;                                                                                              \
+        push_ind(scanner, TYP, LEN);                                                                                   \
+    }
 
 #define PUSH_BGN_IND(TYP)                                                                                              \
     {                                                                                                                  \
-        if (has_tab_ind)                                                                                               \
+        if (has_tab_ind || !ind_has_room(scanner))                                                                     \
             return false;                                                                                              \
         push_ind(scanner, TYP, bgn_col);                                                                               \
     }
@@ -104,7 +111,7 @@ typedef enum {
 #define MAY_PUSH_IMP_IND(TYP)                                                                                          \
     {                                                                                                                  \
         if (cur_ind != scanner->blk_imp_col) {                                                                         \
-            if (scanner->blk_imp_tab)                                                                                  \
+            if (scanner->blk_imp_tab || !ind_has_room(scanner))                                                        \
                 return false;                                                                                          \
             push_ind(scanner, IND_MAP, scanner->blk_imp_col);                                                          \
         }                                                                                                              \
@@ -162,6 +169,22 @@ typedef struct {
     ResultSchema rlt_sch;
 } Scanner;
 
+/* The serialized state is a header of five int16_t (row, col and the three implicit-key
+ * fields) and, for each indentation entry above the root, its type and length, two
+ * int16_t. It must fit the parser's TREE_SITTER_SERIALIZATION_BUFFER_SIZE bytes, so the
+ * stack above the root holds at most (1024 - 10) / 4 = 253 entries: the scanner never
+ * opens another (PUSH_IND, PUSH_BGN_IND, MAY_PUSH_IMP_IND), serialize writes complete
+ * pairs only and never past the buffer, and deserialize reads only a complete header
+ * and complete pairs within the length it is given. */
+#define YAML_SER_HEADER_BYTES (5 * sizeof(int16_t))
+#define YAML_SER_ENTRY_BYTES (2 * sizeof(int16_t))
+#define YAML_MAX_IND_ENTRIES                                                                                           \
+    ((TREE_SITTER_SERIALIZATION_BUFFER_SIZE - YAML_SER_HEADER_BYTES) / YAML_SER_ENTRY_BYTES)
+
+static inline bool ind_has_room(Scanner *scanner) {
+    return scanner->ind_typ_stk.size <= YAML_MAX_IND_ENTRIES; /* the root plus the entries above it */
+}
+
 static unsigned serialize(Scanner *scanner, char *buffer) {
     size_t size = 0;
     *(int16_t *)&buffer[size] = scanner->row;
@@ -177,7 +200,8 @@ static unsigned serialize(Scanner *scanner, char *buffer) {
     int16_t *typ_itr = scanner->ind_typ_stk.contents + 1;
     int16_t *typ_end = scanner->ind_typ_stk.contents + scanner->ind_typ_stk.size;
     int16_t *len_itr = scanner->ind_len_stk.contents + 1;
-    for (; typ_itr != typ_end && size < TREE_SITTER_SERIALIZATION_BUFFER_SIZE; ++typ_itr, ++len_itr) {
+    for (; typ_itr != typ_end && size + YAML_SER_ENTRY_BYTES <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
+         ++typ_itr, ++len_itr) {
         *(int16_t *)&buffer[size] = *typ_itr;
         size += sizeof(int16_t);
         *(int16_t *)&buffer[size] = *len_itr;
@@ -196,7 +220,8 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
     array_push(&scanner->ind_typ_stk, IND_ROT);
     array_delete(&scanner->ind_len_stk);
     array_push(&scanner->ind_len_stk, -1);
-    if (length > 0) {
+    /* Only a complete header, and only complete pairs within `length`, are read. */
+    if (length >= YAML_SER_HEADER_BYTES && length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
         size_t size = 0;
         scanner->row = *(int16_t *)&buffer[size];
         size += sizeof(int16_t);
@@ -208,13 +233,12 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
         size += sizeof(int16_t);
         scanner->blk_imp_tab = *(int16_t *)&buffer[size];
         size += sizeof(int16_t);
-        while (size < length) {
+        while (size + YAML_SER_ENTRY_BYTES <= length) {
             array_push(&scanner->ind_typ_stk, *(int16_t *)&buffer[size]);
             size += sizeof(int16_t);
             array_push(&scanner->ind_len_stk, *(int16_t *)&buffer[size]);
             size += sizeof(int16_t);
         }
-        assert(size == length);
     }
 }
 

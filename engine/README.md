@@ -122,7 +122,10 @@ Everything goes through `include/pdxe.h`. In outline:
   (`patches/0021-bounded-syntax-depth.patch`, issue 89). Within that depth, a usage's
   questions about its ancestors are answered from the walk's own path, each answer
   computed once a node, so that work is linear in the nesting
-  (`patches/0022-linear-admitted-depth-extraction.patch`, issue 90).
+  (`patches/0022-linear-admitted-depth-extraction.patch`, issue 90). Before any of it,
+  the parse itself is safe: each grammar scanner keeps its state within the parser's
+  1,024-byte buffer, refusing a construct that would need more, and none ends the
+  process (`patches/0023-bounded-external-scanner-state.patch`, issue 91).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

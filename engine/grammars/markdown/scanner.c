@@ -218,17 +218,35 @@ typedef struct {
     bool simulate;
 } Scanner;
 
-static void push_block(Scanner *s, Block b) {
+/* The serialized state is five bytes (state, matched, indentation, column and the
+ * fenced code block's delimiter length) and then each open block, sizeof(Block) bytes
+ * each. It must fit the parser's TREE_SITTER_SERIALIZATION_BUFFER_SIZE bytes, so at most
+ * (1024 - 5) / sizeof(Block) blocks (254 with a four-byte enum) are ever open: a block
+ * the state could not hold is not opened, and the token that would open it is not
+ * claimed. That also keeps the count within `matched`'s eight bits. */
+#define MD_SER_HEADER_BYTES 5
+#define MD_MAX_OPEN_BLOCKS                                                     \
+    ((TREE_SITTER_SERIALIZATION_BUFFER_SIZE - MD_SER_HEADER_BYTES) / sizeof(Block))
+
+/* Opens a block; false, and nothing opened, past MD_MAX_OPEN_BLOCKS or when the stack
+ * cannot grow. */
+static bool push_block(Scanner *s, Block b) {
+    if (s->open_blocks.size >= MD_MAX_OPEN_BLOCKS) {
+        return false;
+    }
     if (s->open_blocks.size == s->open_blocks.capacity) {
-        s->open_blocks.capacity =
+        size_t capacity =
             s->open_blocks.capacity ? s->open_blocks.capacity << 1 : 8;
-        void *tmp = realloc(s->open_blocks.items,
-                            sizeof(Block) * s->open_blocks.capacity);
-        assert(tmp != NULL);
+        void *tmp = realloc(s->open_blocks.items, sizeof(Block) * capacity);
+        if (tmp == NULL) {
+            return false;
+        }
         s->open_blocks.items = tmp;
+        s->open_blocks.capacity = capacity;
     }
 
     s->open_blocks.items[s->open_blocks.size++] = b;
+    return true;
 }
 
 static inline Block pop_block(Scanner *s) {
@@ -244,6 +262,9 @@ static unsigned serialize(Scanner *s, char *buffer) {
     buffer[size++] = (char)s->column;
     buffer[size++] = (char)s->fenced_code_block_delimiter_length;
     size_t blocks_count = s->open_blocks.size;
+    if (blocks_count > MD_MAX_OPEN_BLOCKS) {
+        blocks_count = MD_MAX_OPEN_BLOCKS;
+    }
     if (blocks_count > 0) {
         memcpy(&buffer[size], s->open_blocks.items,
                blocks_count * sizeof(Block));
@@ -262,27 +283,33 @@ static void deserialize(Scanner *s, const char *buffer, unsigned length) {
     s->indentation = 0;
     s->column = 0;
     s->fenced_code_block_delimiter_length = 0;
-    if (length > 0) {
+    /* Only a complete header, and only whole blocks within `length`, are read. */
+    if (length >= MD_SER_HEADER_BYTES &&
+        length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
         size_t size = 0;
         s->state = (uint8_t)buffer[size++];
         s->matched = (uint8_t)buffer[size++];
         s->indentation = (uint8_t)buffer[size++];
         s->column = (uint8_t)buffer[size++];
         s->fenced_code_block_delimiter_length = (uint8_t)buffer[size++];
-        size_t blocks_size = length - size;
-        if (blocks_size > 0) {
-            size_t blocks_count = blocks_size / sizeof(Block);
-
+        size_t blocks_count = (length - size) / sizeof(Block);
+        if (blocks_count > MD_MAX_OPEN_BLOCKS) {
+            blocks_count = MD_MAX_OPEN_BLOCKS;
+        }
+        if (blocks_count > 0) {
             // ensure open blocks has enough room
             if (s->open_blocks.capacity < blocks_count) {
               size_t capacity = roundup_32(blocks_count);
               void *tmp = realloc(s->open_blocks.items,
                             sizeof(Block) * capacity);
-              assert(tmp != NULL);
+              if (tmp == NULL) {
+                  return;
+              }
               s->open_blocks.items = tmp;
               s->open_blocks.capacity = capacity;
             }
-            memcpy(s->open_blocks.items, &buffer[size], blocks_size);
+            memcpy(s->open_blocks.items, &buffer[size],
+                   blocks_count * sizeof(Block));
             s->open_blocks.size = blocks_count;
         }
     }
@@ -448,8 +475,8 @@ static bool parse_fenced_code_block(Scanner *s, const char delimiter,
             lexer->result_symbol = delimiter == '`'
                                        ? FENCED_CODE_BLOCK_START_BACKTICK
                                        : FENCED_CODE_BLOCK_START_TILDE;
-            if (!s->simulate)
-                push_block(s, FENCED_CODE_BLOCK);
+            if (!s->simulate && !push_block(s, FENCED_CODE_BLOCK))
+                return false;
             // Remember the length of the delimiter for later, since we need it
             // to decide whether a sequence of backticks can close the block.
             s->fenced_code_block_delimiter_length = level;
@@ -534,8 +561,8 @@ static bool parse_star(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
             s->indentation = extra_indentation;
             extra_indentation = temp;
         }
-        if (!s->simulate)
-            push_block(s, (Block)(LIST_ITEM + extra_indentation));
+        if (!s->simulate && !push_block(s, (Block)(LIST_ITEM + extra_indentation)))
+            return false;
         lexer->result_symbol =
             dont_interrupt ? LIST_MARKER_STAR_DONT_INTERRUPT : LIST_MARKER_STAR;
         return true;
@@ -577,8 +604,8 @@ static bool parse_block_quote(Scanner *s, TSLexer *lexer,
             s->indentation += advance(s, lexer) - 1;
         }
         lexer->result_symbol = BLOCK_QUOTE_START;
-        if (!s->simulate)
-            push_block(s, BLOCK_QUOTE);
+        if (!s->simulate && !push_block(s, BLOCK_QUOTE))
+            return false;
         return true;
     }
     return false;
@@ -718,8 +745,8 @@ static bool parse_plus(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
                     s->indentation = extra_indentation;
                     extra_indentation = temp;
                 }
-                if (!s->simulate)
-                    push_block(s, (Block)(LIST_ITEM + extra_indentation));
+                if (!s->simulate && !push_block(s, (Block)(LIST_ITEM + extra_indentation)))
+                    return false;
                 return true;
             }
         }
@@ -784,9 +811,8 @@ static bool parse_ordered_list_marker(Scanner *s, TSLexer *lexer,
                         s->indentation = extra_indentation;
                         extra_indentation = temp;
                     }
-                    if (!s->simulate)
-                        push_block(
-                            s, (Block)(LIST_ITEM + extra_indentation + digits));
+                    if (!s->simulate && !push_block(s, (Block)(LIST_ITEM + extra_indentation + digits)))
+                        return false;
                     return true;
                 }
             }
@@ -869,8 +895,8 @@ static bool parse_minus(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
                 s->indentation = extra_indentation;
                 extra_indentation = temp;
             }
-            if (!s->simulate)
-                push_block(s, (Block)(LIST_ITEM + extra_indentation));
+            if (!s->simulate && !push_block(s, (Block)(LIST_ITEM + extra_indentation)))
+                return false;
             lexer->result_symbol = dont_interrupt
                                        ? LIST_MARKER_MINUS_DONT_INTERRUPT
                                        : LIST_MARKER_MINUS;
@@ -950,8 +976,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
     if (lexer->lookahead == '?' && valid_symbols[HTML_BLOCK_3_START]) {
         advance(s, lexer);
         lexer->result_symbol = HTML_BLOCK_3_START;
-        if (!s->simulate)
-            push_block(s, ANONYMOUS);
+        if (!s->simulate && !push_block(s, ANONYMOUS))
+            return false;
         return true;
     }
     if (lexer->lookahead == '!') {
@@ -962,16 +988,16 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
             if (lexer->lookahead == '-' && valid_symbols[HTML_BLOCK_2_START]) {
                 advance(s, lexer);
                 lexer->result_symbol = HTML_BLOCK_2_START;
-                if (!s->simulate)
-                    push_block(s, ANONYMOUS);
+                if (!s->simulate && !push_block(s, ANONYMOUS))
+                    return false;
                 return true;
             }
         } else if ('A' <= lexer->lookahead && lexer->lookahead <= 'Z' &&
                    valid_symbols[HTML_BLOCK_4_START]) {
             advance(s, lexer);
             lexer->result_symbol = HTML_BLOCK_4_START;
-            if (!s->simulate)
-                push_block(s, ANONYMOUS);
+            if (!s->simulate && !push_block(s, ANONYMOUS))
+                return false;
             return true;
         } else if (lexer->lookahead == '[') {
             advance(s, lexer);
@@ -989,8 +1015,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
                                     valid_symbols[HTML_BLOCK_5_START]) {
                                     advance(s, lexer);
                                     lexer->result_symbol = HTML_BLOCK_5_START;
-                                    if (!s->simulate)
-                                        push_block(s, ANONYMOUS);
+                                    if (!s->simulate && !push_block(s, ANONYMOUS))
+                                        return false;
                                     return true;
                                 }
                             }
@@ -1035,8 +1061,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
                         }
                     } else if (valid_symbols[HTML_BLOCK_1_START]) {
                         lexer->result_symbol = HTML_BLOCK_1_START;
-                        if (!s->simulate)
-                            push_block(s, ANONYMOUS);
+                        if (!s->simulate && !push_block(s, ANONYMOUS))
+                            return false;
                         return true;
                     }
                 }
@@ -1055,8 +1081,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
                 if (strcmp(name, HTML_TAG_NAMES_RULE_7[i]) == 0 &&
                     valid_symbols[HTML_BLOCK_6_START]) {
                     lexer->result_symbol = HTML_BLOCK_6_START;
-                    if (!s->simulate)
-                        push_block(s, ANONYMOUS);
+                    if (!s->simulate && !push_block(s, ANONYMOUS))
+                        return false;
                     return true;
                 }
             }
@@ -1168,8 +1194,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
     }
     if (lexer->lookahead == '\r' || lexer->lookahead == '\n') {
         lexer->result_symbol = HTML_BLOCK_7_START;
-        if (!s->simulate)
-            push_block(s, ANONYMOUS);
+        if (!s->simulate && !push_block(s, ANONYMOUS))
+            return false;
         return true;
     }
     return false;
@@ -1360,8 +1386,8 @@ static bool scan(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
             if (s->indentation >= 4 && lexer->lookahead != '\n' &&
                 lexer->lookahead != '\r') {
                 lexer->result_symbol = INDENTED_CHUNK_START;
-                if (!s->simulate)
-                    push_block(s, INDENTED_CODE_BLOCK);
+                if (!s->simulate && !push_block(s, INDENTED_CODE_BLOCK))
+                    return false;
                 s->indentation -= 4;
                 return true;
             }

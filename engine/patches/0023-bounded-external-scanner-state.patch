@@ -1,0 +1,483 @@
+--- a/engine/grammars/kotlin/scanner.c
++++ b/engine/grammars/kotlin/scanner.c
+@@ -47,13 +47,18 @@ typedef char Delimiter;
+ // We use a stack to keep track of the string delimiters.
+ typedef Array(Delimiter) Stack;
+ 
+-static inline void stack_push(Stack *stack, char chr, bool triple) {
+-  if (stack->size >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) abort();
++/* The serialized state is the stack itself, one byte per open delimiter, so it holds
++ * at most TREE_SITTER_SERIALIZATION_BUFFER_SIZE delimiters. A string the state could not
++ * hold is not opened: the push is refused, the string start is not claimed, and the
++ * parser recovers. Nothing here ends the process. */
++static inline bool stack_push(Stack *stack, char chr, bool triple) {
++  if (stack->size >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) return false;
+   array_push(stack, (Delimiter)(triple ? (chr + 1) : chr));
++  return true;
+ }
+ 
+ static inline Delimiter stack_pop(Stack *stack) {
+-  if (stack->size == 0) abort();
++  if (stack->size == 0) return 0;
+   return array_pop(stack);
+ }
+ 
+@@ -70,14 +75,12 @@ static bool scan_string_start(TSLexer *lexer, Stack *stack) {
+   for (unsigned count = 1; count < DELIMITER_LENGTH; ++count) {
+     if (lexer->lookahead != '"') {
+       // It's not a triple quoted delimiter.
+-      stack_push(stack, '"', false);
+-      return true;
++      return stack_push(stack, '"', false);
+     }
+     advance(lexer);
+   }
+   lexer->mark_end(lexer);
+-  stack_push(stack, '"', true);
+-  return true;
++  return stack_push(stack, '"', true);
+ }
+ 
+ static bool scan_string_content(TSLexer *lexer, Stack *stack) {
+@@ -939,15 +942,19 @@ void tree_sitter_kotlin_external_scanner_destroy(void *payload) {
+ 
+ unsigned tree_sitter_kotlin_external_scanner_serialize(void *payload, char *buffer) {
+   Stack *stack = (Stack *)payload;
+-  if (stack->size > 0) {
++  unsigned size = stack->size <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE
++                      ? stack->size
++                      : TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
++  if (size > 0) {
+     // it's an undefined behavior to memcpy 0 bytes
+-    memcpy(buffer, stack->contents, stack->size);
++    memcpy(buffer, stack->contents, size);
+   }
+-  return stack->size;
++  return size;
+ }
+ 
+ void tree_sitter_kotlin_external_scanner_deserialize(void *payload, const char *buffer, unsigned length) {
+   Stack *stack = (Stack *)payload;
++  if (length > TREE_SITTER_SERIALIZATION_BUFFER_SIZE) length = TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
+   if (length > 0) {
+     array_reserve(stack, length);
+     memcpy(stack->contents, buffer, length);
+--- a/engine/grammars/markdown/scanner.c
++++ b/engine/grammars/markdown/scanner.c
+@@ -218,17 +218,35 @@ typedef struct {
+     bool simulate;
+ } Scanner;
+ 
+-static void push_block(Scanner *s, Block b) {
++/* The serialized state is five bytes (state, matched, indentation, column and the
++ * fenced code block's delimiter length) and then each open block, sizeof(Block) bytes
++ * each. It must fit the parser's TREE_SITTER_SERIALIZATION_BUFFER_SIZE bytes, so at most
++ * (1024 - 5) / sizeof(Block) blocks (254 with a four-byte enum) are ever open: a block
++ * the state could not hold is not opened, and the token that would open it is not
++ * claimed. That also keeps the count within `matched`'s eight bits. */
++#define MD_SER_HEADER_BYTES 5
++#define MD_MAX_OPEN_BLOCKS                                                     \
++    ((TREE_SITTER_SERIALIZATION_BUFFER_SIZE - MD_SER_HEADER_BYTES) / sizeof(Block))
++
++/* Opens a block; false, and nothing opened, past MD_MAX_OPEN_BLOCKS or when the stack
++ * cannot grow. */
++static bool push_block(Scanner *s, Block b) {
++    if (s->open_blocks.size >= MD_MAX_OPEN_BLOCKS) {
++        return false;
++    }
+     if (s->open_blocks.size == s->open_blocks.capacity) {
+-        s->open_blocks.capacity =
++        size_t capacity =
+             s->open_blocks.capacity ? s->open_blocks.capacity << 1 : 8;
+-        void *tmp = realloc(s->open_blocks.items,
+-                            sizeof(Block) * s->open_blocks.capacity);
+-        assert(tmp != NULL);
++        void *tmp = realloc(s->open_blocks.items, sizeof(Block) * capacity);
++        if (tmp == NULL) {
++            return false;
++        }
+         s->open_blocks.items = tmp;
++        s->open_blocks.capacity = capacity;
+     }
+ 
+     s->open_blocks.items[s->open_blocks.size++] = b;
++    return true;
+ }
+ 
+ static inline Block pop_block(Scanner *s) {
+@@ -244,6 +262,9 @@ static unsigned serialize(Scanner *s, char *buffer) {
+     buffer[size++] = (char)s->column;
+     buffer[size++] = (char)s->fenced_code_block_delimiter_length;
+     size_t blocks_count = s->open_blocks.size;
++    if (blocks_count > MD_MAX_OPEN_BLOCKS) {
++        blocks_count = MD_MAX_OPEN_BLOCKS;
++    }
+     if (blocks_count > 0) {
+         memcpy(&buffer[size], s->open_blocks.items,
+                blocks_count * sizeof(Block));
+@@ -262,27 +283,33 @@ static void deserialize(Scanner *s, const char *buffer, unsigned length) {
+     s->indentation = 0;
+     s->column = 0;
+     s->fenced_code_block_delimiter_length = 0;
+-    if (length > 0) {
++    /* Only a complete header, and only whole blocks within `length`, are read. */
++    if (length >= MD_SER_HEADER_BYTES &&
++        length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+         size_t size = 0;
+         s->state = (uint8_t)buffer[size++];
+         s->matched = (uint8_t)buffer[size++];
+         s->indentation = (uint8_t)buffer[size++];
+         s->column = (uint8_t)buffer[size++];
+         s->fenced_code_block_delimiter_length = (uint8_t)buffer[size++];
+-        size_t blocks_size = length - size;
+-        if (blocks_size > 0) {
+-            size_t blocks_count = blocks_size / sizeof(Block);
+-
++        size_t blocks_count = (length - size) / sizeof(Block);
++        if (blocks_count > MD_MAX_OPEN_BLOCKS) {
++            blocks_count = MD_MAX_OPEN_BLOCKS;
++        }
++        if (blocks_count > 0) {
+             // ensure open blocks has enough room
+             if (s->open_blocks.capacity < blocks_count) {
+               size_t capacity = roundup_32(blocks_count);
+               void *tmp = realloc(s->open_blocks.items,
+                             sizeof(Block) * capacity);
+-              assert(tmp != NULL);
++              if (tmp == NULL) {
++                  return;
++              }
+               s->open_blocks.items = tmp;
+               s->open_blocks.capacity = capacity;
+             }
+-            memcpy(s->open_blocks.items, &buffer[size], blocks_size);
++            memcpy(s->open_blocks.items, &buffer[size],
++                   blocks_count * sizeof(Block));
+             s->open_blocks.size = blocks_count;
+         }
+     }
+@@ -448,8 +475,8 @@ static bool parse_fenced_code_block(Scanner *s, const char delimiter,
+             lexer->result_symbol = delimiter == '`'
+                                        ? FENCED_CODE_BLOCK_START_BACKTICK
+                                        : FENCED_CODE_BLOCK_START_TILDE;
+-            if (!s->simulate)
+-                push_block(s, FENCED_CODE_BLOCK);
++            if (!s->simulate && !push_block(s, FENCED_CODE_BLOCK))
++                return false;
+             // Remember the length of the delimiter for later, since we need it
+             // to decide whether a sequence of backticks can close the block.
+             s->fenced_code_block_delimiter_length = level;
+@@ -534,8 +561,8 @@ static bool parse_star(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
+             s->indentation = extra_indentation;
+             extra_indentation = temp;
+         }
+-        if (!s->simulate)
+-            push_block(s, (Block)(LIST_ITEM + extra_indentation));
++        if (!s->simulate && !push_block(s, (Block)(LIST_ITEM + extra_indentation)))
++            return false;
+         lexer->result_symbol =
+             dont_interrupt ? LIST_MARKER_STAR_DONT_INTERRUPT : LIST_MARKER_STAR;
+         return true;
+@@ -577,8 +604,8 @@ static bool parse_block_quote(Scanner *s, TSLexer *lexer,
+             s->indentation += advance(s, lexer) - 1;
+         }
+         lexer->result_symbol = BLOCK_QUOTE_START;
+-        if (!s->simulate)
+-            push_block(s, BLOCK_QUOTE);
++        if (!s->simulate && !push_block(s, BLOCK_QUOTE))
++            return false;
+         return true;
+     }
+     return false;
+@@ -718,8 +745,8 @@ static bool parse_plus(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
+                     s->indentation = extra_indentation;
+                     extra_indentation = temp;
+                 }
+-                if (!s->simulate)
+-                    push_block(s, (Block)(LIST_ITEM + extra_indentation));
++                if (!s->simulate && !push_block(s, (Block)(LIST_ITEM + extra_indentation)))
++                    return false;
+                 return true;
+             }
+         }
+@@ -784,9 +811,8 @@ static bool parse_ordered_list_marker(Scanner *s, TSLexer *lexer,
+                         s->indentation = extra_indentation;
+                         extra_indentation = temp;
+                     }
+-                    if (!s->simulate)
+-                        push_block(
+-                            s, (Block)(LIST_ITEM + extra_indentation + digits));
++                    if (!s->simulate && !push_block(s, (Block)(LIST_ITEM + extra_indentation + digits)))
++                        return false;
+                     return true;
+                 }
+             }
+@@ -869,8 +895,8 @@ static bool parse_minus(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
+                 s->indentation = extra_indentation;
+                 extra_indentation = temp;
+             }
+-            if (!s->simulate)
+-                push_block(s, (Block)(LIST_ITEM + extra_indentation));
++            if (!s->simulate && !push_block(s, (Block)(LIST_ITEM + extra_indentation)))
++                return false;
+             lexer->result_symbol = dont_interrupt
+                                        ? LIST_MARKER_MINUS_DONT_INTERRUPT
+                                        : LIST_MARKER_MINUS;
+@@ -950,8 +976,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
+     if (lexer->lookahead == '?' && valid_symbols[HTML_BLOCK_3_START]) {
+         advance(s, lexer);
+         lexer->result_symbol = HTML_BLOCK_3_START;
+-        if (!s->simulate)
+-            push_block(s, ANONYMOUS);
++        if (!s->simulate && !push_block(s, ANONYMOUS))
++            return false;
+         return true;
+     }
+     if (lexer->lookahead == '!') {
+@@ -962,16 +988,16 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
+             if (lexer->lookahead == '-' && valid_symbols[HTML_BLOCK_2_START]) {
+                 advance(s, lexer);
+                 lexer->result_symbol = HTML_BLOCK_2_START;
+-                if (!s->simulate)
+-                    push_block(s, ANONYMOUS);
++                if (!s->simulate && !push_block(s, ANONYMOUS))
++                    return false;
+                 return true;
+             }
+         } else if ('A' <= lexer->lookahead && lexer->lookahead <= 'Z' &&
+                    valid_symbols[HTML_BLOCK_4_START]) {
+             advance(s, lexer);
+             lexer->result_symbol = HTML_BLOCK_4_START;
+-            if (!s->simulate)
+-                push_block(s, ANONYMOUS);
++            if (!s->simulate && !push_block(s, ANONYMOUS))
++                return false;
+             return true;
+         } else if (lexer->lookahead == '[') {
+             advance(s, lexer);
+@@ -989,8 +1015,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
+                                     valid_symbols[HTML_BLOCK_5_START]) {
+                                     advance(s, lexer);
+                                     lexer->result_symbol = HTML_BLOCK_5_START;
+-                                    if (!s->simulate)
+-                                        push_block(s, ANONYMOUS);
++                                    if (!s->simulate && !push_block(s, ANONYMOUS))
++                                        return false;
+                                     return true;
+                                 }
+                             }
+@@ -1035,8 +1061,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
+                         }
+                     } else if (valid_symbols[HTML_BLOCK_1_START]) {
+                         lexer->result_symbol = HTML_BLOCK_1_START;
+-                        if (!s->simulate)
+-                            push_block(s, ANONYMOUS);
++                        if (!s->simulate && !push_block(s, ANONYMOUS))
++                            return false;
+                         return true;
+                     }
+                 }
+@@ -1055,8 +1081,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
+                 if (strcmp(name, HTML_TAG_NAMES_RULE_7[i]) == 0 &&
+                     valid_symbols[HTML_BLOCK_6_START]) {
+                     lexer->result_symbol = HTML_BLOCK_6_START;
+-                    if (!s->simulate)
+-                        push_block(s, ANONYMOUS);
++                    if (!s->simulate && !push_block(s, ANONYMOUS))
++                        return false;
+                     return true;
+                 }
+             }
+@@ -1168,8 +1194,8 @@ static bool parse_html_block(Scanner *s, TSLexer *lexer,
+     }
+     if (lexer->lookahead == '\r' || lexer->lookahead == '\n') {
+         lexer->result_symbol = HTML_BLOCK_7_START;
+-        if (!s->simulate)
+-            push_block(s, ANONYMOUS);
++        if (!s->simulate && !push_block(s, ANONYMOUS))
++            return false;
+         return true;
+     }
+     return false;
+@@ -1360,8 +1386,8 @@ static bool scan(Scanner *s, TSLexer *lexer, const bool *valid_symbols) {
+             if (s->indentation >= 4 && lexer->lookahead != '\n' &&
+                 lexer->lookahead != '\r') {
+                 lexer->result_symbol = INDENTED_CHUNK_START;
+-                if (!s->simulate)
+-                    push_block(s, INDENTED_CODE_BLOCK);
++                if (!s->simulate && !push_block(s, INDENTED_CODE_BLOCK))
++                    return false;
+                 s->indentation -= 4;
+                 return true;
+             }
+--- a/engine/grammars/python/scanner.c
++++ b/engine/grammars/python/scanner.c
+@@ -88,6 +88,31 @@ typedef struct {
+     bool inside_interpolated_string;
+ } Scanner;
+ 
++/* The serialized state is two bytes (the interpolation flag and the delimiter count),
++ * one byte for each open string delimiter (at most UINT8_MAX, the count's width) and
++ * two bytes for each indentation level above the first. It must fit the parser's
++ * TREE_SITTER_SERIALIZATION_BUFFER_SIZE bytes: 2 + delimiters + 2 * (indents - 1) at
++ * most 1024. A delimiter or an indentation level that would not fit is never pushed
++ * (the token that would push it is not claimed), and serialize checks each complete
++ * entry before writing it. */
++#define PY_SER_FIXED_BYTES 2
++#define PY_SER_INDENT_BYTES 2
++
++static inline size_t serialized_size(uint32_t delimiters, uint32_t indents) {
++    return PY_SER_FIXED_BYTES + delimiters + PY_SER_INDENT_BYTES * (indents > 0 ? indents - 1 : 0);
++}
++
++static inline bool room_for_delimiter(const Scanner *scanner) {
++    return scanner->delimiters.size < UINT8_MAX &&
++           serialized_size(scanner->delimiters.size + 1, scanner->indents.size) <=
++               TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
++}
++
++static inline bool room_for_indent(const Scanner *scanner) {
++    return serialized_size(scanner->delimiters.size, scanner->indents.size + 1) <=
++           TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
++}
++
+ static inline void advance(TSLexer *lexer) { lexer->advance(lexer, false); }
+ 
+ static inline void skip(TSLexer *lexer) { lexer->advance(lexer, true); }
+@@ -268,7 +293,7 @@ bool tree_sitter_python_external_scanner_scan(void *payload, TSLexer *lexer, con
+         if (scanner->indents.size > 0) {
+             uint16_t current_indent_length = *array_back(&scanner->indents);
+ 
+-            if (valid_symbols[INDENT] && indent_length > current_indent_length) {
++            if (valid_symbols[INDENT] && indent_length > current_indent_length && room_for_indent(scanner)) {
+                 array_push(&scanner->indents, indent_length);
+                 lexer->result_symbol = INDENT;
+                 return true;
+@@ -347,7 +372,7 @@ bool tree_sitter_python_external_scanner_scan(void *payload, TSLexer *lexer, con
+             }
+         }
+ 
+-        if (end_character(&delimiter)) {
++        if (end_character(&delimiter) && room_for_delimiter(scanner)) {
+             array_push(&scanner->delimiters, delimiter);
+             lexer->result_symbol = STRING_START;
+             scanner->inside_interpolated_string = is_format(&delimiter);
+@@ -380,7 +405,8 @@ unsigned tree_sitter_python_external_scanner_serialize(void *payload, char *buff
+     size += delimiter_count;
+ 
+     uint32_t iter = 1;
+-    for (; iter < scanner->indents.size && size < TREE_SITTER_SERIALIZATION_BUFFER_SIZE; ++iter) {
++    for (; iter < scanner->indents.size && size + PY_SER_INDENT_BYTES <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
++         ++iter) {
+         uint16_t indent_value = *array_get(&scanner->indents, iter);
+         buffer[size++] = (char)(indent_value & 0xFF);
+         buffer[size++] = (char)((indent_value >> 8) & 0xFF);
+@@ -396,12 +422,17 @@ void tree_sitter_python_external_scanner_deserialize(void *payload, const char *
+     array_delete(&scanner->indents);
+     array_push(&scanner->indents, 0);
+ 
+-    if (length > 0) {
++    /* Only a complete header, and only delimiters and complete indentation levels
++     * within `length`, are read. */
++    if (length >= PY_SER_FIXED_BYTES && length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+         size_t size = 0;
+ 
+         scanner->inside_interpolated_string = (bool)buffer[size++];
+ 
+         size_t delimiter_count = (uint8_t)buffer[size++];
++        if (delimiter_count > length - size) {
++            delimiter_count = length - size;
++        }
+         if (delimiter_count > 0) {
+             array_reserve(&scanner->delimiters, delimiter_count);
+             scanner->delimiters.size = delimiter_count;
+--- a/engine/grammars/yaml/scanner.c
++++ b/engine/grammars/yaml/scanner.c
+@@ -92,11 +92,18 @@ typedef enum {
+         pop_ind(scanner);                                                                                              \
+     }
+ 
+-#define PUSH_IND(TYP, LEN) push_ind(scanner, TYP, LEN)
++/* An indentation entry the serialized state could not hold is never opened: the
++ * token that would open it is not claimed (see YAML_MAX_IND_ENTRIES). */
++#define PUSH_IND(TYP, LEN)                                                                                             \
++    {                                                                                                                  \
++        if (!ind_has_room(scanner))                                                                                    \
++            return false;                                                                                              \
++        push_ind(scanner, TYP, LEN);                                                                                   \
++    }
+ 
+ #define PUSH_BGN_IND(TYP)                                                                                              \
+     {                                                                                                                  \
+-        if (has_tab_ind)                                                                                               \
++        if (has_tab_ind || !ind_has_room(scanner))                                                                     \
+             return false;                                                                                              \
+         push_ind(scanner, TYP, bgn_col);                                                                               \
+     }
+@@ -104,7 +111,7 @@ typedef enum {
+ #define MAY_PUSH_IMP_IND(TYP)                                                                                          \
+     {                                                                                                                  \
+         if (cur_ind != scanner->blk_imp_col) {                                                                         \
+-            if (scanner->blk_imp_tab)                                                                                  \
++            if (scanner->blk_imp_tab || !ind_has_room(scanner))                                                        \
+                 return false;                                                                                          \
+             push_ind(scanner, IND_MAP, scanner->blk_imp_col);                                                          \
+         }                                                                                                              \
+@@ -162,6 +169,22 @@ typedef struct {
+     ResultSchema rlt_sch;
+ } Scanner;
+ 
++/* The serialized state is a header of five int16_t (row, col and the three implicit-key
++ * fields) and, for each indentation entry above the root, its type and length, two
++ * int16_t. It must fit the parser's TREE_SITTER_SERIALIZATION_BUFFER_SIZE bytes, so the
++ * stack above the root holds at most (1024 - 10) / 4 = 253 entries: the scanner never
++ * opens another (PUSH_IND, PUSH_BGN_IND, MAY_PUSH_IMP_IND), serialize writes complete
++ * pairs only and never past the buffer, and deserialize reads only a complete header
++ * and complete pairs within the length it is given. */
++#define YAML_SER_HEADER_BYTES (5 * sizeof(int16_t))
++#define YAML_SER_ENTRY_BYTES (2 * sizeof(int16_t))
++#define YAML_MAX_IND_ENTRIES                                                                                           \
++    ((TREE_SITTER_SERIALIZATION_BUFFER_SIZE - YAML_SER_HEADER_BYTES) / YAML_SER_ENTRY_BYTES)
++
++static inline bool ind_has_room(Scanner *scanner) {
++    return scanner->ind_typ_stk.size <= YAML_MAX_IND_ENTRIES; /* the root plus the entries above it */
++}
++
+ static unsigned serialize(Scanner *scanner, char *buffer) {
+     size_t size = 0;
+     *(int16_t *)&buffer[size] = scanner->row;
+@@ -177,7 +200,8 @@ static unsigned serialize(Scanner *scanner, char *buffer) {
+     int16_t *typ_itr = scanner->ind_typ_stk.contents + 1;
+     int16_t *typ_end = scanner->ind_typ_stk.contents + scanner->ind_typ_stk.size;
+     int16_t *len_itr = scanner->ind_len_stk.contents + 1;
+-    for (; typ_itr != typ_end && size < TREE_SITTER_SERIALIZATION_BUFFER_SIZE; ++typ_itr, ++len_itr) {
++    for (; typ_itr != typ_end && size + YAML_SER_ENTRY_BYTES <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE;
++         ++typ_itr, ++len_itr) {
+         *(int16_t *)&buffer[size] = *typ_itr;
+         size += sizeof(int16_t);
+         *(int16_t *)&buffer[size] = *len_itr;
+@@ -196,7 +220,8 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
+     array_push(&scanner->ind_typ_stk, IND_ROT);
+     array_delete(&scanner->ind_len_stk);
+     array_push(&scanner->ind_len_stk, -1);
+-    if (length > 0) {
++    /* Only a complete header, and only complete pairs within `length`, are read. */
++    if (length >= YAML_SER_HEADER_BYTES && length <= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+         size_t size = 0;
+         scanner->row = *(int16_t *)&buffer[size];
+         size += sizeof(int16_t);
+@@ -208,13 +233,12 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
+         size += sizeof(int16_t);
+         scanner->blk_imp_tab = *(int16_t *)&buffer[size];
+         size += sizeof(int16_t);
+-        while (size < length) {
++        while (size + YAML_SER_ENTRY_BYTES <= length) {
+             array_push(&scanner->ind_typ_stk, *(int16_t *)&buffer[size]);
+             size += sizeof(int16_t);
+             array_push(&scanner->ind_len_stk, *(int16_t *)&buffer[size]);
+             size += sizeof(int16_t);
+         }
+-        assert(size == length);
+     }
+ }
+ 
