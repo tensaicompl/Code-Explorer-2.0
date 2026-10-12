@@ -50,7 +50,8 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// since C and C++ preprocessing reads nothing but the source given, never a file an
 /// `#include` or `__has_include` names (issue 83, decision 51), nor a clock: `__DATE__`
 /// and `__TIME__` are fixed (issue 84, decision 53), nor the platform: `sizeof` in `#if`
-/// has one fixed data model (issue 85, decision 54).
+/// has one fixed data model (issue 85, decision 54), and character constants and `#line`
+/// numbers are read by fixed rules (issue 86, decision 55).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
 pub const ENGINE_VERSION: u32 = 7;
 

@@ -152,8 +152,8 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 85 (decisions 51, 53 and 54, engine 7, patches 0015 to 0017 together): the
-buffer Stage 2 supplies is the whole input.
+Issues 83 to 86 (decisions 51 and 53 to 55, engine 7, patches 0015 to 0018 together):
+the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
   stay imports, and the macros and conditionals a source defines itself still expand.
@@ -161,13 +161,17 @@ buffer Stage 2 supplies is the whole input.
   zone and locale; a source's own `#define` or `#undef` of either still wins.
 - **No platform.** `sizeof` in `#if` uses one written-out LP64 table (long 8, long double
   16, pointers 8), never the build's own sizes; the test seam `PDX_ENGINE_TEST_HOST_SIZES`
-  simulates another platform's.
+  simulates another platform's. A one-byte character constant is a signed 8-bit char
+  (`'\xff'` is -1), and a `#line` number is read at a fixed width and capped at
+  4294967295. `preprocessor_host_independence` builds the library with char signed and
+  unsigned.
 - **Contract.** An extraction depends on the normalised bytes, the language, the path
   and the metadata only. It never depends on the working directory, a header on disk,
   anything outside the repository, the time, the zone, the locale or the platform.
 - **Tests.** `engine/tests/c_family_input_isolation.c` (inotify on Linux),
-  `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`, the `extract`
-  tests and `pdx-engine`'s `type_sizes` (which run on Windows too) prove it.
+  `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`,
+  `engine/tests/c_family_char_literals.c`, the `extract` tests and `pdx-engine`'s
+  `type_sizes` and `literals_and_lines` (which run on Windows too) prove it.
 - **Open.** Issue 86: plain `char` signedness in `#if` character constants (unsigned on
   linux-aarch64 only) and `#line` numbers read as a C `long` (32 bits on Windows) still
   depend on the build target.

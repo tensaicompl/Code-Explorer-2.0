@@ -1,0 +1,79 @@
+--- a/engine/vendored/simplecpp/simplecpp.cpp
++++ b/engine/vendored/simplecpp/simplecpp.cpp
+@@ -635,6 +635,21 @@ static bool isStringLiteralPrefix(const std::string &str)
+            str == "R" || str == "uR" || str == "UR" || str == "LR" || str == "u8R";
+ }
+ 
++/** The number of a #line or # N "file" directive: the leading decimal digits of the
++ *  token, read at a fixed width and at most 4294967295, the largest line a Location holds
++ *  on every platform. No C long, libc conversion or locale decides it. */
++static unsigned int lineDirectiveNumber(const std::string &number)
++{
++    const unsigned long long maxLine = 0xffffffffULL;
++    unsigned long long value = 0;
++    for (std::string::size_type i = 0; i < number.size() && number[i] >= '0' && number[i] <= '9'; ++i) {
++        value = value * 10 + static_cast<unsigned long long>(number[i] - '0');
++        if (value > maxLine)
++            return static_cast<unsigned int>(maxLine);
++    }
++    return static_cast<unsigned int>(value);
++}
++
+ void simplecpp::TokenList::lineDirective(unsigned int fileIndex, unsigned int line, Location &location)
+ {
+     if (fileIndex != location.fileIndex || line >= location.line) {
+@@ -731,7 +746,7 @@ void simplecpp::TokenList::readfile(Stream &stream, const std::string &filename,
+                         while (numtok->comment)
+                             numtok = numtok->previous;
+                         lineDirective(fileIndex(replaceAll(strtok->str().substr(1U, strtok->str().size() - 2U),"\\\\","\\")),
+-                                      std::atol(numtok->str().c_str()), location);
++                                      lineDirectiveNumber(numtok->str()), location);
+                     }
+                     // #line 3
+                     else if (llNextToken->str() == "line" &&
+@@ -740,7 +755,7 @@ void simplecpp::TokenList::readfile(Stream &stream, const std::string &filename,
+                         const Token *numtok = cback();
+                         while (numtok->comment)
+                             numtok = numtok->previous;
+-                        lineDirective(location.fileIndex, std::atol(numtok->str().c_str()), location);
++                        lineDirective(location.fileIndex, lineDirectiveNumber(numtok->str()), location);
+                     }
+                 }
+                 // #endfile
+@@ -2925,10 +2940,11 @@ long long simplecpp::characterLiteralToLL(const std::string& str)
+             }
+         }
+ 
+-        if (((narrow || utf8) && value > std::numeric_limits<unsigned char>::max()) || (utf16 && value >> 16) || value >> 32)
++        // A narrow code unit is 8 bits wide, whatever the platform's char.
++        if (((narrow || utf8) && value > 0xff) || (utf16 && value >> 16) || value >> 32)
+             throw std::runtime_error("numeric escape sequence too large");
+ 
+-        multivalue <<= CHAR_BIT;
++        multivalue <<= 8;
+         multivalue |= value;
+         nbytes++;
+     }
+@@ -2939,13 +2955,17 @@ long long simplecpp::characterLiteralToLL(const std::string& str)
+     if (!nbytes)
+         throw std::runtime_error("empty character literal");
+ 
+-    // ordinary narrow character literal's value is determined by (possibly signed) char
++    // ordinary narrow character literal's value is that of a signed 8-bit char, written
++    // out, whether the platform's plain char is signed or not
+     if (narrow && nbytes == 1)
+-        return static_cast<char>(multivalue);
++        return multivalue >= 0x80 ? static_cast<long long>(multivalue) - 0x100 : static_cast<long long>(multivalue);
+ 
+-    // while multi-character literal's value is determined by (signed) int
+-    if (narrow)
+-        return static_cast<int>(multivalue);
++    // while multi-character literal's value is that of a 32-bit two's complement int,
++    // written out rather than left to the platform's int
++    if (narrow) {
++        const unsigned long long low = multivalue & 0xffffffffULL;
++        return low >= 0x80000000ULL ? static_cast<long long>(low) - 0x100000000LL : static_cast<long long>(low);
++    }
+ 
+     // All other cases are unsigned. Since long long is at least 64bit wide,
+     // while the literals at most 32bit wide, the conversion preserves all values.

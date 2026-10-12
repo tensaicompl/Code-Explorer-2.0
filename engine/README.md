@@ -105,7 +105,10 @@ Everything goes through `include/pdxe.h`. In outline:
   Nor does it read a clock: `__DATE__` and `__TIME__` are `"Jan 01 1970"` and
   `"00:00:00"` in any time zone and locale (`patches/0016-fixed-date-time-macros.patch`,
   issue 84). Nor does the platform it was built for matter: `sizeof` in `#if` has one
-  fixed LP64 data model (`patches/0017-fixed-preprocessor-sizeof-model.patch`, issue 85).
+  fixed LP64 data model (`patches/0017-fixed-preprocessor-sizeof-model.patch`, issue 85),
+  a one-byte character constant is a signed 8-bit char and a `#line` number is read at
+  a fixed width and capped at 4294967295
+  (`patches/0018-host-independent-literals-and-line.patch`, issue 86).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

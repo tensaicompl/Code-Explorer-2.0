@@ -337,6 +337,24 @@ if(PDXE_BUILD_TESTS)
   # patches/0017).
   add_test(NAME c_family_sizeof COMMAND c_family_sizeof)
 
+  # Nor the compiler's char: the preprocessing library is built twice, plain char signed
+  # and unsigned (as on Linux for AArch64), and both give the project's character
+  # constants and #line numbers (issue 86, patches/0018).
+  set_source_files_properties(${PDXE_ROOT}/tests/preprocessor_host_independence.cpp
+    PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Werror")
+  foreach(signedness signed unsigned)
+    set(target preprocessor_host_independence_${signedness}_char)
+    add_executable(${target} ${PDXE_ROOT}/tests/preprocessor_host_independence.cpp
+                   ${PDXE_ROOT}/src/preprocessor.cpp)
+    target_include_directories(${target} PRIVATE ${PDXE_ROOT}/src ${PDXE_ROOT}/vendored)
+    target_compile_options(${target} PRIVATE -f${signedness}-char)
+    if(signedness STREQUAL "unsigned")
+      target_compile_definitions(${target} PRIVATE PDXE_TEST_UNSIGNED_CHAR)
+    endif()
+    set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+    add_test(NAME ${target} COMMAND ${target})
+  endforeach()
+
   # The warning exemptions reach vendored sources and never the interface layer.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME api_warnings_are_errors
