@@ -2868,6 +2868,11 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
             pdxe_export_macro_candidates(source, source_len, export_cands, PDXE_EXPORT_MACRO_MAX);
         PDXEPreprocessedSource *preprocessed = pdxe_preprocess_with_map(
             source, source_len, rel_path, extra_defines, include_paths, language != PDXE_LANG_C);
+        /* A preprocessing that passed one of its ceilings (issue 87) is lost work, once:
+         * its expansion was discarded, and the file is extracted from its source alone. */
+        if (!preprocessed && pdxe_preprocess_last_stats()->exhausted) {
+            pdxe_lost_work();
+        }
         if (preprocessed && preprocessed->source) {
             char *expanded = preprocessed->source;
             int expanded_len = (int)strlen(expanded);

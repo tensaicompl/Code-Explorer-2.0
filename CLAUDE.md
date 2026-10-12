@@ -152,7 +152,7 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 86 (decisions 51 and 53 to 55, engine 7, patches 0015 to 0018 together):
+Issues 83 to 87 (decisions 51 and 53 to 56, engine 7, patches 0015 to 0019 together):
 the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
@@ -165,13 +165,24 @@ the buffer Stage 2 supplies is the whole input.
   (`'\xff'` is -1), and a `#line` number is read at a fixed width and capped at
   4294967295. `preprocessor_host_independence` builds the library with char signed and
   unsigned.
+- **No machine.** Preprocessing is bounded by the source (`preprocessor.h`'s
+  `PDXE_PREPROCESS_*`): a forward jump of more than 4,096 lines is one `#line` marker;
+  the bytes written and generated and the `#if` folding steps are held to
+  `clamp(16 × len, 256 KiB, 8 MiB)`, generated tokens and expansions to 500,000 each, and
+  nesting to 256. Passing one throws inside the work, discards the expansion and is lost
+  work once (never cached, degraded). `#if` arithmetic is 64-bit two's complement
+  written out, and integer literals are read by an explicit reader. No timeout and no
+  environment override; a ceiling that starves real code is changed by decision, never
+  to fit a test (Linux has 5 files past them).
 - **Contract.** An extraction depends on the normalised bytes, the language, the path
   and the metadata only. It never depends on the working directory, a header on disk,
   anything outside the repository, the time, the zone, the locale or the platform.
 - **Tests.** `engine/tests/c_family_input_isolation.c` (inotify on Linux),
   `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`,
-  `engine/tests/c_family_char_literals.c`, the `extract` tests and `pdx-engine`'s
-  `type_sizes` and `literals_and_lines` (which run on Windows too) prove it.
+  `engine/tests/c_family_char_literals.c`, `engine/tests/c_family_preprocess_budget.c`
+  and `preprocessor_bounds` (every ceiling at its edge), the `extract` and `build` tests
+  and `pdx-engine`'s `type_sizes`, `literals_and_lines` and `preprocess_bounds` (which
+  run on Windows too) prove it.
 - **Open.** Issue 87: preprocessing's work and memory are unbounded by the source (a
   forward `#line` pads the expanded text one line per line skipped; doubling macros grow
   exponentially), so whether an extraction completes depends on the host. Issue 86 is

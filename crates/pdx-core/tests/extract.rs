@@ -9,6 +9,7 @@
 //! child process of this binary, so no other test sees the switch.
 
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -2312,4 +2313,64 @@ fn c_family_preprocessor_sizeof_is_platform_independent() {
         !callees.contains(&"model_llp64") && !callees.contains(&"model_other"),
         "{callees:?}"
     );
+}
+
+/// `D24` would call `leaf` 2^24 times: its preprocessing passes its ceilings (issue 87).
+fn c_bomb() -> String {
+    let mut source = String::from("void before(void);\n#define D0 leaf();\n");
+    for i in 1..=24 {
+        writeln!(source, "#define D{i} D{} D{}", i - 1, i - 1).unwrap();
+    }
+    source.push_str("void run(void) { before(); D24 }\n");
+    source
+}
+
+/// A `#line` four billion lines on: one marker in the expanded text, never padding.
+const C_FAR_LINE: &str =
+    "#define KEEP 1\nint before(void);\n#line 4294967295\nvoid after(void) { callee(); }\n";
+
+#[test]
+fn preprocessing_past_its_ceilings_is_lost_work_and_never_cached() {
+    // Issue 87: a preprocessing that passes a ceiling is discarded, and the file is
+    // extracted from its source alone, losing work once. That extraction degrades and
+    // is never cached, so every run, cold or warm, extracts it again and gets the same;
+    // a far #line is clean, and cached.
+    let checkout = Checkout::new();
+    checkout.write("src/bomb.c", c_bomb());
+    checkout.write("src/far.c", C_FAR_LINE);
+    let cache = Cache::new();
+    let probe = Probe::new(Twist::None);
+    let cold = run(&checkout, Some(&cache), &probe);
+    assert_eq!(probe.files(), 2);
+    let bomb = extract_of(&cold, "src/bomb.c");
+    assert_eq!(bomb.extraction_lost, 1, "lost work is counted once");
+    let callees: Vec<&str> = bomb.calls.iter().map(|c| c.callee_text.as_str()).collect();
+    assert!(
+        callees.contains(&"before") && !callees.contains(&"leaf"),
+        "{callees:?}"
+    );
+    assert_eq!(extract_of(&cold, "src/far.c").extraction_lost, 0);
+    assert!(cold.degraded());
+    assert_eq!(
+        cold.stats.cache_writes, 1,
+        "only the clean extraction is cached"
+    );
+    assert_eq!(cache.entries().len(), 1);
+
+    // A second cold run, with a cache of its own, then the first cache warm.
+    let other = Cache::new();
+    let second = run(&checkout, Some(&other), &Probe::new(Twist::None));
+    let warm_probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &warm_probe);
+    assert_eq!(
+        warm_probe.files(),
+        1,
+        "the lossy extraction is never served from the cache"
+    );
+    assert_eq!(warm.stats.cache_hits, 1);
+    assert_eq!(warm.stats.cache_writes, 0);
+    assert!(warm.degraded() && second.degraded());
+    assert_eq!(second.files, cold.files);
+    assert_eq!(warm.files, cold.files);
+    assert_eq!(other.entries(), cache.entries());
 }

@@ -1,0 +1,635 @@
+--- a/engine/src/pdxe_core.c
++++ b/engine/src/pdxe_core.c
+@@ -2868,6 +2868,11 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+             pdxe_export_macro_candidates(source, source_len, export_cands, PDXE_EXPORT_MACRO_MAX);
+         PDXEPreprocessedSource *preprocessed = pdxe_preprocess_with_map(
+             source, source_len, rel_path, extra_defines, include_paths, language != PDXE_LANG_C);
++        /* A preprocessing that passed one of its ceilings (issue 87) is lost work, once:
++         * its expansion was discarded, and the file is extracted from its source alone. */
++        if (!preprocessed && pdxe_preprocess_last_stats()->exhausted) {
++            pdxe_lost_work();
++        }
+         if (preprocessed && preprocessed->source) {
+             char *expanded = preprocessed->source;
+             int expanded_len = (int)strlen(expanded);
+--- a/engine/src/preprocessor.cpp
++++ b/engine/src/preprocessor.cpp
+@@ -420,9 +420,42 @@ static bool build_line_map(const std::string &expanded, const std::string &main_
+     return true;
+ }
+ 
++static thread_local PDXEPreprocessStats last_stats;
++
++size_t pdxe_preprocess_budget_for_source_len(int source_len) {
++    const size_t max = PDXE_PREPROCESS_MAX_EXPANDED_BYTES;
++    if (source_len <= 0) {
++        return PDXE_PREPROCESS_MIN_EXPANDED_BYTES;
++    }
++    // Compared before multiplying, so that nothing overflows.
++    if ((size_t)source_len >= max / PDXE_PREPROCESS_EXPANSION_FACTOR) {
++        return max;
++    }
++    const size_t budget = (size_t)source_len * PDXE_PREPROCESS_EXPANSION_FACTOR;
++    return budget < PDXE_PREPROCESS_MIN_EXPANDED_BYTES ? PDXE_PREPROCESS_MIN_EXPANDED_BYTES
++                                                       : budget;
++}
++
++const PDXEPreprocessStats *pdxe_preprocess_last_stats(void) {
++    return &last_stats;
++}
++
++static void record_stats(const simplecpp::Budget &budget, PDXEPreprocessStats *stats) {
++    stats->generated_tokens = budget.generatedTokens;
++    stats->generated_bytes = budget.generatedBytes;
++    stats->serialized_bytes = budget.serializedBytes;
++    stats->condition_steps = budget.conditionSteps;
++    stats->expansions = budget.expansions;
++    stats->line_markers = budget.lineMarkers;
++    stats->deepest_expansion = budget.deepestExpansion;
++    stats->longest_line_jump = budget.longestLineJump;
++}
++
+ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_len,
+                                                const char *filename, const char **extra_defines,
+                                                const char **include_paths, int cpp_mode) {
++    last_stats = PDXEPreprocessStats();
++    last_stats.budget = pdxe_preprocess_budget_for_source_len(source_len);
+     // Run the second pass when there are directives to evaluate OR when the file
+     // carries export-macro-shaped identifiers to predefine empty (#1989) — a UE
+     // plugin header with only `#pragma once` + `#include` lines still needs it.
+@@ -504,9 +537,30 @@ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_
+         simplecpp::TokenList output(files);
+         simplecpp::FileDataCache filedata = simplecpp::load(rawtokens, files, dui);
+ 
+-        simplecpp::preprocess(output, rawtokens, files, filedata, dui);
+-
+-        std::string result = output.stringify();
++        // What the preprocessing may generate, counted, from the source's length alone
++        // (issue 87): passing a ceiling discards the expansion, and the caller counts it
++        // as lost work.
++        simplecpp::Budget budget;
++        budget.maxGeneratedTokens = PDXE_PREPROCESS_MAX_GENERATED_TOKENS;
++        budget.maxGeneratedBytes = last_stats.budget;
++        budget.maxSerializedBytes = last_stats.budget;
++        budget.maxConditionSteps = last_stats.budget;
++        budget.maxExpansions = PDXE_PREPROCESS_MAX_EXPANSIONS;
++        budget.maxExpansionDepth = PDXE_PREPROCESS_MAX_EXPANSION_DEPTH;
++        budget.maxLinePadding = PDXE_PREPROCESS_MAX_LINE_PADDING;
++        std::string result;
++        try {
++            const simplecpp::BudgetScope scope(budget);
++            simplecpp::preprocess(output, rawtokens, files, filedata, dui);
++            result = output.stringify();
++        } catch (const simplecpp::BudgetExhausted &exhausted) {
++            record_stats(budget, &last_stats);
++            last_stats.exhausted = 1;
++            last_stats.ceiling = exhausted.ceiling;
++            simplecpp::cleanup(filedata);
++            return NULL;
++        }
++        record_stats(budget, &last_stats);
+ 
+         // Clean up loaded file data
+         simplecpp::cleanup(filedata);
+--- a/engine/src/preprocessor.h
++++ b/engine/src/preprocessor.h
+@@ -13,10 +13,53 @@
+ #define PDXE_EXPORT_MACRO_MAX 32
+ #define PDXE_EXPORT_MACRO_NAME_MAX 96
+ 
++/* The ceilings of one file's preprocessing (docs/plan/ISSUES.md, issue 87; decision 56).
++ * They are counts derived from the source's length and these constants alone, never a
++ * time or the machine's memory, so every machine stops a file at the same point. The
++ * byte budget is 16 bytes for every source byte, at least 256 KiB and at most 8 MiB
++ * (pdxe_preprocess_budget_for_source_len). It bounds, each on its own:
++ *   - the text of the tokens macro expansion creates, its temporaries included;
++ *   - the expanded text written out, line padding and #line markers included;
++ *   - the tokens #if and #elif folding steps over.
++ * Macro expansion may also create at most PDXE_PREPROCESS_MAX_GENERATED_TOKENS tokens,
++ * expand at most PDXE_PREPROCESS_MAX_EXPANSIONS macros (an empty one creates nothing,
++ * but is work) and nest at most PDXE_PREPROCESS_MAX_EXPANSION_DEPTH deep, and a forward
++ * #line jump of more than PDXE_PREPROCESS_MAX_LINE_PADDING lines is written as a #line
++ * marker rather than a newline per line. Passing a ceiling is lost work: the expansion
++ * is discarded and the file is extracted from its source alone. */
++#define PDXE_PREPROCESS_EXPANSION_FACTOR 16
++#define PDXE_PREPROCESS_MIN_EXPANDED_BYTES (256u * 1024u)
++#define PDXE_PREPROCESS_MAX_EXPANDED_BYTES (8u * 1024u * 1024u)
++#define PDXE_PREPROCESS_MAX_GENERATED_TOKENS 500000u
++#define PDXE_PREPROCESS_MAX_EXPANSIONS 500000u
++#define PDXE_PREPROCESS_MAX_EXPANSION_DEPTH 256u
++#define PDXE_PREPROCESS_MAX_LINE_PADDING 4096u
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+ 
++/* What one call of pdxe_preprocess_with_map used, and whether it passed a ceiling. */
++typedef struct {
++    size_t budget;              /* the byte and step budget of this source */
++    size_t generated_tokens;
++    size_t generated_bytes;
++    size_t serialized_bytes;
++    size_t condition_steps;
++    size_t expansions;          /* macro expansions, nested ones included */
++    size_t line_markers;        /* #line markers written in place of padding */
++    unsigned int deepest_expansion;
++    unsigned int longest_line_jump;
++    int exhausted;              /* nonzero: a ceiling was passed, and NULL returned */
++    const char *ceiling;        /* which, when exhausted */
++} PDXEPreprocessStats;
++
++/* The byte and step budget of a source of `source_len` bytes. */
++size_t pdxe_preprocess_budget_for_source_len(int source_len);
++
++/* What the last pdxe_preprocess_with_map on this thread used. */
++const PDXEPreprocessStats *pdxe_preprocess_last_stats(void);
++
+ typedef struct {
+     char *source;
+     uint32_t *original_line_by_expanded_line; // 1-based; 0 means directive/unmapped.
+@@ -40,7 +83,8 @@ char *pdxe_preprocess(const char *source, int source_len, const char *filename,
+                      const char **extra_defines, const char **include_paths, int cpp_mode);
+ 
+ // Preprocess and return source plus expanded-line -> original-line ownership map.
+-// Returns NULL if no expansion is needed or preprocessing fails.
++// Returns NULL if no expansion is needed, preprocessing fails or a ceiling is passed
++// (pdxe_preprocess_last_stats says which).
+ // Free with pdxe_preprocessed_source_free().
+ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_len,
+                                                const char *filename, const char **extra_defines,
+--- a/engine/vendored/simplecpp/simplecpp.cpp
++++ b/engine/vendored/simplecpp/simplecpp.cpp
+@@ -38,6 +38,7 @@
+ #include <istream>
+ #include <limits>
+ #include <list>
++#include <locale>
+ #include <map>
+ #include <set>
+ #include <sstream>
+@@ -104,10 +105,112 @@ template<class T> static std::string toString(T t)
+ {
+     // NOLINTNEXTLINE(misc-const-correctness) - false positive
+     std::ostringstream ostr;
++    ostr.imbue(std::locale::classic());
+     ostr << t;
+     return ostr.str();
+ }
+ 
++// #if arithmetic is 64-bit two's complement, computed on unsigned values so that no
++// operation overflows a signed one; a result is taken back modulo 2^64.
++static unsigned long long toBits(long long value)
++{
++    return static_cast<unsigned long long>(value);
++}
++
++static long long fromBits(unsigned long long bits)
++{
++    if (bits <= static_cast<unsigned long long>(std::numeric_limits<long long>::max()))
++        return static_cast<long long>(bits);
++    return -static_cast<long long>(~bits) - 1;
++}
++
++namespace {
++    thread_local simplecpp::Budget *currentBudget = nullptr;
++
++    [[noreturn]] void budgetExhausted(const char *ceiling)
++    {
++        throw simplecpp::BudgetExhausted{ceiling};
++    }
++
++    void chargeConditionStep()
++    {
++        simplecpp::Budget * const budget = currentBudget;
++        if (!budget)
++            return;
++        ++budget->conditionSteps;
++        if (budget->maxConditionSteps && budget->conditionSteps > budget->maxConditionSteps)
++            budgetExhausted("condition steps");
++    }
++
++    /** While a top-level macro expansion runs: the tokens it creates are charged. */
++    class ExpansionScope {
++    public:
++        ExpansionScope() : mBudget(currentBudget) {
++            if (mBudget)
++                ++mBudget->expanding;
++        }
++        ~ExpansionScope() {
++            if (mBudget)
++                --mBudget->expanding;
++        }
++        ExpansionScope(const ExpansionScope &) = delete;
++        ExpansionScope &operator=(const ExpansionScope &) = delete;
++    private:
++        simplecpp::Budget * const mBudget;
++    };
++
++    /** One macro expansion, counted, whether or not it creates anything, and one level
++     *  of nesting, held to the Budget's depth. */
++    class DepthScope {
++    public:
++        DepthScope() : mBudget(currentBudget) {
++            if (!mBudget)
++                return;
++            ++mBudget->expansions;
++            if (mBudget->maxExpansions && mBudget->expansions > mBudget->maxExpansions)
++                budgetExhausted("expansions");
++            ++mBudget->expansionDepth;
++            if (mBudget->expansionDepth > mBudget->deepestExpansion)
++                mBudget->deepestExpansion = mBudget->expansionDepth;
++            if (mBudget->maxExpansionDepth && mBudget->expansionDepth > mBudget->maxExpansionDepth) {
++                --mBudget->expansionDepth;
++                budgetExhausted("expansion depth");
++            }
++        }
++        ~DepthScope() {
++            if (mBudget)
++                --mBudget->expansionDepth;
++        }
++        DepthScope(const DepthScope &) = delete;
++        DepthScope &operator=(const DepthScope &) = delete;
++    private:
++        simplecpp::Budget * const mBudget;
++    };
++}
++
++simplecpp::BudgetScope::BudgetScope(Budget &budget) : mPrevious(currentBudget)
++{
++    currentBudget = &budget;
++}
++
++simplecpp::BudgetScope::~BudgetScope()
++{
++    currentBudget = mPrevious;
++}
++
++void simplecpp::detail::chargeGenerated(std::size_t tokens, std::size_t bytes)
++{
++    simplecpp::Budget * const budget = currentBudget;
++    if (!budget || !budget->expanding)
++        return;
++    budget->generatedTokens += tokens;
++    budget->generatedBytes += bytes;
++    if (budget->maxGeneratedTokens && budget->generatedTokens > budget->maxGeneratedTokens)
++        budgetExhausted("generated tokens");
++    if (budget->maxGeneratedBytes && budget->generatedBytes > budget->maxGeneratedBytes)
++        budgetExhausted("generated bytes");
++}
++
+ #ifdef SIMPLECPP_DEBUG_MACRO_EXPANSION
+ static std::string locstring(const simplecpp::Location &loc)
+ {
+@@ -117,32 +220,71 @@ static std::string locstring(const simplecpp::Location &loc)
+ }
+ #endif
+ 
++namespace {
++    /** An integer's text read at a fixed width: optional whitespace and sign, then the
++     *  digits of its base (after "0x" for hexadecimal, after the leading 0 for octal)
++     *  up to the first that is not one, its magnitude saturating past 64 bits. This is
++     *  what the C++ library's formatted input reads, written out, so that no platform's
++     *  library decides a value: one that is out of range, or has no digits, read the same
++     *  everywhere. */
++    struct IntegerText {
++        bool negative;
++        bool overflow;
++        unsigned long long magnitude;
++    };
++
++    IntegerText readIntegerText(const std::string &s, bool hex, bool oct)
++    {
++        IntegerText text{false, false, 0};
++        const unsigned int base = hex ? 16 : oct ? 8 : 10;
++        std::size_t pos = hex ? 2 : oct ? 1 : 0;
++        while (pos < s.size() && (s[pos] == ' ' || (s[pos] >= '\t' && s[pos] <= '\r')))
++            ++pos;
++        if (pos < s.size() && (s[pos] == '+' || s[pos] == '-'))
++            text.negative = s[pos++] == '-';
++        if (hex && pos + 1 < s.size() && s[pos] == '0' && (s[pos + 1] == 'x' || s[pos + 1] == 'X'))
++            pos += 2;
++        for (; pos < s.size(); ++pos) {
++            const char ch = s[pos];
++            unsigned int digit;
++            if (ch >= '0' && ch <= '9')
++                digit = static_cast<unsigned int>(ch - '0');
++            else if (ch >= 'a' && ch <= 'f')
++                digit = static_cast<unsigned int>(ch - 'a') + 10;
++            else if (ch >= 'A' && ch <= 'F')
++                digit = static_cast<unsigned int>(ch - 'A') + 10;
++            else
++                break;
++            if (digit >= base)
++                break;
++            if (text.magnitude > (std::numeric_limits<unsigned long long>::max() - digit) / base)
++                text.overflow = true;
++            else
++                text.magnitude = text.magnitude * base + digit;
++        }
++        return text;
++    }
++}
++
++/** A signed value: past the range, the nearest bound; with no digits, 0. */
+ static long long stringToLL(const std::string &s)
+ {
+-    long long ret;
+-    const bool hex = isHex(s);
+-    const bool oct = isOct(s);
+-    std::istringstream istr(hex ? s.substr(2) : oct ? s.substr(1) : s);
+-    if (hex)
+-        istr >> std::hex;
+-    else if (oct)
+-        istr >> std::oct;
+-    istr >> ret;
+-    return ret;
++    const IntegerText text = readIntegerText(s, isHex(s), isOct(s));
++    const unsigned long long limit = text.negative ? toBits(std::numeric_limits<long long>::min())
++                                     : static_cast<unsigned long long>(std::numeric_limits<long long>::max());
++    if (text.overflow || text.magnitude > limit)
++        return text.negative ? std::numeric_limits<long long>::min() : std::numeric_limits<long long>::max();
++    return fromBits(text.negative ? 0ULL - text.magnitude : text.magnitude);
+ }
+ 
++/** An unsigned value: past the range, the greatest; a negative one, its magnitude
++ *  subtracted from 2^64; with no digits, 0. */
+ static unsigned long long stringToULL(const std::string &s)
+ {
+-    unsigned long long ret;
+-    const bool hex = isHex(s);
+-    const bool oct = isOct(s);
+-    std::istringstream istr(hex ? s.substr(2) : oct ? s.substr(1) : s);
+-    if (hex)
+-        istr >> std::hex;
+-    else if (oct)
+-        istr >> std::oct;
+-    istr >> ret;
+-    return ret;
++    const IntegerText text = readIntegerText(s, isHex(s), isOct(s));
++    if (text.overflow)
++        return std::numeric_limits<unsigned long long>::max();
++    return text.negative ? 0ULL - text.magnitude : text.magnitude;
+ }
+ 
+ static bool endsWith(const std::string &s, const std::string &e)
+@@ -565,11 +707,24 @@ void simplecpp::TokenList::dump(bool linenrs) const
+ std::string simplecpp::TokenList::stringify(bool linenrs) const
+ {
+     std::ostringstream ret;
++    ret.imbue(std::locale::classic());
++    simplecpp::Budget * const budget = currentBudget;
+     Location loc;
+     loc.line = 1;
+     bool filechg = true;
+     for (const Token *tok = cfront(); tok; tok = tok->next) {
+-        if (tok->location.line < loc.line || tok->location.fileIndex != loc.fileIndex) {
++        // A forward jump in one file is padded with a newline per line, up to the
++        // Budget's padding; a longer one gets a #line marker, as a jump back does.
++        bool farAhead = false;
++        if (budget && tok->location.fileIndex == loc.fileIndex && tok->location.line > loc.line) {
++            const unsigned int jump = tok->location.line - loc.line;
++            if (jump > budget->longestLineJump)
++                budget->longestLineJump = jump;
++            farAhead = budget->maxLinePadding && jump > budget->maxLinePadding;
++            if (farAhead)
++                ++budget->lineMarkers;
++        }
++        if (tok->location.line < loc.line || tok->location.fileIndex != loc.fileIndex || farAhead) {
+             ret << "\n#line " << tok->location.line << " \"" << file(tok->location) << "\"\n";
+             loc = tok->location;
+             filechg = true;
+@@ -593,6 +748,12 @@ std::string simplecpp::TokenList::stringify(bool linenrs) const
+         ret << tok->str();
+ 
+         loc.adjust(tok->str());
++
++        if (budget) {
++            budget->serializedBytes = static_cast<std::size_t>(ret.tellp());
++            if (budget->maxSerializedBytes && budget->serializedBytes > budget->maxSerializedBytes)
++                budgetExhausted("serialized bytes");
++        }
+     }
+ 
+     return ret.str();
+@@ -981,10 +1142,13 @@ void simplecpp::TokenList::readfile(Stream &stream, const std::string &filename,
+ void simplecpp::TokenList::constFold()
+ {
+     while (cfront()) {
++        chargeConditionStep();
+         // goto last '('
+         Token *tok = back();
+-        while (tok && tok->op != '(')
++        while (tok && tok->op != '(') {
+             tok = tok->previous;
++            chargeConditionStep();
++        }
+ 
+         // no '(', goto first token
+         if (!tok)
+@@ -1173,7 +1337,7 @@ void simplecpp::TokenList::constFoldUnaryNotPosNeg(simplecpp::Token *tok)
+             tok->setstr(tok->next->str() == "0" ? "1" : "0");
+             deleteToken(tok->next);
+         } else if (tok->op == '~' && tok->next && tok->next->number) {
+-            tok->setstr(toString(~stringToLL(tok->next->str())));
++            tok->setstr(toString(fromBits(~toBits(stringToLL(tok->next->str())))));
+             deleteToken(tok->next);
+         } else {
+             if (tok->previous && (tok->previous->number || tok->previous->name))
+@@ -1186,7 +1350,9 @@ void simplecpp::TokenList::constFoldUnaryNotPosNeg(simplecpp::Token *tok)
+                 deleteToken(tok->next);
+                 break;
+             case '-':
+-                tok->setstr(tok->op + tok->next->str());
++                // Negated as a number, not by prefixing the text: -(-5) is 5, and the
++                // negation of the least value is itself.
++                tok->setstr(toString(fromBits(0ULL - toBits(stringToLL(tok->next->str())))));
+                 deleteToken(tok->next);
+                 break;
+             }
+@@ -1204,7 +1370,7 @@ void simplecpp::TokenList::constFoldMulDivRem(Token *tok)
+ 
+         long long result;
+         if (tok->op == '*') {
+-            result = (stringToLL(tok->previous->str()) * stringToLL(tok->next->str()));
++            result = fromBits(toBits(stringToLL(tok->previous->str())) * toBits(stringToLL(tok->next->str())));
+         }
+         else if (tok->op == '/' || tok->op == '%') {
+             const long long rhs = stringToLL(tok->next->str());
+@@ -1212,8 +1378,9 @@ void simplecpp::TokenList::constFoldMulDivRem(Token *tok)
+                 throw std::overflow_error("division/modulo by zero");
+             const long long lhs = stringToLL(tok->previous->str());
+             if (rhs == -1 && lhs == std::numeric_limits<long long>::min())
+-                throw std::overflow_error("division overflow");
+-            if (tok->op == '/')
++                // The quotient wraps to the least value, the remainder is 0.
++                result = (tok->op == '/') ? lhs : 0;
++            else if (tok->op == '/')
+                 result = (lhs / rhs);
+             else
+                 result = (lhs % rhs);
+@@ -1238,9 +1405,9 @@ void simplecpp::TokenList::constFoldAddSub(Token *tok)
+ 
+         long long result;
+         if (tok->op == '+')
+-            result = stringToLL(tok->previous->str()) + stringToLL(tok->next->str());
++            result = fromBits(toBits(stringToLL(tok->previous->str())) + toBits(stringToLL(tok->next->str())));
+         else if (tok->op == '-')
+-            result = stringToLL(tok->previous->str()) - stringToLL(tok->next->str());
++            result = fromBits(toBits(stringToLL(tok->previous->str())) - toBits(stringToLL(tok->next->str())));
+         else
+             continue;
+ 
+@@ -1259,13 +1426,23 @@ void simplecpp::TokenList::constFoldShift(Token *tok)
+         if (!tok->next || !tok->next->number)
+             continue;
+ 
++        if (tok->str() != "<<" && tok->str() != ">>")
++            continue;
++        const long long value = stringToLL(tok->previous->str());
++        const long long count = stringToLL(tok->next->str());
++        if (count < 0)
++            throw std::overflow_error("negative shift count");
+         long long result;
+-        if (tok->str() == "<<")
+-            result = stringToLL(tok->previous->str()) << stringToLL(tok->next->str());
+-        else if (tok->str() == ">>")
+-            result = stringToLL(tok->previous->str()) >> stringToLL(tok->next->str());
++        if (count >= 64)
++            // Every bit is shifted out, whichever way and whatever the sign.
++            result = 0;
++        else if (tok->str() == "<<")
++            result = fromBits(toBits(value) << count);
++        else if (value >= 0)
++            result = value >> count;
+         else
+-            continue;
++            // An arithmetic shift of a negative value, written out.
++            result = fromBits(~(~toBits(value) >> count));
+ 
+         tok = tok->previous;
+         tok->setstr(toString(result));
+@@ -1331,12 +1508,14 @@ void simplecpp::TokenList::constFoldBitwise(Token *tok)
+             if (!tok->next || !tok->next->number)
+                 continue;
+             long long result;
++            const unsigned long long lhs = toBits(stringToLL(tok->previous->str()));
++            const unsigned long long rhs = toBits(stringToLL(tok->next->str()));
+             if (*op == '&')
+-                result = (stringToLL(tok->previous->str()) & stringToLL(tok->next->str()));
++                result = fromBits(lhs & rhs);
+             else if (*op == '^')
+-                result = (stringToLL(tok->previous->str()) ^ stringToLL(tok->next->str()));
++                result = fromBits(lhs ^ rhs);
+             else /*if (*op == '|')*/
+-                result = (stringToLL(tok->previous->str()) | stringToLL(tok->next->str()));
++                result = fromBits(lhs | rhs);
+             tok = tok->previous;
+             tok->setstr(toString(result));
+             deleteToken(tok->next);
+@@ -1380,6 +1559,8 @@ void simplecpp::TokenList::constFoldQuestionOp(Token *&tok1)
+     bool gotoTok1 = false;
+     // NOLINTNEXTLINE(misc-const-correctness) - technically correct but used to access non-const data
+     for (Token *tok = tok1; tok && tok->op != ')'; tok =  gotoTok1 ? tok1 : tok->next) {
++        // Each fold starts again from the front: every step is counted.
++        chargeConditionStep();
+         gotoTok1 = false;
+         if (tok->str() != "?")
+             continue;
+@@ -1919,6 +2100,7 @@ namespace simplecpp {
+         }
+ 
+         const Token * expand(TokenList & output, const Location &loc, const Token * const nameTokInst, const MacroMap &macros, std::set<TokenString> expandedmacros) const {
++            const DepthScope depth;
+             expandedmacros.insert(nameTokInst->str());
+ 
+ #ifdef SIMPLECPP_DEBUG_MACRO_EXPANSION
+@@ -3298,6 +3480,7 @@ static bool preprocessToken(simplecpp::TokenList &output, const simplecpp::Token
+     if (it != macros.end()) {
+         simplecpp::TokenList value(files);
+         try {
++            const ExpansionScope expansion;
+             tok1 = it->second.expand(value, tok, macros, files);
+         } catch (const simplecpp::Macro::Error &err) {
+             if (outputList) {
+--- a/engine/vendored/simplecpp/simplecpp.h
++++ b/engine/vendored/simplecpp/simplecpp.h
+@@ -113,6 +113,55 @@ namespace simplecpp {
+ 
+     class Macro;
+ 
++    /**
++     * What one preprocessing may generate, counted, never timed, so that every machine
++     * stops at the same point (PDX: issue 87). A ceiling of 0 is none. While a Budget is
++     * in force on a thread (BudgetScope), the library charges it, and when a ceiling is
++     * passed it throws BudgetExhausted, which derives from no other exception, so that
++     * none of the library's own handlers takes it. The counts are what was used.
++     */
++    struct SIMPLECPP_LIB Budget {
++        std::size_t maxGeneratedTokens{}; /** tokens macro expansion creates, temporaries included */
++        std::size_t maxGeneratedBytes{};  /** the text of those tokens */
++        std::size_t maxSerializedBytes{}; /** what stringify writes, line padding and #line markers included */
++        std::size_t maxConditionSteps{};  /** tokens #if and #elif folding steps over */
++        std::size_t maxExpansions{};      /** macro expansions, nested ones included, which may create nothing */
++        unsigned int maxExpansionDepth{}; /** how deeply macro expansions nest */
++        unsigned int maxLinePadding{};    /** newlines stringify writes for one forward jump; past it, a #line marker */
++
++        std::size_t generatedTokens{};
++        std::size_t generatedBytes{};
++        std::size_t serializedBytes{};
++        std::size_t conditionSteps{};
++        std::size_t expansions{};
++        std::size_t lineMarkers{};         /** #line markers written in place of padding */
++        unsigned int expansionDepth{};    /** the nesting now */
++        unsigned int deepestExpansion{};
++        unsigned int longestLineJump{};   /** the largest forward jump stringify met in one file */
++        unsigned int expanding{};         /** nonzero while a top-level expansion runs: only then are tokens charged */
++    };
++
++    /** A Budget's ceiling was passed; `ceiling` names it. */
++    struct SIMPLECPP_LIB BudgetExhausted {
++        const char *ceiling;
++    };
++
++    /** Puts a Budget in force on this thread for its lifetime. */
++    class SIMPLECPP_LIB BudgetScope {
++    public:
++        explicit BudgetScope(Budget &budget);
++        ~BudgetScope();
++        BudgetScope(const BudgetScope &) = delete;
++        BudgetScope &operator=(const BudgetScope &) = delete;
++    private:
++        Budget *mPrevious;
++    };
++
++    namespace detail {
++        /** Charges tokens and text macro expansion creates to the Budget in force, if any. */
++        SIMPLECPP_LIB void chargeGenerated(std::size_t tokens, std::size_t bytes);
++    }
++
+     /**
+      * Location in source code
+      */
+@@ -156,10 +205,13 @@ namespace simplecpp {
+         Token(const TokenString &s, const Location &loc, bool wsahead = false) :
+             whitespaceahead(wsahead), location(loc), string(s) {
+             flags();
++            detail::chargeGenerated(1, string.size());
+         }
+ 
+         Token(const Token &tok) :
+-            macro(tok.macro), op(tok.op), comment(tok.comment), name(tok.name), number(tok.number), whitespaceahead(tok.whitespaceahead), location(tok.location), string(tok.string), mExpandedFrom(tok.mExpandedFrom) {}
++            macro(tok.macro), op(tok.op), comment(tok.comment), name(tok.name), number(tok.number), whitespaceahead(tok.whitespaceahead), location(tok.location), string(tok.string), mExpandedFrom(tok.mExpandedFrom) {
++            detail::chargeGenerated(1, string.size());
++        }
+ 
+         Token &operator=(const Token &tok) = delete;
+ 
+@@ -167,6 +219,8 @@ namespace simplecpp {
+             return string;
+         }
+         void setstr(const std::string &s) {
++            if (s.size() > string.size())
++                detail::chargeGenerated(0, s.size() - string.size());
+             string = s;
+             flags();
+         }

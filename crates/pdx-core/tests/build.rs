@@ -1074,3 +1074,82 @@ fn repo_id_source_is_no_part_of_any_identity() {
         registered_report.segment.content_sha256
     );
 }
+
+#[test]
+fn preprocessing_past_its_ceilings_degrades_the_segment() {
+    // Issue 87: doubling macros whose expansion passes its ceilings lose work, which
+    // degrades the build, the same way on every run; nothing else in it changes.
+    let mut bomb = String::from("void before(void);\n#define D0 leaf();\n");
+    for i in 1..=24 {
+        writeln!(bomb, "#define D{i} D{} D{}", i - 1, i - 1).unwrap();
+    }
+    bomb.push_str("void run(void) { before(); D24 }\n");
+    let checkout = Checkout::new(&[
+        ("src/bomb.c", bomb.as_str()),
+        (
+            "src/far.c",
+            "#define KEEP 1\nint before(void);\n#line 4294967295\nvoid after(void) { before(); }\n",
+        ),
+        ("src/app.py", "def greet(name):\n    return name\n"),
+    ]);
+    let report = checkout.build();
+    assert_eq!(report.status, SegmentStatus::Degraded);
+    assert_eq!(
+        report.degraded,
+        vec![DegradedReason::ExtractionLost {
+            paths: vec!["src/bomb.c".to_owned()]
+        }]
+    );
+    assert_eq!(report.files.failed, 0);
+    let again = build_segment(checkout.request("again.db")).expect("the build succeeds");
+    assert_eq!(again.status, SegmentStatus::Degraded);
+    assert_eq!(again.segment.content_sha256, report.segment.content_sha256);
+}
+
+#[test]
+fn repository_bytes_alone_cannot_exhaust_the_indexer() {
+    // Issue 87 is the prevention of a denial of service through repository content,
+    // which Stage 2 treats as untrusted. Each file below took memory or time without
+    // bound in preprocessing before: a far `#line` (2.7 GB at 400000000), doubling macros
+    // (1.3 GB at 22 levels), doubling macros that create nothing (exponential time) and
+    // 80,000 nested parentheses in an `#if` (quadratic: 9.2 s). Nothing is set but the
+    // bytes: no variable, no switch. The build completes; the far `#line` is clean and
+    // every other file is lost work, once. (Nesting past the depth ceiling is the
+    // engine's tests'; nested calls deep enough to have overflowed the stack cost
+    // extraction itself quadratic memory, issue 88.)
+    let mut bomb = String::from("void before(void);\n#define D0 leaf();\n");
+    let mut empty = String::from("void before(void);\n#define D0\n");
+    for i in 1..=40 {
+        if i <= 24 {
+            writeln!(bomb, "#define D{i} D{} D{}", i - 1, i - 1).unwrap();
+        }
+        writeln!(empty, "#define D{i} D{} D{}", i - 1, i - 1).unwrap();
+    }
+    bomb.push_str("void run(void) { before(); D24 }\n");
+    empty.push_str("void run(void) { before(); D40 }\n");
+    let parens = format!(
+        "#if {}1{}\nint before(void);\n#endif\n",
+        "(".repeat(80_000),
+        ")".repeat(80_000)
+    );
+    let checkout = Checkout::new(&[
+        ("src/bomb.c", bomb.as_str()),
+        ("src/empty.c", empty.as_str()),
+        ("src/parens.c", parens.as_str()),
+        (
+            "src/far.c",
+            "#define KEEP 1\nint before(void);\n#line 4294967295\nvoid after(void) { before(); }\n",
+        ),
+    ]);
+    let report = checkout.build();
+    assert_eq!(report.status, SegmentStatus::Degraded);
+    assert_eq!(
+        report.degraded,
+        vec![DegradedReason::ExtractionLost {
+            paths: ["src/bomb.c", "src/empty.c", "src/parens.c"]
+                .map(str::to_owned)
+                .to_vec()
+        }]
+    );
+    assert_eq!(report.files.failed, 0);
+}

@@ -16,9 +16,9 @@
  * Whole extractions, C and C++, whose calls are chosen by #if, #elif and macro expansion
  * on those values, must call what the fixed rules choose: every row of
  * tests/differential_rows.h and the surface. Each large #line names a file of its own,
- * so the library writes a #line marker instead of a newline for every line skipped
- * (issue 87), and its __LINE__ is carried back to the source's own lines by a macro. preprocessor_host_independence.cpp builds the library with char
- * unsigned too.
+ * and its __LINE__ is carried back to the source's own lines by a macro (a far jump is
+ * written as one #line marker either way, issue 87). preprocessor_host_independence.cpp
+ * builds the library with char unsigned too.
  */
 
 #include <stdint.h>

@@ -108,7 +108,12 @@ Everything goes through `include/pdxe.h`. In outline:
   fixed LP64 data model (`patches/0017-fixed-preprocessor-sizeof-model.patch`, issue 85),
   a one-byte character constant is a signed 8-bit char and a `#line` number is read at
   a fixed width and capped at 4294967295
-  (`patches/0018-host-independent-literals-and-line.patch`, issue 86).
+  (`patches/0018-host-independent-literals-and-line.patch`, issue 86). Nor does the
+  machine's memory or speed: a forward jump of more than 4,096 lines is one `#line`
+  marker, what one file's preprocessing writes and generates is held to ceilings counted
+  from its length, passing one discards the expansion and is lost work, and `#if`
+  arithmetic is 64-bit two's complement, written out
+  (`patches/0019-bounded-deterministic-preprocessing.patch`, issue 87).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

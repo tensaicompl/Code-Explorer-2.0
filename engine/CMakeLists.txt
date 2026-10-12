@@ -336,6 +336,9 @@ if(PDXE_BUILD_TESTS)
   # Nor the platform it was built for: sizeof in #if has one fixed data model (issue 85,
   # patches/0017).
   add_test(NAME c_family_sizeof COMMAND c_family_sizeof)
+  # Nor the machine's memory: what preprocessing writes and generates is bounded by the
+  # source, and passing a ceiling is lost work (issue 87, patches/0019).
+  add_test(NAME c_family_preprocess_budget COMMAND c_family_preprocess_budget)
 
   # Nor the compiler's char: the preprocessing library is built twice, plain char signed
   # and unsigned (as on Linux for AArch64), and both give the project's character
@@ -354,6 +357,16 @@ if(PDXE_BUILD_TESTS)
     set_target_properties(${target} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
     add_test(NAME ${target} COMMAND ${target})
   endforeach()
+
+  # What one preprocessing may generate is counted and bounded, each ceiling exactly at
+  # its edge, and #if arithmetic is defined throughout (issue 87, patches/0019).
+  set_source_files_properties(${PDXE_ROOT}/tests/preprocessor_bounds.cpp
+    PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra;-Werror")
+  add_executable(preprocessor_bounds ${PDXE_ROOT}/tests/preprocessor_bounds.cpp
+                 ${PDXE_ROOT}/src/preprocessor.cpp)
+  target_include_directories(preprocessor_bounds PRIVATE ${PDXE_ROOT}/src ${PDXE_ROOT}/vendored)
+  set_target_properties(preprocessor_bounds PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+  add_test(NAME preprocessor_bounds COMMAND preprocessor_bounds)
 
   # The warning exemptions reach vendored sources and never the interface layer.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)

@@ -27,9 +27,9 @@ const LITERALS: &[u8] = b"#if '\\xff' < 0
 void selected(void) { BRANCH(); LOW(); MULTI(); }
 ";
 
-/// Calls chosen by the line `#line` gives. Each large directive names a file of its own,
-/// so the engine never pads its expanded text to the line (issue 87), and the source's
-/// own lines resume at 20.
+/// Calls chosen by the line `#line` gives. Each large directive names a file of its own
+/// (a far jump in one file is a `#line` marker in the expanded text too, never padding,
+/// issue 87), and the source's own lines resume at 20.
 fn lines(rel_path: &str) -> Vec<u8> {
     format!(
         "#define KEEP 1

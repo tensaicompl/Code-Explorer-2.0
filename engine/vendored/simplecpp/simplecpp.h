@@ -114,6 +114,55 @@ namespace simplecpp {
     class Macro;
 
     /**
+     * What one preprocessing may generate, counted, never timed, so that every machine
+     * stops at the same point (PDX: issue 87). A ceiling of 0 is none. While a Budget is
+     * in force on a thread (BudgetScope), the library charges it, and when a ceiling is
+     * passed it throws BudgetExhausted, which derives from no other exception, so that
+     * none of the library's own handlers takes it. The counts are what was used.
+     */
+    struct SIMPLECPP_LIB Budget {
+        std::size_t maxGeneratedTokens{}; /** tokens macro expansion creates, temporaries included */
+        std::size_t maxGeneratedBytes{};  /** the text of those tokens */
+        std::size_t maxSerializedBytes{}; /** what stringify writes, line padding and #line markers included */
+        std::size_t maxConditionSteps{};  /** tokens #if and #elif folding steps over */
+        std::size_t maxExpansions{};      /** macro expansions, nested ones included, which may create nothing */
+        unsigned int maxExpansionDepth{}; /** how deeply macro expansions nest */
+        unsigned int maxLinePadding{};    /** newlines stringify writes for one forward jump; past it, a #line marker */
+
+        std::size_t generatedTokens{};
+        std::size_t generatedBytes{};
+        std::size_t serializedBytes{};
+        std::size_t conditionSteps{};
+        std::size_t expansions{};
+        std::size_t lineMarkers{};         /** #line markers written in place of padding */
+        unsigned int expansionDepth{};    /** the nesting now */
+        unsigned int deepestExpansion{};
+        unsigned int longestLineJump{};   /** the largest forward jump stringify met in one file */
+        unsigned int expanding{};         /** nonzero while a top-level expansion runs: only then are tokens charged */
+    };
+
+    /** A Budget's ceiling was passed; `ceiling` names it. */
+    struct SIMPLECPP_LIB BudgetExhausted {
+        const char *ceiling;
+    };
+
+    /** Puts a Budget in force on this thread for its lifetime. */
+    class SIMPLECPP_LIB BudgetScope {
+    public:
+        explicit BudgetScope(Budget &budget);
+        ~BudgetScope();
+        BudgetScope(const BudgetScope &) = delete;
+        BudgetScope &operator=(const BudgetScope &) = delete;
+    private:
+        Budget *mPrevious;
+    };
+
+    namespace detail {
+        /** Charges tokens and text macro expansion creates to the Budget in force, if any. */
+        SIMPLECPP_LIB void chargeGenerated(std::size_t tokens, std::size_t bytes);
+    }
+
+    /**
      * Location in source code
      */
     struct SIMPLECPP_LIB Location {
@@ -156,10 +205,13 @@ namespace simplecpp {
         Token(const TokenString &s, const Location &loc, bool wsahead = false) :
             whitespaceahead(wsahead), location(loc), string(s) {
             flags();
+            detail::chargeGenerated(1, string.size());
         }
 
         Token(const Token &tok) :
-            macro(tok.macro), op(tok.op), comment(tok.comment), name(tok.name), number(tok.number), whitespaceahead(tok.whitespaceahead), location(tok.location), string(tok.string), mExpandedFrom(tok.mExpandedFrom) {}
+            macro(tok.macro), op(tok.op), comment(tok.comment), name(tok.name), number(tok.number), whitespaceahead(tok.whitespaceahead), location(tok.location), string(tok.string), mExpandedFrom(tok.mExpandedFrom) {
+            detail::chargeGenerated(1, string.size());
+        }
 
         Token &operator=(const Token &tok) = delete;
 
@@ -167,6 +219,8 @@ namespace simplecpp {
             return string;
         }
         void setstr(const std::string &s) {
+            if (s.size() > string.size())
+                detail::chargeGenerated(0, s.size() - string.size());
             string = s;
             flags();
         }

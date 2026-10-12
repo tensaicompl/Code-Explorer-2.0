@@ -19,7 +19,7 @@
  *     of N, read at a fixed width, at most 4294967295: not by atol, whose C long is 32
  *     bits on Windows and 64 elsewhere. Lines are read from the tokens' locations,
  *     never from the expanded text, which the library pads with one newline per line a
- *     #line skips (issue 87).
+ *     #line skips when no simplecpp::Budget limits the padding (issue 87).
  */
 
 #include <climits>
@@ -175,7 +175,8 @@ static void check_lines() {
         }
     }
     // Through the preprocessor, where each directive names another file, so that the
-    // library writes a #line marker rather than pad: __LINE__ is the same number.
+    // library, with no Budget here, writes a #line marker rather than pad: __LINE__ is
+    // the same number.
     const std::string text =
         preprocess("#line 4294967296 \"huge.c\"\nint at = __LINE__;\n#line 2147483648 \"wide.c\"\n"
                    "int at2 = __LINE__;\n");

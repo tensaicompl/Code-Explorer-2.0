@@ -51,7 +51,9 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// `#include` or `__has_include` names (issue 83, decision 51), nor a clock: `__DATE__`
 /// and `__TIME__` are fixed (issue 84, decision 53), nor the platform: `sizeof` in `#if`
 /// has one fixed data model (issue 85, decision 54), and character constants and `#line`
-/// numbers are read by fixed rules (issue 86, decision 55).
+/// numbers are read by fixed rules (issue 86, decision 55), nor the machine's memory or
+/// speed: its work is bounded by the source, and its `#if` arithmetic is defined (issue
+/// 87, decision 56).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
 pub const ENGINE_VERSION: u32 = 7;
 

@@ -50,7 +50,8 @@
  * or __has_include names (issue 83, patch 0015), nor a clock: __DATE__ and __TIME__ are
  * fixed (issue 84, patch 0016), nor the platform: sizeof in #if has one fixed data model
  * (issue 85, patch 0017), and character constants and #line numbers are read by fixed
- * rules (issue 86, patch 0018). */
+ * rules (issue 86, patch 0018), nor the machine's memory or speed: its work is bounded
+ * by the source, and its #if arithmetic is defined (issue 87, patch 0019). */
 static const char ENGINE_VERSION_STRING[] = "7";
 
 const char *pdxe_version(void) {

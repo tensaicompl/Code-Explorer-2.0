@@ -420,9 +420,42 @@ static bool build_line_map(const std::string &expanded, const std::string &main_
     return true;
 }
 
+static thread_local PDXEPreprocessStats last_stats;
+
+size_t pdxe_preprocess_budget_for_source_len(int source_len) {
+    const size_t max = PDXE_PREPROCESS_MAX_EXPANDED_BYTES;
+    if (source_len <= 0) {
+        return PDXE_PREPROCESS_MIN_EXPANDED_BYTES;
+    }
+    // Compared before multiplying, so that nothing overflows.
+    if ((size_t)source_len >= max / PDXE_PREPROCESS_EXPANSION_FACTOR) {
+        return max;
+    }
+    const size_t budget = (size_t)source_len * PDXE_PREPROCESS_EXPANSION_FACTOR;
+    return budget < PDXE_PREPROCESS_MIN_EXPANDED_BYTES ? PDXE_PREPROCESS_MIN_EXPANDED_BYTES
+                                                       : budget;
+}
+
+const PDXEPreprocessStats *pdxe_preprocess_last_stats(void) {
+    return &last_stats;
+}
+
+static void record_stats(const simplecpp::Budget &budget, PDXEPreprocessStats *stats) {
+    stats->generated_tokens = budget.generatedTokens;
+    stats->generated_bytes = budget.generatedBytes;
+    stats->serialized_bytes = budget.serializedBytes;
+    stats->condition_steps = budget.conditionSteps;
+    stats->expansions = budget.expansions;
+    stats->line_markers = budget.lineMarkers;
+    stats->deepest_expansion = budget.deepestExpansion;
+    stats->longest_line_jump = budget.longestLineJump;
+}
+
 PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_len,
                                                const char *filename, const char **extra_defines,
                                                const char **include_paths, int cpp_mode) {
+    last_stats = PDXEPreprocessStats();
+    last_stats.budget = pdxe_preprocess_budget_for_source_len(source_len);
     // Run the second pass when there are directives to evaluate OR when the file
     // carries export-macro-shaped identifiers to predefine empty (#1989) — a UE
     // plugin header with only `#pragma once` + `#include` lines still needs it.
@@ -504,9 +537,30 @@ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_
         simplecpp::TokenList output(files);
         simplecpp::FileDataCache filedata = simplecpp::load(rawtokens, files, dui);
 
-        simplecpp::preprocess(output, rawtokens, files, filedata, dui);
-
-        std::string result = output.stringify();
+        // What the preprocessing may generate, counted, from the source's length alone
+        // (issue 87): passing a ceiling discards the expansion, and the caller counts it
+        // as lost work.
+        simplecpp::Budget budget;
+        budget.maxGeneratedTokens = PDXE_PREPROCESS_MAX_GENERATED_TOKENS;
+        budget.maxGeneratedBytes = last_stats.budget;
+        budget.maxSerializedBytes = last_stats.budget;
+        budget.maxConditionSteps = last_stats.budget;
+        budget.maxExpansions = PDXE_PREPROCESS_MAX_EXPANSIONS;
+        budget.maxExpansionDepth = PDXE_PREPROCESS_MAX_EXPANSION_DEPTH;
+        budget.maxLinePadding = PDXE_PREPROCESS_MAX_LINE_PADDING;
+        std::string result;
+        try {
+            const simplecpp::BudgetScope scope(budget);
+            simplecpp::preprocess(output, rawtokens, files, filedata, dui);
+            result = output.stringify();
+        } catch (const simplecpp::BudgetExhausted &exhausted) {
+            record_stats(budget, &last_stats);
+            last_stats.exhausted = 1;
+            last_stats.ceiling = exhausted.ceiling;
+            simplecpp::cleanup(filedata);
+            return NULL;
+        }
+        record_stats(budget, &last_stats);
 
         // Clean up loaded file data
         simplecpp::cleanup(filedata);
