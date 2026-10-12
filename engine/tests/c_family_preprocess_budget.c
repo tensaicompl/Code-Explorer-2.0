@@ -10,7 +10,7 @@
  * every ceiling is a count from the source's length and fixed constants, never a time,
  * the environment or the machine:
  *
- *   - the byte budget is 16 bytes a source byte, at least 256 KiB and at most 8 MiB,
+ *   - the byte budget is 24 bytes a source byte, at least 256 KiB and at most 8 MiB,
  *     computed without overflow: checked at its boundaries and against an independent
  *     64-bit reference at every length up to past the cap;
  *   - a forward jump of up to PDXE_PREPROCESS_MAX_LINE_PADDING lines is padded, one of
@@ -104,7 +104,7 @@ static PDXEPreprocessedSource *preprocess(const char *source, const char *rel,
 /* The budget formula. */
 
 static int64_t reference_budget(int64_t len) {
-    int64_t budget = len * 16;
+    int64_t budget = len * 24;
     if (budget < 256 * 1024) {
         budget = 256 * 1024;
     }
@@ -112,7 +112,7 @@ static int64_t reference_budget(int64_t len) {
 }
 
 static void check_formula(void) {
-    CHECK(PDXE_PREPROCESS_EXPANSION_FACTOR == 16 && PDXE_PREPROCESS_MIN_EXPANDED_BYTES == 262144u &&
+    CHECK(PDXE_PREPROCESS_EXPANSION_FACTOR == 24 && PDXE_PREPROCESS_MIN_EXPANDED_BYTES == 262144u &&
               PDXE_PREPROCESS_MAX_EXPANDED_BYTES == 8388608u &&
               PDXE_PREPROCESS_MAX_GENERATED_TOKENS == 500000u &&
               PDXE_PREPROCESS_MAX_EXPANSIONS == 500000u &&
@@ -122,9 +122,12 @@ static void check_formula(void) {
         int len;
         size_t budget;
     } EDGES[] = {
-        {INT_MIN, 262144}, {-1, 262144},       {0, 262144},       {1, 262144},
-        {16383, 262144},   {16384, 262144},    {16385, 262160},   {100000, 1600000},
-        {524287, 8388592}, {524288, 8388608},  {524289, 8388608}, {2097152, 8388608},
+        /* The floor: 10,922 × 24 = 262,128 is under it, 10,923 × 24 = 262,152 over. */
+        {INT_MIN, 262144},  {-1, 262144},       {0, 262144},        {1, 262144},
+        {10922, 262144},    {10923, 262152},    {10924, 262176},    {18591, 446184},
+        {100000, 2400000},
+        /* The cap: 349,525 × 24 = 8,388,600 is under it; 349,526 × 24 would pass it. */
+        {349524, 8388576},  {349525, 8388600},  {349526, 8388608},  {2097152, 8388608},
         {INT_MAX, 8388608},
     };
     for (size_t i = 0; i < sizeof(EDGES) / sizeof(EDGES[0]); i++) {

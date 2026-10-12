@@ -16,7 +16,7 @@
 /* The ceilings of one file's preprocessing (docs/plan/ISSUES.md, issue 87; decision 56).
  * They are counts derived from the source's length and these constants alone, never a
  * time or the machine's memory, so every machine stops a file at the same point. The
- * byte budget is 16 bytes for every source byte, at least 256 KiB and at most 8 MiB
+ * byte budget is 24 bytes for every source byte, at least 256 KiB and at most 8 MiB
  * (pdxe_preprocess_budget_for_source_len). It bounds, each on its own:
  *   - the text of the tokens macro expansion creates, its temporaries included;
  *   - the expanded text written out, line padding and #line markers included;
@@ -27,7 +27,7 @@
  * #line jump of more than PDXE_PREPROCESS_MAX_LINE_PADDING lines is written as a #line
  * marker rather than a newline per line. Passing a ceiling is lost work: the expansion
  * is discarded and the file is extracted from its source alone. */
-#define PDXE_PREPROCESS_EXPANSION_FACTOR 16
+#define PDXE_PREPROCESS_EXPANSION_FACTOR 24
 #define PDXE_PREPROCESS_MIN_EXPANDED_BYTES (256u * 1024u)
 #define PDXE_PREPROCESS_MAX_EXPANDED_BYTES (8u * 1024u * 1024u)
 #define PDXE_PREPROCESS_MAX_GENERATED_TOKENS 500000u

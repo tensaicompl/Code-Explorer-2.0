@@ -168,12 +168,12 @@ the buffer Stage 2 supplies is the whole input.
 - **No machine.** Preprocessing is bounded by the source (`preprocessor.h`'s
   `PDXE_PREPROCESS_*`): a forward jump of more than 4,096 lines is one `#line` marker;
   the bytes written and generated and the `#if` folding steps are held to
-  `clamp(16 × len, 256 KiB, 8 MiB)`, generated tokens and expansions to 500,000 each, and
+  `clamp(24 × len, 256 KiB, 8 MiB)`, generated tokens and expansions to 500,000 each, and
   nesting to 256. Passing one throws inside the work, discards the expansion and is lost
   work once (never cached, degraded). `#if` arithmetic is 64-bit two's complement
   written out, and integer literals are read by an explicit reader. No timeout and no
   environment override; a ceiling that starves real code is changed by decision, never
-  to fit a test (Linux has 5 files past them).
+  to fit a test (Linux has 4 files past them, all amplification by design).
 - **No path amplification.** A site's node-type path is complete or absent, never cut
   (it is part of the site's identity). One per-file budget (`PDXESitePathBudget`,
   `pdxe_site_path_alloc`) serves every producer: at most 1,024 entries a path and

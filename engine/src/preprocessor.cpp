@@ -427,8 +427,9 @@ size_t pdxe_preprocess_budget_for_source_len(int source_len) {
     if (source_len <= 0) {
         return PDXE_PREPROCESS_MIN_EXPANDED_BYTES;
     }
-    // Compared before multiplying, so that nothing overflows.
-    if ((size_t)source_len >= max / PDXE_PREPROCESS_EXPANSION_FACTOR) {
+    // Compared before multiplying, so that nothing overflows: a length at most
+    // max / factor, rounded down, multiplies to at most max.
+    if ((size_t)source_len > max / PDXE_PREPROCESS_EXPANSION_FACTOR) {
         return max;
     }
     const size_t budget = (size_t)source_len * PDXE_PREPROCESS_EXPANSION_FACTOR;
