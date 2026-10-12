@@ -1,0 +1,46 @@
+--- a/engine/src/preprocessor.cpp
++++ b/engine/src/preprocessor.cpp
+@@ -464,6 +464,11 @@ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_
+                 dui.includePaths.push_back(include_paths[i]);
+         }
+         dui.std = cpp_mode ? "c++17" : "c11";
++        // The source given is the whole input: no file is opened, so no #include target
++        // and no file __has_include names is found, wherever the process runs. Include
++        // directives stay in the source, where extraction reads them as facts, and the
++        // macros and conditionals the source itself defines are still expanded.
++        dui.sourceOnly = true;
+ 
+         std::string src(source, source_len);
+         std::istringstream istr(src);
+--- a/engine/vendored/simplecpp/simplecpp.cpp
++++ b/engine/vendored/simplecpp/simplecpp.cpp
+@@ -3050,6 +3050,9 @@ static std::string openHeaderDirect(std::ifstream &f, const std::string &path)
+ 
+ static std::string openHeader(std::ifstream &f, const simplecpp::DUI &dui, const std::string &sourcefile, const std::string &header, bool systemheader)
+ {
++    if (dui.sourceOnly)
++        return "";
++
+     if (simplecpp::isAbsolutePath(header))
+         return openHeaderDirect(f, simplecpp::simplifyPath(header));
+ 
+@@ -3098,6 +3101,9 @@ std::pair<simplecpp::FileData *, bool> simplecpp::FileDataCache::tryload(FileDat
+ 
+ std::pair<simplecpp::FileData *, bool> simplecpp::FileDataCache::get(const std::string &sourcefile, const std::string &header, const simplecpp::DUI &dui, bool systemheader, std::vector<std::string> &filenames, simplecpp::OutputList *outputList)
+ {
++    if (dui.sourceOnly)
++        return {nullptr, false};
++
+     if (isAbsolutePath(header)) {
+         auto ins = mNameMap.emplace(simplecpp::simplifyPath(header), nullptr);
+ 
+--- a/engine/vendored/simplecpp/simplecpp.h
++++ b/engine/vendored/simplecpp/simplecpp.h
+@@ -438,6 +438,7 @@ namespace simplecpp {
+         std::string std;
+         bool clearIncludeCache{};
+         bool removeComments{}; /** remove comment tokens from included files */
++        bool sourceOnly{}; /** preprocess the given source alone: open no file, so no #include, -include or __has_include target is ever found */
+     };
+ 
+     struct SIMPLECPP_LIB FileData {

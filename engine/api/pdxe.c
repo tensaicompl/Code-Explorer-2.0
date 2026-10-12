@@ -45,8 +45,10 @@
  * not represent belong to the nearest represented callable, whose node their path
  * starts at, while keeping their nested lexical scope (issue 75, patch 0013). 6: a
  * site's owner is joined to its definition by the declaration occurrence of the
- * callable around it, never by comparing qualified names (issue 76, patch 0014). */
-static const char ENGINE_VERSION_STRING[] = "6";
+ * callable around it, never by comparing qualified names (issue 76, patch 0014). 7: C
+ * and C++ preprocessing reads nothing but the source given, never a file an #include
+ * or __has_include names (issue 83, patch 0015). */
+static const char ENGINE_VERSION_STRING[] = "7";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;

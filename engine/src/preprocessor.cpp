@@ -464,6 +464,11 @@ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_
                 dui.includePaths.push_back(include_paths[i]);
         }
         dui.std = cpp_mode ? "c++17" : "c11";
+        // The source given is the whole input: no file is opened, so no #include target
+        // and no file __has_include names is found, wherever the process runs. Include
+        // directives stay in the source, where extraction reads them as facts, and the
+        // macros and conditionals the source itself defines are still expanded.
+        dui.sourceOnly = true;
 
         std::string src(source, source_len);
         std::istringstream istr(src);

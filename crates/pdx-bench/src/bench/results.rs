@@ -898,7 +898,7 @@ mod tests {
         let merged = merge(Some(old), fresh.clone(), Path::new("f.json")).expect("merges");
         assert_eq!(
             merged.performance, None,
-            "an engine 5 baseline is not engine 6's"
+            "an engine 5 baseline is not this engine's"
         );
         assert_eq!(merged.provenance.engine_version, ENGINE_VERSION);
 

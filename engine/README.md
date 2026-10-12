@@ -98,6 +98,10 @@ Everything goes through `include/pdxe.h`. In outline:
   Every route binding a definition's annotations or decorators declare crosses as a
   `pdxe_route`, with the declaring node's position and node-type path
   (`patches/0011-route-facts.patch`, issue 54).
+  The bytes given are the whole input. C and C++ preprocessing expands the macros and
+  conditionals the source defines itself and opens no file: an `#include` target, or a
+  file `__has_include` names, is never found, wherever the process runs, and the
+  directive stays an import (`patches/0015-source-only-preprocessing.patch`, issue 83).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

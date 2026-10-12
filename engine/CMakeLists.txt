@@ -327,6 +327,10 @@ if(PDXE_BUILD_TESTS)
   # capped, and running it out is still lost work (issue 74, patches/0012).
   add_test(NAME c_eval_budget COMMAND c_eval_budget)
 
+  # C and C++ extraction reads nothing but the source it is given: no include target,
+  # wherever the process runs (issue 83, patches/0015).
+  add_test(NAME c_family_input_isolation COMMAND c_family_input_isolation)
+
   # The warning exemptions reach vendored sources and never the interface layer.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   add_test(NAME api_warnings_are_errors

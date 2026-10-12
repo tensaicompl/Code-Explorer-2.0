@@ -309,15 +309,23 @@ const CACHE_ENV: &str = "PDX_CORE_TEST_CACHE";
 /// Runs the calling test again in a child process of this binary with `env` set
 /// there only; returns `false` in the child, which runs the test's child half.
 fn rerun_in_child(test: &str, env: &[(&str, &str)]) -> bool {
+    rerun_in_child_at(test, None, env)
+}
+
+/// [`rerun_in_child`], with the child's working directory at `cwd` when there is one.
+fn rerun_in_child_at(test: &str, cwd: Option<&Path>, env: &[(&str, &str)]) -> bool {
     if std::env::var_os(CHILD).is_some() {
         return false;
     }
-    let out = Command::new(std::env::current_exe().expect("the test binary"))
+    let mut child = Command::new(std::env::current_exe().expect("the test binary"));
+    child
         .args(["--exact", test, "--nocapture", "--test-threads=1"])
         .env(CHILD, "1")
-        .envs(env.iter().copied())
-        .output()
-        .expect("the test binary runs");
+        .envs(env.iter().copied());
+    if let Some(cwd) = cwd {
+        child.current_dir(cwd);
+    }
+    let out = child.output().expect("the test binary runs");
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
         out.status.success(),
@@ -713,26 +721,26 @@ fn cache_object_id_fixed_vector() {
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (6, 2),
-        "the vector below is engine 6's and matrix 2's"
+        (7, 2),
+        "the vector below is engine 7's and matrix 2's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 4,
         "the vector below is detector 4's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 5, 5 and 2, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 5, 7 and 2, the policy digest
     // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
-    // 3's and 4's are in cache_key_includes_engine_version. Detector 3's was
+    // 3's to 6's are in cache_key_includes_engine_version. Detector 3's was
     // c1c95f71…8e28 and detector 2's 6ff3be1c…d177: each policy moved every key, and
     // the format did not move.
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "c44fe66761974e125a70281ccdcb36a855b93278cc9fe4fd41364a56a8f50069"
+        "59c9f740b209487b952943927cf2d43873b91d1f7b8bbf949f33d47b59b7550a"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v5").join("c4").join(&id));
+    assert_eq!(path, Path::new("cache").join("v5").join("59").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -743,8 +751,8 @@ fn cache_object_id_fixed_vector() {
 
 #[test]
 fn cache_key_includes_engine_version() {
-    // An engine whose output can differ is another key: what engine 3, 4 or 5 cached is
-    // never found by engine 6, and the cache format stays 5 (issues 74 to 76).
+    // An engine whose output can differ is another key: what engines 3 to 6 cached is
+    // never found by engine 7, and the cache format stays 5 (issues 74 to 76 and 83).
     // Independently computed, as the vector above, with each engine version.
     let key = CacheKey::new(
         SecretPolicyDigest::of(&PdxConfig::default().secrets),
@@ -771,6 +779,10 @@ fn cache_key_includes_engine_version() {
             6,
             "c44fe66761974e125a70281ccdcb36a855b93278cc9fe4fd41364a56a8f50069",
         ),
+        (
+            7,
+            "59c9f740b209487b952943927cf2d43873b91d1f7b8bbf949f33d47b59b7550a",
+        ),
     ] {
         let mut versioned = key.clone();
         versioned.engine_version = engine;
@@ -783,10 +795,10 @@ fn cache_key_includes_engine_version() {
         assert!(path.starts_with(Path::new("cache").join("v5")), "{path:?}");
         ids.push(versioned.object_id());
     }
-    assert_eq!(key.object_id(), ids[3], "the current key is engine 6's");
+    assert_eq!(key.object_id(), ids[4], "the current key is engine 7's");
     ids.sort();
     ids.dedup();
-    assert_eq!(ids.len(), 4, "each engine version is another key");
+    assert_eq!(ids.len(), 5, "each engine version is another key");
 }
 
 #[test]
@@ -1890,4 +1902,309 @@ fn checkout_root_is_never_part_of_an_entry() {
             .write("web/store.ts", TYPED);
     }
     assert_eq!(entries(&one), entries(&two));
+}
+
+// --- C-family input isolation (issue 83) ---------------------------------------------
+//
+// The engine's C and C++ preprocessing used to load every file a source #included,
+// relative to the process's working directory: an extraction then held what files
+// Stage 2 never read (so never masked), possibly from outside the repository, that no
+// cache key names. Since engine 7 the normalised buffer is the whole input (decision
+// 51). Each test runs the stage in child processes whose working directories differ,
+// as `pdx index` run from different places would.
+
+const OUT_ENV: &str = "PDX_CORE_TEST_OUT";
+
+/// What a child's stage run extracted: every extraction as JSON by path, and the
+/// cache hits.
+#[derive(serde::Serialize, serde::Deserialize)]
+struct ChildRun {
+    extracts: BTreeMap<String, String>,
+    cache_hits: u64,
+}
+
+/// The child half: the stage over the parent's checkout, with the parent's cache when it
+/// names one, written where the parent says.
+fn child_run() {
+    let root = PathBuf::from(std::env::var_os(ROOT_ENV).expect("the parent names the checkout"));
+    let config = PdxConfig::load(&root).unwrap();
+    let files = discover(&root, &config).unwrap();
+    let cache = std::env::var_os(CACHE_ENV).map(FsCache::at);
+    let probe = Probe::new(Twist::None);
+    let factory = backend(&probe);
+    let mut stage = ExtractStage::new(&root, &config.secrets, LIMITS).with_backend(&factory);
+    if let Some(cache) = &cache {
+        stage = stage.with_cache(cache);
+    }
+    let report = stage.run(&files).expect("the stage runs");
+    let extracts = report
+        .files
+        .iter()
+        .filter_map(|f| match &f.outcome {
+            FileOutcome::Extracted { extract, .. } => {
+                Some((f.path.clone(), serde_json::to_string(extract).unwrap()))
+            }
+            _ => None,
+        })
+        .collect();
+    let out = ChildRun {
+        extracts,
+        cache_hits: report.stats.cache_hits,
+    };
+    let path = std::env::var_os(OUT_ENV).expect("the parent names the output");
+    fs::write(path, serde_json::to_vec(&out).unwrap()).unwrap();
+}
+
+/// Runs `test`'s child half with its working directory at `cwd`, over the checkout at
+/// `root`, with `cache` when there is one.
+fn run_at(test: &str, cwd: &Path, root: &Path, cache: Option<&Path>) -> ChildRun {
+    let out = tempfile::NamedTempFile::new().unwrap();
+    let mut env = vec![
+        (ROOT_ENV, root.to_str().unwrap()),
+        (OUT_ENV, out.path().to_str().unwrap()),
+    ];
+    if let Some(cache) = cache {
+        env.push((CACHE_ENV, cache.to_str().unwrap()));
+    }
+    assert!(rerun_in_child_at(test, Some(cwd), &env));
+    serde_json::from_slice(&fs::read(out.path()).unwrap()).unwrap()
+}
+
+/// A directory of temporary files, written by relative path.
+fn files_in(dir: &Path, files: &[(&str, &str)]) {
+    for (relative, content) in files {
+        let path = dir.join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, content).unwrap();
+    }
+}
+
+/// The `field` of every `list` entry of a child's extraction of `path`: its calls'
+/// callees or its imports' modules.
+fn names_in(run: &ChildRun, path: &str, list: &str, field: &str) -> Vec<String> {
+    let extract: serde_json::Value = serde_json::from_str(&run.extracts[path]).unwrap();
+    extract[list]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|entry| entry[field].as_str().unwrap().to_owned())
+        .collect()
+}
+
+fn callees(run: &ChildRun, path: &str) -> Vec<String> {
+    names_in(run, path, "calls", "callee_text")
+}
+
+#[test]
+fn c_family_extraction_is_independent_of_the_working_directory() {
+    const TEST: &str = "c_family_extraction_is_independent_of_the_working_directory";
+    if in_child() {
+        return child_run();
+    }
+    let (base, nowhere) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (repo, elsewhere, empty) = (
+        base.path().join("repo"),
+        base.path().join("elsewhere"),
+        nowhere.path().to_path_buf(),
+    );
+    files_in(
+        &repo,
+        &[
+            (
+                "src/app.c",
+                "#include \"app.h\"\n#include \"../include/shared.h\"\n#include \"../../outside/external.h\"\n#define LOCAL_CALL(x) local_target(x)\nint run(void) { return HEADER_CALL(1) + SHARED_CALL(2) + EXTERNAL_CALL(3) + LOCAL_CALL(4); }\n",
+            ),
+            (
+                "src/app.cpp",
+                "#if __has_include(\"app.h\")\n#define PICK() has_header_branch()\n#else\n#define PICK() no_header_branch()\n#endif\n#include \"app.h\"\nint run2() { return PICK() + HEADER_CALL(5); }\n",
+            ),
+            (
+                "src/app.h",
+                "#define HEADER_CALL(x) header_target_repo(x)\nint header_defined_fn(void) { return header_inner_call(); }\n",
+            ),
+            (
+                "include/shared.h",
+                "#define SHARED_CALL(x) shared_target_repo(x)\n",
+            ),
+        ],
+    );
+    files_in(
+        base.path(),
+        &[(
+            "outside/external.h",
+            "#define EXTERNAL_CALL(x) outside_target(x)\n",
+        )],
+    );
+    files_in(
+        &elsewhere,
+        &[
+            (
+                "src/app.h",
+                "#define HEADER_CALL(x) header_target_elsewhere(x)\n",
+            ),
+            (
+                "include/shared.h",
+                "#define SHARED_CALL(x) shared_target_elsewhere(x)\n",
+            ),
+        ],
+    );
+
+    let at_root = run_at(TEST, &repo, &repo, None);
+    let at_elsewhere = run_at(TEST, &elsewhere, &repo, None);
+    let at_empty = run_at(TEST, &empty, &repo, None);
+    assert_eq!(at_root.extracts.len(), 4);
+    for (path, extract) in &at_empty.extracts {
+        assert_eq!(&at_root.extracts[path], extract, "{path}: from the root");
+        assert_eq!(
+            &at_elsewhere.extracts[path], extract,
+            "{path}: from elsewhere"
+        );
+    }
+    // Nothing of a header reaches a source that includes it, and the source's own macros
+    // and its include directives are kept.
+    for path in ["src/app.c", "src/app.cpp"] {
+        for name in [
+            "header_target",
+            "shared_target",
+            "outside_target",
+            "header_inner_call",
+            "has_header_branch",
+        ] {
+            assert!(
+                !callees(&at_root, path).iter().any(|c| c.contains(name)),
+                "{path}: a header's {name}"
+            );
+        }
+    }
+    assert!(callees(&at_root, "src/app.c").contains(&"local_target".to_owned()));
+    assert!(callees(&at_root, "src/app.cpp").contains(&"no_header_branch".to_owned()));
+    assert_eq!(
+        names_in(&at_root, "src/app.c", "imports", "module_text"),
+        ["app.h", "../include/shared.h", "../../outside/external.h"]
+    );
+}
+
+#[test]
+fn ambient_header_change_cannot_change_a_cached_extraction() {
+    // A header is not an extraction input: changing it leaves the including file's key
+    // unchanged, so a cache hit and a fresh extraction must be the same.
+    const TEST: &str = "ambient_header_change_cannot_change_a_cached_extraction";
+    if in_child() {
+        return child_run();
+    }
+    let checkout = Checkout::new();
+    checkout
+        .write(
+            "src/app.c",
+            "#include \"app.h\"\n#define LOCAL 1\nint run(void) { return HEADER_CALL(1); }\n",
+        )
+        .write(
+            "src/app.h",
+            "#define HEADER_CALL(x) header_target_before(x)\n",
+        );
+    let cache = Cache::new();
+    let cache_dir = cache.dir.path().join("extract");
+    let root = checkout.root();
+
+    let cold = run_at(TEST, root, root, Some(&cache_dir));
+    assert_eq!(cold.cache_hits, 0);
+    checkout.write(
+        "src/app.h",
+        "#define HEADER_CALL(x) header_target_after_change(x)\n",
+    );
+    let warm = run_at(TEST, root, root, Some(&cache_dir));
+    assert_eq!(
+        warm.cache_hits, 1,
+        "src/app.c is a hit, the changed header is not"
+    );
+    let fresh = run_at(TEST, root, root, None);
+    assert_eq!(warm.extracts["src/app.c"], fresh.extracts["src/app.c"]);
+    assert_eq!(cold.extracts["src/app.c"], fresh.extracts["src/app.c"]);
+    assert_ne!(cold.extracts["src/app.h"], fresh.extracts["src/app.h"]);
+}
+
+#[test]
+fn cache_entries_of_engine_six_are_never_served() {
+    // Engine 6 loaded the files a C or C++ source included, so what it cached may hold a
+    // header's content. Engine 7 reads none, and the version in the key keeps every
+    // engine 6 entry from being found (issue 83).
+    let checkout = Checkout::new();
+    checkout.write(
+        "src/app.c",
+        "#define LOCAL_CALL(x) local_target(x)\nint run(void) { return LOCAL_CALL(1); }\n",
+    );
+    let config = checkout.config();
+    let fresh = run(&checkout, None, &Probe::new(Twist::None));
+    let mut stale = extract_of(&fresh, "src/app.c").clone();
+    stale.calls[0].callee_text = "ambient_header_target".into();
+    let mut key = key_for(&checkout, &config, "src/app.c", "c");
+    key.engine_version = 6;
+    let cache = Cache::new();
+    plant(&cache, &key, &CacheEnvelope::encode(&key, &stale));
+
+    let probe = Probe::new(Twist::None);
+    let report = run(&checkout, Some(&cache), &probe);
+    assert_eq!(report.stats.cache_hits, 0, "an engine 6 entry was served");
+    assert_eq!(probe.files(), 1);
+    assert_eq!(
+        extract_of(&report, "src/app.c"),
+        extract_of(&fresh, "src/app.c")
+    );
+}
+
+#[test]
+fn c_family_engine_reads_only_the_normalised_bytes() {
+    // Stage 2 gives the engine the masked buffer and never opens a redacted file. A
+    // source that includes itself (the X-macro idiom), or includes a redacted file, must
+    // not get the original bytes back from disk: the URI the source's own macro expands
+    // to is the masked one.
+    const TEST: &str = "c_family_engine_reads_only_the_normalised_bytes";
+    if in_child() {
+        return child_run();
+    }
+    let tag = |n: u32| format!("{}{n:04}", ["pdx", "synth", "leak"].concat());
+    let (base, nowhere) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+    let (repo, empty) = (base.path().join("repo"), nowhere.path());
+    let vault = format!(
+        "#define VAULT_URI \"{}://app:{}@db/app\"\n#define CONNECT() connect_db(VAULT_URI)\n#ifndef VAULT_SELF\n#define VAULT_SELF\n#include \"vault.c\"\nvoid open_vault(void) {{ CONNECT(); }}\n#endif\n",
+        "postgres",
+        tag(11)
+    );
+    let key = format!("#define DEPLOY_KEY_ARG \"{}\"\n", tag(12));
+    files_in(
+        &repo,
+        &[
+            ("src/vault.c", vault.as_str()),
+            ("keys/id_rsa_deploy.h", key.as_str()),
+            (
+                "src/deploy.c",
+                "#include \"../keys/id_rsa_deploy.h\"\n#define LOCAL 1\nvoid deploy(void) { push_key(DEPLOY_KEY_ARG); }\n",
+            ),
+        ],
+    );
+    let planted = [tag(11), tag(12)];
+    let cache = Cache::new();
+    let cache_dir = cache.dir.path().join("extract");
+
+    let at_root = run_at(TEST, &repo, &repo, Some(&cache_dir));
+    let at_empty = run_at(TEST, empty, &repo, None);
+    assert_eq!(
+        at_root.extracts.keys().collect::<Vec<_>>(),
+        ["src/deploy.c", "src/vault.c"],
+        "the key file is redacted"
+    );
+    assert_eq!(at_root.extracts, at_empty.extracts);
+    // The source's own macro still expands, to the masked URI.
+    let masked = format!("postgres://app:{}@db/app", "X".repeat(tag(11).len()));
+    assert!(at_root.extracts["src/vault.c"].contains(&masked));
+    for (path, extract) in &at_root.extracts {
+        for secret in &planted {
+            assert!(!extract.contains(secret.as_str()), "{secret} in {path}");
+        }
+    }
+    for bytes in cache.entries().values() {
+        for secret in &planted {
+            assert!(!contains(bytes, secret), "{secret} in the cache");
+        }
+    }
 }

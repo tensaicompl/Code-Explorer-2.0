@@ -46,9 +46,11 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// the nearest represented callable, whose node its path starts at, while its nested
 /// lexical scope is kept (issue 75, decision 47); 6 since a site's owner is joined to
 /// its definition by the declaration occurrence (source buffer and byte span) of the
-/// callable around it, never by comparing qualified names (issue 76, decision 48).
+/// callable around it, never by comparing qualified names (issue 76, decision 48); 7
+/// since C and C++ preprocessing reads nothing but the source given, never a file an
+/// `#include` or `__has_include` names (issue 83, decision 51).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
-pub const ENGINE_VERSION: u32 = 6;
+pub const ENGINE_VERSION: u32 = 7;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the

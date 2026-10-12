@@ -438,6 +438,7 @@ namespace simplecpp {
         std::string std;
         bool clearIncludeCache{};
         bool removeComments{}; /** remove comment tokens from included files */
+        bool sourceOnly{}; /** preprocess the given source alone: open no file, so no #include, -include or __has_include target is ever found */
     };
 
     struct SIMPLECPP_LIB FileData {

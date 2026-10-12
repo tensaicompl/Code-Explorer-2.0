@@ -3050,6 +3050,9 @@ static std::string openHeaderDirect(std::ifstream &f, const std::string &path)
 
 static std::string openHeader(std::ifstream &f, const simplecpp::DUI &dui, const std::string &sourcefile, const std::string &header, bool systemheader)
 {
+    if (dui.sourceOnly)
+        return "";
+
     if (simplecpp::isAbsolutePath(header))
         return openHeaderDirect(f, simplecpp::simplifyPath(header));
 
@@ -3098,6 +3101,9 @@ std::pair<simplecpp::FileData *, bool> simplecpp::FileDataCache::tryload(FileDat
 
 std::pair<simplecpp::FileData *, bool> simplecpp::FileDataCache::get(const std::string &sourcefile, const std::string &header, const simplecpp::DUI &dui, bool systemheader, std::vector<std::string> &filenames, simplecpp::OutputList *outputList)
 {
+    if (dui.sourceOnly)
+        return {nullptr, false};
+
     if (isAbsolutePath(header)) {
         auto ins = mNameMap.emplace(simplecpp::simplifyPath(header), nullptr);
 

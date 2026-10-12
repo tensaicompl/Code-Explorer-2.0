@@ -126,7 +126,7 @@ extraction cache is format 5 and the worker protocol 6 (issues 40 to 42, 46, 47 
 54): calls carry their node-type path (`ast_path`, computed by the engine since patch
 0010) and arguments, and definitions their decorators, parameter types and every route
 binding with its declaring node's position and path (`routes`, patch 0011);
-`ENGINE_VERSION` is 6. Issue 74 (decision 45, engine 4): the C and C++ expression
+`ENGINE_VERSION` is 7. Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -150,6 +150,15 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
 - **Open.** Issues 77 to 80 record the residuals: C-family callables only the expanded
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
+
+Issue 83 (decision 51, engine 7): the buffer Stage 2 supplies is the whole input. C and
+C++ preprocessing opens no file (patch 0015): no `#include` target, and no file
+`__has_include` names, is ever found, wherever the process runs. Include directives stay
+imports, and the macros and conditionals a source defines itself still expand. An
+extraction depends on the normalised bytes, the language, the path and the metadata
+only; never on the working directory, a header on disk, or anything outside the
+repository. `engine/tests/c_family_input_isolation.c` (inotify on Linux) and the
+`extract` tests prove it.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
