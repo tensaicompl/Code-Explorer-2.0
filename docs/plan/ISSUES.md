@@ -15,7 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 86 | 2026-10-12 | P2-16 | blocker | open | Found by issue 85's audit: two more host data-model dependences in C and C++ preprocessing. A single-byte character constant in `#if` is evaluated as plain `char`, signed on four of the five specified targets and unsigned on linux-aarch64, so `#if '\xff' < 0` (valid C) takes opposite branches; and `#line` numbers are read with `atol`, a C `long`, so a number above 2147483647 (invalid C) gives a different `__LINE__` on Windows | Open: same input and engine version, different extraction on two specified targets, so the determinism claim of issues 83 to 85 does not yet hold on all five. A fixed choice in the engine is an engine change; the driver's decision |
+| 87 | 2026-10-12 | P2-16 | blocker | open | Found by issue 86's audit: C and C++ preprocessing's work and memory are unbounded by the source. A forward `#line` within one file pads the expanded text with one line per line skipped (`#line 400000000` in a three-line source: 400 MB of text, 2.7 GB peak), and doubling macros grow exponentially (437 bytes, 22 levels: 1.3 GB, 9.8 s). Whether such a file extracts depends on the host's memory and speed, and a repository can exhaust the indexer's memory | Open: predates this hotfix and no corpus has it, but it breaks the closure condition for issues 83 to 86. A bound needs a design (a marker in place of padding, a cap on expansion reported as lost work); the driver's decision |
+| 86 | 2026-10-12 | P2-16 | blocker | open | Found by issue 85's audit: two more host data-model dependences in C and C++ preprocessing. A single-byte character constant in `#if` is evaluated as plain `char`, signed on four of the five specified targets and unsigned on linux-aarch64, so `#if '\xff' < 0` (valid C) takes opposite branches; and `#line` numbers are read with `atol`, a C `long`, so a number above 2147483647 (invalid C) gives a different `__LINE__` on Windows | Fixed on the branch, closure held. Patch 0018, decision 55, engine 7 with issues 83 to 85: a one-byte character constant is a signed 8-bit char, written out, and a multi-character one a 32-bit int; every `#line` number is its leading decimal digits read at 64 bits and clamped to 4294967295. Tests build the library with char signed and unsigned and assert the same values on Linux, macOS and Windows; mutations killed. Held because the same audit found issue 87, and the driver set its closure condition as no known host property changing extraction |
 | 85 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 84's audit: C and C++ preprocessing evaluates `sizeof(type)` inside `#if` with the type sizes of the engine binary's own build (`long` is 8 bytes on Linux and macOS, 4 on Windows), so such a source can extract differently on different platforms under one `ENGINE_VERSION`. No ambient input (one binary, one answer) and inert in practice: no C or C++ compiler accepts the construct, and jq, fmt and the Linux checkout hold none | Resolved in engine 7 with issues 83 and 84 (decision 54, patch 0017): the library's twenty recognised spellings use one written-out LP64 table on every platform (char 1, short 2, int 4, long 8, long long 8, float 4, double 8, long double 16, pointers 8); a caller's table and the build's own sizes are ignored, unrecognised spellings stay unevaluated. Host ABI is no extraction input and not in the cache key. Tests simulate other platforms through a test-build seam and assert the same sizes on Linux, macOS and Windows; mutations killed. The audit found issue 86 |
 | 84 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 83's environment audit: C-family preprocessing predefined `__DATE__` and `__TIME__` from the wall clock in the process's local time zone (`localtime`, which reads `TZ` and, without it, the system's zone file) and with the locale's month name. A source macro that expanded either put the date or time into the extraction (a call's arguments and first string argument), which no cache key names | Resolved in engine 7 with issue 83 (decision 53, patch 0016): `__DATE__` is `"Jan 01 1970"` and `__TIME__` `"00:00:00"`, written out, so no clock, zone or locale is read; a source's own definitions keep precedence. The only time-derived predefined macros; `ENGINE_VERSION` stays 7. Tests fail on the clock-reading engine and pass now; mutations killed |
 | 83 | 2026-10-12 | P2-16 | blocker | resolved | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Resolved (decisions 51 and 52). Production engine: patch 0015, engine 7, opens no file, so no ambient include is consumed; specification 4.5 clarified; tests fail on engine 6 and pass on 7, mutations killed, goldens unchanged. P2-16 harness: both engines execute from a fresh empty working directory of the harness's own, an execution rule of the differential, not the fix; `make engine-differential` is 32 of 32 identical, jq and fmt included |
@@ -131,6 +132,44 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 87 — C-family preprocessing's work and memory are unbounded by the source
+
+Found by issue 86's audit. Two ways a few hundred bytes of C or C++ make the
+preprocessing pass take as much memory and time as they like:
+
+- **`#line` padding.** The library writes its expanded text with one newline for every
+  line a forward `#line` skips within one file (`TokenList::stringify`). The engine then
+  maps every expanded line and parses the text. A three-line source with
+  `#line 400000000` expands to 400 MB, peaking at 2.7 GB in 4.3 s; with
+  `#line 50000000` it is 50 MB and 345 MB, and with 1,000,000, 1 MB and 10 MB. These were
+  measured under a 3 GB cap. The largest number valid C allows, 2147483647, would need
+  about 14 GB, and issue 86's clamp makes 4294967295 reachable. A `#line` that names
+  another file, or moves backwards, is written as a marker instead, and costs nothing.
+- **Macro expansion.** Doubling macros (`#define A1 A0 A0`, ...) grow exponentially. A
+  437-byte source of 22 levels expands to 8 MB of text and peaks at 1.3 GB in 9.8 s.
+  Every two further levels multiply both by four.
+
+Whether such a file extracts therefore depends on the machine's memory and speed. One
+machine finishes; another runs out of memory. An extraction in the indexing process ends
+the process, while an isolated worker crashes or times out, failing or degrading the
+build. That is also a denial of service through repository content, which Stage 2
+treats as untrusted.
+
+It predates this hotfix: the reference engine and engine 6 behave alike. No corpus
+here has it: the largest `#line` in 66,008 C-family files is 3921.
+
+It is not fixed: a bound needs a design, and the decision is the driver's. One option
+is to write a `#line` marker in place of padding beyond some jump, which changes
+expanded-text line numbers past it. Another is to cap expansion and report what is cut
+as lost work. Either is an engine change, in engine 7 if made before it is merged.
+
+Found in the same evaluation code, and recorded here so it is not lost: in `#if`
+arithmetic, signed overflow and shifts by 64 or more are undefined in the library's C++.
+On the five targets' hardware they wrap and take shift counts modulo 64 alike, so no
+platform differs today, but the same patch could write them out.
+
+State: open.
+
 ### 86 — Preprocessing keeps two more host data-model dependences
 
 Found by issue 85's audit of every preprocessing value that depends on the platform the
@@ -161,6 +200,59 @@ engine 7.
 Also found, and not a host dependence in practice: `#if` arithmetic that overflows, and
 shifts by 64 or more, are undefined in the library's C++. They give the same result on
 x86-64 and AArch64 (two's complement; shift counts taken modulo 64).
+
+The driver decided both must be fixed before engine 7 reaches main (decision 55). The fix
+is commit `b14a194` on `hotfix/issue-83-c-family-input-isolation`, patch 0018:
+
+- **Character constants.** A one-byte narrow constant is a signed 8-bit char, written
+  out: 0x00 to 0x7f are 0 to 127, and 0x80 to 0xff are -128 to -1. No `char`, `CHAR_MIN`
+  or compiler flag decides it.
+  - **Multi-character constants.** These are a 32-bit two's complement int, also written
+    out. They had those values on every target, since `int` is 32 bits on all five and
+    their compilers wrap, but by implementation-defined conversion.
+  - **Code units.** A narrow code unit is 8 bits, where it was `CHAR_BIT`.
+  - **Unchanged.** `u`, `u8`, `U` and `L` constants keep their unsigned code points. `L`
+    was always the library's 32-bit rule, never the host's `wchar_t`. Escapes are read
+    through `strtoull`, 64 bits everywhere. Bytes are read as unsigned char, and values
+    are built by shifts, never memory order.
+- **`#line` numbers.** One helper, `lineDirectiveNumber`, reads every `#line N`,
+  `#line N "file"` and `# N "file"` number. It takes the token's leading decimal digits,
+  as `atol` read them, and accumulates them at 64 bits. A value above 4294967295, the
+  largest line a location holds, is clamped to 4294967295. The library had no rule of
+  its own: `atol` gave LP64 the value modulo 2^32 (or `LONG_MAX`'s, 4294967295, beyond
+  2^63) and Windows `LONG_MAX`, 2147483647. Values up to 4294967295 now read exactly,
+  so `#line 2147483648` is that line everywhere, and `#line 4294967296` is 4294967295
+  everywhere.
+- **Tests.** Each failed before the fix and passes after.
+  - `preprocessor_host_independence` builds the library twice, with `-fsigned-char` and
+    with `-funsigned-char`. The second is the Linux AArch64 case on any machine. Both
+    builds check:
+    - 28 constants: every one-byte boundary in hex, octal and raw bytes, multi-character
+      constants, and the other kinds;
+    - `#if` and `#elif` branches;
+    - 15 `#line` numbers in all three forms, read from token locations.
+
+    The unsigned build failed 14 checks before the fix, and the signed one 4.
+  - `c_family_char_literals` runs full C and C++ extractions whose calls are chosen by
+    character constants, and by `#line 2147483648` and `#line 4294967296`. Those two
+    values separated the old Windows and LP64 readings. Each directive names a file of
+    its own, so the expanded text is never padded (issue 87).
+  - `pdx-engine`'s `literals_and_lines` asserts the same expectations on Linux, macOS and
+    Windows, with no platform conditional.
+- **Mutations.** All killed:
+  - native `char` (V): the unsigned-char build;
+  - unsigned constants (W): every build and the Rust test;
+  - `atol` (X), a 32-bit `long` limit (Y) and a 32-bit wrap (Z): every build, the full
+    extraction and the Rust test.
+- **Census.** The text census found two `#if` lines with a character constant, both in
+  jq and neither with a high byte. It found 488 `#line` directives, the largest 3921.
+  The census covered 66,008 C-family files in jq, fmt, Kubernetes, Linux, the engine
+  fixtures and the sanitizer corpus.
+
+Closure is held. The same audit found issue 87: how much work and memory preprocessing
+takes is unbounded by the source, so whether an extraction completes depends on the
+host. The driver set the closure condition that no known host property may change
+extraction for the same inputs.
 
 State: open.
 

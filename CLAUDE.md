@@ -172,9 +172,11 @@ the buffer Stage 2 supplies is the whole input.
   `engine/tests/c_family_date_time.c`, `engine/tests/c_family_sizeof.c`,
   `engine/tests/c_family_char_literals.c`, the `extract` tests and `pdx-engine`'s
   `type_sizes` and `literals_and_lines` (which run on Windows too) prove it.
-- **Open.** Issue 86: plain `char` signedness in `#if` character constants (unsigned on
-  linux-aarch64 only) and `#line` numbers read as a C `long` (32 bits on Windows) still
-  depend on the build target.
+- **Open.** Issue 87: preprocessing's work and memory are unbounded by the source (a
+  forward `#line` pads the expanded text one line per line skipped; doubling macros grow
+  exponentially), so whether an extraction completes depends on the host. Issue 86 is
+  fixed (patch 0018) but its closure is held on it. Tests reach large `#line` numbers
+  through a directive naming another file, which is written as a marker, never padded.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
