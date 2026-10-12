@@ -41,13 +41,19 @@ The reference is configured, never edited: its process environment is emptied of
 own variables, it runs with an empty home and a configuration directory of the
 harness's, in which every compared file's extension is given the language this
 project's matrix gives the file, so both engines read every file in one language.
-Both engines run in the staged corpus root: the C and C++ preprocessing of each reads
-the files a source includes from disk, relative to the working directory (issue 83),
-so the working directory is an input like the bytes.
+The comparison is of the explicit engine contract: the bytes, the language, the
+repository-relative path and the metadata, every one given by an absolute path. Files
+around an engine are no input, so each engine runs, for each corpus, from a working
+directory of the harness's own, created empty for that run alone, outside the stage, the
+corpus and the repository, and removed afterwards (decision 52). P2-16 ran both in the
+staged corpus root, which is how issue 83 was found: the C and C++ preprocessing of each
+read the files a source includes relative to the working directory. Since engine 7 ours
+reads none; the reference still would, and from an empty directory finds none.
 """
 
 import argparse
 import collections
+import contextlib
 import hashlib
 import json
 import os
@@ -545,14 +551,36 @@ def stage(corpus, stage_root):
     return target
 
 
+@contextlib.contextmanager
+def hermetic_cwd(side, *inputs):
+    """The working directory of one engine's run of one corpus: created empty for that
+    run alone in the system's temporary directory, outside every input and the
+    repository, and removed afterwards. Nothing an engine finds by a relative path is
+    then an input; only what it is given by absolute path is (decision 52)."""
+    path = pathlib.Path(tempfile.mkdtemp(prefix=f"pdx-differential-{side}-cwd-")).resolve()
+    try:
+        if any(path.iterdir()) or not outside(path, REPO, *inputs):
+            fail(f"{path} is not an empty working directory of the harness's own")
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def explicit(*paths):
+    """Every path an engine is given is absolute: it runs elsewhere."""
+    for path in paths:
+        if not pathlib.Path(path).is_absolute():
+            fail(f"an engine input is not an absolute path: {path}")
+
+
 def run_vendored(dump, corpus, staged, work):
     listing = work / "vendored.list"
     listing.write_text("".join(f"{f['engine_language']}\t{f['path']}\n" for f in corpus["files"]))
     env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(work / "home")}
-    # In the corpus root, as the reference runs: both engines' C and C++ preprocessing
-    # reads the files a source includes relative to the working directory (issue 83).
-    done = subprocess.run([str(dump), str(listing), str(staged)], capture_output=True,
-                          cwd=staged, env=env, stdin=subprocess.DEVNULL, timeout=1800)
+    explicit(dump, listing, staged)
+    with hermetic_cwd("vendored", staged, pathlib.Path(corpus["root"]), work) as cwd:
+        done = subprocess.run([str(dump), str(listing), str(staged)], capture_output=True,
+                              cwd=cwd, env=env, stdin=subprocess.DEVNULL, timeout=1800)
     if done.returncode != 0:
         fail("the vendored engine failed: " + done.stderr.decode("latin-1").strip()[-1000:])
     return done.stdout.decode("ascii")
@@ -582,8 +610,10 @@ def run_reference(binary, corpus, staged, work):
                 run_field("cache_variable"): str(cache), "PDX_DIFFERENTIAL_ROWS": str(rows_path)})
     args = [str(binary)] + run_field("index_arguments").split() + [
         json.dumps({"repo_path": str(staged)})]
-    done = subprocess.run(args, cwd=staged, env=env, capture_output=True,
-                          stdin=subprocess.DEVNULL, timeout=1800)
+    explicit(binary, staged, rows_path, cache, home, config)
+    with hermetic_cwd("reference", staged, pathlib.Path(corpus["root"]), work) as cwd:
+        done = subprocess.run(args, cwd=cwd, env=env, capture_output=True,
+                              stdin=subprocess.DEVNULL, timeout=1800)
     if done.returncode != 0:
         fail("the reference failed: " + done.stderr.decode("latin-1").strip()[-1000:])
     if not rows_path.is_file():
@@ -665,14 +695,14 @@ def cmd_run(args):
     pin = reference_pin()
     checkout = reference_checkout()
     check_checkout(checkout, pin, "the reference engine")
-    dump = pathlib.Path(args.dump)
+    dump = pathlib.Path(args.dump).resolve()
     if not dump.is_file():
         fail(f"no differential dump at {dump}: run make engine")
     kinds = kind_map()
     found = corpora(args.pdx_bench, args.corpus)
     binary = build_reference()
     stage_root = pathlib.Path(os.environ.get("PDX_DIFFERENTIAL_STAGE",
-                                             "/tmp/pdx-engine-differential"))
+                                             "/tmp/pdx-engine-differential")).resolve()
     if not outside(stage_root, REPO, checkout):
         fail(f"the stage must be outside the repository and the reference, not {stage_root}")
     stage_root.mkdir(parents=True, exist_ok=True)

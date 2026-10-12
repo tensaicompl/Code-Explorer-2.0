@@ -47,7 +47,8 @@
  * site's owner is joined to its definition by the declaration occurrence of the
  * callable around it, never by comparing qualified names (issue 76, patch 0014). 7: C
  * and C++ preprocessing reads nothing but the source given, never a file an #include
- * or __has_include names (issue 83, patch 0015). */
+ * or __has_include names (issue 83, patch 0015), nor a clock: __DATE__ and __TIME__ are
+ * fixed (issue 84, patch 0016). */
 static const char ENGINE_VERSION_STRING[] = "7";
 
 const char *pdxe_version(void) {

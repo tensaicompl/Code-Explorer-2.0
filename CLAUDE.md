@@ -152,14 +152,18 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issue 83 (decision 51, engine 7): the buffer Stage 2 supplies is the whole input. C and
-C++ preprocessing opens no file (patch 0015): no `#include` target, and no file
-`__has_include` names, is ever found, wherever the process runs. Include directives stay
-imports, and the macros and conditionals a source defines itself still expand. An
-extraction depends on the normalised bytes, the language, the path and the metadata
-only; never on the working directory, a header on disk, or anything outside the
-repository. `engine/tests/c_family_input_isolation.c` (inotify on Linux) and the
-`extract` tests prove it.
+Issues 83 and 84 (decisions 51 and 53, engine 7, patches 0015 and 0016 together): the
+buffer Stage 2 supplies is the whole input.
+- **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
+  `__has_include` names, is ever found, wherever the process runs. Include directives
+  stay imports, and the macros and conditionals a source defines itself still expand.
+- **No clock.** `__DATE__` is `"Jan 01 1970"` and `__TIME__` `"00:00:00"`, in any time
+  zone and locale; a source's own `#define` or `#undef` of either still wins.
+- **Contract.** An extraction depends on the normalised bytes, the language, the path
+  and the metadata only. It never depends on the working directory, a header on disk,
+  anything outside the repository, the time, the zone or the locale.
+- **Tests.** `engine/tests/c_family_input_isolation.c` (inotify on Linux),
+  `engine/tests/c_family_date_time.c` and the `extract` tests prove it.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4
@@ -411,11 +415,14 @@ of `bench/engine-differential.toml`.
   internal test accessor `pdxe_project_debug_lsp_surfaces`.
 - **Canonical form.** Only the project wrapper becomes `@`; the kind comes from
   `normalise_kind` in `engine/api/pdxe.c`, read from that file. Multisets, sorted, no
-  allowlist, no accept. Both engines get the same bytes, the same working directory (the
-  corpus root, where the reference's C-family preprocessing reads included files from
-  disk; since engine 7 ours reads none, issue 83), the same
-  language per file (the reference configured through its own extension configuration)
-  and the same metadata.
+  allowlist, no accept. Both engines get the same bytes, given by absolute path, the
+  same language per file (the reference configured through its own extension
+  configuration) and the same metadata.
+- **Working directory.** Files around an engine are no input (decision 52). Each engine
+  runs, per corpus, from a fresh empty directory of the harness's own, outside the stage,
+  the corpus and the repository (`hermetic_cwd`). P2-16 ran both in the corpus root,
+  which exposed issue 83; a corpus-root run is no longer comparable, since the reference
+  still reads included files from there.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
   does. All 32 corpora were identical at P2-16; at engine 7, jq's and fmt's differ in

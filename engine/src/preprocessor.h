@@ -30,10 +30,11 @@ typedef struct {
 int pdxe_export_macro_candidates(const char *source, int source_len,
                                 char (*out)[PDXE_EXPORT_MACRO_NAME_MAX], int max_out);
 
-// Preprocess C/C++ source: expand macros, evaluate #ifdef, resolve #include.
+// Preprocess C/C++ source: expand the macros and evaluate the conditionals it defines
+// itself. No file is opened, so no #include is ever resolved.
 // Returns malloc-allocated expanded source, or NULL if no expansion needed/on failure.
 // extra_defines: NULL-terminated array of "NAME=VALUE" strings (can be NULL).
-// include_paths: NULL-terminated array of directory paths for #include resolution (can be NULL).
+// include_paths: NULL-terminated array of directory paths (can be NULL), never searched.
 // The returned string must be freed with pdxe_preprocess_free().
 char *pdxe_preprocess(const char *source, int source_len, const char *filename,
                      const char **extra_defines, const char **include_paths, int cpp_mode);

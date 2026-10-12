@@ -3395,10 +3395,17 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
     macros.insert(std::make_pair("__FILE__", Macro("__FILE__", "__FILE__", dummy)));
     macros.insert(std::make_pair("__LINE__", Macro("__LINE__", "__LINE__", dummy)));
     macros.insert(std::make_pair("__COUNTER__", Macro("__COUNTER__", "__COUNTER__", dummy)));
-    struct tm ltime {};
-    getLocaltime(ltime);
-    macros.insert(std::make_pair("__DATE__", Macro("__DATE__", getDateDefine(&ltime), dummy)));
-    macros.insert(std::make_pair("__TIME__", Macro("__TIME__", getTimeDefine(&ltime), dummy)));
+    if (dui.fixedDateTime) {
+        // The start of the Unix epoch, in the formats below, written out: no clock, time
+        // zone or locale is read.
+        macros.insert(std::make_pair("__DATE__", Macro("__DATE__", "\"Jan 01 1970\"", dummy)));
+        macros.insert(std::make_pair("__TIME__", Macro("__TIME__", "\"00:00:00\"", dummy)));
+    } else {
+        struct tm ltime {};
+        getLocaltime(ltime);
+        macros.insert(std::make_pair("__DATE__", Macro("__DATE__", getDateDefine(&ltime), dummy)));
+        macros.insert(std::make_pair("__TIME__", Macro("__TIME__", getTimeDefine(&ltime), dummy)));
+    }
 
     if (!dui.std.empty()) {
         const cstd_t c_std = simplecpp::getCStd(dui.std);

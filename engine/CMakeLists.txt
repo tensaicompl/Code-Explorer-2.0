@@ -330,6 +330,9 @@ if(PDXE_BUILD_TESTS)
   # C and C++ extraction reads nothing but the source it is given: no include target,
   # wherever the process runs (issue 83, patches/0015).
   add_test(NAME c_family_input_isolation COMMAND c_family_input_isolation)
+  # Nor any clock: __DATE__ and __TIME__ are fixed, whatever the time, the time zone
+  # or the locale (issue 84, patches/0016).
+  add_test(NAME c_family_date_time COMMAND c_family_date_time)
 
   # The warning exemptions reach vendored sources and never the interface layer.
   find_package(Python3 REQUIRED COMPONENTS Interpreter)

@@ -9,6 +9,7 @@ import json
 import os
 import pathlib
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -402,6 +403,145 @@ class Checkouts(unittest.TestCase):
                 D.safe_file(root, "dir/link.py")
             with self.assertRaises(D.Failure):
                 D.safe_file(root, "absent.py")
+
+
+
+# A stand-in for an engine: it records where it ran, what that directory held, and what
+# it could read there by the corpus's relative paths, then leaves a file behind.
+STAND_IN = """import json, os, sqlite3, sys
+seen = {}
+for rel in ("src/header.h", "src/x.h"):
+    try:
+        with open(rel) as fh:
+            seen[rel] = fh.read()
+    except OSError:
+        seen[rel] = None
+record = {"side": SIDE, "cwd": os.getcwd(), "listing": sorted(os.listdir(".")),
+          "seen": seen, "args": sys.argv[1:]}
+with open(LOG, "a") as fh:
+    fh.write(json.dumps(record) + "\\n")
+with open("left-behind-" + SIDE, "w") as fh:
+    fh.write("x")
+if SIDE == "reference":
+    with open(os.environ["PDX_DIFFERENTIAL_ROWS"], "x") as fh:
+        fh.write(json.dumps({"c": "project", "name": "p", "files": 0}) + "\\n")
+    db = sqlite3.connect(os.path.join(os.environ[CACHE], "p.db"))
+    db.execute("create table projects (name text)")
+    db.execute("insert into projects values ('p')")
+    db.execute("create table lsp_surface (project text, rel_path text, defs_json text)")
+    db.commit()
+    db.close()
+else:
+    print("{}")
+"""
+
+
+class HermeticRuns(unittest.TestCase):
+    """Both engines run from a fresh, empty working directory of the harness's own, one
+    per engine per corpus, never the corpus root or the caller's: only explicit inputs
+    reach an engine (decision 52)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        root = pathlib.Path(self.tmp.name).resolve()
+        self.root = root
+        self.log = root / "runs.jsonl"
+        self.dump = self.stand_in("vendored")
+        self.binary = self.stand_in("reference")
+        self.stage_root = root / "stage"
+        self.stage_root.mkdir()
+        self.corpus_root = root / "corpus"
+        self.ambient = root / "ambient"
+        for base, text in ((self.corpus_root, "corpus"), (self.ambient, "ambient")):
+            for rel in ("src/a.c", "src/header.h", "src/x.h"):
+                (base / rel).parent.mkdir(parents=True, exist_ok=True)
+                (base / rel).write_text(f"/* {text} */\n")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def stand_in(self, side):
+        path = self.root / f"stand_in_{side}"
+        path.write_text(f"#!{sys.executable}\nSIDE = {side!r}\nLOG = {str(self.log)!r}\n"
+                        f"CACHE = {D.run_field('cache_variable')!r}\n" + STAND_IN)
+        path.chmod(0o755)
+        return path
+
+    def corpus(self, name):
+        return {"name": name, "root": str(self.corpus_root), "kind": "fixture",
+                "language": "c", "files": [{"path": "src/a.c", "engine_language": "c"}],
+                "support": ["src/header.h", "src/x.h"]}
+
+    def run_both(self, name):
+        """One corpus through both engines' runs, as run_corpus makes them."""
+        corpus = self.corpus(name)
+        work = self.stage_root / f"work-{name}"
+        work.mkdir()
+        (work / "home").mkdir(mode=0o700)
+        staged = D.stage(corpus, self.stage_root)
+        D.run_vendored(self.dump, corpus, staged, work)
+        D.run_reference(self.binary, corpus, staged, work)
+        return staged
+
+    def runs(self):
+        return [json.loads(line) for line in self.log.read_text().splitlines()]
+
+    def test_neither_engine_runs_in_the_corpus_root(self):
+        staged = self.run_both("a")
+        for run in self.runs():
+            cwd = pathlib.Path(run["cwd"])
+            self.assertTrue(D.outside(cwd, staged, self.corpus_root, self.stage_root, REPO),
+                            run)
+            self.assertIsNone(run["seen"]["src/header.h"], run)
+
+    def test_files_around_the_caller_are_no_input(self):
+        # The corpus and the caller's directory hold conflicting src/x.h: an engine must
+        # read neither by a relative path.
+        before = os.getcwd()
+        os.chdir(self.ambient)
+        try:
+            self.run_both("a")
+        finally:
+            os.chdir(before)
+        for run in self.runs():
+            self.assertEqual(run["seen"], {"src/header.h": None, "src/x.h": None}, run)
+            self.assertNotEqual(pathlib.Path(run["cwd"]), self.ambient)
+
+    def test_every_run_starts_in_a_fresh_empty_directory(self):
+        # Each stand-in leaves a file behind: no later run, of either engine or another
+        # corpus, may find it, and the harness removes each directory after its run.
+        self.run_both("a")
+        self.run_both("b")
+        runs = self.runs()
+        self.assertEqual([r["side"] for r in runs], ["vendored", "reference"] * 2)
+        for run in runs:
+            self.assertEqual(run["listing"], [], run)
+            self.assertFalse(pathlib.Path(run["cwd"]).exists(), run)
+        self.assertEqual(len({r["cwd"] for r in runs}), 4)
+
+    def test_both_engines_are_isolated_alike(self):
+        self.run_both("a")
+        vendored, reference = self.runs()
+        for run in (vendored, reference):
+            cwd = pathlib.Path(run["cwd"])
+            self.assertEqual(run["listing"], [], run)
+            self.assertTrue(D.outside(cwd, self.root, REPO), run)
+            self.assertEqual(cwd.parent, pathlib.Path(tempfile.gettempdir()).resolve(), run)
+        self.assertNotEqual(vendored["cwd"], reference["cwd"])
+
+    def test_the_explicit_inputs_are_absolute_and_unchanged(self):
+        staged = self.run_both("a")
+        vendored, reference = self.runs()
+        listing, directory = vendored["args"]
+        self.assertTrue(pathlib.Path(listing).is_absolute())
+        self.assertEqual(directory, str(staged))
+        self.assertEqual(json.loads(reference["args"][-1]), {"repo_path": str(staged)})
+        for rel in ("src/a.c", "src/header.h", "src/x.h"):
+            self.assertEqual((staged / rel).read_bytes(), (self.corpus_root / rel).read_bytes())
+        self.assertEqual(sorted(p.name for p in staged.rglob("*")),
+                         ["a.c", "header.h", "src", "x.h"])
+        self.assertEqual(sorted(p.name for p in self.corpus_root.rglob("*")),
+                         ["a.c", "header.h", "src", "x.h"])
 
 
 if __name__ == "__main__":

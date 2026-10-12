@@ -1958,6 +1958,17 @@ fn child_run() {
 /// Runs `test`'s child half with its working directory at `cwd`, over the checkout at
 /// `root`, with `cache` when there is one.
 fn run_at(test: &str, cwd: &Path, root: &Path, cache: Option<&Path>) -> ChildRun {
+    run_at_with(test, cwd, root, cache, &[])
+}
+
+/// [`run_at`], with `extra` set in the child's environment too.
+fn run_at_with(
+    test: &str,
+    cwd: &Path,
+    root: &Path,
+    cache: Option<&Path>,
+    extra: &[(&str, &str)],
+) -> ChildRun {
     let out = tempfile::NamedTempFile::new().unwrap();
     let mut env = vec![
         (ROOT_ENV, root.to_str().unwrap()),
@@ -1966,6 +1977,7 @@ fn run_at(test: &str, cwd: &Path, root: &Path, cache: Option<&Path>) -> ChildRun
     if let Some(cache) = cache {
         env.push((CACHE_ENV, cache.to_str().unwrap()));
     }
+    env.extend_from_slice(extra);
     assert!(rerun_in_child_at(test, Some(cwd), &env));
     serde_json::from_slice(&fs::read(out.path()).unwrap()).unwrap()
 }
@@ -2207,4 +2219,63 @@ fn c_family_engine_reads_only_the_normalised_bytes() {
             assert!(!contains(bytes, secret), "{secret} in the cache");
         }
     }
+}
+
+#[test]
+fn date_and_time_cannot_change_a_cached_extraction() {
+    // __DATE__ and __TIME__ are fixed (issue 84): the clock, the time zone and the locale
+    // are no extraction inputs, so an extraction cached under one is the one made fresh
+    // under another, and the key needs none of them.
+    const TEST: &str = "date_and_time_cannot_change_a_cached_extraction";
+    if in_child() {
+        return child_run();
+    }
+    let checkout = Checkout::new();
+    checkout.write(
+        "src/stamp.c",
+        "void record_stamp(const char *, const char *);\n\n#define STAMP() record_stamp(__DATE__, __TIME__)\n\nvoid f(void) {\n    STAMP();\n}\n",
+    );
+    let cache = Cache::new();
+    let cache_dir = cache.dir.path().join("extract");
+    let root = checkout.root();
+
+    // Zones as POSIX rules, east and west of UTC, which need no zone database.
+    let cold = run_at_with(
+        TEST,
+        root,
+        root,
+        Some(&cache_dir),
+        &[("TZ", "UTC0"), ("LC_ALL", "C")],
+    );
+    let warm = run_at_with(
+        TEST,
+        root,
+        root,
+        Some(&cache_dir),
+        &[("TZ", "NZST-12"), ("LC_ALL", "de_DE.UTF-8")],
+    );
+    let fresh = run_at_with(
+        TEST,
+        root,
+        root,
+        None,
+        &[("TZ", "PST8"), ("LC_ALL", "fr_FR.UTF-8")],
+    );
+    assert_eq!(cold.cache_hits, 0);
+    assert_eq!(
+        warm.cache_hits, 1,
+        "the second run is served from the cache"
+    );
+    assert_eq!(cold.extracts, fresh.extracts);
+    assert_eq!(warm.extracts, fresh.extracts);
+    let stamp: serde_json::Value = serde_json::from_str(&fresh.extracts["src/stamp.c"]).unwrap();
+    let values: Vec<&str> = stamp["calls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["callee_text"] == "record_stamp")
+        .flat_map(|c| c["args"].as_array().unwrap())
+        .filter_map(|a| a["value"].as_str())
+        .collect();
+    assert_eq!(values, ["Jan 01 1970", "00:00:00"]);
 }

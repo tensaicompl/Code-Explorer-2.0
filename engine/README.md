@@ -102,6 +102,9 @@ Everything goes through `include/pdxe.h`. In outline:
   conditionals the source defines itself and opens no file: an `#include` target, or a
   file `__has_include` names, is never found, wherever the process runs, and the
   directive stays an import (`patches/0015-source-only-preprocessing.patch`, issue 83).
+  Nor does it read a clock: `__DATE__` and `__TIME__` are `"Jan 01 1970"` and
+  `"00:00:00"` in any time zone and locale (`patches/0016-fixed-date-time-macros.patch`,
+  issue 84).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per
@@ -178,9 +181,12 @@ each corpus, runs both, canonicalises the rows (the project name wrapping qualif
 names becomes `@`, and each engine label gets the kind `api/pdxe.c` maps it to) and
 fails on any difference; nothing can be accepted.
 
-Both engines' C and C++ preprocessing reads the files a source includes from disk,
-relative to the working directory (issue 83), so the differential runs both in the
-corpus root. Normal CI runs the comparison's own tests
+The differential compares the explicit engine contract; files around an engine are no
+input. Each engine runs, for each corpus, from a fresh empty working directory of the
+harness's own, outside the stage, the corpus and the repository, and is given every
+input by absolute path (decision 52). P2-16 ran both in the corpus root, which is how
+issue 83 was found: both engines' C and C++ preprocessing read the files a source
+includes relative to the working directory. Normal CI runs the comparison's own tests
 (`scripts/engine/test_differential.py`, and `engine_differential_identical` in
 `crates/pdx-bench`), never the reference.
 

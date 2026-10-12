@@ -40,6 +40,8 @@ list of files, so a change in what is compared is a reviewed change to this file
   subset is staged without repository metadata, so its relations are chosen to need
   none, and each C or C++ file is at most 32 KiB.
 
+The staged files are the engines' only inputs, given by absolute path: both run from a
+fresh empty working directory of the harness's own, never the corpus root (decision 52).
 `pdx-bench differential-corpora` checks it against the language matrix and the lock
 (a test does so on every `make check`) and fetches the goldens as `make golden` does.
 A difference is a finding, never a new baseline: there is nothing to accept. The full

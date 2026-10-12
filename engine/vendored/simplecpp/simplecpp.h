@@ -439,6 +439,7 @@ namespace simplecpp {
         bool clearIncludeCache{};
         bool removeComments{}; /** remove comment tokens from included files */
         bool sourceOnly{}; /** preprocess the given source alone: open no file, so no #include, -include or __has_include target is ever found */
+        bool fixedDateTime{}; /** __DATE__ and __TIME__ are "Jan 01 1970" and "00:00:00": no clock, time zone or locale is read */
     };
 
     struct SIMPLECPP_LIB FileData {

@@ -1,0 +1,46 @@
+--- a/engine/src/preprocessor.cpp
++++ b/engine/src/preprocessor.cpp
+@@ -469,6 +469,9 @@ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_
+         // directives stay in the source, where extraction reads them as facts, and the
+         // macros and conditionals the source itself defines are still expanded.
+         dui.sourceOnly = true;
++        // Nor is any clock: __DATE__ and __TIME__ are fixed, so the result is the same at
++        // any time, in any time zone and under any locale.
++        dui.fixedDateTime = true;
+ 
+         std::string src(source, source_len);
+         std::istringstream istr(src);
+--- a/engine/vendored/simplecpp/simplecpp.cpp
++++ b/engine/vendored/simplecpp/simplecpp.cpp
+@@ -3395,10 +3395,17 @@ void simplecpp::preprocess(simplecpp::TokenList &output, const simplecpp::TokenL
+     macros.insert(std::make_pair("__FILE__", Macro("__FILE__", "__FILE__", dummy)));
+     macros.insert(std::make_pair("__LINE__", Macro("__LINE__", "__LINE__", dummy)));
+     macros.insert(std::make_pair("__COUNTER__", Macro("__COUNTER__", "__COUNTER__", dummy)));
+-    struct tm ltime {};
+-    getLocaltime(ltime);
+-    macros.insert(std::make_pair("__DATE__", Macro("__DATE__", getDateDefine(&ltime), dummy)));
+-    macros.insert(std::make_pair("__TIME__", Macro("__TIME__", getTimeDefine(&ltime), dummy)));
++    if (dui.fixedDateTime) {
++        // The start of the Unix epoch, in the formats below, written out: no clock, time
++        // zone or locale is read.
++        macros.insert(std::make_pair("__DATE__", Macro("__DATE__", "\"Jan 01 1970\"", dummy)));
++        macros.insert(std::make_pair("__TIME__", Macro("__TIME__", "\"00:00:00\"", dummy)));
++    } else {
++        struct tm ltime {};
++        getLocaltime(ltime);
++        macros.insert(std::make_pair("__DATE__", Macro("__DATE__", getDateDefine(&ltime), dummy)));
++        macros.insert(std::make_pair("__TIME__", Macro("__TIME__", getTimeDefine(&ltime), dummy)));
++    }
+ 
+     if (!dui.std.empty()) {
+         const cstd_t c_std = simplecpp::getCStd(dui.std);
+--- a/engine/vendored/simplecpp/simplecpp.h
++++ b/engine/vendored/simplecpp/simplecpp.h
+@@ -439,6 +439,7 @@ namespace simplecpp {
+         bool clearIncludeCache{};
+         bool removeComments{}; /** remove comment tokens from included files */
+         bool sourceOnly{}; /** preprocess the given source alone: open no file, so no #include, -include or __has_include target is ever found */
++        bool fixedDateTime{}; /** __DATE__ and __TIME__ are "Jan 01 1970" and "00:00:00": no clock, time zone or locale is read */
+     };
+ 
+     struct SIMPLECPP_LIB FileData {

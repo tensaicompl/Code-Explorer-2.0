@@ -469,6 +469,9 @@ PDXEPreprocessedSource *pdxe_preprocess_with_map(const char *source, int source_
         // directives stay in the source, where extraction reads them as facts, and the
         // macros and conditionals the source itself defines are still expanded.
         dui.sourceOnly = true;
+        // Nor is any clock: __DATE__ and __TIME__ are fixed, so the result is the same at
+        // any time, in any time zone and under any locale.
+        dui.fixedDateTime = true;
 
         std::string src(source, source_len);
         std::istringstream istr(src);
