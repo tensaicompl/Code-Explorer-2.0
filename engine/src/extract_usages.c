@@ -13,7 +13,11 @@ enum { LAST_IDX = 1 };
 #include <strings.h>
 #include <ctype.h>
 
-#if defined(PDXE_CALL_REFERENCE_LOOKUP_TEST_API) && PDXE_CALL_REFERENCE_LOOKUP_TEST_API
+/* Test builds count the ancestors usage classification examines (cursor steps, walk
+ * frame steps and frame answers computed: issue 90) and the climbs that fell back to
+ * ts_node_parent, which descends from the root. Release builds count nothing. */
+#if (defined(PDXE_CALL_REFERENCE_LOOKUP_TEST_API) && PDXE_CALL_REFERENCE_LOOKUP_TEST_API) ||     \
+    defined(PDXE_ENABLE_TEST_SEAMS)
 #include <stdatomic.h>
 
 static _Atomic uint64_t g_usage_field_lookup_work = 0;
@@ -39,6 +43,14 @@ static void usage_field_lookup_test_note_work(void) {
 static void usage_slow_parent_fallback_test_note(void) {
     atomic_fetch_add_explicit(&g_usage_slow_parent_fallbacks, 1, memory_order_relaxed);
 }
+
+/* Every ts_node_parent usage classification makes counts as a slow fallback too, so
+ * a climb that comes back counts whether or not it notes itself. */
+static TSNode usage_counted_ts_node_parent(TSNode node) {
+    usage_slow_parent_fallback_test_note();
+    return ts_node_parent(node);
+}
+#define ts_node_parent usage_counted_ts_node_parent
 #else
 static void usage_field_lookup_test_note_work(void) {}
 static void usage_slow_parent_fallback_test_note(void) {}
@@ -48,9 +60,13 @@ static void usage_slow_parent_fallback_test_note(void) {}
 static void walk_usages(PDXEExtractCtx *ctx, TSNode root, const PDXELangSpec *spec);
 static bool is_direct_argument_value(TSNode node);
 static TSNode python_direct_callable_attribute_site(TSNode node);
+static bool walk_depth_of(const WalkState *state, TSNode node, uint32_t *depth);
+static TSNode walk_parent_of(const WalkState *state, TSNode node);
+static TSNode walk_python_direct_callable_attribute_site(WalkState *state, uint32_t depth);
 
-// Is this an identifier-like node that represents a reference?
-static bool is_reference_node(TSNode node, PDXELanguage lang) {
+// Is this an identifier-like node that represents a reference? `state` is the walk's,
+// NULL outside it.
+static bool is_reference_node(TSNode node, PDXELanguage lang, WalkState *state) {
     const char *kind = ts_node_type(node);
 
     /* Python's attribute node and its terminal identifier describe the same
@@ -58,8 +74,11 @@ static bool is_reference_node(TSNode node, PDXELanguage lang) {
      * as the raw carrier (so unresolved cases retain a useful short-name
      * USAGE) and stamp it with the full attribute span below. Receivers remain
      * independent value references. */
+    uint32_t depth;
     if (lang == PDXE_LANG_PYTHON && strcmp(kind, "attribute") == 0 &&
-        !ts_node_is_null(python_direct_callable_attribute_site(node))) {
+        !ts_node_is_null(walk_depth_of(state, node, &depth)
+                             ? walk_python_direct_callable_attribute_site(state, depth)
+                             : python_direct_callable_attribute_site(node))) {
         return false;
     }
 
@@ -68,7 +87,7 @@ static bool is_reference_node(TSNode node, PDXELanguage lang) {
      * references; keeping them would let a short-name fallback bind a decoy. */
     if (lang == PDXE_LANG_RUST &&
         (strcmp(kind, "identifier") == 0 || strcmp(kind, "scoped_identifier") == 0)) {
-        TSNode parent = ts_node_parent(node);
+        TSNode parent = walk_parent_of(state, node);
         if (!ts_node_is_null(parent) && strcmp(ts_node_type(parent), "scoped_identifier") == 0) {
             return false;
         }
@@ -518,6 +537,251 @@ static bool named_child_contains(TSNode parent, uint32_t index, TSNode node) {
            node_contains(ts_node_named_child(parent, index), node);
 }
 
+/* ── Issue 90: the walk's own path ───────────────────────────────────────────────
+ *
+ * Classifying a usage asks about its ancestors: the nearest function or import above
+ * it, whether a global statement holds it, the first ancestor whose role decides a
+ * binding. Asked by climbing with ts_node_parent, which tree-sitter answers by
+ * descending from the root, each question cost depth² a usage; a file of deep
+ * constructs took seconds per construct. The unified walk records the frame of every
+ * node it enters (record_walk_frame), so the current node's ancestors are its frames:
+ * a parent is an index away. A nearest-of-kind answer is kept by each frame, and a
+ * climb's answer too, each computed when first asked, from the frame below it, so a
+ * frame costs a bounded amount of work however many usages ask: linear in the file.
+ *
+ * Nothing about what is answered changes. A frame's node is ts_node_parent of the
+ * frame above it, its field the cursor's, and each question asks at each ancestor
+ * exactly what the climb asked. Outside the walk (the frames do not hold the node, or
+ * could not be recorded) the climbs are made as before. */
+
+static bool is_labeled_argument_kind(const char *kind);
+static bool is_argument_container_kind(const char *kind);
+static bool import_kind_matches(TSNode node, const PDXELangSpec *spec);
+
+/* Whether `node` is the walk's current node, and its depth on the path. */
+static bool walk_depth_of(const WalkState *state, TSNode node, uint32_t *depth) {
+    if (!state || state->frames_failed || !state->frames ||
+        state->frame_depth >= state->frames_capacity ||
+        !ts_node_eq(state->frames[state->frame_depth].node, node)) {
+        return false;
+    }
+    *depth = state->frame_depth;
+    return true;
+}
+
+/* The parent of `node`: its frame's predecessor when `node` is the walk's current node,
+ * otherwise ts_node_parent. */
+static TSNode walk_parent_of(const WalkState *state, TSNode node) {
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        usage_field_lookup_test_note_work();
+        return depth > 0 ? state->frames[depth - 1].node : (TSNode){0};
+    }
+    usage_slow_parent_fallback_test_note();
+    return ts_node_parent(node);
+}
+
+static bool walk_node_in_set(const WalkState *state, unsigned set, TSNode node) {
+    const PDXELangSpec *spec = state->spec;
+    const char *kind = ts_node_type(node);
+    switch (set) {
+    case PDXE_NEAREST_PY_GLOBAL:
+        return strcmp(kind, "global_statement") == 0;
+    case PDXE_NEAREST_PY_NONLOCAL:
+        return strcmp(kind, "nonlocal_statement") == 0;
+    case PDXE_NEAREST_FUNCTION:
+        return spec && spec->function_node_types &&
+               pdxe_kind_in_set(node, spec->function_node_types);
+    case PDXE_NEAREST_CLASS:
+        return spec && spec->class_node_types && pdxe_kind_in_set(node, spec->class_node_types);
+    case PDXE_NEAREST_PARAMETER:
+        return kind_in_exact_set(kind, common_whole_binding_nodes) ||
+               kind_in_exact_set(kind, occurrence_specs[state->language].whole_binding_nodes) ||
+               (spec && spec->function_node_types &&
+                pdxe_kind_in_set(node, spec->function_node_types));
+    case PDXE_NEAREST_JS_DECLARATION:
+        return strcmp(kind, "variable_declaration") == 0 ||
+               strcmp(kind, "lexical_declaration") == 0;
+    case PDXE_NEAREST_IMPORT:
+        return spec && import_kind_matches(node, spec);
+    case PDXE_NEAREST_ARGUMENT_LABEL:
+        return is_labeled_argument_kind(kind) || is_argument_container_kind(kind);
+    case PDXE_NEAREST_PERL_CODEREF:
+        return strcmp(kind, "refgen_expression") == 0 || is_argument_container_kind(kind);
+    case PDXE_NEAREST_PERL_DECLARATION:
+        return strcmp(kind, "variable_declaration") == 0 ||
+               strcmp(kind, "assignment_expression") == 0;
+    case PDXE_NEAREST_HCL_ATTRIBUTE:
+        return strcmp(kind, "attribute") == 0;
+    default:
+        return false;
+    }
+}
+
+/* Depth + 1 of the nearest frame at or above `depth` whose node is of a kind in `set`,
+ * 0 for none. Computed down to the nearest frame that already knows, each frame once. */
+static uint32_t walk_nearest(WalkState *state, uint32_t depth, unsigned set) {
+    uint32_t bit = 1U << set;
+    uint32_t first = depth + 1;
+    while (first > 0 && !(state->frames[first - 1].known & bit)) {
+        first--;
+    }
+    for (uint32_t k = first; k <= depth; k++) {
+        PDXEWalkFrame *frame = &state->frames[k];
+        uint32_t below = k > 0 ? state->frames[k - 1].nearest[set] : 0;
+        frame->nearest[set] = walk_node_in_set(state, set, frame->node) ? k + 1 : below;
+        frame->known |= bit;
+        usage_field_lookup_test_note_work();
+    }
+    return state->frames[depth].nearest[set];
+}
+
+/* The nearest strict ancestor of the node at `depth` of a kind in `set`: its depth + 1,
+ * 0 for none. */
+static uint32_t walk_nearest_above(WalkState *state, uint32_t depth, unsigned set) {
+    return depth > 0 ? walk_nearest(state, depth - 1, set) : 0;
+}
+
+/* One step of a climb: what an ancestor (`parent`, which the node below on the path
+ * occupies as `field`) says about `node`. */
+typedef enum {
+    PDXE_STEP_CONTINUE = 0,
+    PDXE_STEP_FALSE = 1,
+    PDXE_STEP_TRUE = 2,
+} PDXEClimbStep;
+
+typedef PDXEClimbStep (*PDXEClimbStepFn)(PDXEExtractCtx *ctx, const PDXELangSpec *spec,
+                                         TSNode parent, const char *field, TSNode node);
+
+/* A climb from the node at `depth`, the walk's current node: each ancestor in turn, the
+ * nearest first, until one decides; reaching the root decides false.
+ *
+ * Where a step asks whether an ancestor's child contains `node`, it asks it of byte
+ * ranges. For a node of positive width, that child contains it exactly when the child
+ * is the node's own ancestor on the path (siblings' ranges do not overlap, and each
+ * holds its descendants'), so every step says of it what it says of the frame below the
+ * ancestor: the frames' answers serve every such node, the frame's own computed once
+ * from the frame below. An empty node (a parser's missing one) can sit in a sibling's
+ * range at its edge: its climb is made step by step, over the frames, never more than
+ * the depth. */
+static bool walk_climb(PDXEExtractCtx *ctx, const PDXELangSpec *spec, WalkState *state,
+                       TSNode node, uint32_t depth, unsigned climb, PDXEClimbStepFn step) {
+    if (ts_node_end_byte(node) <= ts_node_start_byte(node)) {
+        for (uint32_t k = depth; k > 0; k--) {
+            usage_field_lookup_test_note_work();
+            PDXEClimbStep decided =
+                step(ctx, spec, state->frames[k - 1].node, state->frames[k].field, node);
+            if (decided != PDXE_STEP_CONTINUE) {
+                return decided == PDXE_STEP_TRUE;
+            }
+        }
+        return false;
+    }
+    uint32_t bit = 1U << (PDXE_NEAREST_COUNT + climb);
+    uint32_t first = depth + 1;
+    while (first > 0 && !(state->frames[first - 1].known & bit)) {
+        first--;
+    }
+    for (uint32_t k = first; k <= depth; k++) {
+        PDXEWalkFrame *frame = &state->frames[k];
+        uint8_t answer = PDXE_STEP_FALSE;
+        if (k > 0) {
+            PDXEClimbStep decided =
+                step(ctx, spec, state->frames[k - 1].node, frame->field, frame->node);
+            answer = decided != PDXE_STEP_CONTINUE ? (uint8_t)decided
+                                                   : state->frames[k - 1].climb[climb];
+        }
+        frame->climb[climb] = answer;
+        frame->known |= bit;
+        usage_field_lookup_test_note_work();
+    }
+    return state->frames[depth].climb[climb] == PDXE_STEP_TRUE;
+}
+
+/* is_direct_argument_value over the frames, for the node at `depth`. */
+static bool walk_is_direct_argument_value(WalkState *state, uint32_t depth) {
+    for (;;) {
+        usage_field_lookup_test_note_work();
+        if (depth == 0) {
+            return false;
+        }
+        TSNode node = state->frames[depth].node;
+        TSNode parent = state->frames[depth - 1].node;
+        if (is_labeled_argument_kind(ts_node_type(parent))) {
+            TSNode value = ts_node_child_by_field_name(parent, TS_FIELD("value"));
+            if (ts_node_is_null(value) || !ts_node_eq(value, node)) {
+                return false;
+            }
+            depth--;
+            continue;
+        }
+        TSNode direct_arguments = ts_node_child_by_field_name(parent, TS_FIELD("arguments"));
+        if (!ts_node_is_null(direct_arguments) && ts_node_eq(direct_arguments, node)) {
+            return true;
+        }
+        if (is_argument_container_kind(ts_node_type(parent))) {
+            return true;
+        }
+        const char *parent_kind = ts_node_type(parent);
+        if (strcmp(parent_kind, "list_expression") == 0) {
+            if (depth < 2) {
+                return false;
+            }
+            TSNode arguments =
+                ts_node_child_by_field_name(state->frames[depth - 2].node, TS_FIELD("arguments"));
+            return !ts_node_is_null(arguments) && ts_node_eq(arguments, parent);
+        }
+        if (strcmp(parent_kind, "argument") != 0 && strcmp(parent_kind, "value_argument") != 0) {
+            return false;
+        }
+        return depth >= 2 && is_argument_container_kind(ts_node_type(state->frames[depth - 2].node));
+    }
+}
+
+/* is_direct_argument_value_from over the frames: the node below the frame at
+ * `parent_depth` occupies `field` of it. */
+static bool walk_is_direct_argument_value_from(WalkState *state, uint32_t parent_depth,
+                                               const char *field) {
+    for (;;) {
+        usage_field_lookup_test_note_work();
+        const char *parent_kind = ts_node_type(state->frames[parent_depth].node);
+        if (is_labeled_argument_kind(parent_kind)) {
+            if (!field || strcmp(field, "value") != 0) {
+                return false;
+            }
+            /* The labeled argument now has to be the argument value itself. */
+            if (parent_depth == 0) {
+                return false;
+            }
+            field = state->frames[parent_depth].field;
+            parent_depth--;
+            continue;
+        }
+        if (field && strcmp(field, "arguments") == 0) {
+            return true;
+        }
+        if (is_argument_container_kind(parent_kind)) {
+            return true;
+        }
+        if (strcmp(parent_kind, "list_expression") == 0) {
+            const char *list_field = state->frames[parent_depth].field;
+            return parent_depth > 0 && list_field && strcmp(list_field, "arguments") == 0;
+        }
+        if (strcmp(parent_kind, "argument") != 0 && strcmp(parent_kind, "value_argument") != 0) {
+            return false;
+        }
+        return parent_depth > 0 &&
+               is_argument_container_kind(ts_node_type(state->frames[parent_depth - 1].node));
+    }
+}
+
+/* is_direct_argument_value_cursor over the frames, for the node at `depth`. */
+static bool walk_is_direct_argument_value_cursor(WalkState *state, uint32_t depth) {
+    usage_field_lookup_test_note_work();
+    return depth > 0 &&
+           walk_is_direct_argument_value_from(state, depth - 1, state->frames[depth].field);
+}
+
 static bool lisp_def_head(const char *text) {
     static const char *const heads[] = {"defn",
                                         "defn-",
@@ -867,8 +1131,22 @@ static bool is_exact_language_binding(PDXEExtractCtx *ctx, TSNode node, WalkStat
                strcmp(ts_node_type(declaration), "parameter_declaration") == 0 &&
                field_contains_node(declaration, "name", node);
     }
-    case PDXE_LANG_PERL:
+    case PDXE_LANG_PERL: {
+        uint32_t depth;
+        if (walk_depth_of(state, node, &depth)) {
+            uint32_t nearest = walk_nearest_above(state, depth, PDXE_NEAREST_PERL_DECLARATION);
+            if (nearest == 0) {
+                return false;
+            }
+            TSNode declaration = state->frames[nearest - 1].node;
+            /* Perl permits repeated `variables:` fields for `my ($a, $b)`; inspect all
+             * direct field instances, not only the first. */
+            return strcmp(ts_node_type(declaration), "variable_declaration") == 0 &&
+                   any_field_contains_node(declaration, "variables", node);
+        }
+        usage_slow_parent_fallback_test_note();
         return is_perl_lexical_declaration_binding(node);
+    }
     case PDXE_LANG_CMAKE:
         return is_cmake_function_parameter(node);
     case PDXE_LANG_FISH:
@@ -1033,7 +1311,7 @@ static bool is_pkl_declaration_binding(TSNode node) {
 }
 
 static bool is_policy_binding(PDXEExtractCtx *ctx, TSNode node,
-                              const PDXEOccurrenceSpec *occurrence) {
+                              const PDXEOccurrenceSpec *occurrence, WalkState *state) {
     switch (occurrence->policy) {
     case PDXE_OCCURRENCE_LISP_DEF:
         return is_lisp_def_binding(ctx, node);
@@ -1061,8 +1339,15 @@ static bool is_policy_binding(PDXEExtractCtx *ctx, TSNode node,
         return is_tlaplus_binding(node);
     case PDXE_OCCURRENCE_COBOL_MOVE:
         return is_cobol_move_destination(node);
-    case PDXE_OCCURRENCE_HCL_ATTRIBUTE:
+    case PDXE_OCCURRENCE_HCL_ATTRIBUTE: {
+        uint32_t depth;
+        if (walk_depth_of(state, node, &depth)) {
+            uint32_t nearest = walk_nearest_above(state, depth, PDXE_NEAREST_HCL_ATTRIBUTE);
+            return nearest != 0 && named_child_contains(state->frames[nearest - 1].node, 0, node);
+        }
+        usage_slow_parent_fallback_test_note();
         return is_hcl_attribute_binding(node);
+    }
     case PDXE_OCCURRENCE_ELM_VALUE:
         return is_first_named_part_of(node, "value_declaration");
     case PDXE_OCCURRENCE_RESCRIPT_LET:
@@ -1113,16 +1398,71 @@ static bool elixir_binary_operator_binds(PDXEExtractCtx *ctx, TSNode node) {
            text_equals(ctx, operator_node, "->") || text_equals(ctx, operator_node, "\\\\");
 }
 
+/* One step of is_binding_occurrence's climb: what `parent`, which the node below on the
+ * path occupies as `field`, says about `node`. */
+static PDXEClimbStep binding_step(PDXEExtractCtx *ctx, const PDXELangSpec *spec, TSNode parent,
+                                  const char *field, TSNode node) {
+    const PDXEOccurrenceSpec *occurrence = &occurrence_specs[ctx->language];
+    if (is_value_field(field)) {
+        return PDXE_STEP_FALSE;
+    }
+    /* A declaration container binds its name/pattern, not the symbols used by its type
+     * annotation.  Both TypeScript (`cfg: Config`) and Go (`cfg Config`) expose that
+     * annotation through the exact `type` field; stop before the whole-parameter
+     * binding rule can swallow `Config`. The emitted occurrence remains an ordinary
+     * USAGE, never a callable reference merely because the target happens to be a
+     * type. */
+    if (field && strcmp(field, "type") == 0) {
+        return PDXE_STEP_FALSE;
+    }
+
+    const char *kind = ts_node_type(parent);
+    /* PL/SQL: `parameter` is a ref_call ARGUMENT wrapper (upstream grammar naming), not
+     * a declaration; definition-side bindings use the distinct parameter_declaration
+     * kind. Skip it so call arguments stay ordinary value usages. */
+    if (ctx->language == PDXE_LANG_PLSQL && strcmp(kind, "parameter") == 0) {
+        return PDXE_STEP_CONTINUE;
+    }
+    if (kind_in_exact_set(kind, common_whole_binding_nodes) ||
+        kind_in_exact_set(kind, occurrence->whole_binding_nodes)) {
+        return PDXE_STEP_TRUE;
+    }
+
+    bool variable_container =
+        spec->variable_node_types && pdxe_kind_in_set(parent, spec->variable_node_types);
+    if (ctx->language == PDXE_LANG_ELIXIR && strcmp(kind, "binary_operator") == 0) {
+        variable_container = elixir_binary_operator_binds(ctx, parent);
+    }
+    bool declared_container =
+        kind_in_exact_set(kind, field_binding_nodes) ||
+        (spec->function_node_types && pdxe_kind_in_set(parent, spec->function_node_types)) ||
+        (spec->class_node_types && pdxe_kind_in_set(parent, spec->class_node_types)) ||
+        (spec->field_node_types && pdxe_kind_in_set(parent, spec->field_node_types)) ||
+        variable_container;
+    if (declared_container) {
+        for (const char *const *binding_field = binding_fields; *binding_field; binding_field++) {
+            if (field_contains_node(parent, *binding_field, node)) {
+                return PDXE_STEP_TRUE;
+            }
+        }
+    }
+    return PDXE_STEP_CONTINUE;
+}
+
 static bool is_binding_occurrence(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
                                   WalkState *state) {
     const PDXEOccurrenceSpec *occurrence = &occurrence_specs[ctx->language];
     if (is_exact_language_binding(ctx, node, state)) {
         return true;
     }
-    if (is_policy_binding(ctx, node, occurrence)) {
+    if (is_policy_binding(ctx, node, occurrence, state)) {
         return true;
     }
 
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        return walk_climb(ctx, spec, state, node, depth, PDXE_CLIMB_BINDING, binding_step);
+    }
     TSNode current = node;
     TSTreeCursor *cursor = reset_occurrence_cursor(state, node);
     while (!ts_node_is_null(current)) {
@@ -1131,51 +1471,9 @@ static bool is_binding_occurrence(PDXEExtractCtx *ctx, TSNode node, const PDXELa
         if (!occurrence_parent(cursor, current, &parent, &field)) {
             break;
         }
-        if (is_value_field(field)) {
-            return false;
-        }
-        /* A declaration container binds its name/pattern, not the symbols used
-         * by its type annotation.  Both TypeScript (`cfg: Config`) and Go
-         * (`cfg Config`) expose that annotation through the exact `type` field;
-         * stop before the whole-parameter binding rule can swallow `Config`.
-         * The emitted occurrence remains an ordinary USAGE, never a callable
-         * reference merely because the target happens to be a type. */
-        if (field && strcmp(field, "type") == 0) {
-            return false;
-        }
-
-        const char *kind = ts_node_type(parent);
-        /* PL/SQL: `parameter` is a ref_call ARGUMENT wrapper (upstream grammar
-         * naming), not a declaration; definition-side bindings use the distinct
-         * parameter_declaration kind. Skip it so call arguments stay ordinary
-         * value usages. */
-        if (ctx->language == PDXE_LANG_PLSQL && strcmp(kind, "parameter") == 0) {
-            current = parent;
-            continue;
-        }
-        if (kind_in_exact_set(kind, common_whole_binding_nodes) ||
-            kind_in_exact_set(kind, occurrence->whole_binding_nodes)) {
-            return true;
-        }
-
-        bool variable_container =
-            spec->variable_node_types && pdxe_kind_in_set(parent, spec->variable_node_types);
-        if (ctx->language == PDXE_LANG_ELIXIR && strcmp(kind, "binary_operator") == 0) {
-            variable_container = elixir_binary_operator_binds(ctx, parent);
-        }
-        bool declared_container =
-            kind_in_exact_set(kind, field_binding_nodes) ||
-            (spec->function_node_types && pdxe_kind_in_set(parent, spec->function_node_types)) ||
-            (spec->class_node_types && pdxe_kind_in_set(parent, spec->class_node_types)) ||
-            (spec->field_node_types && pdxe_kind_in_set(parent, spec->field_node_types)) ||
-            variable_container;
-        if (declared_container) {
-            for (const char *const *binding_field = binding_fields; *binding_field;
-                 binding_field++) {
-                if (field_contains_node(parent, *binding_field, node)) {
-                    return true;
-                }
-            }
+        PDXEClimbStep decided = binding_step(ctx, spec, parent, field, node);
+        if (decided != PDXE_STEP_CONTINUE) {
+            return decided == PDXE_STEP_TRUE;
         }
         current = parent;
     }
@@ -1220,9 +1518,48 @@ static bool assignment_reads_target(TSNode assignment) {
     return false;
 }
 
+/* One step of is_write_occurrence's climb, as binding_step. */
+static PDXEClimbStep write_step(PDXEExtractCtx *ctx, const PDXELangSpec *spec, TSNode parent,
+                                const char *field, TSNode node) {
+    const PDXEOccurrenceSpec *occurrence = &occurrence_specs[ctx->language];
+    if (is_value_field(field)) {
+        return PDXE_STEP_FALSE;
+    }
+    bool assignment =
+        (spec->assignment_node_types && pdxe_kind_in_set(parent, spec->assignment_node_types)) ||
+        kind_in_exact_set(ts_node_type(parent), occurrence->write_nodes);
+    if (ctx->language == PDXE_LANG_ELIXIR && strcmp(ts_node_type(parent), "binary_operator") == 0) {
+        assignment = elixir_binary_operator_binds(ctx, parent);
+    }
+    if (!assignment) {
+        return PDXE_STEP_CONTINUE;
+    }
+    if (assignment_reads_target(parent)) {
+        return PDXE_STEP_FALSE;
+    }
+    if (ctx->language == PDXE_LANG_LINKERSCRIPT && strcmp(ts_node_type(parent), "assignment") == 0) {
+        /* This grammar's assignment production has no field map. Its first direct child
+         * is the lhs, even when that child is the anonymous location-counter token `.`. */
+        return ts_node_child_count(parent) > 0 && node_contains(ts_node_child(parent, 0), node)
+                   ? PDXE_STEP_TRUE
+                   : PDXE_STEP_FALSE;
+    }
+    TSNode left = ts_node_child_by_field_name(parent, TS_FIELD("left"));
+    if (node_contains(left, node) || field_contains_node(parent, "target", node) ||
+        field_contains_node(parent, "destination", node)) {
+        return PDXE_STEP_TRUE;
+    }
+    return occurrence->first_named_child_is_write && named_child_contains(parent, 0, node)
+               ? PDXE_STEP_TRUE
+               : PDXE_STEP_FALSE;
+}
+
 static bool is_write_occurrence(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
                                 WalkState *state) {
-    const PDXEOccurrenceSpec *occurrence = &occurrence_specs[ctx->language];
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        return walk_climb(ctx, spec, state, node, depth, PDXE_CLIMB_WRITE, write_step);
+    }
     TSNode current = node;
     TSTreeCursor *cursor = reset_occurrence_cursor(state, node);
     while (!ts_node_is_null(current)) {
@@ -1231,34 +1568,9 @@ static bool is_write_occurrence(PDXEExtractCtx *ctx, TSNode node, const PDXELang
         if (!occurrence_parent(cursor, current, &parent, &field)) {
             break;
         }
-        if (is_value_field(field)) {
-            return false;
-        }
-        bool assignment =
-            (spec->assignment_node_types && pdxe_kind_in_set(parent, spec->assignment_node_types)) ||
-            kind_in_exact_set(ts_node_type(parent), occurrence->write_nodes);
-        if (ctx->language == PDXE_LANG_ELIXIR &&
-            strcmp(ts_node_type(parent), "binary_operator") == 0) {
-            assignment = elixir_binary_operator_binds(ctx, parent);
-        }
-        if (assignment) {
-            if (assignment_reads_target(parent)) {
-                return false;
-            }
-            if (ctx->language == PDXE_LANG_LINKERSCRIPT &&
-                strcmp(ts_node_type(parent), "assignment") == 0) {
-                /* This grammar's assignment production has no field map. Its
-                 * first direct child is the lhs, even when that child is the
-                 * anonymous location-counter token `.`. */
-                return ts_node_child_count(parent) > 0 &&
-                       node_contains(ts_node_child(parent, 0), node);
-            }
-            TSNode left = ts_node_child_by_field_name(parent, TS_FIELD("left"));
-            if (node_contains(left, node) || field_contains_node(parent, "target", node) ||
-                field_contains_node(parent, "destination", node)) {
-                return true;
-            }
-            return occurrence->first_named_child_is_write && named_child_contains(parent, 0, node);
+        PDXEClimbStep decided = write_step(ctx, spec, parent, field, node);
+        if (decided != PDXE_STEP_CONTINUE) {
+            return decided == PDXE_STEP_TRUE;
         }
         current = parent;
     }
@@ -1300,6 +1612,21 @@ static bool is_call_argument_label(TSNode node) {
 }
 
 static bool is_call_argument_label_walk(TSNode node, WalkState *state) {
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        /* The nearest labeled argument or argument list decides, by the field the
+         * node's own ancestor below it occupies. */
+        uint32_t nearest = walk_nearest_above(state, depth, PDXE_NEAREST_ARGUMENT_LABEL);
+        if (nearest == 0) {
+            return false;
+        }
+        if (!is_labeled_argument_kind(ts_node_type(state->frames[nearest - 1].node))) {
+            return false;
+        }
+        const char *field = state->frames[nearest].field;
+        return field && (strcmp(field, "name") == 0 || strcmp(field, "label") == 0 ||
+                         strcmp(field, "key") == 0);
+    }
     TSTreeCursor *cursor = reset_occurrence_cursor(state, node);
     if (!cursor)
         return is_call_argument_label(node);
@@ -1426,6 +1753,33 @@ static TSNode python_direct_callable_attribute_site(TSNode node) {
         parent = ts_node_parent(site);
     }
     return is_direct_argument_value(site) ? site : (TSNode){0};
+}
+
+/* python_direct_callable_attribute_site over the frames, for the node at `depth`. */
+static TSNode walk_python_direct_callable_attribute_site(WalkState *state, uint32_t depth) {
+    TSNode node = state->frames[depth].node;
+    if (strcmp(ts_node_type(node), "attribute") != 0) {
+        return (TSNode){0};
+    }
+    TSNode site = node;
+    uint32_t site_depth = depth;
+    while (site_depth > 0) {
+        usage_field_lookup_test_note_work();
+        TSNode parent = state->frames[site_depth - 1].node;
+        if (strcmp(ts_node_type(parent), "parenthesized_expression") != 0) {
+            break;
+        }
+        TSNode inner = ts_node_child_by_field_name(parent, TS_FIELD("expression"));
+        if (ts_node_is_null(inner) && ts_node_named_child_count(parent) == 1) {
+            inner = ts_node_named_child(parent, 0);
+        }
+        if (ts_node_is_null(inner) || !ts_node_eq(inner, site)) {
+            return (TSNode){0};
+        }
+        site = parent;
+        site_depth--;
+    }
+    return walk_is_direct_argument_value(state, site_depth) ? site : (TSNode){0};
 }
 
 static bool language_may_stamp_exact_callable_value_candidate(PDXELanguage language) {
@@ -1573,10 +1927,169 @@ static TSNode paren_wrapped_direct_argument_site(TSNode node, TSNode parent, TST
     return is_direct_argument_value_walk(site, state) ? site : (TSNode){0};
 }
 
+/* csharp_callable_value_site over the frames: `node` is the walk's current node, at
+ * `depth`. */
+static TSNode walk_csharp_callable_value_site(WalkState *state, TSNode node, uint32_t depth) {
+    const char *kind = ts_node_type(node);
+    if (strcmp(kind, "identifier") != 0 && strcmp(kind, "simple_identifier") != 0) {
+        return (TSNode){0};
+    }
+    /* Invariant: the site is the frame at site_depth, its parent the frame below. */
+    TSNode site = node;
+    uint32_t site_depth = depth;
+    TSNode parent = site_depth > 0 ? state->frames[site_depth - 1].node : (TSNode){0};
+    if (!ts_node_is_null(parent) && strcmp(ts_node_type(parent), "generic_name") == 0) {
+        TSNode name = ts_node_child_by_field_name(parent, TS_FIELD("name"));
+        if (ts_node_is_null(name) && ts_node_named_child_count(parent) > 0) {
+            name = ts_node_named_child(parent, 0);
+        }
+        if (ts_node_is_null(name) || !ts_node_eq(name, node)) {
+            return (TSNode){0};
+        }
+        site = parent;
+        site_depth--;
+        usage_field_lookup_test_note_work();
+        if (site_depth == 0) {
+            return (TSNode){0};
+        }
+        parent = state->frames[site_depth - 1].node;
+    }
+    if (!ts_node_is_null(parent) && strcmp(ts_node_type(parent), "member_access_expression") == 0) {
+        TSNode member = ts_node_child_by_field_name(parent, TS_FIELD("name"));
+        if (ts_node_is_null(member) || !ts_node_eq(member, site)) {
+            return (TSNode){0};
+        }
+        site = parent;
+        site_depth--;
+        usage_field_lookup_test_note_work();
+        if (site_depth == 0) {
+            return (TSNode){0};
+        }
+        parent = state->frames[site_depth - 1].node;
+    }
+    while (!ts_node_is_null(parent) &&
+           strcmp(ts_node_type(parent), "parenthesized_expression") == 0) {
+        TSNode inner = ts_node_child_by_field_name(parent, TS_FIELD("expression"));
+        if (ts_node_is_null(inner) && ts_node_named_child_count(parent) == 1) {
+            inner = ts_node_named_child(parent, 0);
+        }
+        if (ts_node_is_null(inner) || !ts_node_eq(inner, site)) {
+            return (TSNode){0};
+        }
+        site = parent;
+        site_depth--;
+        usage_field_lookup_test_note_work();
+        if (site_depth == 0) {
+            return (TSNode){0};
+        }
+        parent = state->frames[site_depth - 1].node;
+    }
+    if (ts_node_is_null(parent)) {
+        return (TSNode){0};
+    }
+    return walk_is_direct_argument_value_from(state, site_depth - 1,
+                                              state->frames[site_depth].field)
+               ? node
+               : (TSNode){0};
+}
+
+/* paren_wrapped_direct_argument_site over the frames: `node` is the walk's current
+ * node, at `depth`. */
+static TSNode walk_paren_wrapped_direct_argument_site(WalkState *state, uint32_t depth) {
+    if (depth == 0 ||
+        strcmp(ts_node_type(state->frames[depth - 1].node), "parenthesized_expression") != 0) {
+        return (TSNode){0};
+    }
+    uint32_t site_depth = depth;
+    uint32_t wrapper_depth = depth - 1;
+    for (int hops = 0; hops < 64; hops++) {
+        usage_field_lookup_test_note_work();
+        TSNode wrapper = state->frames[wrapper_depth].node;
+        TSNode inner = ts_node_child_by_field_name(wrapper, TS_FIELD("expression"));
+        if (ts_node_is_null(inner) && ts_node_named_child_count(wrapper) == 1) {
+            inner = ts_node_named_child(wrapper, 0);
+        }
+        if (ts_node_is_null(inner) || !ts_node_eq(inner, state->frames[site_depth].node)) {
+            return (TSNode){0};
+        }
+        site_depth = wrapper_depth;
+        if (wrapper_depth == 0 ||
+            strcmp(ts_node_type(state->frames[wrapper_depth - 1].node),
+                   "parenthesized_expression") != 0) {
+            break;
+        }
+        wrapper_depth--;
+    }
+    return walk_is_direct_argument_value(state, site_depth) ? state->frames[site_depth].node
+                                                            : (TSNode){0};
+}
+
+/* call_reference_candidate_site over the frames: `node` is the walk's current node, at
+ * `depth`. Each branch asks what the cursor-backed one below asks. */
+static TSNode walk_call_reference_candidate_site(PDXEExtractCtx *ctx, TSNode node,
+                                                 WalkState *state, uint32_t depth) {
+    const char *kind = ts_node_type(node);
+    usage_field_lookup_test_note_work();
+    TSNode parent = depth > 0 ? state->frames[depth - 1].node : (TSNode){0};
+    bool ts_family = ctx->language == PDXE_LANG_JAVASCRIPT || ctx->language == PDXE_LANG_TYPESCRIPT ||
+                     ctx->language == PDXE_LANG_TSX || ctx->language == PDXE_LANG_ARKTS;
+    if (ts_family && strcmp(kind, "property_identifier") == 0 && !ts_node_is_null(parent) &&
+        strcmp(ts_node_type(parent), "member_expression") == 0) {
+        TSNode property = ts_node_child_by_field_name(parent, TS_FIELD("property"));
+        TSNode arguments = depth >= 2 ? state->frames[depth - 2].node : (TSNode){0};
+        return !ts_node_is_null(property) && ts_node_eq(property, node) &&
+                       !ts_node_is_null(arguments) &&
+                       strcmp(ts_node_type(arguments), "arguments") == 0
+                   ? node
+                   : (TSNode){0};
+    }
+    if (ctx->language == PDXE_LANG_PYTHON && strcmp(kind, "identifier") == 0 &&
+        !ts_node_is_null(parent) && strcmp(ts_node_type(parent), "attribute") == 0) {
+        TSNode attribute = ts_node_child_by_field_name(parent, TS_FIELD("attribute"));
+        return !ts_node_is_null(attribute) && ts_node_eq(attribute, node)
+                   ? walk_python_direct_callable_attribute_site(state, depth - 1)
+                   : (TSNode){0};
+    }
+    if (ctx->language == PDXE_LANG_GO && strcmp(kind, "field_identifier") == 0 &&
+        !ts_node_is_null(parent) && strcmp(ts_node_type(parent), "selector_expression") == 0) {
+        TSNode field = ts_node_child_by_field_name(parent, TS_FIELD("field"));
+        return !ts_node_is_null(field) && ts_node_eq(field, node) &&
+                       walk_is_direct_argument_value_cursor(state, depth - 1)
+                   ? parent
+                   : (TSNode){0};
+    }
+    if (ctx->language == PDXE_LANG_RUST && strcmp(kind, "scoped_identifier") == 0) {
+        return walk_is_direct_argument_value_cursor(state, depth) ? node : (TSNode){0};
+    }
+    if (ctx->language == PDXE_LANG_CSHARP) {
+        return walk_csharp_callable_value_site(state, node, depth);
+    }
+    if (strcmp(kind, "identifier") != 0 && strcmp(kind, "simple_identifier") != 0) {
+        return (TSNode){0};
+    }
+    if (ctx->language == PDXE_LANG_KOTLIN && !ts_node_is_null(parent) &&
+        strcmp(ts_node_type(parent), "navigation_suffix") == 0) {
+        return node;
+    }
+    if (ctx->language == PDXE_LANG_PYTHON && !ts_node_is_null(parent) &&
+        strcmp(ts_node_type(parent), "assignment") == 0) {
+        TSNode right = ts_node_child_by_field_name(parent, TS_FIELD("right"));
+        return !ts_node_is_null(right) && ts_node_eq(right, node) ? node : (TSNode){0};
+    }
+    if (walk_is_direct_argument_value_cursor(state, depth)) {
+        return node;
+    }
+    return walk_paren_wrapped_direct_argument_site(state, depth);
+}
+
 static TSNode call_reference_candidate_site(PDXEExtractCtx *ctx, TSNode node, const char *name,
                                             WalkState *state) {
     if (!ctx || !name || !language_may_stamp_exact_callable_value_candidate(ctx->language)) {
         return (TSNode){0};
+    }
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        return walk_call_reference_candidate_site(ctx, node, state, depth);
     }
     const char *kind = ts_node_type(node);
     TSTreeCursor *cursor = reset_occurrence_cursor(state, node);
@@ -1740,48 +2253,63 @@ static const PDXELexicalScope *usage_lexical_scope(const WalkState *state, uint3
                : NULL;
 }
 
+/* The nearest open frame's lexical scope, the root's when none: kept by each frame
+ * (issue 90), not found by scanning the stack. */
 static uint32_t active_lexical_scope_id(const WalkState *state) {
     if (!state) {
         return 0;
     }
-    for (int i = state->scope_top - 1; i >= 0; i--) {
-        if (state->scopes[i].lexical_scope_id != 0) {
-            return state->scopes[i].lexical_scope_id;
-        }
-    }
-    return state->root_lexical_scope_id;
+    return state->scope_top > 0 ? state->scopes[state->scope_top - 1].active_lexical_scope_id
+                                : state->root_lexical_scope_id;
 }
 
 static uint32_t lexical_ancestor_of_kind(const WalkState *state, uint32_t start_id,
                                          bool want_function, bool want_block);
 
-static bool python_default_value_reference(TSNode node) {
+/* One step of python_default_value_reference's climb, as binding_step. */
+static PDXEClimbStep python_default_step(PDXEExtractCtx *ctx, const PDXELangSpec *spec,
+                                         TSNode parent, const char *field, TSNode node) {
+    (void)ctx;
+    (void)spec;
+    (void)field;
+    const char *kind = ts_node_type(parent);
+    /* A nested executable scope inside the default owns its own lookups; only a direct
+     * default expression is evaluated in the declaring function's structural parent
+     * namespace. */
+    if (strcmp(kind, "lambda") == 0 || strcmp(kind, "list_comprehension") == 0 ||
+        strcmp(kind, "set_comprehension") == 0 || strcmp(kind, "dictionary_comprehension") == 0 ||
+        strcmp(kind, "generator_expression") == 0) {
+        return PDXE_STEP_FALSE;
+    }
+    if ((strcmp(kind, "default_parameter") == 0 || strcmp(kind, "typed_default_parameter") == 0) &&
+        (field_contains_node(parent, "value", node) || field_contains_node(parent, "default", node))) {
+        return PDXE_STEP_TRUE;
+    }
+    return PDXE_STEP_CONTINUE;
+}
+
+static bool python_default_value_reference(PDXEExtractCtx *ctx, WalkState *state, TSNode node) {
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        return walk_climb(ctx, state->spec, state, node, depth, PDXE_CLIMB_PY_DEFAULT,
+                          python_default_step);
+    }
+    usage_slow_parent_fallback_test_note();
     for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
          parent = ts_node_parent(parent)) {
-        const char *kind = ts_node_type(parent);
-        /* A nested executable scope inside the default owns its own lookups;
-         * only a direct default expression is evaluated in the declaring
-         * function's structural parent namespace. */
-        if (strcmp(kind, "lambda") == 0 || strcmp(kind, "list_comprehension") == 0 ||
-            strcmp(kind, "set_comprehension") == 0 ||
-            strcmp(kind, "dictionary_comprehension") == 0 ||
-            strcmp(kind, "generator_expression") == 0) {
-            return false;
-        }
-        if ((strcmp(kind, "default_parameter") == 0 ||
-             strcmp(kind, "typed_default_parameter") == 0) &&
-            (field_contains_node(parent, "value", node) ||
-             field_contains_node(parent, "default", node))) {
-            return true;
+        PDXEClimbStep decided = python_default_step(ctx, NULL, parent, NULL, node);
+        if (decided != PDXE_STEP_CONTINUE) {
+            return decided == PDXE_STEP_TRUE;
         }
     }
     return false;
 }
 
-static uint32_t usage_lexical_scope_id_for_node(PDXEExtractCtx *ctx, const WalkState *state,
+static uint32_t usage_lexical_scope_id_for_node(PDXEExtractCtx *ctx, WalkState *state,
                                                 TSNode node) {
     uint32_t scope_id = active_lexical_scope_id(state);
-    if (!ctx || ctx->language != PDXE_LANG_PYTHON || !python_default_value_reference(node)) {
+    if (!ctx || ctx->language != PDXE_LANG_PYTHON ||
+        !python_default_value_reference(ctx, state, node)) {
         return scope_id;
     }
     uint32_t function_id = lexical_ancestor_of_kind(state, scope_id, true, false);
@@ -1856,7 +2384,17 @@ static bool ensure_lexical_binding_capacity(WalkState *state) {
     return true;
 }
 
-static bool lexical_ancestor_kind(TSNode node, const char *kind) {
+/* Whether an ancestor of `node` is a `global_statement` (or, with `nonlocal`, a
+ * `nonlocal_statement`): the nearest of that kind among the frames when `node` is the
+ * walk's current node. */
+static bool python_directive_ancestor(WalkState *state, TSNode node, bool nonlocal) {
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        return walk_nearest_above(state, depth,
+                                  nonlocal ? PDXE_NEAREST_PY_NONLOCAL : PDXE_NEAREST_PY_GLOBAL) != 0;
+    }
+    usage_slow_parent_fallback_test_note();
+    const char *kind = nonlocal ? "nonlocal_statement" : "global_statement";
     for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
          parent = ts_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), kind) == 0) {
@@ -1866,7 +2404,25 @@ static bool lexical_ancestor_kind(TSNode node, const char *kind) {
     return false;
 }
 
-static TSNode declared_function_name_owner(TSNode node, const PDXELangSpec *spec) {
+/* The nearest ancestor of `node` of a kind in `set` (PDXE_NEAREST_FUNCTION or
+ * PDXE_NEAREST_CLASS) when it declares `node` as its name, else null. */
+static TSNode walk_declared_name_owner(WalkState *state, uint32_t depth, TSNode node,
+                                       unsigned set) {
+    uint32_t nearest = walk_nearest_above(state, depth, set);
+    if (nearest == 0) {
+        return (TSNode){0};
+    }
+    TSNode owner = state->frames[nearest - 1].node;
+    return field_contains_node(owner, "name", node) ? owner : (TSNode){0};
+}
+
+static TSNode declared_function_name_owner(TSNode node, const PDXELangSpec *spec,
+                                           WalkState *state) {
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        return walk_declared_name_owner(state, depth, node, PDXE_NEAREST_FUNCTION);
+    }
+    usage_slow_parent_fallback_test_note();
     for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
          parent = ts_node_parent(parent)) {
         if (spec->function_node_types && pdxe_kind_in_set(parent, spec->function_node_types)) {
@@ -1876,7 +2432,13 @@ static TSNode declared_function_name_owner(TSNode node, const PDXELangSpec *spec
     return (TSNode){0};
 }
 
-static TSNode declared_class_name_owner(TSNode node, const PDXELangSpec *spec) {
+static TSNode declared_class_name_owner(TSNode node, const PDXELangSpec *spec,
+                                        WalkState *state) {
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        return walk_declared_name_owner(state, depth, node, PDXE_NEAREST_CLASS);
+    }
+    usage_slow_parent_fallback_test_note();
     for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
          parent = ts_node_parent(parent)) {
         if (spec->class_node_types && pdxe_kind_in_set(parent, spec->class_node_types)) {
@@ -1962,8 +2524,26 @@ static uint32_t python_enclosing_function_namespace(const WalkState *state,
     return 0;
 }
 
-static bool binding_is_parameter(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec) {
+static bool binding_is_parameter(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
+                                 WalkState *state) {
     const PDXEOccurrenceSpec *occurrence = &occurrence_specs[ctx->language];
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        /* The nearest whole-binding container or function decides. */
+        uint32_t nearest = walk_nearest_above(state, depth, PDXE_NEAREST_PARAMETER);
+        if (nearest == 0) {
+            return false;
+        }
+        TSNode parent = state->frames[nearest - 1].node;
+        const char *kind = ts_node_type(parent);
+        if (kind_in_exact_set(kind, common_whole_binding_nodes) ||
+            kind_in_exact_set(kind, occurrence->whole_binding_nodes)) {
+            return true;
+        }
+        return field_contains_node(parent, "parameter", node) ||
+               field_contains_node(parent, "parameters", node);
+    }
+    usage_slow_parent_fallback_test_note();
     for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
          parent = ts_node_parent(parent)) {
         const char *kind = ts_node_type(parent);
@@ -1979,7 +2559,14 @@ static bool binding_is_parameter(PDXEExtractCtx *ctx, TSNode node, const PDXELan
     return false;
 }
 
-static bool js_var_binding(TSNode node) {
+static bool js_var_binding(TSNode node, WalkState *state) {
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        uint32_t nearest = walk_nearest_above(state, depth, PDXE_NEAREST_JS_DECLARATION);
+        return nearest != 0 &&
+               strcmp(ts_node_type(state->frames[nearest - 1].node), "variable_declaration") == 0;
+    }
+    usage_slow_parent_fallback_test_note();
     for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
          parent = ts_node_parent(parent)) {
         const char *kind = ts_node_type(parent);
@@ -1998,7 +2585,45 @@ static bool import_kind_matches(TSNode node, const PDXELangSpec *spec) {
            (spec->import_from_types && pdxe_kind_in_set(node, spec->import_from_types));
 }
 
-static TSNode nearest_import_ancestor(TSNode node, const PDXELangSpec *spec) {
+/* The ancestors of a node, nearest first: its frames' nodes when it is the walk's
+ * current node, otherwise ts_node_parent each step. */
+typedef struct {
+    const WalkState *state;
+    uint32_t depth;
+    TSNode node;
+    bool frames;
+} PDXEWalkAncestors;
+
+static PDXEWalkAncestors walk_ancestors(const WalkState *state, TSNode node) {
+    PDXEWalkAncestors it = {state, 0, node, false};
+    it.frames = walk_depth_of(state, node, &it.depth);
+    if (!it.frames) {
+        usage_slow_parent_fallback_test_note();
+    }
+    return it;
+}
+
+/* The next ancestor, null past the root. */
+static TSNode walk_ancestors_next(PDXEWalkAncestors *it) {
+    if (it->frames) {
+        usage_field_lookup_test_note_work();
+        if (it->depth == 0) {
+            return (TSNode){0};
+        }
+        it->depth--;
+        return it->state->frames[it->depth].node;
+    }
+    it->node = ts_node_is_null(it->node) ? it->node : ts_node_parent(it->node);
+    return it->node;
+}
+
+static TSNode nearest_import_ancestor(TSNode node, const PDXELangSpec *spec, WalkState *state) {
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        uint32_t nearest = walk_nearest_above(state, depth, PDXE_NEAREST_IMPORT);
+        return nearest != 0 ? state->frames[nearest - 1].node : (TSNode){0};
+    }
+    usage_slow_parent_fallback_test_note();
     for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
          parent = ts_node_parent(parent)) {
         if (import_kind_matches(parent, spec)) {
@@ -2015,10 +2640,11 @@ static TSNode first_named_leaf(TSNode node) {
     return node;
 }
 
-static bool import_alias_contains(TSNode node, TSNode boundary) {
-    for (TSNode parent = ts_node_parent(node);
+static bool import_alias_contains(TSNode node, TSNode boundary, const WalkState *state) {
+    PDXEWalkAncestors ancestors = walk_ancestors(state, node);
+    for (TSNode parent = walk_ancestors_next(&ancestors);
          !ts_node_is_null(parent) && !ts_node_eq(parent, boundary);
-         parent = ts_node_parent(parent)) {
+         parent = walk_ancestors_next(&ancestors)) {
         if (field_contains_node(parent, "alias", node)) {
             return true;
         }
@@ -2040,8 +2666,9 @@ static bool rust_use_list_has_direct_self(TSNode list) {
  * names still participate in lexical lookup. Keep this classifier narrow: it
  * identifies only the binding side, never a module path or imported source
  * name. */
-static bool is_import_binding_occurrence(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec) {
-    TSNode boundary = nearest_import_ancestor(node, spec);
+static bool is_import_binding_occurrence(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
+                                         WalkState *state) {
+    TSNode boundary = nearest_import_ancestor(node, spec, state);
     if (ts_node_is_null(boundary)) {
         return false;
     }
@@ -2050,7 +2677,7 @@ static bool is_import_binding_occurrence(PDXEExtractCtx *ctx, TSNode node, const
     if (field_contains_node(boundary, "alias", node)) {
         return true;
     }
-    if (import_alias_contains(node, boundary)) {
+    if (import_alias_contains(node, boundary, state)) {
         return true;
     }
 
@@ -2060,9 +2687,10 @@ static bool is_import_binding_occurrence(PDXEExtractCtx *ctx, TSNode node, const
         if (strcmp(boundary_kind, "future_import_statement") == 0) {
             return false;
         }
-        for (TSNode parent = ts_node_parent(node);
+        PDXEWalkAncestors aliased = walk_ancestors(state, node);
+        for (TSNode parent = walk_ancestors_next(&aliased);
              !ts_node_is_null(parent) && !ts_node_eq(parent, boundary);
-             parent = ts_node_parent(parent)) {
+             parent = walk_ancestors_next(&aliased)) {
             /* In an aliased import, only the alias binds. */
             if (strcmp(ts_node_type(parent), "aliased_import") == 0) {
                 return false;
@@ -2084,10 +2712,11 @@ static bool is_import_binding_occurrence(PDXEExtractCtx *ctx, TSNode node, const
         }
 
         TSNode entry = node;
-        TSNode parent = ts_node_parent(entry);
+        PDXEWalkAncestors up = walk_ancestors(state, node);
+        TSNode parent = walk_ancestors_next(&up);
         while (!ts_node_is_null(parent) && !ts_node_eq(parent, boundary)) {
             entry = parent;
-            parent = ts_node_parent(parent);
+            parent = walk_ancestors_next(&up);
         }
         TSNode first = first_named_leaf(entry);
         return !ts_node_is_null(first) && ts_node_eq(first, node);
@@ -2099,9 +2728,10 @@ static bool is_import_binding_occurrence(PDXEExtractCtx *ctx, TSNode node, const
         if (strcmp(ts_node_type(boundary), "import_statement") != 0) {
             return false;
         }
-        for (TSNode parent = ts_node_parent(node);
+        PDXEWalkAncestors clause = walk_ancestors(state, node);
+        for (TSNode parent = walk_ancestors_next(&clause);
              !ts_node_is_null(parent) && !ts_node_eq(parent, boundary);
-             parent = ts_node_parent(parent)) {
+             parent = walk_ancestors_next(&clause)) {
             const char *kind = ts_node_type(parent);
             if (strcmp(kind, "import_specifier") == 0) {
                 TSNode alias = ts_node_child_by_field_name(parent, TS_FIELD("alias"));
@@ -2138,9 +2768,10 @@ static bool is_import_binding_occurrence(PDXEExtractCtx *ctx, TSNode node, const
             return false;
         }
         bool terminal = false;
-        for (TSNode parent = ts_node_parent(node);
+        PDXEWalkAncestors use = walk_ancestors(state, node);
+        for (TSNode parent = walk_ancestors_next(&use);
              !ts_node_is_null(parent) && !ts_node_eq(parent, boundary);
-             parent = ts_node_parent(parent)) {
+             parent = walk_ancestors_next(&use)) {
             if (field_contains_node(parent, "path", node)) {
                 /* `use foo::{self}` imports the module itself under the final
                  * segment of the prefix (`foo`). An aliased `self as x` is a
@@ -2193,7 +2824,7 @@ static void record_lexical_binding(PDXEExtractCtx *ctx, WalkState *state, TSNode
     if (!ctx || !state || !raw_name || !raw_name[0] || state->lexical_binding_tracking_failed) {
         return;
     }
-    bool parameter = binding_is_parameter(ctx, node, spec);
+    bool parameter = binding_is_parameter(ctx, node, spec, state);
     if (ctx->language == PDXE_LANG_VIMSCRIPT && parameter && !strchr(raw_name, ':')) {
         raw_name = pdxe_arena_sprintf(ctx->arena, "a:%s", raw_name);
         if (!raw_name) {
@@ -2209,13 +2840,13 @@ static void record_lexical_binding(PDXEExtractCtx *ctx, WalkState *state, TSNode
     uint32_t current_id = active_lexical_scope_id(state);
     uint32_t scope_id = 0;
     bool whole_scope = false;
-    TSNode function_declaration = declared_function_name_owner(node, spec);
-    TSNode class_declaration = declared_class_name_owner(node, spec);
+    TSNode function_declaration = declared_function_name_owner(node, spec, state);
+    TSNode class_declaration = declared_class_name_owner(node, spec, state);
 
-    if (ctx->language == PDXE_LANG_PYTHON && (lexical_ancestor_kind(node, "global_statement") ||
-                                             lexical_ancestor_kind(node, "nonlocal_statement"))) {
+    if (ctx->language == PDXE_LANG_PYTHON && (python_directive_ancestor(state, node, false) ||
+                                             python_directive_ancestor(state, node, true))) {
         uint32_t function_id = lexical_ancestor_of_kind(state, current_id, true, false);
-        PDXEPythonDirectiveKind directive = lexical_ancestor_kind(node, "global_statement")
+        PDXEPythonDirectiveKind directive = python_directive_ancestor(state, node, false)
                                                ? PDXE_PYTHON_DIRECTIVE_GLOBAL
                                                : PDXE_PYTHON_DIRECTIVE_NONLOCAL;
         record_python_directive(state, function_id, name, directive);
@@ -2283,7 +2914,7 @@ static void record_lexical_binding(PDXEExtractCtx *ctx, WalkState *state, TSNode
         whole_scope = true;
     } else if (ctx->language == PDXE_LANG_JAVASCRIPT || ctx->language == PDXE_LANG_TYPESCRIPT ||
                ctx->language == PDXE_LANG_TSX || ctx->language == PDXE_LANG_ARKTS) {
-        bool is_var = js_var_binding(node);
+        bool is_var = js_var_binding(node, state);
         scope_id = lexical_ancestor_of_kind(state, current_id, is_var, !is_var);
         if (scope_id == 0) {
             scope_id = lexical_ancestor_of_kind(state, current_id, true, false);
@@ -2439,9 +3070,14 @@ void pdxe_finalize_lexical_usages(PDXEExtractCtx *ctx, WalkState *state) {
     }
 }
 
-static char *perl_direct_coderef_name(PDXEExtractCtx *ctx, TSNode node) {
+static char *perl_direct_coderef_name(PDXEExtractCtx *ctx, TSNode node, WalkState *state) {
     if (!ctx || ctx->language != PDXE_LANG_PERL ||
-        strcmp(ts_node_type(node), "refgen_expression") != 0 || !is_direct_argument_value(node)) {
+        strcmp(ts_node_type(node), "refgen_expression") != 0) {
+        return NULL;
+    }
+    uint32_t depth;
+    if (!(walk_depth_of(state, node, &depth) ? walk_is_direct_argument_value(state, depth)
+                                             : is_direct_argument_value(node))) {
         return NULL;
     }
     char *text = pdxe_node_text(ctx->arena, node, ctx->source);
@@ -2460,10 +3096,19 @@ static char *perl_direct_coderef_name(PDXEExtractCtx *ctx, TSNode node) {
     return end > start ? pdxe_arena_strndup(ctx->arena, start, (size_t)(end - start)) : NULL;
 }
 
-static bool inside_direct_perl_coderef(PDXEExtractCtx *ctx, TSNode node) {
+static bool inside_direct_perl_coderef(PDXEExtractCtx *ctx, TSNode node, WalkState *state) {
     if (!ctx || ctx->language != PDXE_LANG_PERL) {
         return false;
     }
+    uint32_t depth;
+    if (walk_depth_of(state, node, &depth)) {
+        /* The nearest refgen or argument list decides. */
+        uint32_t nearest = walk_nearest_above(state, depth, PDXE_NEAREST_PERL_CODEREF);
+        return nearest != 0 &&
+               strcmp(ts_node_type(state->frames[nearest - 1].node), "refgen_expression") == 0 &&
+               walk_is_direct_argument_value(state, nearest - 1);
+    }
+    usage_slow_parent_fallback_test_note();
     for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
          parent = ts_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), "refgen_expression") == 0) {
@@ -2478,8 +3123,8 @@ static bool inside_direct_perl_coderef(PDXEExtractCtx *ctx, TSNode node) {
 
 static bool emit_direct_perl_coderef_usage(PDXEExtractCtx *ctx, TSNode node,
                                            const char *enclosing_func_qn,
-                                           uint32_t lexical_scope_id) {
-    char *name = perl_direct_coderef_name(ctx, node);
+                                           uint32_t lexical_scope_id, WalkState *state) {
+    char *name = perl_direct_coderef_name(ctx, node, state);
     if (!name || !name[0]) {
         return false;
     }
@@ -2498,13 +3143,14 @@ static bool emit_direct_perl_coderef_usage(PDXEExtractCtx *ctx, TSNode node,
 // Try to emit a usage for a reference node. Returns early if the node should be skipped.
 static void try_emit_usage(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
                            bool inside_call, bool inside_import) {
-    if (emit_direct_perl_coderef_usage(ctx, node, pdxe_enclosing_func_qn_cached(ctx, node), 0)) {
+    if (emit_direct_perl_coderef_usage(ctx, node, pdxe_enclosing_func_qn_cached(ctx, node), 0,
+                                       NULL)) {
         return;
     }
-    if (inside_direct_perl_coderef(ctx, node)) {
+    if (inside_direct_perl_coderef(ctx, node, NULL)) {
         return;
     }
-    if (!is_reference_node(node, ctx->language)) {
+    if (!is_reference_node(node, ctx->language, NULL)) {
         return;
     }
     if (is_call_argument_label(node)) {
@@ -2629,18 +3275,18 @@ void handle_usages(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec, W
 static void handle_usages_at_node(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec,
                                   WalkState *state) {
     if (emit_direct_perl_coderef_usage(ctx, node, state->enclosing_func_qn,
-                                       active_lexical_scope_id(state))) {
+                                       active_lexical_scope_id(state), state)) {
         return;
     }
-    if (inside_direct_perl_coderef(ctx, node)) {
+    if (inside_direct_perl_coderef(ctx, node, state)) {
         return;
     }
-    bool reference_node = is_reference_node(node, ctx->language);
+    bool reference_node = is_reference_node(node, ctx->language, state);
     const PDXEOccurrenceSpec *occurrence = &occurrence_specs[ctx->language];
     bool possible_binding_leaf =
         ts_node_is_named(node) && ts_node_named_child_count(node) == 0 &&
         (state->inside_import || is_exact_language_binding(ctx, node, state) ||
-         is_policy_binding(ctx, node, occurrence));
+         is_policy_binding(ctx, node, occurrence, state));
     if (!reference_node && !possible_binding_leaf) {
         return;
     }
@@ -2686,7 +3332,7 @@ static void handle_usages_at_node(PDXEExtractCtx *ctx, TSNode node, const PDXELa
     // Imports do not emit ordinary usages, but their binding occurrence must
     // be recorded before the subtree is skipped.
     if (state->inside_import) {
-        if (is_import_binding_occurrence(ctx, node, spec)) {
+        if (is_import_binding_occurrence(ctx, node, spec, state)) {
             char *binding_name = reference_name(ctx, node);
             if (binding_name && binding_name[0] && !pdxe_is_keyword(binding_name, ctx->language)) {
                 record_lexical_binding(ctx, state, node, spec, binding_name, true);
@@ -2696,8 +3342,8 @@ static void handle_usages_at_node(PDXEExtractCtx *ctx, TSNode node, const PDXELa
     }
 
     bool python_scope_directive =
-        ctx->language == PDXE_LANG_PYTHON && (lexical_ancestor_kind(node, "global_statement") ||
-                                             lexical_ancestor_kind(node, "nonlocal_statement"));
+        ctx->language == PDXE_LANG_PYTHON && (python_directive_ancestor(state, node, false) ||
+                                             python_directive_ancestor(state, node, true));
     if (python_scope_directive || is_binding_occurrence(ctx, node, spec, state)) {
         char *binding_name = reference_name(ctx, node);
         if (binding_name && binding_name[0] && !pdxe_is_keyword(binding_name, ctx->language)) {

@@ -348,6 +348,9 @@ if(PDXE_BUILD_TESTS)
   # Nor how deeply its syntax nests: a tree deeper than PDXE_MAX_SYNTAX_DEPTH is not
   # extracted (issue 89, patches/0021).
   add_test(NAME syntax_depth COMMAND syntax_depth)
+  # Nor how deeply its usages sit: a usage's ancestors are answered from the walk's own
+  # path, the work linear in the nesting (issue 90, patches/0022).
+  add_test(NAME usage_ancestry COMMAND usage_ancestry)
 
   # Nor the compiler's char: the preprocessing library is built twice, plain char signed
   # and unsigned (as on Linux for AArch64), and both give the project's character

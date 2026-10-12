@@ -48,12 +48,17 @@ static uint32_t current_lexical_scope_id(const WalkState *state) {
     if (!state) {
         return 0;
     }
-    for (int i = state->scope_top - 1; i >= 0; i--) {
-        if (state->scopes[i].lexical_scope_id != 0) {
-            return state->scopes[i].lexical_scope_id;
-        }
+    return state->scope_top > 0 ? state->scopes[state->scope_top - SKIP_ONE].active_lexical_scope_id
+                                : state->root_lexical_scope_id;
+}
+
+/* Gives the frame just pushed its lexical scope (issue 90: and the scope in force). */
+static void set_top_lexical_scope(WalkState *state, uint32_t lexical_scope_id) {
+    PDXEWalkScope *f = &state->scopes[state->scope_top - SKIP_ONE];
+    f->lexical_scope_id = lexical_scope_id;
+    if (lexical_scope_id != 0) {
+        f->active_lexical_scope_id = lexical_scope_id;
     }
-    return state->root_lexical_scope_id;
 }
 
 static bool ensure_lexical_scope_capacity(WalkState *state) {
@@ -315,6 +320,7 @@ static bool push_scope(WalkState *state, uint8_t kind, uint32_t depth, const cha
     f->depth = depth;
     f->qn = qn;
     f->lexical_scope_id = 0;
+    f->active_lexical_scope_id = current_lexical_scope_id(state);
     f->invocation_kind = PDXE_INVOCATION_NONE;
     f->callee_expr = (TSNode){0};
     f->callee_leaf = (TSNode){0};
@@ -365,8 +371,7 @@ static bool push_lexical_scope(WalkState *state, uint8_t walk_kind, uint32_t dep
         state->lexical_binding_tracking_failed = true;
         return false;
     }
-    state->scopes[state->scope_top - SKIP_ONE].lexical_scope_id =
-        add_lexical_scope(state, node, lexical_kind);
+    set_top_lexical_scope(state, add_lexical_scope(state, node, lexical_kind));
     return true;
 }
 
@@ -377,7 +382,7 @@ static bool push_existing_lexical_scope(WalkState *state, uint8_t walk_kind, uin
         state->lexical_binding_tracking_failed = true;
         return false;
     }
-    state->scopes[state->scope_top - SKIP_ONE].lexical_scope_id = lexical_scope_id;
+    set_top_lexical_scope(state, lexical_scope_id);
     uint32_t end_byte = ts_node_end_byte(node);
     if (end_byte > scope->end_byte) {
         scope->end_byte = end_byte;
@@ -2751,6 +2756,40 @@ static void record_node_type(WalkState *state, uint32_t depth, const char *type)
     state->current_depth = depth;
 }
 
+/* Issue 90: records the frame of the node the walk entered at `depth`, growing the
+ * frames by doubling. Its answers are cleared: the frames above it belong to nodes the
+ * walk has left, and are recorded again before anything reads them. An allocation that
+ * fails stops recording for the rest of the walk, and every question is then answered
+ * by climbing. */
+static void record_walk_frame(WalkState *state, uint32_t depth, TSNode node, const char *field) {
+    if (state->frames_failed) {
+        return;
+    }
+    if (depth >= state->frames_capacity) {
+        uint32_t capacity = state->frames_capacity ? state->frames_capacity * 2 : 64;
+        while (capacity <= depth) {
+            capacity *= 2;
+        }
+        PDXEWalkFrame *grown = (PDXEWalkFrame *)pdxe_arena_alloc(
+            state->frames_arena, (size_t)capacity * sizeof(PDXEWalkFrame));
+        if (!grown) {
+            state->frames_failed = true;
+            return;
+        }
+        if (state->frames) {
+            memcpy((void *)grown, (const void *)state->frames,
+                   (size_t)state->frames_capacity * sizeof(PDXEWalkFrame));
+        }
+        state->frames = grown;
+        state->frames_capacity = capacity;
+    }
+    PDXEWalkFrame *frame = &state->frames[depth];
+    frame->node = node;
+    frame->field = field;
+    frame->known = 0;
+    state->frame_depth = depth;
+}
+
 /* The current node's path from the innermost function frame, NULL-terminated, in
  * the arena, within the file's budget (issue 88); NULL when it cannot be given. */
 static const char **current_site_path(PDXEExtractCtx *ctx, WalkState *state) {
@@ -2817,6 +2856,8 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
     state.current_cursor = &cursor;
     state.occurrence_cursor = &occurrence_cursor;
     state.arena = ctx->arena;
+    state.frames_arena = ctx->scratch ? ctx->scratch : ctx->arena;
+    state.spec = spec;
     state.language = ctx->language;
     state.scopes = state.inline_scopes;
     state.scope_capacity = MAX_SCOPES;
@@ -2844,6 +2885,17 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
     state.branch_depth = 0;
     pdxe_occurrence_index_build(&state.represented, ctx->result->defs.items,
                                 ctx->defs_after_walk ? 0 : ctx->result->defs.count);
+#ifdef PDXE_ENABLE_TEST_SEAMS
+    /* PDX_ENGINE_TEST_CLIMB_ANCESTRY=<non-empty>: record no frames, so every question
+     * about a usage's ancestors is answered by climbing, as before issue 90. Tests
+     * compare the two. */
+    {
+        const char *seam = getenv("PDX_ENGINE_TEST_CLIMB_ANCESTRY");
+        if (seam && seam[0]) {
+            state.frames_failed = true;
+        }
+    }
+#endif
 
     uint32_t depth = 0;
     uint32_t visited = 0;
@@ -2866,6 +2918,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
         TSNode node = ts_tree_cursor_current_node(&cursor);
         visited++;
         record_node_type(&state, depth, ts_node_type(node));
+        record_walk_frame(&state, depth, node, ts_tree_cursor_current_field_name(&cursor));
         /* The budget is spent in nodes, so the walk of a given file always ends
          * on the same node — on any machine, under any load. A CPU deadline
          * here made the graph differ between two runs on one machine; see

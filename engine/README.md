@@ -119,7 +119,10 @@ Everything goes through `include/pdxe.h`. In outline:
   (`patches/0020-bounded-site-node-type-paths.patch`, issue 88). A tree nested deeper
   than 512 is not extracted at all, the scan running before any semantic pass, and is
   lost work; the expanded tree of C and C++ is held to the same depth
-  (`patches/0021-bounded-syntax-depth.patch`, issue 89).
+  (`patches/0021-bounded-syntax-depth.patch`, issue 89). Within that depth, a usage's
+  questions about its ancestors are answered from the walk's own path, each answer
+  computed once a node, so that work is linear in the nesting
+  (`patches/0022-linear-admitted-depth-extraction.patch`, issue 90).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

@@ -1008,9 +1008,13 @@ void pdxe_kotlin_operator_dedup_test_reset(void);
 uint64_t pdxe_kotlin_operator_dedup_test_comparisons(void);
 #endif
 
-#if defined(PDXE_CALL_REFERENCE_LOOKUP_TEST_API) && PDXE_CALL_REFERENCE_LOOKUP_TEST_API
+#if (defined(PDXE_CALL_REFERENCE_LOOKUP_TEST_API) && PDXE_CALL_REFERENCE_LOOKUP_TEST_API) ||     \
+    defined(PDXE_ENABLE_TEST_SEAMS) || defined(PDXE_USAGE_ANCESTRY_TEST_API)
 // Test-build-only work counter for resolving a node's field role while
 // classifying value references. Production builds retain no instrumentation.
+// Issue 90: built with the test switches too (PDXE_TEST_SEAMS), where the engine's
+// tests read it (defining PDXE_USAGE_ANCESTRY_TEST_API): the work counts every
+// ancestor a usage question examines, the fallbacks every climb by ts_node_parent.
 void pdxe_usage_field_lookup_test_reset(void);
 uint64_t pdxe_usage_field_lookup_test_work(void);
 uint64_t pdxe_usage_slow_parent_fallback_test_count(void);

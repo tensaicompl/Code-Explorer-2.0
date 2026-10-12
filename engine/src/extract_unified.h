@@ -71,6 +71,11 @@ typedef struct {
     const char *qn;
     uint32_t depth;
     uint32_t lexical_scope_id;
+    /* Issue 90: the lexical scope in force while this frame is the top: its own, else
+     * the one in force below it. A frame's own is set only while it is the top, so
+     * this is the nearest non-zero lexical_scope_id at or below it (the root's when
+     * none), read in O(1) instead of a scan of the stack for every node. */
+    uint32_t active_lexical_scope_id;
     uint8_t kind;
     /* A function frame's: the owner of the sites under it (issue 76), the same as
      * the walk state's owners[depth] when it opened a represented callable. */
@@ -137,6 +142,48 @@ typedef struct {
     uint8_t kind;
 } PDXEPythonDirective;
 
+/* Issue 90: the questions a usage asks about its ancestors. Each names a set of node
+ * kinds; a frame's answer is the nearest node at or above it of a kind in the set
+ * (extract_usages.c, walk_nearest). */
+enum {
+    PDXE_NEAREST_PY_GLOBAL = 0,    /* global_statement (Python) */
+    PDXE_NEAREST_PY_NONLOCAL,      /* nonlocal_statement (Python) */
+    PDXE_NEAREST_FUNCTION,         /* the language's function nodes */
+    PDXE_NEAREST_CLASS,            /* the language's class nodes */
+    PDXE_NEAREST_PARAMETER,        /* whole-binding parameter containers and functions */
+    PDXE_NEAREST_JS_DECLARATION,   /* variable_declaration and lexical_declaration */
+    PDXE_NEAREST_IMPORT,           /* the language's import nodes */
+    PDXE_NEAREST_ARGUMENT_LABEL,   /* labeled arguments and argument lists */
+    PDXE_NEAREST_PERL_CODEREF,     /* refgen_expression and argument lists (Perl) */
+    PDXE_NEAREST_PERL_DECLARATION, /* variable_declaration and assignment_expression (Perl) */
+    PDXE_NEAREST_HCL_ATTRIBUTE,    /* attribute (HCL) */
+    PDXE_NEAREST_COUNT
+};
+
+/* Issue 90: the climbs a usage makes until an ancestor decides it, each kept by every
+ * frame as the answer for the frame's own node (extract_usages.c, walk_climb). */
+enum {
+    PDXE_CLIMB_BINDING = 0, /* is_binding_occurrence */
+    PDXE_CLIMB_WRITE,       /* is_write_occurrence */
+    PDXE_CLIMB_PY_DEFAULT,  /* python_default_value_reference */
+    PDXE_CLIMB_COUNT
+};
+
+/* Issue 90: one node of the walk's path. The walk records the frame of every node it
+ * enters, at the node's cursor depth, so the frames at depths 0 to the current one are
+ * the current node and each of its ancestors: an ancestor is an index away, never a
+ * ts_node_parent (which descends from the root) or a cursor copy. The answers are
+ * computed when first asked and kept until the walk enters another node at this depth;
+ * `known` says which are set (bit i for nearest[i], bit PDXE_NEAREST_COUNT + j for
+ * climb[j]). */
+typedef struct {
+    TSNode node;
+    const char *field; /* the node's field in its parent (the cursor's), NULL for none */
+    uint32_t known;
+    uint32_t nearest[PDXE_NEAREST_COUNT]; /* depth + 1 of the nearest, 0 for none */
+    uint8_t climb[PDXE_CLIMB_COUNT];      /* 1 false, 2 true */
+} PDXEWalkFrame;
+
 // WalkState tracks scope context during the unified cursor walk.
 // Replaces parent-chain walks for enclosing_func_qn, import context, etc.
 typedef struct {
@@ -159,6 +206,16 @@ typedef struct {
     uint32_t current_depth;
     uint32_t enclosing_func_depth;
     bool node_types_failed;
+    /* Issue 90: the frames of the current node and its ancestors, by cursor depth
+     * (frame_depth is the current node's). Grown in frames_arena (the extraction's
+     * scratch); when they cannot grow, frames_failed, and every question is answered
+     * by climbing as before. */
+    PDXEWalkFrame *frames;
+    uint32_t frames_capacity;
+    uint32_t frame_depth;
+    bool frames_failed;
+    PDXEArena *frames_arena;
+    const PDXELangSpec *spec;
 
     PDXEArena *arena;
     PDXEWalkScope *scopes;
