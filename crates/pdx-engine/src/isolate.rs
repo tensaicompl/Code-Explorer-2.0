@@ -33,7 +33,7 @@ use std::ffi::OsString;
 use std::io::{self, BufReader, BufWriter, Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
-use std::sync::mpsc;
+use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
 use serde::de::DeserializeOwned;
@@ -41,7 +41,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::engine::Engine;
 use crate::error::EngineError;
-use crate::model::{FileExtract, serde_bytes_compat};
+use crate::model::{ExtractRecord, FileExtract, serde_bytes_compat};
 
 /// The environment variable that asks for isolation: set to `1`.
 pub const ISOLATE_ENV: &str = "PDX_ENGINE_ISOLATE";
@@ -65,8 +65,11 @@ pub const DEFAULT_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(120);
 /// carries its `impl Trait for Type` relations (issue 42), 5 since a call carries its
 /// node-type path and arguments and a definition its decorators, parameter types and
 /// route (issues 46 and 47), 6 since a definition carries every route binding with its
-/// declaring node in place of one route (issue 54).
-const PROTOCOL: u32 = 6;
+/// declaring node in place of one route (issue 54), 7 since the worker answers with
+/// records whose text is held as ranges of the request's source and whose qualified
+/// names are held structurally, which the parent binds to the source it sent (issue 90):
+/// an answer never sends a source back, and is proportional to the facts.
+const PROTOCOL: u32 = 7;
 
 /// Whether the environment asks for isolation.
 pub fn isolation_requested() -> bool {
@@ -107,7 +110,7 @@ impl ExtractFailure {
 }
 
 /// What happened to one file.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ExtractOutcome {
     /// It was extracted.
     Extracted(Box<FileExtract>),
@@ -342,8 +345,9 @@ enum Response {
         protocol: u32,
         engine_version: String,
     },
-    /// One outcome per file of the batch, in order.
-    Extracted(Vec<Result<FileExtract, EngineError>>),
+    /// One outcome per file of the batch, in order: each extraction as its record,
+    /// which the parent binds to the file's source.
+    Extracted(Vec<Result<ExtractRecord, EngineError>>),
 }
 
 /// Why an exchange with a worker produced nothing.
@@ -413,9 +417,11 @@ impl Worker {
             read_frame::<Response>(output)
         })?;
         match response {
-            Some(Response::Extracted(outcomes)) if outcomes.len() == files.len() => {
-                Ok(outcomes.into_iter().map(ExtractOutcome::from).collect())
-            }
+            Some(Response::Extracted(outcomes)) if outcomes.len() == files.len() => outcomes
+                .into_iter()
+                .zip(files)
+                .map(|(outcome, file)| bind(outcome, file))
+                .collect(),
             Some(_) => Err(Exchange::Failed(FrameError::Malformed(
                 "a response that does not answer the batch".into(),
             ))),
@@ -470,6 +476,22 @@ impl Drop for Worker {
     }
 }
 
+/// One file's answer bound to the source sent for it (issue 90). An extraction that is
+/// not of that source, or whose ranges or names are not well formed, is not an answer
+/// this protocol gives: the exchange failed, as a worker dying does.
+fn bind(
+    outcome: Result<ExtractRecord, EngineError>,
+    file: &SourceFile,
+) -> Result<ExtractOutcome, Exchange> {
+    match outcome {
+        Ok(record) => record
+            .bind(Arc::from(file.source.as_slice()))
+            .map(|extract| ExtractOutcome::Extracted(Box::new(extract)))
+            .map_err(|e| Exchange::Failed(FrameError::Malformed(e.to_string()))),
+        Err(error) => Ok(ExtractOutcome::Failed(ExtractFailure::Engine(error))),
+    }
+}
+
 /// Accepts a worker's introduction only if it speaks this protocol for this engine: a
 /// worker of another protocol would exchange messages of another shape.
 fn accept(protocol: u32, engine_version: &str) -> Result<(), IsolationError> {
@@ -514,7 +536,11 @@ fn serve(input: impl Read, output: impl Write) -> io::Result<()> {
     {
         let outcomes = files
             .iter()
-            .map(|f| engine.extract(&f.language, &f.rel_path, &f.source))
+            .map(|f| {
+                engine
+                    .extract(&f.language, &f.rel_path, &f.source)
+                    .map(FileExtract::into_record)
+            })
             .collect();
         write_frame(&mut output, &Response::Extracted(outcomes)).map_err(io::Error::other)?;
         output.flush()?;
@@ -614,6 +640,7 @@ fn read_frame<T: DeserializeOwned>(r: &mut impl Read) -> Result<Option<T>, Frame
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::model::TextRef;
 
     fn frame<T: Serialize>(value: &T) -> Vec<u8> {
         let mut out = Vec::new();
@@ -670,24 +697,25 @@ mod tests {
         // Bytes that are no value of the type at all.
         let bytes = frame(&"not a number".to_owned());
         assert!(matches!(
-            read_frame::<Vec<FileExtract>>(&mut bytes.as_slice()),
+            read_frame::<Vec<ExtractRecord>>(&mut bytes.as_slice()),
             Err(FrameError::Malformed(_))
         ));
     }
 
     #[test]
     fn a_worker_of_another_protocol_is_refused() {
-        // 6 since a definition carries every route binding with its declaring node
-        // (issue 54): a worker still speaking 5 (one route, issues 46 and 47) sends
-        // extractions of the old shape.
-        assert_eq!(PROTOCOL, 6);
+        // 7 since a worker answers with records whose text is ranges of the request's
+        // source (issue 90): a worker still speaking 6 sends every text copied, which
+        // the parent would read as the old shape.
+        assert_eq!(PROTOCOL, 7);
         let ours = Engine::version();
         for (protocol, version) in [
             (2, ours.as_str()),
             (3, ours.as_str()),
             (4, ours.as_str()),
             (5, ours.as_str()),
-            (7, ours.as_str()),
+            (6, ours.as_str()),
+            (8, ours.as_str()),
             (PROTOCOL, "0"),
         ] {
             let err = accept(protocol, version).unwrap_err();
@@ -733,12 +761,71 @@ mod tests {
         let engine = Engine::new().unwrap();
         let direct: Vec<_> = files
             .iter()
-            .map(|f| engine.extract(&f.language, &f.rel_path, &f.source))
+            .map(|f| {
+                engine
+                    .extract(&f.language, &f.rel_path, &f.source)
+                    .map(FileExtract::into_record)
+            })
             .collect();
         assert_eq!(outcomes, direct);
         assert_eq!(
             outcomes[1],
             Err(EngineError::UnknownLanguage("no-such-language".into()))
+        );
+    }
+
+    /// The bytes a worker answers a batch of one file with.
+    fn answer_size(source: String) -> usize {
+        let files = vec![SourceFile {
+            language: "python".into(),
+            rel_path: "app/h.py".into(),
+            source: source.into_bytes(),
+        }];
+        let mut output = Vec::new();
+        serve(frame(&RequestRef::Extract(&files)).as_slice(), &mut output).expect("served");
+        let mut stream = output.as_slice();
+        let Some(Response::Ready { .. }) = read_frame(&mut stream).unwrap() else {
+            panic!("the worker did not introduce itself");
+        };
+        let answer = stream.len();
+        let Some(Response::Extracted(outcomes)) = read_frame(&mut stream).unwrap() else {
+            panic!("the worker did not answer");
+        };
+        let record = outcomes[0].as_ref().expect("extracted");
+        // The answer carries the record's text as ranges of the source sent, never the
+        // source itself back: exactly the record extracting it here gives, every range
+        // still a range.
+        let direct = Engine::new()
+            .unwrap()
+            .extract(&files[0].language, &files[0].rel_path, &files[0].source)
+            .unwrap();
+        assert_eq!(record, direct.record());
+        assert!(
+            record
+                .usages
+                .iter()
+                .any(|u| matches!(u.name, TextRef::Source { .. }))
+        );
+        answer
+    }
+
+    #[test]
+    fn a_worker_answers_in_proportion_to_the_facts() {
+        // Python attribute chains: each link a usage named by the chain up to it. Held as
+        // ranges, twice the depth is at most twice the answer; sent as text, four times.
+        let sizes: Vec<usize> = [40, 80, 160]
+            .iter()
+            .map(|&depth| {
+                let one = format!(
+                    "def h():\n    v = a{}\n    return f(v)\n",
+                    ".b".repeat(depth)
+                );
+                answer_size(one.repeat(4))
+            })
+            .collect();
+        assert!(
+            sizes[1] <= 3 * sizes[0] && sizes[2] <= 3 * sizes[1],
+            "answers {sizes:?}"
         );
     }
 }

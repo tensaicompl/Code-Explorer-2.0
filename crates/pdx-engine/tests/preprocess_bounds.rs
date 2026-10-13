@@ -13,6 +13,7 @@
 //! macOS and Windows: the Windows run of this test is the proof that Windows extracts as
 //! Linux does.
 
+use std::borrow::Cow;
 use std::fmt::Write as _;
 
 use pdx_engine::{Engine, FileExtract};
@@ -28,7 +29,10 @@ fn callees(extract: &FileExtract) -> Vec<&str> {
     extract
         .calls
         .iter()
-        .map(|c| c.callee_text.as_str())
+        .map(|c| match extract.text(&c.callee_text) {
+            Cow::Borrowed(text) => text,
+            Cow::Owned(_) => panic!("a test's source is UTF-8"),
+        })
         .collect()
 }
 
@@ -38,10 +42,11 @@ fn facts(extract: &FileExtract) -> Vec<String> {
     let mut facts: Vec<String> = extract
         .definitions
         .iter()
-        .map(|d| {
+        .enumerate()
+        .map(|(i, d)| {
             format!(
                 "def {} {:?} {:?}",
-                d.qualified_name,
+                extract.qualified_name(i),
                 d.kind,
                 d.span.map(|s| s.start_line)
             )
@@ -49,7 +54,7 @@ fn facts(extract: &FileExtract) -> Vec<String> {
         .chain(extract.calls.iter().map(|c| {
             format!(
                 "call {} from {:?} at {:?} reference {}",
-                c.callee_text,
+                extract.text(&c.callee_text),
                 c.caller,
                 c.span.map(|s| s.start_line),
                 c.is_reference

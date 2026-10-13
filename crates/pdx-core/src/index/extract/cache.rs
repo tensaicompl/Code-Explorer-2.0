@@ -6,12 +6,18 @@
 //! bytes is a miss: the file is extracted again and the entry replaced. Nothing a
 //! cache holds is ever returned unless it is exactly the extraction the request would
 //! produce.
+//!
+//! An entry holds the extraction's record ([`ExtractRecord`]): its text as ranges of the
+//! source and its qualified names structurally, never the source itself (issue 90,
+//! format 6). A hit is bound to the source being extracted, which Stage 2 has read and
+//! normalised already: its length and digest are checked, and every range must lie
+//! within it, or the entry is a miss. No range is ever clamped or read unchecked.
 
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use pdx_engine::FileExtract;
+use pdx_engine::{BindError, ExtractRecord};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -158,17 +164,17 @@ impl std::fmt::Debug for CacheObjectId {
     }
 }
 
-/// A cache entry: the extraction, with the format and the key it was stored under.
-/// Encoded with postcard. It holds no source: the extraction's own fields and its
-/// surface only.
+/// A cache entry: the extraction's record, with the format and the key it was stored
+/// under. Encoded with postcard. It holds no source: the extraction's own fields, its
+/// text as ranges of the source, and its surface only.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CacheEnvelope {
     /// [`EXTRACT_CACHE_FORMAT_VERSION`] when written.
     pub format_version: u32,
     /// The key it was stored under.
     pub key: CacheKey,
-    /// The extraction.
-    pub extract: FileExtract,
+    /// The extraction's record.
+    pub extract: ExtractRecord,
 }
 
 /// [`CacheEnvelope`], borrowed, for encoding without a copy: the same fields in the
@@ -177,16 +183,16 @@ pub struct CacheEnvelope {
 struct EnvelopeRef<'a> {
     format_version: u32,
     key: &'a CacheKey,
-    extract: &'a FileExtract,
+    extract: &'a ExtractRecord,
 }
 
 impl CacheEnvelope {
-    /// The entry for `extract` stored under `key`, encoded.
+    /// The entry for `extract` stored under `key`, encoded: its ranges as ranges.
     ///
     /// # Panics
     ///
     /// Never: every key and extraction encodes.
-    pub fn encode(key: &CacheKey, extract: &FileExtract) -> Vec<u8> {
+    pub fn encode(key: &CacheKey, extract: &ExtractRecord) -> Vec<u8> {
         postcard::to_stdvec(&EnvelopeRef {
             format_version: EXTRACT_CACHE_FORMAT_VERSION,
             key,
@@ -202,7 +208,7 @@ impl CacheEnvelope {
     ///
     /// [`CacheDefect`] for anything else: bytes that do not decode, decode with bytes
     /// left over, are of another format, or were stored under another key.
-    pub fn decode(bytes: &[u8], key: &CacheKey) -> Result<FileExtract, CacheDefect> {
+    pub fn decode(bytes: &[u8], key: &CacheKey) -> Result<ExtractRecord, CacheDefect> {
         let (format_version, _) =
             postcard::take_from_bytes::<u32>(bytes).map_err(|_| CacheDefect::Malformed)?;
         if format_version != EXTRACT_CACHE_FORMAT_VERSION {
@@ -248,6 +254,21 @@ pub enum CacheDefect {
     /// It is an extraction no cache may hold: truncated, or one that lost work.
     #[error("an extraction that is not clean")]
     Unclean,
+    /// Its text ranges or qualified names do not fit the source it was taken from
+    /// (issue 90): it is no extraction of that source.
+    #[error("text or names that do not fit its source")]
+    MalformedText,
+}
+
+impl From<BindError> for CacheDefect {
+    fn from(e: BindError) -> Self {
+        match e {
+            BindError::Length { .. } | BindError::Digest => Self::OtherSource,
+            BindError::Range { .. }
+            | BindError::QualifiedName { .. }
+            | BindError::Prefix { .. } => Self::MalformedText,
+        }
+    }
 }
 
 /// A cache entry could not be stored. The extraction is not affected.
@@ -264,14 +285,15 @@ pub struct CacheStoreError {
 /// Somewhere extractions are cached. Shared by every worker of Stage 2 at once, so an
 /// implementation serialises only what it must: two keys never wait on each other.
 pub trait ExtractCache: Sync {
-    /// The extraction stored under `key`: `Ok(None)` when there is none, and an error
-    /// for one that exists but cannot be used. An implementation never returns an
-    /// extraction stored under another key.
+    /// The extraction record stored under `key`: `Ok(None)` when there is none, and an
+    /// error for one that exists but cannot be used. An implementation never returns an
+    /// extraction stored under another key. The caller binds it to the source it is
+    /// extracting ([`ExtractRecord::bind`]) before using it.
     ///
     /// # Errors
     ///
     /// [`CacheDefect`] for an entry that exists and cannot be used.
-    fn load(&self, key: &CacheKey) -> Result<Option<FileExtract>, CacheDefect>;
+    fn load(&self, key: &CacheKey) -> Result<Option<ExtractRecord>, CacheDefect>;
 
     /// Stores `extract` under `key`, replacing any entry, so that a reader sees the
     /// old entry or the new one whole, never part of one.
@@ -279,7 +301,7 @@ pub trait ExtractCache: Sync {
     /// # Errors
     ///
     /// When it cannot be stored.
-    fn store(&self, key: &CacheKey, extract: &FileExtract) -> Result<(), CacheStoreError>;
+    fn store(&self, key: &CacheKey, extract: &ExtractRecord) -> Result<(), CacheStoreError>;
 }
 
 /// The extraction cache in a local directory.
@@ -317,7 +339,7 @@ impl FsCache {
 }
 
 impl ExtractCache for FsCache {
-    fn load(&self, key: &CacheKey) -> Result<Option<FileExtract>, CacheDefect> {
+    fn load(&self, key: &CacheKey) -> Result<Option<ExtractRecord>, CacheDefect> {
         let path = self.object_path(key);
         let file = match fs::File::open(&path) {
             Ok(file) => file,
@@ -334,7 +356,7 @@ impl ExtractCache for FsCache {
         CacheEnvelope::decode(&bytes, key).map(Some)
     }
 
-    fn store(&self, key: &CacheKey, extract: &FileExtract) -> Result<(), CacheStoreError> {
+    fn store(&self, key: &CacheKey, extract: &ExtractRecord) -> Result<(), CacheStoreError> {
         let path = self.object_path(key);
         let failed = |source| CacheStoreError {
             object: key.object_id(),

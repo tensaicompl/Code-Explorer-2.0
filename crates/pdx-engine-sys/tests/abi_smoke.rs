@@ -84,6 +84,22 @@ unsafe fn text<'a>(s: *const c_char) -> &'a str {
         .expect("the engine returns UTF-8")
 }
 
+/// A text the engine gives (issue 90): a range read from `source`, or its owned string.
+///
+/// # Safety
+///
+/// As for [`text`], for an owned string.
+unsafe fn text_ref<'a>(t: &sys::pdxe_text, source: &'a [u8]) -> &'a str {
+    match t.kind {
+        sys::PDXE_TEXT_SOURCE => {
+            std::str::from_utf8(&source[t.start as usize..t.end as usize]).expect("UTF-8")
+        }
+        // SAFETY: as the caller guarantees.
+        sys::PDXE_TEXT_OWNED => unsafe { text(t.owned) },
+        _ => "",
+    }
+}
+
 /// A context for one test, shut down when it is dropped.
 struct Context(*mut sys::pdxe_ctx);
 
@@ -225,7 +241,8 @@ fn typed_resolution_crosses_the_boundary() {
                 && text(r.target_rel_path) == "app/models.py"
                 && text(r.strategy) == "lsp_typed"
                 && text(r.engine_strategy) == "lsp_callable_alias"
-                && text(r.site.callee_text) == "make_user"
+                && r.site.callee_text.kind == sys::PDXE_TEXT_SOURCE
+                && text_ref(&r.site.callee_text, &sources[1]) == "make_user"
                 && r.site.is_reference == 0
                 && r.candidates == 1
         }

@@ -3964,6 +3964,25 @@ static TSNode find_c_params(TSNode func_node) {
  * `function_value_parameters` as a direct child rather than a `parameters`
  * field. Keep the legacy and ordered signature extractors on the same node so
  * adding positional metadata does not replace or reinterpret `param_types`. */
+/* Issue 90: a definition's parameter list. In the raw source it is the parameters
+ * node's range, up to a NUL as a copy would stop, never copied: parameters can hold
+ * whole definitions (a JavaScript function as a default) whose own parameters would
+ * repeat them. After macro expansion, and for a node with no text, it is a copy. */
+static void set_def_signature(PDXEExtractCtx *ctx, PDXEDefinition *def, TSNode params) {
+    uint32_t start = ts_node_start_byte(params);
+    uint32_t end = ts_node_end_byte(params);
+    if (ctx->source_origin == PDXE_SOURCE_ORIGIN_RAW && end > start) {
+        size_t n = pdxe_node_text_len(ctx->source + start, end - start);
+        if (n > 0) {
+            def->signature = NULL;
+            def->signature_start = start;
+            def->signature_end = start + (uint32_t)n;
+            return;
+        }
+    }
+    def->signature = pdxe_node_text(ctx->arena, params, ctx->source);
+}
+
 static TSNode find_function_params(TSNode func_node, PDXELanguage lang) {
     TSNode params = ts_node_child_by_field_name(func_node, TS_FIELD("parameters"));
     // ObjectScript exposes the parameter list under a `parameter_list` field.
@@ -4368,7 +4387,7 @@ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpe
     // Parameters — use func_node (inner function for templates)
     TSNode params = find_function_params(func_node, ctx->language);
     if (!ts_node_is_null(params)) {
-        def.signature = pdxe_node_text(a, params, ctx->source);
+        set_def_signature(ctx, &def, params);
         def.param_names = extract_param_names(a, params, ctx->source, ctx->language);
         def.param_types = extract_param_types(a, params, ctx->source, ctx->language);
         def.signature_param_types = extract_signature_param_types(
@@ -5623,7 +5642,7 @@ static void push_method_def(PDXEExtractCtx *ctx, TSNode child, TSNode class_node
 
     TSNode params = find_function_params(child, ctx->language);
     if (!ts_node_is_null(params)) {
-        def.signature = pdxe_node_text(a, params, ctx->source);
+        set_def_signature(ctx, &def, params);
         def.param_types = extract_param_types(a, params, ctx->source, ctx->language);
         def.signature_param_types = extract_signature_param_types(
             a, params, ctx->source, ctx->language, true, &def.signature_param_count);
@@ -5901,7 +5920,7 @@ static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSp
 
         TSNode params = ts_node_child_by_field_name(child, TS_FIELD("parameters"));
         if (!ts_node_is_null(params)) {
-            def.signature = pdxe_node_text(a, params, ctx->source);
+            set_def_signature(ctx, &def, params);
             def.param_types = extract_param_types(a, params, ctx->source, ctx->language);
             def.signature_param_types = extract_signature_param_types(
                 a, params, ctx->source, ctx->language, true, &def.signature_param_count);
@@ -8195,7 +8214,7 @@ static void extract_c_macro_def(PDXEExtractCtx *ctx, TSNode node) {
 
     TSNode params = ts_node_child_by_field_name(node, TS_FIELD("parameters"));
     if (!ts_node_is_null(params)) {
-        def.signature = pdxe_node_text(a, params, ctx->source);
+        set_def_signature(ctx, &def, params);
     }
 
     pdxe_defs_push(&ctx->result->defs, a, def);

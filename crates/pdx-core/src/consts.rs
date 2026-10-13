@@ -78,8 +78,11 @@ pub const SECRET_DETECTOR_VERSION: u32 = 4;
 /// Type` relations (issue 42), 4 since a call carries its node-type path and arguments
 /// and a definition its decorators, parameter types and route (issues 46 and 47), 5
 /// since a definition carries every route binding with its declaring node in place of
-/// one route (issue 54).
-pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 5;
+/// one route (issue 54), 6 since an entry holds the extraction's record: its text as
+/// ranges of the source, never the source, its qualified names structurally, and its
+/// surface in surface version 5, bound to the source being extracted on a hit (issue
+/// 90).
+pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 6;
 
 // --- resolution ------------------------------------------------------------
 

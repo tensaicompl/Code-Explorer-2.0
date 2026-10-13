@@ -24,7 +24,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use pdx_engine::{Call, DefinitionKind, RouteFact, SiteRef};
+use pdx_engine::{Call, DefinitionKind, FileExtract, RouteFact, SiteRef};
 use serde::Serialize;
 use serde_json::Value;
 
@@ -232,7 +232,8 @@ fn express(
             continue;
         }
         for (index, call) in extract.calls.iter().enumerate() {
-            let (receiver, name) = split_callee(&call.callee_text);
+            let callee = extract.text(&call.callee_text);
+            let (receiver, name) = split_callee(&callee);
             if call.is_reference || receiver.is_none() || !EXPRESS_METHODS.contains(&name) {
                 continue;
             }
@@ -257,17 +258,9 @@ fn express(
                 rel_path: path.to_owned(),
                 call_index,
             };
-            let handler = is_identifier(&handler_arg.expr)
-                .then(|| {
-                    express_handler(
-                        registry,
-                        resolved,
-                        path,
-                        &extract.calls,
-                        call,
-                        &handler_arg.expr,
-                    )
-                })
+            let handler_expr = extract.text(&handler_arg.expr);
+            let handler = is_identifier(&handler_expr)
+                .then(|| express_handler(registry, resolved, path, extract, call, &handler_expr))
                 .flatten();
             match handler {
                 Some((handler, band)) => out.push(Binding {
@@ -296,16 +289,16 @@ fn express_handler(
     registry: &SymbolRegistry,
     resolved: &BTreeMap<&SiteRef, &ResolvedSite>,
     path: &str,
-    calls: &[Call],
+    extract: &FileExtract,
     call: &Call,
     name: &str,
 ) -> Option<(DefinitionRef, Band)> {
     let span = call.span?;
-    for (i, c) in calls.iter().enumerate() {
+    for (i, c) in extract.calls.iter().enumerate() {
         let inside = c
             .span
             .is_some_and(|s| s.start_byte >= span.start_byte && s.end_byte <= span.end_byte);
-        if !(c.is_reference && c.callee_text == name && inside) {
+        if !(c.is_reference && inside && extract.text(&c.callee_text) == name) {
             continue;
         }
         let site_ref = SiteRef {
@@ -393,10 +386,17 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
             continue;
         };
         let handler_node = graph.definition_node(&binding.handler)?.clone();
+        let handler_qn = registry
+            .extract(handler_path)
+            .map(|e| e.qualified_name(binding.handler.index as usize))
+            .ok_or(DeriveError::Missing {
+                path: binding.handler.path.clone(),
+                detail: "a route handler in a file with no extraction",
+            })?;
         let key = route_node_key(
             input.repo,
             handler_path,
-            &handler.qualified_name,
+            &handler_qn,
             &binding.method,
             &binding.route,
         );

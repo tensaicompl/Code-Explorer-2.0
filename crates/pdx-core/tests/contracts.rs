@@ -2317,7 +2317,7 @@ fn missing_fact_kotlin_call_arguments() {
     let send = extract
         .calls
         .iter()
-        .find(|c| c.callee_text == "kafkaTemplate.send")
+        .find(|c| extract.text(&c.callee_text) == "kafkaTemplate.send")
         .expect("the call");
     assert!(send.args.is_empty(), "{send:?}");
     let g = graph(&[("kt/src/P.kt", source)]);
@@ -2335,7 +2335,7 @@ fn missing_fact_destination_bound_before_the_call() {
     let send = extract
         .calls
         .iter()
-        .find(|c| c.callee_text == "p.send")
+        .find(|c| extract.text(&c.callee_text) == "p.send")
         .expect("the call");
     assert_eq!(send.args.len(), 1, "only the message: {send:?}");
     let g = graph(&[(path, source)]);

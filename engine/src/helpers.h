@@ -12,6 +12,11 @@ void *pdxe_memmem(const void *haystack, size_t haystack_len, const void *needle,
 // Extract text of a node from source. Returns arena-allocated string.
 char *pdxe_node_text(PDXEArena *a, TSNode node, const char *source);
 
+// Issue 90: the length of the text a copy of the `max` source bytes at `s` holds, as
+// pdxe_node_text makes one: up to the first NUL, at most `max`. A source range standing
+// for a node's text ends there, so the range is exactly the copy's bytes.
+size_t pdxe_node_text_len(const char *s, size_t max);
+
 // Check if a string is a language keyword (should be skipped as callee/usage).
 bool pdxe_is_keyword(const char *name, PDXELanguage lang);
 

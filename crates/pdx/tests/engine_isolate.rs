@@ -17,7 +17,7 @@ use pdx_engine::isolate::{
     ExtractFailure, ExtractOutcome, IsolatedExtractor, IsolationError, SourceFile,
     WORKER_SUBCOMMAND, WorkerCommand,
 };
-use pdx_engine::{Engine, ProjectResolver};
+use pdx_engine::{Engine, ProjectResolver, QualifiedName, TextRef};
 
 fn worker() -> WorkerCommand {
     WorkerCommand::new(env!("CARGO_BIN_EXE_pdx")).arg(WORKER_SUBCOMMAND)
@@ -194,6 +194,79 @@ fn isolation_carries_site_paths_and_derivation_facts() {
         facts.3,
         4 + 7,
         "every route binding, positioned, through the worker"
+    );
+}
+
+#[test]
+fn isolation_carries_text_as_ranges_bound_to_the_source_sent() {
+    // Protocol 7 answers with records whose text is ranges of the source sent (issue
+    // 90): the parent binds each to the file's source. Ranges, owned text read after
+    // macro expansion, and qualified names nested in classes all read the same as this
+    // process's, and the ranges stay ranges.
+    let files: Vec<SourceFile> = [
+        (
+            "c",
+            "src/g.c",
+            "#define TWICE(v) twice((v) + 1)\nint g(int a) { return f(a, f(a, h(a))) + TWICE(a); }\n",
+        ),
+        (
+            "python",
+            "app/a.py",
+            "class A:\n    class B:\n        def m(self):\n            return self.x.y(z)\n\n\nv = a.b.c\n",
+        ),
+        (
+            "java",
+            "src/main/java/p/A.java",
+            "package p;\nclass A { class B { class C { void m() { x.f().g(); } } } }\n",
+        ),
+        (
+            "javascript",
+            "web/m.js",
+            "function m() { return x.f().g().h(); }\n",
+        ),
+    ]
+    .iter()
+    .map(|(language, rel_path, source)| SourceFile {
+        language: (*language).to_owned(),
+        rel_path: (*rel_path).to_owned(),
+        source: source.as_bytes().to_vec(),
+    })
+    .collect();
+    let expected = in_process(&files);
+    let mut isolated = IsolatedExtractor::new(worker());
+    let outcomes = isolated.extract_batch(&files).expect("a worker");
+    assert_eq!(outcomes, expected);
+    let (mut ranges, mut owned, mut members) = (0, 0, 0);
+    for (outcome, file) in outcomes.iter().zip(&expected) {
+        let (ExtractOutcome::Extracted(e), ExtractOutcome::Extracted(fresh)) = (outcome, file)
+        else {
+            panic!("not extracted: {outcome:?}");
+        };
+        assert_eq!(e.source(), fresh.source());
+        for (call, fresh_call) in e.calls.iter().zip(&fresh.calls) {
+            assert_eq!(
+                e.text(&call.callee_text),
+                fresh.text(&fresh_call.callee_text)
+            );
+            match &call.callee_text {
+                TextRef::Source { .. } => ranges += 1,
+                TextRef::Owned(_) => owned += 1,
+            }
+            for (arg, fresh_arg) in call.args.iter().zip(&fresh_call.args) {
+                assert_eq!(e.text(&arg.expr), fresh.text(&fresh_arg.expr));
+            }
+        }
+        for i in 0..e.definitions.len() {
+            assert_eq!(e.qualified_name(i), fresh.qualified_name(i));
+            members += usize::from(matches!(
+                e.definitions[i].qualified_name,
+                QualifiedName::Member { .. }
+            ));
+        }
+    }
+    assert!(
+        ranges > 0 && owned > 0 && members >= 3,
+        "{ranges} ranges, {owned} owned, {members} members"
     );
 }
 

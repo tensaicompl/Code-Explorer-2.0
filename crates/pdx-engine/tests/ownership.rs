@@ -3,7 +3,7 @@
 
 mod common;
 
-use pdx_engine::{Engine, EngineError, ProjectResolver, ResolutionMetadata};
+use pdx_engine::{Engine, EngineError, ProjectResolver, ResolutionMetadata, TextRef};
 
 /// Compiles only if `T` is not `Send`. With two blanket implementations, one for every
 /// type and one for `Send` types, naming the method is ambiguous exactly when `T` is
@@ -112,7 +112,10 @@ fn answers_outlive_their_project_and_engine() {
     for r in &run.resolutions {
         assert!(!r.site_ref.rel_path.is_empty());
         assert!(!r.target_qn.is_empty());
-        assert!(!r.site.callee_text.is_empty());
+        assert!(match &r.site.callee_text {
+            TextRef::Source { start, end } => end > start,
+            TextRef::Owned(text) => !text.is_empty(),
+        });
     }
 }
 

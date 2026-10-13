@@ -130,13 +130,14 @@ fn definitions_keep_every_field() {
         std::fs::read(common::fixtures().join("resolve/python_cross_file_calls/app/models.py"))
             .unwrap();
     let e = extract(&engine, "python", "app/models.py", &source);
-    let class = e
+    let class_index = e
         .definitions
         .iter()
-        .find(|d| d.name == "User")
+        .position(|d| d.name == "User")
         .expect("the class");
+    let class = &e.definitions[class_index];
     assert_eq!(class.kind, DefinitionKind::Class);
-    assert_eq!(class.qualified_name, "app.models.User");
+    assert_eq!(e.qualified_name(class_index), "app.models.User");
     assert_eq!(class.parent, None);
     let method = e
         .definitions
@@ -169,12 +170,13 @@ fn an_extraction_owns_everything_and_outlives_its_engine() {
     assert_eq!(e.rel_path, "pkg/greet.py");
     assert_eq!(e.source_len, source.len() as u64);
     assert_eq!(e.status, FileStatus::Parsed);
-    let greet = e
+    let greet_index = e
         .definitions
         .iter()
-        .find(|d| d.name == "greet")
+        .position(|d| d.name == "greet")
         .expect("the function");
-    assert_eq!(greet.qualified_name, "pkg.greet.greet");
+    let greet = &e.definitions[greet_index];
+    assert_eq!(e.qualified_name(greet_index), "pkg.greet.greet");
     assert_eq!(greet.kind, DefinitionKind::Function);
     // A new engine on the same thread gives the same answer.
     let engine = Engine::new().unwrap();
@@ -188,10 +190,10 @@ fn an_extraction_survives_serialisation_whole() {
         common::source_files(&common::fixtures().join("resolve/python_cross_file_calls"))
     {
         let e = extract(&engine, language, &rel, &source);
-        let bytes = postcard::to_stdvec(&e).unwrap();
-        let back: FileExtract = postcard::from_bytes(&bytes).unwrap();
+        let bytes = common::record_bytes(&e);
+        let back = common::round_trip(&e);
         assert_eq!(back, e);
-        assert_eq!(postcard::to_stdvec(&back).unwrap(), bytes);
+        assert_eq!(common::record_bytes(&back), bytes);
     }
 }
 

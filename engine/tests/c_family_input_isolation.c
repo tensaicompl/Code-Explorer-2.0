@@ -151,7 +151,7 @@ static char *extract_in(const char *cwd, int lang, const char *rel, const char *
     if (!o) {
         die("no temporary file", NULL);
     }
-    diff_rows_file(o, rel, engine);
+    diff_rows_file(o, rel, engine, source);
     fputs("{\"c\":\"surface\",\"json\":", o);
     fwrite(surface, 1, surface_len, o);
     fputs("}\n", o);

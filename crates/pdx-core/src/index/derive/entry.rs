@@ -154,7 +154,8 @@ pub(crate) fn mark(
                 || imports_module(registry, path, "flask"))
         {
             for call in &extract.calls {
-                let (_, name) = split_callee(&call.callee_text);
+                let callee = extract.text(&call.callee_text);
+                let (_, name) = split_callee(&callee);
                 let (false, "FastAPI" | "Flask", Some(span)) = (call.is_reference, name, call.span)
                 else {
                     continue;
@@ -183,7 +184,8 @@ pub(crate) fn mark(
         let nest = matches!(language.id, "javascript" | "typescript")
             && imports_module(registry, path, "@nestjs/core");
         for call in &extract.calls {
-            let (receiver, name) = split_callee(&call.callee_text);
+            let callee = extract.text(&call.callee_text);
+            let (receiver, name) = split_callee(&callee);
             let listens = express && receiver.is_some() && name == "listen";
             let bootstraps = nest && receiver == Some("NestFactory") && name == "create";
             if !call.is_reference && (listens || bootstraps) {

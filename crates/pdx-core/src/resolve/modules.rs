@@ -255,13 +255,12 @@ pub(crate) fn is_type(kind: DefinitionKind) -> bool {
     )
 }
 
-/// The file's own module definition's qualified name: the prefix of every other.
-fn module_qn(extract: &FileExtract) -> Option<&str> {
+/// The file's own module definition: its qualified name is the prefix of every other.
+fn module_index(extract: &FileExtract) -> Option<usize> {
     extract
         .definitions
         .iter()
-        .find(|d| d.kind == DefinitionKind::Module && d.name == extract.rel_path)
-        .map(|d| d.qualified_name.as_str())
+        .position(|d| d.kind == DefinitionKind::Module && d.name == extract.rel_path)
 }
 
 /// Each definition's nesting, read from its qualified name: what lies between the
@@ -270,7 +269,9 @@ fn module_qn(extract: &FileExtract) -> Option<&str> {
 /// left out, so a member is in its outermost type's namespace. `None` for the file's
 /// module definition and wherever the qualified name does not have that shape.
 fn nesting(extract: &FileExtract, namespaces_only: bool) -> Vec<Option<String>> {
-    let Some(module) = module_qn(extract) else {
+    // The names are read whole, each spelled out once (issue 90).
+    let names = extract.qualified_names();
+    let Some(module) = module_index(extract).map(|i| names.get(i)) else {
         return vec![None; extract.definitions.len()];
     };
     let raw = |qn: &str, name: &str| -> Option<Vec<String>> {
@@ -292,28 +293,30 @@ fn nesting(extract: &FileExtract, namespaces_only: bool) -> Vec<Option<String>> 
     extract
         .definitions
         .iter()
-        .map(|d| {
+        .enumerate()
+        .map(|(i, d)| {
             if d.kind == DefinitionKind::Module && d.name == extract.rel_path {
                 return None;
             }
+            let qn = names.get(i);
             if !namespaces_only {
-                return raw(&d.qualified_name, &d.name).map(|p| p.join("::"));
+                return raw(qn, &d.name).map(|p| p.join("::"));
             }
             // The outermost type whose qualified name encloses this definition's.
             let outer = extract
                 .definitions
                 .iter()
-                .filter(|t| {
+                .enumerate()
+                .filter(|&(j, t)| {
+                    let type_qn = names.get(j);
                     is_type(t.kind)
-                        && t.qualified_name != d.qualified_name
-                        && d.qualified_name
-                            .strip_prefix(t.qualified_name.as_str())
-                            .is_some_and(|r| r.starts_with('.'))
+                        && type_qn != qn
+                        && qn.strip_prefix(type_qn).is_some_and(|r| r.starts_with('.'))
                 })
-                .min_by_key(|t| t.qualified_name.len());
+                .min_by_key(|&(j, _)| names.get(j).len());
             match outer {
-                Some(t) => raw(&t.qualified_name, &t.name).map(|p| p.join("::")),
-                None => raw(&d.qualified_name, &d.name).map(|p| p.join("::")),
+                Some((j, t)) => raw(names.get(j), &t.name).map(|p| p.join("::")),
+                None => raw(qn, &d.name).map(|p| p.join("::")),
             }
         })
         .collect()

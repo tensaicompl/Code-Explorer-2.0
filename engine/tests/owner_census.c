@@ -42,6 +42,7 @@
 #include "pdxe.h"
 #include "pdxe_core.h"
 #include "shim_internal.h"
+#include "text_view.h"
 
 enum { MAX_EXTENSIONS = 64, LINE_MAX_BYTES = 8192 };
 
@@ -124,7 +125,8 @@ static void print_occurrences(const char *path, const pdxe_file_result *r) {
     }
 }
 
-static void census(const char *path, const pdxe_file_result *r, int list) {
+static void census(const char *path, const pdxe_file_result *r, const unsigned char *bytes,
+                   size_t len, int list) {
     const PDXEFileResult *engine = pdxe_result_engine(r);
     row *out = row_for(path);
     for (uint32_t i = 0; i < r->n_calls; i++) {
@@ -141,14 +143,15 @@ static void census(const char *path, const pdxe_file_result *r, int list) {
             if (!owned) {
                 out->orphan++;
                 if (list) {
-                    printf("orphan\t%s:%u\t%s\n", path, c->span.start_line, c->callee_text);
+                    printf("orphan\t%s:%u\t%s\n", path, c->span.start_line,
+                           tv_text(&c->callee_text, bytes, len));
                 }
             }
         } else if (owned) {
             out->owned_outside++;
             if (list) {
-                printf("owned_outside\t%s:%u\t%s\t%s\n", path, c->span.start_line, c->callee_text,
-                       r->defs[c->caller_index].qualified_name);
+                printf("owned_outside\t%s:%u\t%s\t%s\n", path, c->span.start_line,
+                       tv_text(&c->callee_text, bytes, len), tv_qn(r, c->caller_index));
             }
         } else {
             out->file++;
@@ -157,7 +160,8 @@ static void census(const char *path, const pdxe_file_result *r, int list) {
                 out->adopted_lines++;
                 if (list) {
                     printf("adopted_lines\t%s:%u\t%s\t%s\n", path, c->span.start_line,
-                           c->callee_text, d->qualified_name ? d->qualified_name : "");
+                           tv_text(&c->callee_text, bytes, len),
+                           d->qualified_name ? d->qualified_name : "");
                 }
             }
         }
@@ -204,7 +208,7 @@ int main(int argc, char **argv) {
         if (occurrences) {
             print_occurrences(rel, r);
         } else {
-            census(rel, r, list);
+            census(rel, r, bytes, len, list);
         }
         pdxe_result_free(ctx, r);
         free(bytes);

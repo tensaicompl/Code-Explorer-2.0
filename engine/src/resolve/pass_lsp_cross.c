@@ -1120,6 +1120,9 @@ static bool pxc_copy_call(PDXEArena *arena, const PDXECall *src, PDXECall *dst) 
         }
         for (int ai = 0; ai < src->arg_count; ai++) {
             copy.args[ai].index = src->args[ai].index;
+            /* A source range is the same file's, and is kept as it is (issue 90). */
+            copy.args[ai].expr_start = src->args[ai].expr_start;
+            copy.args[ai].expr_end = src->args[ai].expr_end;
             if (!pxc_copy_field(arena, src->args[ai].expr, &copy.args[ai].expr) ||
                 !pxc_copy_field(arena, src->args[ai].value, &copy.args[ai].value) ||
                 !pxc_copy_field(arena, src->args[ai].keyword, &copy.args[ai].keyword)) {

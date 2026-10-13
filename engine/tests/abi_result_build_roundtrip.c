@@ -34,6 +34,10 @@
  * another version, with a field missing, a field extra, a field of the wrong type,
  * or a counted array whose count disagrees with it.
  *
+ * Text and qualified names come back as they were given (issue 90): a source range as
+ * the same range, owned text as an equal copy, a qualified name in the same form on the
+ * same base. A decoded surface, bound to the file's source, encodes to the same bytes.
+ *
  * And for every resolution fixture (a directory holding expected.tsv), resolving the
  * files as one project leaves each file's surface byte for byte as it was: a surface
  * holds only what extraction found in the file itself, never anything a resolution
@@ -49,6 +53,7 @@
 #include "pdxe.h"
 #include "pdxe_core.h"
 #include "shim_internal.h"
+#include "text_view.h"
 
 static int failures = 0;
 
@@ -64,6 +69,26 @@ static int failures = 0;
 
 static int same_str(const char *a, const char *b) {
     return (!a && !b) || (a && b && strcmp(a, b) == 0);
+}
+
+/* The same text held the same way: one range, or equal owned strings. */
+static int same_text(const pdxe_text *a, const pdxe_text *b) {
+    return a->kind == b->kind && a->start == b->start && a->end == b->end &&
+           a->reserved == b->reserved && same_str(a->owned, b->owned);
+}
+
+/* The same qualified name in the same form. */
+static int same_qn(const pdxe_definition *a, const pdxe_definition *b) {
+    return a->qn_form == b->qn_form && a->qn_base == b->qn_base && a->qn_keep == b->qn_keep &&
+           same_str(a->qn_text, b->qn_text);
+}
+
+/* A copy of owned text the caller owns; a range or no text as it is. */
+static pdxe_text copy_text(pdxe_text t) {
+    if (t.kind == PDXE_TEXT_OWNED) {
+        t.owned = strdup(t.owned);
+    }
+    return t;
 }
 
 static int same_span(pdxe_span a, pdxe_span b) {
@@ -87,7 +112,7 @@ static int same_args(const pdxe_call *x, const pdxe_call *y) {
         return 0;
     }
     for (uint32_t a = 0; a < x->n_args; a++) {
-        if (!same_str(x->args[a].expr, y->args[a].expr) ||
+        if (!same_text(&x->args[a].expr, &y->args[a].expr) ||
             !same_str(x->args[a].value, y->args[a].value) ||
             !same_str(x->args[a].keyword, y->args[a].keyword) ||
             x->args[a].index != y->args[a].index) {
@@ -105,7 +130,7 @@ static int same_routes(const pdxe_definition *x, const pdxe_definition *y) {
         const pdxe_route *a = &x->routes[k], *b = &y->routes[k];
         if (!same_str(a->method, b->method) || !same_str(a->path, b->path) ||
             !same_str(a->callee_text, b->callee_text) ||
-            !same_str(a->source_text, b->source_text) || !same_span(a->span, b->span) ||
+            !same_text(&a->source_text, &b->source_text) || !same_span(a->span, b->span) ||
             !same_strings(a->ast_path, a->n_ast_path, b->ast_path, b->n_ast_path)) {
             return 0;
         }
@@ -134,9 +159,9 @@ static void compare(const char *path, const pdxe_file_result *a, const pdxe_file
           "%s: array lengths differ", path);
     for (uint32_t i = 0; i < a->n_defs && i < b->n_defs; i++) {
         const pdxe_definition *x = &a->defs[i], *y = &b->defs[i];
-        CHECK(same_str(x->name, y->name) && same_str(x->qualified_name, y->qualified_name) &&
+        CHECK(same_str(x->name, y->name) && same_qn(x, y) &&
                   same_str(x->kind, y->kind) && same_str(x->engine_kind, y->engine_kind) &&
-                  same_str(x->signature, y->signature) && same_str(x->doc, y->doc) &&
+                  same_text(&x->signature, &y->signature) && same_str(x->doc, y->doc) &&
                   same_span(x->span, y->span) && same_span(x->body_span, y->body_span) &&
                   x->parent_index == y->parent_index && x->visibility == y->visibility &&
                   x->is_test == y->is_test && x->is_entry_point == y->is_entry_point &&
@@ -156,7 +181,7 @@ static void compare(const char *path, const pdxe_file_result *a, const pdxe_file
     }
     for (uint32_t i = 0; i < a->n_calls && i < b->n_calls; i++) {
         const pdxe_call *x = &a->calls[i], *y = &b->calls[i];
-        CHECK(same_str(x->callee_text, y->callee_text) &&
+        CHECK(same_text(&x->callee_text, &y->callee_text) &&
                   same_str(x->receiver_text, y->receiver_text) &&
                   x->caller_index == y->caller_index && same_span(x->span, y->span) &&
                   x->is_reference == y->is_reference && x->typed_only == y->typed_only &&
@@ -174,7 +199,7 @@ static void compare(const char *path, const pdxe_file_result *a, const pdxe_file
     }
     for (uint32_t i = 0; i < a->n_usages && i < b->n_usages; i++) {
         const pdxe_usage *x = &a->usages[i], *y = &b->usages[i];
-        CHECK(same_str(x->name, y->name) && x->scope_index == y->scope_index &&
+        CHECK(same_text(&x->name, &y->name) && x->scope_index == y->scope_index &&
                   same_span(x->span, y->span) && x->lexical == y->lexical,
               "%s: usage %u differs", path, i);
     }
@@ -265,6 +290,7 @@ static pdxe_call *copy_calls(const pdxe_file_result *r) {
     pdxe_call *copy = calloc(r->n_calls ? r->n_calls : 1, sizeof(*copy));
     for (uint32_t i = 0; copy && i < r->n_calls; i++) {
         copy[i] = r->calls[i];
+        copy[i].callee_text = copy_text(r->calls[i].callee_text);
         if (r->calls[i].n_ast_path) {
             const char **p = calloc(r->calls[i].n_ast_path, sizeof(*p));
             for (uint32_t t = 0; p && t < r->calls[i].n_ast_path; t++) {
@@ -276,7 +302,7 @@ static pdxe_call *copy_calls(const pdxe_file_result *r) {
             pdxe_call_arg *a = calloc(r->calls[i].n_args, sizeof(*a));
             for (uint32_t k = 0; a && k < r->calls[i].n_args; k++) {
                 a[k] = r->calls[i].args[k];
-                a[k].expr = strdup(r->calls[i].args[k].expr);
+                a[k].expr = copy_text(r->calls[i].args[k].expr);
                 a[k].value = r->calls[i].args[k].value ? strdup(r->calls[i].args[k].value) : NULL;
                 a[k].keyword =
                     r->calls[i].args[k].keyword ? strdup(r->calls[i].args[k].keyword) : NULL;
@@ -297,12 +323,13 @@ static void scrub(const char *s) {
 /* Overwrites and frees what copy_calls made. */
 static void destroy_calls(pdxe_call *copy, uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
+        scrub(copy[i].callee_text.owned);
         for (uint32_t t = 0; t < copy[i].n_ast_path; t++) {
             scrub(copy[i].ast_path[t]);
         }
         free((void *)copy[i].ast_path);
         for (uint32_t k = 0; k < copy[i].n_args; k++) {
-            scrub(copy[i].args[k].expr);
+            scrub(copy[i].args[k].expr.owned);
             scrub(copy[i].args[k].value);
             scrub(copy[i].args[k].keyword);
         }
@@ -344,6 +371,7 @@ static pdxe_definition *copy_defs(const pdxe_file_result *r) {
     pdxe_definition *copy = calloc(r->n_defs ? r->n_defs : 1, sizeof(*copy));
     for (uint32_t i = 0; copy && i < r->n_defs; i++) {
         copy[i] = r->defs[i];
+        copy[i].qn_text = r->defs[i].qn_text ? strdup(r->defs[i].qn_text) : NULL;
         if (r->defs[i].n_base_classes) {
             const char **bases = calloc(r->defs[i].n_base_classes, sizeof(*bases));
             for (uint32_t b = 0; bases && b < r->defs[i].n_base_classes; b++) {
@@ -359,7 +387,7 @@ static pdxe_definition *copy_defs(const pdxe_file_result *r) {
                 routes[k].method = strdup(from->method);
                 routes[k].path = strdup(from->path);
                 routes[k].callee_text = strdup(from->callee_text);
-                routes[k].source_text = from->source_text ? strdup(from->source_text) : NULL;
+                routes[k].source_text = copy_text(from->source_text);
                 if (from->n_ast_path) {
                     const char **types = calloc(from->n_ast_path, sizeof(*types));
                     for (uint32_t t = 0; types && t < from->n_ast_path; t++) {
@@ -378,6 +406,7 @@ static pdxe_definition *copy_defs(const pdxe_file_result *r) {
  * something else. */
 static void destroy_defs(pdxe_definition *copy, uint32_t n) {
     for (uint32_t i = 0; i < n; i++) {
+        scrub(copy[i].qn_text);
         for (uint32_t b = 0; b < copy[i].n_base_classes; b++) {
             char *s = (char *)copy[i].base_classes[b];
             memset(s, 'Z', strlen(s));
@@ -390,7 +419,7 @@ static void destroy_defs(pdxe_definition *copy, uint32_t n) {
             scrub(route->method);
             scrub(route->path);
             scrub(route->callee_text);
-            scrub(route->source_text);
+            scrub(route->source_text.owned);
             for (uint32_t t = 0; t < route->n_ast_path; t++) {
                 scrub(route->ast_path[t]);
             }
@@ -441,7 +470,7 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
         const pdxe_call *c = &r->calls[i];
         int raw = c->span.end_byte > c->span.start_byte;
         CHECK(!raw || c->n_ast_path > 0, "%s: call %u (%s) is in the source but has no path", path,
-              i, c->callee_text);
+              i, tv_text(&c->callee_text, bytes, len));
         CHECK((c->n_ast_path == 0) == (c->ast_path == NULL) && (c->n_args == 0) == (c->args == NULL),
               "%s: call %u counts an array it does not have", path, i);
         for (uint32_t t = 0; t < c->n_ast_path; t++) {
@@ -461,7 +490,8 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
         for (uint32_t k = 0; k < d->n_routes; k++) {
             const pdxe_route *route = &d->routes[k];
             CHECK(route->method && route->method[0] && route->path && route->path[0] == '/' &&
-                      route->callee_text && route->callee_text[0] && route->source_text &&
+                      route->callee_text && route->callee_text[0] &&
+                      route->source_text.kind != PDXE_TEXT_NONE &&
                       route->span.end_byte > route->span.start_byte && route->span.start_line > 0 &&
                       route->n_ast_path > 0,
                   "%s: definition %u's route %u is not a positioned route", path, i, k);
@@ -484,7 +514,7 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
     pdxe_call *calls = copy_calls(r);
     pdxe_file_result *from_copy = NULL;
     CHECK(copy && impls && calls &&
-              pdxe_result_build(ctx, copy, r->n_defs, r->n_calls ? calls : NULL, r->n_calls, NULL,
+              pdxe_result_build(ctx, len, copy, r->n_defs, r->n_calls ? calls : NULL, r->n_calls, NULL,
                                 0, NULL, 0, NULL, 0, NULL, 0, r->n_impl_traits ? impls : NULL,
                                 r->n_impl_traits, &from_copy) == PDXE_OK,
           "%s: rebuild from a copy failed", path);
@@ -514,11 +544,16 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
             const pdxe_call *x = &r->calls[i], *y = &from_copy->calls[i];
             CHECK(same_strings(x->ast_path, x->n_ast_path, y->ast_path, y->n_ast_path) &&
                       same_args(x, y) && (x->n_ast_path == 0 || x->ast_path != y->ast_path) &&
-                      (x->n_args == 0 || x->args != y->args),
-                  "%s: call %u's path or arguments are not a copy of its own", path, i);
+                      (x->n_args == 0 || x->args != y->args) &&
+                      same_text(&x->callee_text, &y->callee_text) &&
+                      (x->callee_text.kind != PDXE_TEXT_OWNED ||
+                       x->callee_text.owned != y->callee_text.owned),
+                  "%s: call %u's callee, path or arguments are not a copy of its own", path, i);
         }
         for (uint32_t i = 0; i < from_copy->n_defs && i < r->n_defs; i++) {
             const pdxe_definition *x = &r->defs[i], *y = &from_copy->defs[i];
+            CHECK(same_qn(x, y) && (!x->qn_text || x->qn_text != y->qn_text),
+                  "%s: definition %u's qualified name is not a copy of its own", path, i);
             CHECK(same_strings(x->decorators, x->n_decorators, y->decorators, y->n_decorators) &&
                       same_strings(x->signature_param_types, x->n_signature_param_types,
                                    y->signature_param_types, y->n_signature_param_types) &&
@@ -543,7 +578,7 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
     }
 
     pdxe_file_result *rebuilt = NULL;
-    CHECK(pdxe_result_build(ctx, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
+    CHECK(pdxe_result_build(ctx, len, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
                             r->n_imports, r->usages, r->n_usages, r->types, r->n_types, r->rws,
                             r->n_rws, r->impl_traits, r->n_impl_traits, &rebuilt) == PDXE_OK,
           "%s: rebuild failed", path);
@@ -563,15 +598,18 @@ static void check_file(pdxe_ctx *ctx, const char *path) {
     char *decoded_path = NULL;
     int decoded_lang = 0;
     uint32_t decoded_lost = UINT32_MAX;
+    pdxe_surface_texts *texts = NULL;
     if (surface && pdxe_surface_decode(surface, surface_len, &decoded, &decoded_path,
-                                       &decoded_lang, &decoded_lost) == PDXE_OK) {
+                                       &decoded_lang, &decoded_lost, &texts) == PDXE_OK) {
         CHECK(strcmp(decoded_path, path) == 0 && decoded_lang == lang,
               "%s: surface names another file", path);
         CHECK(decoded_lost == 0, "%s: extraction lost work on a fixture", path);
+        CHECK(pdxe_surface_bind(decoded, texts, (const char *)bytes, len) == PDXE_OK,
+              "%s: the surface does not bind to its own source", path);
         uint8_t *again = NULL;
         size_t again_len = 0;
-        CHECK(pdxe_surface_encode(decoded, decoded_path, decoded_lang, decoded_lost, &again,
-                                  &again_len) == PDXE_OK &&
+        CHECK(pdxe_surface_encode(decoded, decoded_path, decoded_lang, decoded_lost,
+                                  (const char *)bytes, len, &again, &again_len) == PDXE_OK &&
                   again_len == surface_len && memcmp(again, surface, surface_len) == 0,
               "%s: the surface does not survive decoding", path);
         free(again);
@@ -722,18 +760,22 @@ static void expect_refused(const char *what, const char *bytes) {
     char *path = NULL;
     int lang = 0;
     uint32_t lost = 0;
+    pdxe_surface_texts *texts = NULL;
     int rc = bytes ? pdxe_surface_decode((const uint8_t *)bytes, strlen(bytes), &r, &path, &lang,
-                                         &lost)
+                                         &lost, &texts)
                    : PDXE_E_INVALID;
-    CHECK(bytes && rc == PDXE_E_INVALID && !r && !path, "a surface %s was accepted", what);
+    CHECK(bytes && rc == PDXE_E_INVALID && !r && !path && !texts, "a surface %s was accepted",
+          what);
     if (r) {
         pdxe_free_result(r);
     }
+    pdxe_surface_texts_free(texts);
     free(path);
 }
 
 static void check_refusals(pdxe_ctx *ctx) {
     static const char source[] = "class A:\n    def m(self, x: int) -> int:\n        return x\n";
+    const size_t n_src = sizeof(source) - 1;
     pdxe_file_result *r = NULL;
     uint8_t *surface = NULL;
     size_t len = 0;
@@ -754,7 +796,7 @@ static void check_refusals(pdxe_ctx *ctx) {
     free(truncated);
 
     char *m;
-    expect_refused("of another version", m = replace(good, "\"v\":4", "\"v\":3"));
+    expect_refused("of another version", m = replace(good, "\"v\":5", "\"v\":4"));
     free(m);
     expect_refused("without what extraction lost", m = replace(good, "\"lost\":0,", ""));
     free(m);
@@ -768,20 +810,20 @@ static void check_refusals(pdxe_ctx *ctx) {
     expect_refused("with a field of the wrong type",
                    m = replace(good, "\"lsp_skipped\":false", "\"lsp_skipped\":0"));
     free(m);
-    expect_refused("with an extra top-level key", m = replace(good, "\"v\":4", "\"v\":4,\"x\":0"));
+    expect_refused("with an extra top-level key", m = replace(good, "\"v\":5", "\"v\":5,\"x\":0"));
     free(m);
     /* A definition's bases: counted bases with no array, and a NULL base. */
     pdxe_definition with_bases = r->defs[0];
     pdxe_file_result *refused = NULL;
     with_bases.n_base_classes = 1;
     with_bases.base_classes = NULL;
-    CHECK(pdxe_result_build(ctx, &with_bases, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, &with_bases, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "a definition counting bases it has no array for was rebuilt");
     const char *null_base[] = {"Base", NULL};
     with_bases.n_base_classes = 2;
     with_bases.base_classes = null_base;
-    CHECK(pdxe_result_build(ctx, &with_bases, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, &with_bases, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "a definition with a NULL base was rebuilt");
     /* A definition's decorators counted with no array, and parameter types holding a
@@ -792,7 +834,7 @@ static void check_refusals(pdxe_ctx *ctx) {
     with_decorators.base_classes = NULL;
     with_decorators.n_decorators = 1;
     with_decorators.decorators = NULL;
-    CHECK(pdxe_result_build(ctx, &with_decorators, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, &with_decorators, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "decorators counted with no array were rebuilt");
     const char *null_param[] = {"int", NULL};
@@ -800,39 +842,40 @@ static void check_refusals(pdxe_ctx *ctx) {
     with_decorators.decorators = NULL;
     with_decorators.n_signature_param_types = 2;
     with_decorators.signature_param_types = null_param;
-    CHECK(pdxe_result_build(ctx, &with_decorators, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, &with_decorators, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "a parameter type that is NULL was rebuilt");
     pdxe_call bad_call = {0};
-    bad_call.callee_text = "f";
+    bad_call.callee_text.kind = PDXE_TEXT_OWNED;
+    bad_call.callee_text.owned = "f";
     bad_call.caller_index = PDXE_NO_PARENT;
     bad_call.n_ast_path = 1;
-    CHECK(pdxe_result_build(ctx, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             &refused) == PDXE_E_INVALID && !refused,
           "a path counted with no array was rebuilt");
     const char *null_type[] = {"block", NULL};
     bad_call.ast_path = null_type;
     bad_call.n_ast_path = 2;
-    CHECK(pdxe_result_build(ctx, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             &refused) == PDXE_E_INVALID && !refused,
           "a path with a NULL type was rebuilt");
     bad_call.ast_path = NULL;
     bad_call.n_ast_path = 0;
     bad_call.n_args = 1;
-    CHECK(pdxe_result_build(ctx, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             &refused) == PDXE_E_INVALID && !refused,
           "arguments counted with no array were rebuilt");
-    const pdxe_call_arg no_expr = {NULL, "v", NULL, 0};
+    const pdxe_call_arg no_expr = {{0}, "v", NULL, 0};
     bad_call.args = &no_expr;
-    CHECK(pdxe_result_build(ctx, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, NULL, 0, &bad_call, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             &refused) == PDXE_E_INVALID && !refused,
           "an argument with no expression was rebuilt");
     /* Impl relations: counted with no array, and one with a NULL string. */
-    CHECK(pdxe_result_build(ctx, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 1,
+    CHECK(pdxe_result_build(ctx, n_src, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 1,
                             &refused) == PDXE_E_INVALID && !refused,
           "impl relations counted with no array were rebuilt");
     const pdxe_impl_trait null_qn = {"Shape", "Square", NULL};
-    CHECK(pdxe_result_build(ctx, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, &null_qn, 1,
+    CHECK(pdxe_result_build(ctx, n_src, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, &null_qn, 1,
                             &refused) == PDXE_E_INVALID && !refused,
           "an impl relation with a NULL qualified name was rebuilt");
     /* Routes (issue 54): counted with no array; one without its method; one whose path is
@@ -846,29 +889,30 @@ static void check_refusals(pdxe_ctx *ctx) {
     with_routes.signature_param_types = NULL;
     with_routes.n_routes = 1;
     with_routes.routes = NULL;
-    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "routes counted with no array were rebuilt");
-    pdxe_route route = {"GET", "/x", "GetMapping", "@GetMapping(\"/x\")", {0}, NULL, 0};
+    pdxe_route route = {"GET", "/x", "GetMapping", {"@GetMapping(\"/x\")", 0, 0, PDXE_TEXT_OWNED, 0},
+                        {0}, NULL, 0};
     route.method = NULL;
     with_routes.routes = &route;
-    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "a route with no method was rebuilt");
     route.method = "GET";
     route.n_ast_path = 1;
-    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "a route path counted with no array was rebuilt");
     const char *null_step[] = {"method_declaration", NULL};
     route.ast_path = null_step;
     route.n_ast_path = 2;
-    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &refused) == PDXE_E_INVALID && !refused,
           "a route path with a NULL type was rebuilt");
     route.n_ast_path = 1;
     pdxe_file_result *accepted = NULL;
-    CHECK(pdxe_result_build(ctx, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+    CHECK(pdxe_result_build(ctx, n_src, &with_routes, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
                             NULL, 0, &accepted) == PDXE_OK && accepted &&
               accepted->defs[0].n_routes == 1 &&
               same_str(accepted->defs[0].routes[0].path, "/x") &&

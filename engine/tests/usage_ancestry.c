@@ -34,6 +34,7 @@
 
 #include "pdxe.h"
 #include "pdxe_core.h"
+#include "text_view.h"
 
 static int failures = 0;
 
@@ -99,8 +100,10 @@ static void put_list(buf_t *b, const char **items, uint32_t n) {
 }
 
 /* Every fact of an extraction, in order: two extractions are the same exactly when
- * these are. */
-static void describe(buf_t *b, const pdxe_file_result *r) {
+ * these are. Text is spelled out from `source`, so a range and its text compare equal. */
+static void describe(buf_t *b, const pdxe_file_result *r, const char *source) {
+    const uint8_t *src = (const uint8_t *)source;
+    size_t len = strlen(source);
     putf(b, "status %d truncated %u lost %u ns ", r->status, r->truncated, r->extraction_lost);
     put_text(b, r->declared_namespace);
     put(b, "\n");
@@ -108,10 +111,10 @@ static void describe(buf_t *b, const pdxe_file_result *r) {
         const pdxe_definition *d = &r->defs[i];
         put(b, "def ");
         put_text(b, d->name);
-        put_text(b, d->qualified_name);
+        put_text(b, tv_qn(r, i));
         put_text(b, d->kind);
         put_text(b, d->engine_kind);
-        put_text(b, d->signature);
+        put_text(b, tv_text(&d->signature, src, len));
         put_text(b, d->doc);
         put_span(b, d->span);
         put_span(b, d->body_span);
@@ -128,7 +131,7 @@ static void describe(buf_t *b, const pdxe_file_result *r) {
             put_text(b, route->method);
             put_text(b, route->path);
             put_text(b, route->callee_text);
-            put_text(b, route->source_text);
+            put_text(b, tv_text(&route->source_text, src, len));
             put_span(b, route->span);
             put_list(b, route->ast_path, route->n_ast_path);
         }
@@ -137,14 +140,14 @@ static void describe(buf_t *b, const pdxe_file_result *r) {
     for (uint32_t i = 0; i < r->n_calls; i++) {
         const pdxe_call *c = &r->calls[i];
         put(b, "call ");
-        put_text(b, c->callee_text);
+        put_text(b, tv_text(&c->callee_text, src, len));
         put_text(b, c->receiver_text);
         putf(b, " %u %u %u %u ", c->caller_index, c->is_reference, c->typed_only, c->lexical);
         put_span(b, c->span);
         put_list(b, c->ast_path, c->n_ast_path);
         for (uint32_t k = 0; k < c->n_args; k++) {
             put(b, " arg ");
-            put_text(b, c->args[k].expr);
+            put_text(b, tv_text(&c->args[k].expr, src, len));
             put_text(b, c->args[k].value);
             put_text(b, c->args[k].keyword);
             putf(b, "%u", c->args[k].index);
@@ -161,7 +164,7 @@ static void describe(buf_t *b, const pdxe_file_result *r) {
     }
     for (uint32_t i = 0; i < r->n_usages; i++) {
         put(b, "usage ");
-        put_text(b, r->usages[i].name);
+        put_text(b, tv_text(&r->usages[i].name, src, len));
         putf(b, " %u %u ", r->usages[i].scope_index, r->usages[i].lexical);
         put_span(b, r->usages[i].span);
         put(b, "\n");
@@ -246,7 +249,7 @@ static run_t run(const char *language, const char *path, const char *source, int
         put(&out.facts, "<failed>");
         return out;
     }
-    describe(&out.facts, r);
+    describe(&out.facts, r, source);
     out.lost = r->extraction_lost;
     out.usages = r->n_usages;
     out.calls = r->n_calls;

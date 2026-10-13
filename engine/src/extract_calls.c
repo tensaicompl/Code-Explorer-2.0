@@ -2041,6 +2041,34 @@ static const char *extract_nth_string_arg(PDXEExtractCtx *ctx, TSNode args, uint
 
 // --- Unified handler: called once per node by the cursor walk ---
 
+/*
+ * An argument's expression (issue 90). In the file's own source it is the node's range,
+ * ending at the first NUL as a copy would, and nothing is copied: an argument holding a
+ * call holding an argument would repeat every byte it nests. Read from any other buffer
+ * (the C-family macro-expanded one), which the caller never sees, it is copied.
+ */
+static void set_arg_expr(PDXEExtractCtx *ctx, TSNode node, PDXECallArg *ca) {
+    if (ctx->source_origin != PDXE_SOURCE_ORIGIN_RAW) {
+        ca->expr = pdxe_node_text(ctx->arena, node, ctx->source);
+        return;
+    }
+    uint32_t start = ts_node_start_byte(node);
+    uint32_t end = ts_node_end_byte(node);
+    if (end <= start) {
+        ca->expr_start = ca->expr_end = start;
+        return;
+    }
+    ca->expr_start = start;
+    ca->expr_end = start + (uint32_t)pdxe_node_text_len(ctx->source + start, end - start);
+}
+
+/* The text of an argument's leaf node (an identifier, a string literal) that its value
+ * is read from: the expression's own copy when it has one, else a copy made for it. Only
+ * a leaf is read so: its text is never any other argument's. */
+static const char *arg_leaf_text(PDXEExtractCtx *ctx, TSNode node, const PDXECallArg *ca) {
+    return ca->expr ? ca->expr : pdxe_node_text(ctx->arena, node, ctx->source);
+}
+
 // Process a keyword argument (keyword_argument or pair node).
 static void process_keyword_arg(PDXEExtractCtx *ctx, TSNode arg_node, PDXECallArg *ca) {
     TSNode key_n = ts_node_child_by_field_name(arg_node, TS_FIELD("name"));
@@ -2052,13 +2080,43 @@ static void process_keyword_arg(PDXEExtractCtx *ctx, TSNode arg_node, PDXECallAr
         ca->keyword = pdxe_node_text(ctx->arena, key_n, ctx->source);
     }
     if (!ts_node_is_null(val_n)) {
-        ca->expr = pdxe_node_text(ctx->arena, val_n, ctx->source);
-        if (strcmp(ts_node_type(val_n), "identifier") == 0 && ca->expr) {
-            ca->value = lookup_string_constant(ctx, ca->expr);
-        } else if (is_string_like(ts_node_type(val_n)) && ca->expr) {
-            ca->value = strip_quotes(ctx->arena, ca->expr);
+        set_arg_expr(ctx, val_n, ca);
+        if (strcmp(ts_node_type(val_n), "identifier") == 0) {
+            const char *text = arg_leaf_text(ctx, val_n, ca);
+            if (text) {
+                ca->value = lookup_string_constant(ctx, text);
+            }
+        } else if (is_string_like(ts_node_type(val_n))) {
+            const char *text = arg_leaf_text(ctx, val_n, ca);
+            if (text) {
+                ca->value = strip_quotes(ctx->arena, text);
+            }
         }
     }
+}
+
+static bool is_comment_kind(const char *kind) {
+    return strcmp(kind, "comment") == 0 || strcmp(kind, "line_comment") == 0 ||
+           strcmp(kind, "block_comment") == 0;
+}
+
+static bool is_splat_kind(const char *kind) {
+    return strcmp(kind, "list_splat") == 0 || strcmp(kind, "dictionary_splat") == 0 ||
+           strcmp(kind, "spread_element") == 0;
+}
+
+/* How many arguments extract_call_args captures from `args`, so their array is the size
+ * it needs (at least one, allocated where it always was). */
+static int captured_arg_count(TSNode args) {
+    uint32_t argc = ts_node_named_child_count(args);
+    int n = 0;
+    for (uint32_t ai = 0; ai < argc && n < PDXE_MAX_CALL_ARGS; ai++) {
+        const char *ak = ts_node_type(ts_node_named_child(args, ai));
+        if (!is_comment_kind(ak) && !is_splat_kind(ak)) {
+            n++;
+        }
+    }
+    return n > 0 ? n : 1;
 }
 
 /* Extract all arguments from a call expression into call->args[]. */
@@ -2072,15 +2130,21 @@ static void extract_call_args(PDXEExtractCtx *ctx, TSNode args, PDXECall *call) 
          * child (Java block_comment/line_comment, C-family comment). It is
          * not an argument: taken as one, a leading block comment became
          * args[0] and the Route pass read its text as a URL. */
-        if (strcmp(ak, "comment") == 0 || strcmp(ak, "line_comment") == 0 ||
-            strcmp(ak, "block_comment") == 0) {
+        if (is_comment_kind(ak)) {
             continue;
         }
         if (!call->args) {
-            call->args = pdxe_arena_calloc(ctx->arena, PDXE_MAX_CALL_ARGS * sizeof(PDXECallArg));
+            call->args = pdxe_arena_calloc(ctx->arena,
+                                           (size_t)captured_arg_count(args) * sizeof(PDXECallArg));
             if (!call->args) {
                 return;
             }
+        }
+        /* A splat takes a position and no slot: the array holds the captured arguments
+         * only, so a slot is taken only for one. */
+        if (is_splat_kind(ak)) {
+            positional_idx++;
+            continue;
         }
         PDXECallArg *ca = &call->args[call->arg_count];
         memset(ca, 0, sizeof(*ca));
@@ -2089,20 +2153,23 @@ static void extract_call_args(PDXEExtractCtx *ctx, TSNode args, PDXECall *call) 
             process_keyword_arg(ctx, arg_node, ca);
             ca->index = positional_idx++;
             call->arg_count++;
-        } else if (strcmp(ak, "list_splat") == 0 || strcmp(ak, "dictionary_splat") == 0 ||
-                   strcmp(ak, "spread_element") == 0) {
-            positional_idx++;
         } else {
-            ca->expr = pdxe_node_text(ctx->arena, arg_node, ctx->source);
+            set_arg_expr(ctx, arg_node, ca);
             ca->index = positional_idx++;
-            if (is_string_like(ak) && ca->expr) {
-                ca->value = strip_quotes(ctx->arena, ca->expr);
+            if (is_string_like(ak)) {
+                const char *text = arg_leaf_text(ctx, arg_node, ca);
+                if (text) {
+                    ca->value = strip_quotes(ctx->arena, text);
+                }
             } else if (strcmp(ak, "template_string") == 0) {
                 /* Flattened {} form so downstream url-arg detection joins the
                  * canonical server route shape (issue #1006/#1009). */
                 ca->value = pdxe_template_string_text(ctx->arena, arg_node, ctx->source);
-            } else if (strcmp(ak, "identifier") == 0 && ca->expr) {
-                ca->value = lookup_string_constant(ctx, ca->expr);
+            } else if (strcmp(ak, "identifier") == 0) {
+                const char *text = arg_leaf_text(ctx, arg_node, ca);
+                if (text) {
+                    ca->value = lookup_string_constant(ctx, text);
+                }
             } else if (strcmp(ak, "call_expression") == 0) {
                 /* URL-builder helper call (issue #1009): resolve
                  * client(buildPath(id)) through the per-file builder map. */
@@ -3889,8 +3956,8 @@ static PDXEInvocationDescriptor handle_calls_at_node(PDXEExtractCtx *ctx, TSNode
                         PDXECallArg *ca = &call.args[call.arg_count];
                         memset(ca, 0, sizeof(*ca));
                         ca->index = call.arg_count;
-                        ca->expr = pdxe_node_text(ctx->arena, achild, ctx->source);
-                        if (ca->expr && ca->expr[0]) {
+                        set_arg_expr(ctx, achild, ca);
+                        if (ca->expr ? ca->expr[0] != '\0' : ca->expr_end > ca->expr_start) {
                             call.arg_count++;
                         }
                     }

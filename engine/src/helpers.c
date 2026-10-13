@@ -62,6 +62,11 @@ char *pdxe_node_text(PDXEArena *a, TSNode node, const char *source) {
     return pdxe_arena_strndup(a, source + start, end - start);
 }
 
+size_t pdxe_node_text_len(const char *s, size_t max) {
+    const char *nul = max > 0 ? (const char *)memchr(s, 0, max) : NULL;
+    return nul ? (size_t)(nul - s) : max;
+}
+
 // --- Keyword sets per language ---
 
 static const char *go_keywords[] = {

@@ -55,7 +55,11 @@ fn callees(language: &str) -> Vec<String> {
     let extract = engine
         .extract(language, &format!("src/model.{language}"), MODEL)
         .unwrap();
-    extract.calls.into_iter().map(|c| c.callee_text).collect()
+    extract
+        .calls
+        .iter()
+        .map(|c| extract.text(&c.callee_text).into_owned())
+        .collect()
 }
 
 #[test]

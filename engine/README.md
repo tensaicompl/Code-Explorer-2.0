@@ -125,7 +125,17 @@ Everything goes through `include/pdxe.h`. In outline:
   (`patches/0022-linear-admitted-depth-extraction.patch`, issue 90). Before any of it,
   the parse itself is safe: each grammar scanner keeps its state within the parser's
   1,024-byte buffer, refusing a construct that would need more, and none ends the
-  process (`patches/0023-bounded-external-scanner-state.patch`, issue 91).
+  process (`patches/0023-bounded-external-scanner-state.patch`, issue 91). Text a fact
+  takes from the file crosses as a `pdxe_text`: the byte range of the source the caller
+  gave when the text is exactly a run of it, owned text when the engine assembled it or
+  read it after C-family macro expansion; a definition's parameter list is one. A
+  definition's qualified name crosses by its relation to an earlier definition's
+  (`qn_form`, `qn_base`, `qn_text`, and `qn_keep` for a prefix of an earlier name, as
+  C++ functions in nested namespaces share), spelled out with `pdxe_qualified_name`;
+  the surface holds ranges, definition references and structural names the same way,
+  and is bound to the file's source when a project runs (surface version 5). Argument
+  expressions and parameter lists are ranges inside the engine too, never copied
+  (`patches/0024-source-backed-extraction-text.patch`, issue 90).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

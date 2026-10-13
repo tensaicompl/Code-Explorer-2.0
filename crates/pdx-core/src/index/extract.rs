@@ -35,14 +35,16 @@ mod plan;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 
 use pdx_engine::isolate::{
     ExtractFailure, ExtractOutcome, Extractor, IsolatedExtractor, IsolationError, SourceFile,
     WorkerCommand, isolation_requested,
 };
-use pdx_engine::{Engine, EngineError, FileExtract, SourceDigest, extraction_switch_set};
+use pdx_engine::{
+    Engine, EngineError, ExtractRecord, FileExtract, SourceDigest, extraction_switch_set,
+};
 
 use crate::config::SecretsConfig;
 use crate::index::discover::{DiscoveredFile, Disposition};
@@ -643,7 +645,9 @@ impl<'a> ExtractStage<'a> {
 
     /// One batch: each file read, identified and normalised; taken from the cache
     /// when it holds this file's clean extraction; the rest extracted together and
-    /// the clean ones stored. Every source buffer is dropped before this returns.
+    /// the clean ones stored. Each file's normalised bytes end up shared by its
+    /// extraction, bound to them (issue 90); the batch's own buffers are dropped before
+    /// this returns.
     fn extract_batch(
         &self,
         backend: &mut dyn ExtractBackend,
@@ -666,10 +670,7 @@ impl<'a> ExtractStage<'a> {
             if let Some(cache) = cache {
                 let usable = cache.load(&key).and_then(|found| {
                     found
-                        .map(|extract| {
-                            check_cached(&extract, engine_language, &file.path, &prepared)
-                                .map(|()| extract)
-                        })
+                        .map(|record| check_cached(record, engine_language, &file.path, &prepared))
                         .transpose()
                 });
                 match usable {
@@ -728,7 +729,7 @@ impl<'a> ExtractStage<'a> {
                     if let Some(cache) = cache
                         && is_clean(&extract)
                     {
-                        let counter = match cache.store(&key, &extract) {
+                        let counter = match cache.store(&key, extract.record()) {
                             Ok(()) => &counters.cache_writes,
                             Err(_) => &counters.cache_write_failures,
                         };
@@ -755,29 +756,30 @@ impl<'a> ExtractStage<'a> {
 type BatchSlot = Mutex<Option<Vec<(usize, FileOutcome, u64)>>>;
 
 /// Whether an extraction may be cached: it is complete and lost no work.
-fn is_clean(extract: &FileExtract) -> bool {
+fn is_clean(extract: &ExtractRecord) -> bool {
     !extract.truncated && extract.extraction_lost == 0
 }
 
-/// Whether a cached extraction is the one the engine would return now: clean, and
-/// taken as this language, at this path, from these normalised bytes.
+/// A cached extraction, if it is the one the engine would return now: clean, taken as
+/// this language, at this path, from these normalised bytes, and bound to them, which
+/// checks their length and digest and that every range lies within them (issue 90).
 fn check_cached(
-    extract: &FileExtract,
+    record: ExtractRecord,
     engine_language: &str,
     rel_path: &str,
     source: &PreparedSource,
-) -> Result<(), CacheDefect> {
-    if !is_clean(extract) {
+) -> Result<FileExtract, CacheDefect> {
+    if !is_clean(&record) {
         return Err(CacheDefect::Unclean);
     }
-    if extract.language != engine_language
-        || extract.rel_path != rel_path
-        || extract.source_len != source.bytes.len() as u64
-        || extract.source_digest != source.digest
+    if record.language != engine_language
+        || record.rel_path != rel_path
+        || record.source_len != source.bytes.len() as u64
+        || record.source_digest != source.digest
     {
         return Err(CacheDefect::OtherSource);
     }
-    Ok(())
+    Ok(record.bind(Arc::from(source.bytes.as_slice()))?)
 }
 
 /// What the workers count between them.

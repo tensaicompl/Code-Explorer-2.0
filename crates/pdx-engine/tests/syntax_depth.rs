@@ -46,7 +46,10 @@ fn depths_511_and_512_are_extracted_and_513_is_not() {
         if admitted {
             assert_eq!(extract.extraction_lost, 0, "depth {depth}");
             assert!(
-                extract.calls.iter().any(|c| c.callee_text == "f"),
+                extract
+                    .calls
+                    .iter()
+                    .any(|c| extract.text(&c.callee_text) == "f"),
                 "depth {depth}: {:?}",
                 extract.calls
             );

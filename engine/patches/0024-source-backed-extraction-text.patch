@@ -1,0 +1,498 @@
+--- a/engine/src/extract_calls.c
++++ b/engine/src/extract_calls.c
+@@ -2041,6 +2041,34 @@ static const char *extract_nth_string_arg(PDXEExtractCtx *ctx, TSNode args, uint
+ 
+ // --- Unified handler: called once per node by the cursor walk ---
+ 
++/*
++ * An argument's expression (issue 90). In the file's own source it is the node's range,
++ * ending at the first NUL as a copy would, and nothing is copied: an argument holding a
++ * call holding an argument would repeat every byte it nests. Read from any other buffer
++ * (the C-family macro-expanded one), which the caller never sees, it is copied.
++ */
++static void set_arg_expr(PDXEExtractCtx *ctx, TSNode node, PDXECallArg *ca) {
++    if (ctx->source_origin != PDXE_SOURCE_ORIGIN_RAW) {
++        ca->expr = pdxe_node_text(ctx->arena, node, ctx->source);
++        return;
++    }
++    uint32_t start = ts_node_start_byte(node);
++    uint32_t end = ts_node_end_byte(node);
++    if (end <= start) {
++        ca->expr_start = ca->expr_end = start;
++        return;
++    }
++    ca->expr_start = start;
++    ca->expr_end = start + (uint32_t)pdxe_node_text_len(ctx->source + start, end - start);
++}
++
++/* The text of an argument's leaf node (an identifier, a string literal) that its value
++ * is read from: the expression's own copy when it has one, else a copy made for it. Only
++ * a leaf is read so: its text is never any other argument's. */
++static const char *arg_leaf_text(PDXEExtractCtx *ctx, TSNode node, const PDXECallArg *ca) {
++    return ca->expr ? ca->expr : pdxe_node_text(ctx->arena, node, ctx->source);
++}
++
+ // Process a keyword argument (keyword_argument or pair node).
+ static void process_keyword_arg(PDXEExtractCtx *ctx, TSNode arg_node, PDXECallArg *ca) {
+     TSNode key_n = ts_node_child_by_field_name(arg_node, TS_FIELD("name"));
+@@ -2052,15 +2080,45 @@ static void process_keyword_arg(PDXEExtractCtx *ctx, TSNode arg_node, PDXECallAr
+         ca->keyword = pdxe_node_text(ctx->arena, key_n, ctx->source);
+     }
+     if (!ts_node_is_null(val_n)) {
+-        ca->expr = pdxe_node_text(ctx->arena, val_n, ctx->source);
+-        if (strcmp(ts_node_type(val_n), "identifier") == 0 && ca->expr) {
+-            ca->value = lookup_string_constant(ctx, ca->expr);
+-        } else if (is_string_like(ts_node_type(val_n)) && ca->expr) {
+-            ca->value = strip_quotes(ctx->arena, ca->expr);
++        set_arg_expr(ctx, val_n, ca);
++        if (strcmp(ts_node_type(val_n), "identifier") == 0) {
++            const char *text = arg_leaf_text(ctx, val_n, ca);
++            if (text) {
++                ca->value = lookup_string_constant(ctx, text);
++            }
++        } else if (is_string_like(ts_node_type(val_n))) {
++            const char *text = arg_leaf_text(ctx, val_n, ca);
++            if (text) {
++                ca->value = strip_quotes(ctx->arena, text);
++            }
+         }
+     }
+ }
+ 
++static bool is_comment_kind(const char *kind) {
++    return strcmp(kind, "comment") == 0 || strcmp(kind, "line_comment") == 0 ||
++           strcmp(kind, "block_comment") == 0;
++}
++
++static bool is_splat_kind(const char *kind) {
++    return strcmp(kind, "list_splat") == 0 || strcmp(kind, "dictionary_splat") == 0 ||
++           strcmp(kind, "spread_element") == 0;
++}
++
++/* How many arguments extract_call_args captures from `args`, so their array is the size
++ * it needs (at least one, allocated where it always was). */
++static int captured_arg_count(TSNode args) {
++    uint32_t argc = ts_node_named_child_count(args);
++    int n = 0;
++    for (uint32_t ai = 0; ai < argc && n < PDXE_MAX_CALL_ARGS; ai++) {
++        const char *ak = ts_node_type(ts_node_named_child(args, ai));
++        if (!is_comment_kind(ak) && !is_splat_kind(ak)) {
++            n++;
++        }
++    }
++    return n > 0 ? n : 1;
++}
++
+ /* Extract all arguments from a call expression into call->args[]. */
+ static void extract_call_args(PDXEExtractCtx *ctx, TSNode args, PDXECall *call) {
+     uint32_t argc = ts_node_named_child_count(args);
+@@ -2072,16 +2130,22 @@ static void extract_call_args(PDXEExtractCtx *ctx, TSNode args, PDXECall *call)
+          * child (Java block_comment/line_comment, C-family comment). It is
+          * not an argument: taken as one, a leading block comment became
+          * args[0] and the Route pass read its text as a URL. */
+-        if (strcmp(ak, "comment") == 0 || strcmp(ak, "line_comment") == 0 ||
+-            strcmp(ak, "block_comment") == 0) {
++        if (is_comment_kind(ak)) {
+             continue;
+         }
+         if (!call->args) {
+-            call->args = pdxe_arena_calloc(ctx->arena, PDXE_MAX_CALL_ARGS * sizeof(PDXECallArg));
++            call->args = pdxe_arena_calloc(ctx->arena,
++                                           (size_t)captured_arg_count(args) * sizeof(PDXECallArg));
+             if (!call->args) {
+                 return;
+             }
+         }
++        /* A splat takes a position and no slot: the array holds the captured arguments
++         * only, so a slot is taken only for one. */
++        if (is_splat_kind(ak)) {
++            positional_idx++;
++            continue;
++        }
+         PDXECallArg *ca = &call->args[call->arg_count];
+         memset(ca, 0, sizeof(*ca));
+ 
+@@ -2089,20 +2153,23 @@ static void extract_call_args(PDXEExtractCtx *ctx, TSNode args, PDXECall *call)
+             process_keyword_arg(ctx, arg_node, ca);
+             ca->index = positional_idx++;
+             call->arg_count++;
+-        } else if (strcmp(ak, "list_splat") == 0 || strcmp(ak, "dictionary_splat") == 0 ||
+-                   strcmp(ak, "spread_element") == 0) {
+-            positional_idx++;
+         } else {
+-            ca->expr = pdxe_node_text(ctx->arena, arg_node, ctx->source);
++            set_arg_expr(ctx, arg_node, ca);
+             ca->index = positional_idx++;
+-            if (is_string_like(ak) && ca->expr) {
+-                ca->value = strip_quotes(ctx->arena, ca->expr);
++            if (is_string_like(ak)) {
++                const char *text = arg_leaf_text(ctx, arg_node, ca);
++                if (text) {
++                    ca->value = strip_quotes(ctx->arena, text);
++                }
+             } else if (strcmp(ak, "template_string") == 0) {
+                 /* Flattened {} form so downstream url-arg detection joins the
+                  * canonical server route shape (issue #1006/#1009). */
+                 ca->value = pdxe_template_string_text(ctx->arena, arg_node, ctx->source);
+-            } else if (strcmp(ak, "identifier") == 0 && ca->expr) {
+-                ca->value = lookup_string_constant(ctx, ca->expr);
++            } else if (strcmp(ak, "identifier") == 0) {
++                const char *text = arg_leaf_text(ctx, arg_node, ca);
++                if (text) {
++                    ca->value = lookup_string_constant(ctx, text);
++                }
+             } else if (strcmp(ak, "call_expression") == 0) {
+                 /* URL-builder helper call (issue #1009): resolve
+                  * client(buildPath(id)) through the per-file builder map. */
+@@ -3889,8 +3956,8 @@ static PDXEInvocationDescriptor handle_calls_at_node(PDXEExtractCtx *ctx, TSNode
+                         PDXECallArg *ca = &call.args[call.arg_count];
+                         memset(ca, 0, sizeof(*ca));
+                         ca->index = call.arg_count;
+-                        ca->expr = pdxe_node_text(ctx->arena, achild, ctx->source);
+-                        if (ca->expr && ca->expr[0]) {
++                        set_arg_expr(ctx, achild, ca);
++                        if (ca->expr ? ca->expr[0] != '\0' : ca->expr_end > ca->expr_start) {
+                             call.arg_count++;
+                         }
+                     }
+--- a/engine/src/extract_channels.c
++++ b/engine/src/extract_channels.c
+@@ -258,37 +258,51 @@ static bool js_is_listen_method(const char *name) {
+                     strcmp(name, "once") == 0);
+ }
+ 
+-/* Classify receiver for Socket.IO / EventEmitter / WebSocket. */
++/* Whether the `len` bytes at `s` are exactly `word`. */
++static bool js_text_is(const char *s, size_t len, const char *word) {
++    return len == strlen(word) && memcmp(s, word, len) == 0;
++}
++
++/* Classify receiver for Socket.IO / EventEmitter / WebSocket.
++ *
++ * Issue 90: the receiver's text is read where it is in the source, as the copy that was
++ * made of it read (up to its first NUL), never copied: every link of a call chain is a
++ * receiver, and copying each repeated the chain's prefix once per link. */
+ static const char *js_classify_receiver(PDXEExtractCtx *ctx, TSNode object_node) {
+-    char *text = pdxe_node_text(ctx->arena, object_node, ctx->source);
+-    if (!text) {
+-        return NULL;
+-    }
++    uint32_t start = ts_node_start_byte(object_node);
++    uint32_t end = ts_node_end_byte(object_node);
++    const char *text = ctx->source + start;
++    size_t len = end > start ? pdxe_node_text_len(text, end - start) : 0;
+     const char *tail = text;
+-    const char *dot = strrchr(tail, '.');
+-    if (dot) {
+-        tail = dot + SKIP_ONE;
++    size_t tail_len = len;
++    for (size_t i = len; i > 0; i--) {
++        if (text[i - SKIP_ONE] == '.') {
++            tail = text + i;
++            tail_len = len - i;
++            break;
++        }
+     }
+     /* Socket.IO */
+-    if (strcmp(tail, "socket") == 0 || strcmp(tail, "io") == 0 || strcmp(tail, "ws") == 0 ||
+-        strcmp(tail, "client") == 0 || strcmp(tail, "server") == 0) {
++    if (js_text_is(tail, tail_len, "socket") || js_text_is(tail, tail_len, "io") ||
++        js_text_is(tail, tail_len, "ws") || js_text_is(tail, tail_len, "client") ||
++        js_text_is(tail, tail_len, "server")) {
+         return "socketio";
+     }
+     /* Node.js EventEmitter */
+-    if (strcmp(tail, "emitter") == 0 || strcmp(tail, "eventEmitter") == 0 ||
+-        strcmp(tail, "events") == 0 || strcmp(tail, "bus") == 0 || strcmp(tail, "eventBus") == 0 ||
+-        strcmp(tail, "pubsub") == 0) {
++    if (js_text_is(tail, tail_len, "emitter") || js_text_is(tail, tail_len, "eventEmitter") ||
++        js_text_is(tail, tail_len, "events") || js_text_is(tail, tail_len, "bus") ||
++        js_text_is(tail, tail_len, "eventBus") || js_text_is(tail, tail_len, "pubsub")) {
+         return "event_emitter";
+     }
+     /* Kafka */
+-    if (strcmp(tail, "producer") == 0) {
++    if (js_text_is(tail, tail_len, "producer")) {
+         return "kafka";
+     }
+-    if (strcmp(tail, "consumer") == 0) {
++    if (js_text_is(tail, tail_len, "consumer")) {
+         return "kafka";
+     }
+     /* RabbitMQ / AMQP */
+-    if (strcmp(tail, "channel") == 0 && !strcmp(text, "channel")) {
++    if (js_text_is(tail, tail_len, "channel") && js_text_is(text, len, "channel")) {
+         return "rabbitmq";
+     }
+     return NULL;
+--- a/engine/src/extract_defs.c
++++ b/engine/src/extract_defs.c
+@@ -3964,6 +3964,25 @@ static TSNode find_c_params(TSNode func_node) {
+  * `function_value_parameters` as a direct child rather than a `parameters`
+  * field. Keep the legacy and ordered signature extractors on the same node so
+  * adding positional metadata does not replace or reinterpret `param_types`. */
++/* Issue 90: a definition's parameter list. In the raw source it is the parameters
++ * node's range, up to a NUL as a copy would stop, never copied: parameters can hold
++ * whole definitions (a JavaScript function as a default) whose own parameters would
++ * repeat them. After macro expansion, and for a node with no text, it is a copy. */
++static void set_def_signature(PDXEExtractCtx *ctx, PDXEDefinition *def, TSNode params) {
++    uint32_t start = ts_node_start_byte(params);
++    uint32_t end = ts_node_end_byte(params);
++    if (ctx->source_origin == PDXE_SOURCE_ORIGIN_RAW && end > start) {
++        size_t n = pdxe_node_text_len(ctx->source + start, end - start);
++        if (n > 0) {
++            def->signature = NULL;
++            def->signature_start = start;
++            def->signature_end = start + (uint32_t)n;
++            return;
++        }
++    }
++    def->signature = pdxe_node_text(ctx->arena, params, ctx->source);
++}
++
+ static TSNode find_function_params(TSNode func_node, PDXELanguage lang) {
+     TSNode params = ts_node_child_by_field_name(func_node, TS_FIELD("parameters"));
+     // ObjectScript exposes the parameter list under a `parameter_list` field.
+@@ -4368,7 +4387,7 @@ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpe
+     // Parameters — use func_node (inner function for templates)
+     TSNode params = find_function_params(func_node, ctx->language);
+     if (!ts_node_is_null(params)) {
+-        def.signature = pdxe_node_text(a, params, ctx->source);
++        set_def_signature(ctx, &def, params);
+         def.param_names = extract_param_names(a, params, ctx->source, ctx->language);
+         def.param_types = extract_param_types(a, params, ctx->source, ctx->language);
+         def.signature_param_types = extract_signature_param_types(
+@@ -5623,7 +5642,7 @@ static void push_method_def(PDXEExtractCtx *ctx, TSNode child, TSNode class_node
+ 
+     TSNode params = find_function_params(child, ctx->language);
+     if (!ts_node_is_null(params)) {
+-        def.signature = pdxe_node_text(a, params, ctx->source);
++        set_def_signature(ctx, &def, params);
+         def.param_types = extract_param_types(a, params, ctx->source, ctx->language);
+         def.signature_param_types = extract_signature_param_types(
+             a, params, ctx->source, ctx->language, true, &def.signature_param_count);
+@@ -5901,7 +5920,7 @@ static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSp
+ 
+         TSNode params = ts_node_child_by_field_name(child, TS_FIELD("parameters"));
+         if (!ts_node_is_null(params)) {
+-            def.signature = pdxe_node_text(a, params, ctx->source);
++            set_def_signature(ctx, &def, params);
+             def.param_types = extract_param_types(a, params, ctx->source, ctx->language);
+             def.signature_param_types = extract_signature_param_types(
+                 a, params, ctx->source, ctx->language, true, &def.signature_param_count);
+@@ -8195,7 +8214,7 @@ static void extract_c_macro_def(PDXEExtractCtx *ctx, TSNode node) {
+ 
+     TSNode params = ts_node_child_by_field_name(node, TS_FIELD("parameters"));
+     if (!ts_node_is_null(params)) {
+-        def.signature = pdxe_node_text(a, params, ctx->source);
++        set_def_signature(ctx, &def, params);
+     }
+ 
+     pdxe_defs_push(&ctx->result->defs, a, def);
+--- a/engine/src/extract_env_accesses.c
++++ b/engine/src/extract_env_accesses.c
+@@ -81,33 +81,48 @@ static const char *extract_env_key_from_call(PDXEExtractCtx *ctx, TSNode node,
+ }
+ 
+ // Extract env key from member access like process.env.KEY or os.environ["KEY"].
++//
++// Issue 90: the member's text is read where it is in the source, as the copy that was
++// made of it read (up to its first NUL), and only a key found is copied. Every member
++// expression of a chain is asked, and copying each one's text repeated the chain's
++// prefix once per link (204 MB for a 2 MiB file of JavaScript call chains).
+ static const char *extract_env_key_from_member(PDXEExtractCtx *ctx, TSNode node,
+                                                const PDXELangSpec *spec) {
+     if (!spec->env_access_member_patterns || !spec->env_access_member_patterns[0]) {
+         return NULL;
+     }
+ 
+-    char *text = pdxe_node_text(ctx->arena, node, ctx->source);
+-    if (!text || !text[0]) {
++    uint32_t start = ts_node_start_byte(node);
++    uint32_t end = ts_node_end_byte(node);
++    if (end <= start) {
++        return NULL;
++    }
++    const char *text = ctx->source + start;
++    size_t len = pdxe_node_text_len(text, end - start);
++    if (len == 0) {
+         return NULL;
+     }
+ 
+     for (const char **pat = spec->env_access_member_patterns; *pat; pat++) {
+         size_t plen = strlen(*pat);
++        if (len <= plen || memcmp(text, *pat, plen) != 0) {
++            continue;
++        }
+ 
+         // Dot access: pattern.KEY
+-        if (strncmp(text, *pat, plen) == 0 && text[plen] == '.') {
++        if (text[plen] == '.') {
+             const char *key = text + plen + PDXE_QUOTE_OFFSET;
++            size_t klen = len - plen - PDXE_QUOTE_OFFSET;
+             // Validate: no further dots/brackets
+-            if (key[0] && !strchr(key, '.') && !strchr(key, '[')) {
+-                return key;
++            if (klen > 0 && !memchr(key, '.', klen) && !memchr(key, '[', klen)) {
++                return pdxe_arena_strndup(ctx->arena, key, klen);
+             }
+         }
+ 
+         // Subscript: pattern["KEY"]
+-        if (strncmp(text, *pat, plen) == 0 && text[plen] == '[') {
++        if (text[plen] == '[') {
+             const char *inner = text + plen + PDXE_QUOTE_OFFSET;
+-            size_t ilen = strlen(inner);
++            size_t ilen = len - plen - PDXE_QUOTE_OFFSET;
+             if (ilen > 0 && inner[ilen - PDXE_QUOTE_OFFSET] == ']') {
+                 char *bracket_content =
+                     pdxe_arena_strndup(ctx->arena, inner, ilen - PDXE_QUOTE_OFFSET);
+--- a/engine/src/helpers.c
++++ b/engine/src/helpers.c
+@@ -62,6 +62,11 @@ char *pdxe_node_text(PDXEArena *a, TSNode node, const char *source) {
+     return pdxe_arena_strndup(a, source + start, end - start);
+ }
+ 
++size_t pdxe_node_text_len(const char *s, size_t max) {
++    const char *nul = max > 0 ? (const char *)memchr(s, 0, max) : NULL;
++    return nul ? (size_t)(nul - s) : max;
++}
++
+ // --- Keyword sets per language ---
+ 
+ static const char *go_keywords[] = {
+--- a/engine/src/helpers.h
++++ b/engine/src/helpers.h
+@@ -12,6 +12,11 @@ void *pdxe_memmem(const void *haystack, size_t haystack_len, const void *needle,
+ // Extract text of a node from source. Returns arena-allocated string.
+ char *pdxe_node_text(PDXEArena *a, TSNode node, const char *source);
+ 
++// Issue 90: the length of the text a copy of the `max` source bytes at `s` holds, as
++// pdxe_node_text makes one: up to the first NUL, at most `max`. A source range standing
++// for a node's text ends there, so the range is exactly the copy's bytes.
++size_t pdxe_node_text_len(const char *s, size_t max);
++
+ // Check if a string is a language keyword (should be skipped as callee/usage).
+ bool pdxe_is_keyword(const char *name, PDXELanguage lang);
+ 
+--- a/engine/src/pdxe_core.c
++++ b/engine/src/pdxe_core.c
+@@ -999,15 +999,18 @@ static bool is_self_receiver(const char *callee_name, const char *def_receiver)
+ // Fallback for languages where param_names isn't populated (e.g. C keeps only the
+ // signature text). Counts commas at the top paren level; treats "()"/"(void)" as 0.
+ // Approximate by design (a structural smell, not an exact arity).
+-static int count_params_from_signature(const char *sig) {
++static int count_params_from_signature(const char *sig, size_t len) {
+     if (!sig) {
+         return 0;
+     }
++    /* Read up to `len` bytes or a NUL, whichever is first (issue 90: a range of the
++     * source is not terminated). */
++    const char *end = sig + len;
+     const char *p = sig;
+-    while (*p && *p != '(') {
++    while (p < end && *p && *p != '(') {
+         p++;
+     }
+-    if (*p != '(') {
++    if (p == end || *p != '(') {
+         return 0;
+     }
+     p++;
+@@ -1015,7 +1018,7 @@ static int count_params_from_signature(const char *sig) {
+     int depth = 0;
+     int commas = 0;
+     bool any = false;
+-    for (; *p; p++) {
++    for (; p < end && *p; p++) {
+         char ch = *p;
+         if (ch == '(' || ch == '[' || ch == '{' || ch == '<') {
+             depth++;
+@@ -1038,11 +1041,12 @@ static int count_params_from_signature(const char *sig) {
+         return 0; /* "()" */
+     }
+     if (commas == 0) {
+-        while (*list == ' ' || *list == '\t') {
++        while (list < end && (*list == ' ' || *list == '\t')) {
+             list++;
+         }
+-        if (strncmp(list, "void", 4) == 0 &&
+-            (list[4] == ')' || list[4] == ' ' || list[4] == '\0')) {
++        size_t rest = (size_t)(end - list);
++        if (rest >= 4 && strncmp(list, "void", 4) == 0 &&
++            (rest == 4 || list[4] == ')' || list[4] == ' ' || list[4] == '\0')) {
+             return 0; /* C "(void)" */
+         }
+     }
+@@ -1894,7 +1898,7 @@ static bool pdxe_byte_span_is_macro_invocation(const char *src, int src_len, int
+         const PDXEDefinition *d = &defs->items[di];
+         /* Function-like macros only: an object-like macro (#define PI 3.14) has no
+          * parameter signature and can't be mistaken for a call. */
+-        if (!d->label || strcmp(d->label, "Macro") != 0 || !d->signature || !d->name ||
++        if (!d->label || strcmp(d->label, "Macro") != 0 || !pdxe_def_has_signature(d) || !d->name ||
+             !d->name[0]) {
+             continue;
+         }
+@@ -3435,7 +3439,11 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len,
+             }
+         }
+         if (pc == 0 && d->signature) {
+-            pc = count_params_from_signature(d->signature);
++            pc = count_params_from_signature(d->signature, strlen(d->signature));
++        } else if (pc == 0 && pdxe_def_has_signature(d) && d->signature_end <= (uint32_t)source_len) {
++            /* Issue 90: read in place, the range the definition holds. */
++            pc = count_params_from_signature(source + d->signature_start,
++                                             d->signature_end - d->signature_start);
+         }
+         d->param_count = pc;
+     }
+--- a/engine/src/pdxe_core.h
++++ b/engine/src/pdxe_core.h
+@@ -342,14 +342,33 @@ typedef struct {
+      * above keep the first, as before. Kept at the tail, as impl_trait is. */
+     PDXERouteFact *routes;
+     int route_count;
++    /* Issue 90: the parameter list as a range of the raw source when `signature` is
++     * NULL and the range is not empty; never copied, since parameters can hold whole
++     * definitions (a JavaScript function as a default) whose own would repeat them. A
++     * definition read after macro expansion, or with an empty parameters node, holds
++     * its copy in `signature` and no range. Kept at the tail, as impl_trait is. */
++    uint32_t signature_start;
++    uint32_t signature_end;
+ } PDXEDefinition;
+ 
+-/* Argument captured from a call expression */
++/* Issue 90: the definition records a parameter list, as a range or a copy. */
++static inline bool pdxe_def_has_signature(const PDXEDefinition *d) {
++    return d->signature != NULL || d->signature_end > d->signature_start;
++}
++
++/* Argument captured from a call expression. Its expression text is the source bytes
++ * [expr_start, expr_end) when `expr` is NULL, never copied (issue 90): an argument
++ * holding a call holding an argument would otherwise repeat the text it nests. Only
++ * text read from a buffer that is not the file's own (the C-family macro-expanded one)
++ * is copied into `expr`, with the range 0. A range is the copy's exact bytes: it ends
++ * at the first NUL, as the copy did. */
+ typedef struct {
+-    const char *expr;    // raw expression text ("payload.info", "MY_URL", "'hello'")
++    const char *expr;    // expression text read from another buffer, or NULL (see above)
+     const char *value;   // resolved string value or NULL (constant propagation)
+     const char *keyword; // keyword name if keyword arg ("url", "topic_id"), NULL if positional
+     int index;           // positional index (0-based)
++    uint32_t expr_start; // the expression's range in the file's source, when expr is NULL
++    uint32_t expr_end;
+ } PDXECallArg;
+ 
+ #define PDXE_MAX_CALL_ARGS 8
+--- a/engine/src/resolve/pass_lsp_cross.c
++++ b/engine/src/resolve/pass_lsp_cross.c
+@@ -1120,6 +1120,9 @@ static bool pxc_copy_call(PDXEArena *arena, const PDXECall *src, PDXECall *dst)
+         }
+         for (int ai = 0; ai < src->arg_count; ai++) {
+             copy.args[ai].index = src->args[ai].index;
++            /* A source range is the same file's, and is kept as it is (issue 90). */
++            copy.args[ai].expr_start = src->args[ai].expr_start;
++            copy.args[ai].expr_end = src->args[ai].expr_end;
+             if (!pxc_copy_field(arena, src->args[ai].expr, &copy.args[ai].expr) ||
+                 !pxc_copy_field(arena, src->args[ai].value, &copy.args[ai].value) ||
+                 !pxc_copy_field(arena, src->args[ai].keyword, &copy.args[ai].keyword)) {

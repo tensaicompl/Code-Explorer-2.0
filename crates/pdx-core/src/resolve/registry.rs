@@ -16,12 +16,13 @@
 //! or the workers that extracted them. Names are kept exactly as the engine reported
 //! them: nothing is case-folded here.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::Path;
 
 use pdx_engine::{
     CrateManifest, Definition, DefinitionKind, FileExtract, NamespaceEvidence, PackageEntry,
-    ResolutionMetadata, namespace_evidence,
+    ResolutionMetadata, TextRef, namespace_evidence,
 };
 
 use crate::index::discover::{DiscoveredFile, Disposition};
@@ -356,13 +357,15 @@ impl SymbolRegistry {
                     index,
                 })
                 .collect();
-            for (d, r) in extract.definitions.iter().zip(&refs) {
+            // The index is keyed by whole names: each spelled out once, per file.
+            let names = extract.qualified_names();
+            for (i, (d, r)) in extract.definitions.iter().zip(&refs).enumerate() {
                 self.by_name
                     .entry(d.name.clone())
                     .or_default()
                     .push(r.clone());
                 self.by_qualified_name
-                    .entry(d.qualified_name.clone())
+                    .entry(names.get(i).to_owned())
                     .or_default()
                     .push(r.clone());
             }
@@ -878,6 +881,22 @@ impl SymbolRegistry {
             FileOutcome::Extracted { extract, .. } => Some(extract),
             _ => None,
         }
+    }
+
+    /// A text of `path`'s extraction, read from its source, borrowed where it can be
+    /// (issue 90); `None` for a file with no extraction. A call, argument or usage of
+    /// a file, a typed resolution's site included, is read through its own file.
+    pub fn text<'a>(&'a self, path: &str, text: &'a TextRef) -> Option<Cow<'a, str>> {
+        Some(self.extract(path)?.text(text))
+    }
+
+    /// A definition's qualified name, spelled out (issue 90): for one name. A consumer
+    /// that needs every name of a file spells them out once with
+    /// [`FileExtract::qualified_names`].
+    pub fn qualified_name(&self, r: &DefinitionRef) -> Option<String> {
+        let extract = self.extract(&r.path)?;
+        let index = r.index as usize;
+        (index < extract.definitions.len()).then(|| extract.qualified_name(index))
     }
 
     /// A definition.

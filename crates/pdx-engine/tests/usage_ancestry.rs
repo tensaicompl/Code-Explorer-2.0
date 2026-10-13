@@ -116,23 +116,28 @@ fn the_issues_fixtures_extract_whole() {
     let chain = extract("python", "app/h.py", &python_chains(400, 1));
     assert_eq!(chain.extraction_lost, 0);
     assert!(!chain.truncated);
-    assert!(chain.calls.iter().any(|c| c.callee_text == "f"));
+    assert!(
+        chain
+            .calls
+            .iter()
+            .any(|c| chain.text(&c.callee_text) == "f")
+    );
     let longest = format!("a{}", ".b".repeat(400));
-    assert!(chain.usages.iter().any(|u| u.name == longest));
-    assert!(chain.usages.iter().any(|u| u.name == "a"));
+    assert!(chain.usages.iter().any(|u| chain.text(&u.name) == longest));
+    assert!(chain.usages.iter().any(|u| chain.text(&u.name) == "a"));
     // Eight of them in one function: eight times the chain's usages.
     let chains = extract("python", "app/chains.py", &python_chains(400, 8));
     assert_eq!(chains.extraction_lost, 0);
     let one = chain
         .usages
         .iter()
-        .filter(|u| u.name.starts_with('a'))
+        .filter(|u| chain.text(&u.name).starts_with('a'))
         .count();
     assert_eq!(
         chains
             .usages
             .iter()
-            .filter(|u| u.name.starts_with('a'))
+            .filter(|u| chains.text(&u.name).starts_with('a'))
             .count(),
         8 * one
     );
@@ -146,7 +151,7 @@ fn the_issues_fixtures_extract_whole() {
             .count(),
         250
     );
-    assert!(java.calls.iter().any(|c| c.callee_text == "f"));
+    assert!(java.calls.iter().any(|c| java.text(&c.callee_text) == "f"));
     // 240 nested JavaScript functions: every function, and the innermost call.
     let js = extract("javascript", "web/f.js", &js_functions(240));
     assert_eq!(js.extraction_lost, 0);
@@ -157,7 +162,7 @@ fn the_issues_fixtures_extract_whole() {
             .count(),
         240
     );
-    assert!(js.calls.iter().any(|c| c.callee_text == "g"));
+    assert!(js.calls.iter().any(|c| js.text(&c.callee_text) == "g"));
     // The same on every run.
     assert_eq!(extract("python", "app/h.py", &python_chains(400, 1)), chain);
 }

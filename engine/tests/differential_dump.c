@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
         if (!engine) {
             return fail("no engine result behind", files[i].rel);
         }
-        diff_rows_file(stdout, files[i].rel, engine);
+        diff_rows_file(stdout, files[i].rel, engine, (const char *)files[i].source);
     }
     pdxe_resolve_project_end(p);
 
@@ -239,7 +239,7 @@ int main(int argc, char **argv) {
         uint8_t *surface = NULL;
         size_t surface_len = 0;
         if (pdxe_surface_export(r, files[i].rel, &surface, &surface_len) != PDXE_OK ||
-            pdxe_result_build(ctx, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
+            pdxe_result_build(ctx, files[i].len, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
                               r->n_imports, r->usages, r->n_usages, r->types, r->n_types, r->rws,
                               r->n_rws, r->impl_traits, r->n_impl_traits,
                               &rebuilt[i]) != PDXE_OK ||

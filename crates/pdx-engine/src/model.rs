@@ -8,6 +8,18 @@
 //! The interface's encodings become types: an unknown position is `None` rather than
 //! a span of zeros, "no enclosing definition" is `None` rather than a sentinel index,
 //! and the status, visibility and kind codes are enums.
+//!
+//! Text a fact takes from the file is a [`TextRef`], a range of the source rather than
+//! a copy, and a definition's qualified name a [`QualifiedName`], given by its relation
+//! to an earlier definition's (issue 90, decision 61): evidence that nests would
+//! otherwise repeat every byte it overlaps. What is stored and sent is an
+//! [`ExtractRecord`], which holds no source; a [`FileExtract`] is a record bound to the
+//! exact source it was taken from, checked when it is bound, and is what every
+//! consumer reads text through.
+
+use std::borrow::Cow;
+use std::ops::Deref;
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -172,19 +184,83 @@ impl LexicalFacts {
     }
 }
 
+/// A piece of text a fact carries (issue 90, decision 61).
+///
+/// Text that is exactly a run of the file's source is held as the run's byte range,
+/// never copied: it costs the same whatever its length, so a member chain each of whose
+/// links is a call, or an argument holding a call holding an argument, does not repeat
+/// the text it overlaps. Text the engine assembled or rewrote, and text it read in
+/// C-family source after macro expansion, which the caller never sees, is owned.
+///
+/// A range means something only with its extraction's source: equality and hashing
+/// compare how the text is held, which is the text itself only within one extraction.
+/// Compare text across extractions by what [`FileExtract::text`] gives.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum TextRef {
+    /// The source's bytes `start..end`, exactly: nothing trimmed or rewritten.
+    Source {
+        /// Offset of the first byte.
+        start: u32,
+        /// Offset one past the last byte.
+        end: u32,
+    },
+    /// Text of the engine's own.
+    Owned(String),
+}
+
+/// A definition's qualified name, by its relation to an earlier definition's (issue 90,
+/// decision 61): nested definitions would otherwise each repeat the names of everything
+/// around them. Every form spells exactly the engine's name; [`FileExtract::qualified_name`]
+/// and [`QualifiedNames`] spell it out, and [`FileExtract::qualified_name_parts`] gives
+/// its pieces in order, for hashing it without spelling it out.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum QualifiedName {
+    /// The whole name.
+    Whole(String),
+    /// The qualified name of the definition at `base`, an earlier one, then `.`, then
+    /// this definition's own [`Definition::name`].
+    Member {
+        /// The earlier definition.
+        base: u32,
+    },
+    /// The qualified name of the definition at `base`, an earlier one, then `rest`,
+    /// which is empty or begins with an ASCII character.
+    Extended {
+        /// The earlier definition.
+        base: u32,
+        /// What follows its name.
+        rest: String,
+    },
+    /// The first `keep` bytes of the qualified name of the definition at `base`, an
+    /// earlier one, then `rest`, which is empty or begins with `.`: the prefix ends
+    /// before a `.` that definition adds itself, after its own base's name. Names that
+    /// share a prefix none of their definitions is (C++ functions in nested namespaces,
+    /// which are no definitions) hold only what they add to it.
+    Prefix {
+        /// The earlier definition.
+        base: u32,
+        /// How many bytes of its name begin this one.
+        keep: u32,
+        /// What follows them.
+        rest: String,
+    },
+}
+
 /// Anything the graph gives a node of its own.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Definition {
     /// The name as declared.
     pub name: String,
-    /// The engine's qualified name.
-    pub qualified_name: String,
+    /// The engine's qualified name, held by its relation to an earlier definition's.
+    pub qualified_name: QualifiedName,
     /// The normalised kind.
     pub kind: DefinitionKind,
     /// The engine's own kind, which the normalised kind may have generalised.
     pub engine_kind: String,
-    /// The signature, where the language has one.
-    pub signature: Option<String>,
+    /// The parameter list as the source writes it, where the language has one: a range
+    /// of the source, since parameters can hold whole definitions (a JavaScript function
+    /// as a default) whose own parameter lists would repeat them (issue 90).
+    pub signature: Option<TextRef>,
     /// The documentation comment, if any.
     pub doc: Option<String>,
     /// The whole definition.
@@ -240,7 +316,7 @@ pub struct RouteFact {
     /// `GetMapping`).
     pub callee_text: String,
     /// The whole declaring decorator call or annotation, as written.
-    pub source_text: Option<String>,
+    pub source_text: Option<TextRef>,
     /// The declaring node's position; `None` when the engine does not know it.
     pub span: Option<Span>,
     /// The node types from the lowest node holding both the definition and the
@@ -253,7 +329,7 @@ pub struct RouteFact {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CallArg {
     /// The expression as written.
-    pub expr: String,
+    pub expr: TextRef,
     /// The string value it resolves to, where the engine resolved one: a literal, or a
     /// constant it followed.
     pub value: Option<String>,
@@ -282,8 +358,9 @@ pub struct ImplTrait {
 /// names appear; a typed resolution refers to a call by its index in that order.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Call {
-    /// The callee as the source spells it.
-    pub callee_text: String,
+    /// The callee as the source spells it, or as the engine names it where the source
+    /// spells no one run of text (an operator, a desugared call).
+    pub callee_text: TextRef,
     /// The receiver, where the engine splits it off.
     pub receiver_text: Option<String>,
     /// The definition making the call, as an index into the file's definitions: the
@@ -329,7 +406,7 @@ pub struct Import {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Usage {
     /// The name.
-    pub name: String,
+    pub name: TextRef,
     /// The definition it is used in; `None` at file scope.
     pub scope: Option<u32>,
     /// Where the use is.
@@ -524,13 +601,15 @@ pub fn namespace_evidence(language: &str) -> NamespaceEvidence {
     }
 }
 
-/// Everything extraction found in one file, and its resolution surface.
+/// Everything extraction found in one file, and its resolution surface, as it is stored
+/// and sent: an extraction cache keeps it and the isolated worker returns it.
 ///
-/// Self-contained: it names the file and language it was taken for and identifies the
-/// source by length and digest, so it can be cached, sent between processes, and later
-/// resolved with that same source, and no other, without the engine that produced it.
+/// It names the file and language it was taken for and identifies the source by length
+/// and digest, and holds no source: its text ranges are ranges of that source, which the
+/// cache's caller and the worker's parent hold already. It is read only once bound to
+/// that source ([`ExtractRecord::bind`]), and serialising it never resolves a range.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct FileExtract {
+pub struct ExtractRecord {
     /// The language it was extracted as, by the language matrix's identifier.
     pub language: String,
     /// The path it was extracted under, relative to the repository. Qualified names
@@ -580,4 +659,384 @@ pub struct FileExtract {
     pub diagnostics: Vec<Diagnostic>,
     /// What typed resolution reads from the file.
     pub surface: Surface,
+}
+
+/// Why a record cannot be bound to a source (issue 90). A cache treats it as a miss.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum BindError {
+    /// The source is not the length extracted.
+    #[error("the source is {given} bytes, not the {extracted} extracted")]
+    Length {
+        /// What the record was extracted from.
+        extracted: u64,
+        /// What it was given.
+        given: u64,
+    },
+    /// The source is the length extracted but not the bytes.
+    #[error("the source is not the one extracted")]
+    Digest,
+    /// A text range does not lie within the source.
+    #[error("the text range {start}..{end} is not within the {len}-byte source")]
+    Range {
+        /// The range's start.
+        start: u32,
+        /// The range's end.
+        end: u32,
+        /// The source's length.
+        len: u64,
+    },
+    /// A qualified name is given relative to a definition that is not an earlier one.
+    #[error(
+        "definition {index}'s qualified name is given by definition {base}, not an earlier one"
+    )]
+    QualifiedName {
+        /// The definition.
+        index: usize,
+        /// The definition it names.
+        base: u32,
+    },
+    /// A qualified name's prefix of an earlier one does not end before a `.` that the
+    /// earlier definition adds itself, or its rest does not begin with one.
+    #[error(
+        "definition {index}'s qualified name keeps {keep} bytes of definition {base}'s, which is not a prefix it adds"
+    )]
+    Prefix {
+        /// The definition.
+        index: usize,
+        /// The definition it names.
+        base: u32,
+        /// The bytes it keeps.
+        keep: u32,
+    },
+}
+
+impl ExtractRecord {
+    /// The record bound to `source`, which must be exactly the bytes it was extracted
+    /// from: the length and the digest are checked, then every text range against the
+    /// source and every qualified name's base against the definitions. Nothing is
+    /// copied but the reference to `source`.
+    ///
+    /// # Errors
+    ///
+    /// [`BindError`] for any other source, and for a record whose ranges or names are
+    /// not well formed, which a cache counts as a miss: never resolved, never clamped.
+    pub fn bind(self, source: Arc<[u8]>) -> Result<FileExtract, BindError> {
+        if source.len() as u64 != self.source_len {
+            return Err(BindError::Length {
+                extracted: self.source_len,
+                given: source.len() as u64,
+            });
+        }
+        if SourceDigest::of(&source) != self.source_digest {
+            return Err(BindError::Digest);
+        }
+        self.check_well_formed()?;
+        Ok(FileExtract {
+            record: self,
+            source,
+        })
+    }
+
+    /// Every text range within the source, every qualified name's base earlier, every
+    /// prefix one its base adds: from each name's length, computed once in order, and
+    /// its base's own bytes, so the check is linear however deeply the names nest.
+    pub(crate) fn check_well_formed(&self) -> Result<(), BindError> {
+        let len = self.source_len;
+        let range = |text: &TextRef| match *text {
+            TextRef::Source { start, end } if start > end || u64::from(end) > len => {
+                Err(BindError::Range { start, end, len })
+            }
+            _ => Ok(()),
+        };
+        let mut lens: Vec<usize> = Vec::with_capacity(self.definitions.len());
+        for (index, d) in self.definitions.iter().enumerate() {
+            let name_len = match &d.qualified_name {
+                QualifiedName::Whole(whole) => whole.len(),
+                QualifiedName::Member { base }
+                | QualifiedName::Extended { base, .. }
+                | QualifiedName::Prefix { base, .. }
+                    if *base as usize >= index =>
+                {
+                    return Err(BindError::QualifiedName { index, base: *base });
+                }
+                QualifiedName::Member { base } => lens[*base as usize] + 1 + d.name.len(),
+                QualifiedName::Extended { base, rest } => lens[*base as usize] + rest.len(),
+                QualifiedName::Prefix { base, keep, rest } => {
+                    if !(rest.is_empty() || rest.starts_with('.'))
+                        || !self.adds_dot_at(*base as usize, *keep as usize, &lens)
+                    {
+                        return Err(BindError::Prefix {
+                            index,
+                            base: *base,
+                            keep: *keep,
+                        });
+                    }
+                    *keep as usize + rest.len()
+                }
+            };
+            lens.push(name_len);
+            d.signature.as_ref().map_or(Ok(()), range)?;
+            for r in &d.routes {
+                r.source_text.as_ref().map_or(Ok(()), range)?;
+            }
+        }
+        for c in &self.calls {
+            range(&c.callee_text)?;
+            for a in &c.args {
+                range(&a.expr)?;
+            }
+        }
+        for u in &self.usages {
+            range(&u.name)?;
+        }
+        Ok(())
+    }
+
+    /// Whether byte `keep` of definition `b`'s qualified name, the earlier names being
+    /// `lens` long, is a `.` that `b` adds after its own base's name: read in the bytes
+    /// `b` holds itself, never by walking its bases.
+    fn adds_dot_at(&self, b: usize, keep: usize, lens: &[usize]) -> bool {
+        let d = &self.definitions[b];
+        // Where `b`'s own bytes begin, and them; a member's are `.` and its name.
+        let (own, added, member) = match &d.qualified_name {
+            QualifiedName::Whole(whole) => (0, whole.as_bytes(), false),
+            QualifiedName::Member { base } => (lens[*base as usize], d.name.as_bytes(), true),
+            QualifiedName::Extended { base, rest } => {
+                (lens[*base as usize], rest.as_bytes(), false)
+            }
+            QualifiedName::Prefix { keep: k, rest, .. } => (*k as usize, rest.as_bytes(), false),
+        };
+        if keep <= own || keep >= lens[b] {
+            return false;
+        }
+        let at = keep - own;
+        added.get(if member { at - 1 } else { at }) == Some(&b'.')
+    }
+}
+
+/// Everything extraction found in one file, bound to the source it was taken from.
+///
+/// The record's fields are read through it as if they were its own. Its text is read
+/// with [`FileExtract::text`], its definitions' qualified names with
+/// [`FileExtract::qualified_name`] and [`QualifiedNames`]; nothing is copied until a
+/// consumer asks. One source backs the whole extraction, shared, never cloned.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileExtract {
+    record: ExtractRecord,
+    source: Arc<[u8]>,
+}
+
+impl Deref for FileExtract {
+    type Target = ExtractRecord;
+
+    fn deref(&self) -> &ExtractRecord {
+        &self.record
+    }
+}
+
+impl FileExtract {
+    /// A record just made from `source` by this crate, bound without checking again.
+    pub(crate) fn fresh(record: ExtractRecord, source: Arc<[u8]>) -> Self {
+        Self { record, source }
+    }
+
+    /// The record, as it is stored and sent.
+    pub fn record(&self) -> &ExtractRecord {
+        &self.record
+    }
+
+    /// The record, unbound.
+    pub fn into_record(self) -> ExtractRecord {
+        self.record
+    }
+
+    /// The exact bytes extracted.
+    pub fn source(&self) -> &[u8] {
+        &self.source
+    }
+
+    /// The shared source, for binding another record of the same bytes.
+    pub fn shared_source(&self) -> Arc<[u8]> {
+        Arc::clone(&self.source)
+    }
+
+    /// The text: a range read from the source, borrowed, or owned text as it is. Bytes
+    /// that are not UTF-8 are replaced as the engine's strings always were, the same
+    /// way every time.
+    ///
+    /// # Panics
+    ///
+    /// For a range that is not within this extraction's source, which only a text taken
+    /// from another extraction can be: every range of this one was checked when it was
+    /// bound.
+    pub fn text<'a>(&'a self, text: &'a TextRef) -> Cow<'a, str> {
+        match text {
+            TextRef::Owned(s) => Cow::Borrowed(s),
+            TextRef::Source { start, end } => {
+                String::from_utf8_lossy(&self.source[*start as usize..*end as usize])
+            }
+        }
+    }
+
+    /// The pieces of definition `index`'s qualified name, in order: written one after
+    /// another they are the name, so it can be hashed or compared without being spelled
+    /// out. A prefix's base contributes only the pieces, or the parts of them, its first
+    /// `keep` bytes hold.
+    ///
+    /// # Panics
+    ///
+    /// For an index past the definitions.
+    pub fn qualified_name_parts(&self, index: usize) -> Vec<&str> {
+        let defs = &self.record.definitions;
+        // Last piece first: each step's bytes are [start, whole) of the name at hand, of
+        // which the name asked for uses those before `seen`.
+        let mut parts = Vec::new();
+        let mut whole = self.qualified_name_len(index);
+        let mut seen = whole;
+        let mut at = index;
+        loop {
+            let d = &defs[at];
+            let (start, next, pieces): (usize, Option<usize>, [&str; 2]) = match &d.qualified_name {
+                QualifiedName::Whole(name) => (0, None, ["", name]),
+                QualifiedName::Member { base } => (
+                    whole - d.name.len() - 1,
+                    Some(*base as usize),
+                    [".", d.name.as_str()],
+                ),
+                QualifiedName::Extended { base, rest } => {
+                    (whole - rest.len(), Some(*base as usize), ["", rest])
+                }
+                QualifiedName::Prefix { base, keep, rest } => {
+                    (*keep as usize, Some(*base as usize), ["", rest])
+                }
+            };
+            let mut offset = start;
+            let mut used = [""; 2];
+            for (slot, piece) in used.iter_mut().zip(pieces) {
+                if offset < seen {
+                    *slot = &piece[..seen.min(offset + piece.len()) - offset];
+                }
+                offset += piece.len();
+            }
+            parts.extend(used.into_iter().rev().filter(|p| !p.is_empty()));
+            let Some(base) = next else { break };
+            whole = if matches!(d.qualified_name, QualifiedName::Prefix { .. }) {
+                self.qualified_name_len(base)
+            } else {
+                start
+            };
+            seen = seen.min(start);
+            at = base;
+        }
+        parts.reverse();
+        parts
+    }
+
+    /// The length of definition `index`'s qualified name, walking its bases only until a
+    /// whole name or a prefix, whose length its own bytes give.
+    fn qualified_name_len(&self, index: usize) -> usize {
+        let defs = &self.record.definitions;
+        let mut total = 0;
+        let mut at = index;
+        loop {
+            match &defs[at].qualified_name {
+                QualifiedName::Whole(name) => return total + name.len(),
+                QualifiedName::Prefix { keep, rest, .. } => {
+                    return total + *keep as usize + rest.len();
+                }
+                QualifiedName::Member { base } => {
+                    total += 1 + defs[at].name.len();
+                    at = *base as usize;
+                }
+                QualifiedName::Extended { base, rest } => {
+                    total += rest.len();
+                    at = *base as usize;
+                }
+            }
+        }
+    }
+
+    /// Definition `index`'s qualified name, spelled out.
+    ///
+    /// # Panics
+    ///
+    /// For an index past the definitions.
+    pub fn qualified_name(&self, index: usize) -> String {
+        self.qualified_name_parts(index).concat()
+    }
+
+    /// Every definition's qualified name, each spelled out once.
+    pub fn qualified_names(&self) -> QualifiedNames {
+        QualifiedNames::of(self)
+    }
+}
+
+/// Every definition's qualified name in one file, each spelled out once from its base's,
+/// in one buffer: the one place a consumer that needs them all whole gets them, so no
+/// name is built twice.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QualifiedNames {
+    text: String,
+    ends: Vec<usize>,
+}
+
+impl QualifiedNames {
+    fn of(extract: &FileExtract) -> Self {
+        let defs = &extract.record.definitions;
+        let mut text: Vec<u8> = Vec::new();
+        let mut ends = Vec::with_capacity(defs.len());
+        for d in defs {
+            match &d.qualified_name {
+                QualifiedName::Whole(whole) => text.extend_from_slice(whole.as_bytes()),
+                QualifiedName::Member { base } => {
+                    let (start, end) = span_of(&ends, *base as usize);
+                    text.extend_from_within(start..end);
+                    text.push(b'.');
+                    text.extend_from_slice(d.name.as_bytes());
+                }
+                QualifiedName::Extended { base, rest } => {
+                    let (start, end) = span_of(&ends, *base as usize);
+                    text.extend_from_within(start..end);
+                    text.extend_from_slice(rest.as_bytes());
+                }
+                QualifiedName::Prefix { base, keep, rest } => {
+                    let (start, _) = span_of(&ends, *base as usize);
+                    text.extend_from_within(start..start + *keep as usize);
+                    text.extend_from_slice(rest.as_bytes());
+                }
+            }
+            ends.push(text.len());
+        }
+        // Every piece is a string, and the pieces join at whole characters: a prefix ends
+        // before a `.`.
+        let text = String::from_utf8(text)
+            .unwrap_or_else(|e| String::from_utf8_lossy(e.as_bytes()).into_owned());
+        Self { text, ends }
+    }
+
+    /// Definition `index`'s qualified name.
+    ///
+    /// # Panics
+    ///
+    /// For an index past the definitions.
+    pub fn get(&self, index: usize) -> &str {
+        let (start, end) = span_of(&self.ends, index);
+        &self.text[start..end]
+    }
+
+    /// How many there are: one per definition.
+    pub fn len(&self) -> usize {
+        self.ends.len()
+    }
+
+    /// Whether the file has no definitions.
+    pub fn is_empty(&self) -> bool {
+        self.ends.is_empty()
+    }
+}
+
+/// Where the `index`th of the runs ending at `ends` lies.
+fn span_of(ends: &[usize], index: usize) -> (usize, usize) {
+    let start = if index == 0 { 0 } else { ends[index - 1] };
+    (start, ends[index])
 }

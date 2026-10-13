@@ -8,6 +8,8 @@
 //! enclosing definition, and their node-type path starts at that definition's node and
 //! runs through the nested syntax. At file scope a site still has no owner.
 
+mod common;
+
 use pdx_engine::{Call, DefinitionKind, Engine, FileExtract, LexicalFacts, ProjectResolver};
 
 fn extract(language: &str, rel_path: &str, source: &str) -> FileExtract {
@@ -22,16 +24,15 @@ fn calls<'e>(e: &'e FileExtract, callee: &str, reference: bool) -> Vec<&'e Call>
     let mut found: Vec<&Call> = e
         .calls
         .iter()
-        .filter(|c| c.callee_text == callee && c.is_reference == reference)
+        .filter(|c| c.is_reference == reference && e.text(&c.callee_text) == callee)
         .collect();
     found.sort_by_key(|c| c.span.map(|s| s.start_byte));
     found
 }
 
 /// The qualified name of the definition a call names as its caller, if any.
-fn caller<'e>(e: &'e FileExtract, call: &Call) -> Option<&'e str> {
-    call.caller
-        .map(|i| e.definitions[i as usize].qualified_name.as_str())
+fn caller(e: &FileExtract, call: &Call) -> Option<String> {
+    call.caller.map(|i| e.qualified_name(i as usize))
 }
 
 fn path(call: &Call) -> Vec<&str> {
@@ -64,7 +65,7 @@ fn unmodelled_nested_call_is_owned_by_the_outer_definition() {
     assert_eq!(defined(&e, "inner"), 0);
     let found = calls(&e, "helper", false);
     assert_eq!(found.len(), 2, "the nested call and the module-level call");
-    assert_eq!(caller(&e, found[0]), Some("pkg.nested.outer"));
+    assert_eq!(caller(&e, found[0]).as_deref(), Some("pkg.nested.outer"));
 }
 
 #[test]
@@ -89,7 +90,10 @@ fn callable_reference_in_nested_callable_is_owned_by_the_outer_definition() {
     let e = extract("python", "pkg/nested.py", NESTED);
     let references = calls(&e, "helper", true);
     assert_eq!(references.len(), 1);
-    assert_eq!(caller(&e, references[0]), Some("pkg.nested.outer"));
+    assert_eq!(
+        caller(&e, references[0]).as_deref(),
+        Some("pkg.nested.outer")
+    );
     assert_eq!(
         path(references[0])[..3],
         ["function_definition", "block", "function_definition"]
@@ -140,7 +144,7 @@ fn nested_same_name_does_not_borrow_a_top_level_occurrence() {
     );
     let found = calls(&e, "target", false);
     assert_eq!(found.len(), 1);
-    assert_eq!(caller(&e, found[0]), Some("pkg.same.outer"));
+    assert_eq!(caller(&e, found[0]).as_deref(), Some("pkg.same.outer"));
     assert_eq!(
         path(found[0])[..3],
         ["function_definition", "block", "function_definition"]
@@ -166,7 +170,7 @@ fn nested_parameters_stay_in_the_nested_lexical_scope() {
     let run = calls(&e, "run", false);
     assert_eq!(run.len(), 1);
     assert!(run[0].lexical.contains(LexicalFacts::LOCALLY_BOUND));
-    assert_eq!(caller(&e, run[0]), Some("pkg.shadow.outer"));
+    assert_eq!(caller(&e, run[0]).as_deref(), Some("pkg.shadow.outer"));
     // `job` is inner2's parameter: bound inside inner2, and not after it closes.
     let job = calls(&e, "job", false);
     assert_eq!(job.len(), 2);
@@ -175,8 +179,8 @@ fn nested_parameters_stay_in_the_nested_lexical_scope() {
         !job[1].lexical.contains(LexicalFacts::LOCALLY_BOUND),
         "inner2's parameter leaked into other"
     );
-    assert_eq!(caller(&e, job[0]), Some("pkg.shadow.other"));
-    assert_eq!(caller(&e, job[1]), Some("pkg.shadow.other"));
+    assert_eq!(caller(&e, job[0]).as_deref(), Some("pkg.shadow.other"));
+    assert_eq!(caller(&e, job[1]).as_deref(), Some("pkg.shadow.other"));
 }
 
 const SHAPES: &str = "def setup(f):
@@ -204,15 +208,15 @@ fn decorator_wrapper_and_local_class_methods_are_owned_by_the_outer_definition()
     assert_eq!(defined(&e, "Local"), 0);
     assert_eq!(defined(&e, "run"), 0);
     assert_eq!(
-        caller(&e, calls(&e, "self.check", false)[0]),
+        caller(&e, calls(&e, "self.check", false)[0]).as_deref(),
         Some("pkg.shapes.setup")
     );
     assert_eq!(
-        caller(&e, calls(&e, "f", false)[0]),
+        caller(&e, calls(&e, "f", false)[0]).as_deref(),
         Some("pkg.shapes.setup")
     );
     let local = calls(&e, "target", false);
-    assert_eq!(caller(&e, local[0]), Some("pkg.shapes.build"));
+    assert_eq!(caller(&e, local[0]).as_deref(), Some("pkg.shapes.build"));
     assert_eq!(
         path(local[0])[..3],
         ["function_definition", "block", "class_definition"]
@@ -291,10 +295,10 @@ fn typed_answers_still_join_calls_in_unmodelled_nested_callables() {
         let index = extract
             .calls
             .iter()
-            .position(|c| c.callee_text == callee && !c.is_reference)
+            .position(|c| !c.is_reference && extract.text(&c.callee_text) == callee)
             .expect("the nested call");
         assert_eq!(
-            caller(&extract, &extract.calls[index]),
+            caller(&extract, &extract.calls[index]).as_deref(),
             Some("src.main.kotlin.p.A.outer")
         );
         let answer = resolution
@@ -318,8 +322,7 @@ fn nested_typed_answers_are_the_same_from_a_cached_extraction() {
         .extract_and_add("kotlin", path, TYPED_NESTED.as_bytes())
         .unwrap();
     let from_fresh = fresh.run().unwrap();
-    let bytes = postcard::to_stdvec(&extract).unwrap();
-    let from_cache: FileExtract = postcard::from_bytes(&bytes).unwrap();
+    let from_cache = common::round_trip(&extract);
     assert_eq!(from_cache, extract);
     let mut cached = ProjectResolver::new(&engine).unwrap();
     cached

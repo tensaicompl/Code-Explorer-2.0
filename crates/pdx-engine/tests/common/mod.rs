@@ -6,8 +6,25 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use pdx_engine::{
-    AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ResolutionMetadata,
+    AliasScope, CrateDependency, CrateManifest, ExtractRecord, FileExtract, PackageEntry,
+    PathAlias, ResolutionMetadata,
 };
+
+/// An extraction's record encoded as a cache or a worker keeps it: its text as ranges,
+/// never its source (issue 90).
+pub fn record_bytes(extract: &FileExtract) -> Vec<u8> {
+    postcard::to_stdvec(extract.record()).expect("a record encodes")
+}
+
+/// An extraction as a cache or a worker keeps it, decoded and bound again to its
+/// source, as a cache hit binds it.
+pub fn round_trip(extract: &FileExtract) -> FileExtract {
+    let record: ExtractRecord =
+        postcard::from_bytes(&record_bytes(extract)).expect("a record decodes");
+    record
+        .bind(extract.shared_source())
+        .expect("a record binds to its own source")
+}
 
 /// The engine's test fixtures.
 pub fn fixtures() -> PathBuf {

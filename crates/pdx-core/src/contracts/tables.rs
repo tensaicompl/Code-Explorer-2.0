@@ -796,7 +796,8 @@ fn python_models(
             let (attribute, framework, owner) = if sqlalchemy && definition.name != "Meta" {
                 ("__tablename__", "sqlalchemy", index)
             } else if django && definition.name == "Meta" {
-                let Some(model) = definition.qualified_name.strip_suffix(".Meta") else {
+                let meta = extract.qualified_name(index);
+                let Some(model) = meta.strip_suffix(".Meta") else {
                     continue;
                 };
                 let models: Vec<_> = registry
@@ -879,7 +880,7 @@ fn consumers(context: &Context<'_>, out: &mut Vec<ContractObservation>) -> Resul
                 let Some(text) = argument
                     .value
                     .clone()
-                    .or_else(|| string_literal(&argument.expr))
+                    .or_else(|| string_literal(&extract.text(&argument.expr)))
                 else {
                     continue;
                 };
@@ -915,7 +916,7 @@ fn consumers(context: &Context<'_>, out: &mut Vec<ContractObservation>) -> Resul
                         key.clone(),
                         ContractDirection::Consumes,
                         path,
-                        format!("{} {statement} {key}", call.callee_text),
+                        format!("{} {statement} {key}", extract.text(&call.callee_text)),
                     )
                     .with_evidence("access_modes", mode.as_str());
                     if let Some(site) = &site {

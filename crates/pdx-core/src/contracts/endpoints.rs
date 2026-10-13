@@ -24,6 +24,7 @@
 //! router mounted from another callable or file cannot be seen, and its registrations
 //! keep the path they declare (issue 65).
 
+use std::borrow::Cow;
 use std::collections::BTreeSet;
 
 use pdx_engine::{Call, DefinitionKind};
@@ -136,12 +137,19 @@ fn join(parts: &[&str]) -> String {
 
 /// A Rust file's use of a crate: an import from it, or a call through its path.
 fn uses_crate(registry: &SymbolRegistry, path: &str, name: &str) -> bool {
+    let prefix = format!("{name}::");
     imports(registry, path, name)
         || registry.extract(path).is_some_and(|e| {
             e.calls
                 .iter()
-                .any(|c| c.callee_text.starts_with(&format!("{name}::")))
+                .any(|c| e.text(&c.callee_text).starts_with(&prefix))
         })
+}
+
+/// A call's callee, read from its own file, borrowed (issue 90); empty for a file with
+/// no extraction, which has no calls to read.
+fn callee<'a>(registry: &'a SymbolRegistry, path: &str, call: &'a Call) -> Cow<'a, str> {
+    registry.text(path, &call.callee_text).unwrap_or_default()
 }
 
 /// A registration recognised in a call: its method and path.
@@ -182,7 +190,7 @@ fn registrations(
     let composing: BTreeSet<Option<u32>> = extract
         .calls
         .iter()
-        .filter(|c| composers.contains(&split_callee(&c.callee_text).1))
+        .filter(|c| composers.contains(&split_callee(&extract.text(&c.callee_text)).1))
         .map(|c| c.caller)
         .collect();
     for (index, call) in extract.calls.iter().enumerate() {
@@ -200,7 +208,7 @@ fn registrations(
             continue;
         }
         for (method, route) in registrations {
-            let raw = format!("{}({route})", call.callee_text);
+            let raw = format!("{}({route})", extract.text(&call.callee_text));
             if let Some(o) = provided(context, &method, &route, path, raw, framework) {
                 found.observe(o.with_owner(owner.clone()));
             }
@@ -209,33 +217,36 @@ fn registrations(
     Ok(())
 }
 
-/// A literal first argument that is a path (it starts with `/`).
-fn path_argument(call: &Call, index: u32) -> Option<String> {
-    literal(positional(call, index)?).filter(|p| p.starts_with('/'))
+/// A literal argument at `index` that is a path (it starts with `/`), read from the
+/// call's own file.
+fn path_argument(registry: &SymbolRegistry, path: &str, call: &Call, index: u32) -> Option<String> {
+    literal(registry.extract(path)?, positional(call, index)?).filter(|p| p.starts_with('/'))
 }
 
-fn hono_call(_: &SymbolRegistry, _: &str, call: &Call) -> Vec<Registration> {
-    let (receiver, name) = split_callee(&call.callee_text);
+fn hono_call(registry: &SymbolRegistry, path: &str, call: &Call) -> Vec<Registration> {
+    let callee = callee(registry, path, call);
+    let (receiver, name) = split_callee(&callee);
     let method = match name {
         "get" | "post" | "put" | "delete" | "patch" | "options" => name.to_ascii_uppercase(),
         "all" => "ANY".to_owned(),
         _ => return Vec::new(),
     };
-    match (receiver, path_argument(call, 0)) {
+    match (receiver, path_argument(registry, path, call, 0)) {
         (Some(_), Some(route)) => vec![(method, route)],
         _ => Vec::new(),
     }
 }
 
 /// gin and echo: upper-case method registrations.
-fn upper_call(_: &SymbolRegistry, _: &str, call: &Call) -> Vec<Registration> {
-    let (receiver, name) = split_callee(&call.callee_text);
+fn upper_call(registry: &SymbolRegistry, path: &str, call: &Call) -> Vec<Registration> {
+    let callee = callee(registry, path, call);
+    let (receiver, name) = split_callee(&callee);
     let method = match name {
         "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS" => name.to_owned(),
         "Any" => "ANY".to_owned(),
         _ => return Vec::new(),
     };
-    match (receiver, path_argument(call, 0)) {
+    match (receiver, path_argument(registry, path, call, 0)) {
         (Some(_), Some(route)) => vec![(method, route)],
         _ => Vec::new(),
     }
@@ -255,7 +266,7 @@ fn minimal_api(registry: &SymbolRegistry, path: &str) -> bool {
     ) || registry.extract(path).is_some_and(|e| {
         e.calls.iter().any(|c| {
             matches!(
-                c.callee_text.as_str(),
+                e.text(&c.callee_text).as_ref(),
                 "WebApplication.CreateBuilder"
                     | "WebApplication.Create"
                     | "WebApplication.CreateSlimBuilder"
@@ -264,8 +275,9 @@ fn minimal_api(registry: &SymbolRegistry, path: &str) -> bool {
     })
 }
 
-fn minimal_call(_: &SymbolRegistry, _: &str, call: &Call) -> Vec<Registration> {
-    let (receiver, name) = split_callee(&call.callee_text);
+fn minimal_call(registry: &SymbolRegistry, path: &str, call: &Call) -> Vec<Registration> {
+    let callee = callee(registry, path, call);
+    let (receiver, name) = split_callee(&callee);
     let method = match name {
         "MapGet" => "GET",
         "MapPost" => "POST",
@@ -274,7 +286,7 @@ fn minimal_call(_: &SymbolRegistry, _: &str, call: &Call) -> Vec<Registration> {
         "MapPatch" => "PATCH",
         _ => return Vec::new(),
     };
-    match (receiver, path_argument(call, 0)) {
+    match (receiver, path_argument(registry, path, call, 0)) {
         (Some(_), Some(route)) => vec![(method.to_owned(), route)],
         _ => Vec::new(),
     }
@@ -292,17 +304,25 @@ fn net_http(registry: &SymbolRegistry, path: &str) -> bool {
 }
 
 fn net_http_call(registry: &SymbolRegistry, path: &str, call: &Call) -> Vec<Registration> {
-    let (receiver, name) = split_callee(&call.callee_text);
+    let Some(extract) = registry.extract(path) else {
+        return Vec::new();
+    };
+    let callee = extract.text(&call.callee_text);
+    let (receiver, name) = split_callee(&callee);
     if !matches!(name, "HandleFunc" | "Handle") {
         return Vec::new();
     }
     // `http.HandleFunc`, or a mux the file makes with `http.NewServeMux`.
     let standard = receiver == Some("http")
         || (receiver.is_some()
-            && registry
-                .extract(path)
-                .is_some_and(|e| e.calls.iter().any(|c| c.callee_text == "http.NewServeMux")));
-    let Some(pattern) = positional(call, 0).and_then(literal).filter(|_| standard) else {
+            && extract
+                .calls
+                .iter()
+                .any(|c| extract.text(&c.callee_text) == "http.NewServeMux"));
+    let Some(pattern) = positional(call, 0)
+        .and_then(|a| literal(extract, a))
+        .filter(|_| standard)
+    else {
         return Vec::new();
     };
     // Go 1.22 patterns: `[METHOD ]/path`; a host-qualified pattern names an authority
@@ -353,43 +373,54 @@ fn router_methods(expr: &str) -> Vec<String> {
     out.into_iter().collect()
 }
 
-fn axum_call(_: &SymbolRegistry, _: &str, call: &Call) -> Vec<Registration> {
-    let (_, name) = split_callee(&call.callee_text);
-    let (Some(route), Some(router)) = (path_argument(call, 0), positional(call, 1)) else {
+fn axum_call(registry: &SymbolRegistry, path: &str, call: &Call) -> Vec<Registration> {
+    let Some(extract) = registry.extract(path) else {
+        return Vec::new();
+    };
+    let callee = extract.text(&call.callee_text);
+    let (_, name) = split_callee(&callee);
+    let (Some(route), Some(router)) = (path_argument(registry, path, call, 0), positional(call, 1))
+    else {
         return Vec::new();
     };
     if name != "route" {
         return Vec::new();
     }
-    router_methods(&router.expr)
+    router_methods(&extract.text(&router.expr))
         .into_iter()
         .map(|m| (m, route.clone()))
         .collect()
 }
 
-fn actix_call(_: &SymbolRegistry, _: &str, call: &Call) -> Vec<Registration> {
-    let (receiver, name) = split_callee(&call.callee_text);
+fn actix_call(registry: &SymbolRegistry, path: &str, call: &Call) -> Vec<Registration> {
+    let Some(extract) = registry.extract(path) else {
+        return Vec::new();
+    };
+    let callee = extract.text(&call.callee_text);
+    let (receiver, name) = split_callee(&callee);
     if name != "route" {
         return Vec::new();
     }
     // `route("/t", web::get().to(h))` on an app, scope or config; or
     // `web::resource("/t").route(web::get().to(h))`.
-    let (route, handler) =
-        if let (Some(route), Some(handler)) = (path_argument(call, 0), positional(call, 1)) {
-            (route, handler)
-        } else {
-            let Some(route) = receiver
-                .and_then(|r| factory_literal(r, &["resource"]))
-                .filter(|p| p.starts_with('/'))
-            else {
-                return Vec::new();
-            };
-            let Some(handler) = positional(call, 0) else {
-                return Vec::new();
-            };
-            (route, handler)
+    let (route, handler) = if let (Some(route), Some(handler)) =
+        (path_argument(registry, path, call, 0), positional(call, 1))
+    {
+        (route, handler)
+    } else {
+        let Some(route) = receiver
+            .and_then(|r| factory_literal(r, &["resource"]))
+            .filter(|p| p.starts_with('/'))
+        else {
+            return Vec::new();
         };
-    let head = handler.expr.split(".to(").next().unwrap_or("");
+        let Some(handler) = positional(call, 0) else {
+            return Vec::new();
+        };
+        (route, handler)
+    };
+    let expr = extract.text(&handler.expr);
+    let head = expr.split(".to(").next().unwrap_or("");
     router_methods(head)
         .into_iter()
         .map(|m| (m, route.clone()))

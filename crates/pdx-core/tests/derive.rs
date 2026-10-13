@@ -16,6 +16,7 @@ use pdx_core::kinds::{EdgeKind, NodeKind};
 use pdx_core::model::Node;
 use pdx_core::resolve::registry::SymbolRegistry;
 use pdx_core::resolve::stages::{ResolveReport, resolve};
+use pdx_engine::QualifiedName;
 
 /// The repository id every fixture is derived under (4.2.1's reference repository).
 fn repo() -> RepoId {
@@ -1284,13 +1285,11 @@ fn identical_sites_get_deterministic_ordinals() {
     assert_ne!(sites[0].site_id, sites[1].site_id);
     // The fingerprint is 4.2.1's over the engine's node-type path from the method, the
     // texts, and the ordinal in source order: recomputed here from the facts.
-    let call = run
-        .registry
-        .extract(SHOP)
-        .unwrap()
+    let shop_extract = run.registry.extract(SHOP).unwrap();
+    let call = shop_extract
         .calls
         .iter()
-        .find(|c| c.callee_text == "helper")
+        .find(|c| shop_extract.text(&c.callee_text) == "helper")
         .unwrap();
     assert_eq!(
         call.ast_path.first().map(String::as_str),
@@ -1792,8 +1791,12 @@ fn candidate_rows_copy_engine_calibration() {
         ("main.py", "def run_all():\n    return tally()\n"),
     ]);
     let run = run(&checkout);
-    let calls = &run.registry.extract("main.py").unwrap().calls;
-    let index = calls.iter().position(|c| c.callee_text == "tally").unwrap();
+    let main = run.registry.extract("main.py").unwrap();
+    let calls = &main.calls;
+    let index = calls
+        .iter()
+        .position(|c| main.text(&c.callee_text) == "tally")
+        .unwrap();
     let answer = pdx_engine::TypedResolution {
         site_ref: pdx_engine::SiteRef {
             rel_path: "main.py".into(),
@@ -1858,10 +1861,11 @@ fn unconfirmed_sites_are_counted_never_drawn() {
         ("main.py", "from lib import compute\n\nhandler = compute\n"),
     ]);
     let run = run(&checkout);
-    let calls = &run.registry.extract("main.py").unwrap().calls;
+    let main = run.registry.extract("main.py").unwrap();
+    let calls = &main.calls;
     let index = calls
         .iter()
-        .position(|c| c.is_reference && c.callee_text == "compute")
+        .position(|c| c.is_reference && main.text(&c.callee_text) == "compute")
         .expect("a reference");
     let g = with_answers(&run, Vec::new());
     let site_ref = pdx_engine::SiteRef {
@@ -2663,4 +2667,225 @@ fn renamed_callable_site_ids_survive_line_insertion() {
         (method, site, edge)
     };
     assert_eq!(ids(""), ids("\n\n// a comment\n\n"));
+}
+
+#[test]
+fn structural_names_give_the_identities_their_whole_names_give() {
+    // A nested definition's qualified name is held by its relation to an earlier
+    // definition's (issue 90, decision 61): a member of its enclosing class, or the
+    // module's name extended by a rest. Spelled out, it is the engine's name byte for
+    // byte, and a node's identity hashes exactly it: fixed vectors, computed
+    // independently over 4.2.1's fields with the whole names below.
+    let checkout = Checkout::new(&[
+        (
+            "src/main/java/p/A.java",
+            "package p;\nclass A { class B { class C { void m() { f(); } } } }\n",
+        ),
+        (
+            "app/a.py",
+            "class A:\n    class B:\n        def m(self):\n            return 1\n",
+        ),
+        (
+            "src/n.cpp",
+            "namespace geo { namespace detail { int f() { return 1; } } }\n",
+        ),
+    ]);
+    let run = run(&checkout);
+    for (path, kind, qn, id) in [
+        (
+            "src/main/java/p/A.java",
+            NodeKind::Class,
+            "src.main.java.p.A",
+            "323DTWFKJQ70TADPGWBXEAWRT5",
+        ),
+        (
+            "src/main/java/p/A.java",
+            NodeKind::Class,
+            "src.main.java.p.A.B",
+            "R1AJN5AVMQ2TEZR14PX634DGQ4",
+        ),
+        (
+            "src/main/java/p/A.java",
+            NodeKind::Class,
+            "src.main.java.p.A.B.C",
+            "KRA49C4X2C6VSTQE72V8XR5VZB",
+        ),
+        (
+            "src/main/java/p/A.java",
+            NodeKind::Method,
+            "src.main.java.p.A.B.C.m",
+            "8CG5TZK7NGAQK1MY9VVXYSGAD8",
+        ),
+        (
+            "app/a.py",
+            NodeKind::Class,
+            "app.a.A.B",
+            "5SNV67M5TH5798C7M6SX02YR6F",
+        ),
+        (
+            "app/a.py",
+            NodeKind::Method,
+            "app.a.A.B.m",
+            "0MC86B9ERZ8R8QRN4FV9PEC6RE",
+        ),
+        (
+            "src/n.cpp",
+            NodeKind::Function,
+            "src.n.geo.detail.f",
+            "DMDQYYVM7KKSDRQR0W45758H65",
+        ),
+    ] {
+        let node = run
+            .graph
+            .nodes
+            .iter()
+            .find(|n| n.kind == kind && n.qualified_name == qn)
+            .unwrap_or_else(|| panic!("no {kind:?} {qn}"));
+        assert_eq!(node.node_id.as_str(), id, "{qn}");
+        let extract = run.registry.extract(path).unwrap();
+        let index = (0..extract.definitions.len())
+            .find(|&i| extract.qualified_name(i) == qn)
+            .unwrap();
+        assert_eq!(extract.qualified_name_parts(index).concat(), qn);
+    }
+    // The forms: nested classes are members; the C++ function is the module's name
+    // extended by its namespaces, which are no definitions of their own.
+    let java = run.registry.extract("src/main/java/p/A.java").unwrap();
+    let members = java
+        .definitions
+        .iter()
+        .filter(|d| matches!(d.qualified_name, QualifiedName::Member { .. }))
+        .count();
+    assert!(members >= 3, "{:?}", java.definitions);
+    let cpp = run.registry.extract("src/n.cpp").unwrap();
+    let f = cpp.definitions.iter().find(|d| d.name == "f").unwrap();
+    assert_eq!(
+        f.qualified_name,
+        QualifiedName::Extended {
+            base: 0,
+            rest: ".geo.detail.f".into()
+        }
+    );
+}
+
+#[test]
+fn source_ranges_give_the_site_identities_their_whole_text_gave() {
+    // A call's callee is a range of its file's source (issue 90, decision 61); its
+    // fingerprint hashes the bytes the range reads, split into receiver and name as the
+    // whole text was. Fixed vectors, computed independently over 4.2.1's fields from
+    // the callees spelled out: a chain whose links are calls, a call in an argument.
+    use pdx_engine::TextRef;
+    let checkout = Checkout::new(&[
+        (
+            "app/s.py",
+            "def g():\n    return 1\n\n\ndef m(v):\n    return v.a.b(g())\n",
+        ),
+        (
+            "web/c.js",
+            "function g() { return 1; }\nfunction m(x) { return x.f().h(g()); }\n",
+        ),
+    ]);
+    let run = run(&checkout);
+    for (path, spelled, enclosing, fingerprint, id) in [
+        (
+            "app/s.py",
+            "v.a.b",
+            "0D0JEEP7TYZJBDSQB7GS64ARGM",
+            "f7b0b1a6adc1e393695d52ed172220261c3176db535b3311ae6f587579bc0528",
+            "PJC7R2J9B5TNK7DV0BJCX0X4TM",
+        ),
+        (
+            "app/s.py",
+            "g",
+            "0D0JEEP7TYZJBDSQB7GS64ARGM",
+            "27d5b76fad90fe8984aa9c9b30fdd0b166866a9bc49c7dfcfd76f20908787bd8",
+            "YT8CTSSC7EMSM69JN70WFRDZVH",
+        ),
+        (
+            "web/c.js",
+            "x.f().h",
+            "7SERVNEKDTEP7SRC4AGTJ2SWWV",
+            "1cca0a87c6aee60f6a904dd0ae7ead3e261af879dab095aea2d418db59ea1591",
+            "QF426FZBQ0SX1G8F7WPV8940XD",
+        ),
+        (
+            "web/c.js",
+            "x.f",
+            "7SERVNEKDTEP7SRC4AGTJ2SWWV",
+            "d3f07336d8a680d1379d42ecc57c4a1a6c2eca4140257427fa12bf073e99be09",
+            "H5Q3XD4KVP3X78HD64WVFY0RQG",
+        ),
+    ] {
+        let extract = run.registry.extract(path).unwrap();
+        let call = extract
+            .calls
+            .iter()
+            .find(|c| extract.text(&c.callee_text) == spelled)
+            .unwrap_or_else(|| panic!("no call {spelled}"));
+        assert!(
+            matches!(call.callee_text, TextRef::Source { .. }),
+            "{spelled}"
+        );
+        let site = run
+            .graph
+            .sites
+            .iter()
+            .find(|s| s.site_id.as_str() == id)
+            .unwrap_or_else(|| panic!("no site {id} for {spelled}"));
+        assert_eq!(site.ast_fingerprint.as_str(), fingerprint, "{spelled}");
+        assert_eq!(
+            site.enclosing_node_id
+                .as_ref()
+                .map(pdx_core::ids::NodeId::as_str),
+            Some(enclosing),
+            "{spelled}"
+        );
+    }
+}
+
+#[test]
+fn prefix_names_give_the_identities_their_whole_names_give() {
+    // C++ functions at every level of nested namespaces, which are no definitions:
+    // their names keep a prefix of an earlier function's (issue 90, decision 61). Spelled
+    // out, each is the engine's name, and its node's identity hashes exactly it: fixed
+    // vectors, computed independently over 4.2.1's fields with the whole names below. A
+    // node's parameter list is its source's text.
+    let checkout = Checkout::new(&[(
+        "src/ns.cpp",
+        "namespace a { int f() { return 0; }\nnamespace b { int g(int x) { return x; }\n\
+         namespace c { int h() { return 0; } } } }\nnamespace a { int f2() { return 0; } }\n",
+    )]);
+    let run = run(&checkout);
+    let extract = run.registry.extract("src/ns.cpp").unwrap();
+    for (name, qn, id, prefix) in [
+        ("f", "src.ns.a.f", "PY2A5REMEQC9H1GXKBX0WDBD9F", false),
+        ("g", "src.ns.a.b.g", "P4HTCQX3522PTK8ZPET6QE04T8", true),
+        ("h", "src.ns.a.b.c.h", "73VHA9B1137J386YGNC7N4M8EF", true),
+        ("f2", "src.ns.a.f2", "M7VHCN915RSRZH6XD8045743TQ", true),
+    ] {
+        let node = run
+            .graph
+            .nodes
+            .iter()
+            .find(|n| n.kind == NodeKind::Function && n.qualified_name == qn)
+            .unwrap_or_else(|| panic!("no function {qn}"));
+        assert_eq!(node.node_id.as_str(), id, "{qn}");
+        let index = extract
+            .definitions
+            .iter()
+            .position(|d| d.name == name)
+            .unwrap();
+        assert_eq!(
+            matches!(
+                extract.definitions[index].qualified_name,
+                QualifiedName::Prefix { .. }
+            ),
+            prefix,
+            "{name}: {:?}",
+            extract.definitions[index].qualified_name
+        );
+        assert_eq!(extract.qualified_name_parts(index).concat(), qn);
+        let params = if name == "g" { "(int x)" } else { "()" };
+        assert_eq!(node.signature.as_deref(), Some(params), "{qn}");
+    }
 }

@@ -343,6 +343,50 @@ static pdxe_span span_of_lines(const line_index *li, uint32_t first, uint32_t la
     return s;
 }
 
+/* --- text ------------------------------------------------------------------- */
+
+/* The source a result's ranges are ranges of (issue 90). */
+typedef struct {
+    const char *bytes;
+    size_t len;
+} source_view;
+
+/*
+ * A fact's text as the interface gives it (issue 90, decision 61). When the fact was
+ * found in the file's own source and `s` is exactly the bytes that begin at `start`
+ * inside the fact's site [start, limit), it is the range of those bytes: the text is
+ * then the source's, and costs a range whatever its length. Otherwise it is `s`, held
+ * by the result as before: text the engine assembled or rewrote, or read in C-family
+ * source after macro expansion. NULL is no text.
+ */
+static pdxe_text text_of(const source_view *src, const char *s, bool raw, uint32_t start,
+                         uint32_t limit) {
+    pdxe_text t = {0};
+    if (!s) {
+        return t;
+    }
+    uint32_t end = 0;
+    if (raw && src && pdxe_text_in_site(src->bytes, src->len, s, start, limit, &end)) {
+        t.kind = PDXE_TEXT_SOURCE;
+        t.start = start;
+        t.end = end;
+        return t;
+    }
+    t.kind = PDXE_TEXT_OWNED;
+    t.owned = s;
+    return t;
+}
+
+/* The owned text `s`; NONE for NULL. */
+static pdxe_text owned_text(const char *s) {
+    pdxe_text t = {0};
+    if (s) {
+        t.kind = PDXE_TEXT_OWNED;
+        t.owned = s;
+    }
+    return t;
+}
+
 /* --- results ---------------------------------------------------------------- */
 
 /*
@@ -372,6 +416,10 @@ typedef struct {
     pdxe_call_arg *call_args;
     /* The definitions' routes, one array the definitions point into (issue 54). */
     pdxe_route *routes;
+    /* For a result from extraction, its copy of the source, which its ranges are ranges
+     * of: the surface is exported from it (issue 90). NULL for a rebuilt result. */
+    char *source;
+    size_t source_len;
 } result_holder;
 
 static void holder_free(result_holder *h) {
@@ -391,6 +439,7 @@ static void holder_free(result_holder *h) {
     free(h->pub.impl_traits);
     free(h->call_args);
     free(h->routes);
+    free(h->source);
     if (h->engine) {
         pdxe_free_result(h->engine);
     }
@@ -423,6 +472,139 @@ const PDXEFileResult *pdxe_result_engine(const pdxe_file_result *r) {
 void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r) {
     (void)ctx;
     holder_free((result_holder *)r);
+}
+
+/* One step of a qualified name towards its whole one: the bytes this definition adds
+ * (`dot` before `text` for a member), the definition whose name they follow, or
+ * PDXE_NO_PARENT once the name is whole, and for a prefix how much of that name they
+ * follow. False for a malformed step. */
+typedef struct {
+    const char *text;
+    bool dot;
+    uint32_t next;
+    bool prefix; /* the bytes follow only the first `keep` of the next name */
+    uint32_t keep;
+} qualified_name_step_t;
+
+static bool qualified_name_step(const pdxe_definition *defs, uint32_t i,
+                                qualified_name_step_t *step) {
+    const pdxe_definition *d = &defs[i];
+    memset(step, 0, sizeof(*step));
+    step->next = PDXE_NO_PARENT;
+    switch (d->qn_form) {
+    case PDXE_QN_WHOLE:
+        step->text = d->qn_text;
+        return d->qn_text != NULL;
+    case PDXE_QN_MEMBER:
+        step->text = d->name;
+        step->dot = true;
+        step->next = d->qn_base;
+        return d->name != NULL && d->qn_base < i;
+    case PDXE_QN_EXTENDED:
+        step->text = d->qn_text;
+        step->next = d->qn_base;
+        return d->qn_text != NULL && d->qn_base < i;
+    case PDXE_QN_PREFIX:
+        step->text = d->qn_text;
+        step->next = d->qn_base;
+        step->prefix = true;
+        step->keep = d->qn_keep;
+        return d->qn_text != NULL && d->qn_base < i &&
+               (d->qn_text[0] == '\0' || d->qn_text[0] == '.');
+    default:
+        return false;
+    }
+}
+
+/* The length of definition `i`'s qualified name, walking only until a whole name or a
+ * prefix, whose length its own bytes give. False for a malformed step on the way. */
+static bool qualified_name_len(const pdxe_definition *defs, uint32_t i, size_t *len) {
+    size_t total = 0;
+    for (;;) {
+        qualified_name_step_t step;
+        if (!qualified_name_step(defs, i, &step)) {
+            return false;
+        }
+        total += strlen(step.text) + (step.dot ? 1 : 0);
+        if (step.next == PDXE_NO_PARENT) {
+            break;
+        }
+        if (step.prefix) {
+            total += step.keep;
+            break;
+        }
+        i = step.next;
+    }
+    *len = total;
+    return true;
+}
+
+/* Whether the first `keep` bytes of definition `b`'s name, `len` bytes long, end before
+ * a `.` that `b` adds itself, after its own base's name: read in `b`'s own bytes, so the
+ * check costs the same however long the chain behind `b` is (issue 90). */
+static bool qualified_name_prefix_valid(const pdxe_definition *defs, uint32_t b, uint32_t keep,
+                                        size_t len) {
+    qualified_name_step_t step;
+    if (!qualified_name_step(defs, b, &step) || keep >= len) {
+        return false;
+    }
+    size_t added = strlen(step.text) + (step.dot ? 1 : 0);
+    size_t own = step.prefix ? step.keep : len - added; /* where `b`'s own bytes begin */
+    if (keep <= own) {
+        return false;
+    }
+    size_t at = keep - own;
+    char byte = step.dot ? (at == 0 ? '.' : step.text[at - 1]) : step.text[at];
+    return byte == '.';
+}
+
+int pdxe_qualified_name(const pdxe_definition *defs, uint32_t n_defs, uint32_t index, char *out,
+                        size_t cap, size_t *len) {
+    if (!defs || !len || index >= n_defs || (cap > 0 && !out)) {
+        return PDXE_E_INVALID;
+    }
+    size_t total = 0;
+    if (!qualified_name_len(defs, index, &total)) {
+        return PDXE_E_INVALID;
+    }
+    /* Then the bytes, each step's written where it ends up, as many as fit: `whole` is
+     * the length of the name at hand, `seen` how much of it the name asked for uses. A
+     * prefix step sees only the first `keep` bytes of the next name, whose length is
+     * walked for once more. Every step is checked, whether or not anything is written. */
+    size_t limit = cap == 0 ? 0 : total < cap - 1 ? total : cap - 1;
+    size_t whole = total;
+    size_t seen = total;
+    for (uint32_t i = index;;) {
+        qualified_name_step_t step;
+        (void)qualified_name_step(defs, i, &step);
+        size_t n = strlen(step.text);
+        size_t start = step.prefix ? step.keep : whole - n - (step.dot ? 1 : 0);
+        for (size_t at = start; at < seen; at++) {
+            size_t k = at - start;
+            char byte = step.dot ? (k == 0 ? '.' : step.text[k - 1]) : step.text[k];
+            if (at < limit) {
+                out[at] = byte;
+            }
+        }
+        if (step.next == PDXE_NO_PARENT) {
+            break;
+        }
+        if (step.prefix) {
+            if (!qualified_name_len(defs, step.next, &whole) ||
+                !qualified_name_prefix_valid(defs, step.next, step.keep, whole)) {
+                return PDXE_E_INVALID;
+            }
+        } else {
+            whole = start;
+        }
+        seen = seen < start ? seen : start;
+        i = step.next;
+    }
+    *len = total;
+    if (cap > 0) {
+        out[limit] = '\0';
+    }
+    return PDXE_OK;
 }
 
 /* Allocates an array of `n`, or returns a non-NULL empty sentinel when n is zero. */
@@ -631,14 +813,17 @@ static uint32_t caller_position(const owner_join *join, PDXESiteOwner owner,
 /* `join`: report the represented callable that owns the call, as a file's own calls
  * do (owner_join); NULL for a resolution's site, which names the callable the call was
  * found in, all a surface records, so cached and fresh answers agree. */
-static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const PDXECall *c,
-                         const owner_join *join) {
+static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const source_view *src,
+                         const PDXECall *c, const owner_join *join) {
     pdxe_call o = {0};
     /* The engine's own static node types, borrowed; arguments are attached by the
      * caller, which owns the array they go in. */
     o.n_ast_path = count_strings(c->ast_path);
     o.ast_path = o.n_ast_path ? c->ast_path : NULL;
-    o.callee_text = c->callee_name;
+    /* The callee as the source spells it, from the start of the call, is a range
+     * (issue 90): a member chain's links each name the whole chain before them. */
+    o.callee_text = text_of(src, c->callee_name, c->source_origin == PDXE_SOURCE_ORIGIN_RAW,
+                            c->site_start_byte, c->site_end_byte);
     /*
      * The engine keeps a call's receiver inside its callee text rather than on its own;
      * a receiver is only ever split off by the resolver that needs it.
@@ -654,10 +839,11 @@ static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const P
 }
 
 /* The interface's description of a usage that may be a call reference. */
-static pdxe_call reference_of(const PDXEDefArray *defs, const line_index *li, const PDXEUsage *u,
-                              const owner_join *join) {
+static pdxe_call reference_of(const PDXEDefArray *defs, const line_index *li,
+                              const source_view *src, const PDXEUsage *u, const owner_join *join) {
     pdxe_call o = {0};
-    o.callee_text = u->ref_name;
+    o.callee_text = text_of(src, u->ref_name, u->source_origin == PDXE_SOURCE_ORIGIN_RAW,
+                            u->site_start_byte, u->site_end_byte);
     o.receiver_text = NULL;
     o.n_ast_path = count_strings(u->ast_path);
     o.ast_path = o.n_ast_path ? u->ast_path : NULL;
@@ -674,7 +860,8 @@ static pdxe_call reference_of(const PDXEDefArray *defs, const line_index *li, co
 enum { SOURCE_PAD = 16 };
 
 /* Translates an engine result into the interface's. Takes ownership of `engine`. */
-static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_result **out) {
+static int translate(PDXEFileResult *engine, const line_index *li, const source_view *src,
+                     pdxe_file_result **out) {
     result_holder *h = (result_holder *)calloc(1, sizeof(*h));
     if (!h) {
         pdxe_free_result(engine);
@@ -706,10 +893,25 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
         }
         pdxe_definition *o = &r->defs[kept++];
         o->name = d->name;
-        o->qualified_name = strip_project(d->qualified_name);
+        /* Held whole until every parent is known; related in a third pass below. */
+        o->qn_form = PDXE_QN_WHOLE;
+        o->qn_base = PDXE_NO_PARENT;
+        o->qn_text = strip_project(d->qualified_name);
         o->kind = normalise_kind(d->label);
         o->engine_kind = d->label;
-        o->signature = d->signature;
+        /* The parameter list: the engine holds one read from the file's own source as
+         * its range, and copies only one read from another buffer (issue 90). */
+        if (d->signature) {
+            o->signature = owned_text(d->signature);
+        } else if (d->signature_end > d->signature_start) {
+            if (d->signature_end > src->len) {
+                holder_free(h);
+                return PDXE_E_INTERNAL;
+            }
+            o->signature.kind = PDXE_TEXT_SOURCE;
+            o->signature.start = d->signature_start;
+            o->signature.end = d->signature_end;
+        }
         o->doc = d->docstring;
         o->span = span_of_lines(li, d->start_line, d->end_line);
         /* The engine records no separate body range; the whole definition stands in. */
@@ -787,7 +989,8 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
                 route->method = f->method;
                 route->path = f->path;
                 route->callee_text = f->callee_text;
-                route->source_text = f->source_text;
+                /* The declaring node's own text is a range of the source (issue 90). */
+                route->source_text = text_of(src, f->source_text, true, f->start_byte, f->end_byte);
                 route->span = f->end_byte > f->start_byte
                                   ? span_of_bytes(li, f->start_byte, f->end_byte)
                                   : (pdxe_span){0};
@@ -812,6 +1015,39 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
         r->defs[kept++].parent_index = index_of_qn(defs, d->parent_class);
     }
 
+    /* Third pass: each qualified name by its relation to an earlier one (issue 90). */
+    if (r->n_defs > 0) {
+        const char **qn = (const char **)calloc(r->n_defs, sizeof(*qn));
+        if (!qn) {
+            holder_free(h);
+            return PDXE_E_NOMEM;
+        }
+        for (uint32_t i = 0; i < r->n_defs; i++) {
+            qn[i] = r->defs[i].qn_text;
+        }
+        pdxe_qn_index names;
+        if (!pdxe_qn_index_init(&names, qn, r->n_defs)) {
+            free(qn);
+            holder_free(h);
+            return PDXE_E_NOMEM;
+        }
+        uint32_t file = index_of_qn(defs, engine->module_qn);
+        for (uint32_t i = 0; i < r->n_defs; i++) {
+            pdxe_definition *o = &r->defs[i];
+            uint32_t base = PDXE_NO_PARENT;
+            uint32_t keep = 0;
+            const char *rest = NULL;
+            int form = pdxe_qn_choose(&names, qn, o->name, i, o->parent_index, file, &base, &keep,
+                                      &rest);
+            o->qn_form = (uint32_t)form;
+            o->qn_base = form == PDXE_QN_WHOLE ? PDXE_NO_PARENT : base;
+            o->qn_keep = keep;
+            o->qn_text = form == PDXE_QN_WHOLE ? qn[i] : form == PDXE_QN_MEMBER ? NULL : rest;
+        }
+        pdxe_qn_index_free(&names);
+        free(qn);
+    }
+
     /* Calls: the engine's, then the usages that may be call references. */
     const PDXECallArray *calls = &engine->calls;
     const PDXEUsageArray *usages = &engine->usages;
@@ -823,11 +1059,11 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
         return PDXE_E_NOMEM;
     }
     for (int i = 0; i < calls->count; i++) {
-        r->calls[r->n_calls++] = call_of(defs, li, &calls->items[i], &join);
+        r->calls[r->n_calls++] = call_of(defs, li, src, &calls->items[i], &join);
     }
     for (int i = 0; i < usages->count; i++) {
         if (is_reference_site(&usages->items[i])) {
-            r->calls[r->n_calls++] = reference_of(defs, li, &usages->items[i], &join);
+            r->calls[r->n_calls++] = reference_of(defs, li, src, &usages->items[i], &join);
         }
     }
     owner_join_close(&join);
@@ -853,7 +1089,19 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
             r->calls[i].args = &h->call_args[next];
             for (int a = 0; a < c->arg_count; a++) {
                 pdxe_call_arg *o = &h->call_args[next + (size_t)r->calls[i].n_args];
-                o->expr = c->args[a].expr ? c->args[a].expr : "";
+                /* The engine holds an argument read from the file's own source as its
+                 * range, and copies only one read from another buffer (issue 90). */
+                const PDXECallArg *arg = &c->args[a];
+                if (arg->expr) {
+                    o->expr = owned_text(arg->expr);
+                } else if (arg->expr_start <= arg->expr_end && arg->expr_end <= src->len) {
+                    o->expr.kind = PDXE_TEXT_SOURCE;
+                    o->expr.start = arg->expr_start;
+                    o->expr.end = arg->expr_end;
+                } else {
+                    holder_free(h);
+                    return PDXE_E_INTERNAL;
+                }
                 o->value = c->args[a].value;
                 o->keyword = c->args[a].keyword;
                 o->index = c->args[a].index > 0 ? (uint32_t)c->args[a].index : 0;
@@ -890,7 +1138,8 @@ static int translate(PDXEFileResult *engine, const line_index *li, pdxe_file_res
             continue;
         }
         pdxe_usage *o = &r->usages[r->n_usages++];
-        o->name = u->ref_name;
+        o->name = text_of(src, u->ref_name, u->source_origin == PDXE_SOURCE_ORIGIN_RAW,
+                          u->site_start_byte, u->site_end_byte);
         o->scope_index = index_of_qn(defs, u->enclosing_func_qn);
         o->span = site_span(li, u->source_origin, u->site_start_byte, u->site_end_byte, 0);
         o->lexical = lexical_of(u);
@@ -994,7 +1243,9 @@ int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8
     /*
      * The engine reads its source as a C string and its parser reads ahead of the
      * last byte, so it is handed a copy ending in zeros, never the caller's buffer,
-     * which ends where the file does. Nothing in the result points into the copy.
+     * which ends where the file does. Nothing in the result points into the copy; the
+     * result keeps it, since its ranges are ranges of these bytes and its surface is
+     * exported from them (issue 90).
      */
     char *source = (char *)malloc(len + SOURCE_PAD);
     if (!source) {
@@ -1021,19 +1272,23 @@ int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8
     PDXEFileResult *engine = pdxe_engine_extract_file(source, (int)len, (PDXELanguage)engine_lang,
                                                       PROJECT_SENTINEL, path, 0, NULL, NULL);
     pdxe_losses_t after = pdxe_losses();
-    free(source);
     if (!engine) {
         line_index_free(&li);
         free(path);
+        free(source);
         return PDXE_E_NOMEM;
     }
-    int rc = translate(engine, &li, out);
+    source_view src = {source, len};
+    int rc = translate(engine, &li, &src, out);
     line_index_free(&li);
     if (rc != PDXE_OK) {
         free(path);
+        free(source);
         return rc;
     }
     result_holder *h = (result_holder *)*out;
+    h->source = source;
+    h->source_len = len;
     if (!adopt(h, path)) {
         holder_free(h);
         free(path);
@@ -1071,6 +1326,76 @@ static bool strings_present(const char *const *v, uint32_t n) {
 
 static const char *own(result_holder *h, const char *s, bool *failed);
 
+/* Whether a text handed to pdxe_result_build is well formed for a source of `len` bytes
+ * (issue 90): a known kind, `reserved` 0, a range inside the source, owned text that is
+ * there; no text only where `optional`. */
+static bool text_valid(const pdxe_text *t, size_t len, bool optional) {
+    if (t->reserved != 0) {
+        return false;
+    }
+    switch (t->kind) {
+    case PDXE_TEXT_NONE:
+        return optional && !t->owned && t->start == 0 && t->end == 0;
+    case PDXE_TEXT_SOURCE:
+        return !t->owned && t->start <= t->end && (size_t)t->end <= len;
+    case PDXE_TEXT_OWNED:
+        return t->owned && t->start == 0 && t->end == 0;
+    default:
+        return false;
+    }
+}
+
+/* Whether definition `i`'s qualified name is well formed on its own (issue 90); a
+ * prefix's `qn_keep` is checked against its base by qualified_names_valid. */
+static bool qualified_name_valid(const pdxe_definition *d, uint32_t i) {
+    switch (d->qn_form) {
+    case PDXE_QN_WHOLE:
+        return d->qn_text && d->qn_base == PDXE_NO_PARENT && d->qn_keep == 0;
+    case PDXE_QN_MEMBER:
+        return !d->qn_text && d->name && d->qn_base < i && d->qn_keep == 0;
+    case PDXE_QN_EXTENDED:
+        return d->qn_text && d->qn_base < i && d->qn_keep == 0;
+    case PDXE_QN_PREFIX:
+        return d->qn_text && d->qn_base < i && (d->qn_text[0] == '\0' || d->qn_text[0] == '.');
+    default:
+        return false;
+    }
+}
+
+/* Whether every prefix's `qn_keep` is a `.` its base adds (issue 90), from every
+ * name's length, computed once in order: PDXE_OK, PDXE_E_INVALID or PDXE_E_NOMEM. Each
+ * definition's own form is already valid. */
+static int qualified_names_check(const pdxe_definition *defs, uint32_t n) {
+    if (n == 0) {
+        return PDXE_OK;
+    }
+    size_t *lens = (size_t *)calloc(n, sizeof(*lens));
+    if (!lens) {
+        return PDXE_E_NOMEM;
+    }
+    bool ok = true;
+    for (uint32_t i = 0; ok && i < n; i++) {
+        const pdxe_definition *d = &defs[i];
+        switch (d->qn_form) {
+        case PDXE_QN_WHOLE:
+            lens[i] = strlen(d->qn_text);
+            break;
+        case PDXE_QN_MEMBER:
+            lens[i] = lens[d->qn_base] + 1 + strlen(d->name);
+            break;
+        case PDXE_QN_EXTENDED:
+            lens[i] = lens[d->qn_base] + strlen(d->qn_text);
+            break;
+        default:
+            ok = qualified_name_prefix_valid(defs, d->qn_base, d->qn_keep, lens[d->qn_base]);
+            lens[i] = (size_t)d->qn_keep + strlen(d->qn_text);
+            break;
+        }
+    }
+    free(lens);
+    return ok ? PDXE_OK : PDXE_E_INVALID;
+}
+
 /* A copy the holder owns of a counted array of strings, the array and each string;
  * NULL for none. Sets *failed when a copy could not be made. */
 static const char **own_strings(result_holder *h, const char *const *v, uint32_t n,
@@ -1104,6 +1429,14 @@ static const char *own(result_holder *h, const char *s, bool *failed) {
     return copy;
 }
 
+/* A text the holder owns: a range as it is, owned text copied. */
+static pdxe_text own_text(result_holder *h, pdxe_text t, bool *failed) {
+    if (t.kind == PDXE_TEXT_OWNED) {
+        t.owned = own(h, t.owned, failed);
+    }
+    return t;
+}
+
 /*
  * A result rebuilt from the parts a cache keeps. Everything is copied, strings
  * included, so the caller's arrays may be freed on return. The rebuilt result has no
@@ -1111,13 +1444,14 @@ static const char *own(result_holder *h, const char *s, bool *failed) {
  * surface (pdxe_surface_import). Channel, configuration, diagnostic and throw arrays
  * are not among the parts and come back empty; the status is `parsed`, and the result
  * is not truncated. A definition's base classes are copied, the array and each string,
- * and so are its routes and the `impl Trait for Type` relations.
+ * and so are its routes and the `impl Trait for Type` relations. A source range is kept
+ * as a range of the file's source, never resolved: the rebuilt result holds no source.
  */
-int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
-                      const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,
-                      uint32_t n_imports, const pdxe_usage *usages, uint32_t n_usages,
-                      const pdxe_type_ref *types, uint32_t n_types, const pdxe_rw *rws,
-                      uint32_t n_rws, const pdxe_impl_trait *impl_traits,
+int pdxe_result_build(pdxe_ctx *ctx, size_t source_len, const pdxe_definition *defs,
+                      uint32_t n_defs, const pdxe_call *calls, uint32_t n_calls,
+                      const pdxe_import *imports, uint32_t n_imports, const pdxe_usage *usages,
+                      uint32_t n_usages, const pdxe_type_ref *types, uint32_t n_types,
+                      const pdxe_rw *rws, uint32_t n_rws, const pdxe_impl_trait *impl_traits,
                       uint32_t n_impl_traits, pdxe_file_result **out) {
     if (out) {
         *out = NULL;
@@ -1127,9 +1461,12 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
         (n_impl_traits && !impl_traits)) {
         return PDXE_E_INVALID;
     }
-    /* Every counted array of a definition or call is there, and holds what it must. */
+    /* Every counted array of a definition or call is there, and holds what it must;
+     * every text and qualified name is well formed (issue 90). */
     for (uint32_t i = 0; i < n_defs; i++) {
-        if (!strings_present(defs[i].decorators, defs[i].n_decorators) ||
+        if (!qualified_name_valid(&defs[i], i) ||
+            !text_valid(&defs[i].signature, source_len, true) ||
+            !strings_present(defs[i].decorators, defs[i].n_decorators) ||
             !strings_present(defs[i].signature_param_types, defs[i].n_signature_param_types) ||
             (defs[i].n_routes && !defs[i].routes)) {
             return PDXE_E_INVALID;
@@ -1137,20 +1474,31 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
         for (uint32_t k = 0; k < defs[i].n_routes; k++) {
             const pdxe_route *route = &defs[i].routes[k];
             if (!route->method || !route->path || !route->callee_text ||
+                !text_valid(&route->source_text, source_len, true) ||
                 !strings_present(route->ast_path, route->n_ast_path)) {
                 return PDXE_E_INVALID;
             }
         }
     }
+    int names = qualified_names_check(defs, n_defs);
+    if (names != PDXE_OK) {
+        return names;
+    }
     for (uint32_t i = 0; i < n_calls; i++) {
-        if (!strings_present(calls[i].ast_path, calls[i].n_ast_path) ||
+        if (!text_valid(&calls[i].callee_text, source_len, false) ||
+            !strings_present(calls[i].ast_path, calls[i].n_ast_path) ||
             (calls[i].n_args && !calls[i].args)) {
             return PDXE_E_INVALID;
         }
         for (uint32_t a = 0; a < calls[i].n_args; a++) {
-            if (!calls[i].args[a].expr) {
+            if (!text_valid(&calls[i].args[a].expr, source_len, false)) {
                 return PDXE_E_INVALID;
             }
+        }
+    }
+    for (uint32_t i = 0; i < n_usages; i++) {
+        if (!text_valid(&usages[i].name, source_len, false)) {
+            return PDXE_E_INVALID;
         }
     }
     /* Every relation has its three strings. */
@@ -1199,10 +1547,10 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
         pdxe_definition *d = &r->defs[i];
         *d = defs[i];
         d->name = own(h, defs[i].name, &failed);
-        d->qualified_name = own(h, defs[i].qualified_name, &failed);
+        d->qn_text = own(h, defs[i].qn_text, &failed);
         d->kind = own(h, defs[i].kind, &failed);
         d->engine_kind = own(h, defs[i].engine_kind, &failed);
-        d->signature = own(h, defs[i].signature, &failed);
+        d->signature = own_text(h, defs[i].signature, &failed);
         d->doc = own(h, defs[i].doc, &failed);
         d->base_classes = NULL;
         d->n_base_classes = 0;
@@ -1244,7 +1592,7 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
                 routes[k].method = own(h, from->method, &failed);
                 routes[k].path = own(h, from->path, &failed);
                 routes[k].callee_text = own(h, from->callee_text, &failed);
-                routes[k].source_text = own(h, from->source_text, &failed);
+                routes[k].source_text = own_text(h, from->source_text, &failed);
                 routes[k].span = from->span;
                 routes[k].ast_path = own_strings(h, from->ast_path, from->n_ast_path, &failed);
                 routes[k].n_ast_path = routes[k].ast_path ? from->n_ast_path : 0;
@@ -1255,7 +1603,7 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
     }
     for (uint32_t i = 0; i < n_calls; i++) {
         r->calls[i] = calls[i];
-        r->calls[i].callee_text = own(h, calls[i].callee_text, &failed);
+        r->calls[i].callee_text = own_text(h, calls[i].callee_text, &failed);
         r->calls[i].receiver_text = own(h, calls[i].receiver_text, &failed);
         r->calls[i].ast_path = own_strings(h, calls[i].ast_path, calls[i].n_ast_path, &failed);
         r->calls[i].n_ast_path = r->calls[i].ast_path ? calls[i].n_ast_path : 0;
@@ -1269,7 +1617,7 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
                 continue;
             }
             for (uint32_t a = 0; a < calls[i].n_args; a++) {
-                args[a].expr = own(h, calls[i].args[a].expr, &failed);
+                args[a].expr = own_text(h, calls[i].args[a].expr, &failed);
                 args[a].value = own(h, calls[i].args[a].value, &failed);
                 args[a].keyword = own(h, calls[i].args[a].keyword, &failed);
                 args[a].index = calls[i].args[a].index;
@@ -1286,7 +1634,7 @@ int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_def
     }
     for (uint32_t i = 0; i < n_usages; i++) {
         r->usages[i] = usages[i];
-        r->usages[i].name = own(h, usages[i].name, &failed);
+        r->usages[i].name = own_text(h, usages[i].name, &failed);
     }
     for (uint32_t i = 0; i < n_types; i++) {
         r->types[i] = types[i];
@@ -1431,6 +1779,8 @@ struct pdxe_project {
     char **surface_paths;
     int *surface_langs;
     uint32_t *surface_lost;
+    /* Each surface's text ranges, bound to the file's source when the run starts. */
+    pdxe_surface_texts **surface_texts;
     int n_surfaces;
     int cap_surfaces;
 
@@ -1621,7 +1971,8 @@ int pdxe_surface_export(const pdxe_file_result *r, const char *rel_path, uint8_t
     if (!h || !rel_path || !out || !out_len || !h->engine || h->in_project) {
         return PDXE_E_INVALID;
     }
-    return pdxe_surface_encode(h->engine, rel_path, h->lang, h->lost, out, out_len);
+    return pdxe_surface_encode(h->engine, rel_path, h->lang, h->lost, h->source, h->source_len,
+                               out, out_len);
 }
 
 void pdxe_surface_free(uint8_t *bytes) {
@@ -1636,7 +1987,8 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
     char *path = NULL;
     int lang = 0;
     uint32_t lost = 0;
-    int rc = pdxe_surface_decode(bytes, len, &r, &path, &lang, &lost);
+    pdxe_surface_texts *texts = NULL;
+    int rc = pdxe_surface_decode(bytes, len, &r, &path, &lang, &lost, &texts);
     if (rc != PDXE_OK) {
         return rc;
     }
@@ -1644,6 +1996,7 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
         if (strcmp(p->surface_paths[i], path) == 0) {
             pdxe_free_result(r);
             free(path);
+            pdxe_surface_texts_free(texts);
             return PDXE_E_INVALID; /* one surface per path */
         }
     }
@@ -1665,9 +2018,15 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
         if (lo) {
             p->surface_lost = lo;
         }
-        if (!rs || !ps || !ls || !lo) {
+        pdxe_surface_texts **ts =
+            (pdxe_surface_texts **)realloc(p->surface_texts, (size_t)cap * sizeof(*ts));
+        if (ts) {
+            p->surface_texts = ts;
+        }
+        if (!rs || !ps || !ls || !lo || !ts) {
             pdxe_free_result(r);
             free(path);
+            pdxe_surface_texts_free(texts);
             return PDXE_E_NOMEM;
         }
         p->cap_surfaces = cap;
@@ -1676,6 +2035,7 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
     p->surface_paths[p->n_surfaces] = path;
     p->surface_langs[p->n_surfaces] = lang;
     p->surface_lost[p->n_surfaces] = lost;
+    p->surface_texts[p->n_surfaces] = texts;
     p->n_surfaces++;
     return PDXE_OK;
 }
@@ -1702,6 +2062,15 @@ static int materialise_results(pdxe_project *p) {
             if (found >= 0) {
                 if (p->surface_langs[found] != st->abi_lang) {
                     return PDXE_E_INVALID;
+                }
+                /* Its text ranges become the text of the source the file was added
+                 * with, which must be the length the surface records (issue 90). */
+                pdxe_surface_texts *texts = p->surface_texts[found];
+                p->surface_texts[found] = NULL;
+                int bound = pdxe_surface_bind(p->surfaces[found], texts, p->sources[i],
+                                              (size_t)p->source_lens[i]);
+                if (bound != PDXE_OK) {
+                    return bound;
                 }
                 p->cache[i] = p->surfaces[found];
                 p->surfaces[found] = NULL;
@@ -2217,7 +2586,8 @@ static int collect_calls(pdxe_project *p, int i, uint32_t n_refs, resolution_lis
         }
         /* The resolver's own calls follow extraction's calls and references. */
         o->call_index = j < st->n_calls_before ? (uint32_t)j : (uint32_t)j + n_refs;
-        o->site = call_of(&res->defs, &st->li, call, NULL);
+        source_view text = {p->sources[i], (size_t)p->source_lens[i]};
+        o->site = call_of(&res->defs, &st->li, &text, call, NULL);
         o->target_qualified_name = strip_project(target->qualified_name);
         o->target_rel_path = target_path(target);
         o->score = (double)lsp->confidence;
@@ -2262,7 +2632,8 @@ static int collect_references(pdxe_project *p, int i, resolution_list *out) {
             return PDXE_E_NOMEM;
         }
         o->call_index = call_index;
-        o->site = reference_of(&res->defs, &st->li, usage, NULL);
+        source_view text = {p->sources[i], (size_t)p->source_lens[i]};
+        o->site = reference_of(&res->defs, &st->li, &text, usage, NULL);
         o->target_qualified_name =
             strip_project(target ? target->qualified_name : ref->callee_qn);
         o->target_rel_path = target_path(target);
@@ -2495,12 +2866,14 @@ void pdxe_resolve_project_end(pdxe_project *p) {
         if (p->surfaces[k]) {
             pdxe_free_result(p->surfaces[k]);
         }
+        pdxe_surface_texts_free(p->surface_texts[k]);
         free(p->surface_paths[k]);
     }
     free(p->surfaces);
     free(p->surface_paths);
     free(p->surface_langs);
     free(p->surface_lost);
+    free(p->surface_texts);
     free(p->results);
     if (p->pkgmap) {
         pdxe_ht_free(p->pkgmap);

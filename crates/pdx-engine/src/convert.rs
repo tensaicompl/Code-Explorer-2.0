@@ -6,16 +6,21 @@
 //! Every structure is taken apart by naming each of its fields, never with `..`, so a
 //! field the interface gains cannot be dropped here unnoticed: the bindings change,
 //! and this stops compiling until the field is carried or deliberately set aside.
+//!
+//! A source range stays a range (issue 90, decision 61): nothing here reads the text a
+//! range stands for, or the memory moved from the engine into Rust would be the copies
+//! the ranges exist to avoid. Only owned text is copied.
 
 use std::ffi::{CStr, c_char};
+use std::sync::Arc;
 
 use pdx_engine_sys as sys;
 
 use crate::error::EngineError;
 use crate::model::{
     Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
-    FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, ReadWrite, RouteFact, SourceDigest,
-    Span, Surface, Throw, TypeRef, Usage, Visibility,
+    ExtractRecord, FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, QualifiedName,
+    ReadWrite, RouteFact, SourceDigest, Span, Surface, TextRef, Throw, TypeRef, Usage, Visibility,
 };
 
 /// A string the engine owns, copied, or `None` for NULL.
@@ -43,6 +48,56 @@ pub(crate) unsafe fn optional(p: *const c_char) -> Option<String> {
 pub(crate) unsafe fn required(p: *const c_char, what: &str) -> Result<String, EngineError> {
     // SAFETY: as the caller guarantees.
     unsafe { optional(p) }.ok_or_else(|| EngineError::Contract(format!("{what} is missing")))
+}
+
+/// A text the engine holds, as a [`TextRef`], or `None` for no text: a range of a source
+/// of `len` bytes stays a range, checked to lie within it; owned text is copied.
+///
+/// # Safety
+///
+/// `t.owned` is NULL or a NUL-terminated string alive for the call.
+pub(crate) unsafe fn text(
+    t: &sys::pdxe_text,
+    len: u64,
+    what: &str,
+) -> Result<Option<TextRef>, EngineError> {
+    let sys::pdxe_text {
+        owned,
+        start,
+        end,
+        kind,
+        reserved,
+    } = *t;
+    let malformed = || EngineError::Contract(format!("{what} is not a well-formed text"));
+    if reserved != 0 {
+        return Err(malformed());
+    }
+    match kind {
+        sys::PDXE_TEXT_NONE if owned.is_null() && start == 0 && end == 0 => Ok(None),
+        sys::PDXE_TEXT_SOURCE if owned.is_null() && start <= end && u64::from(end) <= len => {
+            Ok(Some(TextRef::Source { start, end }))
+        }
+        sys::PDXE_TEXT_OWNED if !owned.is_null() && start == 0 && end == 0 => {
+            // SAFETY: as the caller guarantees.
+            Ok(unsafe { optional(owned) }.map(TextRef::Owned))
+        }
+        _ => Err(malformed()),
+    }
+}
+
+/// As [`text`], for a text the contract says is always there.
+///
+/// # Safety
+///
+/// As for [`text`].
+pub(crate) unsafe fn required_text(
+    t: &sys::pdxe_text,
+    len: u64,
+    what: &str,
+) -> Result<TextRef, EngineError> {
+    // SAFETY: as the caller guarantees.
+    unsafe { text(t, len, what) }?
+        .ok_or_else(|| EngineError::Contract(format!("{what} is missing")))
 }
 
 /// The `n` elements at `p`.
@@ -101,15 +156,59 @@ fn index(i: u32, n_defs: u32, what: &str) -> Result<Option<u32>, EngineError> {
     }
 }
 
-/// The definitions of a file.
+/// Definition `own`'s qualified name, by its relation to an earlier one's. Whether a
+/// prefix ends before a `.` its base adds is the record's to check, with every name.
+///
+/// # Safety
+///
+/// `text` is NULL or a NUL-terminated string alive for the call.
+unsafe fn qualified_name(
+    form: u32,
+    base: u32,
+    keep: u32,
+    text: *const c_char,
+    own: u32,
+) -> Result<QualifiedName, EngineError> {
+    let malformed = || {
+        EngineError::Contract(format!(
+            "definition {own}'s qualified name is not well formed"
+        ))
+    };
+    // SAFETY (both reads): as the caller guarantees.
+    match form {
+        sys::PDXE_QN_WHOLE if base == sys::PDXE_NO_PARENT && keep == 0 => unsafe { optional(text) }
+            .map(QualifiedName::Whole)
+            .ok_or_else(malformed),
+        sys::PDXE_QN_MEMBER if base < own && keep == 0 && text.is_null() => {
+            Ok(QualifiedName::Member { base })
+        }
+        sys::PDXE_QN_EXTENDED if base < own && keep == 0 => unsafe { optional(text) }
+            .map(|rest| QualifiedName::Extended { base, rest })
+            .ok_or_else(malformed),
+        sys::PDXE_QN_PREFIX if base < own => unsafe { optional(text) }
+            .map(|rest| QualifiedName::Prefix { base, keep, rest })
+            .ok_or_else(malformed),
+        _ => Err(malformed()),
+    }
+}
+
+/// The definitions of a file; this one is definition `own`, in a source of `len` bytes.
 ///
 /// # Safety
 ///
 /// Every string in `d` is NULL or alive for the call.
-unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition, EngineError> {
+unsafe fn definition(
+    d: &sys::pdxe_definition,
+    own: u32,
+    n_defs: u32,
+    len: u64,
+) -> Result<Definition, EngineError> {
     let sys::pdxe_definition {
         name,
-        qualified_name,
+        qn_text,
+        qn_base,
+        qn_form,
+        qn_keep,
         kind,
         engine_kind,
         signature,
@@ -153,10 +252,10 @@ unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition
     };
     Ok(Definition {
         name: unsafe { required(name, "a definition's name") }?,
-        qualified_name: unsafe { required(qualified_name, "a definition's qualified name") }?,
+        qualified_name: unsafe { qualified_name(qn_form, qn_base, qn_keep, qn_text, own) }?,
         kind,
         engine_kind: unsafe { required(engine_kind, "a definition's engine kind") }?,
-        signature: unsafe { optional(signature) },
+        signature: unsafe { text(&signature, len, "a definition's parameter list") }?,
         doc: unsafe { optional(doc) },
         span: span(whole),
         body_span: span(body_span),
@@ -193,7 +292,7 @@ unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition
         // are alive for the call.
         routes: unsafe { slice(routes, n_routes, "a definition's routes") }?
             .iter()
-            .map(|r| unsafe { route(r) })
+            .map(|r| unsafe { route(r, len) })
             .collect::<Result<_, _>>()?,
     })
 }
@@ -201,7 +300,7 @@ unsafe fn definition(d: &sys::pdxe_definition, n_defs: u32) -> Result<Definition
 /// # Safety
 ///
 /// The strings and the path array in `r` are NULL or alive for the call.
-unsafe fn route(r: &sys::pdxe_route) -> Result<RouteFact, EngineError> {
+unsafe fn route(r: &sys::pdxe_route, len: u64) -> Result<RouteFact, EngineError> {
     let sys::pdxe_route {
         method,
         path,
@@ -216,7 +315,7 @@ unsafe fn route(r: &sys::pdxe_route) -> Result<RouteFact, EngineError> {
         method: unsafe { required(method, "a route's method") }?,
         path: unsafe { required(path, "a route's path") }?,
         callee_text: unsafe { required(callee_text, "a route's callee") }?,
-        source_text: unsafe { optional(source_text) },
+        source_text: unsafe { text(&source_text, len, "a route's declaring node") }?,
         span: span(at),
         ast_path: unsafe { strings(ast_path.cast_const(), n_ast_path, "a route's node type") }?,
     })
@@ -238,7 +337,7 @@ unsafe fn strings(p: *const *const c_char, n: u32, what: &str) -> Result<Vec<Str
 /// # Safety
 ///
 /// The strings in `a` are NULL or alive for the call.
-unsafe fn call_arg(a: &sys::pdxe_call_arg) -> Result<CallArg, EngineError> {
+unsafe fn call_arg(a: &sys::pdxe_call_arg, len: u64) -> Result<CallArg, EngineError> {
     let sys::pdxe_call_arg {
         expr,
         value,
@@ -247,19 +346,23 @@ unsafe fn call_arg(a: &sys::pdxe_call_arg) -> Result<CallArg, EngineError> {
     } = *a;
     Ok(CallArg {
         // SAFETY: as the caller guarantees.
-        expr: unsafe { required(expr, "an argument's expression") }?,
+        expr: unsafe { required_text(&expr, len, "an argument's expression") }?,
         value: unsafe { optional(value) },
         keyword: unsafe { optional(keyword) },
         index,
     })
 }
 
-/// A call site, as extraction or a resolution describes it.
+/// A call site, as extraction or a resolution describes it, in a source of `len` bytes.
 ///
 /// # Safety
 ///
 /// Every string in `c` is NULL or alive for the call.
-pub(crate) unsafe fn call(c: &sys::pdxe_call, n_defs: Option<u32>) -> Result<Call, EngineError> {
+pub(crate) unsafe fn call(
+    c: &sys::pdxe_call,
+    n_defs: Option<u32>,
+    len: u64,
+) -> Result<Call, EngineError> {
     let sys::pdxe_call {
         callee_text,
         receiver_text,
@@ -281,7 +384,7 @@ pub(crate) unsafe fn call(c: &sys::pdxe_call, n_defs: Option<u32>) -> Result<Cal
     };
     Ok(Call {
         // SAFETY: the caller guarantees the strings are alive.
-        callee_text: unsafe { required(callee_text, "a call's callee") }?,
+        callee_text: unsafe { required_text(&callee_text, len, "a call's callee") }?,
         receiver_text: unsafe { optional(receiver_text) },
         caller,
         span: span(site),
@@ -290,7 +393,7 @@ pub(crate) unsafe fn call(c: &sys::pdxe_call, n_defs: Option<u32>) -> Result<Cal
         lexical: LexicalFacts::from_bits(lexical),
         // SAFETY: the arrays hold their counts, and their strings are alive.
         ast_path: unsafe { strings(ast_path.cast_const(), n_ast_path, "a node type") }?,
-        args: unsafe { each(args, n_args, "a call's arguments", |a| call_arg(a)) }?,
+        args: unsafe { each(args, n_args, "a call's arguments", |a| call_arg(a, len)) }?,
     })
 }
 
@@ -333,7 +436,7 @@ unsafe fn import(i: &sys::pdxe_import) -> Result<Import, EngineError> {
 /// # Safety
 ///
 /// The strings in `u` are NULL or alive for the call.
-unsafe fn usage(u: &sys::pdxe_usage, n_defs: u32) -> Result<Usage, EngineError> {
+unsafe fn usage(u: &sys::pdxe_usage, n_defs: u32, len: u64) -> Result<Usage, EngineError> {
     let sys::pdxe_usage {
         name,
         scope_index,
@@ -342,7 +445,7 @@ unsafe fn usage(u: &sys::pdxe_usage, n_defs: u32) -> Result<Usage, EngineError> 
     } = *u;
     Ok(Usage {
         // SAFETY: as the caller guarantees.
-        name: unsafe { required(name, "a usage's name") }?,
+        name: unsafe { required_text(&name, len, "a usage's name") }?,
         scope: index(scope_index, n_defs, "a usage's scope")?,
         span: span(at),
         lexical: LexicalFacts::from_bits(lexical),
@@ -464,7 +567,8 @@ unsafe fn impl_trait(t: &sys::pdxe_impl_trait) -> Result<ImplTrait, EngineError>
     })
 }
 
-/// Everything an extraction result holds, copied, with the surface taken from it.
+/// Everything an extraction result holds, its owned text copied and its ranges kept,
+/// with the surface taken from it, bound to `source`, the bytes it was extracted from.
 ///
 /// # Safety
 ///
@@ -473,7 +577,7 @@ pub(crate) unsafe fn file_extract(
     r: &sys::pdxe_file_result,
     language: &str,
     rel_path: &str,
-    source: &[u8],
+    source: Arc<[u8]>,
     surface: Surface,
 ) -> Result<FileExtract, EngineError> {
     let sys::pdxe_file_result {
@@ -516,25 +620,30 @@ pub(crate) unsafe fn file_extract(
         }
     };
 
+    let len = source.len() as u64;
     // SAFETY (every read below): the result is alive, each array holds its count, and
     // every string is alive with the result.
-    unsafe {
-        Ok(FileExtract {
+    let record = unsafe {
+        ExtractRecord {
             language: language.to_owned(),
             rel_path: rel_path.to_owned(),
-            source_len: source.len() as u64,
-            source_digest: SourceDigest::of(source),
+            source_len: len,
+            source_digest: SourceDigest::of(&source),
             status,
             truncated: truncated != 0,
             extraction_lost,
             declared_namespace: optional(declared_namespace),
-            definitions: each(defs, n_defs, "the definitions", |d| definition(d, n_defs))?,
+            definitions: slice(defs, n_defs, "the definitions")?
+                .iter()
+                .zip(0u32..)
+                .map(|(d, own)| definition(d, own, n_defs, len))
+                .collect::<Result<_, _>>()?,
             impl_traits: each(impl_traits, n_impl_traits, "the impl relations", |t| {
                 impl_trait(t)
             })?,
-            calls: each(calls, n_calls, "the calls", |c| call(c, Some(n_defs)))?,
+            calls: each(calls, n_calls, "the calls", |c| call(c, Some(n_defs), len))?,
             imports: each(imports, n_imports, "the imports", |i| import(i))?,
-            usages: each(usages, n_usages, "the usages", |u| usage(u, n_defs))?,
+            usages: each(usages, n_usages, "the usages", |u| usage(u, n_defs, len))?,
             type_refs: each(types, n_types, "the type references", |t| {
                 type_ref(t, n_defs)
             })?,
@@ -546,6 +655,13 @@ pub(crate) unsafe fn file_extract(
             env_accesses: each(envs, n_envs, "the configuration reads", |e| env_access(e))?,
             diagnostics: each(diags, n_diags, "the diagnostics", |d| diagnostic(d))?,
             surface,
-        })
-    }
+        }
+    };
+    // The record was just made from these bytes: its digest is theirs, and every range
+    // was checked against their length above. Its names are checked as a bound record's
+    // are, prefixes included.
+    record
+        .check_well_formed()
+        .map_err(|e| EngineError::Contract(e.to_string()))?;
+    Ok(FileExtract::fresh(record, source))
 }

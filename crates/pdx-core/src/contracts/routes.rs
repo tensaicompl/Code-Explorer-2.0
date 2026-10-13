@@ -19,7 +19,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use pdx_engine::{Call, CallArg, SiteRef};
+use pdx_engine::{Call, CallArg, FileExtract, SiteRef};
 
 use crate::index::derive::DeriveError;
 use crate::index::derive::calls::{call_site, ordinals};
@@ -118,7 +118,7 @@ fn consumers(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveError
                 || extract
                     .calls
                     .iter()
-                    .any(|c| c.callee_text.starts_with("reqwest::")));
+                    .any(|c| extract.text(&c.callee_text).starts_with("reqwest::")));
         for (index, call) in extract.calls.iter().enumerate() {
             if call.is_reference || call.typed_only {
                 continue;
@@ -126,7 +126,7 @@ fn consumers(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveError
             let Some(client) = client_call(registry, language.id, path, call, uses_reqwest) else {
                 continue;
             };
-            let Some(url) = literal(client.url) else {
+            let Some(url) = literal(extract, client.url) else {
                 continue;
             };
             let url = match context.config.resolve_leading(&url) {
@@ -196,12 +196,13 @@ fn display_url(url: &str) -> String {
     }
 }
 
-/// An argument's string value: the engine's, or one plain string literal as written.
-fn literal(arg: &CallArg) -> Option<String> {
+/// An argument's string value: the engine's, or one plain string literal as written,
+/// its expression read from the call's own file (issue 90).
+fn literal(extract: &FileExtract, arg: &CallArg) -> Option<String> {
     arg.value
         .clone()
         .filter(|v| !v.is_empty())
-        .or_else(|| string_literal(&arg.expr))
+        .or_else(|| string_literal(&extract.text(&arg.expr)))
 }
 
 /// The argument at a position.
@@ -242,7 +243,8 @@ fn client_call<'a>(
     call: &'a Call,
     uses_reqwest: bool,
 ) -> Option<ClientCall<'a>> {
-    let (receiver, name) = split_callee(&call.callee_text);
+    let callee = registry.text(path, &call.callee_text)?;
+    let (receiver, name) = split_callee(&callee);
     let (client, method, url) = match language {
         "javascript" | "typescript" => script_client(registry, path, call, receiver, name)?,
         "python" => python_client(registry, path, call, receiver?, name)?,
@@ -273,7 +275,11 @@ fn script_client<'a>(
 ) -> Option<Parts<'a>> {
     let global = matches!(receiver, None | Some("window" | "globalThis" | "self"));
     if name == "fetch" && global {
-        return Some(("fetch", fetch_method(call)?, arg(call, 0)));
+        return Some((
+            "fetch",
+            fetch_method(registry.extract(path)?, call)?,
+            arg(call, 0),
+        ));
     }
     if receiver == Some("axios") && bound_to(registry, path, "axios", "axios") {
         return Some(("axios", verb(name)?.to_owned(), arg(call, 0)));
@@ -297,7 +303,7 @@ fn python_client<'a>(
         return None;
     }
     if name == "request" {
-        let method = http_method(&literal(arg(call, 0)?)?)?;
+        let method = http_method(&literal(registry.extract(path)?, arg(call, 0)?)?)?;
         return Some((client, method, arg(call, 1)));
     }
     Some((client, verb(name)?.to_owned(), arg(call, 0)))
@@ -332,7 +338,8 @@ fn jvm_client<'a>(
         "headForHeaders" => "HEAD",
         "optionsForAllow" => "OPTIONS",
         "exchange" => {
-            let method = arg(call, 1)?.expr.rsplit('.').next()?.trim();
+            let expr = registry.text(path, &arg(call, 1)?.expr)?;
+            let method = expr.rsplit('.').next()?.trim();
             return Some(("RestTemplate", http_method(method)?, arg(call, 0)));
         }
         _ => return None,
@@ -406,9 +413,10 @@ fn go_client<'a>(
     if receiver != Some("http") || !bound_to(registry, path, "http", "net/http") {
         return None;
     }
+    let extract = registry.extract(path)?;
     Some(match name {
-        "NewRequest" => ("net/http", go_method(arg(call, 0)?)?, arg(call, 1)),
-        "NewRequestWithContext" => ("net/http", go_method(arg(call, 1)?)?, arg(call, 2)),
+        "NewRequest" => ("net/http", go_method(extract, arg(call, 0)?)?, arg(call, 1)),
+        "NewRequestWithContext" => ("net/http", go_method(extract, arg(call, 1)?)?, arg(call, 2)),
         "Get" => ("net/http", "GET".to_owned(), arg(call, 0)),
         "Head" => ("net/http", "HEAD".to_owned(), arg(call, 0)),
         "Post" | "PostForm" => ("net/http", "POST".to_owned(), arg(call, 0)),
@@ -417,22 +425,24 @@ fn go_client<'a>(
 }
 
 /// A Go request's method: a literal, or one of `net/http`'s `Method…` constants.
-fn go_method(arg: &CallArg) -> Option<String> {
-    if let Some(value) = literal(arg) {
+fn go_method(extract: &FileExtract, arg: &CallArg) -> Option<String> {
+    if let Some(value) = literal(extract, arg) {
         return http_method(&value);
     }
-    let name = arg.expr.strip_prefix("http.Method")?;
+    let expr = extract.text(&arg.expr);
+    let name = expr.strip_prefix("http.Method")?;
     http_method(name)
 }
 
 /// `fetch`'s method: `GET` with no options, the options' literal `method`, `GET` for
 /// options that name none; `None` for options that are not an object literal, a
 /// computed method, or a spread that could set one.
-fn fetch_method(call: &Call) -> Option<String> {
+fn fetch_method(extract: &FileExtract, call: &Call) -> Option<String> {
     let Some(options) = arg(call, 1) else {
         return Some("GET".to_owned());
     };
-    let inner = options.expr.trim().strip_prefix('{')?.strip_suffix('}')?;
+    let expr = extract.text(&options.expr);
+    let inner = expr.trim().strip_prefix('{')?.strip_suffix('}')?;
     let mut method = None;
     for part in split_top(inner)? {
         let part = part.trim();

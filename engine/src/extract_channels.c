@@ -258,37 +258,51 @@ static bool js_is_listen_method(const char *name) {
                     strcmp(name, "once") == 0);
 }
 
-/* Classify receiver for Socket.IO / EventEmitter / WebSocket. */
+/* Whether the `len` bytes at `s` are exactly `word`. */
+static bool js_text_is(const char *s, size_t len, const char *word) {
+    return len == strlen(word) && memcmp(s, word, len) == 0;
+}
+
+/* Classify receiver for Socket.IO / EventEmitter / WebSocket.
+ *
+ * Issue 90: the receiver's text is read where it is in the source, as the copy that was
+ * made of it read (up to its first NUL), never copied: every link of a call chain is a
+ * receiver, and copying each repeated the chain's prefix once per link. */
 static const char *js_classify_receiver(PDXEExtractCtx *ctx, TSNode object_node) {
-    char *text = pdxe_node_text(ctx->arena, object_node, ctx->source);
-    if (!text) {
-        return NULL;
-    }
+    uint32_t start = ts_node_start_byte(object_node);
+    uint32_t end = ts_node_end_byte(object_node);
+    const char *text = ctx->source + start;
+    size_t len = end > start ? pdxe_node_text_len(text, end - start) : 0;
     const char *tail = text;
-    const char *dot = strrchr(tail, '.');
-    if (dot) {
-        tail = dot + SKIP_ONE;
+    size_t tail_len = len;
+    for (size_t i = len; i > 0; i--) {
+        if (text[i - SKIP_ONE] == '.') {
+            tail = text + i;
+            tail_len = len - i;
+            break;
+        }
     }
     /* Socket.IO */
-    if (strcmp(tail, "socket") == 0 || strcmp(tail, "io") == 0 || strcmp(tail, "ws") == 0 ||
-        strcmp(tail, "client") == 0 || strcmp(tail, "server") == 0) {
+    if (js_text_is(tail, tail_len, "socket") || js_text_is(tail, tail_len, "io") ||
+        js_text_is(tail, tail_len, "ws") || js_text_is(tail, tail_len, "client") ||
+        js_text_is(tail, tail_len, "server")) {
         return "socketio";
     }
     /* Node.js EventEmitter */
-    if (strcmp(tail, "emitter") == 0 || strcmp(tail, "eventEmitter") == 0 ||
-        strcmp(tail, "events") == 0 || strcmp(tail, "bus") == 0 || strcmp(tail, "eventBus") == 0 ||
-        strcmp(tail, "pubsub") == 0) {
+    if (js_text_is(tail, tail_len, "emitter") || js_text_is(tail, tail_len, "eventEmitter") ||
+        js_text_is(tail, tail_len, "events") || js_text_is(tail, tail_len, "bus") ||
+        js_text_is(tail, tail_len, "eventBus") || js_text_is(tail, tail_len, "pubsub")) {
         return "event_emitter";
     }
     /* Kafka */
-    if (strcmp(tail, "producer") == 0) {
+    if (js_text_is(tail, tail_len, "producer")) {
         return "kafka";
     }
-    if (strcmp(tail, "consumer") == 0) {
+    if (js_text_is(tail, tail_len, "consumer")) {
         return "kafka";
     }
     /* RabbitMQ / AMQP */
-    if (strcmp(tail, "channel") == 0 && !strcmp(text, "channel")) {
+    if (js_text_is(tail, tail_len, "channel") && js_text_is(text, len, "channel")) {
         return "rabbitmq";
     }
     return NULL;

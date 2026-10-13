@@ -81,33 +81,48 @@ static const char *extract_env_key_from_call(PDXEExtractCtx *ctx, TSNode node,
 }
 
 // Extract env key from member access like process.env.KEY or os.environ["KEY"].
+//
+// Issue 90: the member's text is read where it is in the source, as the copy that was
+// made of it read (up to its first NUL), and only a key found is copied. Every member
+// expression of a chain is asked, and copying each one's text repeated the chain's
+// prefix once per link (204 MB for a 2 MiB file of JavaScript call chains).
 static const char *extract_env_key_from_member(PDXEExtractCtx *ctx, TSNode node,
                                                const PDXELangSpec *spec) {
     if (!spec->env_access_member_patterns || !spec->env_access_member_patterns[0]) {
         return NULL;
     }
 
-    char *text = pdxe_node_text(ctx->arena, node, ctx->source);
-    if (!text || !text[0]) {
+    uint32_t start = ts_node_start_byte(node);
+    uint32_t end = ts_node_end_byte(node);
+    if (end <= start) {
+        return NULL;
+    }
+    const char *text = ctx->source + start;
+    size_t len = pdxe_node_text_len(text, end - start);
+    if (len == 0) {
         return NULL;
     }
 
     for (const char **pat = spec->env_access_member_patterns; *pat; pat++) {
         size_t plen = strlen(*pat);
+        if (len <= plen || memcmp(text, *pat, plen) != 0) {
+            continue;
+        }
 
         // Dot access: pattern.KEY
-        if (strncmp(text, *pat, plen) == 0 && text[plen] == '.') {
+        if (text[plen] == '.') {
             const char *key = text + plen + PDXE_QUOTE_OFFSET;
+            size_t klen = len - plen - PDXE_QUOTE_OFFSET;
             // Validate: no further dots/brackets
-            if (key[0] && !strchr(key, '.') && !strchr(key, '[')) {
-                return key;
+            if (klen > 0 && !memchr(key, '.', klen) && !memchr(key, '[', klen)) {
+                return pdxe_arena_strndup(ctx->arena, key, klen);
             }
         }
 
         // Subscript: pattern["KEY"]
-        if (strncmp(text, *pat, plen) == 0 && text[plen] == '[') {
+        if (text[plen] == '[') {
             const char *inner = text + plen + PDXE_QUOTE_OFFSET;
-            size_t ilen = strlen(inner);
+            size_t ilen = len - plen - PDXE_QUOTE_OFFSET;
             if (ilen > 0 && inner[ilen - PDXE_QUOTE_OFFSET] == ']') {
                 char *bracket_content =
                     pdxe_arena_strndup(ctx->arena, inner, ilen - PDXE_QUOTE_OFFSET);

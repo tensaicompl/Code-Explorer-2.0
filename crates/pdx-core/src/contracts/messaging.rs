@@ -16,7 +16,7 @@
 
 use std::collections::BTreeSet;
 
-use pdx_engine::{Call, SiteRef};
+use pdx_engine::{Call, FileExtract, SiteRef};
 
 use crate::index::derive::DeriveError;
 use crate::index::derive::calls::{call_site, ordinals};
@@ -356,21 +356,24 @@ pub const RULES: &[Rule] = &[
     },
 ];
 
-/// The destinations a call gives under a rule, as written; `None` when it is not the
-/// rule's operation or its destination is not a literal.
-fn destinations(rule: &Rule, call: &Call) -> Option<Vec<String>> {
-    let (receiver, name) = split_callee(&call.callee_text);
+/// The destinations a call of `extract` gives under a rule, as written; `None` when it is
+/// not the rule's operation or its destination is not a literal. Its callee and
+/// arguments are read from the file's source (issue 90).
+fn destinations(extract: &FileExtract, rule: &Rule, call: &Call) -> Option<Vec<String>> {
+    let callee = extract.text(&call.callee_text);
+    let (receiver, name) = split_callee(&callee);
     if receiver.is_none() || !rule.methods.contains(&name) || call.args.len() < rule.min_args {
         return None;
     }
-    let first = || positional(call, 0);
+    let first = || positional(call, 0).map(|a| extract.text(&a.expr));
     let found = match rule.destination {
-        Destination::Arg(i) => vec![literal(positional(call, i)?)?],
-        Destination::Constructed(types) => vec![constructed_first(&first()?.expr, types)?],
-        Destination::Factory(factories) => vec![factory_literal(&first()?.expr, factories)?],
-        Destination::List => literal_list(&first()?.expr)?,
+        Destination::Arg(i) => vec![literal(extract, positional(call, i)?)?],
+        Destination::Constructed(types) => vec![constructed_first(&first()?, types)?],
+        Destination::Factory(factories) => vec![factory_literal(&first()?, factories)?],
+        Destination::List => literal_list(&first()?)?,
         Destination::TopicObject => {
-            let expr = &first()?.expr;
+            let expr = first()?;
+            let expr = expr.as_ref();
             match (object_value(expr, "topic"), object_value(expr, "topics")) {
                 (Some(topic), None) => vec![string_literal(topic)?],
                 (None, Some(topics)) => literal_list(topics)?,
@@ -378,9 +381,9 @@ fn destinations(rule: &Rule, call: &Call) -> Option<Vec<String>> {
             }
         }
         Destination::Amqp { exchange, routing } => {
-            let exchange = literal(keyword_or(call, exchange.0, exchange.1)?)?;
+            let exchange = literal(extract, keyword_or(call, exchange.0, exchange.1)?)?;
             if exchange.is_empty() {
-                vec![literal(keyword_or(call, routing.0, routing.1)?)?]
+                vec![literal(extract, keyword_or(call, routing.0, routing.1)?)?]
             } else {
                 vec![exchange]
             }
@@ -421,7 +424,8 @@ pub(crate) fn observe(context: &Context<'_>, found: &mut Found) -> Result<(), De
                 .iter()
                 .filter(|r| receiver_may_be(registry, path, call, r.types))
                 .filter_map(|r| {
-                    destinations(r, call).map(|d| (r.client, r.transport, r.direction.as_str(), d))
+                    destinations(extract, r, call)
+                        .map(|d| (r.client, r.transport, r.direction.as_str(), d))
                 })
                 .collect();
             // Rules of different meaning on one call: ambiguous, nothing.
@@ -464,7 +468,7 @@ pub(crate) fn observe(context: &Context<'_>, found: &mut Found) -> Result<(), De
                 _ => &none,
             };
             for destination in destinations {
-                let raw = format!("{}({destination})", call.callee_text);
+                let raw = format!("{}({destination})", extract.text(&call.callee_text));
                 let Some(mut observation) =
                     channel(context, destination, direction, path, raw, exact)
                 else {

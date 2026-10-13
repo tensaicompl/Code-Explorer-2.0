@@ -3,6 +3,8 @@
 //! 41): a definition's base classes in the engine's order and spelling, and the
 //! package or namespace a file declares, where the engine reads one.
 
+mod common;
+
 use pdx_engine::{Engine, FileExtract, NamespaceEvidence, ProjectResolver, namespace_evidence};
 
 fn extract(engine: &Engine, language: &str, rel_path: &str, source: &str) -> FileExtract {
@@ -89,8 +91,7 @@ fn bases_and_declarations_survive_serialisation() {
         ),
     ] {
         let original = extract(&engine, language, path, source);
-        let bytes = postcard::to_stdvec(&original).unwrap();
-        let back: FileExtract = postcard::from_bytes(&bytes).unwrap();
+        let back = common::round_trip(&original);
         assert_eq!(back, original, "{path}");
         assert!(back.definitions.iter().any(|d| !d.base_classes.is_empty()));
     }
@@ -108,8 +109,7 @@ fn a_cached_extraction_with_bases_resolves() {
     fresh.extract_and_add("python", "app/m.py", source).unwrap();
     let fresh = fresh.run().unwrap();
 
-    let cached_extract: FileExtract =
-        postcard::from_bytes(&postcard::to_stdvec(&fresh_extract).unwrap()).unwrap();
+    let cached_extract = common::round_trip(&fresh_extract);
     let mut cached = ProjectResolver::new(&engine).unwrap();
     cached.add_file(&cached_extract, source).unwrap();
     assert_eq!(cached.run().unwrap(), fresh);
@@ -174,12 +174,7 @@ fn namespace_evidence_is_what_the_engine_records() {
     );
     assert_eq!(cpp.declared_namespace, None);
     let qn = |name: &str| {
-        cpp.definitions
-            .iter()
-            .find(|d| d.name == name)
-            .unwrap()
-            .qualified_name
-            .clone()
+        cpp.qualified_name(cpp.definitions.iter().position(|d| d.name == name).unwrap())
     };
     assert_eq!(qn("f"), "src.n.geo.detail.f");
     assert_eq!(qn("S"), "src.n.a::b.S");

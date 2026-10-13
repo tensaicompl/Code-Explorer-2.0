@@ -4,7 +4,9 @@
 
 mod common;
 
-use pdx_engine::{Call, CallArg, Engine, FileExtract, RouteFact};
+use std::borrow::Cow;
+
+use pdx_engine::{Call, Engine, FileExtract, RouteFact, TextRef};
 
 fn extract(language: &str, rel_path: &str, source: &str) -> FileExtract {
     Engine::new()
@@ -17,7 +19,7 @@ fn paths<'e>(e: &'e FileExtract, callee: &str, reference: bool) -> Vec<Vec<&'e s
     let mut found: Vec<&Call> = e
         .calls
         .iter()
-        .filter(|c| c.callee_text == callee && c.is_reference == reference)
+        .filter(|c| c.is_reference == reference && e.text(&c.callee_text) == callee)
         .collect();
     found.sort_by_key(|c| c.span.map(|s| s.start_byte));
     found
@@ -124,7 +126,7 @@ fn derivation_facts_cross_the_boundary() {
         ["String", "java.util.List<Integer>"]
     );
     assert_eq!(
-        routes(&list.routes),
+        routes(&e, &list.routes),
         [("GET", "/api/users", "GetMapping", "@GetMapping(\"/users\")")]
     );
     let route = &list.routes[0];
@@ -164,7 +166,7 @@ fn derivation_facts_cross_the_boundary() {
     );
     assert_eq!(read.signature_param_types, ["int", "str"]);
     assert_eq!(
-        routes(&read.routes),
+        routes(&e, &read.routes),
         [(
             "GET",
             "/users/{user_id}",
@@ -176,43 +178,38 @@ fn derivation_facts_cross_the_boundary() {
         read.routes[0].ast_path,
         ["decorated_definition", "decorator", "call"]
     );
-    let decorator = e.calls.iter().find(|c| c.callee_text == "app.get").unwrap();
+    let decorator = e
+        .calls
+        .iter()
+        .find(|c| e.text(&c.callee_text) == "app.get")
+        .unwrap();
     assert_eq!(
-        decorator.args,
+        args(&e, decorator),
         [
-            CallArg {
-                expr: "\"/users/{user_id}\"".into(),
-                value: Some("/users/{user_id}".into()),
-                keyword: None,
-                index: 0,
-            },
-            CallArg {
-                expr: "200".into(),
-                value: None,
-                keyword: Some("status_code".into()),
-                index: 1,
-            },
+            ("\"/users/{user_id}\"", Some("/users/{user_id}"), None, 0),
+            ("200", None, Some("status_code"), 1),
         ]
     );
 
     let e = extract("javascript", "src/server.js", SERVER);
-    let registration = e.calls.iter().find(|c| c.callee_text == "app.get").unwrap();
+    let registration = e
+        .calls
+        .iter()
+        .find(|c| e.text(&c.callee_text) == "app.get")
+        .unwrap();
     assert_eq!(
-        registration.args,
+        args(&e, registration),
         [
-            CallArg {
-                expr: "'/users'".into(),
-                value: Some("/users".into()),
-                keyword: None,
-                index: 0,
-            },
-            CallArg {
-                expr: "listUsers".into(),
-                value: None,
-                keyword: None,
-                index: 1,
-            },
+            ("'/users'", Some("/users"), None, 0),
+            ("listUsers", None, None, 1),
         ]
+    );
+    // Every argument expression here is the source's own text: a range (issue 90).
+    assert!(
+        registration
+            .args
+            .iter()
+            .all(|a| matches!(a.expr, TextRef::Source { .. }))
     );
 }
 
@@ -224,7 +221,7 @@ fn site_facts_survive_serialisation() {
         ("javascript", "src/server.js", SERVER),
     ] {
         let e = extract(language, rel, source);
-        let back: FileExtract = postcard::from_bytes(&postcard::to_stdvec(&e).unwrap()).unwrap();
+        let back = common::round_trip(&e);
         assert_eq!(back, e, "{rel}");
         assert!(back.calls.iter().any(|c| !c.ast_path.is_empty()), "{rel}");
         assert!(
@@ -235,8 +232,36 @@ fn site_facts_survive_serialisation() {
     }
 }
 
+/// A text of `e`, borrowed: a test's source is UTF-8.
+fn text<'e>(e: &'e FileExtract, t: &'e TextRef) -> &'e str {
+    match e.text(t) {
+        Cow::Borrowed(text) => text,
+        Cow::Owned(_) => panic!("a test's source is UTF-8"),
+    }
+}
+
+/// A call's arguments as (expression, value, keyword, index).
+type Arg<'e> = (&'e str, Option<&'e str>, Option<&'e str>, u32);
+
+fn args<'e>(e: &'e FileExtract, call: &'e Call) -> Vec<Arg<'e>> {
+    call.args
+        .iter()
+        .map(|a| {
+            (
+                text(e, &a.expr),
+                a.value.as_deref(),
+                a.keyword.as_deref(),
+                a.index,
+            )
+        })
+        .collect()
+}
+
 /// Each route as (method, path, callee, source text).
-fn routes(facts: &[RouteFact]) -> Vec<(&str, &str, &str, &str)> {
+fn routes<'e>(
+    e: &'e FileExtract,
+    facts: &'e [RouteFact],
+) -> Vec<(&'e str, &'e str, &'e str, &'e str)> {
     facts
         .iter()
         .map(|r| {
@@ -244,7 +269,7 @@ fn routes(facts: &[RouteFact]) -> Vec<(&str, &str, &str, &str)> {
                 r.method.as_str(),
                 r.path.as_str(),
                 r.callee_text.as_str(),
-                r.source_text.as_deref().unwrap_or(""),
+                r.source_text.as_ref().map_or("", |t| text(e, t)),
             )
         })
         .collect()

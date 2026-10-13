@@ -30,7 +30,7 @@
 
 use std::collections::BTreeSet;
 
-use pdx_engine::{Call, ChannelDirection, SiteRef};
+use pdx_engine::{Call, ChannelDirection, FileExtract, SiteRef};
 
 use crate::index::derive::DeriveError;
 use crate::index::derive::calls::{call_site, ordinals};
@@ -132,7 +132,11 @@ fn names_channel(
     direction: ChannelDirection,
     channel: &str,
 ) -> bool {
-    let (Some(receiver), name) = split_callee(&call.callee_text) else {
+    let Some(extract) = registry.extract(path) else {
+        return false;
+    };
+    let callee = extract.text(&call.callee_text);
+    let (Some(receiver), name) = split_callee(&callee) else {
         return false;
     };
     let tail = receiver.rsplit(['.', ':']).next().unwrap_or(receiver);
@@ -146,16 +150,18 @@ fn names_channel(
     if call.is_reference || !operations.contains(&name) || !imports_any(registry, path, libraries) {
         return false;
     }
-    names(call, channel)
+    names(extract, call, channel)
 }
 
-/// Whether one of a call's arguments is the channel, or a list holding it.
-fn names(call: &Call, channel: &str) -> bool {
+/// Whether one of a call's arguments is the channel, or a list holding it; each
+/// expression read from the call's own file (issue 90).
+fn names(extract: &FileExtract, call: &Call, channel: &str) -> bool {
     let quoted = [format!("\"{channel}\""), format!("'{channel}'")];
     call.args.iter().any(|a| {
+        let expr = extract.text(&a.expr);
         a.value.as_deref() == Some(channel)
-            || string_literal(&a.expr).as_deref() == Some(channel)
-            || quoted.iter().any(|q| a.expr.contains(q.as_str()))
+            || string_literal(&expr).as_deref() == Some(channel)
+            || quoted.iter().any(|q| expr.contains(q.as_str()))
     })
 }
 
@@ -176,7 +182,7 @@ fn engine_facts(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveEr
                 found.covered.contains(&SiteRef {
                     rel_path: path.to_owned(),
                     call_index: u32::try_from(i).unwrap_or(u32::MAX),
-                }) && names(c, &fact.channel_text)
+                }) && names(extract, c, &fact.channel_text)
             });
             if read {
                 continue;
@@ -198,7 +204,8 @@ fn engine_facts(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveEr
                 ChannelDirection::Listen => ContractDirection::Consumes,
             };
             for (index, call) in calls {
-                let raw_form = format!("{}({})", call.callee_text, fact.channel_text);
+                let callee = extract.text(&call.callee_text);
+                let raw_form = format!("{callee}({})", fact.channel_text);
                 let Some(mut observation) = channel(
                     context,
                     &fact.channel_text,
@@ -209,7 +216,7 @@ fn engine_facts(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveEr
                 ) else {
                     continue;
                 };
-                observation = observation.with_evidence("clients", call.callee_text.clone());
+                observation = observation.with_evidence("clients", callee.into_owned());
                 if direction == ContractDirection::Provides {
                     observation = observation.with_owner(file.clone());
                 }

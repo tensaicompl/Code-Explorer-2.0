@@ -2,6 +2,8 @@
 //! (docs/plan/ISSUES.md, issue 42): in the engine's order and spelling, an empty block's
 //! included, through a fresh extraction, a serialised one and a rebuilt one.
 
+mod common;
+
 use std::path::Path;
 
 use pdx_engine::{Engine, FileExtract, ImplTrait, ProjectResolver};
@@ -79,7 +81,7 @@ fn impl_traits_cross_the_safe_boundary() {
 fn impl_traits_survive_serialisation() {
     let engine = Engine::new().unwrap();
     let fresh = extract(&engine, "src/traits.rs", &fixture("traits.rs"));
-    let again: FileExtract = postcard::from_bytes(&postcard::to_stdvec(&fresh).unwrap()).unwrap();
+    let again = common::round_trip(&fresh);
     assert_eq!(again, fresh);
     assert_eq!(again.impl_traits.len(), 4);
 }
@@ -97,8 +99,7 @@ fn a_cached_extraction_with_impl_traits_resolves() {
         .unwrap();
     let fresh = fresh.run().unwrap();
 
-    let cached_extract: FileExtract =
-        postcard::from_bytes(&postcard::to_stdvec(&fresh_extract).unwrap()).unwrap();
+    let cached_extract = common::round_trip(&fresh_extract);
     let mut cached = ProjectResolver::new(&engine).unwrap();
     cached.add_file(&cached_extract, &source).unwrap();
     assert_eq!(cached.run().unwrap(), fresh);

@@ -93,12 +93,17 @@ fn a_files_paths_are_bounded_complete_or_absent_in_every_language() {
             .collect();
         // Every call is still there: only the path is absent.
         assert_eq!(
-            calls.iter().filter(|c| c.callee_text == "f").count(),
+            calls
+                .iter()
+                .filter(|c| extract.text(&c.callee_text) == "f")
+                .count(),
             60 * 100,
             "{language}: calls were dropped with their paths"
         );
         assert!(
-            calls.iter().any(|c| c.callee_text == "shallow"),
+            calls
+                .iter()
+                .any(|c| extract.text(&c.callee_text) == "shallow"),
             "{language}"
         );
         let mut entries = 0usize;
@@ -208,7 +213,7 @@ class Expression {
     let get_value = extract
         .calls
         .iter()
-        .find(|c| c.callee_text == "getValue")
+        .find(|c| extract.text(&c.callee_text) == "getValue")
         .expect("the resolver adds the delegate's getValue");
     assert_eq!(
         get_value.ast_path,

@@ -8,6 +8,8 @@
 //! occurrence is byte-precise and carries its source buffer: two definitions on one line
 //! are told apart, and the macro-expanded text of C and C++ is a buffer of its own.
 
+mod common;
+
 use pdx_engine::{Call, DefinitionKind, Engine, FileExtract, ProjectResolver};
 
 fn extract(language: &str, rel_path: &str, source: &str) -> FileExtract {
@@ -23,16 +25,17 @@ fn sites<'e>(e: &'e FileExtract, callee: &str, reference: bool) -> Vec<&'e Call>
     let mut found: Vec<&Call> = e
         .calls
         .iter()
-        .filter(|c| c.callee_text == callee && c.is_reference == reference && c.span.is_some())
+        .filter(|c| {
+            c.is_reference == reference && c.span.is_some() && e.text(&c.callee_text) == callee
+        })
         .collect();
     found.sort_by_key(|c| c.span.map(|s| s.start_byte));
     found
 }
 
 /// The qualified name of the definition a call names as its caller, if any.
-fn caller<'e>(e: &'e FileExtract, call: &Call) -> Option<&'e str> {
-    call.caller
-        .map(|i| e.definitions[i as usize].qualified_name.as_str())
+fn caller(e: &FileExtract, call: &Call) -> Option<String> {
+    call.caller.map(|i| e.qualified_name(i as usize))
 }
 
 fn path(call: &Call) -> Vec<&str> {
@@ -43,7 +46,7 @@ fn path(call: &Call) -> Vec<&str> {
 fn assert_owned(e: &FileExtract, callee: &str, owner: &str, node: &str) {
     let found = sites(e, callee, false);
     assert_eq!(found.len(), 1, "{callee}: {found:?}");
-    assert_eq!(caller(e, found[0]), Some(owner), "{callee}");
+    assert_eq!(caller(e, found[0]).as_deref(), Some(owner), "{callee}");
     assert_eq!(path(found[0])[0], node, "{callee}");
 }
 
@@ -73,7 +76,8 @@ fn rust_method_of_a_generic_type_owns_its_calls() {
     assert!(
         e.definitions
             .iter()
-            .any(|d| d.qualified_name == "src.upgrade.Upgrade.fmt"
+            .enumerate()
+            .any(|(i, d)| e.qualified_name(i) == "src.upgrade.Upgrade.fmt"
                 && d.kind == DefinitionKind::Method)
     );
     assert_owned(
@@ -90,7 +94,10 @@ fn rust_method_of_a_generic_type_owns_its_callable_references() {
     let e = extract("rust", "src/upgrade.rs", GENERIC_IMPL);
     let references = sites(&e, "audit_debug", true);
     assert_eq!(references.len(), 1);
-    assert_eq!(caller(&e, references[0]), Some("src.upgrade.Upgrade.fmt"));
+    assert_eq!(
+        caller(&e, references[0]).as_deref(),
+        Some("src.upgrade.Upgrade.fmt")
+    );
     assert_eq!(path(references[0])[0], "function_item");
 }
 
@@ -114,16 +121,17 @@ fn rust_cfg_twins_each_own_their_calls() {
     // Each definition's name carries its `cfg` predicate; the walk's carries none, and
     // is the same for both.
     let e = extract("rust", "src/twin.rs", CFG_TWINS);
-    let twins: Vec<&str> = e
+    let twins: Vec<String> = e
         .definitions
         .iter()
-        .filter(|d| d.name == "pick_strategy")
-        .map(|d| d.qualified_name.as_str())
+        .enumerate()
+        .filter(|(_, d)| d.name == "pick_strategy")
+        .map(|(i, _)| e.qualified_name(i))
         .collect();
     assert_eq!(twins.len(), 2, "{twins:?}");
     assert_ne!(twins[0], twins[1]);
-    assert_owned(&e, "run_fast_path", twins[0], "function_item");
-    assert_owned(&e, "run_slow_path", twins[1], "function_item");
+    assert_owned(&e, "run_fast_path", &twins[0], "function_item");
+    assert_owned(&e, "run_slow_path", &twins[1], "function_item");
 }
 
 const MINIFIED: &str = "function alpha(){track_alpha()}function beta(){track_beta()}\
@@ -141,7 +149,7 @@ fn functions_on_one_line_each_own_their_calls() {
     assert_eq!(on_line_one, 4);
     let alpha = sites(&e, "track_alpha", false);
     assert_eq!(alpha.len(), 2, "one in alpha, one at file scope");
-    assert_eq!(caller(&e, alpha[0]), Some("dist.bundle.alpha"));
+    assert_eq!(caller(&e, alpha[0]).as_deref(), Some("dist.bundle.alpha"));
     assert_owned(&e, "track_beta", "dist.bundle.beta", "function_declaration");
     // The call after the last definition, on the same line, is the file's.
     let module_call = alpha[1];
@@ -283,10 +291,11 @@ class PANEL_API Panel : public Base {
 
 /// The definition named `qualified_name`.
 fn definition<'e>(e: &'e FileExtract, qualified_name: &str) -> &'e pdx_engine::Definition {
-    e.definitions
-        .iter()
-        .find(|d| d.qualified_name == qualified_name)
-        .unwrap_or_else(|| panic!("no {qualified_name}"))
+    let names = e.qualified_names();
+    let index = (0..names.len())
+        .find(|&i| names.get(i) == qualified_name)
+        .unwrap_or_else(|| panic!("no {qualified_name}"));
+    &e.definitions[index]
 }
 
 #[test]
@@ -302,16 +311,19 @@ fn cpp_method_adopted_from_expanded_text_owns_its_raw_calls() {
     );
     let raw = sites(&e, "measure_panel", false);
     assert_eq!(raw.len(), 1);
-    assert_eq!(caller(&e, raw[0]), Some("src.panel.Panel.size"));
+    assert_eq!(caller(&e, raw[0]).as_deref(), Some("src.panel.Panel.size"));
     // The call the expanded text holds is no site: it is owned by its occurrence there,
     // exactly the adopted definition's.
     let expanded: Vec<&Call> = e
         .calls
         .iter()
-        .filter(|c| c.callee_text == "measure_panel" && c.span.is_none())
+        .filter(|c| c.span.is_none() && e.text(&c.callee_text) == "measure_panel")
         .collect();
     assert_eq!(expanded.len(), 1);
-    assert_eq!(caller(&e, expanded[0]), Some("src.panel.Panel.size"));
+    assert_eq!(
+        caller(&e, expanded[0]).as_deref(),
+        Some("src.panel.Panel.size")
+    );
 }
 
 #[test]
@@ -327,7 +339,7 @@ fn cpp_superseded_definition_hands_its_sites_to_its_replacement() {
     assert!(e.definitions.iter().all(|d| d.name != "Base"));
     let raw = sites(&e, "default_width", false);
     assert_eq!(raw.len(), 1);
-    assert_eq!(caller(&e, raw[0]), Some("src.panel.Panel"));
+    assert_eq!(caller(&e, raw[0]).as_deref(), Some("src.panel.Panel"));
 }
 
 const SECONDARY_CONSTRUCTOR: &str = "package p
@@ -403,7 +415,7 @@ fn typed_targets(
     let index = extract
         .calls
         .iter()
-        .position(|c| c.callee_text == callee && !c.is_reference && c.span.is_some())
+        .position(|c| !c.is_reference && c.span.is_some() && extract.text(&c.callee_text) == callee)
         .unwrap_or_else(|| panic!("no call to {callee}"));
     resolution
         .resolutions
@@ -430,7 +442,10 @@ fn typed_answers_join_calls_in_a_method_of_a_generic_type() {
         ("store.add", "src.wrapper.Store.add"),
     ] {
         let call = sites(&extract, callee, false)[0];
-        assert_eq!(caller(&extract, call), Some("src.wrapper.Wrapper.run"));
+        assert_eq!(
+            caller(&extract, call).as_deref(),
+            Some("src.wrapper.Wrapper.run")
+        );
         assert_eq!(
             typed_targets(&resolution, &extract, path, callee),
             [target],
@@ -450,8 +465,7 @@ fn typed_answers_in_a_method_of_a_generic_type_are_the_same_from_a_cached_extrac
         .extract_and_add("rust", path, TYPED_GENERIC.as_bytes())
         .unwrap();
     let from_fresh = fresh.run().unwrap();
-    let bytes = postcard::to_stdvec(&extract).unwrap();
-    let from_cache: FileExtract = postcard::from_bytes(&bytes).unwrap();
+    let from_cache = common::round_trip(&extract);
     assert_eq!(from_cache, extract);
     let mut cached = ProjectResolver::new(&engine).unwrap();
     cached
@@ -470,8 +484,7 @@ fn typed_answers_in_a_cpp_test_macro_are_the_same_from_a_cached_extraction() {
         .extract_and_add("cpp", path, TEST_MACRO.as_bytes())
         .unwrap();
     let from_fresh = fresh.run().unwrap();
-    let from_cache: FileExtract =
-        postcard::from_bytes(&postcard::to_stdvec(&extract).unwrap()).unwrap();
+    let from_cache = common::round_trip(&extract);
     let mut cached = ProjectResolver::new(&engine).unwrap();
     cached.add_file(&from_cache, TEST_MACRO.as_bytes()).unwrap();
     assert_eq!(cached.run().unwrap(), from_fresh);

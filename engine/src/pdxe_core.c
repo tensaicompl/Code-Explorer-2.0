@@ -999,15 +999,18 @@ static bool is_self_receiver(const char *callee_name, const char *def_receiver) 
 // Fallback for languages where param_names isn't populated (e.g. C keeps only the
 // signature text). Counts commas at the top paren level; treats "()"/"(void)" as 0.
 // Approximate by design (a structural smell, not an exact arity).
-static int count_params_from_signature(const char *sig) {
+static int count_params_from_signature(const char *sig, size_t len) {
     if (!sig) {
         return 0;
     }
+    /* Read up to `len` bytes or a NUL, whichever is first (issue 90: a range of the
+     * source is not terminated). */
+    const char *end = sig + len;
     const char *p = sig;
-    while (*p && *p != '(') {
+    while (p < end && *p && *p != '(') {
         p++;
     }
-    if (*p != '(') {
+    if (p == end || *p != '(') {
         return 0;
     }
     p++;
@@ -1015,7 +1018,7 @@ static int count_params_from_signature(const char *sig) {
     int depth = 0;
     int commas = 0;
     bool any = false;
-    for (; *p; p++) {
+    for (; p < end && *p; p++) {
         char ch = *p;
         if (ch == '(' || ch == '[' || ch == '{' || ch == '<') {
             depth++;
@@ -1038,11 +1041,12 @@ static int count_params_from_signature(const char *sig) {
         return 0; /* "()" */
     }
     if (commas == 0) {
-        while (*list == ' ' || *list == '\t') {
+        while (list < end && (*list == ' ' || *list == '\t')) {
             list++;
         }
-        if (strncmp(list, "void", 4) == 0 &&
-            (list[4] == ')' || list[4] == ' ' || list[4] == '\0')) {
+        size_t rest = (size_t)(end - list);
+        if (rest >= 4 && strncmp(list, "void", 4) == 0 &&
+            (rest == 4 || list[4] == ')' || list[4] == ' ' || list[4] == '\0')) {
             return 0; /* C "(void)" */
         }
     }
@@ -1894,7 +1898,7 @@ static bool pdxe_byte_span_is_macro_invocation(const char *src, int src_len, int
         const PDXEDefinition *d = &defs->items[di];
         /* Function-like macros only: an object-like macro (#define PI 3.14) has no
          * parameter signature and can't be mistaken for a call. */
-        if (!d->label || strcmp(d->label, "Macro") != 0 || !d->signature || !d->name ||
+        if (!d->label || strcmp(d->label, "Macro") != 0 || !pdxe_def_has_signature(d) || !d->name ||
             !d->name[0]) {
             continue;
         }
@@ -3435,7 +3439,11 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
             }
         }
         if (pc == 0 && d->signature) {
-            pc = count_params_from_signature(d->signature);
+            pc = count_params_from_signature(d->signature, strlen(d->signature));
+        } else if (pc == 0 && pdxe_def_has_signature(d) && d->signature_end <= (uint32_t)source_len) {
+            /* Issue 90: read in place, the range the definition holds. */
+            pc = count_params_from_signature(source + d->signature_start,
+                                             d->signature_end - d->signature_start);
         }
         d->param_count = pc;
     }

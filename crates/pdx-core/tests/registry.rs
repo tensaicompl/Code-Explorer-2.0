@@ -144,10 +144,10 @@ fn base_defs(reg: &SymbolRegistry, r: &DefinitionRef) -> Vec<DefinitionRef> {
 fn assert_indexed(reg: &SymbolRegistry, r: &DefinitionRef) {
     let d = reg.definition(r).expect("the definition exists");
     assert!(reg.by_name(&d.name).contains(r), "{} not by name", d.name);
+    let qn = reg.qualified_name(r).expect("the definition's name");
     assert!(
-        reg.by_qualified_name(&d.qualified_name).contains(r),
-        "{} not by qualified name",
-        d.qualified_name
+        reg.by_qualified_name(&qn).contains(r),
+        "{qn} not by qualified name"
     );
     assert!(
         reg.by_file(&r.path).contains(r),
@@ -171,12 +171,7 @@ fn assert_duplicates_kept(path: &str, source: &str, name: &str) {
         .collect();
     let described: Vec<String> = found
         .iter()
-        .map(|r| {
-            reg.definition(r)
-                .expect("the definition exists")
-                .qualified_name
-                .clone()
-        })
+        .map(|r| reg.qualified_name(r).expect("the definition exists"))
         .collect();
     assert!(found.len() >= 2, "{path}: {name} found {described:?}");
     for r in &found {
@@ -238,7 +233,7 @@ fn registry_java() {
     assert_indexed(&reg, &shop);
     assert_indexed(&reg, &base);
     // Overloads share a qualified name: both are kept.
-    let qn = format!("{}.m", reg.definition(&shop).unwrap().qualified_name);
+    let qn = format!("{}.m", reg.qualified_name(&shop).unwrap());
     assert_eq!(reg.by_qualified_name(&qn).len(), 2);
 
     // The declared package is the module, not the directory.
@@ -1428,7 +1423,12 @@ fn engine_targets(
         .map(|(file, callee)| {
             run.resolutions
                 .iter()
-                .find(|r| r.site_ref.rel_path == *file && r.site.callee_text.ends_with(callee))
+                .find(|r| {
+                    r.site_ref.rel_path == *file
+                        && reg
+                            .text(file, &r.site.callee_text)
+                            .is_some_and(|t| t.ends_with(callee))
+                })
                 .and_then(|r| r.target_rel_path.clone())
                 .unwrap_or_else(|| {
                     panic!("the engine did not resolve {callee}: {:?}", run.resolutions)
@@ -1763,10 +1763,12 @@ fn malformed_extractions_are_refused() {
     let checkout = Checkout::new(&[("a.py", "class A:\n    def m(self):\n        return f()\n")]);
     let files = checkout.discover();
     let report = checkout.extract(&files, None);
-    let corrupt = |change: &dyn Fn(&mut pdx_engine::FileExtract)| {
+    let corrupt = |change: &dyn Fn(&mut pdx_engine::ExtractRecord)| {
         let mut r = report.clone();
         if let FileOutcome::Extracted { extract, .. } = &mut r.files[0].outcome {
-            change(extract);
+            let mut record = extract.record().clone();
+            change(&mut record);
+            **extract = record.bind(extract.shared_source()).unwrap();
         }
         SymbolRegistry::build(checkout.root(), &files, r)
     };

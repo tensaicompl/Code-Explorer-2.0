@@ -427,10 +427,11 @@ fn answers_by_site<'t>(
                 detail: "an answer for a file with no extraction",
             });
         };
+        // Compared as text, each read from the file's own source (issue 90).
         if let Some(call) = usize::try_from(site.call_index)
             .ok()
             .and_then(|i| extract.calls.get(i))
-            && call.callee_text != answer.site.callee_text
+            && extract.text(&call.callee_text) != extract.text(&answer.site.callee_text)
         {
             return Err(ResolutionError::ImpossibleEngineSite {
                 site: site.clone(),
@@ -670,7 +671,14 @@ impl Resolver<'_> {
                 path: path.to_owned(),
                 detail: "a file with calls has no language",
             })?;
-        let (receiver, name) = split_callee(&call.callee_text);
+        // The callee read from the site's own file, borrowed (issue 90).
+        let callee = self.registry.text(path, &call.callee_text).ok_or_else(|| {
+            ResolutionError::Registry {
+                path: path.to_owned(),
+                detail: "a call site in a file with no extraction",
+            }
+        })?;
+        let (_, name) = split_callee(&callee);
         let engine = answer.map(EngineAnswer::from);
         let mapped = answer.map(|a| self.engine_targets(a)).unwrap_or_default();
         let engine_external = answer.is_some_and(|a| a.target_rel_path.is_none());
@@ -720,7 +728,7 @@ impl Resolver<'_> {
             return made(Band::Typed, Some(target), Vec::new());
         }
         // 3. to 5. By name.
-        let resolution = self.by_name(path, language, call, receiver, name, mapped)?;
+        let resolution = self.by_name(path, language, call, &callee, mapped)?;
         Ok(Outcome::Resolved(Resolution {
             engine,
             ..resolution
@@ -736,10 +744,10 @@ impl Resolver<'_> {
         path: &str,
         language: &'static Language,
         call: &Call,
-        receiver: Option<&str>,
-        name: &str,
+        spelled: &str,
         hinted: Vec<DefinitionRef>,
     ) -> Result<Resolution, ResolutionError> {
+        let (receiver, name) = split_callee(spelled);
         let made = |band, target, candidates| Resolution::new(band, target, candidates, None);
         // 3. What stops resolution by name.
         if LOCALLY_BOUND.iter().any(|f| call.lexical.contains(*f)) {
@@ -772,7 +780,7 @@ impl Resolver<'_> {
         };
         let named = self.named(&context);
         let mut universe: BTreeSet<DefinitionRef> = named.iter().cloned().collect();
-        universe.extend(self.by_qualified_text(&context, &call.callee_text));
+        universe.extend(self.by_qualified_text(&context, spelled));
         universe.extend(self.through_aliases(&context));
         universe.extend(hinted);
         // A member call on a receiver the extractor could not tie to anything is not

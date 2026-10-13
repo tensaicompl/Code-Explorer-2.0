@@ -21,7 +21,9 @@ use pdx_core::resolve::stages::{
     InvalidResolution, Narrowed, NarrowingStage, Resolution, ResolutionError, ResolveReport,
     Unconfirmed, narrow, resolve, resolve_with, typed_resolution,
 };
-use pdx_engine::{ProjectResolution, RunHealth, RunStatus, SiteRef, Strategy, TypedResolution};
+use pdx_engine::{
+    ProjectResolution, RunHealth, RunStatus, SiteRef, Strategy, TextRef, TypedResolution,
+};
 
 // --- fixtures ----------------------------------------------------------------------
 
@@ -116,11 +118,12 @@ fn def(reg: &SymbolRegistry, path: &str, name: &str) -> DefinitionRef {
 
 /// The site of `path` whose callee is spelled `callee`.
 fn site_ref(reg: &SymbolRegistry, path: &str, callee: &str) -> SiteRef {
-    let calls = &reg.extract(path).expect("extracted").calls;
+    let extract = reg.extract(path).expect("extracted");
+    let calls = &extract.calls;
     let found: Vec<usize> = calls
         .iter()
         .enumerate()
-        .filter(|(_, c)| c.callee_text == callee)
+        .filter(|(_, c)| extract.text(&c.callee_text) == callee)
         .map(|(i, _)| i)
         .collect();
     assert_eq!(found.len(), 1, "{callee} in {path}: {calls:?}");
@@ -131,11 +134,21 @@ fn site_ref(reg: &SymbolRegistry, path: &str, callee: &str) -> SiteRef {
 }
 
 /// What the site of `path` whose callee is spelled `callee` resolved to.
-fn at<'r>(report: &'r ResolveReport, path: &str, callee: &str) -> &'r Resolution {
+fn at<'r>(
+    reg: &SymbolRegistry,
+    report: &'r ResolveReport,
+    path: &str,
+    callee: &str,
+) -> &'r Resolution {
     let found: Vec<&Resolution> = report
         .resolutions
         .iter()
-        .filter(|s| s.site_ref.rel_path == path && s.site.callee_text == callee)
+        .filter(|s| {
+            s.site_ref.rel_path == path
+                && reg
+                    .text(path, &s.site.callee_text)
+                    .is_some_and(|t| t == callee)
+        })
         .map(|s| &s.resolution)
         .collect();
     assert_eq!(
@@ -397,7 +410,7 @@ fn resolution_stage_matrix() {
             })
             .unwrap_or_default();
         let report = with_answers(&reg, answers);
-        let got = at(&report, row.path, row.callee);
+        let got = at(&reg, &report, row.path, row.callee);
         let context = format!(
             "{:?}: imports {}; hierarchy {}; scope {}",
             row.band, row.imports, row.hierarchy, row.scope
@@ -534,7 +547,7 @@ fn narrowing_keeps_narrowest_set() {
     ]);
     let reg = checkout.registry();
     let report = by_name(&reg);
-    let got = at(&report, "c.py", "self.greet");
+    let got = at(&reg, &report, "c.py", "self.greet");
     assert_eq!(got.band(), Band::Candidate);
     let greet_of = |path: &str, ty: &str| {
         let ty = def(&reg, path, ty);
@@ -557,7 +570,7 @@ fn zero_narrowing_result_keeps_previous_candidates() {
     // candidate, so both remain.
     let checkout = two_computes();
     let reg = checkout.registry();
-    let got = at(&by_name(&reg), "loose.py", "compute").clone();
+    let got = at(&reg, &by_name(&reg), "loose.py", "compute").clone();
     assert_eq!(got.band(), Band::Candidate);
     assert_eq!(
         got.candidates(),
@@ -613,7 +626,7 @@ fn blocklist_precedes_all() {
             })
             .unwrap_or_default();
         let report = with_answers(&reg, answers);
-        let got = at(&report, "main.py", "get");
+        let got = at(&reg, &report, "main.py", "get");
         assert_eq!(got.band(), Band::Blocked, "{engine:?}");
         assert_eq!(got.target(), None);
         assert!(got.candidates().is_empty());
@@ -659,7 +672,7 @@ fn typed_requires_lsp_typed_single_candidate_and_min_score() {
             score,
         );
         let report = with_answers(&reg, vec![a]);
-        let got = at(&report, "loose.py", "compute");
+        let got = at(&reg, &report, "loose.py", "compute");
         if typed {
             assert_eq!(got.band(), Band::Typed, "{strategy:?} {score}");
             assert_eq!(got.target(), Some(&lib));
@@ -699,7 +712,7 @@ fn typed_target_must_map_uniquely() {
         1,
         1.0,
     );
-    let got = at(&with_answers(&reg, vec![two]), "loose.py", "compute").clone();
+    let got = at(&reg, &with_answers(&reg, vec![two]), "loose.py", "compute").clone();
     assert_eq!(got.band(), Band::Candidate);
     assert_eq!(got.candidates(), both);
     // A target that names no definition: not typed, and no candidate it could name.
@@ -712,7 +725,7 @@ fn typed_target_must_map_uniquely() {
         1,
         1.0,
     );
-    let got = at(&with_answers(&reg, vec![none]), "loose.py", "compute").clone();
+    let got = at(&reg, &with_answers(&reg, vec![none]), "loose.py", "compute").clone();
     assert_eq!(got.band(), Band::Candidate);
     assert_eq!(got.candidates(), both);
 }
@@ -727,10 +740,13 @@ fn engine_external_does_not_fall_back_to_local_name() {
         ("main.py", "def run_all():\n    return tally()\n"),
     ]);
     let reg = checkout.registry();
-    assert_eq!(at(&by_name(&reg), "main.py", "tally").band(), Band::Exact);
+    assert_eq!(
+        at(&reg, &by_name(&reg), "main.py", "tally").band(),
+        Band::Exact
+    );
     let external = answer(&reg, "main.py", "tally", None, Strategy::LspTyped, 1, 0.5);
     let report = with_answers(&reg, vec![external]);
-    let got = at(&report, "main.py", "tally");
+    let got = at(&reg, &report, "main.py", "tally");
     assert_eq!(got.band(), Band::External);
     assert_eq!(got.target(), None);
     assert_eq!(got.engine_score(), Some(0.5));
@@ -766,7 +782,7 @@ fn engine_hints_never_restrict_candidate_universe() {
             1,
             0.9,
         );
-        let got = at(&with_answers(&reg, vec![hint]), "loose.py", "compute").clone();
+        let got = at(&reg, &with_answers(&reg, vec![hint]), "loose.py", "compute").clone();
         assert_eq!(got.band(), Band::Candidate, "{strategy:?}");
         assert_eq!(
             got.candidates(),
@@ -784,7 +800,7 @@ fn engine_hints_never_restrict_candidate_universe() {
         1,
         0.9,
     );
-    let got = at(&with_answers(&reg, vec![hint]), "loose.py", "compute").clone();
+    let got = at(&reg, &with_answers(&reg, vec![hint]), "loose.py", "compute").clone();
     assert_eq!(got.band(), Band::Candidate);
     assert_eq!(got.candidates(), sorted(vec![x, y, z]));
 }
@@ -807,7 +823,7 @@ fn one_unvalidated_engine_hint_stays_candidate() {
         1,
         0.5,
     );
-    let got = at(&with_answers(&reg, vec![hint]), "main.py", "calc").clone();
+    let got = at(&reg, &with_answers(&reg, vec![hint]), "main.py", "calc").clone();
     assert_eq!(got.band(), Band::Candidate);
     assert_eq!(got.candidates(), [def(&reg, "lib.py", "compute")]);
     assert_eq!(got.engine_score(), Some(0.5));
@@ -835,7 +851,7 @@ fn duplicate_engine_answers_are_refused() {
         },
     )
     .unwrap();
-    assert_eq!(at(&report, "loose.py", "compute").band(), Band::Typed);
+    assert_eq!(at(&reg, &report, "loose.py", "compute").band(), Band::Typed);
     // Two different answers for one site: neither is chosen.
     let mut second = first.clone();
     second.target_rel_path = Some("other.py".into());
@@ -857,7 +873,7 @@ fn duplicate_engine_answers_are_refused() {
     let mut elsewhere = first.clone();
     elsewhere.site_ref.rel_path = "nowhere.py".into();
     let mut renamed = first;
-    renamed.site.callee_text = "renamed".into();
+    renamed.site.callee_text = TextRef::Owned("renamed".into());
     for wrong in [elsewhere, renamed] {
         let err = resolve_with(
             &reg,
@@ -947,7 +963,7 @@ fn aliased_imports_are_import_guided() {
         ),
     ]);
     let reg = checkout.registry();
-    let got = at(&by_name(&reg), "main.py", "g").clone();
+    let got = at(&reg, &by_name(&reg), "main.py", "g").clone();
     assert_eq!(got.band(), Band::ImportGuided);
     assert_eq!(got.target(), Some(&def(&reg, "a.py", "f")));
 
@@ -961,7 +977,7 @@ fn aliased_imports_are_import_guided() {
         ),
     ]);
     let reg = checkout.registry();
-    let got = at(&by_name(&reg), "src/main/Main.kt", "D").clone();
+    let got = at(&reg, &by_name(&reg), "src/main/Main.kt", "D").clone();
     assert_eq!(got.band(), Band::ImportGuided);
     assert_eq!(got.target(), Some(&def(&reg, "src/a/b/C.kt", "C")));
 
@@ -980,7 +996,7 @@ fn aliased_imports_are_import_guided() {
         ),
     ]);
     let reg = checkout.registry();
-    let got = at(&by_name(&reg), "src/c.rs", "g").clone();
+    let got = at(&reg, &by_name(&reg), "src/c.rs", "g").clone();
     assert_eq!(got.band(), Band::ImportGuided);
     assert_eq!(got.target(), Some(&def(&reg, "src/a.rs", "f")));
 }
@@ -1003,7 +1019,7 @@ fn module_receiver_imports_are_import_guided() {
         ),
     ]);
     let reg = checkout.registry();
-    let got = at(&by_name(&reg), "src/main.ts", "ns.h").clone();
+    let got = at(&reg, &by_name(&reg), "src/main.ts", "ns.h").clone();
     assert_eq!(got.band(), Band::ImportGuided);
     assert_eq!(got.target(), Some(&def(&reg, "src/x.ts", "h")));
 }
@@ -1020,7 +1036,7 @@ fn relative_unresolved_import_is_not_external() {
         ),
     ]);
     let reg = checkout.registry();
-    let got = at(&by_name(&reg), "pkg/main.py", "thing").clone();
+    let got = at(&reg, &by_name(&reg), "pkg/main.py", "thing").clone();
     assert_eq!(got.band(), Band::Unresolved);
 }
 
@@ -1036,7 +1052,10 @@ fn external_binding_is_external_despite_a_namesake() {
         ),
     ]);
     let reg = checkout.registry();
-    assert_eq!(at(&by_name(&reg), "main.py", "Path").band(), Band::External);
+    assert_eq!(
+        at(&reg, &by_name(&reg), "main.py", "Path").band(),
+        Band::External
+    );
 }
 
 #[test]
@@ -1057,10 +1076,10 @@ fn super_calls_use_the_ancestors() {
             .clone()
     };
     // `super().greet()` skips the current type; `self.greet()` takes the nearest.
-    let got = at(&report, "shapes.py", "super().greet");
+    let got = at(&reg, &report, "shapes.py", "super().greet");
     assert_eq!(got.band(), Band::InheritanceGuided);
     assert_eq!(got.target(), Some(&greet_of(&base)));
-    let got = at(&report, "shapes.py", "self.greet");
+    let got = at(&reg, &report, "shapes.py", "self.greet");
     assert_eq!(got.band(), Band::InheritanceGuided);
     assert_eq!(got.target(), Some(&greet_of(&child)));
 }
@@ -1086,7 +1105,7 @@ fn rust_impl_trait_inheritance_guided() {
         reg.implemented_traits(&square),
         std::slice::from_ref(&describe)
     );
-    let got = at(&by_name(&reg), "src/lib.rs", "self.describe").clone();
+    let got = at(&reg, &by_name(&reg), "src/lib.rs", "self.describe").clone();
     assert_eq!(got.band(), Band::InheritanceGuided);
     let target = got.target().unwrap();
     assert_eq!(reg.declaring_type(target), Some(describe));
@@ -1112,7 +1131,7 @@ fn scoped_means_module_not_directory() {
         ),
     ]);
     let reg = checkout.registry();
-    let got = at(&by_name(&reg), "src/a/Caller.java", "helper").clone();
+    let got = at(&reg, &by_name(&reg), "src/a/Caller.java", "helper").clone();
     assert_eq!(got.band(), Band::Scoped);
     assert_eq!(got.target(), Some(&def(&reg, "src/b/Kin.java", "helper")));
 }
@@ -1130,7 +1149,7 @@ fn no_candidate_crosses_a_language_family() {
     ]);
     let reg = checkout.registry();
     assert_eq!(
-        at(&by_name(&reg), "main.py", "compute").band(),
+        at(&reg, &by_name(&reg), "main.py", "compute").band(),
         Band::Unresolved
     );
 }
@@ -1151,7 +1170,7 @@ fn lexically_local_binding_is_not_name_resolved() {
         call.lexical
             .contains(pdx_engine::LexicalFacts::LOCALLY_BOUND)
     );
-    let got = at(&by_name(&reg), "main.py", "cb").clone();
+    let got = at(&reg, &by_name(&reg), "main.py", "cb").clone();
     assert_eq!(got.band(), Band::Unresolved);
     assert!(got.candidates().is_empty());
 }
@@ -1170,10 +1189,10 @@ fn unresolved_member_is_not_unique_name_resolved() {
     ]);
     let reg = checkout.registry();
     let report = by_name(&reg);
-    let got = at(&report, "main.py", "obj.compute");
+    let got = at(&reg, &report, "main.py", "obj.compute");
     assert_eq!(got.band(), Band::Candidate);
     assert_eq!(got.candidates(), [def(&reg, "lib.py", "compute")]);
-    let got = at(&report, "main.py", "self.engine.spin");
+    let got = at(&reg, &report, "main.py", "self.engine.spin");
     assert_eq!(got.band(), Band::Candidate, "{got:?}");
 }
 
@@ -1217,11 +1236,7 @@ fn typed_only_site_is_never_name_resolved() {
             call_index: u32::try_from(index).unwrap(),
         },
         site: call,
-        target_qn: reg
-            .definition(&def(&reg, "src/a.cpp", "Ptr"))
-            .unwrap()
-            .qualified_name
-            .clone(),
+        target_qn: reg.qualified_name(&def(&reg, "src/a.cpp", "Ptr")).unwrap(),
         target_rel_path: Some("src/a.cpp".into()),
         score: 1.0,
         strategy: Strategy::LspTyped,
@@ -1246,10 +1261,11 @@ fn untyped_callable_reference_is_not_a_call() {
         ("main.py", "from lib import compute\n\nhandler = compute\n"),
     ]);
     let reg = checkout.registry();
-    let calls = &reg.extract("main.py").unwrap().calls;
+    let main = reg.extract("main.py").unwrap();
+    let calls = &main.calls;
     let index = calls
         .iter()
-        .position(|c| c.is_reference && c.callee_text == "compute")
+        .position(|c| c.is_reference && main.text(&c.callee_text) == "compute")
         .unwrap_or_else(|| panic!("a reference: {calls:?}"));
     let site = SiteRef {
         rel_path: "main.py".into(),
@@ -1305,7 +1321,7 @@ fn degraded_engine_absence_is_not_evidence() {
     )
     .unwrap();
     assert_eq!(report.engine_health.status, RunStatus::Degraded);
-    assert_eq!(at(&report, "main.py", "tally").band(), Band::Exact);
+    assert_eq!(at(&reg, &report, "main.py", "tally").band(), Band::Exact);
     assert_eq!(
         report,
         ResolveReport {
@@ -1364,10 +1380,10 @@ fn polyglot_ts_alias_does_not_affect_go() {
         "{:?}",
         report.engine_health
     );
-    let go = at(&report, "pkg/b/b.go", "a.Hello");
+    let go = at(&reg, &report, "pkg/b/b.go", "a.Hello");
     assert_eq!(go.band(), Band::Typed, "{go:?}");
     assert_eq!(go.target(), Some(&def(&reg, "pkg/a/a.go", "Hello")));
-    let ts = at(&report, "src/app/show.ts", "formatName");
+    let ts = at(&reg, &report, "src/app/show.ts", "formatName");
     assert_eq!(ts.band(), Band::Typed, "{ts:?}");
     assert_eq!(
         ts.target(),
@@ -1484,12 +1500,12 @@ fn java_static_import_is_internal() {
         ]
     );
     let report = by_name(&reg);
-    let got = at(&report, "src/p/Main.java", "helper");
+    let got = at(&reg, &report, "src/p/Main.java", "helper");
     assert_eq!(got.band(), Band::ImportGuided);
     assert_eq!(got.target(), Some(&def(&reg, "src/q/Util.java", "helper")));
     // A static import from outside the repository is external.
     assert_eq!(
-        at(&report, "src/p/Main.java", "assertTrue").band(),
+        at(&reg, &report, "src/p/Main.java", "assertTrue").band(),
         Band::External
     );
 }
@@ -1512,7 +1528,7 @@ fn implicit_receiver_bare_calls_use_the_hierarchy() {
         ),
     ]);
     let reg = checkout.registry();
-    let got = at(&by_name(&reg), "src/app/Child.java", "helper").clone();
+    let got = at(&reg, &by_name(&reg), "src/app/Child.java", "helper").clone();
     assert_eq!(got.band(), Band::InheritanceGuided);
     assert_eq!(
         got.target(),
@@ -1542,7 +1558,12 @@ fn c_include_reaches_the_paired_source() {
     let helper_calls: Vec<&Resolution> = report
         .resolutions
         .iter()
-        .filter(|s| s.site_ref.rel_path == "app/main.c" && s.site.callee_text == "helper")
+        .filter(|s| {
+            s.site_ref.rel_path == "app/main.c"
+                && reg
+                    .text("app/main.c", &s.site.callee_text)
+                    .is_some_and(|t| t == "helper")
+        })
         .map(|s| &s.resolution)
         .collect();
     assert!(!helper_calls.is_empty());
@@ -1569,7 +1590,7 @@ fn engine_sites_past_the_extraction_need_an_answer() {
     let engine_site = |index: u32, score: f64| TypedResolution {
         site_ref: site(index),
         site: pdx_engine::Call {
-            callee_text: "compute".into(),
+            callee_text: TextRef::Owned("compute".into()),
             receiver_text: None,
             caller: Some(1),
             span: None,
@@ -1624,7 +1645,7 @@ fn hierarchy_cycles_terminate() {
         "class A(B):\n    def ping(self):\n        return self.pong()\n\n\nclass B(A):\n    def pong(self):\n        return 1\n\n\nclass C:\n    def pong(self):\n        return 2\n",
     )]);
     let reg = checkout.registry();
-    let got = at(&by_name(&reg), "loop.py", "self.pong").clone();
+    let got = at(&reg, &by_name(&reg), "loop.py", "self.pong").clone();
     assert_eq!(got.band(), Band::InheritanceGuided);
     let b = def(&reg, "loop.py", "B");
     assert_eq!(reg.declaring_type(got.target().unwrap()), Some(b));

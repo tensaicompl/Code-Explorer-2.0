@@ -28,6 +28,7 @@
 #include "pdxe.h"
 #include "pdxe_core.h"
 #include "shim_internal.h"
+#include "text_view.h"
 
 static int failures = 0;
 static int checked_sites = 0;
@@ -167,13 +168,13 @@ static void check_file(pdxe_ctx *ctx, const char *lang, const char *path, const 
         }
         if (inside && !owner) {
             FAIL("%s:%u: %s lies in a callable and is owned by the file", rel, c->span.start_line,
-                 c->callee_text);
+                 tv_text(&c->callee_text, bytes, len));
         }
         if (owner && pdxe_occurrence_valid(owner->occurrence) &&
             owner->occurrence.origin == PDXE_SOURCE_ORIGIN_RAW &&
             !raw_occurrence_holds(owner->occurrence, c->span.start_byte, c->span.end_byte)) {
             FAIL("%s:%u: %s is owned by %s, which does not hold it", rel, c->span.start_line,
-                 c->callee_text, owner->qualified_name);
+                 tv_text(&c->callee_text, bytes, len), owner->qualified_name);
         }
     }
     pdxe_result_free(ctx, r);

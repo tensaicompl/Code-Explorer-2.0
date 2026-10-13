@@ -26,6 +26,8 @@
 #include "pdxe_core.h"
 #include "pipeline/pipeline_internal.h"
 
+/* The reference copies every text: the rows' range branches are not compiled. */
+#define DR_REFERENCE_ENGINE 1
 #include "differential_rows.h"
 
 #define DIFFERENTIAL_WRAPPED(name) DIFFERENTIAL_WRAPPED_(name)
@@ -55,7 +57,7 @@ int DIFFERENTIAL_WRAPPED(pdxe_pipeline_pass_calls)(pdxe_pipeline_ctx_t *ctx,
         for (int i = 0; i < file_count; i++) {
             const PDXEFileResult *r = ctx && ctx->result_cache ? ctx->result_cache[i] : NULL;
             if (r) {
-                diff_rows_file(o, files[i].rel_path, r);
+                diff_rows_file(o, files[i].rel_path, r, NULL); /* it copies every text */
             } else {
                 dr_begin(o, "missing", files[i].rel_path);
                 fputs("}\n", o);

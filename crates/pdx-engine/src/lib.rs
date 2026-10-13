@@ -2,9 +2,10 @@
 //!
 //! Everything above this crate reaches the engine through it, without `unsafe`:
 //!
-//! - [`Engine`] extracts a file into a [`FileExtract`], which is owned, complete,
-//!   serialisable, and carries the file's resolution surface. One engine per thread;
-//!   it cannot leave the thread that made it.
+//! - [`Engine`] extracts a file into a [`FileExtract`], which is owned, complete, bound to
+//!   the source it was taken from, and carries the file's resolution surface; its
+//!   [`ExtractRecord`], which holds text as ranges of that source and no source, is what
+//!   is stored and sent. One engine per thread; it cannot leave the thread that made it.
 //! - [`ProjectResolver`] resolves calls across the files of a project, from fresh
 //!   extractions or from cached ones, and returns each answer as an owned
 //!   [`TypedResolution`] together with the run's [`RunHealth`]: whether typed
@@ -27,9 +28,10 @@ mod resolver;
 pub use engine::{EXTRACTION_SWITCHES, Engine, NODE_BUDGET_ENV, extraction_switch_set};
 pub use error::{EngineError, SourceDifference};
 pub use model::{
-    Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
-    FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, NamespaceEvidence, ReadWrite,
-    RouteFact, SourceDigest, Span, Surface, Throw, TypeRef, Usage, Visibility, namespace_evidence,
+    BindError, Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic,
+    EnvAccess, ExtractRecord, FileExtract, FileStatus, ImplTrait, Import, LexicalFacts,
+    NamespaceEvidence, QualifiedName, QualifiedNames, ReadWrite, RouteFact, SourceDigest, Span,
+    Surface, TextRef, Throw, TypeRef, Usage, Visibility, namespace_evidence,
 };
 pub use resolver::{
     AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ProjectResolution,

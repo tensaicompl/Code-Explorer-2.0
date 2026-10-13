@@ -214,7 +214,7 @@ static int resolve_all(pdxe_ctx *ctx, const char *dir, int corpus_lang, int thro
             pdxe_file_result *rebuilt = NULL;
             const pdxe_file_result *r = results[i];
             failures += pdxe_surface_export(r, paths[i], &surface, &surface_len) != PDXE_OK ||
-                        pdxe_result_build(ctx, r->defs, r->n_defs, r->calls, r->n_calls,
+                        pdxe_result_build(ctx, len, r->defs, r->n_defs, r->calls, r->n_calls,
                                           r->imports, r->n_imports, r->usages, r->n_usages,
                                           r->types, r->n_types, r->rws, r->n_rws,
                                           r->impl_traits, r->n_impl_traits,

@@ -3,6 +3,7 @@
 use std::collections::BTreeMap;
 use std::ffi::{CString, c_char};
 use std::ptr::{self, NonNull};
+use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
@@ -12,8 +13,8 @@ use crate::convert;
 use crate::engine::{Engine, RawResult, c_string, language_id};
 use crate::error::{EngineError, SourceDifference, check};
 use crate::model::{
-    Call, CallArg, FileExtract, ImplTrait, ReadWrite, RouteFact, SourceDigest, Span, TypeRef,
-    Usage, Visibility,
+    Call, CallArg, Definition, FileExtract, ImplTrait, QualifiedName, ReadWrite, RouteFact,
+    SourceDigest, Span, TextRef, TypeRef, Usage, Visibility,
 };
 
 /// How a resolution was reached, in the interface's normalised vocabulary.
@@ -257,8 +258,9 @@ pub struct ProjectResolver<'e> {
     project: NonNull<sys::pdxe_project>,
     /// Results the project resolves through; freed after the project ends.
     held: Vec<RawResult<'e>>,
-    /// Definition counts by file, to check the sites the engine reports.
-    definitions: BTreeMap<String, u32>,
+    /// Definition counts and source lengths by file, to check the sites the engine
+    /// reports.
+    files: BTreeMap<String, (u32, u64)>,
     /// The first error that left the project unusable.
     broken: Option<EngineError>,
 }
@@ -281,7 +283,7 @@ impl<'e> ProjectResolver<'e> {
             engine,
             project,
             held: Vec::new(),
-            definitions: BTreeMap::new(),
+            files: BTreeMap::new(),
             broken: None,
         })
     }
@@ -407,8 +409,10 @@ impl<'e> ProjectResolver<'e> {
         };
         check(status, "pdxe_surface_import", None)?;
         self.add(lang, &extract.language, &extract.rel_path, source, rebuilt)?;
-        self.definitions
-            .insert(extract.rel_path.clone(), count(extract.definitions.len())?);
+        self.files.insert(
+            extract.rel_path.clone(),
+            (count(extract.definitions.len())?, extract.source_len),
+        );
         Ok(())
     }
 
@@ -421,12 +425,14 @@ impl<'e> ProjectResolver<'e> {
         let raw = self.engine.extract_raw(language, rel_path, source)?;
         // The surface is exported before the project resolves through the result,
         // which the interface requires.
-        let extract = raw.to_extract(language, rel_path, source)?;
+        let extract = raw.to_extract(language, rel_path, Arc::from(source))?;
         let lang = language_id(language)
             .ok_or_else(|| EngineError::UnknownLanguage(language.to_owned()))?;
         self.add(lang, language, rel_path, source, raw)?;
-        self.definitions
-            .insert(rel_path.to_owned(), count(extract.definitions.len())?);
+        self.files.insert(
+            rel_path.to_owned(),
+            (count(extract.definitions.len())?, extract.source_len),
+        );
         Ok(extract)
     }
 
@@ -463,36 +469,7 @@ impl<'e> ProjectResolver<'e> {
         let defs = e
             .definitions
             .iter()
-            .map(|d| {
-                Ok(sys::pdxe_definition {
-                    name: strings.required(&d.name)?,
-                    qualified_name: strings.required(&d.qualified_name)?,
-                    kind: strings.required(d.kind.as_str())?,
-                    engine_kind: strings.required(&d.engine_kind)?,
-                    signature: strings.optional(d.signature.as_deref())?,
-                    doc: strings.optional(d.doc.as_deref())?,
-                    span: c_span(d.span),
-                    body_span: c_span(d.body_span),
-                    parent_index: c_index(d.parent),
-                    visibility: c_visibility(d.visibility)?,
-                    is_test: u8::from(d.is_test),
-                    is_entry_point: u8::from(d.is_entry_point),
-                    cyclomatic: d.cyclomatic,
-                    cognitive: d.cognitive,
-                    loop_depth: d.loop_depth,
-                    base_classes: strings.array(&d.base_classes)?,
-                    n_base_classes: count(d.base_classes.len())?,
-                    decorators: strings.array(&d.decorators)?,
-                    n_decorators: count(d.decorators.len())?,
-                    signature_param_types: strings.array(&d.signature_param_types)?,
-                    n_signature_param_types: count(d.signature_param_types.len())?,
-                    // The engine's single summary is not kept; `routes` carry every binding.
-                    route_path: ptr::null(),
-                    route_method: ptr::null(),
-                    routes: strings.routes(&d.routes)?,
-                    n_routes: count(d.routes.len())?,
-                })
-            })
+            .map(|d| c_definition(d, &mut strings))
             .collect::<Result<Vec<_>, EngineError>>()?;
         let calls = e
             .calls
@@ -538,6 +515,7 @@ impl<'e> ProjectResolver<'e> {
         let status = unsafe {
             sys::pdxe_result_build(
                 self.engine.ctx(),
+                usize::try_from(e.source_len).map_err(|_| EngineError::TooLarge)?,
                 defs.as_ptr(),
                 count(defs.len())?,
                 calls.as_ptr(),
@@ -676,7 +654,10 @@ impl<'e> ProjectResolver<'e> {
         let strategy = Strategy::parse(&strategy_name).ok_or_else(|| {
             EngineError::Contract(format!("`{strategy_name}` is not a resolution strategy"))
         })?;
-        let site = unsafe { convert::call(&site, self.definitions.get(&rel_path).copied()) }?;
+        // The site's text ranges are ranges of its own file's source.
+        let file = self.files.get(&rel_path).copied();
+        let site =
+            unsafe { convert::call(&site, file.map(|(n, _)| n), file.map_or(0, |(_, len)| len)) }?;
         Ok(TypedResolution {
             site_ref: SiteRef {
                 rel_path,
@@ -800,6 +781,42 @@ impl Strings {
         s.map_or(Ok(ptr::null()), |s| self.required(s))
     }
 
+    /// A text as the interface holds it: a range stays a range, owned text is a string
+    /// kept alive here (issue 90).
+    fn text(&mut self, t: &TextRef) -> Result<sys::pdxe_text, EngineError> {
+        Ok(match t {
+            TextRef::Source { start, end } => sys::pdxe_text {
+                owned: ptr::null(),
+                start: *start,
+                end: *end,
+                kind: sys::PDXE_TEXT_SOURCE,
+                reserved: 0,
+            },
+            TextRef::Owned(s) => sys::pdxe_text {
+                owned: self.required(s)?,
+                start: 0,
+                end: 0,
+                kind: sys::PDXE_TEXT_OWNED,
+                reserved: 0,
+            },
+        })
+    }
+
+    /// The text a qualified name holds: the whole name, a rest, or none for a member.
+    fn qualified_name_text(&mut self, qn: &QualifiedName) -> Result<*const c_char, EngineError> {
+        match qn {
+            QualifiedName::Whole(text)
+            | QualifiedName::Extended { rest: text, .. }
+            | QualifiedName::Prefix { rest: text, .. } => self.required(text),
+            QualifiedName::Member { .. } => Ok(ptr::null()),
+        }
+    }
+
+    /// As [`Strings::text`], or no text.
+    fn optional_text(&mut self, t: Option<&TextRef>) -> Result<sys::pdxe_text, EngineError> {
+        t.map_or(Ok(sys::pdxe_text::default()), |t| self.text(t))
+    }
+
     /// An array of these arguments, or NULL when there are none.
     fn args(&mut self, args: &[CallArg]) -> Result<*const sys::pdxe_call_arg, EngineError> {
         if args.is_empty() {
@@ -809,7 +826,7 @@ impl Strings {
             .iter()
             .map(|a| {
                 Ok(sys::pdxe_call_arg {
-                    expr: self.required(&a.expr)?,
+                    expr: self.text(&a.expr)?,
                     value: self.optional(a.value.as_deref())?,
                     keyword: self.optional(a.keyword.as_deref())?,
                     index: a.index,
@@ -834,7 +851,7 @@ impl Strings {
                     method: self.required(&r.method)?,
                     path: self.required(&r.path)?,
                     callee_text: self.required(&r.callee_text)?,
-                    source_text: self.optional(r.source_text.as_deref())?,
+                    source_text: self.optional_text(r.source_text.as_ref())?,
                     span: c_span(r.span),
                     ast_path: self.array(&r.ast_path)?,
                     n_ast_path: count(r.ast_path.len())?,
@@ -845,6 +862,34 @@ impl Strings {
         let p = array.as_ptr();
         self.3.push(array);
         Ok(p)
+    }
+}
+
+/// The definition a qualified name is given relative to, or none for a whole one.
+fn qualified_name_base(qn: &QualifiedName) -> u32 {
+    match *qn {
+        QualifiedName::Whole(_) => sys::PDXE_NO_PARENT,
+        QualifiedName::Member { base }
+        | QualifiedName::Extended { base, .. }
+        | QualifiedName::Prefix { base, .. } => base,
+    }
+}
+
+/// How many bytes of its base's name a qualified name keeps: a prefix's, else 0.
+fn qualified_name_keep(qn: &QualifiedName) -> u32 {
+    match *qn {
+        QualifiedName::Prefix { keep, .. } => keep,
+        _ => 0,
+    }
+}
+
+/// A qualified name's form, as the interface numbers it (issue 90).
+fn qualified_name_form(qn: &QualifiedName) -> u32 {
+    match qn {
+        QualifiedName::Whole(_) => sys::PDXE_QN_WHOLE,
+        QualifiedName::Member { .. } => sys::PDXE_QN_MEMBER,
+        QualifiedName::Extended { .. } => sys::PDXE_QN_EXTENDED,
+        QualifiedName::Prefix { .. } => sys::PDXE_QN_PREFIX,
     }
 }
 
@@ -873,9 +918,46 @@ fn c_index(i: Option<u32>) -> u32 {
     i.unwrap_or(sys::PDXE_NO_PARENT)
 }
 
+fn c_definition(
+    d: &Definition,
+    strings: &mut Strings,
+) -> Result<sys::pdxe_definition, EngineError> {
+    Ok(sys::pdxe_definition {
+        name: strings.required(&d.name)?,
+        qn_text: strings.qualified_name_text(&d.qualified_name)?,
+        qn_base: qualified_name_base(&d.qualified_name),
+        qn_form: qualified_name_form(&d.qualified_name),
+        qn_keep: qualified_name_keep(&d.qualified_name),
+        kind: strings.required(d.kind.as_str())?,
+        engine_kind: strings.required(&d.engine_kind)?,
+        signature: strings.optional_text(d.signature.as_ref())?,
+        doc: strings.optional(d.doc.as_deref())?,
+        span: c_span(d.span),
+        body_span: c_span(d.body_span),
+        parent_index: c_index(d.parent),
+        visibility: c_visibility(d.visibility)?,
+        is_test: u8::from(d.is_test),
+        is_entry_point: u8::from(d.is_entry_point),
+        cyclomatic: d.cyclomatic,
+        cognitive: d.cognitive,
+        loop_depth: d.loop_depth,
+        base_classes: strings.array(&d.base_classes)?,
+        n_base_classes: count(d.base_classes.len())?,
+        decorators: strings.array(&d.decorators)?,
+        n_decorators: count(d.decorators.len())?,
+        signature_param_types: strings.array(&d.signature_param_types)?,
+        n_signature_param_types: count(d.signature_param_types.len())?,
+        // The engine's single summary is not kept; `routes` carry every binding.
+        route_path: ptr::null(),
+        route_method: ptr::null(),
+        routes: strings.routes(&d.routes)?,
+        n_routes: count(d.routes.len())?,
+    })
+}
+
 fn c_call(c: &Call, strings: &mut Strings) -> Result<sys::pdxe_call, EngineError> {
     Ok(sys::pdxe_call {
-        callee_text: strings.required(&c.callee_text)?,
+        callee_text: strings.text(&c.callee_text)?,
         receiver_text: strings.optional(c.receiver_text.as_deref())?,
         caller_index: c_index(c.caller),
         span: c_span(c.span),
@@ -891,7 +973,7 @@ fn c_call(c: &Call, strings: &mut Strings) -> Result<sys::pdxe_call, EngineError
 
 fn c_usage(u: &Usage, strings: &mut Strings) -> Result<sys::pdxe_usage, EngineError> {
     Ok(sys::pdxe_usage {
-        name: strings.required(&u.name)?,
+        name: strings.text(&u.name)?,
         scope_index: c_index(u.scope),
         span: c_span(u.span),
         lexical: u.lexical.bits(),

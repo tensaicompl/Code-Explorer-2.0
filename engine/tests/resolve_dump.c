@@ -55,6 +55,7 @@
 #include "fixture_metadata.h"
 #include "pdxe.h"
 #include "shim_internal.h"
+#include "text_view.h"
 
 static const struct {
     const char *ext;
@@ -138,6 +139,8 @@ static const char *CALLABLE_KINDS[] = {"Function", "Method", "Constructor", "Cla
 typedef struct {
     pdxe_file_result **results;
     strings *files;
+    unsigned char **sources;
+    size_t *lens;
 } corpus;
 
 /* The engine kind of the definition with this qualified name, if any file has one. */
@@ -145,7 +148,8 @@ static const char *engine_kind_of(const corpus *c, const char *qn) {
     for (size_t i = 0; i < c->files->count; i++) {
         const pdxe_file_result *r = c->results[i];
         for (uint32_t k = 0; r && k < r->n_defs; k++) {
-            if (r->defs[k].qualified_name && strcmp(r->defs[k].qualified_name, qn) == 0) {
+            const char *name = tv_qn(r, k);
+            if (name && strcmp(name, qn) == 0) {
                 return r->defs[k].engine_kind;
             }
         }
@@ -180,7 +184,7 @@ static void print_source(const corpus *c, const pdxe_resolution *res) {
     const pdxe_file_result *r = fi >= 0 ? c->results[fi] : NULL;
     uint32_t ci = res->site.caller_index;
     if (r && ci != PDXE_NO_PARENT && ci < r->n_defs && strcmp(r->defs[ci].kind, "module") != 0) {
-        printf("%s", r->defs[ci].qualified_name);
+        printf("%s", tv_qn(r, ci));
     } else {
         printf("FILE:%s", res->rel_path);
     }
@@ -199,12 +203,13 @@ static void print_sites(const corpus *c) {
             }
             uint32_t ci = call->caller_index;
             if (ci != PDXE_NO_PARENT && ci < r->n_defs && strcmp(r->defs[ci].kind, "module") != 0) {
-                printf("SITE\t%s\t", r->defs[ci].qualified_name);
+                printf("SITE\t%s\t", tv_qn(r, ci));
             } else {
                 printf("SITE\tFILE:%s\t", c->files->items[i]);
             }
             const char *sep = "";
-            printf("%s\t", call->callee_text ? call->callee_text : "-");
+            const char *callee = tv_text(&call->callee_text, c->sources[i], c->lens[i]);
+            printf("%s\t", callee ? callee : "-");
             if (facts & PDXE_LEX_UNRESOLVED_MEMBER) {
                 printf("%sunresolved_member", sep);
                 sep = "+";
@@ -263,11 +268,13 @@ int main(int argc, char **argv) {
     }
     pdxe_file_result **results = calloc(files.count ? files.count : 1, sizeof(*results));
     unsigned char **sources = calloc(files.count ? files.count : 1, sizeof(*sources));
+    size_t *lens = calloc(files.count ? files.count : 1, sizeof(*lens));
     for (size_t i = 0; i < files.count; i++) {
         char path[4096];
         snprintf(path, sizeof(path), "%s/%s", dir, files.items[i]);
         size_t len = 0;
         sources[i] = read_all(path, &len);
+        lens[i] = len;
         int lang = pdxe_language_id(language_of(files.items[i]));
         if (!sources[i] || pdxe_extract_file(ctx, lang, files.items[i], sources[i], len,
                                              &results[i]) != PDXE_OK) {
@@ -281,7 +288,7 @@ int main(int argc, char **argv) {
             pdxe_file_result *rebuilt = NULL;
             const pdxe_file_result *r = results[i];
             if (pdxe_surface_export(r, files.items[i], &surface, &surface_len) != PDXE_OK ||
-                pdxe_result_build(ctx, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
+                pdxe_result_build(ctx, len, r->defs, r->n_defs, r->calls, r->n_calls, r->imports,
                                   r->n_imports, r->usages, r->n_usages, r->types, r->n_types,
                                   r->rws, r->n_rws, r->impl_traits, r->n_impl_traits,
                                   &rebuilt) != PDXE_OK ||
@@ -328,7 +335,7 @@ int main(int argc, char **argv) {
                 health.files_over_budget, health.pass_failures);
         return 1;
     }
-    corpus c = {results, &files};
+    corpus c = {results, &files, sources, lens};
     const pdxe_resolution *res = NULL;
     uint32_t n = 0;
     pdxe_resolve_project_results(p, &res, &n);
@@ -355,6 +362,7 @@ int main(int argc, char **argv) {
     }
     free(results);
     free(sources);
+    free(lens);
     free(files.items);
     for (size_t i = 0; i < metadata_strings.count; i++) {
         free(metadata_strings.items[i]);

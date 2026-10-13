@@ -55,15 +55,21 @@ pub(crate) fn ordinals(registry: &SymbolRegistry) -> BTreeMap<SiteRef, u32> {
         let Some(extract) = registry.extract(path) else {
             continue;
         };
+        // Each callee read from the source once, borrowed (issue 90).
+        let callees: Vec<_> = extract
+            .calls
+            .iter()
+            .map(|call| extract.text(&call.callee_text))
+            .collect();
         let mut groups: BTreeMap<Group<'_>, Vec<(u32, u32, u32)>> = BTreeMap::new();
-        for (index, call) in extract.calls.iter().enumerate() {
+        for ((index, call), callee) in extract.calls.iter().enumerate().zip(&callees) {
             let (Some(span), false) = (call.span, call.ast_path.is_empty()) else {
                 continue;
             };
             let Ok(index) = u32::try_from(index) else {
                 continue;
             };
-            let (receiver, name) = split_callee(&call.callee_text);
+            let (receiver, name) = split_callee(callee);
             groups
                 .entry((
                     enclosing(registry, path, call),
@@ -118,7 +124,14 @@ pub(crate) fn call_site(
         return Ok(Err(Missing::AstPath));
     };
     let path = site_ref.rel_path.as_str();
-    let (receiver, name) = split_callee(&call.callee_text);
+    // The callee read from the site's own file, borrowed (issue 90).
+    let spelled = registry
+        .text(path, &call.callee_text)
+        .ok_or_else(|| DeriveError::Missing {
+            path: path.to_owned(),
+            detail: "a call site in a file with no extraction",
+        })?;
+    let (receiver, name) = split_callee(&spelled);
     let node_types: Vec<&str> = call.ast_path.iter().map(String::as_str).collect();
     let fingerprint = ast_fingerprint(&node_types, name, receiver.unwrap_or(""), ordinal)?;
     let caller = enclosing(registry, path, call).map(|index| DefinitionRef {

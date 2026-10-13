@@ -13,6 +13,8 @@
  *   - Every string is UTF-8 and NUL-terminated, and is owned by the result that
  *     carries it until that result is freed. A caller that keeps a string past
  *     then must copy it.
+ *   - Text a fact takes from the file is a range of the source (pdxe_text), never a
+ *     copy: a caller reads it from the bytes it extracted.
  *   - Every function returns 0 on success and a negative code below on failure.
  *     Nothing here writes to standard output or standard error: this is a library
  *     inside a program that speaks a protocol on those streams. The engine's log is
@@ -86,6 +88,39 @@ typedef struct {
     uint32_t end_line, end_col;
 } pdxe_span;
 
+/*
+ * A piece of text a fact carries: either bytes of the file's source, by their range,
+ * or text the engine made (issue 90, decision 61).
+ *
+ *   PDXE_TEXT_NONE    no text. `owned` is NULL, `start` and `end` are 0.
+ *   PDXE_TEXT_SOURCE  the bytes [start, end) of the source exactly as it was given to
+ *                     pdxe_extract_file (or pdxe_resolve_project_add_file, for a
+ *                     resolution's site). `owned` is NULL. The range is the text
+ *                     itself: nothing is trimmed, unquoted or rewritten.
+ *   PDXE_TEXT_OWNED   `owned`, NUL-terminated, held like any other string of the
+ *                     result. `start` and `end` are 0.
+ *
+ * Text is a source range only where it is exactly a contiguous run of the source's
+ * bytes. Text the engine assembled, rewrote or shortened, and text it read in C-family
+ * source after macro expansion, which the caller never sees, is owned. A range costs
+ * the same whatever its length, so evidence that nests (an argument holding a call
+ * holding an argument, a member chain each of whose links is a call) never repeats the
+ * text it overlaps. `reserved` is 0.
+ */
+enum pdxe_text_kind {
+    PDXE_TEXT_NONE = 0,
+    PDXE_TEXT_SOURCE = 1,
+    PDXE_TEXT_OWNED = 2
+};
+
+typedef struct {
+    const char *owned;
+    uint32_t start;
+    uint32_t end;
+    uint32_t kind;
+    uint32_t reserved;
+} pdxe_text;
+
 /* Visibility of a definition, as the source declares it. */
 enum pdxe_visibility {
     PDXE_VIS_UNKNOWN = 0,
@@ -101,7 +136,8 @@ enum pdxe_visibility {
  * method in upper case (`ANY` when the declaration names none), its path (joined to the
  * enclosing class's own mapping), and the node that declares it. `callee_text` is the
  * decorator's callee or the annotation's name as written (`app.get`, `GetMapping`);
- * `source_text` the whole declaring call or annotation. `span` is the declaring node's
+ * `source_text` the whole declaring call or annotation, a range of the source where it
+ * is one (pdxe_text), PDXE_TEXT_NONE when not known. `span` is the declaring node's
  * position, all zero when not known. `ast_path` is the syntax node types from the lowest
  * node holding both the definition and the declaring node (the definition itself when
  * the declaration is inside it, as a JVM annotation is; the decorated wrapper for a
@@ -114,7 +150,7 @@ typedef struct {
     const char *method;
     const char *path;
     const char *callee_text;
-    const char *source_text;
+    pdxe_text source_text;
     pdxe_span span;
     const char **ast_path;
     uint32_t n_ast_path;
@@ -131,6 +167,34 @@ typedef struct {
  *
  * `parent_index` indexes the definition array of the same result, or
  * PDXE_NO_PARENT when the definition is at file scope.
+ *
+ * The qualified name is given by its relation to an earlier definition's, so that
+ * nested definitions do not each repeat the names of everything around them (issue
+ * 90, decision 61). By `qn_form`:
+ *
+ *   PDXE_QN_WHOLE     `qn_text` is the whole name; `qn_base` is PDXE_NO_PARENT.
+ *   PDXE_QN_MEMBER    the qualified name of definition `qn_base`, then `.`, then
+ *                     `name`; `qn_text` is NULL.
+ *   PDXE_QN_EXTENDED  the qualified name of definition `qn_base`, then `qn_text`,
+ *                     whose first byte is ASCII.
+ *   PDXE_QN_PREFIX    the first `qn_keep` bytes of definition `qn_base`'s qualified
+ *                     name, then `qn_text`, which is empty or begins with `.`: names
+ *                     the file's definitions share a prefix of without any of them
+ *                     being the prefix (a C++ function in nested namespaces, which are
+ *                     no definitions, beside one in an enclosing namespace). The byte
+ *                     at `qn_keep` in the base's name is a `.` the base itself adds,
+ *                     after its own base's name.
+ *
+ * `qn_keep` is 0 in every other form. `qn_base` is always smaller than the definition's
+ * own index, so every name is reached from a whole one, and the name is exactly the
+ * engine's, byte for byte: the form changes how it is held, never what it is.
+ * pdxe_qualified_name spells it out.
+ *
+ * `signature` is the parameter list as the source writes it: a range of the source, or
+ * owned text for a definition read after C-family macro expansion; PDXE_TEXT_NONE when
+ * the definition has none. Parameters can hold whole definitions (a JavaScript function
+ * as a parameter's default), so it is never copied when it is the source's own (issue
+ * 90, decision 61).
  *
  * `base_classes` are the classes, interfaces and traits the definition names as its
  * bases, exactly as the engine recorded them: in its order, spelling and case,
@@ -149,16 +213,26 @@ typedef struct {
  * `route_path` and `route_method` keep the engine's single summary of them. Appended
  * by a specification change; see docs/plan/ISSUES.md, issue 54.
  */
+enum pdxe_qn_form {
+    PDXE_QN_WHOLE = 0,
+    PDXE_QN_MEMBER = 1,
+    PDXE_QN_EXTENDED = 2,
+    PDXE_QN_PREFIX = 3
+};
+
 typedef struct {
     const char *name;
-    const char *qualified_name;
+    const char *qn_text;
+    uint32_t qn_base;
+    uint32_t qn_form;
+    uint32_t qn_keep;
+    uint32_t parent_index;
     const char *kind;
     const char *engine_kind;
-    const char *signature;
+    pdxe_text signature;
     const char *doc;
     pdxe_span span;
     pdxe_span body_span;
-    uint32_t parent_index;
     uint8_t visibility;
     uint8_t is_test;
     uint8_t is_entry_point;
@@ -248,17 +322,22 @@ enum pdxe_lexical_fact {
  * One argument the engine captured at a call: its expression as written, the string
  * value it resolves to where the engine resolved one (a literal, or a constant it
  * followed), the keyword for a keyword argument, and its 0-based position. Appended by
- * a specification change; see docs/plan/ISSUES.md, issue 47.
+ * a specification change; see docs/plan/ISSUES.md, issue 47. The expression is a range
+ * of the source, or owned text for an argument read after C-family macro expansion;
+ * never PDXE_TEXT_NONE (issue 90).
  */
 typedef struct {
-    const char *expr;
+    pdxe_text expr;
     const char *value;
     const char *keyword;
     uint32_t index;
 } pdxe_call_arg;
 
+/* The callee text is a range of the source where the callee is spelled out in it, owned
+ * where the engine assembled a name (an operator, a desugared call) or read it after
+ * C-family macro expansion; never PDXE_TEXT_NONE (issue 90). */
 typedef struct {
-    const char *callee_text;
+    pdxe_text callee_text;
     const char *receiver_text;
     uint32_t caller_index;
     pdxe_span span;
@@ -289,9 +368,11 @@ typedef struct {
     pdxe_span span;
 } pdxe_import;
 
-/* A use of a name as a value. `lexical` as for calls. */
+/* A use of a name as a value. `lexical` as for calls. The name is a range of the source
+ * where it is spelled out there (a Python attribute chain included), owned otherwise;
+ * never PDXE_TEXT_NONE (issue 90). */
 typedef struct {
-    const char *name;
+    pdxe_text name;
     uint32_t scope_index;
     pdxe_span span;
     uint16_t lexical;
@@ -424,10 +505,26 @@ typedef struct {
     uint32_t n_impl_traits;
 } pdxe_file_result;
 
+/*
+ * Extracts one file. The result's PDXE_TEXT_SOURCE ranges are ranges of `bytes`; the
+ * result keeps no pointer into them, so the caller may free them, and reads each range
+ * from its own copy.
+ */
 int pdxe_extract_file(pdxe_ctx *ctx, int lang, const char *rel_path, const uint8_t *bytes,
                       size_t len, pdxe_file_result **out);
 
 void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r);
+
+/*
+ * The qualified name of defs[index], spelled out: its length in `*len` (the NUL not
+ * counted), and as much of it as fits in `cap` bytes written to `out`, NUL-terminated
+ * whenever `cap` is not 0. PDXE_E_INVALID when `index` is past `n_defs`, or when a
+ * definition on the way has an unknown form, a base that is not earlier than itself,
+ * a missing string, or (PDXE_QN_PREFIX) a `qn_keep` that is not a `.` its base adds.
+ * The work is linear in the definitions on the way and the name's length.
+ */
+int pdxe_qualified_name(const pdxe_definition *defs, uint32_t n_defs, uint32_t index, char *out,
+                        size_t cap, size_t *len);
 
 /*
  * Rebuilds a result from parts held in a cache, so that a file whose content has
@@ -447,8 +544,17 @@ void pdxe_result_free(pdxe_ctx *ctx, pdxe_file_result *r);
  * (issues 46 and 47). A definition's routes are copied, the array, each route's strings
  * and node-type path; routes counted with no array, a route missing its method, path or
  * callee text, or a path counted with no array or holding a NULL, are refused (issue 54).
+ *
+ * Text is copied as it is given (issue 90): a source range stays a range of the file's
+ * source of `source_len` bytes, and owned text is copied. A text of an unknown kind, a
+ * non-zero `reserved`, a range with its start past its end or its end past
+ * `source_len`, owned text with no string, PDXE_TEXT_NONE where text is required (a
+ * call's callee, an argument's expression, a usage's name), and a qualified name whose
+ * form is unknown, whose base is not an earlier definition, whose string is missing, or
+ * whose `qn_keep` is not a `.` its base adds (PDXE_QN_PREFIX) or not 0 (any other form),
+ * are refused.
  */
-int pdxe_result_build(pdxe_ctx *ctx, const pdxe_definition *defs, uint32_t n_defs,
+int pdxe_result_build(pdxe_ctx *ctx, size_t source_len, const pdxe_definition *defs, uint32_t n_defs,
                       const pdxe_call *calls, uint32_t n_calls, const pdxe_import *imports,
                       uint32_t n_imports, const pdxe_usage *usages, uint32_t n_usages,
                       const pdxe_type_ref *types, uint32_t n_types, const pdxe_rw *rws,
@@ -702,7 +808,8 @@ typedef struct {
     /*
      * The call site itself, as extraction describes it at `call_index`, or as typed
      * resolution found it when the index is past the end of extraction's calls.
-     * Appended by a specification change; see docs/plan/ISSUES.md, issue 17.
+     * Appended by a specification change; see docs/plan/ISSUES.md, issue 17. Its source
+     * ranges are ranges of the source `rel_path` was added with (issue 90).
      */
     pdxe_call site;
 } pdxe_resolution;
@@ -725,6 +832,13 @@ void pdxe_resolve_project_end(pdxe_project *p);
  * bytes the extraction cache keeps beside the file's other parts. Opaque to the caller.
  * Its strings are the engine's byte for byte, so it is JSON in shape but not strict
  * JSON when the file's text is not valid UTF-8.
+ *
+ * Like a result, it holds no copy of the file's text (issue 90): text that is a run of
+ * the source is held as its range, a qualified name by its relation to an earlier
+ * definition's, and a name equal to a definition's qualified name by that definition.
+ * It records the source's length; its ranges are checked against that length when it
+ * is imported, and bound to the source the file is added with when the project runs,
+ * which fails with PDXE_E_INVALID for a source of another length.
  *
  * Typed resolution runs over the whole repository on every build, so its answers
  * never depend on an earlier build. A file whose content has not changed is not

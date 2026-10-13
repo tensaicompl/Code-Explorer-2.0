@@ -342,14 +342,33 @@ typedef struct {
      * above keep the first, as before. Kept at the tail, as impl_trait is. */
     PDXERouteFact *routes;
     int route_count;
+    /* Issue 90: the parameter list as a range of the raw source when `signature` is
+     * NULL and the range is not empty; never copied, since parameters can hold whole
+     * definitions (a JavaScript function as a default) whose own would repeat them. A
+     * definition read after macro expansion, or with an empty parameters node, holds
+     * its copy in `signature` and no range. Kept at the tail, as impl_trait is. */
+    uint32_t signature_start;
+    uint32_t signature_end;
 } PDXEDefinition;
 
-/* Argument captured from a call expression */
+/* Issue 90: the definition records a parameter list, as a range or a copy. */
+static inline bool pdxe_def_has_signature(const PDXEDefinition *d) {
+    return d->signature != NULL || d->signature_end > d->signature_start;
+}
+
+/* Argument captured from a call expression. Its expression text is the source bytes
+ * [expr_start, expr_end) when `expr` is NULL, never copied (issue 90): an argument
+ * holding a call holding an argument would otherwise repeat the text it nests. Only
+ * text read from a buffer that is not the file's own (the C-family macro-expanded one)
+ * is copied into `expr`, with the range 0. A range is the copy's exact bytes: it ends
+ * at the first NUL, as the copy did. */
 typedef struct {
-    const char *expr;    // raw expression text ("payload.info", "MY_URL", "'hello'")
+    const char *expr;    // expression text read from another buffer, or NULL (see above)
     const char *value;   // resolved string value or NULL (constant propagation)
     const char *keyword; // keyword name if keyword arg ("url", "topic_id"), NULL if positional
     int index;           // positional index (0-based)
+    uint32_t expr_start; // the expression's range in the file's source, when expr is NULL
+    uint32_t expr_end;
 } PDXECallArg;
 
 #define PDXE_MAX_CALL_ARGS 8

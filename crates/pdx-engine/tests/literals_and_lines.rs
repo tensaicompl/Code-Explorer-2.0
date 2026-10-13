@@ -57,7 +57,11 @@ void lines(void) {{ WIDE_LINE(); HUGE_LINE(); }}
 fn callees(language: &str, rel_path: &str, source: &[u8]) -> Vec<String> {
     let engine = Engine::new().unwrap();
     let extract = engine.extract(language, rel_path, source).unwrap();
-    extract.calls.into_iter().map(|c| c.callee_text).collect()
+    extract
+        .calls
+        .iter()
+        .map(|c| extract.text(&c.callee_text).into_owned())
+        .collect()
 }
 
 #[test]

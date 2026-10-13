@@ -26,6 +26,12 @@
  * same float, and a value that is not finite as the string "nonfinite", which the
  * harness refuses. Qualified names are written as the engine holds them, project
  * name included; the harness removes it.
+ *
+ * Text is written as text whatever holds it (issue 90): an argument or a parameter list
+ * the vendored engine holds as a range of the file's source is written as those bytes,
+ * so both engines' rows compare text, never a representation. The reference engine
+ * copies every argument and parameter list and has no ranges: its hook defines
+ * DR_REFERENCE_ENGINE, so its build compiles no range branch, and passes no source.
  */
 
 #ifndef PDX_DIFFERENTIAL_ROWS_H
@@ -48,6 +54,23 @@ static void dr_str(FILE *o, const char *s) {
             fputc(*p, o);
         } else {
             fprintf(o, "\\u%04x", *p);
+        }
+    }
+    fputc('"', o);
+}
+
+/* `len` bytes of text, which hold no NUL, written as dr_str writes a string. */
+static inline void dr_bytes(FILE *o, const char *s, size_t len) {
+    fputc('"', o);
+    for (size_t i = 0; i < len; i++) {
+        unsigned char c = (unsigned char)s[i];
+        if (c == '"' || c == '\\') {
+            fputc('\\', o);
+            fputc(c, o);
+        } else if (c >= 0x20 && c < 0x7f) {
+            fputc(c, o);
+        } else {
+            fprintf(o, "\\u%04x", c);
         }
     }
     fputc('"', o);
@@ -117,7 +140,8 @@ static void dr_begin(FILE *o, const char *category, const char *rel_path) {
     dr_kstr(o, "file", rel_path);
 }
 
-static void dr_definition(FILE *o, const char *rel, const PDXEDefinition *d) {
+static void dr_definition(FILE *o, const char *rel, const PDXEDefinition *d,
+                          const char *source) {
     dr_begin(o, "definition", rel);
     dr_kstr(o, "label", d->label);
     dr_kstr(o, "name", d->name);
@@ -125,7 +149,16 @@ static void dr_definition(FILE *o, const char *rel, const PDXEDefinition *d) {
     dr_kstr(o, "def_file", d->file_path);
     dr_kint(o, "start_line", d->start_line);
     dr_kint(o, "end_line", d->end_line);
-    dr_kstr(o, "signature", d->signature);
+#ifndef DR_REFERENCE_ENGINE
+    if (!d->signature && d->signature_end > d->signature_start && source) {
+        dr_key(o, "signature");
+        dr_bytes(o, source + d->signature_start, d->signature_end - d->signature_start);
+    } else
+#endif
+    {
+        (void)source;
+        dr_kstr(o, "signature", d->signature);
+    }
     dr_kstr(o, "return_type", d->return_type);
     dr_kstr(o, "receiver", d->receiver);
     dr_kstr(o, "docstring", d->docstring);
@@ -166,7 +199,7 @@ static void dr_definition(FILE *o, const char *rel, const PDXEDefinition *d) {
     fputs("}\n", o);
 }
 
-static void dr_call(FILE *o, const char *rel, const PDXECall *c) {
+static void dr_call(FILE *o, const char *rel, const PDXECall *c, const char *source) {
     dr_begin(o, "call", rel);
     dr_kstr(o, "caller", c->enclosing_func_qn);
     dr_kstr(o, "callee", c->callee_name);
@@ -183,7 +216,16 @@ static void dr_call(FILE *o, const char *rel, const PDXECall *c) {
         fputs(i ? ",{" : "{", o);
         fputs("\"index\":", o);
         fprintf(o, "%d", a->index);
-        dr_kstr(o, "expr", a->expr);
+#ifndef DR_REFERENCE_ENGINE
+        if (!a->expr && source) {
+            dr_key(o, "expr");
+            dr_bytes(o, source + a->expr_start, a->expr_end - a->expr_start);
+        } else
+#endif
+        {
+            (void)source;
+            dr_kstr(o, "expr", a->expr);
+        }
         dr_kstr(o, "value", a->value);
         dr_kstr(o, "keyword", a->keyword);
         fputc('}', o);
@@ -237,7 +279,10 @@ static void dr_typed(FILE *o, const char *rel, const PDXEResolvedCall *t) {
 }
 
 /* Every row of one file's result. */
-static void diff_rows_file(FILE *o, const char *rel, const PDXEFileResult *r) {
+/* `source` is the file's source, for text the engine holds as a range; NULL where it
+ * holds none. */
+static void diff_rows_file(FILE *o, const char *rel, const PDXEFileResult *r,
+                           const char *source) {
     dr_begin(o, "file", rel);
     dr_kstr(o, "module_qn", r->module_qn);
     dr_kstr(o, "namespace_name", r->namespace_name);
@@ -249,10 +294,10 @@ static void diff_rows_file(FILE *o, const char *rel, const PDXEFileResult *r) {
     dr_strv(o, r->exports);
     fputs("}\n", o);
     for (int i = 0; i < r->defs.count; i++) {
-        dr_definition(o, rel, &r->defs.items[i]);
+        dr_definition(o, rel, &r->defs.items[i], source);
     }
     for (int i = 0; i < r->calls.count; i++) {
-        dr_call(o, rel, &r->calls.items[i]);
+        dr_call(o, rel, &r->calls.items[i], source);
     }
     for (int i = 0; i < r->usages.count; i++) {
         const PDXEUsage *u = &r->usages.items[i];

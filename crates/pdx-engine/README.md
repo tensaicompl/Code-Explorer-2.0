@@ -16,7 +16,9 @@ engine keeps parser state per thread, and a thread can have only one at a time.
 Parallelism belongs to the caller: one engine per thread.
 
 `Engine::extract(language, rel_path, source)` returns a `FileExtract`: everything the
-engine found in the file, owned, in the engine's order:
+engine found in the file, owned, in the engine's order, bound to the source it was
+taken from (`extract_shared` takes an `Arc<[u8]>` the caller already holds rather than
+copying it):
 
 | Field | |
 |---|---|
@@ -28,8 +30,8 @@ engine found in the file, owned, in the engine's order:
 | `declared_namespace` | The package or namespace the file declares, as written, for the languages whose declaration the engine reads (Java, Kotlin, C#, PHP); `None` otherwise. `namespace_evidence(language)` says where a language's evidence is: this field, C++'s qualified names, or nowhere |
 | `definitions` | With normalised kind and the engine's own, spans, parent, visibility, test and entry-point flags, three complexity metrics, and `base_classes`: the bases it names, in the engine's order and spelling, unresolved. `decorators` (annotations, decorators and attributes as written) and `signature_param_types` (the declared parameter types, `?` for an unknown one), as the engine extracted them (issue 47). `routes` (`RouteFact`): every HTTP route binding its annotations or decorators declare (Spring, JAX-RS, FastAPI, Flask, Django REST framework), one per method and path, joined to the class's own mapping, each with its callee as written, the declaration's text, position and node-type path; a path or method that is not a literal gives none (issue 54). The engine's `is_test` flag marks every definition of a test file, helpers included |
 | `impl_traits` | Rust's `impl Trait for Type` blocks (`ImplTrait`: the trait and the type as spelt, without type arguments, and the type's qualified name), empty blocks included, in the engine's order; empty for every other language. Supertraits are not recorded (issue 42) |
-| `calls` | Calls, then callables passed as values (`is_reference`); `typed_only` sites; lexical facts. `caller`: the innermost enclosing definition the extractor represents, never a nested callable it does not (issue 75), joined to it by its declaration occurrence, never by comparing names (issue 76); for a call with no position in the file, the callable its name names. `ast_path`: the node types from that definition's node (the root's, at file scope) down to the site's own, for every site with a position in the file (issue 46); empty for a site found only in preprocessed text. `args` (`CallArg`): each argument's text, its literal value where the engine resolved one, its keyword, and its position (issue 47) |
-| `imports`, `usages` | Usages with their lexical facts |
+| `calls` | Calls, then callables passed as values (`is_reference`); `typed_only` sites; lexical facts. `caller`: the innermost enclosing definition the extractor represents, never a nested callable it does not (issue 75), joined to it by its declaration occurrence, never by comparing names (issue 76); for a call with no position in the file, the callable its name names. `ast_path`: the node types from that definition's node (the root's, at file scope) down to the site's own, for every site with a position in the file (issue 46); empty for a site found only in preprocessed text. `args` (`CallArg`): each argument's text, its literal value where the engine resolved one, its keyword, and its position (issue 47). A callee and an argument's expression are `TextRef`s |
+| `imports`, `usages` | Usages with their lexical facts; a usage's name is a `TextRef` |
 | `type_refs`, `throws`, `read_writes`, `channels`, `env_accesses` | Positionless: the engine records only their scope |
 | `diagnostics` | What the engine reported about the file |
 | `surface` | The file's resolution surface: opaque, and what lets the file be resolved again without being extracted again |
@@ -37,8 +39,31 @@ engine found in the file, owned, in the engine's order:
 A position the engine does not know is `None`; an index of "no enclosing definition"
 is `None`. The wrapper takes every structure of the engine's interface apart field by
 field, so a field the interface gains cannot go missing here without the build
-failing. `FileExtract` is serialisable (serde), for the extraction cache and the
-isolated worker.
+failing.
+
+Text a fact takes from the file is a `TextRef` (issue 90, decision 61): `Source { start,
+end }`, the bytes of the source it was taken from, or `Owned`, text the engine assembled
+or read after C-family macro expansion. A range is never resolved on the way in, out or
+through serialisation; `FileExtract::text` reads it, borrowed (bytes that are not UTF-8
+replaced as the engine's strings always were). A definition's `qualified_name` is a
+`QualifiedName`: `Whole`, `Member { base }` (an earlier definition's name, `.`, its own
+name), `Extended { base, rest }` or `Prefix { base, keep, rest }` (the first `keep`
+bytes of an earlier definition's name, ending before a `.` it adds, then `rest`: C++
+functions in nested namespaces, which are no definitions), never a whole name repeated
+for each nested definition; a definition's `signature`, its parameter list, is a
+`TextRef` too; `qualified_name(i)` spells one out, `qualified_name_parts(i)` gives its pieces
+in order, and `qualified_names()` spells every name of a file once, for a consumer that
+needs them all (node identities, the registry's index). A range's coordinates are
+equality only within one extraction: compare text across extractions by what `text`
+gives.
+
+What is stored and sent is the `ExtractRecord` (`record()`, `into_record()`):
+serialisable (serde, postcard), with no source in it. `ExtractRecord::bind(source)`
+binds a record to the bytes it was taken from, checking their length and digest and that
+every range lies within them, every qualified name's base is an earlier definition and
+every prefix ends before a `.` its base adds (in the base's own bytes, so the check is
+linear); anything else is a `BindError`, never clamped. The engine's own records are
+checked the same way when converted.
 
 ### The engine's switches
 
@@ -91,11 +116,13 @@ ordinary child processes on every system.
 
 The protocol is length-prefixed postcard frames (decision 19), with a size limit, each
 encoded straight into the pipe so a batch's sources are not copied on the way; the
-worker names its protocol (6: since a definition carries every route binding with its
-declaring node, after 5 for sites' node-type paths, arguments, decorators, parameter
-types and one route, 4 for `impl Trait for Type` relations and 3 for bases and declared
-namespaces) and engine
-version first and is refused if they differ.
+worker names its protocol (7: since the worker answers with records whose text is ranges
+of the source sent, which the parent binds to that source, never receiving it back,
+after 6 for every route binding with its declaring node, 5 for sites' node-type paths,
+arguments, decorators, parameter types and one route, 4 for `impl Trait for Type`
+relations and 3 for bases and declared namespaces) and engine version first and is
+refused if they differ. An answer that does not bind to the source sent for it is no
+answer of the protocol: the exchange fails as a worker dying does.
 
 Every exchange with a worker, its introduction included, is bounded in time: the
 request written and the response read within `DEFAULT_EXCHANGE_TIMEOUT` (120 s), or
@@ -140,13 +167,19 @@ cargo test -p pdx-engine
 | `scanner_state` | Issue 91, the same on every platform: 510 bytes of compact YAML sequences, which wrote past the parser's state buffer and crashed the process, are a partial parse with no work lost (`the_old_crash_is_a_partial_parse`); YAML mappings and sequences, Markdown quotes and lists, Kotlin string templates and Python blocks nested either side of their scanners' bounds extract, the same on every run (`each_scanner_extracts_either_side_of_its_ceiling_the_same_on_every_run`). The bounds themselves are tested on the scanners' own code in `engine/tests/scanner_state.c` |
 | `site_path_budget` | Issue 88, the same on every platform: statements of 100 nested calls in C, Python, Java and JavaScript pass the file's 500,000-entry path budget; every call remains, every path kept is complete (from the owner's node type to the call's), none follows the first absent one, and the budget loses work exactly once more than the same function under it (`a_files_paths_are_bounded_complete_or_absent_in_every_language`); 40 statements keep every path, 412,000 entries (`a_file_under_the_budget_keeps_every_path`); a site added after the walk keeps the path its owner gives it, exactly as before (`a_late_sites_path_is_the_one_its_owner_gives`) |
 | `preprocess_bounds` | Issue 87, with the same expectations on Linux, macOS and Windows and no variable set: `#line` 400000000, 2147483647 and 4294967295 lose nothing and find exactly what a near `#line` does (`a_far_line_jump_is_a_marker_and_never_a_fact`); doubling macros expand below their ceilings (`a_doubling_macro_expands_below_its_ceilings`), and above them lose work once, keep the source's own facts and are the same on every run (`a_doubling_macro_above_its_ceilings_is_lost_work_once`), as do 2^40 expansions of a macro that expands to nothing (`doubling_macros_that_create_nothing_are_lost_work_once`); a macro nested 256 deep expands and 257 deep is lost work (`nesting_stops_at_its_ceiling_on_every_platform`); 80,000 nested parentheses in an `#if` stop at the folding steps (`nested_parentheses_in_an_if_are_lost_work_once`); `#if` arithmetic wraps, shifts and divides by the 64-bit model and out-of-range literals saturate (`if_arithmetic_is_the_same_on_every_platform`); a negative shift count and a division by zero fail the condition (`an_if_that_cannot_be_evaluated_fails_on_every_platform`) |
+| `source_text` | Issue 90B, decision 61: a call's callee and argument and a Python attribute chain are ranges of the source, macro-expanded C text is owned (`ranges_are_the_text_and_expanded_text_is_owned`); a nested definition's name is a `Member` of its parent's and spells out byte for byte; a record serialises without its source and binds to a fresh copy as the same extraction (`a_record_survives_serialisation_and_binds_to_its_source_again`); another length, other bytes of the same length and a forged digest are refused (`a_record_binds_only_to_its_own_source`); a range past the source or starting past its end, in a callee, a usage or an argument, and a name based on itself or a later definition are refused, never clamped (`a_record_whose_ranges_or_names_do_not_fit_is_refused`); in the four shapes issue 90 measured and the two its audit found, nested 40, 80 and 160 deep, owned text and the encoded record grow with the source (`retained_text_grows_with_the_source_not_the_nesting`); C++ functions in nested namespaces hold prefixes of earlier names, spelled out and bound again byte for byte (`names_in_nested_namespaces_share_their_prefix`), and a prefix ending at no `.`, at or past its base's length, in its base's own base's bytes, of nothing, or with a rest after no `.` is refused (`a_prefix_that_is_not_one_its_base_adds_is_refused`); parameter lists are ranges, a JavaScript function given as a default included, and an adopted C++ method's is owned (`parameter_lists_are_ranges_and_expanded_ones_owned`) |
 | `literals_and_lines` | Issue 86: character constants and `#line` numbers take the fixed rules with the same expectations on Linux, macOS and Windows: `#if '\xff' < 0` takes the signed branch, `'\x80'` is -128 and a multi-character constant a 32-bit int (`character_constants_take_the_signed_char_rule_on_every_platform`); `#line 2147483648` gives that line and `#line 4294967296` gives 4294967295, reached in files of their own so that nothing is padded (`line_numbers_take_the_fixed_rule_on_every_platform`) |
 
 The isolation tests are in the `pdx` crate, whose binary is the worker:
 `engine_isolate_recovers`, `isolation_does_not_change_what_is_extracted`,
 `isolation_carries_site_paths_and_derivation_facts`,
-`engine_isolate_times_out_and_reaps_worker` (a worker spinning on a file is stopped
+`isolation_carries_text_as_ranges_bound_to_the_source_sent` (a worker's answer holds
+its texts as ranges, bound in the parent to the source it sent: the same extraction
+as in process), `engine_isolate_times_out_and_reaps_worker` (a worker spinning on a file is stopped
 and reaped, the error is a timeout and not a crash, and the extractor works
 afterwards), `a_worker_that_never_introduces_itself_times_out` (Unix), and
 `extraction_lost_is_what_the_surface_carries` (a worker's lost work, resolved in the
-parent, is the run's lost work).
+parent, is the run's lost work). The worker's protocol is tested in `isolate.rs` itself:
+`a_worker_of_another_protocol_is_refused` (protocol 6 among them) and
+`a_worker_answers_in_proportion_to_the_facts` (an answer's size, for Python attribute
+chains 40, 80 and 160 deep, grows with the facts and not the chains' text).

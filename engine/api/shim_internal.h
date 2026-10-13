@@ -10,6 +10,8 @@
 #ifndef PDXE_SHIM_INTERNAL_H
 #define PDXE_SHIM_INTERNAL_H
 
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "pdxe.h"
@@ -89,10 +91,80 @@ void pdxe_pipeline_set_pkgmap(struct PDXEHashTable *map);
  * how much work extraction lost on it (lost_work.h), which a run counts as its own.
  */
 struct PDXEFileResult;
+/*
+ * Issue 90: `source` is the file's source the result was extracted from, `source_len`
+ * bytes, which the surface's text ranges are ranges of. Decoding checks every range
+ * against the length the surface records and leaves the text it stands for unset in
+ * the result, listed in `*texts`, until pdxe_surface_bind fills it from the source the
+ * file is resolved with: of that length, or the bind fails with PDXE_E_INVALID. The
+ * list is consumed by the bind, or freed with pdxe_surface_texts_free.
+ */
+typedef struct pdxe_surface_texts pdxe_surface_texts;
 int pdxe_surface_encode(const struct PDXEFileResult *r, const char *rel_path, int abi_lang,
-                        uint32_t lost, uint8_t **out, size_t *out_len);
+                        uint32_t lost, const char *source, size_t source_len, uint8_t **out,
+                        size_t *out_len);
 int pdxe_surface_decode(const uint8_t *bytes, size_t len, struct PDXEFileResult **out,
-                        char **rel_path, int *abi_lang, uint32_t *lost);
+                        char **rel_path, int *abi_lang, uint32_t *lost,
+                        pdxe_surface_texts **texts);
+int pdxe_surface_bind(struct PDXEFileResult *r, pdxe_surface_texts *texts, const char *source,
+                      size_t source_len);
+void pdxe_surface_texts_free(pdxe_surface_texts *texts);
+
+/*
+ * Issue 90: whether `s` is exactly the bytes of `source` that begin at `start` inside a
+ * fact's site [start, limit): then `*end` is where they end, and [start, *end) is the
+ * text's range. One rule for the interface and the surface.
+ */
+bool pdxe_text_in_site(const char *source, size_t source_len, const char *s, uint32_t start,
+                       uint32_t limit, uint32_t *end);
+
+/*
+ * Issue 90: one file's definitions' qualified names, each to the first definition that
+ * has it, and the choice of the earlier definition each name is given relative to.
+ * pdxe_qn_choose takes `qns`, every definition's qualified name by index, and is called
+ * for each definition in order, `self` 0 first. It returns definition `self`'s form:
+ * PDXE_QN_MEMBER, with *base, when its name is an earlier definition's, `.`, then
+ * `name`; PDXE_QN_EXTENDED, with *base and *rest, when it is an earlier definition's
+ * name followed by a rest that is empty or begins with an ASCII byte; PDXE_QN_PREFIX,
+ * with *base, *keep and *rest, when it is the first *keep bytes of an earlier
+ * definition's name, ending before a `.` that definition adds itself, followed by a
+ * rest that is empty or begins with `.`; else PDXE_QN_WHOLE.
+ *
+ * The base tried first is the definition its name names once its final `.` and `name`
+ * are taken off (a nested class's enclosing class, which the engine does not record as
+ * its parent), then `parent`, then `module`. A prefix is taken instead only when it
+ * leaves strictly fewer bytes to hold: the longest `.`-bounded prefix of the name that
+ * an earlier definition added, found by hashing the name's prefixes once, never by
+ * copying them. Each name then records the `.`-bounded prefixes it adds beyond its
+ * base, so every prefix recorded lies in the bytes its definition adds, and the bytes
+ * held over a file are at most the names' segments that are new: linear in the file
+ * however deeply its namespaces nest. One rule for the interface and the surface.
+ */
+typedef struct {
+    uint64_t hash;
+    const char *text; /* a definition's qualified name; NULL for an empty slot */
+    uint32_t len;     /* the prefix: its first `len` bytes */
+    uint32_t def;
+    bool whole;       /* the prefix is the definition's whole name */
+} pdxe_qn_prefix;
+typedef struct {
+    struct PDXEHashTable *names;
+    char *key;
+    size_t key_cap;
+    pdxe_qn_prefix *prefixes; /* open addressing; a power of two, at most half full */
+    size_t prefix_cap;
+    size_t n_prefixes;
+    uint32_t *bounds; /* the name at hand's `.`-bounded prefix lengths, and its own */
+    uint64_t *hashes; /* and their hashes */
+    size_t bounds_cap;
+} pdxe_qn_index;
+bool pdxe_qn_index_init(pdxe_qn_index *x, const char *const *qns, uint32_t n);
+void pdxe_qn_index_free(pdxe_qn_index *x);
+/* The first definition whose qualified name is `qn`, or UINT32_MAX. */
+uint32_t pdxe_qn_index_find(const pdxe_qn_index *x, const char *qn);
+int pdxe_qn_choose(pdxe_qn_index *x, const char *const *qns, const char *name, uint32_t self,
+                   uint32_t parent, uint32_t module, uint32_t *base, uint32_t *keep,
+                   const char **rest);
 
 /*
  * Every resolution the typed pass wrote, before the interface filters and attributes

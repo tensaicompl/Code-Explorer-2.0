@@ -7,7 +7,7 @@ use std::path::Path;
 
 use pdx_engine::{
     Engine, EngineError, FileExtract, LexicalFacts, ProjectResolution, ProjectResolver, RunStatus,
-    SourceDifference, SourceDigest, Strategy,
+    SourceDifference, SourceDigest, Strategy, TextRef,
 };
 
 /// Resolves a fixture from fresh extractions: each file extracted by the resolver's
@@ -30,8 +30,7 @@ fn cached(engine: &Engine, dir: &Path, extracts: &[FileExtract]) -> ProjectResol
     let mut resolver = ProjectResolver::new(engine).unwrap();
     for (extract, (rel, _, source)) in extracts.iter().zip(common::source_files(dir)) {
         assert_eq!(extract.rel_path, rel);
-        let bytes = postcard::to_stdvec(extract).unwrap();
-        let from_cache: FileExtract = postcard::from_bytes(&bytes).unwrap();
+        let from_cache = common::round_trip(extract);
         resolver.add_file(&from_cache, &source).unwrap();
     }
     if let Some(m) = common::metadata(dir) {
@@ -85,7 +84,11 @@ fn resolving_cached_extractions_gives_the_fresh_answers() {
 fn an_answer_carries_its_site_and_both_strategies() {
     let engine = Engine::new().unwrap();
     let dir = common::fixtures().join("resolve/python_cross_file_calls");
-    let (_, run) = fresh(&engine, &dir);
+    let (extracts, run) = fresh(&engine, &dir);
+    let service = extracts
+        .iter()
+        .find(|e| e.rel_path == "app/service.py")
+        .expect("the service");
     let call = run
         .resolutions
         .iter()
@@ -95,7 +98,9 @@ fn an_answer_carries_its_site_and_both_strategies() {
     assert_eq!(call.engine_strategy.as_deref(), Some("lsp_callable_alias"));
     assert_eq!(call.target_rel_path.as_deref(), Some("app/models.py"));
     assert_eq!(call.candidates, 1);
-    assert_eq!(call.site.callee_text, "make_user");
+    // The site's text is a range of its own file's source (issue 90).
+    assert!(matches!(call.site.callee_text, TextRef::Source { .. }));
+    assert_eq!(service.text(&call.site.callee_text), "make_user");
     assert!(!call.site.is_reference);
     assert!(call.site.span.is_some());
 

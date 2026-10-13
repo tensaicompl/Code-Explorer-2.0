@@ -4,6 +4,7 @@ use std::cell::Cell;
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
 use std::ptr::{self, NonNull};
+use std::sync::Arc;
 
 use pdx_engine_sys as sys;
 
@@ -110,7 +111,8 @@ impl Engine {
     /// Extracts one file.
     ///
     /// `rel_path` is the file's path relative to the repository, which qualified names
-    /// are built from. The result is complete and owned, surface included.
+    /// are built from. The result is complete and owned, surface included, and bound to
+    /// a copy of `source`: its text ranges are read from it.
     ///
     /// # Errors
     ///
@@ -121,7 +123,21 @@ impl Engine {
         rel_path: &str,
         source: &[u8],
     ) -> Result<FileExtract, EngineError> {
-        let result = self.extract_raw(language, rel_path, source)?;
+        self.extract_shared(language, rel_path, Arc::from(source))
+    }
+
+    /// As [`Engine::extract`], bound to `source` itself rather than a copy of it.
+    ///
+    /// # Errors
+    ///
+    /// As for [`Engine::extract`].
+    pub fn extract_shared(
+        &self,
+        language: &str,
+        rel_path: &str,
+        source: Arc<[u8]>,
+    ) -> Result<FileExtract, EngineError> {
+        let result = self.extract_raw(language, rel_path, &source)?;
         result.to_extract(language, rel_path, source)
     }
 
@@ -238,13 +254,13 @@ impl<'e> RawResult<'e> {
         Ok(Surface::new(copy))
     }
 
-    /// The whole result, surface included, as an owned extraction. `source` is the
+    /// The whole result, surface included, as an owned extraction bound to `source`, the
     /// exact bytes the result was extracted from, which the extraction is identified by.
     pub(crate) fn to_extract(
         &self,
         language: &str,
         rel_path: &str,
-        source: &[u8],
+        source: Arc<[u8]>,
     ) -> Result<FileExtract, EngineError> {
         let surface = self.surface(rel_path)?;
         // SAFETY: the result is alive until self is dropped, after this returns.

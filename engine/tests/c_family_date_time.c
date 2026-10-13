@@ -118,7 +118,7 @@ static char *extract(int lang, const char *rel, const char *source) {
     char numeric[256];
     snprintf(numeric, sizeof(numeric), "%s", setlocale(LC_NUMERIC, NULL));
     setlocale(LC_NUMERIC, "C");
-    diff_rows_file(o, rel, engine);
+    diff_rows_file(o, rel, engine, source);
     setlocale(LC_NUMERIC, numeric);
     fputs("{\"c\":\"surface\",\"json\":", o);
     fwrite(surface, 1, surface_len, o);

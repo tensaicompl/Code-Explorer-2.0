@@ -10,7 +10,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use pdx_engine::{Definition, DefinitionKind, FileStatus as EngineStatus, Visibility};
+use pdx_engine::{
+    Definition, DefinitionKind, FileStatus as EngineStatus, QualifiedNames, Visibility,
+};
 use serde_json::Value;
 
 use crate::ids::{NodeKey, overload_disambiguators};
@@ -237,6 +239,7 @@ fn folders_and_files(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(),
 /// numbered the same way.
 fn identities(
     extract: &pdx_engine::FileExtract,
+    names: &QualifiedNames,
     path: &str,
     language: &str,
     tests: &BTreeSet<DefinitionRef>,
@@ -260,10 +263,10 @@ fn identities(
         })
         .collect();
     let mut groups: BTreeMap<(&'static str, &str), Vec<usize>> = BTreeMap::new();
-    for (i, d) in extract.definitions.iter().enumerate() {
-        if let Some(kind) = kinds[i] {
+    for (i, kind) in kinds.iter().enumerate() {
+        if let Some(kind) = kind {
             groups
-                .entry((kind.as_str(), d.qualified_name.as_str()))
+                .entry((kind.as_str(), names.get(i)))
                 .or_default()
                 .push(i);
         }
@@ -308,25 +311,24 @@ fn definitions(
         index: u32::try_from(index).unwrap_or(u32::MAX),
     };
 
-    let (kinds, disambiguators) = identities(extract, path, language, tests)?;
+    // Every qualified name spelled out once: a node's identity hashes it whole, and its
+    // row stores it (issue 90).
+    let names = extract.qualified_names();
+    let (kinds, disambiguators) = identities(extract, &names, path, language, tests)?;
 
     // Ids first, so a parent is known whatever order definitions come in.
     let mut ids = Vec::with_capacity(extract.definitions.len());
-    for (i, d) in extract.definitions.iter().enumerate() {
+    for i in 0..extract.definitions.len() {
         let r = reference(i);
         let id = match kinds[i] {
             None => {
                 graph.file_definitions.insert(r.clone());
                 file_node.clone()
             }
-            Some(kind) => NodeKey::definition(
-                input.repo,
-                kind,
-                path,
-                &d.qualified_name,
-                &disambiguators[i],
-            )
-            .node_id()?,
+            Some(kind) => {
+                NodeKey::definition(input.repo, kind, path, names.get(i), &disambiguators[i])
+                    .node_id()?
+            }
         };
         graph.definition_nodes.insert(r, id.clone());
         ids.push(id);
@@ -336,13 +338,7 @@ fn definitions(
         let Some(kind) = kinds[i] else {
             continue;
         };
-        let key = NodeKey::definition(
-            input.repo,
-            kind,
-            path,
-            &d.qualified_name,
-            &disambiguators[i],
-        );
+        let key = NodeKey::definition(input.repo, kind, path, names.get(i), &disambiguators[i]);
         let mut node = Node::new(&key, &d.name)?;
         node.file_id = Some(file_node.clone());
         node.parent_id = Some(match d.parent.and_then(|p| ids.get(p as usize)) {
@@ -351,7 +347,8 @@ fn definitions(
         });
         node.start_line = d.span.map(|s| s.start_line);
         node.end_line = d.span.map(|s| s.end_line);
-        node.signature.clone_from(&d.signature);
+        // The node's column holds the text: spelled out here, once (issue 90).
+        node.signature = d.signature.as_ref().map(|t| extract.text(t).into_owned());
         node.doc.clone_from(&d.doc);
         node.props
             .insert("engine_kind", Value::from(d.engine_kind.as_str()));

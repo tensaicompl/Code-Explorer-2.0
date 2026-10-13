@@ -30,7 +30,20 @@ use pdx_core::index::extract::{
 };
 use pdx_core::secrets::{PRIVATE_KEY_LABELS, SecretPolicyDigest};
 use pdx_engine::isolate::{ExtractFailure, ExtractOutcome, Extractor, IsolationError, SourceFile};
-use pdx_engine::{Engine, EngineError, FileExtract, FileStatus, NODE_BUDGET_ENV, SourceDigest};
+use pdx_engine::{
+    Engine, EngineError, ExtractRecord, FileExtract, FileStatus, NODE_BUDGET_ENV, SourceDigest,
+    TextRef,
+};
+
+/// `extract` with its record changed by `f` and bound again to its source, as a twisted
+/// backend answers.
+fn twist(extract: &mut FileExtract, f: impl FnOnce(&mut ExtractRecord)) {
+    let mut record = extract.record().clone();
+    f(&mut record);
+    *extract = record
+        .bind(extract.shared_source())
+        .expect("a twist keeps the source");
+}
 
 // --- fixtures ----------------------------------------------------------------------
 
@@ -195,9 +208,9 @@ impl ExtractBackend for Counting {
                         continue;
                     };
                     match p.twist {
-                        Twist::Truncate => extract.truncated = true,
-                        Twist::LoseWork => extract.extraction_lost = 3,
-                        Twist::StatusFailed => extract.status = FileStatus::Failed,
+                        Twist::Truncate => twist(extract, |r| r.truncated = true),
+                        Twist::LoseWork => twist(extract, |r| r.extraction_lost = 3),
+                        Twist::StatusFailed => twist(extract, |r| r.status = FileStatus::Failed),
                         Twist::FailOn(name) if file.rel_path == name => {
                             *outcome = ExtractOutcome::Failed(ExtractFailure::Engine(
                                 EngineError::Internal,
@@ -717,8 +730,8 @@ fn cache_object_id_fixed_vector() {
     assert_eq!(key.engine_version, ENGINE_VERSION);
     assert_eq!(key.language_matrix_version, LANGUAGE_MATRIX_VERSION);
     assert_eq!(
-        EXTRACT_CACHE_FORMAT_VERSION, 5,
-        "the vector below is format 5's"
+        EXTRACT_CACHE_FORMAT_VERSION, 6,
+        "the vector below is format 6's"
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
@@ -729,19 +742,20 @@ fn cache_object_id_fixed_vector() {
         SECRET_DETECTOR_VERSION, 4,
         "the vector below is detector 4's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 5, 7 and 2, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 6, 7 and 2, the policy digest
     // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
-    // 3's to 6's are in cache_key_includes_engine_version. Detector 3's was
+    // 3's to 6's are in cache_key_includes_engine_version. Format 5's (texts copied,
+    // before issue 90) was 59c9f740…550a: the format moved every key. Detector 3's was
     // c1c95f71…8e28 and detector 2's 6ff3be1c…d177: each policy moved every key, and
     // the format did not move.
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "59c9f740b209487b952943927cf2d43873b91d1f7b8bbf949f33d47b59b7550a"
+        "24ad54eb9a537935eb70e65bd3ec3b856f3bab753788b0ff1a4dad86b4dc5e31"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v5").join("59").join(&id));
+    assert_eq!(path, Path::new("cache").join("v6").join("24").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -753,8 +767,10 @@ fn cache_object_id_fixed_vector() {
 #[test]
 fn cache_key_includes_engine_version() {
     // An engine whose output can differ is another key: what engines 3 to 6 cached is
-    // never found by engine 7, and the cache format stays 5 (issues 74 to 76 and 83).
-    // Independently computed, as the vector above, with each engine version.
+    // never found by engine 7 (issues 74 to 76 and 83). Independently computed, as the
+    // vector above, with each engine version, under format 6 (issue 90); format 5's
+    // were 088819a1…0d81, ba0eb494…1508, 582d9e04…2bd4, c44fe667…0069 and
+    // 59c9f740…550a.
     let key = CacheKey::new(
         SecretPolicyDigest::of(&PdxConfig::default().secrets),
         "python",
@@ -766,23 +782,23 @@ fn cache_key_includes_engine_version() {
     for (engine, expected) in [
         (
             3,
-            "088819a16f0e7ea2db898b4c188e0f71e1e91b6560a8fd4945c24c173dd80d81",
+            "3fa196f407bcfa0bf93bf797091563fa715c8d01f5c280a13dfa006d48ca50cb",
         ),
         (
             4,
-            "ba0eb49490a193a5bd3e296d630ef793b1b340aca73a138a8234e9474ce61508",
+            "23be5c371a5d1c0bf0536f41753d63167901127e216caf17c72b7f547ff6785d",
         ),
         (
             5,
-            "582d9e04b87ea15ae0be90d6148ac695df5f3f50702a667d2510b4bee43a2bd4",
+            "b7bbfafb4910209c643fe34ed3fde0cf3814d0ae87b9ff8c17a0ef1bda90c8b0",
         ),
         (
             6,
-            "c44fe66761974e125a70281ccdcb36a855b93278cc9fe4fd41364a56a8f50069",
+            "37947f52c28f43440efef43287c1fdbbf0202c9db3b81037982cde1922807ffd",
         ),
         (
             7,
-            "59c9f740b209487b952943927cf2d43873b91d1f7b8bbf949f33d47b59b7550a",
+            "24ad54eb9a537935eb70e65bd3ec3b856f3bab753788b0ff1a4dad86b4dc5e31",
         ),
     ] {
         let mut versioned = key.clone();
@@ -793,7 +809,7 @@ fn cache_key_includes_engine_version() {
             "engine {engine}"
         );
         let path = cache.object_path(&versioned);
-        assert!(path.starts_with(Path::new("cache").join("v5")), "{path:?}");
+        assert!(path.starts_with(Path::new("cache").join("v6")), "{path:?}");
         ids.push(versioned.object_id());
     }
     assert_eq!(key.object_id(), ids[4], "the current key is engine 7's");
@@ -1035,13 +1051,13 @@ fn cache_rejects_unclean_entries() {
         extract_of(&run(&checkout, None, &probe), "src/app.py").clone()
     };
     for unclean in [
-        FileExtract {
+        ExtractRecord {
             truncated: true,
-            ..clean.clone()
+            ..clean.record().clone()
         },
-        FileExtract {
+        ExtractRecord {
             extraction_lost: 1,
-            ..clean.clone()
+            ..clean.record().clone()
         },
     ] {
         let cache = Cache::new();
@@ -1052,7 +1068,7 @@ fn cache_rejects_unclean_entries() {
         assert_eq!(probe.files(), 1);
         assert_eq!(extract_of(&report, "src/app.py"), &clean);
         // Replaced with the clean one.
-        assert_eq!(cache.cache.load(&key), Ok(Some(clean.clone())));
+        assert_eq!(cache.cache.load(&key), Ok(Some(clean.record().clone())));
     }
 }
 
@@ -1067,21 +1083,21 @@ fn cache_rejects_wrong_source_digest() {
     let clean = extract_of(&run(&checkout, Some(&cache), &probe), "src/app.py").clone();
 
     // Entries under the right key that are not this source's extraction.
-    let other_digest = FileExtract {
+    let other_digest = ExtractRecord {
         source_digest: SourceDigest::of(b"other bytes"),
-        ..clean.clone()
+        ..clean.record().clone()
     };
-    let other_len = FileExtract {
+    let other_len = ExtractRecord {
         source_len: clean.source_len + 1,
-        ..clean.clone()
+        ..clean.record().clone()
     };
-    let other_path = FileExtract {
+    let other_path = ExtractRecord {
         rel_path: "src/other.py".into(),
-        ..clean.clone()
+        ..clean.record().clone()
     };
-    let other_language = FileExtract {
+    let other_language = ExtractRecord {
         language: "ruby".into(),
-        ..clean.clone()
+        ..clean.record().clone()
     };
     for (what, wrong) in [
         ("digest", other_digest),
@@ -1095,20 +1111,25 @@ fn cache_rejects_wrong_source_digest() {
         assert_eq!(report.stats.cache_unusable, 1, "{what}");
         assert_eq!(probe.files(), 1, "{what}: the wrong entry was used");
         assert_eq!(extract_of(&report, "src/app.py"), &clean, "{what}");
-        assert_eq!(cache.cache.load(&key), Ok(Some(clean.clone())), "{what}");
+        assert_eq!(
+            cache.cache.load(&key),
+            Ok(Some(clean.record().clone())),
+            "{what}"
+        );
     }
 }
 
 #[test]
-fn cache_format_4_is_a_miss() {
-    // Format 4 held a definition's one route without its declaring node (issue 54);
+fn cache_formats_before_6_are_a_miss() {
+    // Format 5 held every text copied and qualified names whole, with surface 4 (issue
+    // 90); format 4 a definition's one route without its declaring node (issue 54);
     // format 3 calls without their node-type path and arguments and definitions
     // without decorators, parameter types and route (issues 46 and 47); format 2 also
     // extractions without impl relations (issue 42), format 1 definitions without base
     // classes and extractions without a declared namespace. Their entries are never
     // decoded as the current format: not in the directory their format used, which is
     // never read, and not at the current path with their format written in them.
-    for old_format in [1, 2, 3, 4] {
+    for old_format in [1, 2, 3, 4, 5] {
         let checkout = Checkout::new();
         checkout.write("src/app.py", PYTHON);
         let config = checkout.config();
@@ -1120,13 +1141,13 @@ fn cache_format_4_is_a_miss() {
         let old = postcard::to_stdvec(&CacheEnvelope {
             format_version: old_format,
             key: key.clone(),
-            extract: clean.clone(),
+            extract: clean.record().clone(),
         })
         .unwrap();
         let cache = Cache::new();
         let current = cache.cache.object_path(&key);
         let current_text = current.to_string_lossy().replace('\\', "/");
-        assert!(current_text.contains("/v5/"), "{current_text}");
+        assert!(current_text.contains("/v6/"), "{current_text}");
         let old_dir = cache
             .cache
             .root()
@@ -1147,8 +1168,170 @@ fn cache_format_4_is_a_miss() {
         assert_eq!(report.stats.cache_unusable, 1);
         assert_eq!(
             cache.cache.load(&key),
-            Ok(Some(clean)),
+            Ok(Some(clean.record().clone())),
             "the format-{old_format} entry was not replaced"
+        );
+    }
+}
+
+#[test]
+fn a_cache_hit_is_bound_to_the_source_being_extracted() {
+    // An entry holds the record, its text as ranges of the source (issue 90): a hit is
+    // bound to the bytes this run read and normalised, and reads exactly what a fresh
+    // extraction reads. A file whose bytes change is another key, and never served.
+    let checkout = Checkout::new();
+    checkout
+        .write(
+            "src/g.c",
+            "#define TWICE(v) twice((v) + 1)\nint g(int a) { return f(a, f(a, h(a))) + TWICE(a); }\n",
+        )
+        .write(
+            "app/a.py",
+            "class A:\n    class B:\n        def m(self):\n            return self.x.y(z)\n\n\nv = a.b.c\n",
+        );
+    let fresh = {
+        let probe = Probe::new(Twist::None);
+        run(&checkout, None, &probe)
+    };
+    let cache = Cache::new();
+    let probe = Probe::new(Twist::None);
+    let cold = run(&checkout, Some(&cache), &probe);
+    assert_eq!(probe.files(), 2);
+    // Every extraction of the first run is gone; the second binds the entries afresh.
+    drop(cold);
+    let probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &probe);
+    assert_eq!(probe.files(), 0, "not from the cache");
+    assert_eq!(warm.stats.cache_hits, 2);
+    for path in ["src/g.c", "app/a.py"] {
+        let (hit, extracted) = (extract_of(&warm, path), extract_of(&fresh, path));
+        assert_eq!(hit, extracted, "{path}");
+        assert_eq!(
+            hit.source(),
+            &fs::read(checkout.root().join(path)).unwrap()[..]
+        );
+        for (call, fresh_call) in hit.calls.iter().zip(&extracted.calls) {
+            assert_eq!(
+                hit.text(&call.callee_text),
+                extracted.text(&fresh_call.callee_text)
+            );
+            for (arg, fresh_arg) in call.args.iter().zip(&fresh_call.args) {
+                assert_eq!(hit.text(&arg.expr), extracted.text(&fresh_arg.expr));
+            }
+        }
+        for (usage, fresh_usage) in hit.usages.iter().zip(&extracted.usages) {
+            assert_eq!(hit.text(&usage.name), extracted.text(&fresh_usage.name));
+        }
+        for i in 0..hit.definitions.len() {
+            assert_eq!(hit.qualified_name(i), extracted.qualified_name(i));
+        }
+        assert!(
+            hit.calls
+                .iter()
+                .any(|c| matches!(c.callee_text, TextRef::Source { .. })),
+            "{path}: no range"
+        );
+    }
+    // The same length, other bytes: another blob, another key, extracted again.
+    let changed = fs::read_to_string(checkout.root().join("app/a.py"))
+        .unwrap()
+        .replace("self.x.y", "self.q.y");
+    checkout.write("app/a.py", &changed);
+    let probe = Probe::new(Twist::None);
+    let report = run(&checkout, Some(&cache), &probe);
+    assert_eq!(
+        probe.files(),
+        1,
+        "the changed file was served from the cache"
+    );
+    assert_eq!(report.stats.cache_hits, 1);
+    let e = extract_of(&report, "app/a.py");
+    assert!(e.calls.iter().any(|c| e.text(&c.callee_text) == "self.q.y"));
+}
+
+#[test]
+fn cache_rejects_text_past_its_source() {
+    // An entry under this file's key, of this source's length and digest, whose ranges
+    // or names do not fit it, is no extraction of it: a miss, replaced, never clamped
+    // or read (issue 90).
+    let checkout = Checkout::new();
+    checkout.write("src/app.py", PYTHON);
+    let config = checkout.config();
+    let key = key_for(&checkout, &config, "src/app.py", "python");
+    let clean = {
+        let probe = Probe::new(Twist::None);
+        extract_of(&run(&checkout, None, &probe), "src/app.py").clone()
+    };
+    let end = u32::try_from(clean.source_len).unwrap();
+    let mut past = clean.record().clone();
+    past.calls[0].callee_text = TextRef::Source {
+        start: 0,
+        end: end + 1,
+    };
+    let mut reversed = clean.record().clone();
+    reversed.calls[0].callee_text = TextRef::Source { start: 2, end: 1 };
+    for (what, wrong) in [("past the source", past), ("reversed", reversed)] {
+        let cache = Cache::new();
+        plant(&cache, &key, &CacheEnvelope::encode(&key, &wrong));
+        assert_eq!(cache.cache.load(&key), Ok(Some(wrong.clone())), "{what}");
+        let probe = Probe::new(Twist::None);
+        let report = run(&checkout, Some(&cache), &probe);
+        assert_eq!(report.stats.cache_unusable, 1, "{what}");
+        assert_eq!(report.stats.cache_hits, 0, "{what}");
+        assert_eq!(probe.files(), 1, "{what}: the entry was used");
+        assert_eq!(extract_of(&report, "src/app.py"), &clean, "{what}");
+        assert_eq!(
+            cache.cache.load(&key),
+            Ok(Some(clean.record().clone())),
+            "{what}: not replaced"
+        );
+    }
+}
+
+#[test]
+fn cache_entries_grow_with_the_source_not_the_nesting() {
+    // An entry holds its text as ranges of the source (issue 90): twice the nesting is at
+    // most twice the entry, where copies of every attribute chain's prefix, or of every
+    // nested class's enclosing names, would be four times. Four copies of a construct
+    // 40, 80 and 160 deep.
+    type Shape = (&'static str, &'static str, fn(usize) -> String);
+    let shapes: [Shape; 2] = [
+        ("app/h.py", "python", |n| {
+            format!("def h():\n    v = a{}\n    return f(v)\n", ".b".repeat(n))
+        }),
+        ("src/main/java/p/C.java", "java", |n| {
+            format!(
+                "package p;\n{}void m() {{ f(); }}{}\n",
+                (0..n).fold(String::new(), |mut s, i| {
+                    let _ = write!(s, "class C{i} {{ ");
+                    s
+                }),
+                "}".repeat(n)
+            )
+        }),
+    ];
+    for (path, language, shape) in shapes {
+        let mut sizes = Vec::new();
+        for depth in [40, 80, 160] {
+            let checkout = Checkout::new();
+            checkout.write(path, shape(depth).repeat(4));
+            let cache = Cache::new();
+            let probe = Probe::new(Twist::None);
+            let report = run(&checkout, Some(&cache), &probe);
+            assert_eq!(report.stats.cache_writes, 1, "{path} at {depth}");
+            let key = key_for(&checkout, &checkout.config(), path, language);
+            sizes.push(fs::metadata(cache.cache.object_path(&key)).unwrap().len());
+            // What it stores is the extraction's own record: every range still a range,
+            // nothing spelled out on the way in.
+            assert_eq!(
+                cache.cache.load(&key),
+                Ok(Some(extract_of(&report, path).record().clone())),
+                "{path} at {depth}"
+            );
+        }
+        assert!(
+            sizes[1] <= 3 * sizes[0] && sizes[2] <= 3 * sizes[1],
+            "{path}: entries {sizes:?}"
         );
     }
 }
@@ -1207,7 +1390,11 @@ fn cached_extractions_keep_site_paths_and_derivation_facts() {
     assert_eq!(probe.files(), 0, "not from the cache");
     assert_eq!(cached.files, fresh.files);
     let e = extract_of(&cached, "app/main.py");
-    let helper = e.calls.iter().find(|c| c.callee_text == "helper").unwrap();
+    let helper = e
+        .calls
+        .iter()
+        .find(|c| e.text(&c.callee_text) == "helper")
+        .unwrap();
     assert_eq!(
         helper.ast_path,
         [
@@ -1282,7 +1469,7 @@ fn cache_rejects_corruption() {
     let cache = Cache::new();
     let probe = Probe::new(Twist::None);
     let clean = extract_of(&run(&checkout, Some(&cache), &probe), "src/app.py").clone();
-    let good = CacheEnvelope::encode(&key, &clean);
+    let good = CacheEnvelope::encode(&key, clean.record());
     let other_key = CacheKey {
         rel_path: "src/other.py".into(),
         ..key.clone()
@@ -1290,7 +1477,7 @@ fn cache_rejects_corruption() {
     let wrong_version = postcard::to_stdvec(&CacheEnvelope {
         format_version: EXTRACT_CACHE_FORMAT_VERSION + 1,
         key: key.clone(),
-        extract: clean.clone(),
+        extract: clean.record().clone(),
     })
     .unwrap();
 
@@ -1344,7 +1531,7 @@ fn cache_rejects_corruption() {
         assert_eq!(extract_of(&report, "src/app.py"), &clean, "{what}");
         assert_eq!(
             cache.cache.load(&key),
-            Ok(Some(clean.clone())),
+            Ok(Some(clean.record().clone())),
             "{what}: not replaced"
         );
     }
@@ -1361,10 +1548,10 @@ fn cache_writes_are_atomic_and_private() {
     let cache = Cache::new();
 
     // Two writes of the same key leave one whole entry and nothing else.
-    cache.cache.store(&key, &clean).unwrap();
-    let renamed = FileExtract {
+    cache.cache.store(&key, clean.record()).unwrap();
+    let renamed = ExtractRecord {
         status: FileStatus::Partial,
-        ..clean.clone()
+        ..clean.record().clone()
     };
     cache.cache.store(&key, &renamed).unwrap();
     let entries = cache.entries();
@@ -1377,7 +1564,7 @@ fn cache_writes_are_atomic_and_private() {
     let dir = object.parent().unwrap();
     fs::write(
         dir.join(".tmp-interrupted"),
-        &CacheEnvelope::encode(&key, &clean)[..10],
+        &CacheEnvelope::encode(&key, clean.record())[..10],
     )
     .unwrap();
     fs::remove_file(&object).unwrap();
@@ -1857,7 +2044,16 @@ fn secrets_do_not_reach_engine_or_cache() {
         let FileOutcome::Extracted { extract, .. } = &f.outcome else {
             continue;
         };
-        let fields = serde_json::to_vec(extract).unwrap();
+        // The record holds the text the source holds as ranges of it; the source it is
+        // bound to is the normalised one (issue 90).
+        let fields = serde_json::to_vec(extract.record()).unwrap();
+        for secret in &planted {
+            assert!(
+                !contains(extract.source(), secret),
+                "{secret} in {}'s bound source",
+                f.path
+            );
+        }
         for secret in &planted {
             assert!(
                 !contains(&fields, secret),
@@ -1943,7 +2139,17 @@ fn child_run() {
         .iter()
         .filter_map(|f| match &f.outcome {
             FileOutcome::Extracted { extract, .. } => {
-                Some((f.path.clone(), serde_json::to_string(extract).unwrap()))
+                // The record, and each call's callee read from the bound source
+                // (issue 90): the record holds the text as ranges.
+                let view = serde_json::json!({
+                    "record": extract.record(),
+                    "callees": extract
+                        .calls
+                        .iter()
+                        .map(|c| extract.text(&c.callee_text))
+                        .collect::<Vec<_>>(),
+                });
+                Some((f.path.clone(), view.to_string()))
             }
             _ => None,
         })
@@ -1992,11 +2198,11 @@ fn files_in(dir: &Path, files: &[(&str, &str)]) {
     }
 }
 
-/// The `field` of every `list` entry of a child's extraction of `path`: its calls'
-/// callees or its imports' modules.
+/// The `field` of every `list` entry of a child's extraction record of `path`: its
+/// imports' modules.
 fn names_in(run: &ChildRun, path: &str, list: &str, field: &str) -> Vec<String> {
     let extract: serde_json::Value = serde_json::from_str(&run.extracts[path]).unwrap();
-    extract[list]
+    extract["record"][list]
         .as_array()
         .unwrap()
         .iter()
@@ -2004,8 +2210,15 @@ fn names_in(run: &ChildRun, path: &str, list: &str, field: &str) -> Vec<String> 
         .collect()
 }
 
+/// A child's extraction's callees, read from its source.
 fn callees(run: &ChildRun, path: &str) -> Vec<String> {
-    names_in(run, path, "calls", "callee_text")
+    let extract: serde_json::Value = serde_json::from_str(&run.extracts[path]).unwrap();
+    extract["callees"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c.as_str().unwrap().to_owned())
+        .collect()
 }
 
 #[test]
@@ -2148,8 +2361,8 @@ fn cache_entries_of_engine_six_are_never_served() {
     );
     let config = checkout.config();
     let fresh = run(&checkout, None, &Probe::new(Twist::None));
-    let mut stale = extract_of(&fresh, "src/app.c").clone();
-    stale.calls[0].callee_text = "ambient_header_target".into();
+    let mut stale = extract_of(&fresh, "src/app.c").record().clone();
+    stale.calls[0].callee_text = TextRef::Owned("ambient_header_target".into());
     let mut key = key_for(&checkout, &config, "src/app.c", "c");
     key.engine_version = 6;
     let cache = Cache::new();
@@ -2270,12 +2483,13 @@ fn date_and_time_cannot_change_a_cached_extraction() {
     assert_eq!(cold.extracts, fresh.extracts);
     assert_eq!(warm.extracts, fresh.extracts);
     let stamp: serde_json::Value = serde_json::from_str(&fresh.extracts["src/stamp.c"]).unwrap();
-    let values: Vec<&str> = stamp["calls"]
+    let values: Vec<&str> = stamp["record"]["calls"]
         .as_array()
         .unwrap()
         .iter()
-        .filter(|c| c["callee_text"] == "record_stamp")
-        .flat_map(|c| c["args"].as_array().unwrap())
+        .zip(stamp["callees"].as_array().unwrap())
+        .filter(|(_, callee)| *callee == "record_stamp")
+        .flat_map(|(c, _)| c["args"].as_array().unwrap())
         .filter_map(|a| a["value"].as_str())
         .collect();
     assert_eq!(values, ["Jan 01 1970", "00:00:00"]);
@@ -2303,11 +2517,13 @@ fn c_family_preprocessor_sizeof_is_platform_independent() {
     );
     assert_eq!(cold.files, fresh.files);
     assert_eq!(warm.files, fresh.files);
-    let callees: Vec<&str> = extract_of(&fresh, "src/model.c")
+    let model = extract_of(&fresh, "src/model.c");
+    let callees: Vec<String> = model
         .calls
         .iter()
-        .map(|c| c.callee_text.as_str())
+        .map(|c| model.text(&c.callee_text).into_owned())
         .collect();
+    let callees: Vec<&str> = callees.iter().map(String::as_str).collect();
     assert!(callees.contains(&"model_lp64"), "{callees:?}");
     assert!(
         !callees.contains(&"model_llp64") && !callees.contains(&"model_other"),
@@ -2344,7 +2560,12 @@ fn preprocessing_past_its_ceilings_is_lost_work_and_never_cached() {
     assert_eq!(probe.files(), 2);
     let bomb = extract_of(&cold, "src/bomb.c");
     assert_eq!(bomb.extraction_lost, 1, "lost work is counted once");
-    let callees: Vec<&str> = bomb.calls.iter().map(|c| c.callee_text.as_str()).collect();
+    let callees: Vec<String> = bomb
+        .calls
+        .iter()
+        .map(|c| bomb.text(&c.callee_text).into_owned())
+        .collect();
+    let callees: Vec<&str> = callees.iter().map(String::as_str).collect();
     assert!(
         callees.contains(&"before") && !callees.contains(&"leaf"),
         "{callees:?}"

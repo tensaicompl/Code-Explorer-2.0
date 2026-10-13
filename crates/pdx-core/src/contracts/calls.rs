@@ -9,7 +9,7 @@
 //! resolution sends to a definition of the repository is the repository's own, never a
 //! library's. A receiver's name is never evidence.
 
-use pdx_engine::{Call, CallArg, SiteRef};
+use pdx_engine::{Call, CallArg, FileExtract, SiteRef};
 
 use crate::index::derive::routes::imports_module;
 use crate::resolve::registry::SymbolRegistry;
@@ -58,9 +58,12 @@ pub fn keyword_or<'a>(call: &'a Call, name: &str, index: u32) -> Option<&'a Call
         .or_else(|| positional(call, index))
 }
 
-/// An argument's string value: the engine's, or one plain string literal as written.
-pub fn literal(arg: &CallArg) -> Option<String> {
-    arg.value.clone().or_else(|| string_literal(&arg.expr))
+/// An argument's string value: the engine's, or one plain string literal as written,
+/// its expression read from the call's own file (issue 90).
+pub fn literal(extract: &FileExtract, arg: &CallArg) -> Option<String> {
+    arg.value
+        .clone()
+        .or_else(|| string_literal(&extract.text(&arg.expr)))
 }
 
 /// The positional arguments of a call written as text (`f(a, b)`), split at top-level
@@ -160,7 +163,8 @@ pub fn object_value<'a>(expr: &'a str, key: &str) -> Option<&'a str> {
 /// when the receiver is not a simple parameter name (a field, a local, an expression),
 /// or the signature does not declare it.
 pub fn parameter_type(registry: &SymbolRegistry, path: &str, call: &Call) -> Option<String> {
-    let (receiver, _) = split_callee(&call.callee_text);
+    let callee = registry.text(path, &call.callee_text)?;
+    let (receiver, _) = split_callee(&callee);
     declared_parameter_type(registry, path, call, receiver?)
 }
 
@@ -176,11 +180,10 @@ pub fn declared_parameter_type(
     if !receiver.chars().all(|c| c.is_alphanumeric() || c == '_') {
         return None;
     }
-    let caller = registry
-        .extract(path)?
-        .definitions
-        .get(call.caller? as usize)?;
-    let signature = caller.signature.as_deref()?;
+    let extract = registry.extract(path)?;
+    let caller = extract.definitions.get(call.caller? as usize)?;
+    // Read from the file's source, borrowed (issue 90).
+    let signature = extract.text(caller.signature.as_ref()?);
     let inner = signature.trim().strip_prefix('(')?.strip_suffix(')')?;
     let go = registry.language(path).is_some_and(|l| l.id == "go");
     for parameter in parameters(inner) {

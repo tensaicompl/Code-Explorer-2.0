@@ -351,6 +351,10 @@ if(PDXE_BUILD_TESTS)
   # Nor how deeply its usages sit: a usage's ancestors are answered from the walk's own
   # path, the work linear in the nesting (issue 90, patches/0022).
   add_test(NAME usage_ancestry COMMAND usage_ancestry)
+  # Nor how its text nests: what a fact takes from the file is a range of the source,
+  # never a copy, and a nested definition's qualified name is given by its relation to
+  # an earlier one (issue 90, decision 61, patches/0024).
+  add_test(NAME source_text COMMAND source_text)
   # Nor can its syntax drive a grammar scanner past the parser's state buffer, or end
   # the process: four scanners' own code is compiled into the test a second time, entry
   # points renamed, so it reaches their state directly; their warnings are the vendored

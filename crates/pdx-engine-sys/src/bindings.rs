@@ -54,26 +54,59 @@ const _: () = {
     ["Offset of field: pdxe_span::end_line"][::std::mem::offset_of!(pdxe_span, end_line) - 16usize];
     ["Offset of field: pdxe_span::end_col"][::std::mem::offset_of!(pdxe_span, end_col) - 20usize];
 };
+pub const PDXE_TEXT_NONE: pdxe_text_kind = 0;
+pub const PDXE_TEXT_SOURCE: pdxe_text_kind = 1;
+pub const PDXE_TEXT_OWNED: pdxe_text_kind = 2;
+#[doc = " A piece of text a fact carries: either bytes of the file's source, by their range,\n or text the engine made (issue 90, decision 61).\n\n   PDXE_TEXT_NONE    no text. `owned` is NULL, `start` and `end` are 0.\n   PDXE_TEXT_SOURCE  the bytes [start, end) of the source exactly as it was given to\n                     pdxe_extract_file (or pdxe_resolve_project_add_file, for a\n                     resolution's site). `owned` is NULL. The range is the text\n                     itself: nothing is trimmed, unquoted or rewritten.\n   PDXE_TEXT_OWNED   `owned`, NUL-terminated, held like any other string of the\n                     result. `start` and `end` are 0.\n\n Text is a source range only where it is exactly a contiguous run of the source's\n bytes. Text the engine assembled, rewrote or shortened, and text it read in C-family\n source after macro expansion, which the caller never sees, is owned. A range costs\n the same whatever its length, so evidence that nests (an argument holding a call\n holding an argument, a member chain each of whose links is a call) never repeats the\n text it overlaps. `reserved` is 0."]
+pub type pdxe_text_kind = u32;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pdxe_text {
+    pub owned: *const ::std::os::raw::c_char,
+    pub start: u32,
+    pub end: u32,
+    pub kind: u32,
+    pub reserved: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pdxe_text"][::std::mem::size_of::<pdxe_text>() - 24usize];
+    ["Alignment of pdxe_text"][::std::mem::align_of::<pdxe_text>() - 8usize];
+    ["Offset of field: pdxe_text::owned"][::std::mem::offset_of!(pdxe_text, owned) - 0usize];
+    ["Offset of field: pdxe_text::start"][::std::mem::offset_of!(pdxe_text, start) - 8usize];
+    ["Offset of field: pdxe_text::end"][::std::mem::offset_of!(pdxe_text, end) - 12usize];
+    ["Offset of field: pdxe_text::kind"][::std::mem::offset_of!(pdxe_text, kind) - 16usize];
+    ["Offset of field: pdxe_text::reserved"][::std::mem::offset_of!(pdxe_text, reserved) - 20usize];
+};
+impl Default for pdxe_text {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
 pub const PDXE_VIS_UNKNOWN: pdxe_visibility = 0;
 pub const PDXE_VIS_PUBLIC: pdxe_visibility = 1;
 pub const PDXE_VIS_NON_PUBLIC: pdxe_visibility = 2;
 #[doc = " Visibility of a definition, as the source declares it."]
 pub type pdxe_visibility = u32;
-#[doc = " One HTTP route binding a decorator or annotation declares for a definition: its\n method in upper case (`ANY` when the declaration names none), its path (joined to the\n enclosing class's own mapping), and the node that declares it. `callee_text` is the\n decorator's callee or the annotation's name as written (`app.get`, `GetMapping`);\n `source_text` the whole declaring call or annotation. `span` is the declaring node's\n position, all zero when not known. `ast_path` is the syntax node types from the lowest\n node holding both the definition and the declaring node (the definition itself when\n the declaration is inside it, as a JVM annotation is; the decorated wrapper for a\n Python decorator) down to the declaring node; NULL with a count of 0 when not known.\n One fact per method and path: an annotation listing two paths gives two facts that\n share their node. Bindings whose path or method is not a literal are not reported.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 54."]
+#[doc = " One HTTP route binding a decorator or annotation declares for a definition: its\n method in upper case (`ANY` when the declaration names none), its path (joined to the\n enclosing class's own mapping), and the node that declares it. `callee_text` is the\n decorator's callee or the annotation's name as written (`app.get`, `GetMapping`);\n `source_text` the whole declaring call or annotation, a range of the source where it\n is one (pdxe_text), PDXE_TEXT_NONE when not known. `span` is the declaring node's\n position, all zero when not known. `ast_path` is the syntax node types from the lowest\n node holding both the definition and the declaring node (the definition itself when\n the declaration is inside it, as a JVM annotation is; the decorated wrapper for a\n Python decorator) down to the declaring node; NULL with a count of 0 when not known.\n One fact per method and path: an annotation listing two paths gives two facts that\n share their node. Bindings whose path or method is not a literal are not reported.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 54."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_route {
     pub method: *const ::std::os::raw::c_char,
     pub path: *const ::std::os::raw::c_char,
     pub callee_text: *const ::std::os::raw::c_char,
-    pub source_text: *const ::std::os::raw::c_char,
+    pub source_text: pdxe_text,
     pub span: pdxe_span,
     pub ast_path: *mut *const ::std::os::raw::c_char,
     pub n_ast_path: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_route"][::std::mem::size_of::<pdxe_route>() - 72usize];
+    ["Size of pdxe_route"][::std::mem::size_of::<pdxe_route>() - 88usize];
     ["Alignment of pdxe_route"][::std::mem::align_of::<pdxe_route>() - 8usize];
     ["Offset of field: pdxe_route::method"][::std::mem::offset_of!(pdxe_route, method) - 0usize];
     ["Offset of field: pdxe_route::path"][::std::mem::offset_of!(pdxe_route, path) - 8usize];
@@ -81,11 +114,11 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_route, callee_text) - 16usize];
     ["Offset of field: pdxe_route::source_text"]
         [::std::mem::offset_of!(pdxe_route, source_text) - 24usize];
-    ["Offset of field: pdxe_route::span"][::std::mem::offset_of!(pdxe_route, span) - 32usize];
+    ["Offset of field: pdxe_route::span"][::std::mem::offset_of!(pdxe_route, span) - 48usize];
     ["Offset of field: pdxe_route::ast_path"]
-        [::std::mem::offset_of!(pdxe_route, ast_path) - 56usize];
+        [::std::mem::offset_of!(pdxe_route, ast_path) - 72usize];
     ["Offset of field: pdxe_route::n_ast_path"]
-        [::std::mem::offset_of!(pdxe_route, n_ast_path) - 64usize];
+        [::std::mem::offset_of!(pdxe_route, n_ast_path) - 80usize];
 };
 impl Default for pdxe_route {
     fn default() -> Self {
@@ -96,19 +129,27 @@ impl Default for pdxe_route {
         }
     }
 }
-#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope.\n\n `base_classes` are the classes, interfaces and traits the definition names as its\n bases, exactly as the engine recorded them: in its order, spelling and case,\n unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 40.\n\n `decorators` are the decorators, annotations or attributes the definition carries,\n as the engine recorded each, in its order; `signature_param_types` its parameters'\n types as the engine reads them, in order, `?` for one it cannot read; `route_path`\n and `route_method` the HTTP route a decorator binds it to, where the engine found\n one, else NULL. Each array is NULL with a count of 0 when empty. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 47.\n\n `routes` are every route binding the definition's decorators or annotations declare\n (pdxe_route), each with the node that declares it; NULL with a count of 0 for none.\n `route_path` and `route_method` keep the engine's single summary of them. Appended\n by a specification change; see docs/plan/ISSUES.md, issue 54."]
+pub const PDXE_QN_WHOLE: pdxe_qn_form = 0;
+pub const PDXE_QN_MEMBER: pdxe_qn_form = 1;
+pub const PDXE_QN_EXTENDED: pdxe_qn_form = 2;
+pub const PDXE_QN_PREFIX: pdxe_qn_form = 3;
+#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope.\n\n The qualified name is given by its relation to an earlier definition's, so that\n nested definitions do not each repeat the names of everything around them (issue\n 90, decision 61). By `qn_form`:\n\n   PDXE_QN_WHOLE     `qn_text` is the whole name; `qn_base` is PDXE_NO_PARENT.\n   PDXE_QN_MEMBER    the qualified name of definition `qn_base`, then `.`, then\n                     `name`; `qn_text` is NULL.\n   PDXE_QN_EXTENDED  the qualified name of definition `qn_base`, then `qn_text`,\n                     whose first byte is ASCII.\n   PDXE_QN_PREFIX    the first `qn_keep` bytes of definition `qn_base`'s qualified\n                     name, then `qn_text`, which is empty or begins with `.`: names\n                     the file's definitions share a prefix of without any of them\n                     being the prefix (a C++ function in nested namespaces, which are\n                     no definitions, beside one in an enclosing namespace). The byte\n                     at `qn_keep` in the base's name is a `.` the base itself adds,\n                     after its own base's name.\n\n `qn_keep` is 0 in every other form. `qn_base` is always smaller than the definition's\n own index, so every name is reached from a whole one, and the name is exactly the\n engine's, byte for byte: the form changes how it is held, never what it is.\n pdxe_qualified_name spells it out.\n\n `signature` is the parameter list as the source writes it: a range of the source, or\n owned text for a definition read after C-family macro expansion; PDXE_TEXT_NONE when\n the definition has none. Parameters can hold whole definitions (a JavaScript function\n as a parameter's default), so it is never copied when it is the source's own (issue\n 90, decision 61).\n\n `base_classes` are the classes, interfaces and traits the definition names as its\n bases, exactly as the engine recorded them: in its order, spelling and case,\n unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 40.\n\n `decorators` are the decorators, annotations or attributes the definition carries,\n as the engine recorded each, in its order; `signature_param_types` its parameters'\n types as the engine reads them, in order, `?` for one it cannot read; `route_path`\n and `route_method` the HTTP route a decorator binds it to, where the engine found\n one, else NULL. Each array is NULL with a count of 0 when empty. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 47.\n\n `routes` are every route binding the definition's decorators or annotations declare\n (pdxe_route), each with the node that declares it; NULL with a count of 0 for none.\n `route_path` and `route_method` keep the engine's single summary of them. Appended\n by a specification change; see docs/plan/ISSUES.md, issue 54."]
+pub type pdxe_qn_form = u32;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_definition {
     pub name: *const ::std::os::raw::c_char,
-    pub qualified_name: *const ::std::os::raw::c_char,
+    pub qn_text: *const ::std::os::raw::c_char,
+    pub qn_base: u32,
+    pub qn_form: u32,
+    pub qn_keep: u32,
+    pub parent_index: u32,
     pub kind: *const ::std::os::raw::c_char,
     pub engine_kind: *const ::std::os::raw::c_char,
-    pub signature: *const ::std::os::raw::c_char,
+    pub signature: pdxe_text,
     pub doc: *const ::std::os::raw::c_char,
     pub span: pdxe_span,
     pub body_span: pdxe_span,
-    pub parent_index: u32,
     pub visibility: u8,
     pub is_test: u8,
     pub is_entry_point: u8,
@@ -128,58 +169,64 @@ pub struct pdxe_definition {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 200usize];
+    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 224usize];
     ["Alignment of pdxe_definition"][::std::mem::align_of::<pdxe_definition>() - 8usize];
     ["Offset of field: pdxe_definition::name"]
         [::std::mem::offset_of!(pdxe_definition, name) - 0usize];
-    ["Offset of field: pdxe_definition::qualified_name"]
-        [::std::mem::offset_of!(pdxe_definition, qualified_name) - 8usize];
-    ["Offset of field: pdxe_definition::kind"]
-        [::std::mem::offset_of!(pdxe_definition, kind) - 16usize];
-    ["Offset of field: pdxe_definition::engine_kind"]
-        [::std::mem::offset_of!(pdxe_definition, engine_kind) - 24usize];
-    ["Offset of field: pdxe_definition::signature"]
-        [::std::mem::offset_of!(pdxe_definition, signature) - 32usize];
-    ["Offset of field: pdxe_definition::doc"]
-        [::std::mem::offset_of!(pdxe_definition, doc) - 40usize];
-    ["Offset of field: pdxe_definition::span"]
-        [::std::mem::offset_of!(pdxe_definition, span) - 48usize];
-    ["Offset of field: pdxe_definition::body_span"]
-        [::std::mem::offset_of!(pdxe_definition, body_span) - 72usize];
+    ["Offset of field: pdxe_definition::qn_text"]
+        [::std::mem::offset_of!(pdxe_definition, qn_text) - 8usize];
+    ["Offset of field: pdxe_definition::qn_base"]
+        [::std::mem::offset_of!(pdxe_definition, qn_base) - 16usize];
+    ["Offset of field: pdxe_definition::qn_form"]
+        [::std::mem::offset_of!(pdxe_definition, qn_form) - 20usize];
+    ["Offset of field: pdxe_definition::qn_keep"]
+        [::std::mem::offset_of!(pdxe_definition, qn_keep) - 24usize];
     ["Offset of field: pdxe_definition::parent_index"]
-        [::std::mem::offset_of!(pdxe_definition, parent_index) - 96usize];
+        [::std::mem::offset_of!(pdxe_definition, parent_index) - 28usize];
+    ["Offset of field: pdxe_definition::kind"]
+        [::std::mem::offset_of!(pdxe_definition, kind) - 32usize];
+    ["Offset of field: pdxe_definition::engine_kind"]
+        [::std::mem::offset_of!(pdxe_definition, engine_kind) - 40usize];
+    ["Offset of field: pdxe_definition::signature"]
+        [::std::mem::offset_of!(pdxe_definition, signature) - 48usize];
+    ["Offset of field: pdxe_definition::doc"]
+        [::std::mem::offset_of!(pdxe_definition, doc) - 72usize];
+    ["Offset of field: pdxe_definition::span"]
+        [::std::mem::offset_of!(pdxe_definition, span) - 80usize];
+    ["Offset of field: pdxe_definition::body_span"]
+        [::std::mem::offset_of!(pdxe_definition, body_span) - 104usize];
     ["Offset of field: pdxe_definition::visibility"]
-        [::std::mem::offset_of!(pdxe_definition, visibility) - 100usize];
+        [::std::mem::offset_of!(pdxe_definition, visibility) - 128usize];
     ["Offset of field: pdxe_definition::is_test"]
-        [::std::mem::offset_of!(pdxe_definition, is_test) - 101usize];
+        [::std::mem::offset_of!(pdxe_definition, is_test) - 129usize];
     ["Offset of field: pdxe_definition::is_entry_point"]
-        [::std::mem::offset_of!(pdxe_definition, is_entry_point) - 102usize];
+        [::std::mem::offset_of!(pdxe_definition, is_entry_point) - 130usize];
     ["Offset of field: pdxe_definition::cyclomatic"]
-        [::std::mem::offset_of!(pdxe_definition, cyclomatic) - 104usize];
+        [::std::mem::offset_of!(pdxe_definition, cyclomatic) - 132usize];
     ["Offset of field: pdxe_definition::cognitive"]
-        [::std::mem::offset_of!(pdxe_definition, cognitive) - 108usize];
+        [::std::mem::offset_of!(pdxe_definition, cognitive) - 136usize];
     ["Offset of field: pdxe_definition::loop_depth"]
-        [::std::mem::offset_of!(pdxe_definition, loop_depth) - 112usize];
+        [::std::mem::offset_of!(pdxe_definition, loop_depth) - 140usize];
     ["Offset of field: pdxe_definition::base_classes"]
-        [::std::mem::offset_of!(pdxe_definition, base_classes) - 120usize];
+        [::std::mem::offset_of!(pdxe_definition, base_classes) - 144usize];
     ["Offset of field: pdxe_definition::n_base_classes"]
-        [::std::mem::offset_of!(pdxe_definition, n_base_classes) - 128usize];
+        [::std::mem::offset_of!(pdxe_definition, n_base_classes) - 152usize];
     ["Offset of field: pdxe_definition::decorators"]
-        [::std::mem::offset_of!(pdxe_definition, decorators) - 136usize];
+        [::std::mem::offset_of!(pdxe_definition, decorators) - 160usize];
     ["Offset of field: pdxe_definition::n_decorators"]
-        [::std::mem::offset_of!(pdxe_definition, n_decorators) - 144usize];
+        [::std::mem::offset_of!(pdxe_definition, n_decorators) - 168usize];
     ["Offset of field: pdxe_definition::signature_param_types"]
-        [::std::mem::offset_of!(pdxe_definition, signature_param_types) - 152usize];
+        [::std::mem::offset_of!(pdxe_definition, signature_param_types) - 176usize];
     ["Offset of field: pdxe_definition::n_signature_param_types"]
-        [::std::mem::offset_of!(pdxe_definition, n_signature_param_types) - 160usize];
+        [::std::mem::offset_of!(pdxe_definition, n_signature_param_types) - 184usize];
     ["Offset of field: pdxe_definition::route_path"]
-        [::std::mem::offset_of!(pdxe_definition, route_path) - 168usize];
+        [::std::mem::offset_of!(pdxe_definition, route_path) - 192usize];
     ["Offset of field: pdxe_definition::route_method"]
-        [::std::mem::offset_of!(pdxe_definition, route_method) - 176usize];
+        [::std::mem::offset_of!(pdxe_definition, route_method) - 200usize];
     ["Offset of field: pdxe_definition::routes"]
-        [::std::mem::offset_of!(pdxe_definition, routes) - 184usize];
+        [::std::mem::offset_of!(pdxe_definition, routes) - 208usize];
     ["Offset of field: pdxe_definition::n_routes"]
-        [::std::mem::offset_of!(pdxe_definition, n_routes) - 192usize];
+        [::std::mem::offset_of!(pdxe_definition, n_routes) - 216usize];
 };
 impl Default for pdxe_definition {
     fn default() -> Self {
@@ -199,26 +246,26 @@ pub const PDXE_LEX_LOCALLY_BOUND: pdxe_lexical_fact = 32;
 pub const PDXE_LEX_SELF_ROOTED: pdxe_lexical_fact = 64;
 #[doc = " What the extractor saw of a name in its surroundings, for resolving it by name when\n typed resolution has no answer. Each bit is one fact; none is a summary of others.\n\n On references and usages:\n\n   PDXE_LEX_EXPLICIT_REFERENCE  the source spells a callable reference as such\n                                (a method reference, an address-of), rather than\n                                passing a plain name a callable might be behind\n   PDXE_LEX_MEMBER_ACCESS       the name is the member half of a selector; the\n                                receiver before it has been removed\n   PDXE_LEX_BLOCKED             a binding in the same code means the name is not the\n                                module-level definition of that name; resolving it\n                                by name must not reach a callable\n   PDXE_LEX_BLOCKED_LOCALLY     that binding is in a local scope; resolving it by\n                                name must not reach anything\n\n On calls:\n\n   PDXE_LEX_UNRESOLVED_MEMBER   a member call whose receiver the extractor could not\n                                tie to anything: in Python, not self, cls or super()\n                                and not rooted in an imported name; in JavaScript\n                                and TypeScript, not this or super; in Perl, any\n                                method call. Resolving it by a short name alone\n                                fabricates edges, so the reference does not\n   PDXE_LEX_LOCALLY_BOUND       a bare call whose callee name is a parameter of an\n                                enclosing function, so it cannot be the module-level\n                                definition of that name (Python)\n   PDXE_LEX_SELF_ROOTED         a member call whose receiver is an attribute chain\n                                rooted at self or cls but is not self or cls itself,\n                                an object the class owns (Python)\n\n Appended by a specification change; see docs/plan/ISSUES.md, issue 17."]
 pub type pdxe_lexical_fact = u32;
-#[doc = " A call site.\n\n `caller_index` indexes the definition array of the same result, or is\n PDXE_NO_PARENT for a call at file scope.\n\n `is_reference` marks a callable passed as a value rather than invoked: a name the\n engine saw used as a value where a callable could be meant, such as a function\n handed to another as an argument. It is a call reference only if typed resolution\n says so; without a typed resolution it is an ordinary use of a name, and a caller\n must not turn it into a call. Such a site is reported here and not again among the\n usages, so that no site is counted twice.\n\n `typed_only` marks a site that exists only as a question for typed resolution: an\n operator the language turns into a method call, a protocol method it invokes\n implicitly, a call the engine inferred rather than read. It is a call only if a\n typed resolution names its target. A caller must never resolve it by name, since\n the name it carries is not text the source contains. Appended by a specification\n change; see docs/plan/ISSUES.md, issue 17.\n\n Calls come first in the order the engine found them, then references in the\n order their names appear. That order is the index a typed resolution refers to.\n/\n/*\n One argument the engine captured at a call: its expression as written, the string\n value it resolves to where the engine resolved one (a literal, or a constant it\n followed), the keyword for a keyword argument, and its 0-based position. Appended by\n a specification change; see docs/plan/ISSUES.md, issue 47."]
+#[doc = " A call site.\n\n `caller_index` indexes the definition array of the same result, or is\n PDXE_NO_PARENT for a call at file scope.\n\n `is_reference` marks a callable passed as a value rather than invoked: a name the\n engine saw used as a value where a callable could be meant, such as a function\n handed to another as an argument. It is a call reference only if typed resolution\n says so; without a typed resolution it is an ordinary use of a name, and a caller\n must not turn it into a call. Such a site is reported here and not again among the\n usages, so that no site is counted twice.\n\n `typed_only` marks a site that exists only as a question for typed resolution: an\n operator the language turns into a method call, a protocol method it invokes\n implicitly, a call the engine inferred rather than read. It is a call only if a\n typed resolution names its target. A caller must never resolve it by name, since\n the name it carries is not text the source contains. Appended by a specification\n change; see docs/plan/ISSUES.md, issue 17.\n\n Calls come first in the order the engine found them, then references in the\n order their names appear. That order is the index a typed resolution refers to.\n/\n/*\n One argument the engine captured at a call: its expression as written, the string\n value it resolves to where the engine resolved one (a literal, or a constant it\n followed), the keyword for a keyword argument, and its 0-based position. Appended by\n a specification change; see docs/plan/ISSUES.md, issue 47. The expression is a range\n of the source, or owned text for an argument read after C-family macro expansion;\n never PDXE_TEXT_NONE (issue 90)."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_call_arg {
-    pub expr: *const ::std::os::raw::c_char,
+    pub expr: pdxe_text,
     pub value: *const ::std::os::raw::c_char,
     pub keyword: *const ::std::os::raw::c_char,
     pub index: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_call_arg"][::std::mem::size_of::<pdxe_call_arg>() - 32usize];
+    ["Size of pdxe_call_arg"][::std::mem::size_of::<pdxe_call_arg>() - 48usize];
     ["Alignment of pdxe_call_arg"][::std::mem::align_of::<pdxe_call_arg>() - 8usize];
     ["Offset of field: pdxe_call_arg::expr"][::std::mem::offset_of!(pdxe_call_arg, expr) - 0usize];
     ["Offset of field: pdxe_call_arg::value"]
-        [::std::mem::offset_of!(pdxe_call_arg, value) - 8usize];
+        [::std::mem::offset_of!(pdxe_call_arg, value) - 24usize];
     ["Offset of field: pdxe_call_arg::keyword"]
-        [::std::mem::offset_of!(pdxe_call_arg, keyword) - 16usize];
+        [::std::mem::offset_of!(pdxe_call_arg, keyword) - 32usize];
     ["Offset of field: pdxe_call_arg::index"]
-        [::std::mem::offset_of!(pdxe_call_arg, index) - 24usize];
+        [::std::mem::offset_of!(pdxe_call_arg, index) - 40usize];
 };
 impl Default for pdxe_call_arg {
     fn default() -> Self {
@@ -229,10 +276,11 @@ impl Default for pdxe_call_arg {
         }
     }
 }
+#[doc = " The callee text is a range of the source where the callee is spelled out in it, owned\n where the engine assembled a name (an operator, a desugared call) or read it after\n C-family macro expansion; never PDXE_TEXT_NONE (issue 90)."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_call {
-    pub callee_text: *const ::std::os::raw::c_char,
+    pub callee_text: pdxe_text,
     pub receiver_text: *const ::std::os::raw::c_char,
     pub caller_index: u32,
     pub span: pdxe_span,
@@ -248,25 +296,25 @@ pub struct pdxe_call {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_call"][::std::mem::size_of::<pdxe_call>() - 80usize];
+    ["Size of pdxe_call"][::std::mem::size_of::<pdxe_call>() - 96usize];
     ["Alignment of pdxe_call"][::std::mem::align_of::<pdxe_call>() - 8usize];
     ["Offset of field: pdxe_call::callee_text"]
         [::std::mem::offset_of!(pdxe_call, callee_text) - 0usize];
     ["Offset of field: pdxe_call::receiver_text"]
-        [::std::mem::offset_of!(pdxe_call, receiver_text) - 8usize];
+        [::std::mem::offset_of!(pdxe_call, receiver_text) - 24usize];
     ["Offset of field: pdxe_call::caller_index"]
-        [::std::mem::offset_of!(pdxe_call, caller_index) - 16usize];
-    ["Offset of field: pdxe_call::span"][::std::mem::offset_of!(pdxe_call, span) - 20usize];
+        [::std::mem::offset_of!(pdxe_call, caller_index) - 32usize];
+    ["Offset of field: pdxe_call::span"][::std::mem::offset_of!(pdxe_call, span) - 36usize];
     ["Offset of field: pdxe_call::is_reference"]
-        [::std::mem::offset_of!(pdxe_call, is_reference) - 44usize];
+        [::std::mem::offset_of!(pdxe_call, is_reference) - 60usize];
     ["Offset of field: pdxe_call::typed_only"]
-        [::std::mem::offset_of!(pdxe_call, typed_only) - 45usize];
-    ["Offset of field: pdxe_call::lexical"][::std::mem::offset_of!(pdxe_call, lexical) - 46usize];
-    ["Offset of field: pdxe_call::ast_path"][::std::mem::offset_of!(pdxe_call, ast_path) - 48usize];
+        [::std::mem::offset_of!(pdxe_call, typed_only) - 61usize];
+    ["Offset of field: pdxe_call::lexical"][::std::mem::offset_of!(pdxe_call, lexical) - 62usize];
+    ["Offset of field: pdxe_call::ast_path"][::std::mem::offset_of!(pdxe_call, ast_path) - 64usize];
     ["Offset of field: pdxe_call::n_ast_path"]
-        [::std::mem::offset_of!(pdxe_call, n_ast_path) - 56usize];
-    ["Offset of field: pdxe_call::args"][::std::mem::offset_of!(pdxe_call, args) - 64usize];
-    ["Offset of field: pdxe_call::n_args"][::std::mem::offset_of!(pdxe_call, n_args) - 72usize];
+        [::std::mem::offset_of!(pdxe_call, n_ast_path) - 72usize];
+    ["Offset of field: pdxe_call::args"][::std::mem::offset_of!(pdxe_call, args) - 80usize];
+    ["Offset of field: pdxe_call::n_args"][::std::mem::offset_of!(pdxe_call, n_args) - 88usize];
 };
 impl Default for pdxe_call {
     fn default() -> Self {
@@ -305,24 +353,24 @@ impl Default for pdxe_import {
         }
     }
 }
-#[doc = " A use of a name as a value. `lexical` as for calls."]
+#[doc = " A use of a name as a value. `lexical` as for calls. The name is a range of the source\n where it is spelled out there (a Python attribute chain included), owned otherwise;\n never PDXE_TEXT_NONE (issue 90)."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_usage {
-    pub name: *const ::std::os::raw::c_char,
+    pub name: pdxe_text,
     pub scope_index: u32,
     pub span: pdxe_span,
     pub lexical: u16,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_usage"][::std::mem::size_of::<pdxe_usage>() - 40usize];
+    ["Size of pdxe_usage"][::std::mem::size_of::<pdxe_usage>() - 56usize];
     ["Alignment of pdxe_usage"][::std::mem::align_of::<pdxe_usage>() - 8usize];
     ["Offset of field: pdxe_usage::name"][::std::mem::offset_of!(pdxe_usage, name) - 0usize];
     ["Offset of field: pdxe_usage::scope_index"]
-        [::std::mem::offset_of!(pdxe_usage, scope_index) - 8usize];
-    ["Offset of field: pdxe_usage::span"][::std::mem::offset_of!(pdxe_usage, span) - 12usize];
-    ["Offset of field: pdxe_usage::lexical"][::std::mem::offset_of!(pdxe_usage, lexical) - 36usize];
+        [::std::mem::offset_of!(pdxe_usage, scope_index) - 24usize];
+    ["Offset of field: pdxe_usage::span"][::std::mem::offset_of!(pdxe_usage, span) - 28usize];
+    ["Offset of field: pdxe_usage::lexical"][::std::mem::offset_of!(pdxe_usage, lexical) - 52usize];
 };
 impl Default for pdxe_usage {
     fn default() -> Self {
@@ -622,6 +670,7 @@ impl Default for pdxe_file_result {
     }
 }
 unsafe extern "C" {
+    #[doc = " Extracts one file. The result's PDXE_TEXT_SOURCE ranges are ranges of `bytes`; the\n result keeps no pointer into them, so the caller may free them, and reads each range\n from its own copy."]
     pub fn pdxe_extract_file(
         ctx: *mut pdxe_ctx,
         lang: ::std::os::raw::c_int,
@@ -635,9 +684,21 @@ unsafe extern "C" {
     pub fn pdxe_result_free(ctx: *mut pdxe_ctx, r: *mut pdxe_file_result);
 }
 unsafe extern "C" {
-    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface. A definition's base\n classes are copied with it, array and strings; a definition with bases and no array,\n or with a NULL base, is refused. It declares no namespace. Its `impl Trait for Type`\n relations are copied, array and strings, NULL and 0 for none; relations counted\n with no array, or one with a NULL string, are refused (issue 42). A definition's\n decorators, parameter types and route, and a call's node-type path and arguments,\n are copied too; any of those arrays counted without an array, or holding a NULL\n string where one is required (every element; an argument's expression), is refused\n (issues 46 and 47). A definition's routes are copied, the array, each route's strings\n and node-type path; routes counted with no array, a route missing its method, path or\n callee text, or a path counted with no array or holding a NULL, are refused (issue 54)."]
+    #[doc = " The qualified name of defs[index], spelled out: its length in `*len` (the NUL not\n counted), and as much of it as fits in `cap` bytes written to `out`, NUL-terminated\n whenever `cap` is not 0. PDXE_E_INVALID when `index` is past `n_defs`, or when a\n definition on the way has an unknown form, a base that is not earlier than itself,\n a missing string, or (PDXE_QN_PREFIX) a `qn_keep` that is not a `.` its base adds.\n The work is linear in the definitions on the way and the name's length."]
+    pub fn pdxe_qualified_name(
+        defs: *const pdxe_definition,
+        n_defs: u32,
+        index: u32,
+        out: *mut ::std::os::raw::c_char,
+        cap: usize,
+        len: *mut usize,
+    ) -> ::std::os::raw::c_int;
+}
+unsafe extern "C" {
+    #[doc = " Rebuilds a result from parts held in a cache, so that a file whose content has\n not changed is never extracted again. The arrays are copied, strings included; the\n caller keeps its own. The rebuilt result describes the file; to resolve the file\n it is added to a project together with its surface (pdxe_surface_import). Its\n channel, configuration, diagnostic and throw arrays are empty, its status is parsed,\n it is not truncated and it reports no lost work: those parts are the cache's to keep,\n and resolution reads what it needs of them from the surface. A definition's base\n classes are copied with it, array and strings; a definition with bases and no array,\n or with a NULL base, is refused. It declares no namespace. Its `impl Trait for Type`\n relations are copied, array and strings, NULL and 0 for none; relations counted\n with no array, or one with a NULL string, are refused (issue 42). A definition's\n decorators, parameter types and route, and a call's node-type path and arguments,\n are copied too; any of those arrays counted without an array, or holding a NULL\n string where one is required (every element; an argument's expression), is refused\n (issues 46 and 47). A definition's routes are copied, the array, each route's strings\n and node-type path; routes counted with no array, a route missing its method, path or\n callee text, or a path counted with no array or holding a NULL, are refused (issue 54).\n\n Text is copied as it is given (issue 90): a source range stays a range of the file's\n source of `source_len` bytes, and owned text is copied. A text of an unknown kind, a\n non-zero `reserved`, a range with its start past its end or its end past\n `source_len`, owned text with no string, PDXE_TEXT_NONE where text is required (a\n call's callee, an argument's expression, a usage's name), and a qualified name whose\n form is unknown, whose base is not an earlier definition, whose string is missing, or\n whose `qn_keep` is not a `.` its base adds (PDXE_QN_PREFIX) or not 0 (any other form),\n are refused."]
     pub fn pdxe_result_build(
         ctx: *mut pdxe_ctx,
+        source_len: usize,
         defs: *const pdxe_definition,
         n_defs: u32,
         calls: *const pdxe_call,
@@ -939,12 +1000,12 @@ pub struct pdxe_resolution {
     pub candidates: u32,
     #[doc = " The engine's own name for how it resolved the call, verbatim, for calibrating\n the bands against what actually produced them. Several engine strategies share\n one normalised `strategy`; this keeps which one it was. Never used to derive a\n band. Appended by a specification change; see docs/plan/ISSUES.md, issue 16."]
     pub engine_strategy: *const ::std::os::raw::c_char,
-    #[doc = " The call site itself, as extraction describes it at `call_index`, or as typed\n resolution found it when the index is past the end of extraction's calls.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 17."]
+    #[doc = " The call site itself, as extraction describes it at `call_index`, or as typed\n resolution found it when the index is past the end of extraction's calls.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 17. Its source\n ranges are ranges of the source `rel_path` was added with (issue 90)."]
     pub site: pdxe_call,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_resolution"][::std::mem::size_of::<pdxe_resolution>() - 144usize];
+    ["Size of pdxe_resolution"][::std::mem::size_of::<pdxe_resolution>() - 160usize];
     ["Alignment of pdxe_resolution"][::std::mem::align_of::<pdxe_resolution>() - 8usize];
     ["Offset of field: pdxe_resolution::rel_path"]
         [::std::mem::offset_of!(pdxe_resolution, rel_path) - 0usize];
@@ -987,7 +1048,7 @@ unsafe extern "C" {
     pub fn pdxe_resolve_project_end(p: *mut pdxe_project);
 }
 unsafe extern "C" {
-    #[doc = " A file's surface: everything typed resolution reads from the file's extraction, as\n bytes the extraction cache keeps beside the file's other parts. Opaque to the caller.\n Its strings are the engine's byte for byte, so it is JSON in shape but not strict\n JSON when the file's text is not valid UTF-8.\n\n Typed resolution runs over the whole repository on every build, so its answers\n never depend on an earlier build. A file whose content has not changed is not\n extracted again for it: its surface is imported instead and resolution gives the\n same answers it would give from a fresh extraction. The surface therefore holds the\n file's own facts only, never anything computed from other files, and it names the\n path and language it was taken for. Equal extractions give equal bytes.\n\n Export takes a result pdxe_extract_file returned, and only while no project is\n resolving through it; the bytes are the caller's, freed with pdxe_surface_free.\n Import copies what it needs, so the caller may free the bytes on return. It refuses\n bytes this version did not write, and a second surface for one path. Every surface\n imported must belong to a file added to the project, in the same language, by the\n time the project runs."]
+    #[doc = " A file's surface: everything typed resolution reads from the file's extraction, as\n bytes the extraction cache keeps beside the file's other parts. Opaque to the caller.\n Its strings are the engine's byte for byte, so it is JSON in shape but not strict\n JSON when the file's text is not valid UTF-8.\n\n Like a result, it holds no copy of the file's text (issue 90): text that is a run of\n the source is held as its range, a qualified name by its relation to an earlier\n definition's, and a name equal to a definition's qualified name by that definition.\n It records the source's length; its ranges are checked against that length when it\n is imported, and bound to the source the file is added with when the project runs,\n which fails with PDXE_E_INVALID for a source of another length.\n\n Typed resolution runs over the whole repository on every build, so its answers\n never depend on an earlier build. A file whose content has not changed is not\n extracted again for it: its surface is imported instead and resolution gives the\n same answers it would give from a fresh extraction. The surface therefore holds the\n file's own facts only, never anything computed from other files, and it names the\n path and language it was taken for. Equal extractions give equal bytes.\n\n Export takes a result pdxe_extract_file returned, and only while no project is\n resolving through it; the bytes are the caller's, freed with pdxe_surface_free.\n Import copies what it needs, so the caller may free the bytes on return. It refuses\n bytes this version did not write, and a second surface for one path. Every surface\n imported must belong to a file added to the project, in the same language, by the\n time the project runs."]
     pub fn pdxe_surface_export(
         r: *const pdxe_file_result,
         rel_path: *const ::std::os::raw::c_char,

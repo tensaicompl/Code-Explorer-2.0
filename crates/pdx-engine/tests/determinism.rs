@@ -32,7 +32,7 @@ fn assert_deterministic(
     prop_assert_eq!(&first, &second, "twice on one engine");
     prop_assert_eq!(&first, &third, "on a fresh engine");
     if let Ok(extract) = &first {
-        let bytes = |e: &FileExtract| postcard::to_stdvec(e).expect("serialisable");
+        let bytes = |e: &FileExtract| common::record_bytes(e);
         prop_assert_eq!(bytes(extract), bytes(third.as_ref().unwrap()));
     }
     Ok(())

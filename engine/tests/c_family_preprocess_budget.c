@@ -173,7 +173,7 @@ static char *extract(int lang, const char *rel, const char *source, uint32_t *lo
         printf("FAIL no temporary file\n");
         exit(1);
     }
-    diff_rows_file(o, rel, engine);
+    diff_rows_file(o, rel, engine, source);
     fputs("{\"c\":\"surface\",\"json\":", o);
     fwrite(surface, 1, surface_len, o);
     fputs("}\n", o);
@@ -192,15 +192,30 @@ static char *extract(int lang, const char *rel, const char *source, uint32_t *lo
 
 /* `rows` with every byte offset blanked: a directive's length moves the raw offsets, and
  * offsets in the expanded text count the marker's bytes. Lines and every other field
- * remain. */
+ * remain. The surface's text ranges and the source's length are offsets too (issue 90). */
 static void blank_offsets(char *rows) {
     static const char *const KEYS[] = {"\"start\":", "\"end\":", "\"site_start_byte\":",
-                                       "\"site_end_byte\":"};
+                                       "\"site_end_byte\":", "\"source_len\":",
+                                       "\"expr_start\":", "\"expr_end\":",
+                                       "\"signature_start\":", "\"signature_end\":"};
     for (size_t k = 0; k < sizeof(KEYS) / sizeof(KEYS[0]); k++) {
         for (char *at = strstr(rows, KEYS[k]); at; at = strstr(at, KEYS[k])) {
             at += strlen(KEYS[k]);
             while (*at >= '0' && *at <= '9') {
                 *at++ = '#';
+            }
+        }
+    }
+    static const char *const RANGES[] = {"\"callee_name\":[", "\"ref_name\":[",
+                                         "\"callee_qn\":[", "\"source_text\":["};
+    for (size_t k = 0; k < sizeof(RANGES) / sizeof(RANGES[0]); k++) {
+        for (char *at = strstr(rows, RANGES[k]); at; at = strstr(at, RANGES[k])) {
+            at += strlen(RANGES[k]);
+            while ((*at >= '0' && *at <= '9') || *at == ',') {
+                if (*at != ',') {
+                    *at = '#';
+                }
+                at++;
             }
         }
     }

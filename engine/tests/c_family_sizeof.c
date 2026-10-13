@@ -262,7 +262,7 @@ static char *extract(int lang, const char *rel) {
         printf("FAIL no temporary file\n");
         exit(1);
     }
-    diff_rows_file(o, rel, engine);
+    diff_rows_file(o, rel, engine, MODEL_SOURCE);
     fputs("{\"c\":\"surface\",\"json\":", o);
     fwrite(surface, 1, surface_len, o);
     fputs("}\n", o);
