@@ -16,6 +16,7 @@ are never redefined — G7 blocks the release until they hold.
 | G0 | `P0-06` | passed | 2026-09-28 |
 | G1a | `P1-07` | passed | 2026-10-02 |
 | G1 | `P2-16` | pending | |
+| G1b | before G1's closure | pending | |
 | G2 | `P3-09` | pending | |
 | G3 | `P4-14` | pending | |
 | G4 | `P6-08` | pending | |
@@ -385,6 +386,37 @@ $ git ls-tree --name-only 2e6f253 bench/golden/ | wc -l
 $ git ls-tree --name-only 2e6f253 bench/results/legacy-compare.md
 bench/results/legacy-compare.md
 ```
+
+## G1b — driver-inserted structural trust checkpoint before G1 closure
+
+Status: **pending**. Inserted by the driver on 2026-10-13 (decision 64, issue 95). G1b
+does not replace G1, and is not in the plan's projection (`tasks.json` has no G1b, so
+`scripts/plan/plan-progress.py` neither reads nor counts it). It holds issue 93's Phase B,
+issue 82 and P3 until the driver releases them after A0.3.
+
+G1b brings G4's structural accuracy floors forward, measured by A0.1 with 4.13.1's three
+ratios against a semantic oracle independent of the structural engine. Each golden is
+judged on its own: no cross-repository averaging, so a strong Python result cannot hide a
+weak Rust one. The PDX repository's own index is diagnostic and can neither pass nor fail
+G1b.
+
+Criteria:
+
+- [ ] Python golden (`bench/repos.lock`): `typed` precision ≥ 97% on oracle-verifiable sites
+- [ ] Python golden: union of drawn bands precision ≥ 95% on oracle-verifiable sites
+- [ ] Python golden: recall ≥ 85%
+- [ ] Rust golden (`bench/repos.lock`): `typed` precision ≥ 97% on oracle-verifiable sites
+- [ ] Rust golden: union of drawn bands precision ≥ 95% on oracle-verifiable sites
+- [ ] Rust golden: recall ≥ 85%
+- [ ] the oracle-verifiable fraction reported beside every precision
+
+A floor that is missed leaves G1b pending, with the verdict in the log below. It is not
+waived, the metric is not redefined and nothing is averaged away (rule D32); the resolver
+is not patched within A0.1 or A0.2. What is done about it is A0.3, the driver's decision.
+
+Evaluation log:
+
+_not yet evaluated_
 
 ## G2 — after `P3-09`
 

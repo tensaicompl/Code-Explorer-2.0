@@ -8,6 +8,18 @@ to AI agents over MCP and to a GPU-rendered architecture map.
 **Remote:** `tensaicompl/Code-Explorer-2.0` (public, `origin`). The predecessor
 repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 
+## CURRENT DRIVER HOLD
+
+After issue 94, **A0 / gate G1b is next** (decision 64, issue 95): A0.1, a
+measurement-only structural-accuracy audit of the Python and Rust goldens against a
+semantic oracle; A0.2, counterfactual re-scoring of that one dataset; A0.3, the
+driver's decision. A0 changes no resolver behaviour, band, blocklist order, extraction,
+secret detector, contract reader, discovery or output policy, and is not P5-06.
+
+**Do not start issue 93's Phase B, issue 82 or P3 until the driver releases this
+hold.** Do not merge `main`. The plan's projection is unchanged (98 tasks, 28 done):
+never hand-edit `docs/plan/tasks.json`, `TASKS.md` or `PROGRESS.md` for A0.
+
 ## State: P2 in progress
 
 P0 and P1 are done and gates G0 and G1a have passed; P2 has begun with the graph

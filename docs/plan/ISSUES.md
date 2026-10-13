@@ -15,6 +15,13 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 101 | 2026-10-13 | P0-02 | ambiguity | open | Raised by an independent review before the oracle work: the provenance records disagree about the engine reference's part in the Rust resolver. `bench/references.lock` gives the engine reference (`engine-ref`) the mode "vendor+refactor, and reference for the Rust ports" and lands it in `engine/` and `crates/pdx-core/src/resolve/`, while `THIRD_PARTY_NOTICES.md`'s section of algorithms and designs consulted ("Re-implementations written from scratch in this repository, with the reference whose algorithm or design was consulted") says "No entries yet" | Open. To be settled from the actual derivation history of `crates/pdx-core/src/resolve/`, never by removing an attribution to make the records agree. No legal conclusion is drawn here |
+| 100 | 2026-10-13 | P0-04 | third-party | open | Raised by an independent review: supply-chain hardening has gaps. The cargo-vet store holds 142 exemptions and 0 audits (`supply-chain/config.toml`, `supply-chain/audits.toml`): every crate is accepted by exemption, none by a recorded audit, and `make vet` passing means no more than that. `cargo deny` runs its licence check alone (`scripts/licence-scan.sh`: `check licenses`); the advisory policy `deny.toml` configures (`[advisories]`) is not run as a check by any workflow. Every workflow step uses a mutable major tag (`actions/checkout@v4`, `actions/cache@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`) rather than an immutable commit | Open; not fixed in this round |
+| 99 | 2026-10-13 | P2-11 | blocker | open | Raised by an independent review: the local output's lifecycle can block the next run. `pdx index` refuses a tree `git status` does not report clean, `.pdx/` included (decision 38); it writes its segment to `.pdx/segment.db` by default and never overwrites a segment; and it does not make `.pdx/` ignored. In a repository whose ignore files do not already cover `.pdx/`, one successful index leaves the tree dirty, and the next run is refused | Open; not fixed in this round |
+| 98 | 2026-10-13 | P2-03 | scr | open | Raised by an independent review: discovery excludes every directory named `build`, `target`, `dist` or `vendor` at any depth (`index::discover::HARD_EXCLUDES`, as 4.5 specifies; `vendor` unless `[discover] include_vendor`), whatever is under it. Legitimate source below such a component is not discovered, not indexed and not represented in coverage: no coverage row records that it was left out | Open. The rule is 4.5's, so a change is a specification change; not fixed in this round |
+| 97 | 2026-10-13 | P2-08 | blocker | open | Raised by an independent review: the SQL consumer reader (`contracts::tables::sql_access`) reads a call's string argument as SQL when its first word is `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `WITH` or `MERGE` in any case, so natural-language text can mint a false table contract. `t("Select an item from the list")` begins with `Select`, its `from the` reads as a `FROM` clause, and the call consumes `Table("the")` | Open; not fixed in this round |
+| 96 | 2026-10-13 | P2-04 | blocker | open | Raised by an independent review: content secret normalisation (detector 4) has credible false negatives and one destructive mask. A standalone JWT-shaped credential and a standalone GitHub personal-access-token-shaped credential match no detector (the detectors are a PEM private key, a bearer token, a credential assignment, a URI password and a cloud access-key id); a password in a semicolon-separated key-value connection string is not masked; and the credential-assignment detector masks across `"password=" + decrypt(pw) + "..."`, destroying code that is not a secret | Open; not fixed in this round. A fix must prove secrets masked, non-secret executable syntax preserved, byte length preserved and CR and LF preserved, with fixtures whose synthetic values are built at run time; a change to what a detector matches bumps `SECRET_DETECTOR_VERSION` |
+| 95 | 2026-10-13 | P2-06 | blocker | open | Structural accuracy and trust. An independent adversarial review raised low precision and recall of the drawn structural bands before P5 and P6's oracle work; its percentages are not accepted as authoritative. The driver's inspection of `1eb801d` confirmed six mechanisms: the generic-name blocklist settles a site before a valid typed answer is accepted; `exact` draws from repository-wide short-name uniqueness; `scoped` from module or package short-name uniqueness; a Rust call on an unknown receiver has none of the unresolved-member protection Python, JavaScript, TypeScript and Perl have, so it falls through to `exact` and `scoped`; overloads sharing a qualified name cannot be told apart by signature; and a call written only inside a Rust macro's token tree is not a parsed `call_expression` site | Open. A0.1's measurement and A0.2's counterfactuals (decision 64, gate G1b) are required before any architectural change; what follows is A0.3, the driver's decision |
 | 94 | 2026-10-13 | P2-16 | blocker | resolved | Found by issue 93's battery: Python's per-file resolver replays each import statement by scanning every import of the file for its local name (`py_replay_import_local`), a lookup by key that issue 92's indexes do not reach, so a file's typed resolution is quadratic in its imports: a file of `from m import a` lines takes 0.14, 0.47, 1.8 and 6.7 s of per-file typed resolution at 0.25 to 2 MiB, and the project's run as long again (16 s at 2 MiB in all). Navigation stays linear. As long at `5915669` | Fixed by indexing, nothing limited (patch 0027, decision 63, engine 7): replay, an imported reference's exact candidate and a call's alias check read the file's registered imports through one index by exact local name (`imports_by_local`, issue 92's `PDXENameIndex`), each name's chain in registration order, so the import each statement takes, the conflicts and the imports consumed are the scans'; an index that cannot get memory finds nothing, never scans. The 2 MiB file's per-file typed resolution now takes 0.15 s (6.7 s) and the project's run 0.31 s (7.7 s); the imports examined double with the file at 1,000 to 16,000 imports; the 104,730-file census resolves and extracts identically; four mutations killed |
 | 93 | 2026-10-13 | P2-16 | blocker | open | Found by issue 92's resource audit, the final engine-7 audit: when a parse fails early, the parser's recovery can leave one error node holding the rest of the file as a flat run of children, and every pass that steps through it by position, or asks for a sibling or parent inside it, costs the position: the parser's own recovery, extraction's docstring, decorator and ancestor lookups, channel extraction and the Kotlin resolver's top-level walks. A Kotlin file of one-line nested classes takes 195 s at 1 MiB and 764 s at 2 MiB; JavaScript after an unclosed parenthesis 40 s and 160 s. As long at `8b3ed42` | Extraction fixed (patch 0026, engine 7), nothing limited: children are visited by cursor through one iterator, in reverse or by position from a collection made once, and parents and siblings are found from the walk's own path or the loop in progress, never by descending from the root; the answers are tree-sitter's on every node of the 104,730-file census and it extracts and resolves identically; the navigation work is linear in 75 wide shapes in 32 languages; nine mutations killed. The Kotlin file now extracts in 1.75 s at 2 MiB (764 s), 8,000 decorated TypeScript methods in one class in 0.55 s (68 s). Open: the vendored parser's recovery is quadratic in an error node's width (`ts_parser__recover` rebuilds the node for each token it takes): the JavaScript file parses in 1.5, 5.8, 22.9 and 88.7 s at 0.25 to 2 MiB, the rest of its extraction in 1.0 s. Changing the parser is the driver's decision; the battery also found issue 94 |
 | 92 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 90's resource audit: per-file typed resolution and the interface's translation are quadratic in how many definitions a file holds, in every typed language, whatever its nesting. 16,000 one-method classes take 62 s in Python (677 KB), 18 s in Java (549 KB), 15 s in TypeScript, 13 s in C++ and 8 s in C# and Go, about four times as long for each doubling; 2 MiB of distinct nested Java classes take 237 s. Within the depth ceiling, JavaScript calls nested 200 deep cost the TypeScript resolver more the more of them a file holds: 2 MiB, 441 s. Past an isolated worker's 120 s timeout a file fails the build, and whether it gets there depends on the machine. Generated code (protocol buffers, models, clients) holds thousands of classes a file | Fixed by indexing, nothing limited (patch 0025, decision 62, engine 7, and Stage 3's registry): every registry keeps exact-key chains in registration order as entries are added, the resolvers' helpers, the cross-file pass and the interface's translation index what they scanned (`index_of_qn` is gone), Stage 3 reads a name's provenance by file and name and C++ nesting by type name; an index that cannot get memory finds nothing, never scans. 16,000 classes now take 0.50 to 0.87 s in every typed language (Python 63.9 s before), each doubling about twice the last; the 2 MiB nested JavaScript 21 s (406 s) and nested Java 5.8 s (401 s). The 104,730-file census resolves and extracts identically; ten mutations killed. The final audit found issue 93 |
@@ -138,6 +145,159 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 101 — Provenance records disagree about the Rust resolver's derivation
+
+Raised by an independent review before the oracle work. `bench/references.lock` records
+the engine reference (`engine-ref`) with the mode "vendor+refactor, and reference for
+the Rust ports" and `lands_in = "engine/, crates/pdx-core/src/resolve/"`: it says the
+reference also informed the Rust resolver. `THIRD_PARTY_NOTICES.md`'s section
+"Algorithms and designs consulted", which lists re-implementations written from scratch
+with the reference consulted, says "No entries yet". (Its first "Vendored components"
+section also still says "No entries yet", above the generated section that lists the
+vendored engine.)
+
+Both cannot be complete as written. Which one is wrong is a question of fact, the actual
+derivation history of `crates/pdx-core/src/resolve/`, and is settled from that history.
+No attribution is removed to make the records agree, and no legal conclusion is drawn
+here.
+
+State: open.
+
+### 100 — Supply-chain hardening has gaps
+
+Raised by an independent review.
+
+- **cargo-vet.** The store holds 142 exemptions (`supply-chain/config.toml`) and 0
+  audits (`supply-chain/audits.toml`'s `[audits]` is empty). Every crate is accepted by
+  an exemption, none by a recorded audit; `make vet` passing says no more than that.
+  The two are kept distinct: exemptions are not audits.
+- **cargo deny.** `scripts/licence-scan.sh` runs `cargo deny check licenses` alone.
+  `deny.toml` configures an advisory policy (`[advisories]`, yanked crates denied), but
+  no workflow runs it as a check.
+- **Workflow actions.** Every step uses a mutable major tag (`actions/checkout@v4`,
+  `actions/cache@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`) rather than
+  an immutable commit.
+
+Not fixed in this round.
+
+State: open.
+
+### 99 — One local index can block the next
+
+Raised by an independent review. `pdx index` refuses a working tree `git status` does
+not report clean, and an untracked `.pdx/` counts (decision 38). It writes its segment
+to `.pdx/segment.db` unless `--out` names another path, never overwrites a segment, and
+does not make `.pdx/` ignored (its refusal suggests adding `.pdx/` to `.gitignore`). In
+a repository whose ignore files do not already cover `.pdx/`, a first successful index
+leaves the tree dirty, and the next run is refused.
+
+Not fixed in this round.
+
+State: open.
+
+### 98 — Source below a build-named directory is hidden from coverage
+
+Raised by an independent review. Discovery never enters a directory named `build`,
+`target`, `dist` or `vendor`, at any depth (`index::discover::HARD_EXCLUDES`; `vendor`
+unless `[discover] include_vendor = true`), with `.git` and `node_modules`. Source
+legitimately below such a component, a package or module that happens to have one of
+those names, is therefore not discovered, not indexed and not represented in coverage:
+no row records that it was left out, so nothing tells a reader that it exists.
+
+The exclusion is 4.5's ("Hard-coded excludes"), so changing it is a specification
+change. Not fixed in this round.
+
+State: open.
+
+### 97 — Natural-language strings can mint a table contract
+
+Raised by an independent review. The SQL consumer reader (`contracts::tables`,
+`sql_access`) takes a call's string argument as SQL when its first word is `SELECT`,
+`INSERT`, `UPDATE`, `DELETE`, `WITH` or `MERGE`, compared in any case, and then reads
+every `FROM`, `JOIN`, `INTO` and `UPDATE` it finds. A user-interface string such as
+
+```
+t("Select an item from the list")
+```
+
+begins with `Select`; `from the` reads as a `FROM` clause; and the call consumes a
+`Table` named `the`, a contract nothing provides and no reader should see.
+
+Not fixed in this round.
+
+State: open.
+
+### 96 — Secret masking has false negatives and one destructive mask
+
+Raised by an independent review of content secret normalisation (`pdx_core::secrets`,
+detector 4). Its detectors are a PEM private key, a bearer token, a credential
+assignment, a URI password and a cloud access-key id. The classes identified:
+
+1. **A standalone JWT-shaped credential** (three base64url segments, the first a JSON
+   header), outside an assignment or a bearer header: no detector matches it.
+2. **A standalone GitHub personal-access-token-shaped credential** (the documented
+   personal-token prefix and its fixed-length body), outside an assignment: no detector
+   matches it.
+3. **A semicolon-separated key-value connection string** inside a string literal of
+   source code, its password a key of its own (`…;Password=…;`): the value is neither
+   quoted nor in a language whose bare values are literals, so it is not masked.
+4. **A destructive mask.** In `"password=" + decrypt(pw) + "..."` the credential
+   assignment detector reads the closing quote of `"password="` as the start of a quoted
+   value and masks across ` + decrypt(pw) + `, which is code, not a secret.
+
+No real credential may be committed: every fixture's value is synthetic and assembled at
+run time. A resolution must prove that secrets are masked, that non-secret executable
+syntax is preserved, that byte length is preserved and that carriage returns and line
+feeds are preserved. A change to what a detector matches bumps
+`SECRET_DETECTOR_VERSION`, and coverage stays monotonic (issue 73).
+
+Not fixed in this round.
+
+State: open.
+
+### 95 — Structural accuracy and trust
+
+An independent adversarial review raised low precision and recall of the drawn
+structural bands, before P5 and P6's oracle work. Its preliminary percentages are not
+accepted as ground truth: they were obtained by ad-hoc matching, not by 4.13.1's
+measures against a semantic oracle.
+
+The driver's inspection of the branch at `1eb801d` confirmed that these mechanisms are
+present (`crates/pdx-core/src/resolve/stages.rs` unless named):
+
+1. **The blocklist before a typed answer.** `Resolver::site` settles a site whose
+   callee's short name is on the generic-name blocklist as `blocked` (step 1) before
+   it looks at the engine's answer (step 2), so a valid typed answer for such a site is
+   never drawn. 4.5 orders it so; whether that is right is what A0 measures.
+2. **`exact` from repository-wide short-name uniqueness.** `exact` holds when the
+   callee's short name has exactly one callable definition in the repository (of the
+   caller's language family), whatever the receiver.
+3. **`scoped` from module or package short-name uniqueness.** `scoped` holds when
+   exactly one remaining candidate is in the caller's module.
+4. **Rust's unknown receivers.** `exact` and `scoped` are skipped for a call whose
+   receiver the extractor could not tie to anything (`UNRESOLVED_MEMBER`, from the
+   extraction's `is_method`), but the extractor sets it for Python, JavaScript,
+   TypeScript and Perl only (`engine/src/extract_calls.c`). A Rust method call on a
+   value of unproven type, or a path call on an unproven type, falls through to
+   `exact` and `scoped`.
+5. **Overloads.** Definitions sharing one qualified name (overloads, and a trait's
+   method implemented for several types) cannot be told apart by signature: a typed
+   answer naming that qualified name maps to several definitions and is not drawn, and
+   the name stages see the overloads as distinct candidates of one name.
+6. **Rust macro token trees.** A call written only inside a macro invocation's token
+   tree (`assert_eq!(a.f(), 1)`, `vec![g()]`) is not a parsed `call_expression`, so it
+   is not an extraction call site; only the macro invocation is. Typed resolution walks
+   some token trees and may report sites past the extraction's calls, which are drawn
+   only with a typed answer.
+
+**Resolution.** No architectural change before evidence. A0.1 measures structural
+accuracy with 4.13.1's measures against a semantic oracle on the Python and Rust
+goldens (the PDX repository diagnostic only), and A0.2 re-scores the same dataset under
+counterfactual policies (decision 64, gate G1b). What is changed, if anything, is A0.3,
+the driver's decision.
+
+State: open.
 
 ### 94 — Python's typed resolution is quadratic in a file's imports
 
