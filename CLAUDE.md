@@ -152,7 +152,7 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 91 (decisions 51 and 53 to 61, engine 7, patches 0015 to 0024 together):
+Issues 83 to 92 (decisions 51 and 53 to 62, engine 7, patches 0015 to 0025 together):
 the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
@@ -236,11 +236,33 @@ the buffer Stage 2 supplies is the whole input.
   - Tests: `engine/tests/source_text.c`, `pdx-engine`'s `source_text`, `pdx-core`'s
     `derive` identity vectors (`structural_names_…`, `prefix_names_…`,
     `source_ranges_…`) and the cache's and worker's record comparisons.
-- **Open.** Issues 88, 90 and 91 are resolved. Issues 86, 87 and 89 are fixed, and their
-  closure stays held for the final engine-7 audit. Then issue 92: per-file typed
-  resolution and the interface's translation are quadratic in a file's definitions in
-  every typed language (16,000 Python classes, 62 s), and deeply nested JavaScript calls
-  too (2 MiB, 441 s). It must be fixed before engine 7 reaches main.
+- **No quadratic lookup (issue 92, decision 62, patch 0025).** Typed resolution and the
+  interface's translation find a definition, type, method, overload, import, usage,
+  binding or row by an index keyed exactly as the old scan matched, never by scanning a
+  file's or a registry's entries per question.
+  - Every registry keeps exact-key chains as entries are added (functions and types by
+    qualified name, methods by receiver and name, receiver-less functions by short
+    name, functions by receiver, types by short name and last name segment), each in
+    registration order, so a chain's head is the scan's first match and a walk meets
+    the scan's matches in its order: duplicates keep their winners. Read them through
+    `pdxe_registry_*_first_by_*` / `_next_by_*`; never loop over `reg->funcs` or
+    `reg->types` for a key.
+  - The helpers index what they scanned (`lsp/name_index.h`, `lsp/site_index.h` for
+    arrays that only grow); import, include and use arrays grow by doubling; the
+    interface's `index_of_qn` is gone (`qn_positions`), and answers join through an
+    index of the file's rows (`pdxe_pipeline_find_lsp_resolution_in_rows`). Stage 3
+    reads `name_provenance` by file and name and C++ nesting by type name.
+  - An index that cannot get memory finds nothing, the failure lost work; it never falls
+    back to a scan. No answer depends on hash order.
+  - Test builds: `PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE` answers by the old scans,
+    `lookup_counts.h` counts the work, `PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES` refuses a
+    family of indexes. `engine/tests/typed_lookup.c` proves answers equal and work
+    linear; never assert a time in a test.
+- **Open.** Issues 88, 90, 91 and 92 are resolved. Issues 86, 87 and 89 are fixed, and
+  their closure stays held: the final engine-7 audit found issue 93, an error-recovered
+  file whose parse leaves one wide error node costs superlinear work (parser recovery,
+  extraction's sibling and parent steps, the Kotlin resolver's top-level walks). Engine
+  blockers: issues 82 and 93.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4

@@ -15,13 +15,14 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 92 | 2026-10-12 | P2-16 | blocker | open | Found by issue 90's resource audit: per-file typed resolution and the interface's translation are quadratic in how many definitions a file holds, in every typed language, whatever its nesting. 16,000 one-method classes take 62 s in Python (677 KB), 18 s in Java (549 KB), 15 s in TypeScript, 13 s in C++ and 8 s in C# and Go, about four times as long for each doubling; 2 MiB of distinct nested Java classes take 237 s. Within the depth ceiling, JavaScript calls nested 200 deep cost the TypeScript resolver more the more of them a file holds: 2 MiB, 441 s. Past an isolated worker's 120 s timeout a file fails the build, and whether it gets there depends on the machine. Generated code (protocol buffers, models, clients) holds thousands of classes a file | Open: predates this hotfix, on main; nothing changed in this round. Whether it holds engine 7 is the driver's decision |
+| 93 | 2026-10-13 | P2-16 | blocker | open | Found by issue 92's resource audit, the final engine-7 audit: when a parse fails early, the parser's recovery can leave one error node holding the rest of the file as a flat run of children, and every pass that steps through it by position, or asks for a sibling or parent inside it, costs the position: the parser's own recovery, extraction's docstring, decorator and ancestor lookups, channel extraction and the Kotlin resolver's top-level walks. A Kotlin file of one-line nested classes takes 195 s at 1 MiB and 764 s at 2 MiB; JavaScript after an unclosed parenthesis 40 s and 160 s. As long at `8b3ed42` | Open: predates this hotfix, on main; nothing changed in this round. A fix per mechanism or an admission bound on an error node's width is the driver's decision |
+| 92 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 90's resource audit: per-file typed resolution and the interface's translation are quadratic in how many definitions a file holds, in every typed language, whatever its nesting. 16,000 one-method classes take 62 s in Python (677 KB), 18 s in Java (549 KB), 15 s in TypeScript, 13 s in C++ and 8 s in C# and Go, about four times as long for each doubling; 2 MiB of distinct nested Java classes take 237 s. Within the depth ceiling, JavaScript calls nested 200 deep cost the TypeScript resolver more the more of them a file holds: 2 MiB, 441 s. Past an isolated worker's 120 s timeout a file fails the build, and whether it gets there depends on the machine. Generated code (protocol buffers, models, clients) holds thousands of classes a file | Fixed by indexing, nothing limited (patch 0025, decision 62, engine 7, and Stage 3's registry): every registry keeps exact-key chains in registration order as entries are added, the resolvers' helpers, the cross-file pass and the interface's translation index what they scanned (`index_of_qn` is gone), Stage 3 reads a name's provenance by file and name and C++ nesting by type name; an index that cannot get memory finds nothing, never scans. 16,000 classes now take 0.50 to 0.87 s in every typed language (Python 63.9 s before), each doubling about twice the last; the 2 MiB nested JavaScript 21 s (406 s) and nested Java 5.8 s (401 s). The 104,730-file census resolves and extracts identically; ten mutations killed. The final audit found issue 93 |
 | 91 | 2026-10-12 | P2-16 | third-party | resolved | Found by issue 90's resource audit: grammar scanners of the vendored parser keep state that grows with nesting and do not keep it within the parser's 1,024-byte state buffer. YAML's writes two bytes past it from 253 nested block mappings (a 41 KB file) and Markdown's copies its open blocks past it without a bound, so the parser's own state is overwritten: a release build, where the bound is only an assertion, crashes in the parser (a null dereference), and the address sanitizer stops at the assertion. Kotlin's calls `abort()` at 1,024 open string templates (about 6 KB). Python's can write one byte past it, not reproduced. All of it happens during the parse, before any extraction pass and before the depth ceiling. Extraction is in process unless isolation is asked for, so one such file stops `pdx index`. The same at `582b58a` and on main | Resolved. Patch 0023, decision 60, engine 7: each affected scanner holds what the buffer holds, the bound derived from it (YAML 253 indentation entries, Markdown 254 open blocks, Kotlin 1,024 delimiters, Python 2 + delimiters + 2 per level at most 1,024); a push past it is refused and its token not claimed, so the parse recovers; serializers check each complete entry, deserializers read complete entries within the length. No abort remains reachable from content. All 23 scanners audited, the other 19 already bounded. Direct canary, sweep, round-trip and malformed-length tests, end-to-end children, corpus files; release and sanitizers clean; mutations killed; the census extracts identically |
 | 90 | 2026-10-12 | P2-16 | blocker | resolved | Found by the closure audit of issues 88 and 89, with both in force: within issue 89's 512-depth admission, usage handling still climbs to the root with `ts_node_parent`, which descends from the root again, for every usage, so each usage costs depth², and a file holds as many deep constructs as its size allows. One admitted 400-link Python member chain (about 800 bytes) takes 3.1 s, 8 of them 25 s, a 13 KB file about 50 s; Java classes 250 deep take 0.85 s each. A call's argument text, proportional to its depth, makes 2 MiB of admitted 250-deep call chains peak at 1.33 GB in the engine | Resolved. 90A, patch 0022, decision 59: a usage's questions about its ancestors are answered from the unified walk's own frames, each frame's answer computed once. The 400-link chain takes 2 ms (3.71 s before), 16 of them 31 ms (54.9 s), Java classes 250 deep 15 ms (0.93 s); the counted work is linear in links and chains, with no `ts_node_parent`; all 104,730 census files extract identically; mutations killed. 90B, patch 0024, decision 61 (the driver's redesign of the interface, model, cache and protocol): text a fact takes from the file is a range of the source (`pdxe_text`, `TextRef`), owned only when synthesised or macro-expanded; qualified names are structural (member, extended, or a `.`-bounded prefix of an earlier name); records hold ranges and bind to the verified source (cache format 6, protocol 7, surface 5); identities hash the same bytes, segment schema 3. An audit of every extracted string over 108 shapes in 29 languages found five fields growing with the square of the nesting (argument expressions, callees, usage names, qualified names, parameter lists); none does now. At 2 MiB the record without its surface shrinks 6 to 26 times (Python chains 443 to 49 MB) and peak RSS by 3 to 45%; all 104,730 census files extract identically; mutations killed. Closure of issues 86, 87 and 89 stays held for the final engine-7 audit; see issues 91 and 92 |
-| 89 | 2026-10-12 | P2-16 | blocker | open | Found by issue 88's extraction audit: extraction's memory and time are superlinear in syntax nesting, in many places and every language, beyond `ast_path`. Memory: each call stores its argument text and its callee text whole, so nested calls store about 1.5 n² bytes of arguments and a method chain about 2 n² bytes of callee text; nested C++ namespaces, JavaScript closures and Java `new` expressions grow ×3 to ×4 per doubling. Time: usage handling climbs to the root with `ts_node_parent`, itself a descent from the root, for every usage: O(n³). 1,000 nested Java classes (13 KB) take 56 s, 1,000 nested JavaScript functions 45 s and a 1,000-link Python member chain 50 s. Whether such a file extracts, or finishes within a worker's timeout, depends on the machine | Fixed in part, closure held. Patch 0021, decision 58, engine 7: after the parse and before any semantic pass, a cursor scan (every node, the root at depth 1) refuses a tree deeper than 512: no fact, no semantic pass, lost work once, no cross-file resolution, never cached, degraded; the expanded C and C++ tree alike, its pass alone skipped. From a census of 104,730 files (p99.9 65): the 13 past 512 are parser recovery, generated Go or expanded text. The issue's 1,000-deep reproducers take under 0.01 s; mutations killed. Held on issue 90: within the admitted depth, a file of many deep constructs still costs depth² a usage |
+| 89 | 2026-10-12 | P2-16 | blocker | open | Found by issue 88's extraction audit: extraction's memory and time are superlinear in syntax nesting, in many places and every language, beyond `ast_path`. Memory: each call stores its argument text and its callee text whole, so nested calls store about 1.5 n² bytes of arguments and a method chain about 2 n² bytes of callee text; nested C++ namespaces, JavaScript closures and Java `new` expressions grow ×3 to ×4 per doubling. Time: usage handling climbs to the root with `ts_node_parent`, itself a descent from the root, for every usage: O(n³). 1,000 nested Java classes (13 KB) take 56 s, 1,000 nested JavaScript functions 45 s and a 1,000-link Python member chain 50 s. Whether such a file extracts, or finishes within a worker's timeout, depends on the machine | Fixed in part, closure held. Patch 0021, decision 58, engine 7: after the parse and before any semantic pass, a cursor scan (every node, the root at depth 1) refuses a tree deeper than 512: no fact, no semantic pass, lost work once, no cross-file resolution, never cached, degraded; the expanded C and C++ tree alike, its pass alone skipped. From a census of 104,730 files (p99.9 65): the 13 past 512 are parser recovery, generated Go or expanded text. The issue's 1,000-deep reproducers take under 0.01 s; mutations killed. Held on issue 90: within the admitted depth, a file of many deep constructs still costs depth² a usage. Issue 90 is resolved; the final engine-7 audit (issue 92's) found issue 93, so closure is still held |
 | 88 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 87's security test: extraction's memory is quadratic in how deeply call sites nest, in every language. Each call site stores the node types from its owner down to it (`ast_path`, patch 0010), so n calls nested n deep store about n² entries: a 30 KB C or Python file of 10,000 nested calls stores 100,030,000, peaking at 954 MB in the engine and 6.7 GB in `build_segment`, which fails the file under an 8 GB address-space limit and is killed under a 6 GB cap; a 10,000-call method chain takes 1.6 GB and 39 s. Whether such a file extracts depends on the machine | Resolved in engine 7 (decision 57, patch 0020): a site's node-type path is complete or absent, never truncated; one per-file budget shared by every producer holds a path to 1,024 entries and the file to 500,000, checked before allocating; the first refusal is lost work once and no path is computed after it; a site without its path is counted, never stored. Of 104,730 census files only `lib/test_bpf.c` (parser recovery) passed it, and issue 89 now refuses it first; surfaces byte-identical otherwise. Mutations killed |
-| 87 | 2026-10-12 | P2-16 | blocker | open | Found by issue 86's audit: C and C++ preprocessing's work and memory are unbounded by the source. A forward `#line` within one file pads the expanded text with one line per line skipped (`#line 400000000` in a three-line source: 400 MB of text, 2.7 GB peak), and doubling macros grow exponentially (437 bytes, 22 levels: 1.3 GB, 9.8 s). Whether such a file extracts depends on the host's memory and speed, and a repository can exhaust the indexer's memory | Fixed on the branch, closure held. Patch 0019, decision 56, engine 7 with issues 83 to 86: a forward jump of more than 4,096 lines is one `#line` marker; what one file's preprocessing writes and generates, and its `#if` folding, are held to `clamp(24 × len, 256 KiB, 8 MiB)` (16 until the driver's review of five Linux files admitted `stackinit_kunit.c`), generated tokens and expansions to 500,000 each and nesting to 256, counted inside the work; passing one discards the expansion and is lost work once, never cached, degraded. `#if` arithmetic is 64-bit two's complement written out, literals read explicitly. The closest normal corpus file uses 10.9% of a ceiling; 4 of Linux's 64,432 pass one, all amplification by design. Mutations killed but one equivalent. Held: its security test found issue 88 (resolved), and the closure audit issues 89 and 90 |
-| 86 | 2026-10-12 | P2-16 | blocker | open | Found by issue 85's audit: two more host data-model dependences in C and C++ preprocessing. A single-byte character constant in `#if` is evaluated as plain `char`, signed on four of the five specified targets and unsigned on linux-aarch64, so `#if '\xff' < 0` (valid C) takes opposite branches; and `#line` numbers are read with `atol`, a C `long`, so a number above 2147483647 (invalid C) gives a different `__LINE__` on Windows | Fixed on the branch, closure held. Patch 0018, decision 55, engine 7 with issues 83 to 85: a one-byte character constant is a signed 8-bit char, written out, and a multi-character one a 32-bit int; every `#line` number is its leading decimal digits read at 64 bits and clamped to 4294967295. Tests build the library with char signed and unsigned and assert the same values on Linux, macOS and Windows; mutations killed. Held because the same audit found issue 87, and the driver set its closure condition as no known host property changing extraction. Issue 87 is fixed (patch 0019) and issue 88 resolved (patch 0020); closure is held on issues 89 and 90 |
+| 87 | 2026-10-12 | P2-16 | blocker | open | Found by issue 86's audit: C and C++ preprocessing's work and memory are unbounded by the source. A forward `#line` within one file pads the expanded text with one line per line skipped (`#line 400000000` in a three-line source: 400 MB of text, 2.7 GB peak), and doubling macros grow exponentially (437 bytes, 22 levels: 1.3 GB, 9.8 s). Whether such a file extracts depends on the host's memory and speed, and a repository can exhaust the indexer's memory | Fixed on the branch, closure held. Patch 0019, decision 56, engine 7 with issues 83 to 86: a forward jump of more than 4,096 lines is one `#line` marker; what one file's preprocessing writes and generates, and its `#if` folding, are held to `clamp(24 × len, 256 KiB, 8 MiB)` (16 until the driver's review of five Linux files admitted `stackinit_kunit.c`), generated tokens and expansions to 500,000 each and nesting to 256, counted inside the work; passing one discards the expansion and is lost work once, never cached, degraded. `#if` arithmetic is 64-bit two's complement written out, literals read explicitly. The closest normal corpus file uses 10.9% of a ceiling; 4 of Linux's 64,432 pass one, all amplification by design. Mutations killed but one equivalent. Held: its security test found issue 88 (resolved), and the closure audit issues 89 and 90 (90 resolved); the final engine-7 audit (issue 92's) found issue 93, so closure is still held |
+| 86 | 2026-10-12 | P2-16 | blocker | open | Found by issue 85's audit: two more host data-model dependences in C and C++ preprocessing. A single-byte character constant in `#if` is evaluated as plain `char`, signed on four of the five specified targets and unsigned on linux-aarch64, so `#if '\xff' < 0` (valid C) takes opposite branches; and `#line` numbers are read with `atol`, a C `long`, so a number above 2147483647 (invalid C) gives a different `__LINE__` on Windows | Fixed on the branch, closure held. Patch 0018, decision 55, engine 7 with issues 83 to 85: a one-byte character constant is a signed 8-bit char, written out, and a multi-character one a 32-bit int; every `#line` number is its leading decimal digits read at 64 bits and clamped to 4294967295. Tests build the library with char signed and unsigned and assert the same values on Linux, macOS and Windows; mutations killed. Held because the same audit found issue 87, and the driver set its closure condition as no known host property changing extraction. Issue 87 is fixed (patch 0019) and issue 88 resolved (patch 0020); closure is held on issues 89 and 90 (90 resolved) and, after the final engine-7 audit (issue 92's), on issue 93 |
 | 85 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 84's audit: C and C++ preprocessing evaluates `sizeof(type)` inside `#if` with the type sizes of the engine binary's own build (`long` is 8 bytes on Linux and macOS, 4 on Windows), so such a source can extract differently on different platforms under one `ENGINE_VERSION`. No ambient input (one binary, one answer) and inert in practice: no C or C++ compiler accepts the construct, and jq, fmt and the Linux checkout hold none | Resolved in engine 7 with issues 83 and 84 (decision 54, patch 0017): the library's twenty recognised spellings use one written-out LP64 table on every platform (char 1, short 2, int 4, long 8, long long 8, float 4, double 8, long double 16, pointers 8); a caller's table and the build's own sizes are ignored, unrecognised spellings stay unevaluated. Host ABI is no extraction input and not in the cache key. Tests simulate other platforms through a test-build seam and assert the same sizes on Linux, macOS and Windows; mutations killed. The audit found issue 86 |
 | 84 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 83's environment audit: C-family preprocessing predefined `__DATE__` and `__TIME__` from the wall clock in the process's local time zone (`localtime`, which reads `TZ` and, without it, the system's zone file) and with the locale's month name. A source macro that expanded either put the date or time into the extraction (a call's arguments and first string argument), which no cache key names | Resolved in engine 7 with issue 83 (decision 53, patch 0016): `__DATE__` is `"Jan 01 1970"` and `__TIME__` `"00:00:00"`, written out, so no clock, zone or locale is read; a source's own definitions keep precedence. The only time-derived predefined macros; `ENGINE_VERSION` stays 7. Tests fail on the clock-reading engine and pass now; mutations killed |
 | 83 | 2026-10-12 | P2-16 | blocker | resolved | Found by P2-16's engine differential: the vendored engine's C, C++ and CUDA preprocessing reads the files a source includes from disk, relative to the process working directory (the preprocessor's file loading in `engine/src/preprocessor.cpp`), so a C-family extraction is not a function of the bytes Stage 2 gives the engine. Through `pdxe_extract_file`, the interface Stage 2 uses, the sites jq's `src/jv_alloc.c` has in its macro-expanded text are at lines 133 and 134 with the workspace root as working directory and at 397 and 398 in the repository's root, where `src/jv.h` is found and expanded. The reference engine does the same, so the differential runs both in the corpus root, where they agree | Resolved (decisions 51 and 52). Production engine: patch 0015, engine 7, opens no file, so no ambient include is consumed; specification 4.5 clarified; tests fail on engine 6 and pass on 7, mutations killed, goldens unchanged. P2-16 harness: both engines execute from a fresh empty working directory of the harness's own, an execution rule of the differential, not the fix; `make engine-differential` is 32 of 32 identical, jq and fmt included |
@@ -137,6 +138,39 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 93 — An error-recovered file costs superlinear work in its wide error node
+
+Found by issue 92's resource audit, the final engine-7 audit, with patch 0025 in force.
+When a parse fails early, the parser's recovery can leave one error node holding the rest
+of the file as a flat run of children. A list a grammar's repetition builds is a balanced
+tree of hidden nodes, so positional access into it costs the logarithm of the position;
+an error node's children are one flat array, so `ts_node_child(n, i)`,
+`ts_node_prev_sibling` and `ts_node_parent` below it each cost the position. Every pass
+that steps through such a node by position, or asks for a sibling or parent within it,
+is then quadratic in the file. CPU time of one extraction, single-threaded:
+
+| Shape | 0.25 MiB | 0.5 MiB | 1 MiB | 2 MiB |
+|---|---|---|---|---|
+| Kotlin: `class O { class I { fun m() { I() } } }`, one class a line (the grammar does not take a nested class body on one line, and the error node holds the rest of the file) | 13.1 s | 51.4 s | 195 s | 764 s |
+| JavaScript: `let x = (` before a file of functions | 2.9 s | 10.5 s | 39.6 s | 160 s |
+
+Sampled: the parser's own recovery (`ts_parser__recover`: more than half of the JavaScript
+case), definition extraction's docstring and decorator lookups (`extract_docstring`,
+`extract_decorators`, by `ts_node_prev_sibling`), its ancestor checks
+(`pdxe_has_ancestor_kind`, by `ts_node_parent`), channel extraction, and the Kotlin
+resolver's top-level walks (`kt_walk_top_level_for_resolution`, `kt_collect_top_level_decls`,
+by `ts_node_child`). None is a lookup by key, so issue 92's indexes do not reach it; the
+same files took as long at `8b3ed42` (Kotlin 0.4 MiB: 32.6 s then, 31.8 s now). Each file
+is admitted (within the file-size limit and the depth ceiling, which an error node's
+width does not cross) and extracts whole, and past an isolated worker's 120 s timeout
+(issue 27) whether it does depends on the machine: issue 87's class. It predates this
+hotfix and is on main. Nothing was changed for it: the parser's recovery is the vendored
+runtime's, and the extraction passes number in the dozens; a fix per mechanism, or one
+admission bound on an error node's width as decision 58 bounded depth, is the driver's
+decision.
+
+State: open.
+
 ### 92 — Typed resolution is quadratic in a file's definitions
 
 Found by issue 90's resource audit, with patch 0022 in force: after the usage climbs, the
@@ -172,10 +206,124 @@ Each of these files is admitted and extracts whole; on the measuring machine som
 longer than an isolated worker's 120 s, which fails the build (issue 27), and how long
 each takes depends on the machine: issue 87's class. Generated code holds such files:
 protocol-buffer outer classes, models, API clients. The goldens and the census do not
-come near it. It predates this hotfix and is on main. Nothing was changed for it: a fix
-needs indexed lookups in the registries and the translation, the driver's decision.
+come near it. It predates this hotfix and is on main.
 
-State: open.
+The driver decided it must be fixed before engine 7 reaches main, by indexing every lookup
+by the key it matches and never by a limit: no file-size limit, depth, budget, quota or
+timeout changed, and typed resolution is skipped for no file (decision 62). The fix is
+patch 0025 and, for Stage 3, `pdx-core`'s registry and module rules.
+
+**The audit.** Every loop on the path that grows with a file was read and classified: the
+per-file resolvers and their registry (`engine/src/lsp/`), the language helpers, the
+cross-file pass, the interface's translation (`engine/api/pdxe.c`) and Stage 3 (`pdx-core`'s
+symbol registry and stages). A is an exact key an index answers, B a bucket of values one
+key holds, C a candidate set the semantics examine whole, D bounded by a small constant, E
+linear already or not on the path. Every A and B on a path a file of many definitions,
+imports, usages or sites reaches is now indexed:
+
+| Where | What scanned, per question | Now |
+|---|---|---|
+| Registries | every function or type per self-lookup (`lookup_type_self`, `lookup_func_self`, `lookup_method_self`), overload lookup and iterator, in a registry never finalized (every per-file resolver's), and the entries a finalized one gained later | chains kept on every add: functions by qualified name, types by qualified name, methods by receiver and name, receiver-less functions by short name, functions by receiver, types by short name and by last name segment |
+| Java (`register_local_func_or_type_from_file`) | every type per type definition, every function per method to patch, every type and every field per field | the registry's chains; a declaration's fields appended once |
+| Python | the module's top level per class (`py_root_defines_class_named`), every statement per import, every binding per wildcard import | the module's root class names; import items by local name; the bindings written since the last wildcard |
+| TypeScript, JavaScript | every function per symbol or overload lookup, every usage per lexical argument, every import per identifier, every function and type per declaration patched | the registry's chains; usages by site; imports by local name |
+| Kotlin, Go, C#, PHP, Rust, Perl, C | sole definers, registration and patch passes, free-function fallbacks, extension and operator candidates, macro rules and carriers, function-pointer bindings, @ISA, docblock siblings, the Go cross builder's type table (and its scan when it could not be allocated) | the registry's chains, or an index of each by its key |
+| Every resolver | import, include and use arrays copied whole on each add, or grown by 32 | grown by doubling |
+| Extraction | every definition per call, for the innermost enclosing one | one sweep |
+| Cross-file pass | every definition per Go struct, every import and key per import | indexes by owner, by local name and by key |
+| Interface | `index_of_qn` per parent, usage, type, write, throw and caller; every resolver row per call and per reference | a position index per file; invocation rows by site, by caller and leaf, by caller's tail and leaf; references by occurrence |
+| Stage 3 | every definition and import of the file per site (`name_provenance`), every C++ definition per definition (`nesting`) | by file and name; by type name |
+
+Kept, C or D: the matcher's rows without a site of one caller and one callee leaf, which
+the join compares whole (16,000 calls of one method in one C++ function: 0.9 s in the
+project run, about 3 s at 2 MiB); JavaScript's re-evaluation of a degraded nested call up
+to the evaluator's depth cap of 64, linear in the calls by that constant; bounded stacks,
+searches and caps.
+
+**Answers.** Each chain is in the scan's order, so the first entry a scan found heads it
+and a walk meets the scan's matches in its order: every duplicate qualified name, overload
+and short name keeps the winner it had, first in a registry never finalized, the finalized
+prefix's own in one finalized. The interface's index skips synthetic definitions, compares
+names without the project's prefix and gives a name to its first definition, as
+`index_of_qn` did. No answer comes from hash order.
+
+**Work.** CPU time of one extraction, single-threaded, at `8b3ed42` and now, with each
+doubling of the file from 1,000 classes on costing 1.9 to 2.2 times the last:
+
+| 16,000 classes | Python | Java | TypeScript | C++ | C# | Go | Rust | PHP | Kotlin |
+|---|---|---|---|---|---|---|---|---|---|
+| `8b3ed42` | 63.9 s | 18.0 s | 16.7 s | 13.6 s | 8.1 s | 7.2 s | 4.4 s | 3.7 s | 20.4 s |
+| now | 0.57 s | 0.59 s | 0.67 s | 0.60 s | 0.72 s | 0.76 s | 0.87 s | 0.50 s | 0.82 s |
+
+JavaScript calls nested 200 deep: 64, 128, 256 and 512 groups 2.7, 7.0, 18.9 and 53.7 s
+then, 0.78, 1.57, 3.18 and 6.30 s now; the 2 MiB file 406 s then, 21.3 s now (the
+evaluator's depth cap of 64 is the constant). Distinct Java classes nested 200 deep: the
+2 MiB file 401 s then, 5.8 s now (0.25, 0.5 and 1 MiB: 0.71, 1.40 and 2.79 s). A
+project's run over each flat file takes at most 0.24 s at 16,000. The whole pipeline
+(`pdx index`, a cold cache, one worker) over one 16,000-class file takes 1.6 to 2.5 s in
+every language; before Stage 3's change C++ took 7.1 s, 38% of it in `nesting` and 43%
+in `name_provenance`.
+
+Counted (test builds), the indexes examine no registry entry one by one, and every
+count doubles with the file. The scans, for comparison (the reference switch), at 8,000
+classes: registry entries examined one by one, qualified-name comparisons and the
+interface's definition entries were 297.5 million, 297.5 million and 192.1 million in
+Python (now 0, 8,096 and 51,131), 761 million, 204 million and 192 million in Java (0,
+56,001 and 48,729), 622 million, 490 million and 256 million in TypeScript (0, 24,255 and
+62,945), and 1.84 billion, 1.71 billion and 256 million in Kotlin (0, 24,001 and 70,481);
+Python's module-class scans 32.0 million (25,970). At 512 nested JavaScript groups the
+scans examined 14.1 billion registry entries; the indexes examine none, with 1,280
+qualified-name comparisons. Peak memory at 16,000 classes is 6 to 12% above `8b3ed42`'s
+(Python 179 MB then, 200 MB now), linear in the file.
+
+**Allocation.** An index that cannot get memory finds nothing from then on: a lookup misses,
+an iterator yields nothing, the translation or a run's collection fails with
+`PDXE_E_NOMEM`; the memory core counts the failure as lost work. No index falls back to the
+scan it replaced. Indexes are owned by their registry, context or run and freed with it;
+no index is static or shared between threads (the test builds' counters are per thread).
+
+**Tests.** `engine/tests/typed_lookup.c`:
+
+- Every typed-resolution fixture, issue 92's own cases (duplicate qualified names and
+  short names, overloads, one class name in two modules, a nested class beside a root
+  class of its name, imported aliases and wildcards, one function in several files,
+  receiver member lookups, ambiguous TypeScript symbols, C function pointers and their
+  shadows, Rust macros and impls, PHP docblocks, Perl @ISA) in eleven languages, a
+  fixture where the first and the last of two duplicates lead to different answers,
+  generated code (protocol-buffer modules, nested builders, API clients) and the issue's
+  shapes extract to the same facts, each file's resolver to the same rows, and each
+  project to the same answers and health, with the indexes and with the scans.
+- The work is linear: flat files of 1,000 to 16,000 classes in nine languages, 64 to 512
+  groups of nested JavaScript calls, 4,000 to 16,000 definitions translated and resolved,
+  and generated code; the scans' work, for comparison, grows more than sixfold when the
+  file quadruples.
+- A duplicated qualified name scopes to its first definition, found without the project's
+  prefix.
+- Each family of indexes refused its memory (`registry`, `scope`, `resolver`,
+  `interface`, `all`): extraction and resolution complete or fail with `PDXE_E_NOMEM`,
+  the refusal is lost work or a pass failure, no registry is scanned, and the work stays
+  linear.
+
+`crates/pdx-core/tests/registry.rs`: `name_provenance_keeps_every_definition_and_import_in_order`
+and `cpp_definitions_take_the_namespace_of_their_outermost_type`, which pass with the old
+scans and the new indexes alike.
+
+**Mutations.** Each compiled, was killed by a failing assertion and was restored byte for
+byte (sha256): the interface's `index_of_qn` scan restored (definition entries quadruple);
+the last duplicate keeping the name (the indexes and the scans disagree on 13 fixtures);
+names compared with the project's prefix (a usage scoped to no definition);
+`lookup_type_self` and `lookup_func_self` scanning (qualified-name comparisons triple per
+doubling); Python's top-level scan restored (module-class scans quadruple); the method key
+without its receiver (overload candidates quadruple); chains in newest-first order (the
+first and last duplicates' answers differ); TypeScript's global symbol scan and its
+per-call argument and type scans restored (comparisons triple per doubling).
+
+**Census.** All 104,730 census files, as 10,928 directory projects, resolve to the same
+answers (target, file, score, strategy, engine strategy, candidates, site) and health as
+at `8b3ed42`, and extract to the same public facts, texts, qualified names, surfaces and
+lost counts. The goldens' segments are unchanged.
+
+State: resolved.
 
 ### 91 — Grammar scanners overrun or abort on deeply nested state
 
@@ -732,6 +880,10 @@ handling still costs depth² per usage, and a file holds as many deep constructs
 likes, so a few KB can still take tens of seconds. The ceiling bounds each construct,
 not the file.
 
+The final engine-7 audit, issue 92's (2026-10-13), found issue 93: an error-recovered
+file whose parse leaves one wide error node costs superlinear work, past an isolated
+worker's timeout at 1 MiB. Closure is still held.
+
 State: open.
 
 ### 88 — Extraction's memory is quadratic in how deeply call sites nest
@@ -995,6 +1147,10 @@ Closure is held. Its security test found issue 88, which is resolved, and the cl
 audit found issue 89 and then issue 90: machine-dependent extraction outside
 preprocessing.
 
+The final engine-7 audit, issue 92's (2026-10-13), found issue 93: an error-recovered
+file whose parse leaves one wide error node costs superlinear work, past an isolated
+worker's timeout at 1 MiB. Closure is still held.
+
 State: open.
 
 ### 86 — Preprocessing keeps two more host data-model dependences
@@ -1085,6 +1241,10 @@ Issue 87 is fixed (patch 0019, decision 56, its factor 24 since `291e435`). Its
 security test found issue 88, now resolved (patch 0020). Issue 89's depth admission is
 delivered (patch 0021), but the closure audit found issue 90 within it, so closure is
 still held.
+
+The final engine-7 audit, issue 92's (2026-10-13), found issue 93: an error-recovered
+file whose parse leaves one wide error node costs superlinear work, past an isolated
+worker's timeout at 1 MiB. Closure is still held.
 
 State: open.
 
