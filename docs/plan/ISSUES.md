@@ -15,7 +15,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 93 | 2026-10-13 | P2-16 | blocker | open | Found by issue 92's resource audit, the final engine-7 audit: when a parse fails early, the parser's recovery can leave one error node holding the rest of the file as a flat run of children, and every pass that steps through it by position, or asks for a sibling or parent inside it, costs the position: the parser's own recovery, extraction's docstring, decorator and ancestor lookups, channel extraction and the Kotlin resolver's top-level walks. A Kotlin file of one-line nested classes takes 195 s at 1 MiB and 764 s at 2 MiB; JavaScript after an unclosed parenthesis 40 s and 160 s. As long at `8b3ed42` | Open: predates this hotfix, on main; nothing changed in this round. A fix per mechanism or an admission bound on an error node's width is the driver's decision |
+| 94 | 2026-10-13 | P2-16 | blocker | open | Found by issue 93's battery: Python's per-file resolver replays each import statement by scanning every import of the file for its local name (`py_replay_import_local`), a lookup by key that issue 92's indexes do not reach, so a file's typed resolution is quadratic in its imports: a file of `from m import a` lines takes 0.14, 0.47, 1.8 and 6.7 s of per-file typed resolution at 0.25 to 2 MiB, and the project's run as long again (16 s at 2 MiB in all). Navigation stays linear. As long at `5915669` | Open: found in this round and outside issue 93's navigation; not changed. An index of the imports by local name, as issue 92's helpers have, is the likely fix |
+| 93 | 2026-10-13 | P2-16 | blocker | open | Found by issue 92's resource audit, the final engine-7 audit: when a parse fails early, the parser's recovery can leave one error node holding the rest of the file as a flat run of children, and every pass that steps through it by position, or asks for a sibling or parent inside it, costs the position: the parser's own recovery, extraction's docstring, decorator and ancestor lookups, channel extraction and the Kotlin resolver's top-level walks. A Kotlin file of one-line nested classes takes 195 s at 1 MiB and 764 s at 2 MiB; JavaScript after an unclosed parenthesis 40 s and 160 s. As long at `8b3ed42` | Extraction fixed (patch 0026, engine 7), nothing limited: children are visited by cursor through one iterator, in reverse or by position from a collection made once, and parents and siblings are found from the walk's own path or the loop in progress, never by descending from the root; the answers are tree-sitter's on every node of the 104,730-file census and it extracts and resolves identically; the navigation work is linear in 75 wide shapes in 32 languages; nine mutations killed. The Kotlin file now extracts in 1.75 s at 2 MiB (764 s), 8,000 decorated TypeScript methods in one class in 0.55 s (68 s). Open: the vendored parser's recovery is quadratic in an error node's width (`ts_parser__recover` rebuilds the node for each token it takes): the JavaScript file parses in 1.5, 5.8, 22.9 and 88.7 s at 0.25 to 2 MiB, the rest of its extraction in 1.0 s. Changing the parser is the driver's decision; the battery also found issue 94 |
 | 92 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 90's resource audit: per-file typed resolution and the interface's translation are quadratic in how many definitions a file holds, in every typed language, whatever its nesting. 16,000 one-method classes take 62 s in Python (677 KB), 18 s in Java (549 KB), 15 s in TypeScript, 13 s in C++ and 8 s in C# and Go, about four times as long for each doubling; 2 MiB of distinct nested Java classes take 237 s. Within the depth ceiling, JavaScript calls nested 200 deep cost the TypeScript resolver more the more of them a file holds: 2 MiB, 441 s. Past an isolated worker's 120 s timeout a file fails the build, and whether it gets there depends on the machine. Generated code (protocol buffers, models, clients) holds thousands of classes a file | Fixed by indexing, nothing limited (patch 0025, decision 62, engine 7, and Stage 3's registry): every registry keeps exact-key chains in registration order as entries are added, the resolvers' helpers, the cross-file pass and the interface's translation index what they scanned (`index_of_qn` is gone), Stage 3 reads a name's provenance by file and name and C++ nesting by type name; an index that cannot get memory finds nothing, never scans. 16,000 classes now take 0.50 to 0.87 s in every typed language (Python 63.9 s before), each doubling about twice the last; the 2 MiB nested JavaScript 21 s (406 s) and nested Java 5.8 s (401 s). The 104,730-file census resolves and extracts identically; ten mutations killed. The final audit found issue 93 |
 | 91 | 2026-10-12 | P2-16 | third-party | resolved | Found by issue 90's resource audit: grammar scanners of the vendored parser keep state that grows with nesting and do not keep it within the parser's 1,024-byte state buffer. YAML's writes two bytes past it from 253 nested block mappings (a 41 KB file) and Markdown's copies its open blocks past it without a bound, so the parser's own state is overwritten: a release build, where the bound is only an assertion, crashes in the parser (a null dereference), and the address sanitizer stops at the assertion. Kotlin's calls `abort()` at 1,024 open string templates (about 6 KB). Python's can write one byte past it, not reproduced. All of it happens during the parse, before any extraction pass and before the depth ceiling. Extraction is in process unless isolation is asked for, so one such file stops `pdx index`. The same at `582b58a` and on main | Resolved. Patch 0023, decision 60, engine 7: each affected scanner holds what the buffer holds, the bound derived from it (YAML 253 indentation entries, Markdown 254 open blocks, Kotlin 1,024 delimiters, Python 2 + delimiters + 2 per level at most 1,024); a push past it is refused and its token not claimed, so the parse recovers; serializers check each complete entry, deserializers read complete entries within the length. No abort remains reachable from content. All 23 scanners audited, the other 19 already bounded. Direct canary, sweep, round-trip and malformed-length tests, end-to-end children, corpus files; release and sanitizers clean; mutations killed; the census extracts identically |
 | 90 | 2026-10-12 | P2-16 | blocker | resolved | Found by the closure audit of issues 88 and 89, with both in force: within issue 89's 512-depth admission, usage handling still climbs to the root with `ts_node_parent`, which descends from the root again, for every usage, so each usage costs depth², and a file holds as many deep constructs as its size allows. One admitted 400-link Python member chain (about 800 bytes) takes 3.1 s, 8 of them 25 s, a 13 KB file about 50 s; Java classes 250 deep take 0.85 s each. A call's argument text, proportional to its depth, makes 2 MiB of admitted 250-deep call chains peak at 1.33 GB in the engine | Resolved. 90A, patch 0022, decision 59: a usage's questions about its ancestors are answered from the unified walk's own frames, each frame's answer computed once. The 400-link chain takes 2 ms (3.71 s before), 16 of them 31 ms (54.9 s), Java classes 250 deep 15 ms (0.93 s); the counted work is linear in links and chains, with no `ts_node_parent`; all 104,730 census files extract identically; mutations killed. 90B, patch 0024, decision 61 (the driver's redesign of the interface, model, cache and protocol): text a fact takes from the file is a range of the source (`pdxe_text`, `TextRef`), owned only when synthesised or macro-expanded; qualified names are structural (member, extended, or a `.`-bounded prefix of an earlier name); records hold ranges and bind to the verified source (cache format 6, protocol 7, surface 5); identities hash the same bytes, segment schema 3. An audit of every extracted string over 108 shapes in 29 languages found five fields growing with the square of the nesting (argument expressions, callees, usage names, qualified names, parameter lists); none does now. At 2 MiB the record without its surface shrinks 6 to 26 times (Python chains 443 to 49 MB) and peak RSS by 3 to 45%; all 104,730 census files extract identically; mutations killed. Closure of issues 86, 87 and 89 stays held for the final engine-7 audit; see issues 91 and 92 |
@@ -138,6 +139,26 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 94 — Python's typed resolution is quadratic in a file's imports
+
+Found by issue 93's battery of wide shapes, with patch 0026 in force. Before resolving a
+module's calls, Python's per-file resolver replays each import statement in source
+order (`py_replay_import_statement`), and for each imported name it scans every import
+of the file for one with that local name (`py_replay_import_local`). That is a lookup by
+key, not a step through a node, so it is issue 92's class, and none of issue 92's
+indexes covers this loop. A file holding only `from mN import aN` lines, CPU seconds:
+
+| Phase | 0.25 MiB | 0.5 MiB | 1 MiB | 2 MiB |
+|---|---|---|---|---|
+| per-file typed resolution | 0.14 | 0.47 | 1.77 | 6.73 |
+| the project's typed-resolution run | 0.18 | 0.58 | 2.08 | 7.66 |
+
+Parse and navigation stay linear (0.17 s and the counters doubling). The same at
+`5915669`. Under an isolated worker's 120 s at 2 MiB, but quadratic.
+
+State: open. An index of the file's imports by local name, its chains in source order so
+the first unconsumed match is the scan's, is the likely fix.
+
 ### 93 — An error-recovered file costs superlinear work in its wide error node
 
 Found by issue 92's resource audit, the final engine-7 audit, with patch 0025 in force.
@@ -147,29 +168,90 @@ tree of hidden nodes, so positional access into it costs the logarithm of the po
 an error node's children are one flat array, so `ts_node_child(n, i)`,
 `ts_node_prev_sibling` and `ts_node_parent` below it each cost the position. Every pass
 that steps through such a node by position, or asks for a sibling or parent within it,
-is then quadratic in the file. CPU time of one extraction, single-threaded:
+is then quadratic in the file. CPU time of one extraction, single-threaded, at `5915669`:
 
 | Shape | 0.25 MiB | 0.5 MiB | 1 MiB | 2 MiB |
 |---|---|---|---|---|
 | Kotlin: `class O { class I { fun m() { I() } } }`, one class a line (the grammar does not take a nested class body on one line, and the error node holds the rest of the file) | 13.1 s | 51.4 s | 195 s | 764 s |
 | JavaScript: `let x = (` before a file of functions | 2.9 s | 10.5 s | 39.6 s | 160 s |
 
-Sampled: the parser's own recovery (`ts_parser__recover`: more than half of the JavaScript
-case), definition extraction's docstring and decorator lookups (`extract_docstring`,
-`extract_decorators`, by `ts_node_prev_sibling`), its ancestor checks
-(`pdxe_has_ancestor_kind`, by `ts_node_parent`), channel extraction, and the Kotlin
-resolver's top-level walks (`kt_walk_top_level_for_resolution`, `kt_collect_top_level_decls`,
-by `ts_node_child`). None is a lookup by key, so issue 92's indexes do not reach it; the
-same files took as long at `8b3ed42` (Kotlin 0.4 MiB: 32.6 s then, 31.8 s now). Each file
-is admitted (within the file-size limit and the depth ceiling, which an error node's
-width does not cross) and extracts whole, and past an isolated worker's 120 s timeout
-(issue 27) whether it does depends on the machine: issue 87's class. It predates this
-hotfix and is on main. Nothing was changed for it: the parser's recovery is the vendored
-runtime's, and the extraction passes number in the dozens; a fix per mechanism, or one
-admission bound on an error node's width as decision 58 bounded depth, is the driver's
-decision.
+The same files took as long at `8b3ed42`. Each is admitted (within the file-size limit
+and the depth ceiling, which an error node's width does not cross), and past an isolated
+worker's 120 s timeout (issue 27) whether it extracts depends on the machine: issue 87's
+class. It predates this hotfix and is on main.
 
-State: open.
+**Extraction (patch 0026, engine 7).** The driver's decision: remove every quadratic
+traversal of wide nodes the engine owns, with no ceiling on an error node's width and no
+parse timeout, then measure the parser again. Of 1,302 positional calls in the engine's
+own sources, 649 loops stepped through a node's children by index and 203 sites asked
+tree-sitter for a parent or a sibling; inside a wide node every one is quadratic,
+wherever the node comes from. Now:
+
+- Children are visited by cursor through one iterator (`node_iter.h`), which gives
+  exactly tree-sitter's children, named children and fields. A pass that needs them in
+  reverse or by position collects them once (`pdxe_collect_children`; the four
+  collectors that had grown up became that one). A whole subtree is walked in source
+  order by `PDXE_TREE_WALK`.
+- Parents and siblings are found from the walk's registered path (the unified walk, the
+  definitions walk, the tree walk, C#'s collectors) or from a loop in progress, each
+  anchor answering its own node's parent, previous sibling and position and its node's
+  other children from a collection made once, never by descending from the root.
+  Their answers are tree-sitter's: the next sibling is the first child after the node
+  whose end is past the node's (an empty child at its end passed over), and the previous
+  sibling of an empty node is tree-sitter's own lookup.
+- The sites a resolver adds after the walk are located by one forward cursor pass over
+  them in source order, and given their paths and owners in their own order, as the
+  file's path budget is spent.
+- A collection that cannot get its memory is lost work, never a positional walk.
+
+What remains positional is a constant index (366 sites), a field lookup or a node's own
+last child read once per visit (1,259), or test-only code (31). Helpers of languages the
+interface does not admit (Dart, LLVM IR, NASM, ObjectScript) still scan back over
+siblings to a label or a signature; no file reaches them.
+
+The answers are tree-sitter's: on every node of the 104,730 census files the iterator,
+the field names, the parent and the four sibling lookups agree with tree-sitter's (293.8
+million nodes, 4.6 billion comparisons), and the census extracts (every field, the
+surface, counts, lost work) and resolves (10,928 projects' answers and health)
+identically to `5915669`. The work is linear: in test builds the navigation counters
+(children by position weighted by the position, cursor steps, parent and sibling lookups
+weighted by the children passed, field lookups) double with the file in 75 wide shapes
+in 32 languages at 1,000 to 8,000 items and in the issue's two files
+(`engine/tests/wide_nodes.c`), and with every collection refused they still do while
+the loss is counted; nine mutations are killed. The shapes found more than the issue
+named: 8,000 decorated TypeScript methods in one class took 68 s, C# 48 s and Java
+16.5 s (every member's doc comment looked up through the class body) and now take
+0.55 s, 0.49 s and 0.36 s; a PHP file of 8,000 documented functions 3.4 s, now 0.25 s.
+CPU seconds after patch 0026, one file:
+
+| Phase | 0.25 MiB | 0.5 MiB | 1 MiB | 2 MiB |
+|---|---|---|---|---|
+| Kotlin: the parse alone | 0.08 | 0.14 | 0.29 | 0.55 |
+| Kotlin: extraction, all of it | 0.21 | 0.43 | 0.88 | 1.75 |
+| Kotlin: the project's typed-resolution run | 0.06 | 0.11 | 0.22 | 0.46 |
+| JavaScript: the parse alone | 1.55 | 5.76 | 22.9 | 88.7 |
+| JavaScript: extraction, all of it | 1.66 | 6.03 | 21.8 | 85.4 |
+| JavaScript: extraction less its parse | 0.13 | 0.25 | 0.50 | 1.02 |
+| JavaScript: the project's typed-resolution run | 0.02 | 0.04 | 0.09 | 0.20 |
+
+The admission scan takes 8 to 64 ms in both, and fetching the run's answers no
+measurable time. (The engine parses with its own allocator, faster than the parse
+alone: 75.8 s at 2 MiB.)
+
+**The parser (open).** The Kotlin file's parse is linear. The JavaScript file's is not:
+the `program` holds two error nodes, one of 8,810, 17,077, 33,461 and 66,101 children
+(from byte 10 to the end) among 141,000 to 1,058,000 nodes, and its parse quadruples
+as the file doubles. Sampled at 1 MiB, 73% of the parse is the parser's recovery
+(`ts_parser__recover`), which builds the error node anew for each token it takes
+(`ts_subtree_new_error_node`: `ts_subtree_summarize_children` 30% and `ts_subtree_retain`
+36% over every child so far, `ts_stack_remove_version` releasing the last, 21%). The
+grammar's external scanner is 0.1% of it and lexing below 1%. At 2 MiB the parse alone
+takes 89 s, under an isolated worker's 120 s on this machine and over it on one a third
+slower. Generic error shapes in the other 31 languages parse linearly (Ada's mildly
+superlinear). Changing the parser's recovery changes the vendored runtime, which the
+driver decides; nothing here limits an error node's width or a parse's time.
+
+State: open. Extraction fixed (patch 0026); the parser's recovery quadratic.
 
 ### 92 — Typed resolution is quadratic in a file's definitions
 

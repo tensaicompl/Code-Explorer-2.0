@@ -28,6 +28,14 @@ typedef enum {
     PDXE_LC_TS_USAGES,        /* usages a TypeScript lexical-shadow check inspected */
     PDXE_LC_ANSWER_ROWS,      /* resolver rows a call or reference's typed answer inspected */
     PDXE_LC_IMPORT_ITEMS,     /* import statements or items inspected for one import's binding */
+    /* Issue 93: navigation of the syntax tree (node_iter.h). */
+    PDXE_LC_NAV_INDEXED, /* children reached by position, each weighted by its position + 1 */
+    PDXE_LC_NAV_CURSOR,  /* cursor steps: to a first child, a next sibling or a parent */
+    PDXE_LC_NAV_PARENT,  /* parent lookups, weighted by the children passed on the way down */
+    PDXE_LC_NAV_SIBLING, /* sibling lookups, weighted the same way */
+    PDXE_LC_NAV_FIELD,   /* field lookups */
+    PDXE_LC_NAV_LOST,    /* child walks cut short: a collection without memory, or a cursor
+                          * that ran out before the count */
     PDXE_LC_COUNT
 } pdxe_lookup_counter;
 

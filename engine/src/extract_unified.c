@@ -304,9 +304,8 @@ static void py_bind_scope_parameters(PDXEExtractCtx *ctx, TSNode node, WalkState
     if (ts_node_is_null(params)) {
         return;
     }
-    uint32_t count = ts_node_named_child_count(params);
-    for (uint32_t i = 0; i < count; i++) {
-        py_param_bind(state, py_parameter_name(ctx, ts_node_named_child(params, i)));
+    PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+        py_param_bind(state, py_parameter_name(ctx, it.node));
     }
 }
 
@@ -785,9 +784,11 @@ static const char *compute_cfml_func_qn(PDXEExtractCtx *ctx, TSNode node) {
         return NULL;
     }
     char *name = NULL;
-    uint32_t cc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < cc && !name; i++) {
-        TSNode ch = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        if (!(!name)) {
+            break;
+        }
+        TSNode ch = it.node;
         if (strcmp(ts_node_type(ch), "cf_attribute") != 0) {
             continue;
         }
@@ -900,16 +901,16 @@ static void handle_objectscript_type_map(PDXEExtractCtx *ctx, TSNode node, WalkS
     const char *nk = ts_node_type(node);
 
     if (strcmp(nk, "command_set") == 0) {
-        for (uint32_t i = 0; i < ts_node_named_child_count(node); i++) {
-            TSNode set_arg = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode set_arg = it.node;
             const char *sak = ts_node_type(set_arg);
             if (strcmp(sak, "set_argument") != 0 && strcmp(sak, "assignment") != 0) {
                 continue;
             }
             TSNode lhs = {0};
             TSNode rhs = {0};
-            for (uint32_t j = 0; j < ts_node_named_child_count(set_arg); j++) {
-                TSNode achild = ts_node_named_child(set_arg, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it2, set_arg) {
+                TSNode achild = it2.node;
                 const char *ak = ts_node_type(achild);
                 if (strcmp(ak, "set_target") == 0 || strcmp(ak, "lvn") == 0 ||
                     strcmp(ak, "variable") == 0 || strcmp(ak, "glvn") == 0) {
@@ -1019,8 +1020,8 @@ static void handle_objectscript_type_map(PDXEExtractCtx *ctx, TSNode node, WalkS
 
 // Resolve the FQN of an ObjectScript class_definition node (via its class_name).
 static const char *objectscript_get_class_name(PDXEExtractCtx *ctx, TSNode node) {
-    for (uint32_t i = 0; i < ts_node_named_child_count(node); i++) {
-        TSNode child = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode child = it.node;
         if (strcmp(ts_node_type(child), "class_name") == 0) {
             char *name = pdxe_node_text(ctx->arena, child, ctx->source);
             if (name && name[0]) {
@@ -1050,11 +1051,11 @@ static const char *objectscript_get_method_qn(PDXEExtractCtx *ctx, TSNode node,
     if (strcmp(nk, "method") != 0 && strcmp(nk, "classmethod") != 0) {
         return NULL;
     }
-    for (uint32_t i = 0; i < ts_node_named_child_count(node); i++) {
-        TSNode child = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode child = it.node;
         if (strcmp(ts_node_type(child), "method_definition") == 0) {
-            for (uint32_t j = 0; j < ts_node_named_child_count(child); j++) {
-                TSNode mchild = ts_node_named_child(child, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it2, child) {
+                TSNode mchild = it2.node;
                 if (strcmp(ts_node_type(mchild), "method_name") == 0) {
                     if (ts_node_named_child_count(mchild) > 0) {
                         TSNode ident = ts_node_named_child(mchild, 0);
@@ -1092,7 +1093,7 @@ static const char *compute_func_qn(PDXEExtractCtx *ctx, TSNode node, const PDXEL
         } else if (strcmp(kind, "tag") == 0) {
             /* The enclosing procedure owns the full callable range and already
              * pushed this QN. Do not create a nested label-only function scope. */
-            TSNode parent = ts_node_parent(node);
+            TSNode parent = pdxe_node_parent(node);
             if (ts_node_is_null(parent) || strcmp(ts_node_type(parent), "procedure") != 0) {
                 tag = node;
             }
@@ -1492,9 +1493,8 @@ static const char *builder_template_text(PDXEExtractCtx *ctx, TSNode node) {
     enum { BLD_BUF = 512 };
     char buf[BLD_BUF];
     size_t pos = 0;
-    uint32_t nc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode c = it.node;
         const char *k = ts_node_type(c);
         const char *piece = NULL;
         if (strcmp(k, "string_fragment") == 0) {
@@ -1669,7 +1669,7 @@ static void handle_url_builders(PDXEExtractCtx *ctx, TSNode node, const WalkStat
         if (!url) {
             return;
         }
-        TSNode parent = ts_node_parent(node);
+        TSNode parent = pdxe_node_parent(node);
         if (!ts_node_is_null(parent) && strcmp(ts_node_type(parent), "variable_declarator") == 0) {
             TSNode name_node = ts_node_child_by_field_name(parent, TS_FIELD("name"));
             if (!ts_node_is_null(name_node)) {
@@ -1748,16 +1748,34 @@ typedef struct {
 } yaml_walk_frame_t;
 #define YAML_WALK_STACK_CAP PDXE_SZ_256
 
+static bool is_yaml_block_mapping_kind(const char *kind) {
+    return strcmp(kind, "block_mapping") == 0 || strcmp(kind, "block_mapping_pair") == 0;
+}
+
 /* Push block_mapping children of a block_node/block_mapping value onto the walk stack. */
 static void push_yaml_block_children(TSNode val, const char *path, yaml_walk_frame_t *stack,
                                      int *top) {
-    uint32_t vnc = ts_node_named_child_count(val);
-    for (int vi = (int)vnc - SKIP_ONE; vi >= 0 && *top < YAML_WALK_STACK_CAP; vi--) {
-        TSNode vc = ts_node_named_child(val, (uint32_t)vi);
-        const char *vctype = ts_node_type(vc);
-        if (strcmp(vctype, "block_mapping") == 0 || strcmp(vctype, "block_mapping_pair") == 0) {
-            stack[(*top)++] = (yaml_walk_frame_t){vc, path};
+    /* The last mappings the stack has room for, the first of them popping first: counted,
+     * then pushed forward by cursor and the run reversed. */
+    uint32_t mappings = 0;
+    PDXE_FOR_EACH_NAMED_CHILD(it, val) {
+        if (is_yaml_block_mapping_kind(ts_node_type(it.node))) {
+            mappings++;
         }
+    }
+    uint32_t room = (uint32_t)(YAML_WALK_STACK_CAP - *top);
+    uint32_t skip = mappings > room ? mappings - room : 0;
+    uint32_t seen = 0;
+    int base = *top;
+    PDXE_FOR_EACH_NAMED_CHILD(it, val) {
+        if (is_yaml_block_mapping_kind(ts_node_type(it.node)) && seen++ >= skip) {
+            stack[(*top)++] = (yaml_walk_frame_t){it.node, path};
+        }
+    }
+    for (int lo = base, hi = *top - 1; lo < hi; lo++, hi--) {
+        yaml_walk_frame_t tmp = stack[lo];
+        stack[lo] = stack[hi];
+        stack[hi] = tmp;
     }
 }
 
@@ -1770,9 +1788,8 @@ static void walk_yaml_mapping(PDXEExtractCtx *ctx, TSNode root, const char *root
         yaml_walk_frame_t frame = stack[--top];
         TSNode node = frame.node;
         const char *prefix = frame.prefix;
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             if (strcmp(ts_node_type(child), "block_mapping_pair") != 0) {
                 continue;
             }
@@ -1867,15 +1884,13 @@ static char *strip_yaml_quotes(PDXEArena *a, char *v) {
 // Scan a nested YAML block_mapping for target keys (push_endpoint, uri, etc.).
 static void scan_nested_mapping_targets(PDXEExtractCtx *ctx, TSNode val, const char **targets,
                                         int *n_targets) {
-    uint32_t vnc = ts_node_named_child_count(val);
-    for (uint32_t vi = 0; vi < vnc; vi++) {
-        TSNode vc = ts_node_named_child(val, vi);
+    PDXE_FOR_EACH_NAMED_CHILD(it, val) {
+        TSNode vc = it.node;
         if (strcmp(ts_node_type(vc), "block_mapping") != 0) {
             continue;
         }
-        uint32_t mnc = ts_node_named_child_count(vc);
-        for (uint32_t mi = 0; mi < mnc; mi++) {
-            TSNode mp = ts_node_named_child(vc, mi);
+        PDXE_FOR_EACH_NAMED_CHILD(it2, vc) {
+            TSNode mp = it2.node;
             if (strcmp(ts_node_type(mp), "block_mapping_pair") != 0) {
                 continue;
             }
@@ -1921,9 +1936,8 @@ static void scan_mapping_for_bindings(PDXEExtractCtx *ctx, TSNode mapping) {
     const char *targets[MAX_INFRA_BINDINGS] = {NULL};
     int n_targets = 0;
 
-    uint32_t nc = ts_node_named_child_count(mapping);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode pair = ts_node_named_child(mapping, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, mapping) {
+        TSNode pair = it.node;
         if (strcmp(ts_node_type(pair), "block_mapping_pair") != 0) {
             continue;
         }
@@ -1966,9 +1980,21 @@ static void scan_yaml_for_infra_bindings(PDXEExtractCtx *ctx, TSNode root) {
         if (strcmp(ts_node_type(node), "block_mapping") == 0) {
             scan_mapping_for_bindings(ctx, node);
         }
+        /* The last children the stack has room for, the first of them popping first:
+         * forward by cursor, then the run reversed. */
         uint32_t nc = ts_node_named_child_count(node);
-        for (int i = (int)nc - SKIP_ONE; i >= 0 && top < INFRA_SCAN_STACK_CAP; i--) {
-            stack[top++] = ts_node_named_child(node, (uint32_t)i);
+        uint32_t room = (uint32_t)(INFRA_SCAN_STACK_CAP - top);
+        uint32_t first = nc > room ? nc - room : 0;
+        int base = top;
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            if (it.index >= first) {
+                stack[top++] = it.node;
+            }
+        }
+        for (int lo = base, hi = top - 1; lo < hi; lo++, hi--) {
+            TSNode tmp = stack[lo];
+            stack[lo] = stack[hi];
+            stack[hi] = tmp;
         }
     }
 }
@@ -2015,9 +2041,8 @@ static TSNode hcl_block_body(TSNode block) {
 static void scan_hcl_nested_block_targets(PDXEExtractCtx *ctx, TSNode block, const char **targets,
                                           int *n_targets) {
     TSNode body = hcl_block_body(block);
-    uint32_t bnc = ts_node_named_child_count(body);
-    for (uint32_t bi = 0; bi < bnc; bi++) {
-        TSNode bchild = ts_node_named_child(body, bi);
+    PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+        TSNode bchild = it.node;
         if (strcmp(ts_node_type(bchild), "attribute") != 0) {
             continue;
         }
@@ -2046,9 +2071,8 @@ static void scan_hcl_nested_block_targets(PDXEExtractCtx *ctx, TSNode block, con
 static const char *hcl_scheduler_source(PDXEExtractCtx *ctx, TSNode block, const char **broker_out) {
     const char *first_label = NULL;
     const char *last_label = NULL;
-    uint32_t cc = ts_node_named_child_count(block);
-    for (uint32_t i = 0; i < cc; i++) {
-        TSNode ch = ts_node_named_child(block, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, block) {
+        TSNode ch = it.node;
         if (strcmp(ts_node_type(ch), "string_lit") != 0) {
             continue;
         }
@@ -2087,9 +2111,8 @@ static void scan_hcl_block_for_bindings(PDXEExtractCtx *ctx, TSNode block) {
     int n_targets = 0;
 
     TSNode body = hcl_block_body(block);
-    uint32_t nc = ts_node_named_child_count(body);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_named_child(body, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+        TSNode child = it.node;
         const char *ck = ts_node_type(child);
 
         if (strcmp(ck, "attribute") == 0) {
@@ -2157,7 +2180,7 @@ static void handle_yaml_nested(PDXEExtractCtx *ctx, TSNode node) {
         return;
     }
     /* Only process root-level block_mapping (depth 0 or 1) */
-    TSNode parent = ts_node_parent(node);
+    TSNode parent = pdxe_node_parent(node);
     if (ts_node_is_null(parent)) {
         walk_yaml_mapping(ctx, node, NULL);
     } else {
@@ -2206,9 +2229,8 @@ static bool is_export_of_declaration(TSNode node) {
     if (strcmp(ts_node_type(node), "export_statement") != 0) {
         return false;
     }
-    uint32_t n = ts_node_child_count(node);
-    for (uint32_t i = 0; i < n; i++) {
-        const char *ck = ts_node_type(ts_node_child(node, i));
+    PDXE_FOR_EACH_CHILD(it, node) {
+        const char *ck = ts_node_type(it.node);
         if (strcmp(ck, "function_declaration") == 0 || strcmp(ck, "class_declaration") == 0 ||
             strcmp(ck, "lexical_declaration") == 0 ||
             strcmp(ck, "abstract_class_declaration") == 0 ||
@@ -2331,9 +2353,8 @@ static TSNode nasm_wrapped_label(TSNode node, int remaining_depth) {
     if (strcmp(kind, "instruction") != 0 && strcmp(kind, "source_line") != 0) {
         return (TSNode){0};
     }
-    uint32_t count = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode label = nasm_wrapped_label(ts_node_named_child(node, i), remaining_depth - 1);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode label = nasm_wrapped_label(it.node, remaining_depth - 1);
         if (!ts_node_is_null(label)) {
             return label;
         }
@@ -2344,15 +2365,15 @@ static TSNode nasm_wrapped_label(TSNode node, int remaining_depth) {
 static TSNode nasm_preceding_label(TSNode node) {
     TSNode current = node;
     for (int level = 0; level < 4 && !ts_node_is_null(current); level++) {
-        TSNode previous = ts_node_prev_named_sibling(current);
+        TSNode previous = pdxe_node_prev_named_sibling(current);
         while (!ts_node_is_null(previous)) {
             TSNode label = nasm_wrapped_label(previous, 2);
             if (!ts_node_is_null(label)) {
                 return label;
             }
-            previous = ts_node_prev_named_sibling(previous);
+            previous = pdxe_node_prev_named_sibling(previous);
         }
-        TSNode parent = ts_node_parent(current);
+        TSNode parent = pdxe_node_parent(current);
         if (ts_node_is_null(parent) || strcmp(ts_node_type(current), "source_file") == 0) {
             break;
         }
@@ -2376,14 +2397,14 @@ static TSNode objectscript_routine_preceding_tag(TSNode node) {
     if (strcmp(ts_node_type(node), "statement") != 0) {
         return (TSNode){0};
     }
-    TSNode parent = ts_node_parent(node);
+    TSNode parent = pdxe_node_parent(node);
     if (ts_node_is_null(parent) || strcmp(ts_node_type(parent), "source_file") != 0 ||
         !ts_node_is_null(pdxe_find_child_by_kind(node, "tag_statement")) ||
         !ts_node_is_null(pdxe_find_child_by_kind(node, "procedure"))) {
         return (TSNode){0};
     }
-    for (TSNode previous = ts_node_prev_named_sibling(node); !ts_node_is_null(previous);
-         previous = ts_node_prev_named_sibling(previous)) {
+    for (TSNode previous = pdxe_node_prev_named_sibling(node); !ts_node_is_null(previous);
+         previous = pdxe_node_prev_named_sibling(previous)) {
         TSNode tag = objectscript_routine_statement_tag(previous);
         if (!ts_node_is_null(tag)) {
             return tag;
@@ -2578,15 +2599,15 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
                     }
                     TSNode args_node = pdxe_find_child_by_kind(mdef, "arguments");
                     if (!ts_node_is_null(args_node)) {
-                        for (uint32_t ai = 0; ai < ts_node_named_child_count(args_node); ai++) {
-                            TSNode arg = ts_node_named_child(args_node, ai);
+                        PDXE_FOR_EACH_NAMED_CHILD(it, args_node) {
+                            TSNode arg = it.node;
                             if (strcmp(ts_node_type(arg), "argument") != 0) {
                                 continue;
                             }
                             TSNode param_name_node = {0};
                             TSNode type_node = {0};
-                            for (uint32_t pi = 0; pi < ts_node_named_child_count(arg); pi++) {
-                                TSNode pchild = ts_node_named_child(arg, pi);
+                            PDXE_FOR_EACH_NAMED_CHILD(it2, arg) {
+                                TSNode pchild = it2.node;
                                 const char *pk = ts_node_type(pchild);
                                 if (strcmp(pk, "method_arg") == 0) {
                                     param_name_node = pchild;
@@ -2653,10 +2674,10 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
          * signature never covers the body, so in-body calls source to the Module.
          * Push the function scope at the BODY using the preceding signature
          * sibling's QN, so the body's children attribute to the function. */
-        TSNode prev = ts_node_prev_sibling(node);
+        TSNode prev = pdxe_node_prev_sibling(node);
         while (!ts_node_is_null(prev) && strcmp(ts_node_type(prev), "function_signature") != 0 &&
                strcmp(ts_node_type(prev), "method_signature") != 0) {
-            prev = ts_node_prev_sibling(prev);
+            prev = pdxe_node_prev_sibling(prev);
         }
         if (!ts_node_is_null(prev)) {
             const char *fqn = compute_func_qn(ctx, prev, spec, state);
@@ -2683,10 +2704,10 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
         /* LLVM's function_header and function_body are siblings under
          * fn_define. Re-anchor the already-extracted header definition across
          * its body so instruction_call nodes inherit that routine. */
-        TSNode previous = ts_node_prev_sibling(node);
+        TSNode previous = pdxe_node_prev_sibling(node);
         while (!ts_node_is_null(previous) &&
                strcmp(ts_node_type(previous), "function_header") != 0) {
-            previous = ts_node_prev_sibling(previous);
+            previous = pdxe_node_prev_sibling(previous);
         }
         if (!ts_node_is_null(previous)) {
             const char *fqn = compute_func_qn(ctx, previous, spec, state);
@@ -2899,6 +2920,12 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
 
     uint32_t depth = 0;
     uint32_t visited = 0;
+    /* Issue 93: the walk's path, so that the handlers' parent and sibling lookups start
+     * from it (node_iter.h). `entered` is whether the walk came to the current node from
+     * its parent, rather than from its previous sibling. */
+    PDXEWalkPath path = {0};
+    pdxe_walk_path_open(&path);
+    bool entered = true;
 #ifdef PDXE_ENABLE_TEST_SEAMS
     /* PDXE_TEST_WALK_BUDGET_NODES=<n>: spend the budget after n nodes. Production
      * now counts nodes too, so this seam only shortens the budget; it no longer
@@ -2919,6 +2946,14 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
         visited++;
         record_node_type(&state, depth, ts_node_type(node));
         record_walk_frame(&state, depth, node, ts_tree_cursor_current_field_name(&cursor));
+        if (entered || depth > path.depth || path.failed) {
+            pdxe_walk_path_at(&path, depth, node, PDXE_PATH_PARENT | PDXE_PATH_PLACE,
+                              (TSNode){0}, 0);
+        } else {
+            PDXEPathEntry before = path.entries[depth];
+            pdxe_walk_path_at(&path, depth, node, PDXE_PATH_PARENT | PDXE_PATH_PLACE,
+                              before.node, before.index + 1);
+        }
         /* The budget is spent in nodes, so the walk of a given file always ends
          * on the same node — on any machine, under any load. A CPU deadline
          * here made the graph differ between two runs on one machine; see
@@ -2965,8 +3000,10 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
         if ((!trivia || ts_node_child_count(node) > 0) &&
             ts_tree_cursor_goto_first_child(&cursor)) {
             depth++;
+            entered = true;
             continue;
         }
+        entered = false;
         if (ts_tree_cursor_goto_next_sibling(&cursor)) {
             continue;
         }
@@ -2982,6 +3019,7 @@ void pdxe_extract_unified(PDXEExtractCtx *ctx) {
             break;
         }
     }
+    pdxe_walk_path_close(&path);
     pdxe_occurrence_index_free(&state.represented);
 
     pdxe_finalize_lexical_usages(ctx, &state);

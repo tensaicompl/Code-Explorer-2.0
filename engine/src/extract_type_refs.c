@@ -123,9 +123,8 @@ static void add_type_ref(PDXEExtractCtx *ctx, const char *type_name, const char 
 
 // Extract parameter types from a parameters/formal_parameters node.
 static void extract_param_type_refs(PDXEExtractCtx *ctx, TSNode params, const char *func_qn) {
-    uint32_t count = ts_node_child_count(params);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode child = ts_node_child(params, i);
+    PDXE_FOR_EACH_CHILD(it, params) {
+        TSNode child = it.node;
         TSNode type_node = ts_node_child_by_field_name(child, TS_FIELD("type"));
         if (!ts_node_is_null(type_node)) {
             const char *tname = extract_type_text(ctx->arena, type_node, ctx->source);
@@ -161,18 +160,16 @@ static void extract_ts_body_type_refs(PDXEExtractCtx *ctx, TSNode node, const ch
     if (strcmp(kind, "as_expression") == 0 || strcmp(kind, "satisfies_expression") == 0) {
         extract_type_field_ref(ctx, node, func_qn);
     } else if (strcmp(kind, "type_arguments") == 0) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (strcmp(ts_node_type(child), "type_identifier") == 0 ||
                 strcmp(ts_node_type(child), "identifier") == 0) {
                 add_type_ref(ctx, pdxe_node_text(ctx->arena, child, ctx->source), func_qn);
             }
         }
     } else if (strcmp(kind, "variable_declarator") == 0) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (strcmp(ts_node_type(child), "type_annotation") == 0) {
                 if (ts_node_child_count(child) > 0) {
                     TSNode inner = ts_node_child(child, ts_node_child_count(child) - SKIP_ONE);
@@ -189,13 +186,11 @@ static void extract_java_body_type_refs(PDXEExtractCtx *ctx, TSNode node, const 
     if (strcmp(kind, "local_variable_declaration") == 0 || strcmp(kind, "cast_expression") == 0) {
         extract_type_field_ref(ctx, node, func_qn);
     } else if (strcmp(kind, "generic_type") == 0) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (strcmp(ts_node_type(child), "type_arguments") == 0) {
-                uint32_t nta = ts_node_child_count(child);
-                for (uint32_t j = 0; j < nta; j++) {
-                    TSNode ta = ts_node_child(child, j);
+                PDXE_FOR_EACH_CHILD(it2, child) {
+                    TSNode ta = it2.node;
                     if (strcmp(ts_node_type(ta), "type_identifier") == 0) {
                         add_type_ref(ctx, pdxe_node_text(ctx->arena, ta, ctx->source), func_qn);
                     }
@@ -251,10 +246,7 @@ static void walk_body_type_refs(PDXEExtractCtx *ctx, TSNode root, const char *fu
     while (stack.count > 0) {
         TSNode node = ts_nstack_pop(&stack);
         process_body_type_ref(ctx, node, func_qn);
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
-        }
+        ts_nstack_push_children(&stack, node);
     }
 }
 
@@ -300,10 +292,7 @@ static void walk_type_refs(PDXEExtractCtx *ctx, TSNode root, const PDXELangSpec 
             process_func_type_refs(ctx, node);
             continue;
         }
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
-        }
+        ts_nstack_push_children(&stack, node);
     }
 }
 

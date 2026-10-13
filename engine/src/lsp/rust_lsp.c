@@ -869,9 +869,11 @@ const PDXEType *rust_parse_type_node(RustLSPContext *ctx, TSNode node) {
     if (strcmp(kind, "tuple_type") == 0) {
         const PDXEType *elems[16];
         int count = 0;
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < nc && count < 16; i++) {
-            elems[count++] = rust_parse_type_node(ctx, ts_node_named_child(node, i));
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            if (!(count < 16)) {
+                break;
+            }
+            elems[count++] = rust_parse_type_node(ctx, it.node);
         }
         if (count == 0) {
             return pdxe_type_builtin(ctx->arena, "()");
@@ -909,9 +911,11 @@ const PDXEType *rust_parse_type_node(RustLSPContext *ctx, TSNode node) {
         const PDXEType *targs[16];
         int targ_count = 0;
         if (!ts_node_is_null(args)) {
-            uint32_t anc = ts_node_named_child_count(args);
-            for (uint32_t i = 0; i < anc && targ_count < 15; i++) {
-                TSNode tc = ts_node_named_child(args, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+                if (!(targ_count < 15)) {
+                    break;
+                }
+                TSNode tc = it.node;
                 const char *tk = ts_node_type(tc);
                 /* Skip lifetime arguments — we ignore lifetimes entirely. */
                 if (strcmp(tk, "lifetime") == 0) {
@@ -1964,9 +1968,8 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
             if (!ts_node_is_null(args)) {
                 /* args is a token_tree; skim its named children for the first
                  * expression token. */
-                uint32_t nc = ts_node_named_child_count(args);
-                for (uint32_t i = 0; i < nc; i++) {
-                    TSNode c = ts_node_named_child(args, i);
+                PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+                    TSNode c = it.node;
                     const PDXEType *elem = rust_eval_expr_type(ctx, c);
                     if (elem && !pdxe_type_is_unknown(elem)) {
                         return pdxe_type_template(ctx->arena, "alloc.vec.Vec", &elem, 1);
@@ -1999,8 +2002,8 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
                              ? ts_node_named_child(node, ts_node_named_child_count(node) - 1)
                              : (TSNode){0};
         char *op = NULL;
-        for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (!ts_node_is_named(c)) {
                 op = rust_node_text(ctx, c);
                 if (op)
@@ -2027,8 +2030,8 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
     /* binary_expression — comparisons → bool, logical → bool, arith → left */
     if (strcmp(kind, "binary_expression") == 0) {
         TSNode left = ts_node_child_by_field_name(node, "left", 4);
-        for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_named(c))
                 continue;
             char *op = rust_node_text(ctx, c);
@@ -2113,9 +2116,11 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
     if (strcmp(kind, "tuple_expression") == 0) {
         const PDXEType *elems[16];
         int count = 0;
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < nc && count < 16; i++) {
-            elems[count++] = rust_eval_expr_type(ctx, ts_node_named_child(node, i));
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            if (!(count < 16)) {
+                break;
+            }
+            elems[count++] = rust_eval_expr_type(ctx, it.node);
         }
         if (count == 0) {
             return pdxe_type_builtin(ctx->arena, "()");
@@ -2140,9 +2145,8 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
      * typing. The element type is the type of the start/end expr. */
     if (strcmp(kind, "range_expression") == 0) {
         const PDXEType *elem_type = NULL;
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode c = it.node;
             const PDXEType *t = rust_eval_expr_type(ctx, c);
             if (t && !pdxe_type_is_unknown(t)) {
                 elem_type = t;
@@ -2187,9 +2191,8 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
         /* Take the type of the first arm's value if available. */
         TSNode body = ts_node_child_by_field_name(node, "body", 4);
         if (!ts_node_is_null(body)) {
-            uint32_t nc = ts_node_named_child_count(body);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode arm = ts_node_named_child(body, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+                TSNode arm = it.node;
                 if (strcmp(ts_node_type(arm), "match_arm") == 0) {
                     TSNode v = ts_node_child_by_field_name(arm, "value", 5);
                     if (!ts_node_is_null(v)) {
@@ -2201,18 +2204,17 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
     }
     if (strcmp(kind, "block") == 0) {
         /* Find the last expression child (the trailing expression of the block). */
-        uint32_t nc = ts_node_named_child_count(node);
         TSNode last = {0};
         bool found = false;
-        for (uint32_t i = nc; i > 0; i--) {
-            TSNode c = ts_node_named_child(node, i - 1);
+        /* The last such: every named child in source order, the last kept. */
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "expression_statement") != 0 && strcmp(ck, "let_declaration") != 0 &&
                 strcmp(ck, "empty_statement") != 0 && strcmp(ck, "line_comment") != 0 &&
                 strcmp(ck, "block_comment") != 0) {
                 last = c;
                 found = true;
-                break;
             }
         }
         if (found) {
@@ -2844,9 +2846,8 @@ static void rust_walk_macro_tokens(RustLSPContext *ctx, TSNode node) {
         rust_resolve_calls_in_node(ctx, node);
         return;
     }
-    uint32_t nc = ts_node_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode c = it.node;
         if (!ts_node_is_null(c))
             rust_walk_macro_tokens(ctx, c);
     }
@@ -3024,9 +3025,8 @@ static void rust_record_macro_rule(RustLSPContext *ctx, const char *macro_name, 
 static void rust_collect_macro_rules(RustLSPContext *ctx, TSNode root) {
     if (ts_node_is_null(root))
         return;
-    uint32_t nc = ts_node_child_count(root);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(root, i);
+    PDXE_FOR_EACH_CHILD(it, root) {
+        TSNode c = it.node;
         if (ts_node_is_null(c))
             continue;
         const char *k = ts_node_type(c);
@@ -3037,9 +3037,8 @@ static void rust_collect_macro_rules(RustLSPContext *ctx, TSNode root) {
             char *macro_name = rust_node_text(ctx, name_node);
             if (!macro_name)
                 continue;
-            uint32_t mnc = ts_node_child_count(c);
-            for (uint32_t j = 0; j < mnc; j++) {
-                TSNode rule = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode rule = it2.node;
                 if (ts_node_is_null(rule) || !ts_node_is_named(rule))
                     continue;
                 if (strcmp(ts_node_type(rule), "macro_rule") != 0)
@@ -3643,9 +3642,8 @@ static void rust_expand_user_macro(RustLSPContext *ctx, const char *mname, TSNod
     if (tree) {
         ctx->macro_expand_depth++;
         TSNode root = ts_tree_root_node(tree);
-        uint32_t rnc = ts_node_child_count(root);
-        for (uint32_t i = 0; i < rnc; i++) {
-            TSNode top = ts_node_child(root, i);
+        PDXE_FOR_EACH_CHILD(it, root) {
+            TSNode top = it.node;
             if (ts_node_is_null(top))
                 continue;
             if (strcmp(ts_node_type(top), "function_item") != 0)
@@ -3706,9 +3704,8 @@ static void rust_resolve_macro_arg_exprs(RustLSPContext *ctx, TSNode invocation)
     /* The grammar exposes the argument list as a `token_tree` child rather
      * than via an `arguments` field, so locate it by node type. */
     TSNode args_tt = {0};
-    uint32_t inc = ts_node_child_count(invocation);
-    for (uint32_t i = 0; i < inc; i++) {
-        TSNode c = ts_node_child(invocation, i);
+    PDXE_FOR_EACH_CHILD(it, invocation) {
+        TSNode c = it.node;
         if (!ts_node_is_null(c) && strcmp(ts_node_type(c), "token_tree") == 0) {
             args_tt = c;
             break;
@@ -3763,9 +3760,8 @@ static void rust_resolve_macro_arg_exprs(RustLSPContext *ctx, TSNode invocation)
          * soup must not produce bogus edges. */
         if (!ts_node_has_error(root)) {
             ctx->macro_expand_depth++;
-            uint32_t rnc = ts_node_child_count(root);
-            for (uint32_t i = 0; i < rnc; i++) {
-                TSNode top = ts_node_child(root, i);
+            PDXE_FOR_EACH_CHILD(it, root) {
+                TSNode top = it.node;
                 if (ts_node_is_null(top))
                     continue;
                 if (strcmp(ts_node_type(top), "function_item") != 0)
@@ -3864,13 +3860,12 @@ static void rust_bind_pattern(RustLSPContext *ctx, TSNode pattern, const PDXETyp
         const PDXEType *base = type;
         while (base && base->kind == PDXE_TYPE_REFERENCE)
             base = base->data.reference.elem;
-        uint32_t nc = ts_node_named_child_count(pattern);
-        for (uint32_t i = 0; i < nc; i++) {
+        PDXE_FOR_EACH_NAMED_CHILD(it, pattern) {
             const PDXEType *elem_t = pdxe_type_unknown();
-            if (base && base->kind == PDXE_TYPE_TUPLE && (int)i < base->data.tuple.count) {
-                elem_t = base->data.tuple.elems[i];
+            if (base && base->kind == PDXE_TYPE_TUPLE && (int)it.index < base->data.tuple.count) {
+                elem_t = base->data.tuple.elems[it.index];
             }
-            rust_bind_pattern(ctx, ts_node_named_child(pattern, i), elem_t);
+            rust_bind_pattern(ctx, it.node, elem_t);
         }
         return;
     }
@@ -3883,10 +3878,11 @@ static void rust_bind_pattern(RustLSPContext *ctx, TSNode pattern, const PDXETyp
         if (base && base->kind == PDXE_TYPE_TEMPLATE && base->data.template_type.arg_count > 0) {
             inner = base->data.template_type.template_args[0];
         }
-        uint32_t nc = ts_node_named_child_count(pattern);
         /* First named child is the path; subsequent are sub-patterns. */
-        for (uint32_t i = 1; i < nc; i++) {
-            rust_bind_pattern(ctx, ts_node_named_child(pattern, i), inner);
+        PDXE_FOR_EACH_NAMED_CHILD(it, pattern) {
+            if (it.index >= 1) {
+                rust_bind_pattern(ctx, it.node, inner);
+            }
         }
         return;
     }
@@ -3903,9 +3899,8 @@ static void rust_bind_pattern(RustLSPContext *ctx, TSNode pattern, const PDXETyp
         else if (base && base->kind == PDXE_TYPE_TEMPLATE)
             type_qn = base->data.template_type.template_name;
 
-        uint32_t nc = ts_node_named_child_count(iter);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode fp = ts_node_named_child(iter, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, iter) {
+            TSNode fp = it.node;
             const char *fk = ts_node_type(fp);
             if (strcmp(fk, "field_pattern") == 0) {
                 TSNode name_node = ts_node_child_by_field_name(fp, "name", 4);
@@ -4239,9 +4234,8 @@ static void rust_resolve_callable_argument_references(RustLSPContext *ctx, TSNod
     if (ts_node_is_null(arguments)) {
         return;
     }
-    uint32_t count = ts_node_named_child_count(arguments);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode value = ts_node_named_child(arguments, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, arguments) {
+        TSNode value = it.node;
         const char *source_name = NULL;
         const char *target = rust_resolve_callable_value(ctx, value, &source_name);
         if (!target) {
@@ -4768,8 +4762,8 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
     if (strcmp(kind, "binary_expression") == 0) {
         TSNode left = ts_node_child_by_field_name(node, "left", 4);
         if (!ts_node_is_null(left)) {
-            for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-                TSNode c = ts_node_child(node, i);
+            PDXE_FOR_EACH_CHILD(it, node) {
+                TSNode c = it.node;
                 if (ts_node_is_named(c))
                     continue;
                 char *op = rust_node_text(ctx, c);
@@ -4923,7 +4917,6 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
          * condition slot. */
         TSNode cond = ts_node_child_by_field_name(node, "condition", 9);
         if (!ts_node_is_null(cond)) {
-            uint32_t nc2 = ts_node_named_child_count(cond);
             /* Walk one level down for let_condition / let_chain. */
             const char *ck = ts_node_type(cond);
             TSNode targets[8];
@@ -4931,8 +4924,11 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
             if (strcmp(ck, "let_condition") == 0) {
                 targets[tcount++] = cond;
             } else if (strcmp(ck, "let_chain") == 0) {
-                for (uint32_t i = 0; i < nc2 && tcount < 8; i++) {
-                    TSNode c2 = ts_node_named_child(cond, i);
+                PDXE_FOR_EACH_NAMED_CHILD(it, cond) {
+                    if (!(tcount < 8)) {
+                        break;
+                    }
+                    TSNode c2 = it.node;
                     if (strcmp(ts_node_type(c2), "let_condition") == 0) {
                         targets[tcount++] = c2;
                     }
@@ -5004,14 +5000,13 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
         ctx->pending_closure_param_type = NULL;
         TSNode params = ts_node_child_by_field_name(node, "parameters", 10);
         if (!ts_node_is_null(params)) {
-            uint32_t pc = ts_node_named_child_count(params);
-            for (uint32_t i = 0; i < pc; i++) {
-                TSNode p = ts_node_named_child(params, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+                TSNode p = it.node;
                 /* For `parameter`-shaped nodes, peel off the type
                  * annotation if present; otherwise treat the whole node
                  * as the pattern. */
                 TSNode pat = p;
-                const PDXEType *bound = (i == 0 && hint) ? hint : pdxe_type_unknown();
+                const PDXEType *bound = (it.index == 0 && hint) ? hint : pdxe_type_unknown();
                 if (strcmp(ts_node_type(p), "parameter") == 0) {
                     TSNode tn = ts_node_child_by_field_name(p, "type", 4);
                     TSNode pn = ts_node_child_by_field_name(p, "pattern", 7);
@@ -5027,9 +5022,8 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
     }
 
     /* Recurse. */
-    uint32_t nc = ts_node_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode c = it.node;
         if (!ts_node_is_null(c)) {
             rust_resolve_calls_in_node(ctx, c);
         }
@@ -5078,9 +5072,8 @@ static void rust_process_function(RustLSPContext *ctx, TSNode func_node, const c
     /* Bind self for impl/trait methods. */
     TSNode params = ts_node_child_by_field_name(func_node, "parameters", 10);
     if (!ts_node_is_null(params)) {
-        uint32_t pc = ts_node_named_child_count(params);
-        for (uint32_t i = 0; i < pc; i++) {
-            TSNode p = ts_node_named_child(params, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+            TSNode p = it.node;
             const char *pk = ts_node_type(p);
             if (strcmp(pk, "self_parameter") == 0) {
                 if (ctx->self_type_qn) {
@@ -5277,9 +5270,8 @@ static bool rust_impl_has_type_param(RustLSPContext *ctx, TSNode impl_node, cons
     TSNode tp = ts_node_child_by_field_name(impl_node, "type_parameters", 15);
     if (ts_node_is_null(tp))
         return false;
-    uint32_t nc = ts_node_named_child_count(tp);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(tp, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, tp) {
+        TSNode c = it.node;
         const char *ck = ts_node_type(c);
         if (strcmp(ck, "type_identifier") == 0 || strcmp(ck, "constrained_type_parameter") == 0) {
             char *nm = rust_node_text(ctx, c);
@@ -5340,9 +5332,8 @@ static void rust_process_impl(RustLSPContext *ctx, TSNode impl_node) {
 
     TSNode body = ts_node_child_by_field_name(impl_node, "body", 4);
     if (!ts_node_is_null(body)) {
-        uint32_t nc = ts_node_child_count(body);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(body, i);
+        PDXE_FOR_EACH_CHILD(it, body) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *ck = ts_node_type(c);
@@ -5372,9 +5363,8 @@ void rust_lsp_process_file(RustLSPContext *ctx, TSNode root) {
      * `mod foo { ... }` (inline module) is NOT recorded — the body is
      * already in this file. Only bare `mod foo;` declarations are. */
     {
-        uint32_t rnc = ts_node_child_count(root);
-        for (uint32_t i = 0; i < rnc; i++) {
-            TSNode c = ts_node_child(root, i);
+        PDXE_FOR_EACH_CHILD(it, root) {
+            TSNode c = it.node;
             if (ts_node_is_null(c))
                 continue;
             if (strcmp(ts_node_type(c), "mod_item") != 0)
@@ -5404,9 +5394,8 @@ void rust_lsp_process_file(RustLSPContext *ctx, TSNode root) {
     }
 
     /* Pass 1: bind module-level const/static so functions can see them. */
-    uint32_t nc = ts_node_child_count(root);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(root, i);
+    PDXE_FOR_EACH_CHILD(it, root) {
+        TSNode c = it.node;
         if (ts_node_is_null(c))
             continue;
         const char *ck = ts_node_type(c);
@@ -5416,8 +5405,8 @@ void rust_lsp_process_file(RustLSPContext *ctx, TSNode root) {
     }
 
     /* Pass 2: walk every top-level item. */
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(root, i);
+    PDXE_FOR_EACH_CHILD(kid_it, root) {
+        TSNode c = kid_it.node;
         if (ts_node_is_null(c))
             continue;
         const char *ck = ts_node_type(c);
@@ -5429,9 +5418,8 @@ void rust_lsp_process_file(RustLSPContext *ctx, TSNode root) {
             /* Inline module — recurse into its declaration_list. */
             TSNode body = ts_node_child_by_field_name(c, "body", 4);
             if (!ts_node_is_null(body)) {
-                uint32_t mnc = ts_node_child_count(body);
-                for (uint32_t j = 0; j < mnc; j++) {
-                    TSNode mc = ts_node_child(body, j);
+                PDXE_FOR_EACH_CHILD(it2, body) {
+                    TSNode mc = it2.node;
                     if (ts_node_is_null(mc))
                         continue;
                     const char *mck = ts_node_type(mc);
@@ -5555,9 +5543,8 @@ static void rust_collect_uses(RustLSPContext *ctx, TSNode root) {
         /* Recurse into mod_item bodies so nested uses are captured too. */
         if (strcmp(k, "mod_item") == 0 || strcmp(k, "source_file") == 0 ||
             strcmp(k, "declaration_list") == 0) {
-            uint32_t nc = ts_node_child_count(n);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode c = ts_node_child(n, i);
+            PDXE_FOR_EACH_CHILD(it, n) {
+                TSNode c = it.node;
                 if (ts_node_is_null(c))
                     continue;
                 stack_t *nx = (stack_t *)pdxe_arena_alloc(ctx->arena, sizeof(stack_t));
@@ -5688,9 +5675,8 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
     /* Phase B: walk the AST to extract struct fields + record `impl Trait
      * for Type` linkage as embedded types. */
     if (!ts_node_is_null(root)) {
-        uint32_t nc = ts_node_child_count(root);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode top = ts_node_child(root, i);
+        PDXE_FOR_EACH_CHILD(top_it, root) {
+            TSNode top = top_it.node;
             if (ts_node_is_null(top))
                 continue;
             const char *tk = ts_node_type(top);
@@ -5707,12 +5693,14 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
 
                 /* Iterate field_declaration_list / ordered_field_declaration_list. */
                 if (strcmp(ts_node_type(body), "field_declaration_list") == 0) {
-                    uint32_t fc = ts_node_named_child_count(body);
                     const char *fld_names[64];
                     const PDXEType *fld_types[64];
                     int fld_count = 0;
-                    for (uint32_t j = 0; j < fc && fld_count < 63; j++) {
-                        TSNode fd = ts_node_named_child(body, j);
+                    PDXE_FOR_EACH_NAMED_CHILD(it2, body) {
+                        if (!(fld_count < 63)) {
+                            break;
+                        }
+                        TSNode fd = it2.node;
                         if (strcmp(ts_node_type(fd), "field_declaration") != 0)
                             continue;
                         TSNode fn = ts_node_child_by_field_name(fd, "name", 4);
@@ -5779,9 +5767,11 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
                         if (!ts_node_is_null(body)) {
                             const char *methods[64];
                             int mc = 0;
-                            uint32_t bc = ts_node_named_child_count(body);
-                            for (uint32_t j = 0; j < bc && mc < 63; j++) {
-                                TSNode item = ts_node_named_child(body, j);
+                            PDXE_FOR_EACH_NAMED_CHILD(it2, body) {
+                                if (!(mc < 63)) {
+                                    break;
+                                }
+                                TSNode item = it2.node;
                                 const char *ik = ts_node_type(item);
                                 if (strcmp(ik, "function_item") != 0 &&
                                     strcmp(ik, "function_signature_item") != 0)
@@ -5823,9 +5813,8 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
         tmp.registry = reg;
         tmp.module_qn = module_qn;
 
-        uint32_t rnc = ts_node_child_count(root);
-        for (uint32_t i = 0; i < rnc; i++) {
-            TSNode top = ts_node_child(root, i);
+        PDXE_FOR_EACH_CHILD(kid_it, root) {
+            TSNode top = kid_it.node;
             if (ts_node_is_null(top) || strcmp(ts_node_type(top), "function_item") != 0)
                 continue;
             TSNode mn = ts_node_child_by_field_name(top, "name", 4);
@@ -6058,9 +6047,8 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
      * registered functions have no return-type signature and chained
      * method calls (`File::open().read()`) break. */
     if (!ts_node_is_null(root)) {
-        uint32_t rnc = ts_node_child_count(root);
-        for (uint32_t i = 0; i < rnc; i++) {
-            TSNode top = ts_node_child(root, i);
+        PDXE_FOR_EACH_CHILD(top_it, root) {
+            TSNode top = top_it.node;
             if (ts_node_is_null(top) || strcmp(ts_node_type(top), "impl_item") != 0)
                 continue;
             TSNode type_node = ts_node_child_by_field_name(top, "type", 4);
@@ -6081,9 +6069,8 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
             tmp.module_qn = module_qn;
             tmp.self_type_qn = type_qn;
 
-            uint32_t bnc = ts_node_child_count(body);
-            for (uint32_t j = 0; j < bnc; j++) {
-                TSNode item = ts_node_child(body, j);
+            PDXE_FOR_EACH_CHILD(it2, body) {
+                TSNode item = it2.node;
                 if (ts_node_is_null(item) || !ts_node_is_named(item))
                     continue;
                 if (strcmp(ts_node_type(item), "function_item") != 0)

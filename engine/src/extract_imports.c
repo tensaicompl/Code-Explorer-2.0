@@ -166,16 +166,14 @@ static void parse_go_imports(PDXEExtractCtx *ctx) {
             continue;
         }
 
-        uint32_t dc = ts_node_child_count(decl);
-        for (uint32_t j = 0; j < dc; j++) {
-            TSNode child = ts_node_child(decl, j);
+        PDXE_FOR_EACH_CHILD(it, decl) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
             if (strcmp(ck, "import_spec") == 0) {
                 parse_go_import_spec(ctx, child);
             } else if (strcmp(ck, "import_spec_list") == 0) {
-                uint32_t sc = ts_node_child_count(child);
-                for (uint32_t k = 0; k < sc; k++) {
-                    TSNode spec = ts_node_child(child, k);
+                PDXE_FOR_EACH_CHILD(it2, child) {
+                    TSNode spec = it2.node;
                     if (strcmp(ts_node_type(spec), "import_spec") == 0) {
                         parse_go_import_spec(ctx, spec);
                     }
@@ -214,9 +212,8 @@ static void process_py_import_stmt(PDXEExtractCtx *ctx, TSNode node) {
     PDXEArena *a = ctx->arena;
     TSNode name_node = ts_node_child_by_field_name(node, TS_FIELD("name"));
     if (ts_node_is_null(name_node)) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t j = 0; j < nc; j++) {
-            TSNode child = ts_node_child(node, j);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
             if (strcmp(ck, "dotted_name") == 0 || strcmp(ck, "identifier") == 0) {
                 char *mod = pdxe_node_text(a, child, ctx->source);
@@ -245,9 +242,8 @@ static void process_py_import_stmt(PDXEExtractCtx *ctx, TSNode node) {
 static TSNode resolve_py_module_node(TSNode node) {
     TSNode module_node = ts_node_child_by_field_name(node, "module_name", FIELD_LEN_MODULE_NAME);
     if (ts_node_is_null(module_node)) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t j = 0; j < nc; j++) {
-            TSNode c = ts_node_child(node, j);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (strcmp(ts_node_type(c), "dotted_name") == 0 ||
                 strcmp(ts_node_type(c), "relative_import") == 0) {
                 return c;
@@ -284,10 +280,9 @@ static void process_py_import_from(PDXEExtractCtx *ctx, TSNode node) {
     char *mod_path =
         ts_node_is_null(module_node) ? NULL : pdxe_node_text(a, module_node, ctx->source);
 
-    uint32_t nc = ts_node_child_count(node);
     bool emitted = false;
-    for (uint32_t j = 0; j < nc; j++) {
-        TSNode child = ts_node_child(node, j);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode child = it.node;
         const char *ck = ts_node_type(child);
         if (strcmp(ck, "identifier") == 0 || strcmp(ck, "dotted_name") == 0) {
             if (!ts_node_is_null(module_node) &&
@@ -346,13 +341,16 @@ static void parse_python_imports(PDXEExtractCtx *ctx) {
 static TSNode find_es_source_node(TSNode node) {
     TSNode source_node = ts_node_child_by_field_name(node, TS_FIELD("source"));
     if (ts_node_is_null(source_node)) {
-        uint32_t nc = ts_node_child_count(node);
-        for (int j = (int)nc - SKIP_ONE; j >= 0; j--) {
-            TSNode c = ts_node_child(node, (uint32_t)j);
-            const char *ck = ts_node_type(c);
+        /* The last string child: every child in source order, the last kept. */
+        TSNode last = {0};
+        PDXE_FOR_EACH_CHILD(it, node) {
+            const char *ck = ts_node_type(it.node);
             if (strcmp(ck, "string") == 0 || strcmp(ck, "string_literal") == 0) {
-                return c;
+                last = it.node;
             }
+        }
+        if (!ts_node_is_null(last)) {
+            return last;
         }
     }
     return source_node;
@@ -362,9 +360,8 @@ static TSNode find_es_source_node(TSNode node) {
 static bool process_named_imports(PDXEExtractCtx *ctx, TSNode sub, const char *path) {
     PDXEArena *a = ctx->arena;
     bool found = false;
-    uint32_t nc2 = ts_node_child_count(sub);
-    for (uint32_t m = 0; m < nc2; m++) {
-        TSNode imp_spec = ts_node_child(sub, m);
+    PDXE_FOR_EACH_CHILD(it, sub) {
+        TSNode imp_spec = it.node;
         if (strcmp(ts_node_type(imp_spec), "import_specifier") != 0) {
             continue;
         }
@@ -388,9 +385,8 @@ static bool process_named_imports(PDXEExtractCtx *ctx, TSNode sub, const char *p
 static bool process_import_clause(PDXEExtractCtx *ctx, TSNode clause, const char *path) {
     PDXEArena *a = ctx->arena;
     bool found = false;
-    uint32_t cc = ts_node_child_count(clause);
-    for (uint32_t k = 0; k < cc; k++) {
-        TSNode sub = ts_node_child(clause, k);
+    PDXE_FOR_EACH_CHILD(it, clause) {
+        TSNode sub = it.node;
         const char *sk = ts_node_type(sub);
         if (strcmp(sk, "identifier") == 0) {
             char *name = pdxe_node_text(a, sub, ctx->source);
@@ -428,10 +424,9 @@ static bool process_es_import_statement(PDXEExtractCtx *ctx, TSNode node) {
     if (!path || !path[0]) {
         return false;
     }
-    uint32_t nc = ts_node_child_count(node);
     bool found = false;
-    for (uint32_t j = 0; j < nc; j++) {
-        TSNode child = ts_node_child(node, j);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode child = it.node;
         const char *ck = ts_node_type(child);
         if (strcmp(ck, "identifier") == 0) {
             char *name = pdxe_node_text(a, child, ctx->source);
@@ -482,10 +477,9 @@ static bool process_commonjs_require(PDXEExtractCtx *ctx, TSNode call) {
     if (ts_node_is_null(args)) {
         return false;
     }
-    uint32_t argc = ts_node_named_child_count(args);
     char *path = NULL;
-    for (uint32_t i = 0; i < argc; i++) {
-        TSNode arg = ts_node_named_child(args, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+        TSNode arg = it.node;
         const char *ak = ts_node_type(arg);
         if (strcmp(ak, "string") == 0 || strcmp(ak, "string_literal") == 0 ||
             strcmp(ak, "template_string") == 0) {
@@ -501,7 +495,7 @@ static bool process_commonjs_require(PDXEExtractCtx *ctx, TSNode call) {
      * grammar wraps `const foo = require(..)` as
      *   lexical_declaration → variable_declarator { name: identifier, value: call } */
     const char *local_name = NULL;
-    TSNode parent = ts_node_parent(call);
+    TSNode parent = pdxe_node_parent(call);
     if (!ts_node_is_null(parent) && strcmp(ts_node_type(parent), "variable_declarator") == 0) {
         TSNode name_node = ts_node_child_by_field_name(parent, TS_FIELD("name"));
         if (!ts_node_is_null(name_node) && strcmp(ts_node_type(name_node), "identifier") == 0) {
@@ -518,12 +512,10 @@ static bool process_commonjs_require(PDXEExtractCtx *ctx, TSNode call) {
 }
 
 static void walk_es_imports(PDXEExtractCtx *ctx, TSNode root) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, PDXE_SZ_512);
-    ts_nstack_push(&stack, root);
-
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    /* Issue 93: by cursor, its path registered, so a require's declarator is found
+     * from it rather than by descending from the root. */
+    PDXE_TREE_WALK(w, root) {
+        TSNode node = w.node;
         const char *kind = ts_node_type(node);
         bool push_children = true;
 
@@ -552,8 +544,8 @@ static void walk_es_imports(PDXEExtractCtx *ctx, TSNode root) {
             }
         }
 
-        if (push_children) {
-            ts_nstack_push_children(&stack, node);
+        if (!push_children) {
+            pdxe_tree_walk_skip_children(&w);
         }
     }
 }
@@ -580,9 +572,8 @@ static void parse_java_imports(PDXEExtractCtx *ctx) {
         }
 
         // Get the full import path (skip "import" and "static" keywords)
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t j = 0; j < nc; j++) {
-            TSNode child = ts_node_child(node, j);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
             if (strcmp(ck, "scoped_identifier") == 0 || strcmp(ck, "identifier") == 0) {
                 char *path = pdxe_node_text(a, child, ctx->source);
@@ -640,9 +631,8 @@ static void parse_rust_imports(PDXEExtractCtx *ctx) {
 static TSNode find_include_path_node(TSNode node) {
     TSNode path_node = ts_node_child_by_field_name(node, TS_FIELD("path"));
     if (ts_node_is_null(path_node)) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t j = 0; j < nc; j++) {
-            TSNode c = ts_node_child(node, j);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "string_literal") == 0 || strcmp(ck, "system_lib_string") == 0) {
                 return c;
@@ -726,9 +716,8 @@ static char *extract_ruby_require_arg(PDXEArena *a, TSNode node, const char *sou
         return NULL;
     }
 
-    uint32_t ac = ts_node_child_count(args);
-    for (uint32_t j = 0; j < ac; j++) {
-        TSNode c = ts_node_child(args, j);
+    PDXE_FOR_EACH_CHILD(it, args) {
+        TSNode c = it.node;
         const char *ck = ts_node_type(c);
         if (strcmp(ck, "string") == 0 || strcmp(ck, "string_literal") == 0) {
             return strip_quotes(a, pdxe_node_text(a, c, source));
@@ -874,9 +863,8 @@ static void r_collect_imports(PDXEExtractCtx *ctx, TSNode node) { // NOLINT(misc
                 char *rt =
                     ts_node_is_null(rhs) ? NULL : pdxe_node_text(ctx->arena, rhs, ctx->source);
                 if (lt && rt && strcmp(lt, "box") == 0 && strcmp(rt, "use") == 0) {
-                    uint32_t na = ts_node_named_child_count(args);
-                    for (uint32_t i = 0; i < na; i++) {
-                        TSNode arg = ts_node_named_child(args, i);
+                    PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+                        TSNode arg = it.node;
                         if (strcmp(ts_node_type(arg), "argument") != 0) {
                             continue;
                         }
@@ -894,9 +882,8 @@ static void r_collect_imports(PDXEExtractCtx *ctx, TSNode node) { // NOLINT(misc
                     (strcmp(fname, "library") == 0 || strcmp(fname, "require") == 0 ||
                      strcmp(fname, "requireNamespace") == 0 ||
                      strcmp(fname, "loadNamespace") == 0 || strcmp(fname, "source") == 0)) {
-                    uint32_t na = ts_node_named_child_count(args);
-                    for (uint32_t i = 0; i < na; i++) {
-                        TSNode arg = ts_node_named_child(args, i);
+                    PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+                        TSNode arg = it.node;
                         if (strcmp(ts_node_type(arg), "argument") != 0) {
                             continue;
                         }
@@ -910,9 +897,8 @@ static void r_collect_imports(PDXEExtractCtx *ctx, TSNode node) { // NOLINT(misc
             }
         }
     }
-    uint32_t n = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < n; i++) {
-        r_collect_imports(ctx, ts_node_named_child(node, i));
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        r_collect_imports(ctx, it.node);
     }
 }
 
@@ -1008,9 +994,8 @@ static void parse_kotlin_imports(PDXEExtractCtx *ctx) {
         if (strcmp(kind, "import_header") == 0) {
             extract_one_import_header(ctx, node);
         } else if (strcmp(kind, "import_list") == 0) {
-            uint32_t nc = ts_node_child_count(node);
-            for (uint32_t j = 0; j < nc; j++) {
-                TSNode child = ts_node_child(node, j);
+            PDXE_FOR_EACH_CHILD(it, node) {
+                TSNode child = it.node;
                 if (strcmp(ts_node_type(child), "import_header") == 0) {
                     extract_one_import_header(ctx, child);
                 }
@@ -1029,9 +1014,8 @@ static bool find_first_descendant_of(TSNode node, const char *type, // NOLINT(mi
         *out = node;
         return true;
     }
-    uint32_t n = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < n; i++) {
-        if (find_first_descendant_of(ts_node_named_child(node, i), type, out)) {
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        if (find_first_descendant_of(it.node, type, out)) {
             return true;
         }
     }
@@ -1086,9 +1070,8 @@ static void parse_haskell_imports(PDXEExtractCtx *ctx) {
         if (strcmp(kind, "import") == 0) {
             extract_one_import_header(ctx, node);
         } else if (strcmp(kind, "imports") == 0) {
-            uint32_t nc = ts_node_child_count(node);
-            for (uint32_t j = 0; j < nc; j++) {
-                TSNode child = ts_node_child(node, j);
+            PDXE_FOR_EACH_CHILD(it, node) {
+                TSNode child = it.node;
                 if (strcmp(ts_node_type(child), "import") == 0) {
                     extract_one_import_header(ctx, child);
                 }
@@ -1135,9 +1118,8 @@ static void parse_zig_imports(PDXEExtractCtx *ctx) {
 // Handle Wolfram get_top: << "path" → import.
 static void process_wolfram_get_top(PDXEExtractCtx *ctx, TSNode node) {
     PDXEArena *a = ctx->arena;
-    uint32_t nc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode child = it.node;
         const char *ck = ts_node_type(child);
         if (strcmp(ck, "string") == 0 || strcmp(ck, "user_symbol") == 0) {
             char *text = pdxe_node_text(a, child, ctx->source);
@@ -1241,9 +1223,8 @@ static void emit_php_use_decl(PDXEExtractCtx *ctx, TSNode decl) {
     if (find_first_descendant_of(decl, "namespace_use_group", &group)) {
         // The prefix is the qualified_name sibling preceding the group within decl.
         char *prefix = NULL;
-        uint32_t dc = ts_node_named_child_count(decl);
-        for (uint32_t i = 0; i < dc; i++) {
-            TSNode c = ts_node_named_child(decl, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, decl) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "qualified_name") == 0 || strcmp(ck, "namespace_name") == 0 ||
                 strcmp(ck, "name") == 0) {
@@ -1251,9 +1232,8 @@ static void emit_php_use_decl(PDXEExtractCtx *ctx, TSNode decl) {
                 break;
             }
         }
-        uint32_t gc = ts_node_named_child_count(group);
-        for (uint32_t i = 0; i < gc; i++) {
-            TSNode clause = ts_node_named_child(group, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, group) {
+            TSNode clause = it.node;
             const char *ck = ts_node_type(clause);
             if (strcmp(ck, "namespace_use_group_clause") == 0 ||
                 strcmp(ck, "namespace_use_clause") == 0) {
@@ -1263,10 +1243,9 @@ static void emit_php_use_decl(PDXEExtractCtx *ctx, TSNode decl) {
         return;
     }
     // Flat form: one or more namespace_use_clause children.
-    uint32_t dc = ts_node_named_child_count(decl);
     bool any = false;
-    for (uint32_t i = 0; i < dc; i++) {
-        TSNode clause = ts_node_named_child(decl, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, decl) {
+        TSNode clause = it.node;
         if (strcmp(ts_node_type(clause), "namespace_use_clause") == 0) {
             emit_php_use_clause(ctx, clause, NULL);
             any = true;
@@ -1323,15 +1302,14 @@ static void parse_csharp_imports(PDXEExtractCtx *ctx) {
         // which is the import target even in the alias form `using F = X;`.
         TSNode path_node = node;
         bool found = false;
-        uint32_t nc = ts_node_named_child_count(node);
-        for (int i = (int)nc - 1; i >= 0; i--) {
-            TSNode c = ts_node_named_child(node, (uint32_t)i);
+        /* The right-most: every named child in source order, the last match kept. */
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "qualified_name") == 0 || strcmp(ck, "identifier") == 0 ||
                 strcmp(ck, "member_access_expression") == 0 || strcmp(ck, "name") == 0) {
                 path_node = c;
                 found = true;
-                break;
             }
         }
         char *path = found ? pdxe_node_text(a, path_node, ctx->source) : NULL;
@@ -1427,9 +1405,8 @@ static void embedded_collect_content_nodes(TSNode root, const PDXEEmbeddedLangSp
         TSNode node = stack[--top];
         const char *kind = ts_node_type(node);
         if (strcmp(kind, spec->script_node_type) == 0) {
-            uint32_t cc = ts_node_child_count(node);
-            for (uint32_t k = 0; k < cc; k++) {
-                TSNode c = ts_node_child(node, k);
+            PDXE_FOR_EACH_CHILD(it, node) {
+                TSNode c = it.node;
                 if (strcmp(ts_node_type(c), spec->content_node_type) == 0) {
                     out[*out_count] = (PDXEEmbeddedBlock){.script = node, .content = c};
                     (*out_count)++;
@@ -1442,9 +1419,21 @@ static void embedded_collect_content_nodes(TSNode root, const PDXEEmbeddedLangSp
             /* Do not descend into <script>'s children — content already taken. */
             continue;
         }
+        /* The last children the stack has room for, the first of them popping first:
+         * forward by cursor, then the run reversed. */
         uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - 1; i >= 0 && top < EMBED_STACK_CAP; i--) {
-            stack[top++] = ts_node_child(node, (uint32_t)i);
+        uint32_t room = (uint32_t)(EMBED_STACK_CAP - top);
+        uint32_t first = count > room ? count - room : 0;
+        int base = top;
+        PDXE_FOR_EACH_CHILD(it, node) {
+            if (it.index >= first) {
+                stack[top++] = it.node;
+            }
+        }
+        for (int lo = base, hi = top - 1; lo < hi; lo++, hi--) {
+            TSNode tmp = stack[lo];
+            stack[lo] = stack[hi];
+            stack[hi] = tmp;
         }
     }
 }
@@ -1544,8 +1533,14 @@ static bool script_embedded_language(PDXEExtractCtx *ctx, TSNode script, PDXELan
         if ((int)count > SCRIPT_ATTR_STACK_CAP - top) {
             return false;
         }
-        for (int i = (int)count - 1; i >= 0; i--) {
-            stack[top++] = ts_node_named_child(node, (uint32_t)i);
+        int base = top;
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            stack[top++] = it.node;
+        }
+        for (int lo = base, hi = top - 1; lo < hi; lo++, hi--) {
+            TSNode tmp = stack[lo];
+            stack[lo] = stack[hi];
+            stack[hi] = tmp;
         }
     }
     return true;
@@ -1698,9 +1693,8 @@ static void parse_hare_imports(PDXEExtractCtx *ctx) {
     while (stack.count > 0) {
         TSNode node = ts_nstack_pop(&stack);
         if (strcmp(ts_node_type(node), "use_statement") == 0) {
-            uint32_t nc = ts_node_named_child_count(node);
-            for (uint32_t j = 0; j < nc; j++) {
-                TSNode c = ts_node_named_child(node, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                TSNode c = it.node;
                 const char *ck = ts_node_type(c);
                 if (strcmp(ck, "identifier") == 0 || strcmp(ck, "scoped_identifier") == 0) {
                     char *mod = pdxe_node_text(a, c, ctx->source);
@@ -1730,9 +1724,8 @@ static void parse_pascal_imports(PDXEExtractCtx *ctx) {
     while (stack.count > 0) {
         TSNode node = ts_nstack_pop(&stack);
         if (strcmp(ts_node_type(node), "declUses") == 0) {
-            uint32_t nc = ts_node_named_child_count(node);
-            for (uint32_t j = 0; j < nc; j++) {
-                TSNode c = ts_node_named_child(node, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                TSNode c = it.node;
                 if (strcmp(ts_node_type(c), "moduleName") != 0) {
                     continue;
                 }
@@ -1863,9 +1856,11 @@ static void lisp_set_namespace(PDXEExtractCtx *ctx, TSNode name_node) {
  * push each referenced module/package as an import.  `clause` is the
  * `(:require ...)` / `(:use ...)` list. */
 static void lisp_push_clause_modules(PDXEExtractCtx *ctx, TSNode clause) {
-    uint32_t cc = ts_node_named_child_count(clause);
-    for (uint32_t j = 1; j < cc; j++) { /* skip the leading keyword head */
-        TSNode item = ts_node_named_child(clause, j);
+    PDXE_FOR_EACH_NAMED_CHILD(it, clause) {
+        if (it.index < 1) {
+            continue; /* skip the leading keyword head */
+        }
+        TSNode item = it.node;
         const char *ik = ts_node_type(item);
         /* `[app.util :as u]` — the module is the vector's first symbol. */
         if (strcmp(ik, "vec_lit") == 0 || strcmp(ik, "list_lit") == 0 || strcmp(ik, "list") == 0) {
@@ -1912,8 +1907,11 @@ static void lisp_process_list(PDXEExtractCtx *ctx, TSNode node) {
      * dependency clauses. */
     if (strcmp(hn, "ns") == 0 && nc >= 2) {
         lisp_set_namespace(ctx, ts_node_named_child(node, 1));
-        for (uint32_t j = 2; j < nc; j++) {
-            TSNode clause = ts_node_named_child(node, j);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            if (it.index < 2) {
+                continue;
+            }
+            TSNode clause = it.node;
             const char *ck = ts_node_type(clause);
             if (strcmp(ck, "list_lit") == 0 || strcmp(ck, "list") == 0) {
                 lisp_push_clause_modules(ctx, clause);
@@ -1927,8 +1925,11 @@ static void lisp_process_list(PDXEExtractCtx *ctx, TSNode node) {
      * imported packages. */
     if (strcmp(hn, "defpackage") == 0 && nc >= 2) {
         lisp_set_namespace(ctx, ts_node_named_child(node, 1));
-        for (uint32_t j = 2; j < nc; j++) {
-            TSNode clause = ts_node_named_child(node, j);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            if (it.index < 2) {
+                continue;
+            }
+            TSNode clause = it.node;
             const char *ck = ts_node_type(clause);
             if (strcmp(ck, "list_lit") != 0 && strcmp(ck, "list") != 0) {
                 continue;
@@ -1971,8 +1972,11 @@ static void lisp_process_list(PDXEExtractCtx *ctx, TSNode node) {
      * import — which is what it is for reachability. */
     if (ctx->language == PDXE_LANG_CHIALISP) {
         if (strcmp(hn, "include") == 0) {
-            for (uint32_t j = 1; j < nc; j++) {
-                TSNode mod_node = ts_node_named_child(node, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                if (it.index < 1) {
+                    continue;
+                }
+                TSNode mod_node = it.node;
                 const char *mk = ts_node_type(mod_node);
                 if (strcmp(mk, "symbol") == 0 || strcmp(mk, "sym_lit") == 0) {
                     char *sig = pdxe_node_text(ctx->arena, mod_node, ctx->source);
@@ -1985,14 +1989,17 @@ static void lisp_process_list(PDXEExtractCtx *ctx, TSNode node) {
             return;
         }
         if (strcmp(hn, "embed-file") == 0 || strcmp(hn, "compile-file") == 0) {
-            /* the embedded/compiled path is the last string argument. */
-            for (uint32_t j = nc; j-- > 1;) {
-                TSNode arg = ts_node_named_child(node, j);
-                const char *ak = ts_node_type(arg);
-                if (strcmp(ak, "string") == 0 || strcmp(ak, "str_lit") == 0) {
-                    lisp_push_module(ctx, arg);
-                    break;
+            /* the embedded/compiled path is the last string argument: every argument
+             * in source order, the last kept. */
+            TSNode last = {0};
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                const char *ak = ts_node_type(it.node);
+                if (it.index >= 1 && (strcmp(ak, "string") == 0 || strcmp(ak, "str_lit") == 0)) {
+                    last = it.node;
                 }
+            }
+            if (!ts_node_is_null(last)) {
+                lisp_push_module(ctx, last);
             }
             return;
         }
@@ -2001,8 +2008,11 @@ static void lisp_process_list(PDXEExtractCtx *ctx, TSNode node) {
     /* Plain import head: `(require :util)`, `(import ...)`, `(use ...)`. */
     if (strcmp(hn, "import") == 0 || strcmp(hn, "require") == 0 || strcmp(hn, "load") == 0 ||
         strcmp(hn, "use") == 0 || strcmp(hn, "include") == 0) {
-        for (uint32_t j = 1; j < nc; j++) {
-            TSNode mod_node = ts_node_named_child(node, j);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            if (it.index < 1) {
+                continue;
+            }
+            TSNode mod_node = it.node;
             const char *mk = ts_node_type(mod_node);
             /* (require 'json) — the quoted datum is a `quote` wrapping a symbol. */
             if ((strcmp(mk, "quote") == 0 || strcmp(mk, "quoting_lit") == 0) &&
@@ -2089,9 +2099,8 @@ static void parse_tcl_imports(PDXEExtractCtx *ctx) {
             if (nm && strcmp(nm, "source") == 0) {
                 TSNode args = ts_node_child_by_field_name(node, TS_FIELD("arguments"));
                 if (!ts_node_is_null(args)) {
-                    uint32_t nc = ts_node_named_child_count(args);
-                    for (uint32_t j = 0; j < nc; j++) {
-                        TSNode c = ts_node_named_child(args, j);
+                    PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+                        TSNode c = it.node;
                         char *mod = strip_quotes(a, pdxe_node_text(a, c, ctx->source));
                         if (mod && mod[0]) {
                             PDXEImport imp = {.local_name = path_last(a, mod), .module_path = mod};
@@ -2228,9 +2237,8 @@ static void parse_css_imports(PDXEExtractCtx *ctx) {
 // bodies are still handled separately by parse_embedded_imports.)
 static void html_extract_tag_src(PDXEExtractCtx *ctx, TSNode tag) {
     PDXEArena *a = ctx->arena;
-    uint32_t nc = ts_node_named_child_count(tag);
-    for (uint32_t j = 0; j < nc; j++) {
-        TSNode attr = ts_node_named_child(tag, j);
+    PDXE_FOR_EACH_NAMED_CHILD(it, tag) {
+        TSNode attr = it.node;
         if (strcmp(ts_node_type(attr), "attribute") != 0) {
             continue;
         }
@@ -2333,9 +2341,8 @@ static void parse_cmake_imports(PDXEExtractCtx *ctx) {
             if (cmd && (strcmp(cmd, "include") == 0 || strcmp(cmd, "add_subdirectory") == 0)) {
                 TSNode args = pdxe_find_child_by_kind(node, "argument_list");
                 if (!ts_node_is_null(args)) {
-                    uint32_t nc = ts_node_named_child_count(args);
-                    for (uint32_t j = 0; j < nc; j++) {
-                        TSNode arg = ts_node_named_child(args, j);
+                    PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+                        TSNode arg = it.node;
                         push_string_descendant_import(ctx, arg);
                         break; /* first argument is the module/dir */
                     }
@@ -2514,17 +2521,21 @@ static void parse_nickel_imports(PDXEExtractCtx *ctx) {
          * static_string sibling. Detect any node carrying a static_string whose
          * preceding sibling text is "import". Simpler: scan children for the
          * "import" keyword token and take the next static_string. */
+        /* Each `import` (not the last child) takes the first static_string after it: one
+         * pass, the imports still waiting counted, each served by the next string. */
         uint32_t nc = ts_node_child_count(node);
-        for (uint32_t j = 0; j + 1 < nc; j++) {
-            TSNode c = ts_node_child(node, j);
-            char *t = pdxe_node_text(a, c, ctx->source);
-            if (t && strcmp(t, "import") == 0) {
-                for (uint32_t m = j + 1; m < nc; m++) {
-                    TSNode s = ts_node_child(node, m);
-                    if (strcmp(ts_node_type(s), "static_string") == 0) {
-                        push_string_descendant_import(ctx, s);
-                        break;
-                    }
+        uint32_t waiting = 0;
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
+            if (strcmp(ts_node_type(c), "static_string") == 0) {
+                for (; waiting > 0; waiting--) {
+                    push_string_descendant_import(ctx, c);
+                }
+            }
+            if (it.index + 1 < nc) {
+                char *t = pdxe_node_text(a, c, ctx->source);
+                if (t && strcmp(t, "import") == 0) {
+                    waiting++;
                 }
             }
         }
@@ -2655,9 +2666,8 @@ static void parse_ada_imports(PDXEExtractCtx *ctx) {
     while (stack.count > 0) {
         TSNode node = ts_nstack_pop(&stack);
         if (strcmp(ts_node_type(node), "with_clause") == 0) {
-            uint32_t nc = ts_node_named_child_count(node);
-            for (uint32_t j = 0; j < nc; j++) {
-                TSNode c = ts_node_named_child(node, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                TSNode c = it.node;
                 const char *ck = ts_node_type(c);
                 if (strcmp(ck, "identifier") == 0 || strcmp(ck, "selected_component") == 0 ||
                     strcmp(ck, "name") == 0) {
@@ -2799,9 +2809,8 @@ static void parse_tlaplus_imports(PDXEExtractCtx *ctx) {
         TSNode node = ts_nstack_pop(&stack);
         const char *k = ts_node_type(node);
         if (strcmp(k, "extends") == 0 || strcmp(k, "instance") == 0) {
-            uint32_t nc = ts_node_named_child_count(node);
-            for (uint32_t j = 0; j < nc; j++) {
-                TSNode c = ts_node_named_child(node, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                TSNode c = it.node;
                 const char *ck = ts_node_type(c);
                 if (strcmp(ck, "identifier_ref") == 0 || strcmp(ck, "identifier") == 0) {
                     char *mod = pdxe_node_text(a, c, ctx->source);

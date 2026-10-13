@@ -81,9 +81,8 @@ static const char *literal_from_arg(PDXEExtractCtx *ctx, TSNode arg) {
 
 /* Extract string literal from first named child (for nodes wrapping string content). */
 static const char *literal_from_first_child(PDXEExtractCtx *ctx, TSNode node) {
-    uint32_t nc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode child = it.node;
         const char *val = literal_from_arg(ctx, child);
         if (val) {
             return val;
@@ -100,12 +99,11 @@ static const char *literal_from_first_child(PDXEExtractCtx *ctx, TSNode node) {
  * unresolved.  This is a flat lookup; scope boundaries are ignored (a single
  * const table per file is sufficient for the common Socket.IO pattern). */
 static void scan_string_consts_js(PDXEExtractCtx *ctx, chan_const_table_t *tbl) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0 && tbl->count < CHAN_CONST_CAP) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        if (!(tbl->count < CHAN_CONST_CAP)) {
+            break;
+        }
+        TSNode node = w.node;
         const char *kind = ts_node_type(node);
 
         if (strcmp(kind, "variable_declarator") == 0) {
@@ -127,19 +125,16 @@ static void scan_string_consts_js(PDXEExtractCtx *ctx, chan_const_table_t *tbl) 
                 }
             }
         }
-
-        ts_nstack_push_children(&stack, node);
     }
 }
 
 /* Python constant resolution: NAME = "value" (assignment node). */
 static void scan_string_consts_python(PDXEExtractCtx *ctx, chan_const_table_t *tbl) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0 && tbl->count < CHAN_CONST_CAP) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        if (!(tbl->count < CHAN_CONST_CAP)) {
+            break;
+        }
+        TSNode node = w.node;
         const char *kind = ts_node_type(node);
 
         if (strcmp(kind, "assignment") == 0) {
@@ -160,11 +155,6 @@ static void scan_string_consts_python(PDXEExtractCtx *ctx, chan_const_table_t *t
                 }
             }
         }
-
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
-        }
     }
 }
 
@@ -184,7 +174,7 @@ static const char *resolve_identifier(const chan_const_table_t *tbl, const char 
 /* ── Enclosing function detection ───────────────────────────────── */
 
 static const char *enclosing_function_qn(PDXEExtractCtx *ctx, TSNode node) {
-    TSNode parent = ts_node_parent(node);
+    TSNode parent = pdxe_node_parent(node);
     while (!ts_node_is_null(parent)) {
         const char *pk = ts_node_type(parent);
         if (strcmp(pk, "function_declaration") == 0 || strcmp(pk, "method_definition") == 0 ||
@@ -201,7 +191,7 @@ static const char *enclosing_function_qn(PDXEExtractCtx *ctx, TSNode node) {
             }
             return NULL;
         }
-        parent = ts_node_parent(parent);
+        parent = pdxe_node_parent(parent);
     }
     return NULL;
 }
@@ -386,16 +376,11 @@ static void extract_channels_js(PDXEExtractCtx *ctx) {
     scan_string_consts_js(ctx, &consts);
 
     /* Second pass: walk the tree looking for call_expression nodes. */
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        TSNode node = w.node;
         if (strcmp(ts_node_type(node), "call_expression") == 0) {
             js_process_call(ctx, node, &consts);
         }
-        ts_nstack_push_children(&stack, node);
     }
 }
 
@@ -562,21 +547,13 @@ static void extract_channels_python(PDXEExtractCtx *ctx) {
     chan_const_table_t consts = {0};
     scan_string_consts_python(ctx, &consts);
 
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        TSNode node = w.node;
         const char *kind = ts_node_type(node);
         if (strcmp(kind, "call") == 0) {
             py_process_call(ctx, node, &consts);
         } else if (strcmp(kind, "decorator") == 0) {
             py_process_decorator(ctx, node, &consts);
-        }
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
         }
     }
 }
@@ -640,18 +617,10 @@ static void go_process_call(PDXEExtractCtx *ctx, TSNode call) {
 }
 
 static void extract_channels_go(PDXEExtractCtx *ctx) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        TSNode node = w.node;
         if (strcmp(ts_node_type(node), "call_expression") == 0) {
             go_process_call(ctx, node);
-        }
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
         }
     }
 }
@@ -737,21 +706,13 @@ static void java_process_annotation(PDXEExtractCtx *ctx, TSNode annotation) {
 }
 
 static void extract_channels_java(PDXEExtractCtx *ctx) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        TSNode node = w.node;
         const char *kind = ts_node_type(node);
         if (strcmp(kind, "method_invocation") == 0) {
             java_process_call(ctx, node);
         } else if (strcmp(kind, "marker_annotation") == 0 || strcmp(kind, "annotation") == 0) {
             java_process_annotation(ctx, node);
-        }
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
         }
     }
 }
@@ -806,18 +767,10 @@ static void csharp_process_call(PDXEExtractCtx *ctx, TSNode call) {
 }
 
 static void extract_channels_csharp(PDXEExtractCtx *ctx) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        TSNode node = w.node;
         if (strcmp(ts_node_type(node), "invocation_expression") == 0) {
             csharp_process_call(ctx, node);
-        }
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
         }
     }
 }
@@ -869,18 +822,10 @@ static void ruby_process_call(PDXEExtractCtx *ctx, TSNode call) {
 }
 
 static void extract_channels_ruby(PDXEExtractCtx *ctx) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        TSNode node = w.node;
         if (strcmp(ts_node_type(node), "call") == 0) {
             ruby_process_call(ctx, node);
-        }
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
         }
     }
 }
@@ -971,21 +916,13 @@ static void elixir_process_function_def(PDXEExtractCtx *ctx, TSNode func_def) {
 }
 
 static void extract_channels_elixir(PDXEExtractCtx *ctx) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        TSNode node = w.node;
         const char *kind = ts_node_type(node);
         if (strcmp(kind, "call") == 0) {
             elixir_process_call(ctx, node);
         } else if (strcmp(kind, "def") == 0) {
             elixir_process_function_def(ctx, node);
-        }
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
         }
     }
 }
@@ -1047,18 +984,10 @@ static void rust_process_call(PDXEExtractCtx *ctx, TSNode call) {
 }
 
 static void extract_channels_rust(PDXEExtractCtx *ctx) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, CHAN_STACK_CAP);
-    ts_nstack_push(&stack, ctx->root);
-
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, ctx->root) {
+        TSNode node = w.node;
         if (strcmp(ts_node_type(node), "call_expression") == 0) {
             rust_process_call(ctx, node);
-        }
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - SKIP_ONE; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
         }
     }
 }

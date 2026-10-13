@@ -986,24 +986,8 @@ void pdxe_reset_thread_parser(void);
 // Destroy the thread-local parser. Call on worker thread exit.
 void pdxe_destroy_thread_parser(void);
 
-// This thread's reusable tree cursor, reset to `node`. Child walks run once per
-// visited node; a cursor per walk was a malloc + free of its stack each time
-// (49.8 M on the Go corpus, waste sanitizer 2026-09-17). Valid until the next
-// call on this thread; released with the thread parser.
-TSTreeCursor *pdxe_thread_cursor(TSNode node);
-
-// Reusable cursors for RECURSIVE walks: one per recursion depth on this thread,
-// so a walk that recurses from inside its child loop never shares a cursor with
-// its own callers. A slot already in use (another walker nested on this thread)
-// hands out a private cursor instead; release deletes it. Released with the
-// thread parser.
-typedef struct {
-    TSTreeCursor *cursor;
-    TSTreeCursor private_cursor;
-    int slot; /* -1: private */
-} pdxe_cursor_lease_t;
-TSTreeCursor *pdxe_cursor_acquire(pdxe_cursor_lease_t *lease, int depth, TSNode node);
-void pdxe_cursor_release(pdxe_cursor_lease_t *lease);
+// Stepping through a node's children by cursor, and the thread's cursors (issue 93).
+#include "node_iter.h"
 
 // Shutdown the library. Call once at exit.
 void pdxe_engine_shutdown(void);

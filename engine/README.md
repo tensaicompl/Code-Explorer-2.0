@@ -140,7 +140,14 @@ Everything goes through `include/pdxe.h`. In outline:
   registry's definitions, imports, usages or sites per question: each index keeps its
   entries in the scan's order, so the answers are the scans' and the work is linear in
   the file, and an index that cannot get memory finds nothing rather than scan
-  (`patches/0025-indexed-typed-resolution.patch`, issue 92).
+  (`patches/0025-indexed-typed-resolution.patch`, issue 92). No pass steps through a
+  node's children by position or asks tree-sitter for a parent or a sibling: children
+  are visited by cursor (`node_iter.h`), in reverse or by position from a collection
+  made once, and parents and siblings are found from the walk's own path or the loop in
+  progress, so a wide node (an error node the parser's recovery fills with the rest of
+  the file) costs its width, not its width squared
+  (`patches/0026-linear-wide-node-traversal.patch`, issue 93). The parser's own recovery
+  can still be quadratic in such a node (issue 93, open).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per
@@ -179,6 +186,7 @@ environment variable turns them on.
 | `owner_census` (a diagnostic, not a test) | Counts a list of files' sites by owner from the engine's own occurrences: `scripts/owner-census.py <segment> <checkout>` runs it over a segment's files; `orphan` must be 0 |
 | `differential_dump` (the engine differential's vendored side, not a test) | Prints every row of the engine differential for a list of files: each file's extraction once the cross-file typed pass has written into it, and each file's cross-file surface from a second run in which every file comes from its exported surface; refuses a run that is not clean (P2-16, below) |
 | `typed_lookup` | Typed resolution and the interface's translation look up by index (issue 92): every resolve fixture, duplicate, overload, shadowing, alias and ambiguity cases in eleven languages, generated code and the issue's shapes extract and resolve to the same facts and answers with the indexes as with the scans (`PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE`); counted work doubles with the file for 1,000 to 16,000 flat classes in nine languages, 64 to 512 nested JavaScript groups, 16,000 definitions translated and generated code, never examining a registry entry by entry, while the scans' work grows with its square; a duplicated qualified name scopes to its first definition, found without the project's prefix; every family of indexes refused its memory (`PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES`) completes or fails as the interface says, as lost work, the work still linear |
+| `wide_nodes` | No pass steps through a wide node by position (issue 93): on every corpus and smoke file the iterator gives exactly tree-sitter's children, named children and fields, the parent and sibling lookups exactly tree-sitter's answers from a walk's path and from a loop in progress, and the tree walk a stack walk's order; in every language, wide modules, class bodies, function bodies, argument and parameter lists, literals, switches, decorators, imports and error-recovered files at 1,000 to 8,000 items reach children by position, step cursors and look up parents, siblings and fields a number of times that doubles with the file; the issue's Kotlin and JavaScript files are one error node as wide as the file and extract with work proportional to their nodes; with every collection refused (`PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES=children`, `wide_nodes_refused`) extraction completes, the loss counted, the work linear |
 | `api_warnings_are_errors` | Each warning class exempt in vendored code is still an error in the interface layer, compiled with the build's own flags |
 | one per `tests/fixtures/resolve/<name>` | Typed resolution on that fixture matches the reference engine's recorded answer, the fixture's own assertions hold, and neither the order files are added in nor resolving them from a cache changes the answer |
 

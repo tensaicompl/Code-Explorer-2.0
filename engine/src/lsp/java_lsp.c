@@ -202,9 +202,8 @@ static bool is_node_kind(TSNode node, const char *kind) {
 static TSNode child_by_kind(TSNode parent, const char *kind) {
     if (ts_node_is_null(parent))
         return parent;
-    uint32_t n = ts_node_named_child_count(parent);
-    for (uint32_t i = 0; i < n; i++) {
-        TSNode c = ts_node_named_child(parent, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, parent) {
+        TSNode c = it.node;
         if (strcmp(ts_node_type(c), kind) == 0)
             return c;
     }
@@ -410,9 +409,11 @@ const PDXEType *java_parse_type_node(JavaLSPContext *ctx, TSNode node) {
         int arg_count = 0;
         const PDXEType *arg_buf[16];
         if (!ts_node_is_null(targs) && strcmp(ts_node_type(targs), "type_arguments") == 0) {
-            uint32_t tn = ts_node_named_child_count(targs);
-            for (uint32_t ti = 0; ti < tn && arg_count < 16; ti++) {
-                arg_buf[arg_count++] = java_parse_type_node(ctx, ts_node_named_child(targs, ti));
+            PDXE_FOR_EACH_NAMED_CHILD(it, targs) {
+                if (!(arg_count < 16)) {
+                    break;
+                }
+                arg_buf[arg_count++] = java_parse_type_node(ctx, it.node);
             }
         }
         if (arg_count == 0) {
@@ -761,13 +762,11 @@ const PDXEType *java_eval_expr_type(JavaLSPContext *ctx, TSNode node) {
 
     /* Switch expression — collapse to first arm's type. */
     if (strcmp(kind, "switch_expression") == 0) {
-        uint32_t n = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < n; i++) {
-            TSNode c = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode c = it.node;
             if (strcmp(ts_node_type(c), "switch_block") == 0) {
-                uint32_t bn = ts_node_named_child_count(c);
-                for (uint32_t j = 0; j < bn; j++) {
-                    TSNode arm = ts_node_named_child(c, j);
+                PDXE_FOR_EACH_NAMED_CHILD(it2, c) {
+                    TSNode arm = it2.node;
                     if (strcmp(ts_node_type(arm), "switch_rule") == 0) {
                         if (ts_node_named_child_count(arm) > 0) {
                             TSNode body =
@@ -1200,8 +1199,8 @@ static const PDXEType *eval_object_creation(JavaLSPContext *ctx, TSNode node) {
     TSNode type_node = ts_node_child_by_field_name(node, "type", 4);
     if (ts_node_is_null(type_node)) {
         /* Could be qualified expression form. */
-        for (uint32_t i = 0; i < ts_node_named_child_count(node); i++) {
-            TSNode c = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode c = it.node;
             const char *k = ts_node_type(c);
             if (strcmp(k, "type_identifier") == 0 || strcmp(k, "scoped_type_identifier") == 0 ||
                 strcmp(k, "generic_type") == 0) {
@@ -1262,9 +1261,8 @@ static bool is_string_concat(JavaLSPContext *ctx, TSNode node) {
 static const PDXEType *eval_binary(JavaLSPContext *ctx, TSNode node) {
     /* Determine operator. tree-sitter-java exposes it as a child token. */
     char *op = NULL;
-    uint32_t cn = ts_node_child_count(node);
-    for (uint32_t i = 0; i < cn; i++) {
-        TSNode c = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode c = it.node;
         if (ts_node_is_named(c))
             continue;
         op = java_node_text(ctx, c);
@@ -1290,9 +1288,8 @@ static const PDXEType *eval_binary(JavaLSPContext *ctx, TSNode node) {
 static const PDXEType *eval_unary(JavaLSPContext *ctx, TSNode node) {
     /* `!x` → boolean; `-x` / `~x` / ++ / -- preserve the operand type. */
     char *op = NULL;
-    uint32_t cn = ts_node_child_count(node);
-    for (uint32_t i = 0; i < cn; i++) {
-        TSNode c = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode c = it.node;
         if (ts_node_is_named(c))
             continue;
         op = java_node_text(ctx, c);
@@ -1401,9 +1398,8 @@ static void process_local_var_decl(JavaLSPContext *ctx, TSNode node) {
         });
 
     /* Walk variable_declarator children. */
-    uint32_t n = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < n; i++) {
-        TSNode c = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode c = it.node;
         if (strcmp(ts_node_type(c), "variable_declarator") != 0)
             continue;
         TSNode name_node = ts_node_child_by_field_name(c, "name", 4);
@@ -1459,9 +1455,8 @@ static void process_enhanced_for(JavaLSPContext *ctx, TSNode node) {
 static void process_block(JavaLSPContext *ctx, TSNode node) {
     PDXEScope *saved = ctx->current_scope;
     ctx->current_scope = pdxe_scope_push(ctx->arena, saved);
-    uint32_t n = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < n; i++) {
-        TSNode c = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode c = it.node;
         java_process_statement(ctx, c);
         java_resolve_calls_in_node(ctx, c);
     }
@@ -1477,9 +1472,8 @@ static void process_field_decl(JavaLSPContext *ctx, TSNode node) {
     TSNode type_node = ts_node_child_by_field_name(node, "type", 4);
     const PDXEType *static_type =
         ts_node_is_null(type_node) ? pdxe_type_unknown() : java_parse_type_node(ctx, type_node);
-    uint32_t n = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < n; i++) {
-        TSNode c = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode c = it.node;
         if (strcmp(ts_node_type(c), "variable_declarator") != 0)
             continue;
         TSNode name_node = ts_node_child_by_field_name(c, "name", 4);
@@ -1517,9 +1511,8 @@ static void process_method_decl(JavaLSPContext *ctx, TSNode node, const char *cl
     /* Bind formal parameters into scope. */
     TSNode params = ts_node_child_by_field_name(node, "parameters", 10);
     if (!ts_node_is_null(params)) {
-        uint32_t n = ts_node_named_child_count(params);
-        for (uint32_t i = 0; i < n; i++) {
-            TSNode p = ts_node_named_child(params, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+            TSNode p = it.node;
             const char *pk = ts_node_type(p);
             if (strcmp(pk, "formal_parameter") != 0 && strcmp(pk, "spread_parameter") != 0 &&
                 strcmp(pk, "receiver_parameter") != 0) {
@@ -1582,9 +1575,8 @@ static void process_constructor_decl(JavaLSPContext *ctx, TSNode node, const cha
 
     TSNode params = ts_node_child_by_field_name(node, "parameters", 10);
     if (!ts_node_is_null(params)) {
-        uint32_t n = ts_node_named_child_count(params);
-        for (uint32_t i = 0; i < n; i++) {
-            TSNode p = ts_node_named_child(params, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+            TSNode p = it.node;
             if (strcmp(ts_node_type(p), "formal_parameter") != 0)
                 continue;
             TSNode pname = ts_node_child_by_field_name(p, "name", 4);
@@ -1641,9 +1633,8 @@ static TSNode java_type_declaration_body(TSNode node) {
     if (ts_node_is_null(body) || strcmp(ts_node_type(body), "enum_body") != 0)
         return body;
 
-    uint32_t count = ts_node_named_child_count(body);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode child = ts_node_named_child(body, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+        TSNode child = it.node;
         if (strcmp(ts_node_type(child), "enum_body_declarations") == 0)
             return child;
     }
@@ -1688,16 +1679,15 @@ static void java_process_class_decl(JavaLSPContext *ctx, TSNode node) {
         ctx->current_scope = pdxe_scope_push(ctx->arena, saved_scope);
 
         /* First pass: bind fields so methods see them. */
-        uint32_t n = ts_node_named_child_count(body);
-        for (uint32_t i = 0; i < n; i++) {
-            TSNode c = ts_node_named_child(body, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+            TSNode c = it.node;
             const char *k = ts_node_type(c);
             if (strcmp(k, "field_declaration") == 0)
                 process_field_decl(ctx, c);
         }
         /* Second pass: methods + constructors + nested types. */
-        for (uint32_t i = 0; i < n; i++) {
-            TSNode c = ts_node_named_child(body, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+            TSNode c = it.node;
             const char *k = ts_node_type(c);
             if (strcmp(k, "method_declaration") == 0) {
                 process_method_decl(ctx, c, class_qn, super_qn);
@@ -1728,9 +1718,8 @@ void java_lsp_process_file(JavaLSPContext *ctx, TSNode root) {
     if (ts_node_is_null(root))
         return;
     /* First scan: package_declaration + imports (already pushed via init). */
-    uint32_t n = ts_node_named_child_count(root);
-    for (uint32_t i = 0; i < n; i++) {
-        TSNode c = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(kid_it, root) {
+        TSNode c = kid_it.node;
         const char *k = ts_node_type(c);
         if (strcmp(k, "package_declaration") == 0) {
             uint32_t pn = ts_node_named_child_count(c);
@@ -1743,9 +1732,8 @@ void java_lsp_process_file(JavaLSPContext *ctx, TSNode root) {
             bool is_static = false;
             bool is_on_demand = false;
             const char *path = NULL;
-            uint32_t cn = ts_node_child_count(c);
-            for (uint32_t j = 0; j < cn; j++) {
-                TSNode cc = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode cc = it2.node;
                 if (!ts_node_is_named(cc)) {
                     char *t = java_node_text(ctx, cc);
                     if (t && strcmp(t, "static") == 0)
@@ -1784,8 +1772,8 @@ void java_lsp_process_file(JavaLSPContext *ctx, TSNode root) {
     }
 
     /* Second scan: top-level type declarations. */
-    for (uint32_t i = 0; i < n; i++) {
-        TSNode c = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        TSNode c = it.node;
         const char *k = ts_node_type(c);
         if (strcmp(k, "class_declaration") == 0 || strcmp(k, "interface_declaration") == 0 ||
             strcmp(k, "enum_declaration") == 0 || strcmp(k, "record_declaration") == 0 ||
@@ -2454,9 +2442,12 @@ static uint32_t bind_lambda_args(JavaLSPContext *ctx, TSNode call_node,
     TSNode mname_node = ts_node_child_by_field_name(call_node, "name", 4);
     char *mname = ts_node_is_null(mname_node) ? NULL : java_node_text(ctx, mname_node);
 
-    uint32_t n = ts_node_named_child_count(args_node);
-    for (uint32_t i = 0; i < n && i < 32; i++) {
-        TSNode arg = ts_node_named_child(args_node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, args_node) {
+        if (it.index >= 32) {
+            break;
+        }
+        uint32_t i = it.index;
+        TSNode arg = it.node;
         const char *kind = ts_node_type(arg);
         if (strcmp(kind, "lambda_expression") != 0)
             continue;
@@ -2486,10 +2477,9 @@ static uint32_t bind_lambda_args(JavaLSPContext *ctx, TSNode call_node,
                                 pdxe_scope_bind(ctx->current_scope, pname, h_p0);
                         } else if (strcmp(pn_kind, "inferred_parameters") == 0 ||
                                    strcmp(pn_kind, "formal_parameters") == 0) {
-                            uint32_t pc = ts_node_named_child_count(params_node);
                             int idx = 0;
-                            for (uint32_t pi = 0; pi < pc; pi++) {
-                                TSNode p = ts_node_named_child(params_node, pi);
+                            PDXE_FOR_EACH_NAMED_CHILD(it, params_node) {
+                                TSNode p = it.node;
                                 const char *pk = ts_node_type(p);
                                 char *pname = NULL;
                                 const PDXEType *pt = (idx == 0) ? h_p0 : h_p1;
@@ -2594,10 +2584,9 @@ static uint32_t bind_lambda_args(JavaLSPContext *ctx, TSNode call_node,
                 }
             } else if (strcmp(pn_kind, "inferred_parameters") == 0 ||
                        strcmp(pn_kind, "formal_parameters") == 0) {
-                uint32_t pc = ts_node_named_child_count(params_node);
                 int idx = 0;
-                for (uint32_t pi = 0; pi < pc; pi++) {
-                    TSNode p = ts_node_named_child(params_node, pi);
+                PDXE_FOR_EACH_NAMED_CHILD(it, params_node) {
+                    TSNode p = it.node;
                     const char *pk = ts_node_type(p);
                     char *pname = NULL;
                     const PDXEType *pt = NULL;
@@ -2663,9 +2652,8 @@ static void resolve_method_reference(JavaLSPContext *ctx, TSNode mref,
     if (!mname || !mname[0]) {
         /* Fall back to scanning all (named + unnamed) children for the token
          * after `::`. */
-        uint32_t total = ts_node_child_count(mref);
-        for (uint32_t i = 0; i < total; i++) {
-            TSNode c = ts_node_child(mref, i);
+        PDXE_FOR_EACH_CHILD(it, mref) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "new") == 0) {
                 mname = "new";
@@ -2795,13 +2783,15 @@ static uint32_t bind_method_ref_args(JavaLSPContext *ctx, TSNode call_node,
     TSNode args_node = ts_node_child_by_field_name(call_node, "arguments", 9);
     if (ts_node_is_null(args_node))
         return handled;
-    uint32_t n = ts_node_named_child_count(args_node);
-    for (uint32_t i = 0; i < n && i < 32; i++) {
-        TSNode arg = ts_node_named_child(args_node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, args_node) {
+        if (!(it.index < 32)) {
+            break;
+        }
+        TSNode arg = it.node;
         if (strcmp(ts_node_type(arg), "method_reference") != 0)
             continue;
-        resolve_method_reference(ctx, arg, resolved, (int)i, recv_type);
-        handled |= ((uint32_t)1u << i);
+        resolve_method_reference(ctx, arg, resolved, (int)it.index, recv_type);
+        handled |= ((uint32_t)1u << it.index);
     }
     return handled;
 }
@@ -2927,11 +2917,10 @@ static void java_resolve_calls_in_node_inner(JavaLSPContext *ctx, TSNode node) {
                 if (!ts_node_is_null(obj))
                     java_resolve_calls_in_node(ctx, obj);
                 if (!ts_node_is_null(args_node)) {
-                    uint32_t n = ts_node_named_child_count(args_node);
-                    for (uint32_t i = 0; i < n; i++) {
-                        if (handled & ((uint32_t)1u << i))
+                    PDXE_FOR_EACH_NAMED_CHILD(it, args_node) {
+                        if (handled & ((uint32_t)1u << it.index))
                             continue;
-                        TSNode c = ts_node_named_child(args_node, i);
+                        TSNode c = it.node;
                         java_resolve_calls_in_node(ctx, c);
                     }
                 }
@@ -2980,9 +2969,8 @@ static void java_resolve_calls_in_node_inner(JavaLSPContext *ctx, TSNode node) {
         PDXEScope *saved = ctx->current_scope;
         ctx->current_scope = pdxe_scope_push(ctx->arena, saved);
         java_process_statement(ctx, node);
-        uint32_t n = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < n; i++) {
-            TSNode c = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode c = it.node;
             java_resolve_calls_in_node(ctx, c);
         }
         ctx->current_scope = saved;
@@ -2996,9 +2984,8 @@ static void java_resolve_calls_in_node_inner(JavaLSPContext *ctx, TSNode node) {
     if (strcmp(kind, "block") == 0)
         return;
 
-    uint32_t n = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < n; i++) {
-        TSNode c = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode c = it.node;
         java_resolve_calls_in_node(ctx, c);
     }
 }
@@ -3436,8 +3423,8 @@ static void patch_one_method(JavaLSPContext *ctx, PDXETypeRegistry *reg, TSNode 
             return;
     }
     int idx = 0;
-    for (uint32_t i = 0; i < pn; i++) {
-        TSNode p = ts_node_named_child(params, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+        TSNode p = it.node;
         const char *pk = ts_node_type(p);
         if (strcmp(pk, "formal_parameter") != 0 && strcmp(pk, "spread_parameter") != 0) {
             continue;
@@ -3535,9 +3522,8 @@ static void patch_method_signatures_from_ast(JavaLSPContext *ctx, PDXETypeRegist
     ctx->enclosing_class_qn = class_qn;
     push_enclosing_class(ctx, class_qn);
 
-    uint32_t n = ts_node_named_child_count(body);
-    for (uint32_t i = 0; i < n; i++) {
-        TSNode c = ts_node_named_child(body, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+        TSNode c = it.node;
         const char *ck = ts_node_type(c);
         if (strcmp(ck, "method_declaration") == 0) {
             patch_one_method(ctx, reg, c, class_qn, false);
@@ -3640,17 +3626,15 @@ static void populate_class_fields_from_ast(JavaLSPContext *ctx, PDXETypeRegistry
     int fcount = 0;
     int fcap = 0;
     bool fields_lost = false;
-    uint32_t n = ts_node_named_child_count(body);
-    for (uint32_t i = 0; i < n; i++) {
-        TSNode c = ts_node_named_child(body, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+        TSNode c = it.node;
         const char *ck = ts_node_type(c);
         if (strcmp(ck, "field_declaration") == 0) {
             TSNode tn = ts_node_child_by_field_name(c, "type", 4);
             const PDXEType *ftype =
                 ts_node_is_null(tn) ? pdxe_type_unknown() : java_parse_type_node(ctx, tn);
-            uint32_t fcc = ts_node_named_child_count(c);
-            for (uint32_t j = 0; j < fcc; j++) {
-                TSNode dec = ts_node_named_child(c, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it2, c) {
+                TSNode dec = it2.node;
                 if (strcmp(ts_node_type(dec), "variable_declarator") != 0)
                     continue;
                 TSNode dname = ts_node_child_by_field_name(dec, "name", 4);
@@ -3737,9 +3721,8 @@ void pdxe_run_java_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sou
      * receivers other than `this`. Also patch method signatures with
      * generics-preserving types (extract_defs strips generics from
      * d->param_types via clean_type_name). */
-    uint32_t rn = ts_node_named_child_count(root);
-    for (uint32_t i = 0; i < rn; i++) {
-        TSNode c = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        TSNode c = it.node;
         const char *ck = ts_node_type(c);
         if (strcmp(ck, "class_declaration") == 0 || strcmp(ck, "interface_declaration") == 0 ||
             strcmp(ck, "enum_declaration") == 0 || strcmp(ck, "record_declaration") == 0) {

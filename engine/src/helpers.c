@@ -214,7 +214,7 @@ bool pdxe_label_is_registry_symbol(const char *label) {
 }
 
 bool pdxe_lisp_node_in_quote(PDXEArena *a, TSNode node, const char *source) {
-    TSNode cur = ts_node_parent(node);
+    TSNode cur = pdxe_node_parent(node);
     for (int guard = 0; guard < PDXE_LISP_QUOTE_ANCESTOR_MAX && !ts_node_is_null(cur); guard++) {
         const char *ck = ts_node_type(cur);
         if ((strcmp(ck, "list") == 0 || strcmp(ck, "list_lit") == 0) &&
@@ -229,16 +229,15 @@ bool pdxe_lisp_node_in_quote(PDXEArena *a, TSNode node, const char *source) {
                 }
             }
         }
-        cur = ts_node_parent(cur);
+        cur = pdxe_node_parent(cur);
     }
     return false;
 }
 
 TSNode pdxe_lisp_named_child_skip_comments(TSNode node, uint32_t want) {
-    uint32_t nc = ts_node_named_child_count(node);
     uint32_t seen = 0;
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode c = it.node;
         if (strcmp(ts_node_type(c), "comment") == 0) {
             continue;
         }
@@ -460,9 +459,8 @@ bool pdxe_is_test_file(const char *rel_path, PDXELanguage lang) {
 // --- AST traversal helpers ---
 
 TSNode pdxe_find_child_by_kind(TSNode parent, const char *kind) {
-    uint32_t count = ts_node_child_count(parent);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode child = ts_node_child(parent, i);
+    PDXE_FOR_EACH_CHILD(it, parent) {
+        TSNode child = it.node;
         if (strcmp(ts_node_type(child), kind) == 0) {
             return child;
         }
@@ -473,9 +471,11 @@ TSNode pdxe_find_child_by_kind(TSNode parent, const char *kind) {
 
 int pdxe_find_children_by_kind(TSNode parent, const char *kind, TSNode *out, int max) {
     int n = 0;
-    uint32_t count = ts_node_child_count(parent);
-    for (uint32_t i = 0; i < count && n < max; i++) {
-        TSNode child = ts_node_child(parent, i);
+    PDXE_FOR_EACH_CHILD(it, parent) {
+        if (!(n < max)) {
+            break;
+        }
+        TSNode child = it.node;
         if (strcmp(ts_node_type(child), kind) == 0) {
             out[n++] = child;
         }
@@ -623,7 +623,7 @@ void pdxe_kind_in_set_free_cache(void) {
 bool pdxe_has_ancestor_kind(TSNode node, const char *kind, int max_depth) {
     TSNode cur = node;
     for (int i = 0; i < max_depth; i++) {
-        TSNode parent = ts_node_parent(cur);
+        TSNode parent = pdxe_node_parent(cur);
         if (ts_node_is_null(parent)) {
             return false;
         }
@@ -651,9 +651,21 @@ static int count_branching_iter(TSNode root, const char **types) {
                 break;
             }
         }
+        /* The last children the stack has room for, the first of them popping first:
+         * forward by cursor, then the run reversed. */
         uint32_t n = ts_node_child_count(node);
-        for (int i = (int)n - SKIP_ONE; i >= 0 && top < BRANCHING_STACK_CAP; i--) {
-            stack[top++] = ts_node_child(node, (uint32_t)i);
+        uint32_t room = (uint32_t)(BRANCHING_STACK_CAP - top);
+        uint32_t first = n > room ? n - room : 0;
+        int base = top;
+        PDXE_FOR_EACH_CHILD(it, node) {
+            if (it.index >= first) {
+                stack[top++] = it.node;
+            }
+        }
+        for (int lo = base, hi = top - 1; lo < hi; lo++, hi--) {
+            TSNode tmp = stack[lo];
+            stack[lo] = stack[hi];
+            stack[hi] = tmp;
         }
     }
     return count;
@@ -774,13 +786,25 @@ void pdxe_compute_complexity(TSNode node, const char **branching_types, pdxe_com
             }
             child_l = d;
         }
+        /* The last children the stack has room for, the first of them popping first:
+         * forward by cursor, then the run reversed. */
         uint32_t n = ts_node_child_count(f.node);
-        for (int i = (int)n - SKIP_ONE; i >= 0 && top < BRANCHING_STACK_CAP; i--) {
-            stack[top].node = ts_node_child(f.node, (uint32_t)i);
-            stack[top].bdepth = child_b;
-            stack[top].ldepth = child_l;
-            stack[top].adepth = child_a;
-            top++;
+        uint32_t room = (uint32_t)(BRANCHING_STACK_CAP - top);
+        uint32_t first = n > room ? n - room : 0;
+        int base = top;
+        PDXE_FOR_EACH_CHILD(it, f.node) {
+            if (it.index >= first) {
+                stack[top].node = it.node;
+                stack[top].bdepth = child_b;
+                stack[top].ldepth = child_l;
+                stack[top].adepth = child_a;
+                top++;
+            }
+        }
+        for (int lo = base, hi = top - 1; lo < hi; lo++, hi--) {
+            struct cx_frame tmp = stack[lo];
+            stack[lo] = stack[hi];
+            stack[hi] = tmp;
         }
     }
 }
@@ -893,7 +917,7 @@ TSNode pdxe_find_enclosing_func(TSNode node, PDXELanguage lang) {
     const char **kinds = func_kinds_for_lang(lang);
     TSNode cur = node;
     for (;;) {
-        TSNode parent = ts_node_parent(cur);
+        TSNode parent = pdxe_node_parent(cur);
         if (ts_node_is_null(parent)) {
             break;
         }
@@ -1026,9 +1050,11 @@ bool pdxe_nix_attr_is_interpolated(TSNode attr) {
         if (strcmp(ts_node_type(cur), "interpolation") == 0) {
             return true;
         }
-        uint32_t n = ts_node_named_child_count(cur);
-        for (uint32_t i = 0; i < n && top < NIX_ATTR_SCAN_MAX; i++) {
-            stack[top++] = ts_node_named_child(cur, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, cur) {
+            if (!(top < NIX_ATTR_SCAN_MAX)) {
+                break;
+            }
+            stack[top++] = it.node;
         }
     }
     return false;
@@ -1062,8 +1088,11 @@ const char *pdxe_nix_attrpath_scope(PDXEArena *a, TSNode attrpath, const char *s
         return NULL;
     }
     const char *scope = NULL;
-    for (uint32_t i = 0; i + SKIP_ONE < n; i++) {
-        TSNode seg = ts_node_named_child(attrpath, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, attrpath) {
+        if (it.index + SKIP_ONE >= n) {
+            break; /* every segment but the leaf */
+        }
+        TSNode seg = it.node;
         if (pdxe_nix_attr_is_interpolated(seg)) {
             return NULL;
         }
@@ -1136,7 +1165,7 @@ const char *pdxe_nix_qn_name(PDXEArena *a, TSNode func_node, const char *source,
     if (!name) {
         return NULL;
     }
-    TSNode parent = ts_node_parent(func_node);
+    TSNode parent = pdxe_node_parent(func_node);
     if (ts_node_is_null(parent) || strcmp(ts_node_type(parent), "binding") != 0) {
         return name;
     }
@@ -1171,7 +1200,7 @@ static const char *func_node_name(PDXEArena *a, TSNode func_node, const char *so
     }
     // Arrow functions: check parent variable_declarator
     if (strcmp(ts_node_type(func_node), "arrow_function") == 0) {
-        TSNode parent = ts_node_parent(func_node);
+        TSNode parent = pdxe_node_parent(func_node);
         if (!ts_node_is_null(parent) && strcmp(ts_node_type(parent), "variable_declarator") == 0) {
             TSNode vname = ts_node_child_by_field_name(parent, TS_FIELD("name"));
             if (!ts_node_is_null(vname)) {
@@ -1214,8 +1243,8 @@ const char *pdxe_enclosing_func_qn(PDXEArena *a, TSNode node, PDXELanguage lang,
         // to the innermost. Walk parents collecting class names innermost-first,
         // then prepend each as we ascend so the result reads Outer.Inner.
         const char *class_chain = NULL;
-        for (TSNode cur = ts_node_parent(func_node); !ts_node_is_null(cur);
-             cur = ts_node_parent(cur)) {
+        for (TSNode cur = pdxe_node_parent(func_node); !ts_node_is_null(cur);
+             cur = pdxe_node_parent(cur)) {
             if (!pdxe_kind_in_set(cur, spec->class_node_types) &&
                 !pdxe_is_namespace_scope_kind(lang, ts_node_type(cur))) {
                 continue;
@@ -1311,7 +1340,7 @@ static bool check_script_module_level(TSNode parent, const char *pk, const char 
         return true;
     }
     if (wrapper_kind && strcmp(pk, wrapper_kind) == 0) {
-        TSNode gp = ts_node_parent(parent);
+        TSNode gp = pdxe_node_parent(parent);
         return !ts_node_is_null(gp) && strcmp(ts_node_type(gp), root_kind) == 0;
     }
     return false;
@@ -1445,7 +1474,7 @@ bool pdxe_is_module_level_p(TSNode parent, PDXELanguage lang) {
  * Prefer pdxe_is_module_level_p at call sites that already know the
  * parent (the common case — iterating a parent's children). */
 bool pdxe_is_module_level(TSNode node, PDXELanguage lang) {
-    return pdxe_is_module_level_p(ts_node_parent(node), lang);
+    return pdxe_is_module_level_p(pdxe_node_parent(node), lang);
 }
 
 // --- FQN computation ---
@@ -1755,9 +1784,8 @@ const char *pdxe_template_string_text(PDXEArena *a, TSNode node, const char *sou
     enum { TPL_BUF = 512 };
     char buf[TPL_BUF];
     size_t pos = 0;
-    uint32_t nc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode c = it.node;
         const char *k = ts_node_type(c);
         if (strcmp(k, "string_fragment") == 0) {
             char *frag = pdxe_node_text(a, c, source);

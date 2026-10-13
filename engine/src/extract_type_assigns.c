@@ -25,8 +25,8 @@ static const char *extract_new_expr_type(PDXEArena *a, TSNode rhs, const char *s
         return pdxe_node_text(a, type_node, source);
     }
     // Fallback: first identifier child
-    for (uint32_t i = 0; i < ts_node_child_count(rhs); i++) {
-        TSNode child = ts_node_child(rhs, i);
+    PDXE_FOR_EACH_CHILD(it, rhs) {
+        TSNode child = it.node;
         const char *ck = ts_node_type(child);
         if (strcmp(ck, "identifier") == 0 || strcmp(ck, "type_identifier") == 0 ||
             strcmp(ck, "simple_identifier") == 0) {

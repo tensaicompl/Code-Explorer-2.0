@@ -66,7 +66,8 @@ static const char *COUNTER_NAMES[PDXE_LC_COUNT] = {
     "name comparisons", "type self-lookups", "function self-lookups",
     "Python module-class scans", "TypeScript symbol candidates", "overload candidates",
     "interface definition entries", "interface comparisons", "TypeScript usages",
-    "answer rows", "import items"};
+    "answer rows", "import items", "children reached by position", "cursor steps",
+    "parent lookups", "sibling lookups", "field lookups", "child walks cut short"};
 
 /* --- text ------------------------------------------------------------------- */
 

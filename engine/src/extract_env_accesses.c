@@ -68,8 +68,8 @@ static const char *extract_env_key_from_call(PDXEExtractCtx *ctx, TSNode node,
         return NULL;
     }
     // Find first named child (skip parentheses)
-    for (uint32_t i = 0; i < ts_node_child_count(args); i++) {
-        TSNode child = ts_node_child(args, i);
+    PDXE_FOR_EACH_CHILD(it, args) {
+        TSNode child = it.node;
         const char *ck = ts_node_type(child);
         if (strcmp(ck, "(") == 0 || strcmp(ck, ")") == 0 || strcmp(ck, ",") == 0) {
             continue;

@@ -40,7 +40,6 @@
  */
 
 #include "cs_lsp.h"
-#include "lsp_node_iter.h"
 #include "../helpers.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -94,9 +93,8 @@ static bool cs_node_is(TSNode n, const char *kind) {
 static TSNode cs_child_named_kind(TSNode parent, const char *kind) {
     if (ts_node_is_null(parent))
         return parent;
-    uint32_t nc = ts_node_child_count(parent);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(parent, i);
+    PDXE_FOR_EACH_CHILD(it, parent) {
+        TSNode c = it.node;
         if (!ts_node_is_null(c) && strcmp(ts_node_type(c), kind) == 0)
             return c;
     }
@@ -108,9 +106,8 @@ static TSNode cs_child_named_kind(TSNode parent, const char *kind) {
 static TSNode cs_first_named_child(TSNode parent) {
     if (ts_node_is_null(parent))
         return parent;
-    uint32_t nc = ts_node_child_count(parent);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(parent, i);
+    PDXE_FOR_EACH_CHILD(it, parent) {
+        TSNode c = it.node;
         if (!ts_node_is_null(c) && ts_node_is_named(c))
             return c;
     }
@@ -762,8 +759,8 @@ const PDXEType *cs_parse_type_node(CSLSPContext *ctx, TSNode node) {
         if (!elems)
             return pdxe_type_unknown();
         int count = 0;
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *ck = ts_node_type(c);
@@ -802,8 +799,8 @@ const PDXEType *cs_parse_type_node(CSLSPContext *ctx, TSNode node) {
         if (!args)
             return pdxe_type_named(ctx->arena, resolved);
         int count = 0;
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(args_node, i);
+        PDXE_FOR_EACH_CHILD(it, args_node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             args[count++] = cs_parse_type_node(ctx, c);
@@ -939,9 +936,8 @@ const PDXEType *cs_eval_expr_type(CSLSPContext *ctx, TSNode node) {
         /* x as T → T */
         TSNode rhs = ts_node_child_by_field_name(node, "right", 5);
         if (ts_node_is_null(rhs)) {
-            uint32_t nc = ts_node_child_count(node);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode c = ts_node_child(node, i);
+            PDXE_FOR_EACH_CHILD(it, node) {
+                TSNode c = it.node;
                 if (!ts_node_is_null(c) && ts_node_is_named(c))
                     rhs = c;
             }
@@ -984,9 +980,8 @@ const PDXEType *cs_eval_expr_type(CSLSPContext *ctx, TSNode node) {
         if (ts_node_is_null(b))
             b = ts_node_child_by_field_name(node, "alternative", 11);
         if (ts_node_is_null(b)) {
-            uint32_t nc = ts_node_child_count(node);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode c = ts_node_child(node, i);
+            PDXE_FOR_EACH_CHILD(it, node) {
+                TSNode c = it.node;
                 if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                     const PDXEType *t = cs_eval_expr_type(ctx, c);
                     if (t && t->kind != PDXE_TYPE_UNKNOWN) {
@@ -1008,8 +1003,8 @@ const PDXEType *cs_eval_expr_type(CSLSPContext *ctx, TSNode node) {
             return pdxe_type_unknown();
         }
         int count = 0;
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             elems[count++] = cs_eval_expr_type(ctx, c);
@@ -1116,9 +1111,8 @@ static int cs_count_args(TSNode args_node) {
     if (ts_node_is_null(args_node))
         return 0;
     int count = 0;
-    uint32_t nc = ts_node_child_count(args_node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(args_node, i);
+    PDXE_FOR_EACH_CHILD(it, args_node) {
+        TSNode c = it.node;
         if (!ts_node_is_null(c) && ts_node_is_named(c)) {
             const char *k = ts_node_type(c);
             if (strcmp(k, "argument") == 0)
@@ -1132,9 +1126,8 @@ static const PDXEType *cs_eval_invocation_type(CSLSPContext *ctx, TSNode call) {
     TSNode fn = ts_node_child_by_field_name(call, "function", 8);
     if (ts_node_is_null(fn)) {
         /* tree-sitter sometimes uses "expression" instead of "function". */
-        uint32_t nc = ts_node_child_count(call);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(call, i);
+        PDXE_FOR_EACH_CHILD(it, call) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                 const char *k = ts_node_type(c);
                 if (strcmp(k, "argument_list") == 0)
@@ -1156,9 +1149,8 @@ static const PDXEType *cs_eval_invocation_type(CSLSPContext *ctx, TSNode call) {
         if (ts_node_is_null(recv))
             recv = cs_first_named_child(fn);
         if (ts_node_is_null(name)) {
-            uint32_t fnc = ts_node_child_count(fn);
-            for (uint32_t i = 0; i < fnc; i++) {
-                TSNode c = ts_node_child(fn, i);
+            PDXE_FOR_EACH_CHILD(it, fn) {
+                TSNode c = it.node;
                 if (ts_node_is_null(c) || !ts_node_is_named(c))
                     continue;
                 const char *k = ts_node_type(c);
@@ -1264,9 +1256,8 @@ static const PDXEType *cs_eval_member_access_type(CSLSPContext *ctx, TSNode node
     if (ts_node_is_null(obj))
         obj = cs_first_named_child(node);
     if (ts_node_is_null(name)) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *k = ts_node_type(c);
@@ -1360,9 +1351,8 @@ static const PDXEType *cs_eval_object_creation_type(CSLSPContext *ctx, TSNode no
     }
     TSNode tnode = ts_node_child_by_field_name(node, "type", 4);
     if (ts_node_is_null(tnode)) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *k = ts_node_type(c);
@@ -1430,10 +1420,9 @@ static const PDXEType *cs_substitute_type_params(PDXEArena *arena, const PDXETyp
 static void cs_bind_parameters(CSLSPContext *ctx, TSNode params_node, bool is_extension) {
     if (ts_node_is_null(params_node))
         return;
-    uint32_t nc = ts_node_child_count(params_node);
     int idx = 0;
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(params_node, i);
+    PDXE_FOR_EACH_CHILD(it, params_node) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -1445,9 +1434,8 @@ static void cs_bind_parameters(CSLSPContext *ctx, TSNode params_node, bool is_ex
         TSNode tnode = ts_node_child_by_field_name(c, "type", 4);
         TSNode nnode = ts_node_child_by_field_name(c, "name", 4);
         if (ts_node_is_null(tnode) || ts_node_is_null(nnode)) {
-            uint32_t pc = ts_node_child_count(c);
-            for (uint32_t j = 0; j < pc; j++) {
-                TSNode cc = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode cc = it2.node;
                 if (ts_node_is_null(cc) || !ts_node_is_named(cc))
                     continue;
                 const char *ck = ts_node_type(cc);
@@ -1550,9 +1538,8 @@ static TSNode cs_callable_name_leaf(TSNode node) {
     TSNode leaf = ts_node_child_by_field_name(node, "name", 4);
     if (!ts_node_is_null(leaf))
         return leaf;
-    uint32_t nc = ts_node_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode child = it.node;
         if (!ts_node_is_null(child) && ts_node_is_named(child) &&
             strcmp(ts_node_type(child), "identifier") == 0) {
             return child;
@@ -1595,9 +1582,8 @@ static const char *cs_resolve_callable_value(CSLSPContext *ctx, TSNode node,
     if (ts_node_is_null(receiver))
         receiver = cs_first_named_child(node);
     if (ts_node_is_null(member)) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (ts_node_is_null(child) || !ts_node_is_named(child) || ts_node_eq(child, receiver)) {
                 continue;
             }
@@ -1652,7 +1638,6 @@ static void cs_process_local_decl(CSLSPContext *ctx, TSNode node) {
     if (ts_node_is_null(tnode))
         tnode = cs_first_named_child(vd);
     /* For each declarator, bind the variable to (rhs_type or declared type). */
-    uint32_t nc = ts_node_child_count(vd);
     bool is_var = false;
     if (!ts_node_is_null(tnode)) {
         char *tt = cs_node_text(ctx, tnode);
@@ -1662,8 +1647,8 @@ static void cs_process_local_decl(CSLSPContext *ctx, TSNode node) {
     }
     const PDXEType *declared_type =
         ts_node_is_null(tnode) ? pdxe_type_unknown() : cs_parse_type_node(ctx, tnode);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(vd, i);
+    PDXE_FOR_EACH_CHILD(it, vd) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -1704,10 +1689,9 @@ static void cs_process_local_decl(CSLSPContext *ctx, TSNode node) {
             /* Walk named children: skip identifier (the name), evaluate
              * the next named child as the rhs expression. Also catch the
              * legacy equals_value_clause shape. */
-            uint32_t cc = ts_node_child_count(c);
             int seen_named = 0;
-            for (uint32_t j = 0; j < cc; j++) {
-                TSNode cn = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode cn = it2.node;
                 if (ts_node_is_null(cn) || !ts_node_is_named(cn))
                     continue;
                 const char *ck = ts_node_type(cn);
@@ -1757,10 +1741,9 @@ static void cs_process_foreach(CSLSPContext *ctx, TSNode node) {
     TSNode iter = ts_node_child_by_field_name(node, "right", 5);
     if (ts_node_is_null(iter)) {
         /* Fallback: look for an expression-shaped child after the type. */
-        uint32_t nc = ts_node_child_count(node);
         bool past_id = false;
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *k = ts_node_type(c);
@@ -1856,9 +1839,8 @@ static void cs_invalidate_conditionally_assigned_callables(CSLSPContext *ctx, TS
         }
         return;
     }
-    uint32_t nc = ts_node_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode child = it.node;
         if (!ts_node_is_null(child) && ts_node_is_named(child)) {
             cs_invalidate_conditionally_assigned_callables(ctx, child);
         }
@@ -1945,9 +1927,8 @@ static void cs_resolve_callable_arguments(CSLSPContext *ctx, TSNode call) {
     if (ts_node_is_null(args))
         return;
 
-    uint32_t nc = ts_node_child_count(args);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode argument = ts_node_child(args, i);
+    PDXE_FOR_EACH_CHILD(it, args) {
+        TSNode argument = it.node;
         if (ts_node_is_null(argument) || !ts_node_is_named(argument) ||
             strcmp(ts_node_type(argument), "argument") != 0) {
             continue;
@@ -1956,12 +1937,10 @@ static void cs_resolve_callable_arguments(CSLSPContext *ctx, TSNode call) {
         if (ts_node_is_null(value))
             value = ts_node_child_by_field_name(argument, "value", 5);
         if (ts_node_is_null(value)) {
-            uint32_t ac = ts_node_child_count(argument);
-            for (uint32_t j = ac; j > 0; j--) {
-                TSNode child = ts_node_child(argument, j - 1);
-                if (!ts_node_is_null(child) && ts_node_is_named(child)) {
-                    value = child;
-                    break;
+            /* The last named child: every child in source order, the last kept. */
+            PDXE_FOR_EACH_CHILD(it2, argument) {
+                if (ts_node_is_named(it2.node)) {
+                    value = it2.node;
                 }
             }
         }
@@ -1983,9 +1962,8 @@ static void cs_resolve_callable_arguments(CSLSPContext *ctx, TSNode call) {
 static void cs_resolve_invocation(CSLSPContext *ctx, TSNode call) {
     TSNode fn = ts_node_child_by_field_name(call, "function", 8);
     if (ts_node_is_null(fn)) {
-        uint32_t nc = ts_node_child_count(call);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(call, i);
+        PDXE_FOR_EACH_CHILD(it, call) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                 const char *k = ts_node_type(c);
                 if (strcmp(k, "argument_list") == 0)
@@ -2007,9 +1985,8 @@ static void cs_resolve_invocation(CSLSPContext *ctx, TSNode call) {
         if (ts_node_is_null(recv))
             recv = cs_first_named_child(fn);
         if (ts_node_is_null(name)) {
-            uint32_t fnc = ts_node_child_count(fn);
-            for (uint32_t i = 0; i < fnc; i++) {
-                TSNode c = ts_node_child(fn, i);
+            PDXE_FOR_EACH_CHILD(it, fn) {
+                TSNode c = it.node;
                 if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                     const char *k = ts_node_type(c);
                     if (strcmp(k, "identifier") == 0 || strcmp(k, "generic_name") == 0)
@@ -2305,14 +2282,13 @@ static void cs_collect_type_params(CSLSPContext *ctx, TSNode node, const char **
         tplist = cs_child_named_kind(node, "type_parameter_list");
     if (ts_node_is_null(tplist))
         return;
-    uint32_t nc = ts_node_child_count(tplist);
     int cap = 4;
     const char **arr = (const char **)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(*arr));
     if (!arr)
         return;
     int n = 0;
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(tplist, i);
+    PDXE_FOR_EACH_CHILD(it, tplist) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         if (strcmp(ts_node_type(c), "type_parameter") != 0)
@@ -2422,17 +2398,15 @@ static void cs_process_function_like(CSLSPContext *ctx, TSNode node) {
             params = cs_child_named_kind(node, "parameter_list");
         if (!ts_node_is_null(params)) {
             /* Detect `this` modifier on first parameter. */
-            uint32_t nc = ts_node_child_count(params);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode c = ts_node_child(params, i);
+            PDXE_FOR_EACH_CHILD(kid_it, params) {
+                TSNode c = kid_it.node;
                 if (ts_node_is_null(c) || !ts_node_is_named(c))
                     continue;
                 if (strcmp(ts_node_type(c), "parameter") != 0)
                     continue;
                 /* Look for "this" keyword child. */
-                uint32_t pc = ts_node_child_count(c);
-                for (uint32_t j = 0; j < pc; j++) {
-                    TSNode cc = ts_node_child(c, j);
+                PDXE_FOR_EACH_CHILD(it2, c) {
+                    TSNode cc = it2.node;
                     if (ts_node_is_null(cc))
                         continue;
                     if (strcmp(ts_node_type(cc), "this") == 0) {
@@ -2472,9 +2446,8 @@ static void cs_process_function_like(CSLSPContext *ctx, TSNode node) {
     if (is_property || is_indexer) {
         TSNode accessors = cs_child_named_kind(node, "accessor_list");
         if (!ts_node_is_null(accessors)) {
-            uint32_t nc = ts_node_child_count(accessors);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode a = ts_node_child(accessors, i);
+            PDXE_FOR_EACH_CHILD(it, accessors) {
+                TSNode a = it.node;
                 if (ts_node_is_null(a) || !ts_node_is_named(a))
                     continue;
                 if (strcmp(ts_node_type(a), "accessor_declaration") != 0)
@@ -2564,12 +2537,11 @@ static void cs_process_type_decl(CSLSPContext *ctx, TSNode node) {
     {
         TSNode bl = cs_child_named_kind(node, "base_list");
         if (!ts_node_is_null(bl)) {
-            uint32_t nc = ts_node_child_count(bl);
             int icap = 4, icount = 0;
             const char **ifs =
                 (const char **)pdxe_arena_alloc(ctx->arena, (size_t)icap * sizeof(*ifs));
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode c = ts_node_child(bl, i);
+            PDXE_FOR_EACH_CHILD(it, bl) {
+                TSNode c = it.node;
                 if (ts_node_is_null(c) || !ts_node_is_named(c))
                     continue;
                 char *t = cs_node_text(ctx, c);
@@ -2626,9 +2598,8 @@ static void cs_process_type_decl(CSLSPContext *ctx, TSNode node) {
         if (ts_node_is_null(body))
             body = cs_child_named_kind(node, "declaration_list");
         if (!ts_node_is_null(body)) {
-            uint32_t nc = ts_node_child_count(body);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode c = ts_node_child(body, i);
+            PDXE_FOR_EACH_CHILD(it, body) {
+                TSNode c = it.node;
                 if (ts_node_is_null(c) || !ts_node_is_named(c))
                     continue;
                 const char *k = ts_node_type(c);
@@ -2708,14 +2679,13 @@ static void cs_collect_imports(CSLSPContext *ctx, TSNode root) {
             }
             /* Detect `=` token between named children to flag aliasing
              * even when the `alias` field isn't populated. */
-            uint32_t nc = ts_node_child_count(n);
             bool seen_equals = false;
             TSNode pre_eq;
             memset(&pre_eq, 0, sizeof(pre_eq));
             TSNode post_eq;
             memset(&post_eq, 0, sizeof(post_eq));
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode c = ts_node_child(n, i);
+            PDXE_FOR_EACH_CHILD(it, n) {
+                TSNode c = it.node;
                 if (ts_node_is_null(c))
                     continue;
                 const char *ck = ts_node_type(c);
@@ -2780,9 +2750,11 @@ static void cs_collect_imports(CSLSPContext *ctx, TSNode root) {
         /* Push children for traversal. We don't recurse into method bodies
          * (using directives can't appear there), but namespace bodies may
          * contain more usings. */
-        uint32_t cnc = ts_node_child_count(n);
-        for (uint32_t i = 0; i < cnc && top < 256; i++) {
-            TSNode c = ts_node_child(n, i);
+        PDXE_FOR_EACH_CHILD(it, n) {
+            if (!(top < 256)) {
+                break;
+            }
+            TSNode c = it.node;
             if (ts_node_is_null(c))
                 continue;
             const char *ck = ts_node_type(c);
@@ -2818,9 +2790,8 @@ static void cs_collect_namespace(CSLSPContext *ctx, TSNode ns_node, bool file_sc
     if (ts_node_is_null(body))
         body = cs_child_named_kind(ns_node, "declaration_list");
     if (!ts_node_is_null(body)) {
-        uint32_t nc = ts_node_child_count(body);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(body, i);
+        PDXE_FOR_EACH_CHILD(it, body) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *ck = ts_node_type(c);
@@ -2852,11 +2823,9 @@ void cs_lsp_process_file(CSLSPContext *ctx, TSNode root) {
     /* Pass 2: walk top-level. file-scoped namespaces apply to ALL siblings,
      * so we keep the namespace pushed for the rest of the walk. */
     // Collect top-level children once (O(n)); ts_node_child(root,i) is O(i) → O(n²).
-    uint32_t kn = 0;
-    TSNode *kids = pdxe_lsp_collect_children(ctx->arena, root, &kn);
     bool file_scoped_active = false;
-    for (uint32_t i = 0; i < kn; i++) {
-        TSNode c = kids[i];
+    PDXE_FOR_EACH_CHILD(top_it, root) {
+        TSNode c = top_it.node;
         if (!ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -3102,21 +3071,31 @@ static void cs_collect_class_fields(CSLSPContext *ctx, PDXETypeRegistry *reg, TS
     /* Walk the AST and collect field/property/event declarations into tab.
      * We need the namespace + using context to resolve types, so this runs
      * after cs_collect_imports. */
-    TSNode stack[512];
+    /* Each node with its depth, so the walk's path is registered and the enclosing
+     * class is found from it (issue 93; node_iter.h). */
+    struct {
+        TSNode node;
+        uint32_t depth;
+    } stack[512];
     int top = 0;
-    stack[top++] = root;
+    stack[top++].node = root;
+    stack[0].depth = 0;
+    PDXEWalkPath path = {0};
+    pdxe_walk_path_open(&path);
     /* Maintain enclosing class for each decl we visit. We simply re-derive it
      * via parent_chain inspection (limited to direct class parent). */
     while (top > 0) {
-        TSNode n = stack[--top];
+        TSNode n = stack[--top].node;
+        uint32_t depth = stack[top].depth;
         if (ts_node_is_null(n))
             continue;
+        pdxe_walk_path_at(&path, depth, n, PDXE_PATH_PARENT, (TSNode){0}, 0);
         const char *k = ts_node_type(n);
 
         if (strcmp(k, "field_declaration") == 0 || strcmp(k, "property_declaration") == 0 ||
             strcmp(k, "event_field_declaration") == 0) {
             /* Find enclosing class/struct/record. */
-            TSNode p = ts_node_parent(n);
+            TSNode p = pdxe_node_parent(n);
             const char *cls_short = NULL;
             while (!ts_node_is_null(p)) {
                 const char *pk = ts_node_type(p);
@@ -3130,7 +3109,7 @@ static void cs_collect_class_fields(CSLSPContext *ctx, PDXETypeRegistry *reg, TS
                     }
                     break;
                 }
-                p = ts_node_parent(p);
+                p = pdxe_node_parent(p);
             }
             if (cls_short) {
                 const char *cls_qn = ctx->module_qn ? pdxe_arena_sprintf(ctx->arena, "%s.%s",
@@ -3146,9 +3125,8 @@ static void cs_collect_class_fields(CSLSPContext *ctx, PDXETypeRegistry *reg, TS
                             tnode = cs_first_named_child(vd);
                         const PDXEType *t = ts_node_is_null(tnode) ? pdxe_type_unknown()
                                                                   : cs_parse_type_node(ctx, tnode);
-                        uint32_t vc = ts_node_child_count(vd);
-                        for (uint32_t i = 0; i < vc; i++) {
-                            TSNode c = ts_node_child(vd, i);
+                        PDXE_FOR_EACH_CHILD(it, vd) {
+                            TSNode c = it.node;
                             if (ts_node_is_null(c) || !ts_node_is_named(c))
                                 continue;
                             if (strcmp(ts_node_type(c), "variable_declarator") != 0)
@@ -3190,9 +3168,8 @@ static void cs_collect_class_fields(CSLSPContext *ctx, PDXETypeRegistry *reg, TS
                             ? pdxe_arena_sprintf(ctx->arena, "%s.%s", ctx->module_qn, cls_short)
                             : pdxe_arena_strdup(ctx->arena, cls_short);
                     cs_fields_t *f = cs_fields_get(ctx->arena, tab, cls_qn);
-                    uint32_t pc = ts_node_child_count(params);
-                    for (uint32_t i = 0; i < pc; i++) {
-                        TSNode c = ts_node_child(params, i);
+                    PDXE_FOR_EACH_CHILD(it, params) {
+                        TSNode c = it.node;
                         if (ts_node_is_null(c) || !ts_node_is_named(c))
                             continue;
                         if (strcmp(ts_node_type(c), "parameter") != 0)
@@ -3210,9 +3187,11 @@ static void cs_collect_class_fields(CSLSPContext *ctx, PDXETypeRegistry *reg, TS
             }
         }
 
-        uint32_t cnc = ts_node_child_count(n);
-        for (uint32_t i = 0; i < cnc && top + 1 < 512; i++) {
-            TSNode c = ts_node_child(n, i);
+        PDXE_FOR_EACH_CHILD(it, n) {
+            if (!(top + 1 < 512)) {
+                break;
+            }
+            TSNode c = it.node;
             if (ts_node_is_null(c))
                 continue;
             const char *ck = ts_node_type(c);
@@ -3224,9 +3203,11 @@ static void cs_collect_class_fields(CSLSPContext *ctx, PDXETypeRegistry *reg, TS
                 strcmp(ck, "block") == 0) {
                 continue;
             }
-            stack[top++] = c;
+            stack[top].node = c;
+            stack[top++].depth = depth + 1;
         }
     }
+    pdxe_walk_path_close(&path);
     (void)reg;
 }
 
@@ -3279,13 +3260,23 @@ static void cs_method_rt_add(PDXEArena *arena, cs_method_rt_table_t *tab, const 
  * and recording (parent_class_qn + "." + method_name → return type). */
 static void cs_collect_method_return_types(CSLSPContext *ctx, TSNode root,
                                            cs_method_rt_table_t *tab) {
-    TSNode stack[512];
+    /* Each node with its depth, so the walk's path is registered and the enclosing
+     * class is found from it (issue 93; node_iter.h). */
+    struct {
+        TSNode node;
+        uint32_t depth;
+    } stack[512];
     int top = 0;
-    stack[top++] = root;
+    stack[top++].node = root;
+    stack[0].depth = 0;
+    PDXEWalkPath path = {0};
+    pdxe_walk_path_open(&path);
     while (top > 0) {
-        TSNode n = stack[--top];
+        TSNode n = stack[--top].node;
+        uint32_t depth = stack[top].depth;
         if (ts_node_is_null(n))
             continue;
+        pdxe_walk_path_at(&path, depth, n, PDXE_PATH_PARENT, (TSNode){0}, 0);
         const char *k = ts_node_type(n);
 
         bool is_method = (strcmp(k, "method_declaration") == 0);
@@ -3293,7 +3284,7 @@ static void cs_collect_method_return_types(CSLSPContext *ctx, TSNode root,
         bool is_indexer = (strcmp(k, "indexer_declaration") == 0);
         if (is_method || is_property || is_indexer) {
             /* Find enclosing class. */
-            TSNode p = ts_node_parent(n);
+            TSNode p = pdxe_node_parent(n);
             const char *cls_short = NULL;
             while (!ts_node_is_null(p)) {
                 const char *pk = ts_node_type(p);
@@ -3306,14 +3297,18 @@ static void cs_collect_method_return_types(CSLSPContext *ctx, TSNode root,
                         cls_short = cs_node_text(ctx, pn);
                     break;
                 }
-                p = ts_node_parent(p);
+                p = pdxe_node_parent(p);
             }
             if (!cls_short) {
-                uint32_t cnc = ts_node_child_count(n);
-                for (uint32_t i = 0; i < cnc && top + 1 < 512; i++) {
-                    TSNode c = ts_node_child(n, i);
-                    if (!ts_node_is_null(c))
-                        stack[top++] = c;
+                PDXE_FOR_EACH_CHILD(it, n) {
+                    if (!(top + 1 < 512)) {
+                        break;
+                    }
+                    TSNode c = it.node;
+                    if (!ts_node_is_null(c)) {
+                        stack[top].node = c;
+                        stack[top++].depth = depth + 1;
+                    }
                 }
                 continue;
             }
@@ -3327,9 +3322,8 @@ static void cs_collect_method_return_types(CSLSPContext *ctx, TSNode root,
              * type: it's the first non-modifier non-attribute named child
              * whose kind isn't an identifier matching the method name. */
             if (ts_node_is_null(tnode)) {
-                uint32_t cn = ts_node_child_count(n);
-                for (uint32_t i = 0; i < cn; i++) {
-                    TSNode c = ts_node_child(n, i);
+                PDXE_FOR_EACH_CHILD(it, n) {
+                    TSNode c = it.node;
                     if (ts_node_is_null(c) || !ts_node_is_named(c))
                         continue;
                     const char *ck = ts_node_type(c);
@@ -3369,18 +3363,22 @@ static void cs_collect_method_return_types(CSLSPContext *ctx, TSNode root,
         }
 
         /* Push children unless we're inside a method body. */
-        uint32_t cnc = ts_node_child_count(n);
-        for (uint32_t i = 0; i < cnc && top + 1 < 512; i++) {
-            TSNode c = ts_node_child(n, i);
+        PDXE_FOR_EACH_CHILD(it, n) {
+            if (!(top + 1 < 512)) {
+                break;
+            }
+            TSNode c = it.node;
             if (ts_node_is_null(c))
                 continue;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "block") == 0 || strcmp(ck, "arrow_expression_clause") == 0) {
                 continue;
             }
-            stack[top++] = c;
+            stack[top].node = c;
+            stack[top++].depth = depth + 1;
         }
     }
+    pdxe_walk_path_close(&path);
 }
 
 void pdxe_cs_refine_ast_return_types(CSLSPContext *ctx, PDXETypeRegistry *reg, TSNode root) {

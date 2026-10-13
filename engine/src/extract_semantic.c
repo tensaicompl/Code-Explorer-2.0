@@ -39,9 +39,8 @@ static bool is_throw_node(TSNode node, const PDXELangSpec *spec) {
 
 // Resolve exception name from the first meaningful child of a throw/raise node.
 static char *resolve_exception_name(PDXEArena *a, TSNode throw_node, const char *source) {
-    uint32_t nc = ts_node_child_count(throw_node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_child(throw_node, i);
+    PDXE_FOR_EACH_CHILD(it, throw_node) {
+        TSNode child = it.node;
         const char *ck = ts_node_type(child);
         if (strcmp(ck, "raise") == 0 || strcmp(ck, "throw") == 0) {
             continue;
@@ -89,9 +88,8 @@ static void extract_throws_clause(PDXEExtractCtx *ctx, TSNode node, const PDXELa
     if (ts_node_is_null(throws_clause)) {
         return;
     }
-    uint32_t nc = ts_node_child_count(throws_clause);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_child(throws_clause, i);
+    PDXE_FOR_EACH_CHILD(it, throws_clause) {
+        TSNode child = it.node;
         const char *ck = ts_node_type(child);
         if (strcmp(ck, "type_identifier") == 0 || strcmp(ck, "identifier") == 0 ||
             strcmp(ck, "scoped_type_identifier") == 0) {
@@ -124,16 +122,10 @@ static void process_throw_node(PDXEExtractCtx *ctx, TSNode node, const PDXELangS
 
 // Iterative throw walker
 static void walk_throws(PDXEExtractCtx *ctx, TSNode root, const PDXELangSpec *spec) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, PDXE_SZ_512);
-    ts_nstack_push(&stack, root);
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
-        process_throw_node(ctx, node, spec);
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - LAST_IDX; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
-        }
+    /* Issue 93: by cursor, its path registered, so the enclosing function is found from
+     * it rather than by descending from the root. */
+    PDXE_TREE_WALK(w, root) {
+        process_throw_node(ctx, w.node, spec);
     }
 }
 
@@ -216,9 +208,8 @@ static TSNode resolve_write_lhs_node(TSNode node) {
         // (C# null-forgiving `x!`, address-of `&x`, deref `*x`, logical `!x`)
         // READ the operand — never treat them as writes.
         bool is_incdec = false;
-        uint32_t total = ts_node_child_count(node);
-        for (uint32_t i = 0; i < total; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_named(c)) {
                 continue; // operator is an anonymous token
             }
@@ -231,9 +222,8 @@ static TSNode resolve_write_lhs_node(TSNode node) {
         if (!is_incdec) {
             return (TSNode){0};
         }
-        uint32_t cnc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < cnc; i++) {
-            TSNode c = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "identifier") == 0 || strcmp(ck, "simple_identifier") == 0 ||
                 strcmp(ck, "member_access_expression") == 0 ||
@@ -270,17 +260,10 @@ static void try_emit_assignment_write(PDXEExtractCtx *ctx, TSNode node, const ch
 }
 
 static void walk_readwrites(PDXEExtractCtx *ctx, TSNode root, const PDXELangSpec *spec) {
-    TSNodeStack stack;
-    ts_nstack_init(&stack, ctx, PDXE_SZ_512);
-    ts_nstack_push(&stack, root);
-    while (stack.count > 0) {
-        TSNode node = ts_nstack_pop(&stack);
+    PDXE_TREE_WALK(w, root) {
+        TSNode node = w.node;
         if (pdxe_kind_in_set(node, spec->assignment_node_types)) {
             try_emit_assignment_write(ctx, node, pdxe_enclosing_func_qn_cached(ctx, node));
-        }
-        uint32_t count = ts_node_child_count(node);
-        for (int i = (int)count - LAST_IDX; i >= 0; i--) {
-            ts_nstack_push(&stack, ts_node_child(node, (uint32_t)i));
         }
     }
 }

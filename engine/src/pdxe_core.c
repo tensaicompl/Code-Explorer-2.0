@@ -812,66 +812,6 @@ TSNode pdxe_ts_child_by_field_name(TSNode node, const char *name, uint32_t name_
     return ts_node_child_by_field_id(node, slot->id);
 }
 
-static PDXE_TLS TSTreeCursor tl_cursor;
-static PDXE_TLS bool tl_cursor_live = false;
-
-TSTreeCursor *pdxe_thread_cursor(TSNode node) {
-    if (tl_cursor_live) {
-        ts_tree_cursor_reset(&tl_cursor, node);
-    } else {
-        tl_cursor = ts_tree_cursor_new(node);
-        tl_cursor_live = true;
-    }
-    return &tl_cursor;
-}
-
-/* Per-depth cursors for recursive walks (pdxe_cursor_acquire). A walk at depth d
- * holds slot d while it recurses into depth d + 1; the LSP call walkers used to
- * create and delete a cursor at EVERY node -- 49.8 M cursor stacks on the Go
- * corpus (waste sanitizer, 2026-09-17). Deeper than the pool: private cursors. */
-enum { CURSOR_POOL_DEPTH = 128 };
-/* Heap-backed for the same reason as the field cache: 4 KB of cursors plus
- * their state in static TLS is 4 KB charged to every thread in the image, and
- * it is the kind of growth that makes a small-stack thread refuse to start. */
-typedef struct {
-    TSTreeCursor cursors[CURSOR_POOL_DEPTH];
-    uint8_t state[CURSOR_POOL_DEPTH]; /* bit0 live, bit1 busy */
-} cursor_pool_t;
-static PDXE_TLS cursor_pool_t *tl_cursor_pool;
-enum { CURSOR_LIVE = 1, CURSOR_BUSY = 2 };
-
-TSTreeCursor *pdxe_cursor_acquire(pdxe_cursor_lease_t *lease, int depth, TSNode node) {
-    if (!tl_cursor_pool) {
-        tl_cursor_pool = pdxe_calloc(PDXE_MEM_CLASS_OTHER, sizeof(cursor_pool_t));
-    }
-    cursor_pool_t *pool = tl_cursor_pool;
-    if (pool && depth >= 0 && depth < CURSOR_POOL_DEPTH && !(pool->state[depth] & CURSOR_BUSY)) {
-        if (pool->state[depth] & CURSOR_LIVE) {
-            ts_tree_cursor_reset(&pool->cursors[depth], node);
-        } else {
-            pool->cursors[depth] = ts_tree_cursor_new(node);
-        }
-        pool->state[depth] = CURSOR_LIVE | CURSOR_BUSY;
-        lease->slot = depth;
-        lease->cursor = &pool->cursors[depth];
-        return lease->cursor;
-    }
-    /* No pool (or the slot is taken): a private cursor is always correct. */
-    lease->private_cursor = ts_tree_cursor_new(node);
-    lease->slot = -1;
-    lease->cursor = &lease->private_cursor;
-    return lease->cursor;
-}
-
-void pdxe_cursor_release(pdxe_cursor_lease_t *lease) {
-    if (lease->slot < 0) {
-        ts_tree_cursor_delete(&lease->private_cursor);
-    } else if (tl_cursor_pool) {
-        tl_cursor_pool->state[lease->slot] &= (uint8_t)~CURSOR_BUSY;
-    }
-    lease->cursor = NULL;
-}
-
 void pdxe_destroy_thread_parser(void) {
     // Full cleanup: delete the parser. Call on worker thread exit.
     if (tl_parser) {
@@ -879,28 +819,7 @@ void pdxe_destroy_thread_parser(void) {
         tl_parser = NULL;
         tl_parser_lang = PDXE_LANG_COUNT;
     }
-    if (tl_cursor_live) {
-        ts_tree_cursor_delete(&tl_cursor);
-        tl_cursor_live = false;
-    }
-    if (tl_cursor_pool) {
-        bool busy = false;
-        for (int d = 0; d < CURSOR_POOL_DEPTH; d++) {
-            /* a busy slot belongs to a walk still on this stack: leave it */
-            if (tl_cursor_pool->state[d] == CURSOR_LIVE) {
-                ts_tree_cursor_delete(&tl_cursor_pool->cursors[d]);
-                tl_cursor_pool->state[d] = 0;
-            } else if (tl_cursor_pool->state[d] & CURSOR_BUSY) {
-                busy = true;
-            }
-        }
-        /* Outstanding leases point INTO this block, so it is only released once
-         * no walk still holds a slot. */
-        if (!busy) {
-            pdxe_free(PDXE_MEM_CLASS_OTHER, tl_cursor_pool);
-            tl_cursor_pool = NULL;
-        }
-    }
+    pdxe_node_iter_release_thread();
     pdxe_ts_field_cache_release_thread();
 }
 
@@ -1578,9 +1497,8 @@ static bool pdxe_is_eof_terminator_miss(TSNode n, const char *source, int source
  * so it only visits the spine of nodes that contain an error, plus one level. */
 static void pdxe_collect_error_regions(TSNode n, pdxe_error_regions_t *acc, const char *source,
                                       int source_len) {
-    uint32_t k = ts_node_child_count(n);
-    for (uint32_t i = 0; i < k; i++) {
-        TSNode c = ts_node_child(n, i);
+    PDXE_FOR_EACH_CHILD(it, n) {
+        TSNode c = it.node;
         if (ts_node_is_missing(c) || strcmp(ts_node_type(c), "ERROR") == 0) {
             if (pdxe_is_eof_terminator_miss(c, source, source_len)) {
                 continue; /* absent final newline only — nothing was dropped */
@@ -1698,9 +1616,8 @@ static void pdxe_mark_no_code_lines(const char *src, int src_len, uint8_t *map,
  * original line, records that original line as parsed. */
 static void pdxe_mark_pp_error_rows(TSNode n, uint8_t *rows, uint32_t row_count, const char *src,
                                    int src_len) {
-    uint32_t k = ts_node_child_count(n);
-    for (uint32_t i = 0; i < k; i++) {
-        TSNode c = ts_node_child(n, i);
+    PDXE_FOR_EACH_CHILD(it, n) {
+        TSNode c = it.node;
         if (ts_node_is_missing(c) || strcmp(ts_node_type(c), "ERROR") == 0) {
             if (pdxe_is_eof_terminator_miss(c, src, src_len)) {
                 continue; /* absent final newline only — nothing was dropped */
@@ -2537,13 +2454,13 @@ static void alias_adopted_callables(PDXEArena *a, PDXEFileResult *result, const 
         f->owner = (PDXECallableOccurrence){0};
         f->steps = 0;
         f->definition = i;
-        for (TSNode at = node; !ts_node_is_null(at); at = ts_node_parent(at)) {
+        for (TSNode at = node; !ts_node_is_null(at); at = pdxe_node_parent(at)) {
             PDXECallableOccurrence o = pdxe_callable_occurrence(ctx, at);
             if (!ts_node_eq(at, node) && walked_as_represented(&represented, result, o)) {
                 f->owner = o;
                 break;
             }
-            if (ts_node_is_null(ts_node_parent(at))) {
+            if (ts_node_is_null(pdxe_node_parent(at))) {
                 break; /* the root: file scope */
             }
             f->steps++;
@@ -2635,20 +2552,169 @@ const char **pdxe_site_path_alloc(PDXEArena *a, PDXEFileResult *result, size_t n
     return path;
 }
 
-/* Issue 76: the node-type path from `from` (the root at file scope) down to `site`,
- * NULL-terminated, in the arena, within the file's budget (issue 88): NULL when the
- * budget refuses it or memory runs out. The climb stops one node past the deepest path
- * the budget allows. */
-static const char **owner_site_path(PDXEArena *a, PDXEFileResult *result, TSNode from,
-                                    TSNode site) {
+/* Issue 93: where the sites added after the walk are. Each was found by descending from
+ * the root (ts_node_descendant_for_byte_range) and climbing back up (ts_node_parent),
+ * both costing the positions passed on the way, so a file of late sites in a wide node
+ * was quadratic. They are found instead by one cursor pass in source order over the
+ * sites sorted by position: a node the pass enters while it holds a site is recorded
+ * once, with the record of the node it was entered from, and a site's node is the record
+ * its climbs follow. */
+typedef struct late_node {
+    TSNode node;
+    const struct late_node *up; /* the parent's record, NULL for the root's */
+} late_node_t;
+
+typedef struct {
+    uint32_t start, end; /* the site's bytes, end past start */
+    uint32_t order;      /* its position among the requests, as given */
+} late_request_t;
+
+static int late_request_cmp(const void *pa, const void *pb) {
+    const late_request_t *x = (const late_request_t *)pa;
+    const late_request_t *y = (const late_request_t *)pb;
+    if (x->start != y->start) {
+        return x->start < y->start ? -1 : 1;
+    }
+    return x->order < y->order ? -1 : (x->order > y->order ? 1 : 0);
+}
+
+/*
+ * found[r.order] = the record of the node ts_node_descendant_for_byte_range(root, r.start,
+ * r.end) gives, for each request (sorted in place by start), NULL when it cannot be had.
+ * For a site of positive width that node is the deepest of the nodes holding the site's
+ * first byte whose end reaches the site's end (every node holding the site holds that
+ * byte, a node's children end no later than it, and two siblings never hold one byte),
+ * and the root when there is none. The cursor moves forward only: a node is entered at
+ * most once, and its children stepped through at most once. A record that cannot be
+ * allocated leaves its site unlocated (the arena counts the failure).
+ */
+static void locate_late_sites(PDXEArena *scratch, TSNode root, late_request_t *requests,
+                              uint32_t count, const late_node_t **found) {
+    for (uint32_t i = 0; i < count; i++) {
+        found[i] = NULL;
+    }
+    if (count == 0 || ts_node_is_null(root)) {
+        return;
+    }
+    qsort(requests, count, sizeof *requests, late_request_cmp);
+    uint32_t capacity = 64;
+    TSNode *chain = (TSNode *)pdxe_arena_alloc(scratch, capacity * sizeof *chain);
+    const late_node_t **records =
+        (const late_node_t **)pdxe_arena_alloc(scratch, capacity * sizeof *records);
+    bool *done = (bool *)pdxe_arena_alloc(scratch, capacity * sizeof *done);
+    if (!chain || !records || !done) {
+        return;
+    }
+    pdxe_cursor_lease_t lease;
+    TSTreeCursor *cursor = pdxe_cursor_acquire(&lease, -1, root);
+    uint32_t d = 0; /* chain[0..d] is the cursor's path; done[d]: its children passed */
+    chain[0] = root;
+    records[0] = NULL;
+    done[0] = false;
+#define LATE_ENTER(node_)                                                                          \
+    do {                                                                                           \
+        chain[d] = (node_);                                                                        \
+        records[d] = NULL;                                                                         \
+        done[d] = false;                                                                           \
+    } while (0)
+    for (uint32_t q = 0; q < count; q++) {
+        uint32_t s = requests[q].start;
+        uint32_t e = requests[q].end;
+        /* Forward to the first node, at this depth or above, that reaches past s. */
+        while (d > 0 && ts_node_end_byte(chain[d]) <= s) {
+            if (ts_tree_cursor_goto_next_sibling(cursor)) {
+                LATE_ENTER(ts_tree_cursor_current_node(cursor));
+                continue;
+            }
+            ts_tree_cursor_goto_parent(cursor);
+            d--;
+            done[d] = true;
+        }
+        /* Down through the nodes holding s. */
+        while (!done[d] && ts_node_start_byte(chain[d]) <= s && s < ts_node_end_byte(chain[d])) {
+            if (!ts_tree_cursor_goto_first_child(cursor)) {
+                done[d] = true;
+                break;
+            }
+            if (d + 1 >= capacity) {
+                uint32_t grown_capacity = capacity * 2;
+                TSNode *grown_chain =
+                    (TSNode *)pdxe_arena_alloc(scratch, grown_capacity * sizeof *grown_chain);
+                const late_node_t **grown_records = (const late_node_t **)pdxe_arena_alloc(
+                    scratch, grown_capacity * sizeof *grown_records);
+                bool *grown_done = (bool *)pdxe_arena_alloc(scratch, grown_capacity * sizeof *grown_done);
+                if (!grown_chain || !grown_records || !grown_done) {
+                    pdxe_cursor_release(&lease);
+                    return;
+                }
+                memcpy(grown_chain, chain, capacity * sizeof *chain);
+                memcpy(grown_records, records, capacity * sizeof *records);
+                memcpy(grown_done, done, capacity * sizeof *done);
+                chain = grown_chain;
+                records = grown_records;
+                done = grown_done;
+                capacity = grown_capacity;
+            }
+            d++;
+            LATE_ENTER(ts_tree_cursor_current_node(cursor));
+            bool passed = false;
+            while (ts_node_end_byte(chain[d]) <= s) {
+                if (ts_tree_cursor_goto_next_sibling(cursor)) {
+                    LATE_ENTER(ts_tree_cursor_current_node(cursor));
+                    continue;
+                }
+                ts_tree_cursor_goto_parent(cursor);
+                d--;
+                done[d] = true;
+                passed = true;
+                break;
+            }
+            if (passed) {
+                break;
+            }
+        }
+        /* The nodes holding s are chain[0..k]; the site's is the deepest reaching e. */
+        int k = (ts_node_start_byte(chain[d]) <= s && s < ts_node_end_byte(chain[d])) ? (int)d
+                                                                                       : (int)d - 1;
+        int j = k;
+        while (j > 0 && ts_node_end_byte(chain[j]) < e) {
+            j--;
+        }
+        if (j < 0) {
+            j = 0;
+        }
+        bool lost = false;
+        for (int i = 0; i <= j && !lost; i++) {
+            if (!records[i]) {
+                late_node_t *record = (late_node_t *)pdxe_arena_alloc(scratch, sizeof *record);
+                if (!record) {
+                    lost = true;
+                    break;
+                }
+                record->node = chain[i];
+                record->up = i > 0 ? records[i - 1] : NULL;
+                records[i] = record;
+            }
+        }
+        found[requests[q].order] = lost ? NULL : records[j];
+    }
+#undef LATE_ENTER
+    pdxe_cursor_release(&lease);
+}
+
+/* Issue 76: the node-type path from `from` (the root's record at file scope) down to
+ * `site`, NULL-terminated, in the arena, within the file's budget (issue 88): NULL when
+ * the budget refuses it or memory runs out. The climb stops one node past the deepest
+ * path the budget allows. */
+static const char **owner_site_path(PDXEArena *a, PDXEFileResult *result, const late_node_t *from,
+                                    const late_node_t *site) {
     if (pdxe_site_paths_exhausted(result)) {
         return NULL;
     }
     uint32_t n = 0;
-    for (TSNode at = site; !ts_node_is_null(at) && n <= PDXE_AST_PATH_MAX_DEPTH;
-         at = ts_node_parent(at)) {
+    for (const late_node_t *at = site; at && n <= PDXE_AST_PATH_MAX_DEPTH; at = at->up) {
         n++;
-        if (ts_node_eq(at, from)) {
+        if (at == from) {
             break;
         }
     }
@@ -2657,8 +2723,8 @@ static const char **owner_site_path(PDXEArena *a, PDXEFileResult *result, TSNode
         return NULL;
     }
     uint32_t i = n;
-    for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
-        path[--i] = ts_node_type(at);
+    for (const late_node_t *at = site; i > 0; at = at->up) {
+        path[--i] = ts_node_type(at->node);
     }
     return path;
 }
@@ -2669,18 +2735,21 @@ static const char **owner_site_path(PDXEArena *a, PDXEFileResult *result, TSNode
  * callable's frame at exactly that node), the file when there is none, and its path
  * runs from that node, or the root, down to the smallest node holding the site. That
  * node is the callable's own when the site's bytes cross its children. Undecided when
- * the site cannot be located. */
+ * the site cannot be located. `site` is that smallest node's record
+ * (locate_late_sites). */
 static void decide_late_site(PDXEArena *a, PDXEFileResult *result, const PDXEExtractCtx *ctx,
-                             const PDXEOccurrenceIndex *represented, uint32_t start, uint32_t end,
+                             const PDXEOccurrenceIndex *represented, const late_node_t *site,
                              PDXESiteOwner *owner, const char ***ast_path) {
-    TSNode site = ts_node_descendant_for_byte_range(ctx->root, start, end);
-    if (ts_node_is_null(site)) {
+    if (!site) {
         return;
     }
-    TSNode from = ctx->root;
+    const late_node_t *from = NULL; /* the root's record, at file scope */
     PDXECallableOccurrence declaration = {0};
-    for (TSNode at = site; !ts_node_is_null(at); at = ts_node_parent(at)) {
-        PDXECallableOccurrence occurrence = pdxe_callable_occurrence(ctx, at);
+    for (const late_node_t *at = site; at; at = at->up) {
+        if (!at->up) {
+            from = at;
+        }
+        PDXECallableOccurrence occurrence = pdxe_callable_occurrence(ctx, at->node);
         if (pdxe_occurrence_index_find(represented, occurrence) != PDXE_OCCURRENCE_NONE) {
             from = at;
             declaration = occurrence;
@@ -2692,30 +2761,77 @@ static void decide_late_site(PDXEArena *a, PDXEFileResult *result, const PDXEExt
     owner->decided = true;
 }
 
+static bool late_owner_call(const PDXECall *c) {
+    return !c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+           c->site_end_byte > c->site_start_byte;
+}
+
+static bool late_owner_usage(const PDXEUsage *u) {
+    bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
+                              (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
+    return possible_reference && !u->owner.decided && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+           u->site_end_byte > u->site_start_byte;
+}
+
+/* The scratch arena of a context, or its arena when it has none. */
+static PDXEArena *late_scratch(const PDXEExtractCtx *ctx) {
+    return ctx->scratch ? ctx->scratch : ctx->arena;
+}
+
 /* Gives every call, and every possible callable reference, added after the walk at a
  * position in the raw source its owner and a path from that owner (decide_late_site).
  * The path replaces the one stamp_late_site_paths gave it from the nearest function
  * node, which need not be represented. Runs before the preprocessed pass, while every
- * definition is the raw source's. */
+ * definition is the raw source's. The sites are located in one pass, then decided in
+ * their own order, calls first, as the file's path budget is spent. */
 static void stamp_late_site_owners(PDXEArena *a, PDXEFileResult *result, const PDXEExtractCtx *ctx) {
+    uint32_t count = 0;
+    for (int i = 0; i < result->calls.count; i++) {
+        count += late_owner_call(&result->calls.items[i]);
+    }
+    for (int i = 0; i < result->usages.count; i++) {
+        count += late_owner_usage(&result->usages.items[i]);
+    }
+    if (count == 0) {
+        return;
+    }
+    PDXEArena *scratch = late_scratch(ctx);
+    late_request_t *requests = (late_request_t *)pdxe_arena_alloc(scratch, count * sizeof *requests);
+    const late_node_t **found =
+        (const late_node_t **)pdxe_arena_alloc(scratch, count * sizeof *found);
+    if (!requests || !found) {
+        return; /* lost work: the arena counted it */
+    }
+    uint32_t n = 0;
+    for (int i = 0; i < result->calls.count; i++) {
+        const PDXECall *c = &result->calls.items[i];
+        if (late_owner_call(c)) {
+            requests[n] = (late_request_t){c->site_start_byte, c->site_end_byte, n};
+            n++;
+        }
+    }
+    for (int i = 0; i < result->usages.count; i++) {
+        const PDXEUsage *u = &result->usages.items[i];
+        if (late_owner_usage(u)) {
+            requests[n] = (late_request_t){u->site_start_byte, u->site_end_byte, n};
+            n++;
+        }
+    }
+    locate_late_sites(scratch, ctx->root, requests, count, found);
+
     PDXEOccurrenceIndex represented;
     pdxe_occurrence_index_build(&represented, result->defs.items, result->defs.count);
+    n = 0;
     for (int i = 0; i < result->calls.count; i++) {
         PDXECall *c = &result->calls.items[i];
-        if (!c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
-            c->site_end_byte > c->site_start_byte) {
-            decide_late_site(a, result, ctx, &represented, c->site_start_byte, c->site_end_byte,
-                             &c->owner, &c->ast_path);
+        if (late_owner_call(c)) {
+            decide_late_site(a, result, ctx, &represented, found[n++], &c->owner, &c->ast_path);
         }
     }
     for (int i = 0; i < result->usages.count; i++) {
         PDXEUsage *u = &result->usages.items[i];
-        bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
-                                  (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
-        if (possible_reference && !u->owner.decided && u->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
-            u->site_end_byte > u->site_start_byte) {
-            decide_late_site(a, result, ctx, &represented, u->site_start_byte, u->site_end_byte,
-                             &u->owner, &u->ast_path);
+        if (late_owner_usage(u)) {
+            decide_late_site(a, result, ctx, &represented, found[n++], &u->owner, &u->ast_path);
         }
     }
     pdxe_occurrence_index_free(&represented);
@@ -2738,24 +2854,20 @@ enum { PDXE_EXTRACT_SCRATCH_KEEP_BYTES = 4 * PDXE_SZ_1K * PDXE_SZ_1K };
 
 /* The node-type path of a site the walk did not record: from the nearest enclosing
  * function node (the root at file scope), by the language's function node types as
- * the walk pushes them, down to the smallest node covering the site. NULL when the
- * site cannot be located, the file's budget refuses the path (issue 88; the climb stops
- * one node past the deepest path it allows) or memory runs out. */
-static const char **late_site_path(PDXEArena *a, PDXEFileResult *result, TSNode root,
-                                   const PDXELangSpec *spec, uint32_t start, uint32_t end) {
-    if (pdxe_site_paths_exhausted(result)) {
-        return NULL;
-    }
-    TSNode site = ts_node_descendant_for_byte_range(root, start, end);
-    if (ts_node_is_null(site)) {
+ * the walk pushes them, down to the smallest node covering the site, `site` (its
+ * record, locate_late_sites). NULL when the site cannot be located, the file's budget
+ * refuses the path (issue 88; the climb stops one node past the deepest path it allows)
+ * or memory runs out. */
+static const char **late_site_path(PDXEArena *a, PDXEFileResult *result, const late_node_t *site,
+                                   const PDXELangSpec *spec) {
+    if (pdxe_site_paths_exhausted(result) || !site) {
         return NULL;
     }
     uint32_t n = 0;
-    for (TSNode at = site; !ts_node_is_null(at) && n <= PDXE_AST_PATH_MAX_DEPTH;
-         at = ts_node_parent(at)) {
+    for (const late_node_t *at = site; at && n <= PDXE_AST_PATH_MAX_DEPTH; at = at->up) {
         n++;
-        if (spec && spec->function_node_types && !ts_node_eq(at, site) &&
-            pdxe_kind_in_set(at, spec->function_node_types)) {
+        if (spec && spec->function_node_types && at != site &&
+            pdxe_kind_in_set(at->node, spec->function_node_types)) {
             break;
         }
     }
@@ -2764,10 +2876,22 @@ static const char **late_site_path(PDXEArena *a, PDXEFileResult *result, TSNode 
         return NULL;
     }
     uint32_t i = n;
-    for (TSNode at = site; i > 0; at = ts_node_parent(at)) {
-        path[--i] = ts_node_type(at);
+    for (const late_node_t *at = site; i > 0; at = at->up) {
+        path[--i] = ts_node_type(at->node);
     }
     return path;
+}
+
+static bool late_path_call(const PDXECall *c) {
+    return !c->ast_path && c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+           c->site_end_byte > c->site_start_byte;
+}
+
+static bool late_path_usage(const PDXEUsage *u) {
+    bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
+                              (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
+    return possible_reference && !u->ast_path && u->owner.decided &&
+           u->source_origin == PDXE_SOURCE_ORIGIN_RAW && u->site_end_byte > u->site_start_byte;
 }
 
 /* Gives a node-type path to every call, and every possible callable reference, that
@@ -2775,25 +2899,54 @@ static const char **late_site_path(PDXEArena *a, PDXEFileResult *result, TSNode 
  * position in the raw source. A site whose owner is not yet decided is skipped:
  * stamp_late_site_owners, which runs next, gives it its path from its owner, and a path
  * computed here would only be replaced, its entries spent from the file's budget for
- * nothing (issue 88). */
-static void stamp_late_site_paths(PDXEArena *a, PDXEFileResult *result, TSNode root,
-                                  const PDXELangSpec *spec) {
+ * nothing (issue 88). The sites are located in one pass (locate_late_sites), then given
+ * their paths in their own order, calls first, as the budget is spent. */
+static void stamp_late_site_paths(PDXEArena *a, PDXEFileResult *result, const PDXEExtractCtx *ctx,
+                                  TSNode root, const PDXELangSpec *spec) {
+    uint32_t count = 0;
+    for (int i = 0; i < result->calls.count; i++) {
+        count += late_path_call(&result->calls.items[i]);
+    }
+    for (int i = 0; i < result->usages.count; i++) {
+        count += late_path_usage(&result->usages.items[i]);
+    }
+    if (count == 0) {
+        return;
+    }
+    PDXEArena *scratch = late_scratch(ctx);
+    late_request_t *requests = (late_request_t *)pdxe_arena_alloc(scratch, count * sizeof *requests);
+    const late_node_t **found =
+        (const late_node_t **)pdxe_arena_alloc(scratch, count * sizeof *found);
+    if (!requests || !found) {
+        return; /* lost work: the arena counted it */
+    }
+    uint32_t n = 0;
+    for (int i = 0; i < result->calls.count; i++) {
+        const PDXECall *c = &result->calls.items[i];
+        if (late_path_call(c)) {
+            requests[n] = (late_request_t){c->site_start_byte, c->site_end_byte, n};
+            n++;
+        }
+    }
+    for (int i = 0; i < result->usages.count; i++) {
+        const PDXEUsage *u = &result->usages.items[i];
+        if (late_path_usage(u)) {
+            requests[n] = (late_request_t){u->site_start_byte, u->site_end_byte, n};
+            n++;
+        }
+    }
+    locate_late_sites(scratch, root, requests, count, found);
+    n = 0;
     for (int i = 0; i < result->calls.count; i++) {
         PDXECall *c = &result->calls.items[i];
-        if (!c->ast_path && c->owner.decided && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
-            c->site_end_byte > c->site_start_byte) {
-            c->ast_path =
-                late_site_path(a, result, root, spec, c->site_start_byte, c->site_end_byte);
+        if (late_path_call(c)) {
+            c->ast_path = late_site_path(a, result, found[n++], spec);
         }
     }
     for (int i = 0; i < result->usages.count; i++) {
         PDXEUsage *u = &result->usages.items[i];
-        bool possible_reference = u->kind == PDXE_USAGE_CALL_REFERENCE ||
-                                  (u->kind == PDXE_USAGE_VALUE && u->may_be_call_reference);
-        if (possible_reference && !u->ast_path && u->owner.decided &&
-            u->source_origin == PDXE_SOURCE_ORIGIN_RAW && u->site_end_byte > u->site_start_byte) {
-            u->ast_path =
-                late_site_path(a, result, root, spec, u->site_start_byte, u->site_end_byte);
+        if (late_path_usage(u)) {
+            u->ast_path = late_site_path(a, result, found[n++], spec);
         }
     }
 }
@@ -3146,7 +3299,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
         }
     }
     atomic_fetch_add(&total_lsp_ns, now_ns() - lsp_start);
-    stamp_late_site_paths(a, result, root, spec);
+    stamp_late_site_paths(a, result, &ctx, root, spec);
 
     // Calls extracted so far all carry ORIGINAL-source line numbers; the C/C++
     // preprocessor second pass below appends calls with EXPANDED-source lines,

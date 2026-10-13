@@ -169,9 +169,8 @@ static bool kt_node_kind_in(TSNode n, const char *const *kinds) {
 }
 
 static bool kt_direct_unnamed_token(TSNode node, const char *token) {
-    uint32_t count = ts_node_child_count(node);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode child = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode child = it.node;
         if (!ts_node_is_named(child) && strcmp(ts_node_type(child), token) == 0) {
             return true;
         }
@@ -242,8 +241,8 @@ static bool kt_node_is_update(TSNode node) {
 }
 
 static bool kt_index_is_write_lhs(TSNode index) {
-    for (TSNode parent = ts_node_parent(index); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(index); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         const char *kind = ts_node_type(parent);
         if (strcmp(kind, "assignment") == 0) {
             TSNode lhs = kt_field_named(parent, "left");
@@ -270,9 +269,8 @@ static TSNode kt_child_kind(TSNode parent, const char *kind) {
     if (ts_node_is_null(parent)) {
         return parent;
     }
-    uint32_t nc = ts_node_child_count(parent);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(parent, i);
+    PDXE_FOR_EACH_CHILD(it, parent) {
+        TSNode c = it.node;
         if (!ts_node_is_null(c) && strcmp(ts_node_type(c), kind) == 0) {
             return c;
         }
@@ -286,9 +284,8 @@ static TSNode kt_child_kind_named(TSNode parent, const char *kind) {
     if (ts_node_is_null(parent)) {
         return parent;
     }
-    uint32_t nc = ts_node_named_child_count(parent);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(parent, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, parent) {
+        TSNode c = it.node;
         if (!ts_node_is_null(c) && strcmp(ts_node_type(c), kind) == 0) {
             return c;
         }
@@ -315,9 +312,8 @@ static TSNode kt_find_descendant_kind(TSNode node, const char *kind, int max_dep
     if (strcmp(ts_node_type(node), kind) == 0) {
         return node;
     }
-    uint32_t nc = ts_node_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode found = kt_find_descendant_kind(ts_node_child(node, i), kind, max_depth - 1);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode found = kt_find_descendant_kind(it.node, kind, max_depth - 1);
         if (!ts_node_is_null(found)) {
             return found;
         }
@@ -661,7 +657,7 @@ enum {
 static int kt_delegate_access_mode(KotlinLSPContext *ctx, TSNode expression) {
     TSNode child = expression;
     for (int depth = 0; depth < 4; depth++) {
-        TSNode parent = ts_node_parent(child);
+        TSNode parent = pdxe_node_parent(child);
         if (ts_node_is_null(parent))
             break;
         const char *kind = ts_node_type(parent);
@@ -765,11 +761,10 @@ static TSNode kt_find_extension_receiver(KotlinLSPContext *ctx, TSNode func_node
     }
     /* Walk named children for a type-shaped node before the name. */
     uint32_t name_start = ts_node_start_byte(name_node);
-    uint32_t nc = ts_node_named_child_count(func_node);
     static const char *type_kinds[] = {"user_type",          "nullable_type", "non_nullable_type",
                                        "parenthesized_type", "type",          NULL};
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(func_node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, func_node) {
+        TSNode c = it.node;
         if (ts_node_is_null(c)) {
             continue;
         }
@@ -803,7 +798,6 @@ static TSNode kt_find_return_type(TSNode func_node) {
     /* Walk children for a type appearing after the parameters. */
     TSNode params = kt_child_kind(func_node, "function_value_parameters");
     uint32_t after_params = ts_node_is_null(params) ? 0 : ts_node_end_byte(params);
-    uint32_t nc = ts_node_named_child_count(func_node);
     static const char *type_kinds[] = {"user_type",
                                        "nullable_type",
                                        "non_nullable_type",
@@ -811,8 +805,8 @@ static TSNode kt_find_return_type(TSNode func_node) {
                                        "type",
                                        "function_type",
                                        NULL};
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(func_node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, func_node) {
+        TSNode c = it.node;
         if (ts_node_is_null(c)) {
             continue;
         }
@@ -848,8 +842,8 @@ static const PDXEType **kt_signature_param_types_from_ast(KotlinLSPContext *ctx,
         return NULL;
 
     int count = 0;
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode param = ts_node_named_child(params, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+        TSNode param = it.node;
         if (!kt_node_is(param, "parameter") && !kt_node_is(param, "class_parameter"))
             continue;
         TSNode type_node = kt_field_named(param, "type");
@@ -1523,9 +1517,8 @@ static void kt_collect_top_level_decls(KotlinLSPContext *ctx, TSNode root) {
     if (ts_node_is_null(root)) {
         return;
     }
-    uint32_t nc = ts_node_named_child_count(root);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        TSNode c = it.node;
         const char *kind = ts_node_type(c);
         /* The vendored Kotlin grammar can't parse `interface` at file
          * scope (and a few other constructs), producing an ERROR node
@@ -1571,9 +1564,8 @@ static void kt_collect_top_level_decls(KotlinLSPContext *ctx, TSNode root) {
                                                    "function_type",
                                                    NULL};
                 uint32_t name_end = ts_node_end_byte(name);
-                uint32_t kc = ts_node_named_child_count(c);
-                for (uint32_t j = 0; j < kc; j++) {
-                    TSNode tc = ts_node_named_child(c, j);
+                PDXE_FOR_EACH_NAMED_CHILD(it2, c) {
+                    TSNode tc = it2.node;
                     if (ts_node_is_null(tc)) {
                         continue;
                     }
@@ -1634,9 +1626,11 @@ static void kt_process_class_decl(KotlinLSPContext *ctx, TSNode node) {
         TSNode dcontainer = ts_node_is_null(delegation) ? node : delegation;
         const char *parents[16];
         int parent_count = 0;
-        uint32_t dnc = ts_node_named_child_count(dcontainer);
-        for (uint32_t di = 0; di < dnc && parent_count < 15; di++) {
-            TSNode dc = ts_node_named_child(dcontainer, di);
+        PDXE_FOR_EACH_NAMED_CHILD(it, dcontainer) {
+            if (!(parent_count < 15)) {
+                break;
+            }
+            TSNode dc = it.node;
             if (kt_node_is(dc, "delegation_specifier")) {
                 /* Find user_type or constructor_invocation */
                 TSNode ut = kt_find_descendant_kind(dc, "user_type", 4);
@@ -1732,9 +1726,11 @@ static void kt_process_class_decl(KotlinLSPContext *ctx, TSNode node) {
         TSNode params = kt_find_descendant_kind(pc, "class_parameters", 3);
         TSNode pcontainer = ts_node_is_null(params) ? pc : params;
         {
-            uint32_t pnc = ts_node_named_child_count(pcontainer);
-            for (uint32_t pi = 0; pi < pnc && field_count < 63; pi++) {
-                TSNode p = ts_node_named_child(pcontainer, pi);
+            PDXE_FOR_EACH_NAMED_CHILD(it, pcontainer) {
+                if (!(field_count < 63)) {
+                    break;
+                }
+                TSNode p = it.node;
                 if (!kt_node_is(p, "class_parameter")) {
                     continue;
                 }
@@ -1777,9 +1773,11 @@ static void kt_process_class_decl(KotlinLSPContext *ctx, TSNode node) {
     /* Class-body property declarations. */
     TSNode body_for_props = kt_child_kind(node, "class_body");
     if (!ts_node_is_null(body_for_props)) {
-        uint32_t bnc = ts_node_named_child_count(body_for_props);
-        for (uint32_t i = 0; i < bnc && field_count < 63; i++) {
-            TSNode m = ts_node_named_child(body_for_props, i);
+        PDXE_FOR_EACH_NAMED_CHILD(kid_it, body_for_props) {
+            if (!(field_count < 63)) {
+                break;
+            }
+            TSNode m = kid_it.node;
             if (!kt_node_is(m, "property_declaration")) {
                 continue;
             }
@@ -1811,9 +1809,8 @@ static void kt_process_class_decl(KotlinLSPContext *ctx, TSNode node) {
                 pt = kotlin_parse_type_node(ctx, type_node);
             } else {
                 /* Try inferring from initializer expression. */
-                uint32_t mnc = ts_node_named_child_count(m);
-                for (uint32_t k = 0; k < mnc; k++) {
-                    TSNode mc = ts_node_named_child(m, k);
+                PDXE_FOR_EACH_NAMED_CHILD(it2, m) {
+                    TSNode mc = it2.node;
                     const char *mk = ts_node_type(mc);
                     if (strcmp(mk, "variable_declaration") == 0 || strcmp(mk, "modifiers") == 0) {
                         continue;
@@ -1897,9 +1894,11 @@ static void kt_process_object_decl(KotlinLSPContext *ctx, TSNode node, bool is_c
         TSNode dcontainer = ts_node_is_null(delegation) ? node : delegation;
         const char *parents[16];
         int parent_count = 0;
-        uint32_t dnc = ts_node_named_child_count(dcontainer);
-        for (uint32_t di = 0; di < dnc && parent_count < 15; di++) {
-            TSNode dc = ts_node_named_child(dcontainer, di);
+        PDXE_FOR_EACH_NAMED_CHILD(it, dcontainer) {
+            if (!(parent_count < 15)) {
+                break;
+            }
+            TSNode dc = it.node;
             if (!kt_node_is(dc, "delegation_specifier")) {
                 continue;
             }
@@ -1958,9 +1957,8 @@ static void kt_register_class_members(KotlinLSPContext *ctx, const char *class_q
     if (ts_node_is_null(body)) {
         return;
     }
-    uint32_t nc = ts_node_named_child_count(body);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(body, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+        TSNode c = it.node;
         const char *kind = ts_node_type(c);
         if (strcmp(kind, "function_declaration") == 0) {
             /* Method */
@@ -1994,9 +1992,8 @@ static void kt_register_class_members(KotlinLSPContext *ctx, const char *class_q
             {
                 TSNode params = kt_child_kind(c, "function_value_parameters");
                 if (!ts_node_is_null(params)) {
-                    uint32_t pnc = ts_node_named_child_count(params);
-                    for (uint32_t pi = 0; pi < pnc; pi++) {
-                        TSNode p = ts_node_named_child(params, pi);
+                    PDXE_FOR_EACH_NAMED_CHILD(it2, params) {
+                        TSNode p = it2.node;
                         if (!kt_node_is(p, "parameter")) {
                             continue;
                         }
@@ -2324,7 +2321,7 @@ static const PDXEType *kt_eval_literal_type(KotlinLSPContext *ctx, TSNode node) 
 static bool kt_callable_reference_has_ambiguous_parent(TSNode node) {
     TSNode child = node;
     for (int depth = 0; depth < 8; depth++) {
-        TSNode parent = ts_node_parent(child);
+        TSNode parent = pdxe_node_parent(child);
         if (ts_node_is_null(parent))
             return false;
         const char *kind = ts_node_type(parent);
@@ -2349,7 +2346,7 @@ static bool kt_callable_reference_has_ambiguous_parent(TSNode node) {
 }
 
 static bool kt_identifier_is_value_occurrence(TSNode node) {
-    TSNode parent = ts_node_parent(node);
+    TSNode parent = pdxe_node_parent(node);
     if (ts_node_is_null(parent))
         return false;
     const char *kind = ts_node_type(parent);
@@ -2382,7 +2379,7 @@ static bool kt_identifier_is_value_occurrence(TSNode node) {
 static bool kt_identifier_is_direct_argument(TSNode node) {
     TSNode child = node;
     for (int depth = 0; depth < 5; depth++) {
-        TSNode parent = ts_node_parent(child);
+        TSNode parent = pdxe_node_parent(child);
         if (ts_node_is_null(parent))
             return false;
         const char *kind = ts_node_type(parent);
@@ -2843,9 +2840,8 @@ const PDXEType *kotlin_eval_expr_type(KotlinLSPContext *ctx, TSNode node) {
     }
     if (strcmp(kind, "when_expression") == 0) {
         /* Find first when_entry's body */
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode c = it.node;
             if (kt_node_is(c, "when_entry")) {
                 /* Last named child is the body expression */
                 uint32_t en = ts_node_named_child_count(c);
@@ -3313,9 +3309,8 @@ static void kt_process_block_stmts(KotlinLSPContext *ctx, TSNode block) {
     if (ts_node_is_null(block)) {
         return;
     }
-    uint32_t nc = ts_node_named_child_count(block);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(block, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, block) {
+        TSNode c = it.node;
         kt_process_statement(ctx, c);
     }
 }
@@ -3323,7 +3318,7 @@ static void kt_process_block_stmts(KotlinLSPContext *ctx, TSNode block) {
 static const char *kt_delegated_property_owner(KotlinLSPContext *ctx, TSNode prop) {
     TSNode child = prop;
     for (int depth = 0; depth < 12; depth++) {
-        TSNode parent = ts_node_parent(child);
+        TSNode parent = pdxe_node_parent(child);
         if (ts_node_is_null(parent))
             return NULL;
         const char *kind = ts_node_type(parent);
@@ -3388,17 +3383,16 @@ static void kt_bind_property_to_scope(KotlinLSPContext *ctx, TSNode prop) {
     if (!ts_node_is_null(multi)) {
         /* Find the initializer expression — the last named child of `prop`
          * that's not the modifiers/multi_variable_declaration. */
-        uint32_t nc = ts_node_named_child_count(prop);
         TSNode init;
         memset(&init, 0, sizeof(init));
-        for (uint32_t i = nc; i > 0; i--) {
-            TSNode c = ts_node_named_child(prop, i - 1);
+        /* The last such: every named child in source order, the last kept. */
+        PDXE_FOR_EACH_NAMED_CHILD(init_it, prop) {
+            TSNode c = init_it.node;
             const char *k = ts_node_type(c);
             if (strcmp(k, "modifiers") == 0 || strcmp(k, "multi_variable_declaration") == 0) {
                 continue;
             }
             init = c;
-            break;
         }
         const PDXEType *init_t = pdxe_type_unknown();
         if (!ts_node_is_null(init)) {
@@ -3407,15 +3401,14 @@ static void kt_bind_property_to_scope(KotlinLSPContext *ctx, TSNode prop) {
         /* Emit componentN calls for each variable in the multi-decl. */
         if (init_t && !pdxe_type_is_unknown(init_t)) {
             const char *iqn = kt_type_qn_of(init_t);
-            uint32_t mnc = ts_node_named_child_count(multi);
-            for (uint32_t i = 0; i < mnc; i++) {
-                TSNode v = ts_node_named_child(multi, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, multi) {
+                TSNode v = it.node;
                 if (!kt_node_is(v, "variable_declaration")) {
                     continue;
                 }
                 if (iqn) {
                     char comp[16];
-                    snprintf(comp, sizeof(comp), "component%u", i + 1);
+                    snprintf(comp, sizeof(comp), "component%u", it.index + 1);
                     const PDXERegisteredFunc *rf = kotlin_lookup_method(ctx, iqn, comp);
                     if (rf && rf->qualified_name) {
                         kt_emit_resolved_at(ctx, rf->qualified_name, "lsp_kt_destructure",
@@ -3482,9 +3475,8 @@ static void kt_bind_property_to_scope(KotlinLSPContext *ctx, TSNode prop) {
     /* Grammar variants can expose wrapper/accessor children before the real
      * initializer. Preserve the original first-known-type behavior instead of
      * committing to the first non-declaration child. */
-    uint32_t nc = ts_node_named_child_count(prop);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_named_child(prop, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, prop) {
+        TSNode child = it.node;
         const char *child_kind = ts_node_type(child);
         if (strcmp(child_kind, "variable_declaration") == 0 ||
             strcmp(child_kind, "modifiers") == 0 || strcmp(child_kind, "property_delegate") == 0) {
@@ -3585,9 +3577,8 @@ static void kt_invalidate_conditionally_assigned_aliases(KotlinLSPContext *ctx, 
         }
         return;
     }
-    uint32_t nc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        kt_invalidate_conditionally_assigned_aliases(ctx, ts_node_named_child(node, i));
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        kt_invalidate_conditionally_assigned_aliases(ctx, it.node);
     }
 }
 
@@ -3641,9 +3632,11 @@ static void kt_process_if_expression(KotlinLSPContext *ctx, TSNode node) {
     TSNode then_b = kt_field_named(node, "then");
     if (ts_node_is_null(then_b)) {
         /* Find the first non-condition block/expression */
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 1; i < nc; i++) {
-            TSNode c = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            if (it.index < 1) {
+                continue;
+            }
+            TSNode c = it.node;
             const char *k = ts_node_type(c);
             if (strcmp(k, "block") == 0 || strcmp(k, "control_structure_body") == 0 ||
                 strstr(k, "expression")) {
@@ -3689,17 +3682,16 @@ static void kt_process_when_expression(KotlinLSPContext *ctx, TSNode node) {
             }
         }
     }
-    uint32_t nc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode c = it.node;
         if (!kt_node_is(c, "when_entry")) {
             continue;
         }
         ctx->current_scope = pdxe_scope_push(ctx->arena, ctx->current_scope);
         /* Look for `is Type` conditions */
         uint32_t en = ts_node_named_child_count(c);
-        for (uint32_t e = 0; e < en; e++) {
-            TSNode ec = ts_node_named_child(c, e);
+        PDXE_FOR_EACH_NAMED_CHILD(it2, c) {
+            TSNode ec = it2.node;
             if (kt_node_is(ec, "_when_condition") || kt_node_is(ec, "when_condition") ||
                 kt_node_is(ec, "type_test")) {
                 /* Find a 'type' node and apply smart-cast on subject_name */
@@ -3821,9 +3813,8 @@ static void kt_process_lambda(KotlinLSPContext *ctx, TSNode lambda, const PDXETy
             ctx->it_type = receiver_type;
         }
     } else {
-        uint32_t pnc = ts_node_named_child_count(params);
-        for (uint32_t i = 0; i < pnc; i++) {
-            TSNode pn = ts_node_named_child(params, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+            TSNode pn = it.node;
             TSNode id = kt_name_child(pn);
             if (ts_node_is_null(id)) {
                 id = kt_child_kind_named(pn, "simple_identifier");
@@ -3841,9 +3832,8 @@ static void kt_process_lambda(KotlinLSPContext *ctx, TSNode lambda, const PDXETy
         }
     }
     /* Walk lambda body */
-    uint32_t nc = ts_node_named_child_count(lambda);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(lambda, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, lambda) {
+        TSNode c = it.node;
         const char *k = ts_node_type(c);
         if (strcmp(k, "lambda_parameters") == 0) {
             continue;
@@ -3860,7 +3850,6 @@ static void kt_process_call_with_lambda(KotlinLSPContext *ctx, TSNode call_node)
      *   xs.forEach { println(it) }   — `it` is element type of xs
      *   "abc".let { … }              — `it` is String
      */
-    uint32_t nc = ts_node_named_child_count(call_node);
     /* Resolve callee normally for emission */
     (void)kt_eval_call_expression_type(ctx, call_node);
     /* The outer call resolver does not evaluate value arguments. Walk every
@@ -3868,14 +3857,16 @@ static void kt_process_call_with_lambda(KotlinLSPContext *ctx, TSNode call_node)
      * `accept(::handler)` receive their own occurrence-exact resolutions.
      * Lambda nodes are deliberately skipped by the generic walker and are
      * processed below with their receiver-aware scope. */
-    for (uint32_t i = 1; i < nc; i++) {
-        kt_resolve_calls_in_node(ctx, ts_node_named_child(call_node, i));
+    PDXE_FOR_EACH_NAMED_CHILD(arg_it, call_node) {
+        if (arg_it.index >= 1) {
+            kt_resolve_calls_in_node(ctx, arg_it.node);
+        }
     }
     /* Find trailing lambda */
     TSNode lambda;
     memset(&lambda, 0, sizeof(lambda));
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(call_node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, call_node) {
+        TSNode c = it.node;
         /* Newer tree-sitter-kotlin nests the trailing lambda inside a
          * `call_suffix` node; descend into it. */
         if (kt_node_is(c, "call_suffix")) {
@@ -4162,9 +4153,8 @@ static void kt_resolve_calls_in_node_inner(KotlinLSPContext *ctx, TSNode node) {
                kt_identifier_is_value_occurrence(node)) {
         (void)kotlin_eval_expr_type(ctx, node);
     }
-    uint32_t nc = ts_node_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        kt_resolve_calls_in_node(ctx, ts_node_child(node, i));
+    PDXE_FOR_EACH_CHILD(it, node) {
+        kt_resolve_calls_in_node(ctx, it.node);
     }
 }
 
@@ -4176,9 +4166,8 @@ static void kt_bind_function_params(KotlinLSPContext *ctx, TSNode func_node) {
     if (ts_node_is_null(params)) {
         return;
     }
-    uint32_t nc = ts_node_named_child_count(params);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode p = ts_node_named_child(params, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+        TSNode p = it.node;
         if (!kt_node_is(p, "parameter") && !kt_node_is(p, "_lambda_parameter")) {
             continue;
         }
@@ -4276,12 +4265,10 @@ static void kt_process_function_body(KotlinLSPContext *ctx, TSNode func_node, co
      * looks like an expression or statement (i.e. not modifiers, name,
      * type parameters, or value parameters). */
     if (ts_node_is_null(body)) {
-        uint32_t nc = ts_node_named_child_count(func_node);
-        for (uint32_t i = nc; i > 0; i--) {
-            TSNode c = ts_node_named_child(func_node, i - 1);
-            if (ts_node_is_null(c)) {
-                continue;
-            }
+        /* The last candidate: every named child in source order, the last kept. */
+        TSNode last_candidate = {0};
+        PDXE_FOR_EACH_NAMED_CHILD(body_it, func_node) {
+            TSNode c = body_it.node;
             const char *k = ts_node_type(c);
             if (strcmp(k, "modifiers") == 0 || strcmp(k, "identifier") == 0 ||
                 strcmp(k, "simple_identifier") == 0 ||
@@ -4295,9 +4282,9 @@ static void kt_process_function_body(KotlinLSPContext *ctx, TSNode func_node, co
              * after parameters when there's also a later body candidate.
              * Since we want the LAST candidate, we accept any non-skip
              * kind here — this is the body. */
-            body = c;
-            break;
+            last_candidate = c;
         }
+        body = last_candidate;
     }
     if (!ts_node_is_null(body)) {
         /* Three body shapes:
@@ -4316,9 +4303,8 @@ static void kt_process_function_body(KotlinLSPContext *ctx, TSNode func_node, co
         if (kt_node_is(body, "block")) {
             kt_process_block_stmts(ctx, body);
         } else if (kt_node_is(body, "function_body")) {
-            uint32_t nc = ts_node_named_child_count(body);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode c = ts_node_named_child(body, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+                TSNode c = it.node;
                 if (ts_node_is_null(c)) {
                     continue;
                 }
@@ -4355,14 +4341,14 @@ static void kt_walk_top_level_for_resolution(KotlinLSPContext *ctx, TSNode root,
     }
     /* Register delegated members before resolving any method bodies so source
      * order cannot decide whether an earlier reader sees getValue/setValue. */
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode candidate = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        TSNode candidate = it.node;
         if (kt_node_is(candidate, "property_declaration")) {
             kt_register_property_delegate(ctx, candidate, enclosing_class_qn);
         }
     }
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        TSNode c = it.node;
         const char *kind = ts_node_type(c);
         if (ctx->debug) {
             uint32_t sb = ts_node_start_byte(c);
@@ -4371,7 +4357,7 @@ static void kt_walk_top_level_for_resolution(KotlinLSPContext *ctx, TSNode root,
             if (len > 50) {
                 len = 50;
             }
-            fprintf(stderr, "[kotlin_lsp]   child[%u]: %s '%.*s'\n", i, kind, len,
+            fprintf(stderr, "[kotlin_lsp]   child[%u]: %s '%.*s'\n", it.index, kind, len,
                     ctx->source + sb);
         }
         /* Recurse into ERROR nodes so partial parses (e.g. when the
@@ -4493,9 +4479,8 @@ static void kt_debug_dump_ast(TSNode node, const char *src, int depth) {
     }
     fprintf(stderr, "%*s[%s] %.*s%s\n", depth * 2, "", kind, len, src + sb,
             (int)(eb - sb) > 40 ? "…" : "");
-    uint32_t nc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        kt_debug_dump_ast(ts_node_named_child(node, i), src, depth + 1);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        kt_debug_dump_ast(it.node, src, depth + 1);
     }
 }
 
@@ -4510,9 +4495,8 @@ void kotlin_lsp_process_file(KotlinLSPContext *ctx, TSNode root) {
     }
 
     /* 1. Package + imports */
-    uint32_t nc = ts_node_named_child_count(root);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        TSNode c = it.node;
         const char *kind = ts_node_type(c);
         if (strcmp(kind, "package_header") == 0) {
             const char *pkg = kt_parse_package_header(ctx, c);
@@ -4521,9 +4505,8 @@ void kotlin_lsp_process_file(KotlinLSPContext *ctx, TSNode root) {
             }
         } else if (strcmp(kind, "import_list") == 0) {
             /* Newer tree-sitter-kotlin wraps imports in an import_list node. */
-            uint32_t inc = ts_node_named_child_count(c);
-            for (uint32_t j = 0; j < inc; j++) {
-                kt_parse_import_directive(ctx, ts_node_named_child(c, j));
+            PDXE_FOR_EACH_NAMED_CHILD(it2, c) {
+                kt_parse_import_directive(ctx, it2.node);
             }
         } else if (strcmp(kind, "import") == 0 || strcmp(kind, "import_directive") == 0 ||
                    strcmp(kind, "import_header") == 0) {

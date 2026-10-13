@@ -1,6 +1,5 @@
 #include "c_lsp.h"
 #include "../lookup_counts.h"
-#include "lsp_node_iter.h"
 #include "../helpers.h"
 #include <string.h>
 #include <stdio.h>
@@ -433,9 +432,8 @@ static const char *c_extract_dll_resolve_name(CLSPContext *ctx, TSNode expr, boo
     if (ts_node_is_null(args))
         return NULL;
 
-    uint32_t anc = ts_node_named_child_count(args);
-    for (uint32_t i = 0; i < anc; i++) {
-        TSNode arg = ts_node_named_child(args, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+        TSNode arg = it.node;
         if (ts_node_is_null(arg))
             continue;
         const char *ak = ts_node_type(arg);
@@ -592,8 +590,8 @@ static const PDXEType **c_extract_call_arg_types(CLSPContext *ctx, TSNode call_n
         return NULL;
     }
     int count = 0;
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_named_child(args, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+        TSNode child = it.node;
         if (!ts_node_is_null(child)) {
             types[count++] = c_eval_expr_type(ctx, child);
         }
@@ -622,8 +620,11 @@ static void c_parse_template_params(CLSPContext *ctx, TSNode template_decl) {
         return;
 
     int idx = 0;
-    for (uint32_t i = 0; i < nc && idx < 16; i++) {
-        TSNode param = ts_node_named_child(params, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+        if (!(idx < 16)) {
+            break;
+        }
+        TSNode param = it.node;
         if (ts_node_is_null(param))
             continue;
         const char *pk = ts_node_type(param);
@@ -636,8 +637,8 @@ static void c_parse_template_params(CLSPContext *ctx, TSNode template_decl) {
             TSNode name_node = ts_node_child_by_field_name(param, "name", 4);
             if (ts_node_is_null(name_node)) {
                 // Some grammars put the identifier as a direct child
-                for (uint32_t j = 0; j < ts_node_named_child_count(param); j++) {
-                    TSNode ch = ts_node_named_child(param, j);
+                PDXE_FOR_EACH_NAMED_CHILD(it2, param) {
+                    TSNode ch = it2.node;
                     if (strcmp(ts_node_type(ch), "type_identifier") == 0 ||
                         strcmp(ts_node_type(ch), "identifier") == 0) {
                         name_node = ch;
@@ -892,8 +893,11 @@ static const char *c_adl_resolve(CLSPContext *ctx, const char *name, TSNode call
     const char *namespaces[8];
     int ns_count = 0;
 
-    for (uint32_t i = 0; i < nc && ns_count < 8; i++) {
-        TSNode arg = ts_node_named_child(args, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+        if (!(ns_count < 8)) {
+            break;
+        }
+        TSNode arg = it.node;
         if (ts_node_is_null(arg))
             continue;
 
@@ -1028,9 +1032,8 @@ static const char *c_exact_function_target_from_expr(CLSPContext *ctx, TSNode ex
 
     bool address_of = false;
     TSNode operand = (TSNode){0};
-    uint32_t child_count = ts_node_child_count(expr);
-    for (uint32_t i = 0; i < child_count; i++) {
-        TSNode child = ts_node_child(expr, i);
+    PDXE_FOR_EACH_CHILD(it, expr) {
+        TSNode child = it.node;
         if (ts_node_is_named(child)) {
             if (!ts_node_is_null(operand)) {
                 return NULL;
@@ -1227,9 +1230,11 @@ const PDXEType *c_parse_type_node(CLSPContext *ctx, TSNode node) {
                           bitcoin serialize.h) */
             int targ_count = 0;
             if (!ts_node_is_null(tmpl_args)) {
-                uint32_t nc = ts_node_named_child_count(tmpl_args);
-                for (uint32_t i = 0; i < nc && targ_count < 15; i++) {
-                    TSNode arg = ts_node_named_child(tmpl_args, i);
+                PDXE_FOR_EACH_NAMED_CHILD(it, tmpl_args) {
+                    if (!(targ_count < 15)) {
+                        break;
+                    }
+                    TSNode arg = it.node;
                     if (ts_node_is_null(arg))
                         continue;
                     const char *ak = ts_node_type(arg);
@@ -1331,9 +1336,11 @@ const PDXEType *c_parse_type_node(CLSPContext *ctx, TSNode node) {
                       tail bound T to stack garbage -> corrupt type graph, bitcoin serialize.h) */
         int targ_count = 0;
         if (!ts_node_is_null(args_node)) {
-            uint32_t nc = ts_node_named_child_count(args_node);
-            for (uint32_t i = 0; i < nc && targ_count < 15; i++) {
-                TSNode arg = ts_node_named_child(args_node, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, args_node) {
+                if (!(targ_count < 15)) {
+                    break;
+                }
+                TSNode arg = it.node;
                 if (ts_node_is_null(arg))
                     continue;
                 const char *ak = ts_node_type(arg);
@@ -1433,10 +1440,9 @@ const PDXEType *c_parse_type_node(CLSPContext *ctx, TSNode node) {
 
     // type_descriptor: wraps a type with optional qualifiers
     if (strcmp(kind, "type_descriptor") == 0) {
-        uint32_t nc = ts_node_named_child_count(node);
         // Find the actual type node (skip qualifiers)
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
             if (strcmp(ck, "type_qualifier") != 0) {
                 return c_parse_type_node(ctx, child);
@@ -1683,9 +1689,8 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
         // Determine if this is . or -> access
         // Check for "->" operator in node text
         bool is_arrow = false;
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (!ts_node_is_named(child)) {
                 char *op = c_node_text(ctx, child);
                 if (op && strcmp(op, "->") == 0) {
@@ -1839,9 +1844,11 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
                               (uninitialized tail bound T to stack garbage -> corrupt type graph,
                               bitcoin serialize.h) */
                 int targ_count = 0;
-                uint32_t tnc = ts_node_named_child_count(qi_tmpl_args);
-                for (uint32_t ti = 0; ti < tnc && targ_count < 15; ti++) {
-                    TSNode targ = ts_node_named_child(qi_tmpl_args, ti);
+                PDXE_FOR_EACH_NAMED_CHILD(it, qi_tmpl_args) {
+                    if (!(targ_count < 15)) {
+                        break;
+                    }
+                    TSNode targ = it.node;
                     if (ts_node_is_null(targ))
                         continue;
                     const char *tak = ts_node_type(targ);
@@ -1999,9 +2006,11 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
                       tail bound T to stack garbage -> corrupt type graph, bitcoin serialize.h) */
         int targ_count = 0;
         if (!ts_node_is_null(args_node)) {
-            uint32_t nc = ts_node_named_child_count(args_node);
-            for (uint32_t i = 0; i < nc && targ_count < 15; i++) {
-                TSNode arg = ts_node_named_child(args_node, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, args_node) {
+                if (!(targ_count < 15)) {
+                    break;
+                }
+                TSNode arg = it.node;
                 if (ts_node_is_null(arg))
                     continue;
                 const char *ak = ts_node_type(arg);
@@ -2205,10 +2214,11 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
                             TSNode call_args = ts_node_child_by_field_name(node, "arguments", 9);
                             int pi = 0;
                             if (!ts_node_is_null(call_args)) {
-                                uint32_t anc = ts_node_named_child_count(call_args);
-                                for (uint32_t ai = 0;
-                                     ai < anc && rf->signature->data.func.param_types[pi]; ai++) {
-                                    TSNode carg = ts_node_named_child(call_args, ai);
+                                PDXE_FOR_EACH_NAMED_CHILD(it, call_args) {
+                                    if (!(rf->signature->data.func.param_types[pi])) {
+                                        break;
+                                    }
+                                    TSNode carg = it.node;
                                     if (ts_node_is_null(carg))
                                         continue;
                                     const PDXEType *arg_t = c_eval_expr_type(ctx, carg);
@@ -2294,9 +2304,8 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
             return pdxe_type_pointer(ctx->arena, c_parse_type_node(ctx, type_node));
         }
         // Try first named child
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
             if (strcmp(ck, "type_identifier") == 0 || strcmp(ck, "template_type") == 0 ||
                 strcmp(ck, "scoped_type_identifier") == 0 || strcmp(ck, "primitive_type") == 0) {
@@ -2390,8 +2399,8 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
             return pdxe_type_unknown();
 
         // Get operator from first non-named child
-        for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (!ts_node_is_named(child)) {
                 char *op = c_node_text(ctx, child);
                 if (!op)
@@ -2457,8 +2466,8 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
         if (ts_node_is_null(arg))
             return pdxe_type_unknown();
         // Check operator
-        for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (!ts_node_is_named(child)) {
                 char *op = c_node_text(ctx, child);
                 if (op && strcmp(op, "*") == 0) {
@@ -2520,8 +2529,8 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
     if (strcmp(kind, "binary_expression") == 0) {
         TSNode left = ts_node_child_by_field_name(node, "left", 4);
         // Check operator for comparison (returns bool)
-        for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (!ts_node_is_named(child)) {
                 char *op = c_node_text(ctx, child);
                 if (op && (strcmp(op, "==") == 0 || strcmp(op, "!=") == 0 || strcmp(op, "<") == 0 ||
@@ -2570,9 +2579,8 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
         // Phase A: trailing return type on declarator (e.g., [](int x) -> Widget { ... })
         TSNode declarator = ts_node_child_by_field_name(node, "declarator", 10);
         if (!ts_node_is_null(declarator)) {
-            uint32_t dnc = ts_node_named_child_count(declarator);
-            for (uint32_t di = 0; di < dnc; di++) {
-                TSNode ch = ts_node_named_child(declarator, di);
+            PDXE_FOR_EACH_NAMED_CHILD(it, declarator) {
+                TSNode ch = it.node;
                 if (strcmp(ts_node_type(ch), "trailing_return_type") == 0) {
                     TSNode type_desc =
                         ts_node_named_child_count(ch) > 0 ? ts_node_named_child(ch, 0) : ch;
@@ -2586,9 +2594,8 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
         if (!ret_type || pdxe_type_is_unknown(ret_type)) {
             TSNode body = ts_node_child_by_field_name(node, "body", 4);
             if (!ts_node_is_null(body)) {
-                uint32_t bnc = ts_node_named_child_count(body);
-                for (uint32_t bi = 0; bi < bnc; bi++) {
-                    TSNode stmt = ts_node_named_child(body, bi);
+                PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+                    TSNode stmt = it.node;
                     if (ts_node_is_null(stmt))
                         continue;
                     const char *sk = ts_node_type(stmt);
@@ -2647,9 +2654,8 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
         // Fold expressions apply a binary operator across a parameter pack.
         // The result type is the type of the operator applied to the pack elements.
         // Heuristic: return the type of the first named child that isn't an operator.
-        uint32_t fnc = ts_node_named_child_count(node);
-        for (uint32_t fi = 0; fi < fnc; fi++) {
-            TSNode child = ts_node_named_child(node, fi);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             if (!ts_node_is_null(child)) {
                 const PDXEType *ct = c_eval_expr_type(ctx, child);
                 if (!pdxe_type_is_unknown(ct))
@@ -2669,9 +2675,11 @@ static const PDXEType *c_eval_expr_type_inner(CLSPContext *ctx, TSNode node) {
         // C11 _Generic: evaluate the controlling expression's type,
         // then match against the association list.
         // Heuristic: return the type of the first non-default association value.
-        uint32_t gnc = ts_node_named_child_count(node);
-        for (uint32_t gi = 1; gi < gnc; gi++) {
-            TSNode assoc = ts_node_named_child(node, gi);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            if (it.index < 1) {
+                continue;
+            }
+            TSNode assoc = it.node;
             if (!ts_node_is_null(assoc)) {
                 // Each association may have type + value children
                 uint32_t anc = ts_node_named_child_count(assoc);
@@ -3051,9 +3059,8 @@ static const PDXEType *c_lookup_field_type(CLSPContext *ctx, const char *type_qn
 // Parse a declaration to extract type and declarators
 static const PDXEType *c_parse_declaration_type(CLSPContext *ctx, TSNode decl_node) {
     // Look for type node in declaration children
-    uint32_t nc = ts_node_named_child_count(decl_node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode child = ts_node_named_child(decl_node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, decl_node) {
+        TSNode child = it.node;
         const char *ck = ts_node_type(child);
 
         // Skip declarators and non-type specifiers
@@ -3083,9 +3090,8 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
         bool has_auto = false;
 
         // Check if type is auto/decltype
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
             if (strcmp(ck, "placeholder_type_specifier") == 0 || strcmp(ck, "auto") == 0) {
                 has_auto = true;
@@ -3098,8 +3104,8 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
         }
 
         // Process each declarator
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
 
             if (strcmp(ck, "init_declarator") == 0) {
@@ -3152,10 +3158,9 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
                                     rhs_type = c_eval_expr_type(ctx, value);
                                     rhs_type = c_simplify_type(ctx, rhs_type, false);
                                 }
-                                uint32_t bnc = ts_node_named_child_count(inner);
                                 int binding_idx = 0;
-                                for (uint32_t bi = 0; bi < bnc; bi++) {
-                                    TSNode bn = ts_node_named_child(inner, bi);
+                                PDXE_FOR_EACH_NAMED_CHILD(it, inner) {
+                                    TSNode bn = it.node;
                                     if (strcmp(ts_node_type(bn), "identifier") == 0) {
                                         char *bname = c_node_text(ctx, bn);
                                         if (!bname)
@@ -3233,10 +3238,9 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
                             rhs_type = c_eval_expr_type(ctx, value);
                             rhs_type = c_simplify_type(ctx, rhs_type, false);
                         }
-                        uint32_t bnc = ts_node_named_child_count(decl);
                         int binding_idx = 0;
-                        for (uint32_t bi = 0; bi < bnc; bi++) {
-                            TSNode bn = ts_node_named_child(decl, bi);
+                        PDXE_FOR_EACH_NAMED_CHILD(it, decl) {
+                            TSNode bn = it.node;
                             if (strcmp(ts_node_type(bn), "identifier") == 0) {
                                 char *bname = c_node_text(ctx, bn);
                                 if (!bname)
@@ -3393,8 +3397,8 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
      * the pre-branch value remains a possible runtime target. */
     if (strcmp(kind, "assignment_expression") == 0) {
         bool simple_assignment = false;
-        for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (!ts_node_is_named(child)) {
                 char *op = c_node_text(ctx, child);
                 if (op && strcmp(op, "=") == 0) {
@@ -3426,9 +3430,8 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
         // "using namespace XXX;"
         if (strstr(text, "namespace")) {
             // Extract namespace name after "namespace"
-            uint32_t nc = ts_node_named_child_count(node);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode child = ts_node_named_child(node, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                TSNode child = it.node;
                 const char *ck = ts_node_type(child);
                 if (strcmp(ck, "identifier") == 0 || strcmp(ck, "qualified_identifier") == 0 ||
                     strcmp(ck, "scoped_identifier") == 0) {
@@ -3439,9 +3442,8 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
             }
         } else if (strstr(text, "enum")) {
             // "using enum MyEnum;" — import enum members into scope
-            uint32_t nc = ts_node_named_child_count(node);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode child = ts_node_named_child(node, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                TSNode child = it.node;
                 const char *ck = ts_node_type(child);
                 if (strcmp(ck, "identifier") == 0 || strcmp(ck, "qualified_identifier") == 0 ||
                     strcmp(ck, "scoped_identifier") == 0 || strcmp(ck, "type_identifier") == 0) {
@@ -3468,9 +3470,8 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
             }
         } else {
             // "using std::cout;" — specific declaration
-            uint32_t nc = ts_node_named_child_count(node);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode child = ts_node_named_child(node, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                TSNode child = it.node;
                 const char *ck = ts_node_type(child);
                 if (strcmp(ck, "qualified_identifier") == 0 ||
                     strcmp(ck, "scoped_identifier") == 0) {
@@ -3517,11 +3518,10 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
         // type_identifier("Bar") } The first type_identifier may be the source type (when no
         // specifier precedes it).
         const PDXEType *target = pdxe_type_unknown();
-        uint32_t nc = ts_node_named_child_count(node);
         bool found_type = false;
         int first_type_id_idx = -1;
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
             if (!found_type && strcmp(ck, "type_identifier") != 0 &&
                 strcmp(ck, "pointer_declarator") != 0 && strcmp(ck, "identifier") != 0) {
@@ -3530,7 +3530,7 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
             } else if (!found_type && strcmp(ck, "type_identifier") == 0 && first_type_id_idx < 0) {
                 // First type_identifier without a preceding specifier — this IS the source type.
                 // Mark it and parse; the NEXT type_identifier will be the alias name.
-                first_type_id_idx = (int)i;
+                first_type_id_idx = (int)it.index;
                 target = c_parse_type_node(ctx, child);
                 found_type = true;
             } else if (found_type && strcmp(ck, "type_identifier") == 0) {
@@ -3649,10 +3649,9 @@ void c_process_statement(CLSPContext *ctx, TSNode node) {
                     pdxe_scope_bind(ctx->current_scope, var_name, elem_type);
             } else if (strcmp(dk, "structured_binding_declarator") == 0) {
                 // for (auto& [k, v] : container) — decompose elem_type
-                uint32_t bnc = ts_node_named_child_count(bind_target);
                 int binding_idx = 0;
-                for (uint32_t bi = 0; bi < bnc; bi++) {
-                    TSNode bn = ts_node_named_child(bind_target, bi);
+                PDXE_FOR_EACH_NAMED_CHILD(it, bind_target) {
+                    TSNode bn = it.node;
                     if (strcmp(ts_node_type(bn), "identifier") == 0) {
                         char *bname = c_node_text(ctx, bn);
                         if (!bname)
@@ -3987,9 +3986,8 @@ static void c_resolve_callable_argument_references(CLSPContext *ctx, TSNode call
     if (ts_node_is_null(arguments)) {
         return;
     }
-    uint32_t count = ts_node_named_child_count(arguments);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode argument = ts_node_named_child(arguments, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, arguments) {
+        TSNode argument = it.node;
         if (strcmp(ts_node_type(argument), "identifier") != 0) {
             continue;
         }
@@ -4070,9 +4068,8 @@ static void c_resolve_calls_in_node_inner(CLSPContext *ctx, TSNode node) {
 
                         // Determine if arrow or dot
                         bool is_arrow = false;
-                        uint32_t fnc = ts_node_child_count(func_node);
-                        for (uint32_t fi = 0; fi < fnc; fi++) {
-                            TSNode ch = ts_node_child(func_node, fi);
+                        PDXE_FOR_EACH_CHILD(it, func_node) {
+                            TSNode ch = it.node;
                             if (!ts_node_is_named(ch)) {
                                 char *op = c_node_text(ctx, ch);
                                 if (op && strcmp(op, "->") == 0) {
@@ -4412,11 +4409,10 @@ static void c_resolve_calls_in_node_inner(CLSPContext *ctx, TSNode node) {
     // --- Constructor calls from declarations ---
     if (strcmp(kind, "declaration") == 0 && ctx->cpp_mode) {
         // Check for Foo x(args) or Foo x{args} patterns
-        uint32_t nc = ts_node_named_child_count(node);
         const PDXEType *decl_type = pdxe_type_unknown();
         bool has_type = false;
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
             if (!has_type &&
                 (strcmp(ck, "type_identifier") == 0 || strcmp(ck, "scoped_type_identifier") == 0 ||
@@ -4451,9 +4447,8 @@ static void c_resolve_calls_in_node_inner(CLSPContext *ctx, TSNode node) {
     if (strcmp(kind, "new_expression") == 0) {
         TSNode type_node = ts_node_child_by_field_name(node, "type", 4);
         if (ts_node_is_null(type_node)) {
-            uint32_t nc = ts_node_named_child_count(node);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode child = ts_node_named_child(node, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                TSNode child = it.node;
                 const char *ck = ts_node_type(child);
                 if (strcmp(ck, "type_identifier") == 0 || strcmp(ck, "template_type") == 0 ||
                     strcmp(ck, "scoped_type_identifier") == 0) {
@@ -4509,8 +4504,8 @@ static void c_resolve_calls_in_node_inner(CLSPContext *ctx, TSNode node) {
             const PDXEType *base = c_simplify_type(ctx, lhs_type, false);
             // Extract operator. Prefer a member overload on the lhs type, then
             // perform exact argument-dependent lookup for a free overload.
-            for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-                TSNode child = ts_node_child(node, i);
+            PDXE_FOR_EACH_CHILD(it, node) {
+                TSNode child = it.node;
                 if (!ts_node_is_named(child)) {
                     char *op = c_node_text(ctx, child);
                     if (op) {
@@ -4549,8 +4544,8 @@ static void c_resolve_calls_in_node_inner(CLSPContext *ctx, TSNode node) {
             const PDXEType *base = c_simplify_type(ctx, lhs_type, false);
             // Extract only the compound-assignment operators. Plain `=` is
             // never an overload candidate at this occurrence.
-            for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-                TSNode child = ts_node_child(node, i);
+            PDXE_FOR_EACH_CHILD(it, node) {
+                TSNode child = it.node;
                 if (!ts_node_is_named(child)) {
                     char *op = c_node_text(ctx, child);
                     if (c_is_compound_assignment_operator(op)) {
@@ -4585,8 +4580,8 @@ static void c_resolve_calls_in_node_inner(CLSPContext *ctx, TSNode node) {
         TSNode receiver = ts_node_child_by_field_name(node, "argument", 8);
         TSNode member = ts_node_child_by_field_name(node, "field", 5);
         bool is_arrow = false;
-        for (uint32_t i = 0; i < ts_node_child_count(node); i++) {
-            TSNode child = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode child = it.node;
             if (!ts_node_is_named(child)) {
                 const char *token = c_node_text(ctx, child);
                 if (token && strcmp(token, "->") == 0) {
@@ -4651,8 +4646,8 @@ static void c_resolve_calls_in_node_inner(CLSPContext *ctx, TSNode node) {
                     // Determine which operator
                     const char *op_name = NULL;
                     TSNode operator_node = {0};
-                    for (uint32_t ui = 0; ui < ts_node_child_count(node); ui++) {
-                        TSNode ch = ts_node_child(node, ui);
+                    PDXE_FOR_EACH_CHILD(it, node) {
+                        TSNode ch = it.node;
                         if (!ts_node_is_named(ch)) {
                             char *op = c_node_text(ctx, ch);
                             if (!op)
@@ -4700,9 +4695,8 @@ static void c_resolve_calls_in_node_inner(CLSPContext *ctx, TSNode node) {
     if (ctx->cpp_mode && strcmp(kind, "declaration") == 0) {
         const PDXEType *decl_type = c_parse_declaration_type(ctx, node);
         if (decl_type && decl_type->kind == PDXE_TYPE_NAMED) {
-            uint32_t dnc = ts_node_named_child_count(node);
-            for (uint32_t di = 0; di < dnc; di++) {
-                TSNode dchild = ts_node_named_child(node, di);
+            PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+                TSNode dchild = it.node;
                 if (strcmp(ts_node_type(dchild), "init_declarator") == 0) {
                     TSNode val = ts_node_child_by_field_name(dchild, "value", 5);
                     if (!ts_node_is_null(val)) {
@@ -4819,24 +4813,21 @@ recurse:;
     if (strcmp(kind, "catch_clause") == 0) {
         TSNode params = ts_node_child_by_field_name(node, "parameters", 10);
         if (!ts_node_is_null(params)) {
-            uint32_t pnc = ts_node_named_child_count(params);
-            for (uint32_t pi = 0; pi < pnc; pi++) {
-                c_process_statement(ctx, ts_node_named_child(params, pi));
+            PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+                c_process_statement(ctx, it.node);
             }
         }
     }
 
     // Process lambda init-captures: [captured = expr] binds 'captured' in lambda scope
     if (strcmp(kind, "lambda_expression") == 0) {
-        uint32_t lnc = ts_node_named_child_count(node);
-        for (uint32_t li = 0; li < lnc; li++) {
-            TSNode child = ts_node_named_child(node, li);
+        PDXE_FOR_EACH_NAMED_CHILD(kid_it, node) {
+            TSNode child = kid_it.node;
             if (ts_node_is_null(child))
                 continue;
             if (strcmp(ts_node_type(child), "lambda_capture_specifier") == 0) {
-                uint32_t cnc = ts_node_named_child_count(child);
-                for (uint32_t ci = 0; ci < cnc; ci++) {
-                    TSNode cap = ts_node_named_child(child, ci);
+                PDXE_FOR_EACH_NAMED_CHILD(it2, child) {
+                    TSNode cap = it2.node;
                     if (ts_node_is_null(cap))
                         continue;
                     const char *ck = ts_node_type(cap);
@@ -5037,9 +5028,8 @@ static void c_process_function(CLSPContext *ctx, TSNode func_node) {
     // Bind parameters and count defaults for min_params
     int total_params = 0, defaulted_params = 0;
     if (!ts_node_is_null(params_node)) {
-        uint32_t pnc = ts_node_named_child_count(params_node);
-        for (uint32_t i = 0; i < pnc; i++) {
-            TSNode param = ts_node_named_child(params_node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, params_node) {
+            TSNode param = it.node;
             if (!ts_node_is_null(param)) {
                 const char *pk = ts_node_type(param);
                 if (strcmp(pk, "parameter_declaration") == 0 ||
@@ -5094,9 +5084,8 @@ static void c_process_body_child(CLSPContext *ctx, TSNode child) {
         // declaration may contain class/struct specifier: class Foo { ... };
         // Extract and process the class before resolving calls.
         bool has_class = false;
-        uint32_t dnc = ts_node_named_child_count(child);
-        for (uint32_t di = 0; di < dnc; di++) {
-            TSNode dch = ts_node_named_child(child, di);
+        PDXE_FOR_EACH_NAMED_CHILD(kid_it, child) {
+            TSNode dch = kid_it.node;
             const char *dk = ts_node_type(dch);
             if (strcmp(dk, "class_specifier") == 0 || strcmp(dk, "struct_specifier") == 0) {
                 c_process_class(ctx, dch);
@@ -5129,8 +5118,8 @@ static void c_process_body_child(CLSPContext *ctx, TSNode child) {
                         if (fname && fname[0]) {
                             // Parse return type from declaration's type specifier
                             const PDXEType *ret_type = NULL;
-                            for (uint32_t ri = 0; ri < dnc; ri++) {
-                                TSNode rch = ts_node_named_child(child, ri);
+                            PDXE_FOR_EACH_NAMED_CHILD(it2, child) {
+                                TSNode rch = it2.node;
                                 const char *rk = ts_node_type(rch);
                                 if (strcmp(rk, "function_declarator") != 0 &&
                                     strcmp(rk, "identifier") != 0 &&
@@ -5208,9 +5197,8 @@ static void c_process_body_child(CLSPContext *ctx, TSNode child) {
         ctx->in_template = true;
         c_parse_template_params(ctx, child);
 
-        uint32_t tnc = ts_node_named_child_count(child);
-        for (uint32_t ti = 0; ti < tnc; ti++) {
-            TSNode inner = ts_node_named_child(child, ti);
+        PDXE_FOR_EACH_NAMED_CHILD(it, child) {
+            TSNode inner = it.node;
             c_process_body_child(ctx, inner);
         }
 
@@ -5302,18 +5290,16 @@ static void c_process_class(CLSPContext *ctx, TSNode class_node) {
     // bind that template parameter to the derived class type.
     if (class_name && ctx->enclosing_class_qn) {
         // Walk base_class_clause children looking for template base classes
-        uint32_t cnc = ts_node_named_child_count(class_node);
-        for (uint32_t ci = 0; ci < cnc; ci++) {
-            TSNode child = ts_node_named_child(class_node, ci);
+        PDXE_FOR_EACH_NAMED_CHILD(kid_it, class_node) {
+            TSNode child = kid_it.node;
             if (ts_node_is_null(child))
                 continue;
             const char *ck = ts_node_type(child);
             if (strcmp(ck, "base_class_clause") != 0)
                 continue;
             // Iterate base specifiers
-            uint32_t bnc = ts_node_named_child_count(child);
-            for (uint32_t bi = 0; bi < bnc; bi++) {
-                TSNode base_spec = ts_node_named_child(child, bi);
+            PDXE_FOR_EACH_NAMED_CHILD(it2, child) {
+                TSNode base_spec = it2.node;
                 if (ts_node_is_null(base_spec))
                     continue;
                 // Look for template_type as base: Base<Derived>
@@ -5323,10 +5309,9 @@ static void c_process_class(CLSPContext *ctx, TSNode class_node) {
                 // The base type might be directly a template_type or wrapped
                 if (strcmp(ts_node_type(type_node), "template_type") != 0) {
                     // Try walking children for template_type
-                    uint32_t snc = ts_node_named_child_count(type_node);
                     bool found = false;
-                    for (uint32_t si = 0; si < snc; si++) {
-                        TSNode sc = ts_node_named_child(type_node, si);
+                    PDXE_FOR_EACH_NAMED_CHILD(it3, type_node) {
+                        TSNode sc = it3.node;
                         if (strcmp(ts_node_type(sc), "template_type") == 0) {
                             type_node = sc;
                             found = true;
@@ -5341,9 +5326,8 @@ static void c_process_class(CLSPContext *ctx, TSNode class_node) {
                 if (ts_node_is_null(targs))
                     continue;
                 // Check each template argument for CRTP pattern
-                uint32_t tanc = ts_node_named_child_count(targs);
-                for (uint32_t ti = 0; ti < tanc; ti++) {
-                    TSNode ta = ts_node_named_child(targs, ti);
+                PDXE_FOR_EACH_NAMED_CHILD(it3, targs) {
+                    TSNode ta = it3.node;
                     if (ts_node_is_null(ta))
                         continue;
                     TSNode ta_inner = ta;
@@ -5363,7 +5347,7 @@ static void c_process_class(CLSPContext *ctx, TSNode class_node) {
                                     !ctx->template_param_defaults[pi]) {
                                     // Bind unbound template param to derived class
                                     // Only bind the first unbound one at position ti
-                                    if (pi == (int)ti) {
+                                    if (pi == (int)it3.index) {
                                         ctx->template_param_defaults[pi] =
                                             pdxe_type_named(ctx->arena, ctx->enclosing_class_qn);
                                         break;
@@ -5385,7 +5369,7 @@ static void c_process_class(CLSPContext *ctx, TSNode class_node) {
         // This allows template return type substitution for methods like T& value();
         if (ctx->enclosing_class_qn) {
             uint32_t bkn = 0;
-            TSNode *bkids = pdxe_lsp_collect_children(ctx->arena, body, &bkn);
+            TSNode *bkids = pdxe_collect_children(ctx->arena, body, false, &bkn);
             for (uint32_t i = 0; i < bkn; i++) {
                 TSNode child = bkids[i];
                 if (!ts_node_is_named(child))
@@ -5398,9 +5382,8 @@ static void c_process_class(CLSPContext *ctx, TSNode class_node) {
                 // Parse return type from type specifier
                 const PDXEType *ret_type = c_parse_declaration_type(ctx, child);
                 // Walk declarator chain to find function_declarator + method name
-                uint32_t dnc = ts_node_named_child_count(child);
-                for (uint32_t di = 0; di < dnc; di++) {
-                    TSNode decl = ts_node_named_child(child, di);
+                PDXE_FOR_EACH_NAMED_CHILD(it, child) {
+                    TSNode decl = it.node;
                     // Navigate through reference_declarator, pointer_declarator to
                     // function_declarator
                     TSNode cur = decl;
@@ -5509,10 +5492,8 @@ static void c_process_class(CLSPContext *ctx, TSNode class_node) {
             }
         }
 
-        uint32_t bkn = 0;
-        TSNode *bkids = pdxe_lsp_collect_children(ctx->arena, body, &bkn);
-        for (uint32_t i = 0; i < bkn; i++) {
-            TSNode child = bkids[i];
+        PDXE_FOR_EACH_CHILD(top_it, body) {
+            TSNode child = top_it.node;
             if (!ts_node_is_named(child))
                 continue;
             c_process_body_child(ctx, child);
@@ -5539,7 +5520,7 @@ void c_lsp_process_file(CLSPContext *ctx, TSNode root) {
     // Collect top-level children once (O(n)); both passes reuse the array.
     // Indexing ts_node_child(root,i) per iteration is O(i) → O(n²) on a wide root.
     uint32_t kn = 0;
-    TSNode *kids = pdxe_lsp_collect_children(ctx->arena, root, &kn);
+    TSNode *kids = pdxe_collect_children(ctx->arena, root, false, &kn);
     TSNode child; // Hoisted: prevents ASan stack-use-after-scope between passes
     TSNode inner;
 
@@ -5556,9 +5537,8 @@ void c_lsp_process_file(CLSPContext *ctx, TSNode root) {
         } else if (strcmp(ck, "template_declaration") == 0) {
             // template<class T> using Vec = std::vector<T>;
             // Unwrap template_declaration to process inner alias/typedef
-            uint32_t tnc = ts_node_named_child_count(child);
-            for (uint32_t ti = 0; ti < tnc; ti++) {
-                inner = ts_node_named_child(child, ti);
+            PDXE_FOR_EACH_NAMED_CHILD(it, child) {
+                inner = it.node;
                 const char *ik = ts_node_type(inner);
                 if (strcmp(ik, "alias_declaration") == 0 || strcmp(ik, "type_definition") == 0) {
                     c_process_statement(ctx, inner);

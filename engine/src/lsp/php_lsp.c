@@ -18,7 +18,6 @@
  */
 
 #include "php_lsp.h"
-#include "lsp_node_iter.h"
 #include "../helpers.h"
 #include "../lookup_counts.h"
 #include <ctype.h>
@@ -77,9 +76,8 @@ static bool node_is(TSNode n, const char *kind) {
 static TSNode child_named(TSNode parent, const char *kind) {
     if (ts_node_is_null(parent))
         return parent;
-    uint32_t nc = ts_node_child_count(parent);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(parent, i);
+    PDXE_FOR_EACH_CHILD(it, parent) {
+        TSNode c = it.node;
         if (!ts_node_is_null(c) && strcmp(ts_node_type(c), kind) == 0)
             return c;
     }
@@ -448,9 +446,8 @@ const PDXEType *php_parse_type_node(PHPLSPContext *ctx, TSNode node) {
     }
     if (strcmp(kind, "optional_type") == 0) {
         /* ?Foo — strip the '?' and recurse. */
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                 return php_parse_type_node(ctx, c);
             }
@@ -461,9 +458,8 @@ const PDXEType *php_parse_type_node(PHPLSPContext *ctx, TSNode node) {
         strcmp(kind, "disjunctive_normal_form_type") == 0) {
         /* Pick the first concrete (non-null) named member as a heuristic;
          * full DNF dispatch is Phase 2.5 at best. */
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const PDXEType *t = php_parse_type_node(ctx, c);
@@ -866,7 +862,7 @@ static const PhpChildren *php_children_of(PHPLSPContext *ctx, TSNode parent) {
     PhpChildren c;
     memset(&c, 0, sizeof(c));
     c.parent = parent.id;
-    c.kids = pdxe_lsp_collect_children(ctx->arena, parent, &c.count);
+    c.kids = pdxe_collect_children(ctx->arena, parent, false, &c.count);
     if (!c.kids && ts_node_child_count(parent) > 0)
         return NULL;
     c.cap = 16;
@@ -890,7 +886,7 @@ static const PhpChildren *php_children_of(PHPLSPContext *ctx, TSNode parent) {
 /* Walk siblings backwards from `node` to find a leading PHPDoc comment
  * ("/**...*​/"). Returns cleaned doc text or NULL. */
 static char *fetch_leading_phpdoc(PHPLSPContext *ctx, TSNode node) {
-    TSNode parent = ts_node_parent(node);
+    TSNode parent = pdxe_node_parent(node);
     if (ts_node_is_null(parent))
         return NULL;
     /* The node's position among its parent's children, and the children before it. */
@@ -902,12 +898,11 @@ static char *fetch_leading_phpdoc(PHPLSPContext *ctx, TSNode node) {
     scan = reference && reference[0];
 #endif
     if (scan) {
-        uint32_t nc = ts_node_child_count(parent);
-        for (uint32_t i = 0; i < nc; i++) {
+        PDXE_FOR_EACH_CHILD(it, parent) {
             PDXE_LOOKUP_COUNT(PDXE_LC_DEF_ENTRIES);
-            TSNode c = ts_node_child(parent, i);
+            TSNode c = it.node;
             if (ts_node_eq(c, node)) {
-                idx = (int)i;
+                idx = (int)it.index;
                 break;
             }
         }
@@ -954,9 +949,8 @@ static bool php_is_first_class_callable(TSNode node) {
 
     bool saw_placeholder = false;
     int semantic_children = 0;
-    uint32_t child_count = ts_node_child_count(args);
-    for (uint32_t i = 0; i < child_count; i++) {
-        TSNode child = ts_node_child(args, i);
+    PDXE_FOR_EACH_CHILD(it, args) {
+        TSNode child = it.node;
         if (ts_node_is_null(child) || !ts_node_is_named(child))
             continue;
         const char *kind = ts_node_type(child);
@@ -1034,18 +1028,16 @@ const PDXEType *php_eval_expr_type(PHPLSPContext *ctx, TSNode node) {
         if (!ts_node_is_null(tnode))
             result = php_parse_type_node(ctx, tnode);
     } else if (strcmp(kind, "parenthesized_expression") == 0) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                 result = php_eval_expr_type(ctx, c);
                 break;
             }
         }
     } else if (strcmp(kind, "clone_expression") == 0) {
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                 result = php_eval_expr_type(ctx, c);
                 break;
@@ -1060,10 +1052,9 @@ const PDXEType *php_eval_expr_type(PHPLSPContext *ctx, TSNode node) {
         memset(&lhs, 0, sizeof(lhs));
         TSNode rhs;
         memset(&rhs, 0, sizeof(rhs));
-        uint32_t cnc = ts_node_child_count(node);
         int seen = 0;
-        for (uint32_t i = 0; i < cnc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             if (seen == 0)
@@ -1107,9 +1098,8 @@ const PDXEType *php_eval_expr_type(PHPLSPContext *ctx, TSNode node) {
          * an offsetGet method. */
         TSNode obj = ts_node_child_by_field_name(node, "dereferencable", 14);
         if (ts_node_is_null(obj)) {
-            uint32_t nc = ts_node_child_count(node);
-            for (uint32_t i = 0; i < nc; i++) {
-                TSNode c = ts_node_child(node, i);
+            PDXE_FOR_EACH_CHILD(it, node) {
+                TSNode c = it.node;
                 if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                     obj = c;
                     break;
@@ -1144,16 +1134,14 @@ const PDXEType *php_eval_expr_type(PHPLSPContext *ctx, TSNode node) {
         /* match($v) { ... => arm1, default => arm2 } — result is the
          * union of arm result expressions. We take the first arm result
          * with a known type, falling back to UNKNOWN. */
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *k = ts_node_type(c);
             if (strcmp(k, "match_block") == 0) {
-                uint32_t bnc = ts_node_child_count(c);
-                for (uint32_t j = 0; j < bnc; j++) {
-                    TSNode arm = ts_node_child(c, j);
+                PDXE_FOR_EACH_CHILD(it2, c) {
+                    TSNode arm = it2.node;
                     if (ts_node_is_null(arm) || !ts_node_is_named(arm))
                         continue;
                     const char *ak = ts_node_type(arm);
@@ -1166,12 +1154,11 @@ const PDXEType *php_eval_expr_type(PHPLSPContext *ctx, TSNode node) {
                     if (ts_node_is_null(val))
                         val = ts_node_child_by_field_name(arm, "value", 5);
                     if (ts_node_is_null(val)) {
-                        uint32_t vnc = ts_node_child_count(arm);
-                        for (uint32_t k2 = vnc; k2 > 0; k2--) {
-                            TSNode vv = ts_node_child(arm, k2 - 1);
-                            if (!ts_node_is_null(vv) && ts_node_is_named(vv)) {
-                                val = vv;
-                                break;
+                        /* The last named child: every child in source order, the last
+                         * kept. */
+                        PDXE_FOR_EACH_CHILD(it3, arm) {
+                            if (ts_node_is_named(it3.node)) {
+                                val = it3.node;
                             }
                         }
                     }
@@ -1255,9 +1242,8 @@ static const PDXEType *eval_object_creation_type(PHPLSPContext *ctx, TSNode node
     name_node = ts_node_child_by_field_name(node, "name", 4);
     if (ts_node_is_null(name_node)) {
         /* Fallback: first named child that is a name/qualified_name. */
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *k = ts_node_type(c);
@@ -1602,9 +1588,8 @@ static void process_foreach(PHPLSPContext *ctx, TSNode node) {
      * We find the iterable as the first named child whose kind is an
      * expression-shape; subsequent variable_name children before the body
      * are the loop vars. */
-    uint32_t nc = ts_node_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -1622,9 +1607,8 @@ static void process_foreach(PHPLSPContext *ctx, TSNode node) {
         } else if (strcmp(k, "pair") == 0) {
             /* `$k => $v` — extract both variable_names; the second is the
              * value, gets the elem_type. */
-            uint32_t pnc = ts_node_child_count(c);
-            for (uint32_t j = 0; j < pnc; j++) {
-                TSNode pc = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode pc = it2.node;
                 if (!ts_node_is_null(pc) && ts_node_is_named(pc) &&
                     strcmp(ts_node_type(pc), "variable_name") == 0 && loop_var_count < 4) {
                     loop_vars[loop_var_count++] = pc;
@@ -1678,9 +1662,8 @@ static void process_catch(PHPLSPContext *ctx, TSNode node) {
     memset(&type_list, 0, sizeof(type_list));
     TSNode var_node;
     memset(&var_node, 0, sizeof(var_node));
-    uint32_t nc = ts_node_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -1697,9 +1680,8 @@ static void process_catch(PHPLSPContext *ctx, TSNode node) {
     const char *vname = (vt[0] == '$') ? vt + 1 : vt;
     const PDXEType *exc_type = pdxe_type_unknown();
     if (!ts_node_is_null(type_list)) {
-        uint32_t tnc = ts_node_child_count(type_list);
-        for (uint32_t i = 0; i < tnc; i++) {
-            TSNode tc = ts_node_child(type_list, i);
+        PDXE_FOR_EACH_CHILD(it, type_list) {
+            TSNode tc = it.node;
             if (ts_node_is_null(tc) || !ts_node_is_named(tc))
                 continue;
             exc_type = php_parse_type_node(ctx, tc);
@@ -2004,9 +1986,8 @@ static int parse_narrowing_collect(PHPLSPContext *ctx, TSNode cond, php_narrowin
 
     /* Parenthesized: unwrap. */
     if (strcmp(kind, "parenthesized_expression") == 0) {
-        uint32_t nc = ts_node_child_count(cond);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(cond, i);
+        PDXE_FOR_EACH_CHILD(it, cond) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                 return parse_narrowing_collect(ctx, c, out, max_out);
             }
@@ -2041,9 +2022,8 @@ static int parse_narrowing_one(PHPLSPContext *ctx, TSNode cond, php_narrowing_t 
         return 0;
     const char *kind = ts_node_type(cond);
     if (strcmp(kind, "parenthesized_expression") == 0) {
-        uint32_t nc = ts_node_child_count(cond);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(cond, i);
+        PDXE_FOR_EACH_CHILD(it, cond) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                 return parse_narrowing_one(ctx, c, out);
             }
@@ -2095,21 +2075,19 @@ static int parse_narrowing_one(PHPLSPContext *ctx, TSNode cond, php_narrowing_t 
             return false;
         /* `is_a($x, Foo::class)` and `is_a($x, 'Foo')` narrow $x to Foo. */
         if (strcmp(name, "is_a") == 0 && !ts_node_is_null(args)) {
-            uint32_t anc = ts_node_child_count(args);
             TSNode v;
             memset(&v, 0, sizeof(v));
             TSNode classref;
             memset(&classref, 0, sizeof(classref));
             int seen = 0;
-            for (uint32_t i = 0; i < anc; i++) {
-                TSNode a = ts_node_child(args, i);
+            PDXE_FOR_EACH_CHILD(kid_it, args) {
+                TSNode a = kid_it.node;
                 if (ts_node_is_null(a) || !ts_node_is_named(a))
                     continue;
                 TSNode inner = a;
                 if (strcmp(ts_node_type(a), "argument") == 0) {
-                    uint32_t bnc = ts_node_child_count(a);
-                    for (uint32_t j = 0; j < bnc; j++) {
-                        TSNode b = ts_node_child(a, j);
+                    PDXE_FOR_EACH_CHILD(it2, a) {
+                        TSNode b = it2.node;
                         if (!ts_node_is_null(b) && ts_node_is_named(b)) {
                             inner = b;
                             break;
@@ -2152,18 +2130,16 @@ static int parse_narrowing_one(PHPLSPContext *ctx, TSNode cond, php_narrowing_t 
         /* First positional argument should be a variable_name. */
         if (ts_node_is_null(args))
             return false;
-        uint32_t anc = ts_node_child_count(args);
-        for (uint32_t i = 0; i < anc; i++) {
-            TSNode a = ts_node_child(args, i);
+        PDXE_FOR_EACH_CHILD(kid_it, args) {
+            TSNode a = kid_it.node;
             if (ts_node_is_null(a) || !ts_node_is_named(a))
                 continue;
             const char *ak = ts_node_type(a);
             /* `argument` wrapper has variable_name child. */
             TSNode v = a;
             if (strcmp(ak, "argument") == 0) {
-                uint32_t bnc = ts_node_child_count(a);
-                for (uint32_t j = 0; j < bnc; j++) {
-                    TSNode b = ts_node_child(a, j);
+                PDXE_FOR_EACH_CHILD(it2, a) {
+                    TSNode b = it2.node;
                     if (!ts_node_is_null(b) && ts_node_is_named(b) && node_is(b, "variable_name")) {
                         v = b;
                         break;
@@ -2195,16 +2171,14 @@ static void apply_assert_narrowing(PHPLSPContext *ctx, TSNode call) {
     TSNode args = ts_node_child_by_field_name(call, "arguments", 9);
     if (ts_node_is_null(args))
         return;
-    uint32_t anc = ts_node_child_count(args);
-    for (uint32_t i = 0; i < anc; i++) {
-        TSNode a = ts_node_child(args, i);
+    PDXE_FOR_EACH_CHILD(it, args) {
+        TSNode a = it.node;
         if (ts_node_is_null(a) || !ts_node_is_named(a))
             continue;
         TSNode predicate = a;
         if (strcmp(ts_node_type(a), "argument") == 0) {
-            uint32_t bnc = ts_node_child_count(a);
-            for (uint32_t j = 0; j < bnc; j++) {
-                TSNode b = ts_node_child(a, j);
+            PDXE_FOR_EACH_CHILD(it2, a) {
+                TSNode b = it2.node;
                 if (!ts_node_is_null(b) && ts_node_is_named(b)) {
                     predicate = b;
                     break;
@@ -2258,11 +2232,10 @@ static bool stmt_is_terminator(TSNode stmt) {
         return true;
     if (strcmp(k, "compound_statement") == 0) {
         /* Single-child compound that's a terminator. */
-        uint32_t nc = ts_node_child_count(stmt);
         TSNode last;
         memset(&last, 0, sizeof(last));
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(stmt, i);
+        PDXE_FOR_EACH_CHILD(it, stmt) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c) && ts_node_is_named(c))
                 last = c;
         }
@@ -2270,9 +2243,8 @@ static bool stmt_is_terminator(TSNode stmt) {
             return stmt_is_terminator(last);
     }
     if (strcmp(k, "expression_statement") == 0) {
-        uint32_t nc = ts_node_child_count(stmt);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(stmt, i);
+        PDXE_FOR_EACH_CHILD(it, stmt) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *ck = ts_node_type(c);
@@ -2319,9 +2291,8 @@ static void process_if_statement(PHPLSPContext *ctx, TSNode node) {
     /* Find condition: first parenthesized_expression child. */
     TSNode cond;
     memset(&cond, 0, sizeof(cond));
-    uint32_t nc = ts_node_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         if (strcmp(ts_node_type(c), "parenthesized_expression") == 0) {
@@ -2346,11 +2317,10 @@ static void process_if_statement(PHPLSPContext *ctx, TSNode node) {
         TSNode probe = cond;
         for (int loop = 0; loop < 4; loop++) {
             if (strcmp(ts_node_type(probe), "parenthesized_expression") == 0) {
-                uint32_t pnc = ts_node_child_count(probe);
                 TSNode next;
                 memset(&next, 0, sizeof(next));
-                for (uint32_t i = 0; i < pnc; i++) {
-                    TSNode c = ts_node_child(probe, i);
+                PDXE_FOR_EACH_CHILD(it, probe) {
+                    TSNode c = it.node;
                     if (!ts_node_is_null(c) && ts_node_is_named(c)) {
                         next = c;
                         break;
@@ -2370,9 +2340,8 @@ static void process_if_statement(PHPLSPContext *ctx, TSNode node) {
             if (opt && strcmp(opt, "!") == 0) {
                 TSNode operand = ts_node_child_by_field_name(probe, "operand", 7);
                 if (ts_node_is_null(operand)) {
-                    uint32_t unc = ts_node_child_count(probe);
-                    for (uint32_t i = 0; i < unc; i++) {
-                        TSNode c = ts_node_child(probe, i);
+                    PDXE_FOR_EACH_CHILD(it, probe) {
+                        TSNode c = it.node;
                         if (!ts_node_is_null(c) && ts_node_is_named(c) &&
                             strcmp(ts_node_type(c), "unary_op_expression") != 0) {
                             operand = c;
@@ -2393,8 +2362,8 @@ static void process_if_statement(PHPLSPContext *ctx, TSNode node) {
     bool walked_body = false;
     bool past_cond = false;
     bool body_is_terminator = false;
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(node, i);
+    PDXE_FOR_EACH_CHILD(it, node) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -2505,16 +2474,14 @@ static void php_resolve_calls_in_node_inner(PHPLSPContext *ctx, TSNode node) {
                 /* Resolve the second-arg's class. */
                 TSNode args = ts_node_child_by_field_name(node, "arguments", 9);
                 if (!ts_node_is_null(args)) {
-                    uint32_t anc = ts_node_child_count(args);
-                    for (uint32_t i = 0; i < anc; i++) {
-                        TSNode a = ts_node_child(args, i);
+                    PDXE_FOR_EACH_CHILD(it, args) {
+                        TSNode a = it.node;
                         if (ts_node_is_null(a) || !ts_node_is_named(a))
                             continue;
                         TSNode v = a;
                         if (strcmp(ts_node_type(a), "argument") == 0) {
-                            uint32_t bnc = ts_node_child_count(a);
-                            for (uint32_t j = 0; j < bnc; j++) {
-                                TSNode b = ts_node_child(a, j);
+                            PDXE_FOR_EACH_CHILD(it2, a) {
+                                TSNode b = it2.node;
                                 if (!ts_node_is_null(b) && ts_node_is_named(b)) {
                                     v = b;
                                     break;
@@ -2559,16 +2526,14 @@ static void php_resolve_calls_in_node_inner(PHPLSPContext *ctx, TSNode node) {
                     TSNode obj_arg;
                     memset(&obj_arg, 0, sizeof(obj_arg));
                     int seen = 0;
-                    uint32_t anc = ts_node_child_count(args);
-                    for (uint32_t i = 0; i < anc; i++) {
-                        TSNode a = ts_node_child(args, i);
+                    PDXE_FOR_EACH_CHILD(it, args) {
+                        TSNode a = it.node;
                         if (ts_node_is_null(a) || !ts_node_is_named(a))
                             continue;
                         TSNode inner = a;
                         if (strcmp(ts_node_type(a), "argument") == 0) {
-                            uint32_t bnc = ts_node_child_count(a);
-                            for (uint32_t j = 0; j < bnc; j++) {
-                                TSNode b = ts_node_child(a, j);
+                            PDXE_FOR_EACH_CHILD(it2, a) {
+                                TSNode b = it2.node;
                                 if (!ts_node_is_null(b) && ts_node_is_named(b)) {
                                     inner = b;
                                     break;
@@ -2616,9 +2581,8 @@ static void php_resolve_calls_in_node_inner(PHPLSPContext *ctx, TSNode node) {
 static void bind_typed_parameters(PHPLSPContext *ctx, TSNode params) {
     if (ts_node_is_null(params))
         return;
-    uint32_t nc = ts_node_child_count(params);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode p = ts_node_child(params, i);
+    PDXE_FOR_EACH_CHILD(it, params) {
+        TSNode p = it.node;
         if (ts_node_is_null(p) || !ts_node_is_named(p))
             continue;
         const char *pk = ts_node_type(p);
@@ -2633,9 +2597,8 @@ static void bind_typed_parameters(PHPLSPContext *ctx, TSNode params) {
         TSNode name_node = ts_node_child_by_field_name(p, "name", 4);
         if (ts_node_is_null(name_node)) {
             /* fallback: first variable_name child */
-            uint32_t pnc = ts_node_child_count(p);
-            for (uint32_t j = 0; j < pnc; j++) {
-                TSNode c = ts_node_child(p, j);
+            PDXE_FOR_EACH_CHILD(it2, p) {
+                TSNode c = it2.node;
                 if (!ts_node_is_null(c) && strcmp(ts_node_type(c), "variable_name") == 0) {
                     name_node = c;
                     break;
@@ -2700,16 +2663,14 @@ static void process_function_like(PHPLSPContext *ctx, TSNode node) {
      * parent scope into the closure scope. tree-sitter-php emits an
      * `anonymous_function_use_clause` child of `anonymous_function`. */
     if (strcmp(kind, "anonymous_function") == 0) {
-        uint32_t fnc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < fnc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(kid_it, node) {
+            TSNode c = kid_it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             if (strcmp(ts_node_type(c), "anonymous_function_use_clause") != 0)
                 continue;
-            uint32_t unc = ts_node_child_count(c);
-            for (uint32_t j = 0; j < unc; j++) {
-                TSNode v = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode v = it2.node;
                 if (ts_node_is_null(v) || !ts_node_is_named(v))
                     continue;
                 if (strcmp(ts_node_type(v), "variable_name") != 0)
@@ -2739,9 +2700,8 @@ static void process_function_like(PHPLSPContext *ctx, TSNode node) {
     if (ts_node_is_null(body)) {
         /* Arrow function body is in field "body" too, but it's an expression.
          * Try generic recursion as a fallback. */
-        uint32_t nc = ts_node_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(node, i);
+        PDXE_FOR_EACH_CHILD(it, node) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c))
                 php_resolve_calls_in_node(ctx, c);
         }
@@ -2756,16 +2716,14 @@ static void process_function_like(PHPLSPContext *ctx, TSNode node) {
 
 /* Find first base class (extends X) in a class_declaration, resolved. */
 static const char *find_extends_qn(PHPLSPContext *ctx, TSNode class_node) {
-    uint32_t nc = ts_node_child_count(class_node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(class_node, i);
+    PDXE_FOR_EACH_CHILD(it, class_node) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         if (strcmp(ts_node_type(c), "base_clause") != 0)
             continue;
-        uint32_t bnc = ts_node_child_count(c);
-        for (uint32_t j = 0; j < bnc; j++) {
-            TSNode bc = ts_node_child(c, j);
+        PDXE_FOR_EACH_CHILD(it2, c) {
+            TSNode bc = it2.node;
             if (ts_node_is_null(bc) || !ts_node_is_named(bc))
                 continue;
             const char *bk = ts_node_type(bc);
@@ -2805,9 +2763,8 @@ static void process_class_decl(PHPLSPContext *ctx, TSNode node) {
     if (ts_node_is_null(body))
         body = child_named(node, "declaration_list");
     if (!ts_node_is_null(body)) {
-        uint32_t nc = ts_node_child_count(body);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(body, i);
+        PDXE_FOR_EACH_CHILD(it, body) {
+            TSNode c = it.node;
             if (ts_node_is_null(c))
                 continue;
             const char *k = ts_node_type(c);
@@ -2836,9 +2793,8 @@ static void collect_use_clause(PHPLSPContext *ctx, TSNode use_clause, int kind) 
     TSNode alias_node;
     memset(&alias_node, 0, sizeof(alias_node));
     int name_seen = 0;
-    uint32_t nc = ts_node_child_count(use_clause);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(use_clause, i);
+    PDXE_FOR_EACH_CHILD(it, use_clause) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -2851,9 +2807,8 @@ static void collect_use_clause(PHPLSPContext *ctx, TSNode use_clause, int kind) 
             }
             name_seen++;
         } else if (strcmp(k, "namespace_aliasing_clause") == 0) {
-            uint32_t ac = ts_node_child_count(c);
-            for (uint32_t j = 0; j < ac; j++) {
-                TSNode ach = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode ach = it2.node;
                 if (!ts_node_is_null(ach) && ts_node_is_named(ach) &&
                     strcmp(ts_node_type(ach), "name") == 0) {
                     alias_node = ach;
@@ -2882,10 +2837,9 @@ static void collect_use_clause(PHPLSPContext *ctx, TSNode use_clause, int kind) 
 static void collect_use_declaration(PHPLSPContext *ctx, TSNode use_decl) {
     /* Determine kind: function / const / class (default). */
     int kind = PDXE_PHP_USE_CLASS;
-    uint32_t nc = ts_node_child_count(use_decl);
     /* tree-sitter-php emits `function` or `const` keyword children. */
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(use_decl, i);
+    PDXE_FOR_EACH_CHILD(it, use_decl) {
+        TSNode c = it.node;
         if (ts_node_is_null(c))
             continue;
         const char *k = ts_node_type(c);
@@ -2894,8 +2848,8 @@ static void collect_use_declaration(PHPLSPContext *ctx, TSNode use_decl) {
         if (strcmp(k, "const") == 0)
             kind = PDXE_PHP_USE_CONST;
     }
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(use_decl, i);
+    PDXE_FOR_EACH_CHILD(kid_it, use_decl) {
+        TSNode c = kid_it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -2903,9 +2857,8 @@ static void collect_use_declaration(PHPLSPContext *ctx, TSNode use_decl) {
             collect_use_clause(ctx, c, kind);
         } else if (strcmp(k, "namespace_use_group") == 0) {
             /* use App\\{Foo, Bar as B}; — recurse into clauses inside. */
-            uint32_t gc = ts_node_child_count(c);
-            for (uint32_t j = 0; j < gc; j++) {
-                TSNode gch = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode gch = it2.node;
                 if (!ts_node_is_null(gch) && ts_node_is_named(gch) &&
                     strcmp(ts_node_type(gch), "namespace_use_clause") == 0) {
                     collect_use_clause(ctx, gch, kind);
@@ -2916,9 +2869,8 @@ static void collect_use_declaration(PHPLSPContext *ctx, TSNode use_decl) {
 }
 
 static void set_namespace_from_decl(PHPLSPContext *ctx, TSNode ns_decl) {
-    uint32_t nc = ts_node_child_count(ns_decl);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(ns_decl, i);
+    PDXE_FOR_EACH_CHILD(it, ns_decl) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -2938,10 +2890,8 @@ void php_lsp_process_file(PHPLSPContext *ctx, TSNode root) {
 
     /* Pass 1: namespace + use declarations. */
     // Collect top-level children once (O(n)); ts_node_child(root,i) is O(i) → O(n²).
-    uint32_t kn = 0;
-    TSNode *kids = pdxe_lsp_collect_children(ctx->arena, root, &kn);
-    for (uint32_t i = 0; i < kn; i++) {
-        TSNode c = kids[i];
+    PDXE_FOR_EACH_CHILD(top_it, root) {
+        TSNode c = top_it.node;
         const char *k = ts_node_type(c);
         if (strcmp(k, "namespace_definition") == 0) {
             set_namespace_from_decl(ctx, c);
@@ -2951,8 +2901,8 @@ void php_lsp_process_file(PHPLSPContext *ctx, TSNode root) {
     }
 
     /* Pass 2: process classes and top-level functions. */
-    for (uint32_t i = 0; i < kn; i++) {
-        TSNode c = kids[i];
+    PDXE_FOR_EACH_CHILD(top_it, root) {
+        TSNode c = top_it.node;
         const char *k = ts_node_type(c);
         if (strcmp(k, "class_declaration") == 0 || strcmp(k, "trait_declaration") == 0 ||
             strcmp(k, "interface_declaration") == 0 || strcmp(k, "enum_declaration") == 0) {
@@ -2965,18 +2915,16 @@ void php_lsp_process_file(PHPLSPContext *ctx, TSNode root) {
              * use clauses inside the block, then walk children. */
             set_namespace_from_decl(ctx, c);
             /* Collect any namespace_use_declaration inside the block. */
-            uint32_t nc2 = ts_node_child_count(c);
-            for (uint32_t i2 = 0; i2 < nc2; i2++) {
-                TSNode ch = ts_node_child(c, i2);
+            PDXE_FOR_EACH_CHILD(it, c) {
+                TSNode ch = it.node;
                 if (ts_node_is_null(ch) || !ts_node_is_named(ch))
                     continue;
                 if (strcmp(ts_node_type(ch), "namespace_use_declaration") == 0) {
                     collect_use_declaration(ctx, ch);
                 } else if (strcmp(ts_node_type(ch), "declaration_list") == 0) {
                     /* use clauses can also appear inside the declaration_list. */
-                    uint32_t ncc = ts_node_child_count(ch);
-                    for (uint32_t k3 = 0; k3 < ncc; k3++) {
-                        TSNode cch = ts_node_child(ch, k3);
+                    PDXE_FOR_EACH_CHILD(it2, ch) {
+                        TSNode cch = it2.node;
                         if (ts_node_is_null(cch) || !ts_node_is_named(cch))
                             continue;
                         if (strcmp(ts_node_type(cch), "namespace_use_declaration") == 0) {
@@ -2989,8 +2937,8 @@ void php_lsp_process_file(PHPLSPContext *ctx, TSNode root) {
              * or a `compound_statement` depending on tree-sitter-php
              * version. Iterate ALL named children of the namespace and
              * dispatch any class/function/etc. seen at any depth. */
-            for (uint32_t j = 0; j < nc2; j++) {
-                TSNode bc = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it, c) {
+                TSNode bc = it.node;
                 if (ts_node_is_null(bc) || !ts_node_is_named(bc))
                     continue;
                 const char *bk = ts_node_type(bc);
@@ -3003,9 +2951,8 @@ void php_lsp_process_file(PHPLSPContext *ctx, TSNode root) {
                 } else if (strcmp(bk, "declaration_list") == 0 ||
                            strcmp(bk, "compound_statement") == 0) {
                     /* Walk children of the body node. */
-                    uint32_t bn = ts_node_child_count(bc);
-                    for (uint32_t bi = 0; bi < bn; bi++) {
-                        TSNode bcc = ts_node_child(bc, bi);
+                    PDXE_FOR_EACH_CHILD(it2, bc) {
+                        TSNode bcc = it2.node;
                         if (ts_node_is_null(bcc) || !ts_node_is_named(bcc))
                             continue;
                         const char *bbk = ts_node_type(bcc);
@@ -3231,9 +3178,8 @@ static void extract_property_decl(PHPLSPContext *ctx, TSNode prop_decl, php_clas
         ptype = php_parse_type_node(ctx, tnode);
     if (!ptype || ptype->kind == PDXE_TYPE_UNKNOWN) {
         /* Tree-sitter-php may put the type as a named child without field. */
-        uint32_t nc = ts_node_child_count(prop_decl);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(prop_decl, i);
+        PDXE_FOR_EACH_CHILD(it, prop_decl) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *k = ts_node_type(c);
@@ -3249,16 +3195,14 @@ static void extract_property_decl(PHPLSPContext *ctx, TSNode prop_decl, php_clas
         return;
 
     /* Find the property_element children (each has variable_name + maybe default). */
-    uint32_t nc = ts_node_child_count(prop_decl);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(prop_decl, i);
+    PDXE_FOR_EACH_CHILD(kid_it, prop_decl) {
+        TSNode c = kid_it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
         if (strcmp(k, "property_element") == 0) {
-            uint32_t bnc = ts_node_child_count(c);
-            for (uint32_t j = 0; j < bnc; j++) {
-                TSNode b = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode b = it2.node;
                 if (!ts_node_is_null(b) && ts_node_is_named(b) &&
                     strcmp(ts_node_type(b), "variable_name") == 0) {
                     char *vt = php_node_text(ctx, b);
@@ -3287,9 +3231,8 @@ static void extract_promoted_param(PHPLSPContext *ctx, TSNode param, php_class_f
     if (!ts_node_is_null(tnode))
         ptype = php_parse_type_node(ctx, tnode);
     if (!ptype || ptype->kind == PDXE_TYPE_UNKNOWN) {
-        uint32_t nc = ts_node_child_count(param);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(param, i);
+        PDXE_FOR_EACH_CHILD(it, param) {
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *k = ts_node_type(c);
@@ -3305,9 +3248,8 @@ static void extract_promoted_param(PHPLSPContext *ctx, TSNode param, php_class_f
         return;
     TSNode vname = ts_node_child_by_field_name(param, "name", 4);
     if (ts_node_is_null(vname)) {
-        uint32_t nc = ts_node_child_count(param);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode c = ts_node_child(param, i);
+        PDXE_FOR_EACH_CHILD(it, param) {
+            TSNode c = it.node;
             if (!ts_node_is_null(c) && strcmp(ts_node_type(c), "variable_name") == 0) {
                 vname = c;
                 break;
@@ -3333,9 +3275,11 @@ static void extract_ctor_assignments(PHPLSPContext *ctx, TSNode ctor_method,
     const PDXEType *types[32];
     int pc = 0;
     if (!ts_node_is_null(params)) {
-        uint32_t nc = ts_node_child_count(params);
-        for (uint32_t i = 0; i < nc && pc < 32; i++) {
-            TSNode p = ts_node_child(params, i);
+        PDXE_FOR_EACH_CHILD(kid_it, params) {
+            if (!(pc < 32)) {
+                break;
+            }
+            TSNode p = kid_it.node;
             if (ts_node_is_null(p) || !ts_node_is_named(p))
                 continue;
             const char *pk = ts_node_type(p);
@@ -3351,9 +3295,8 @@ static void extract_ctor_assignments(PHPLSPContext *ctx, TSNode ctor_method,
                 continue;
             TSNode name_node = ts_node_child_by_field_name(p, "name", 4);
             if (ts_node_is_null(name_node)) {
-                uint32_t pnc = ts_node_child_count(p);
-                for (uint32_t j = 0; j < pnc; j++) {
-                    TSNode c = ts_node_child(p, j);
+                PDXE_FOR_EACH_CHILD(it2, p) {
+                    TSNode c = it2.node;
                     if (!ts_node_is_null(c) && strcmp(ts_node_type(c), "variable_name") == 0) {
                         name_node = c;
                         break;
@@ -3411,9 +3354,11 @@ static void extract_ctor_assignments(PHPLSPContext *ctx, TSNode ctor_method,
                 }
             }
         }
-        uint32_t cnt = ts_node_child_count(n);
-        for (uint32_t i = 0; i < cnt && top < 64; i++) {
-            TSNode c = ts_node_child(n, i);
+        PDXE_FOR_EACH_CHILD(it, n) {
+            if (!(top < 64)) {
+                break;
+            }
+            TSNode c = it.node;
             if (!ts_node_is_null(c))
                 stack[top++] = c;
         }
@@ -3873,9 +3818,11 @@ static void process_trait_use(PHPLSPContext *ctx, PDXETypeRegistry *reg, const c
     const char *trait_qns[16];
     int trait_count = 0;
 
-    uint32_t nc = ts_node_child_count(use_decl);
-    for (uint32_t i = 0; i < nc && trait_count < 16; i++) {
-        TSNode c = ts_node_child(use_decl, i);
+    PDXE_FOR_EACH_CHILD(it, use_decl) {
+        if (!(trait_count < 16)) {
+            break;
+        }
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -3896,15 +3843,14 @@ static void process_trait_use(PHPLSPContext *ctx, PDXETypeRegistry *reg, const c
 
     /* Process `use_list` block for `as` / `insteadof` clauses. The block is
      * either named "body" or a sibling. */
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(use_decl, i);
+    PDXE_FOR_EACH_CHILD(kid_it, use_decl) {
+        TSNode c = kid_it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
         if (strcmp(k, "use_list") != 0 && strcmp(k, "use_clause") != 0) {
-            uint32_t bnc = ts_node_child_count(c);
-            for (uint32_t j = 0; j < bnc; j++) {
-                TSNode cc = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode cc = it2.node;
                 if (ts_node_is_null(cc) || !ts_node_is_named(cc))
                     continue;
                 const char *kk = ts_node_type(cc);
@@ -3913,17 +3859,15 @@ static void process_trait_use(PHPLSPContext *ctx, PDXETypeRegistry *reg, const c
                     char *trait_text = NULL;
                     char *method_text = NULL;
                     char *alias_text = NULL;
-                    uint32_t anc = ts_node_child_count(cc);
-                    for (uint32_t a = 0; a < anc; a++) {
-                        TSNode ch = ts_node_child(cc, a);
+                    PDXE_FOR_EACH_CHILD(it3, cc) {
+                        TSNode ch = it3.node;
                         if (ts_node_is_null(ch) || !ts_node_is_named(ch))
                             continue;
                         const char *ck = ts_node_type(ch);
                         if (strcmp(ck, "class_constant_access_expression") == 0) {
                             /* Trait::method */
-                            uint32_t cc2 = ts_node_child_count(ch);
-                            for (uint32_t a2 = 0; a2 < cc2; a2++) {
-                                TSNode subch = ts_node_child(ch, a2);
+                            PDXE_FOR_EACH_CHILD(it4, ch) {
+                                TSNode subch = it4.node;
                                 if (ts_node_is_null(subch) || !ts_node_is_named(subch))
                                     continue;
                                 const char *sck = ts_node_type(subch);
@@ -3990,18 +3934,22 @@ static void process_class_for_fields(PHPLSPContext *ctx, PDXETypeRegistry *reg, 
     {
         const char *parent_qns[16];
         int parent_count = 0;
-        uint32_t cnc = ts_node_child_count(class_node);
-        for (uint32_t i = 0; i < cnc && parent_count < 16; i++) {
-            TSNode c = ts_node_child(class_node, i);
+        PDXE_FOR_EACH_CHILD(it, class_node) {
+            if (!(parent_count < 16)) {
+                break;
+            }
+            TSNode c = it.node;
             if (ts_node_is_null(c) || !ts_node_is_named(c))
                 continue;
             const char *k = ts_node_type(c);
             if (strcmp(k, "base_clause") != 0 && strcmp(k, "class_interface_clause") != 0) {
                 continue;
             }
-            uint32_t bnc = ts_node_child_count(c);
-            for (uint32_t j = 0; j < bnc && parent_count < 16; j++) {
-                TSNode bc = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                if (!(parent_count < 16)) {
+                    break;
+                }
+                TSNode bc = it2.node;
                 if (ts_node_is_null(bc) || !ts_node_is_named(bc))
                     continue;
                 const char *bk = ts_node_type(bc);
@@ -4073,9 +4021,8 @@ static void process_class_for_fields(PHPLSPContext *ctx, PDXETypeRegistry *reg, 
     if (ts_node_is_null(body))
         return;
 
-    uint32_t nc = ts_node_child_count(body);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(body, i);
+    PDXE_FOR_EACH_CHILD(it, body) {
+        TSNode c = it.node;
         if (ts_node_is_null(c) || !ts_node_is_named(c))
             continue;
         const char *k = ts_node_type(c);
@@ -4085,9 +4032,8 @@ static void process_class_for_fields(PHPLSPContext *ctx, PDXETypeRegistry *reg, 
             /* Enum case: Suit::Hearts → typed as the enum itself. */
             TSNode case_name;
             memset(&case_name, 0, sizeof(case_name));
-            uint32_t enc = ts_node_child_count(c);
-            for (uint32_t j = 0; j < enc; j++) {
-                TSNode cc = ts_node_child(c, j);
+            PDXE_FOR_EACH_CHILD(it2, c) {
+                TSNode cc = it2.node;
                 if (!ts_node_is_null(cc) && ts_node_is_named(cc) &&
                     strcmp(ts_node_type(cc), "name") == 0) {
                     case_name = cc;
@@ -4115,9 +4061,8 @@ static void process_class_for_fields(PHPLSPContext *ctx, PDXETypeRegistry *reg, 
             bool is_ctor = mn && strcmp(mn, "__construct") == 0;
             TSNode params = ts_node_child_by_field_name(c, "parameters", 10);
             if (!ts_node_is_null(params)) {
-                uint32_t pnc = ts_node_child_count(params);
-                for (uint32_t j = 0; j < pnc; j++) {
-                    TSNode p = ts_node_child(params, j);
+                PDXE_FOR_EACH_CHILD(it2, params) {
+                    TSNode p = it2.node;
                     if (ts_node_is_null(p) || !ts_node_is_named(p))
                         continue;
                     if (strcmp(ts_node_type(p), "property_promotion_parameter") == 0) {
@@ -4280,9 +4225,11 @@ static void php_lsp_collect_class_fields(PHPLSPContext *ctx, PDXETypeRegistry *r
             if ((pass == 0 && is_trait_or_iface) || (pass == 1 && is_class_or_enum)) {
                 process_class_for_fields(ctx, reg, n, tab);
             }
-            uint32_t nc = ts_node_child_count(n);
-            for (uint32_t i = 0; i < nc && top < 256; i++) {
-                TSNode c = ts_node_child(n, i);
+            PDXE_FOR_EACH_CHILD(it, n) {
+                if (!(top < 256)) {
+                    break;
+                }
+                TSNode c = it.node;
                 if (!ts_node_is_null(c) && ts_node_is_named(c))
                     stack[top++] = c;
             }
@@ -4431,10 +4378,8 @@ void pdxe_run_php_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sour
         /* First pass to populate the use map (so type names in property
          * declarations resolve correctly). */
         /* Collect top-level children once (O(n)); ts_node_child(root,i) is O(i) → O(n²). */
-        uint32_t pkn = 0;
-        TSNode *pkids = pdxe_lsp_collect_children(ctx.arena, root, &pkn);
-        for (uint32_t i = 0; i < pkn; i++) {
-            TSNode c = pkids[i];
+        PDXE_FOR_EACH_CHILD(top_it, root) {
+            TSNode c = top_it.node;
             const char *k = ts_node_type(c);
             if (strcmp(k, "namespace_definition") == 0) {
                 set_namespace_from_decl(&ctx, c);
@@ -4659,10 +4604,8 @@ void pdxe_run_php_lsp_cross(PDXEArena *arena, const char *source, int source_len
      * resolve to the right type during the call walk. */
     {
         /* Collect top-level children once (O(n)); ts_node_child(root,i) is O(i) → O(n²). */
-        uint32_t pkn = 0;
-        TSNode *pkids = pdxe_lsp_collect_children(ctx.arena, root, &pkn);
-        for (uint32_t i = 0; i < pkn; i++) {
-            TSNode c = pkids[i];
+        PDXE_FOR_EACH_CHILD(top_it, root) {
+            TSNode c = top_it.node;
             const char *k = ts_node_type(c);
             if (strcmp(k, "namespace_definition") == 0) {
                 set_namespace_from_decl(&ctx, c);

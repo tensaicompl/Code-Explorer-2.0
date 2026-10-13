@@ -79,20 +79,14 @@ static inline TSNode ts_nstack_pop(TSNodeStack *s) {
  * O(i) in tree-sitter (it walks the child iterator from the first child each
  * time). Over a node with N children that is O(N^2) — catastrophic on a program
  * root holding hundreds of thousands of top-level nodes (e.g. fixture/generated
- * files). This helper enumerates children in a single O(N) cursor pass, then
- * reverses the just-pushed segment so pop order is identical to the old idiom.
+ * files). This helper enumerates children in a single O(N) cursor pass
+ * (PDXE_FOR_EACH_CHILD, node_iter.h), then reverses the just-pushed segment so
+ * pop order is identical to the old idiom.
  */
-static inline void ts_nstack_push_children(TSNodeStack *s, TSNode node) {
-    int base = s->count;
-    /* The thread's reusable cursor (pdxe_thread_cursor): the walk completes
-     * before anything else on this thread can ask for it. */
-    TSTreeCursor *cursor = pdxe_thread_cursor(node);
-    if (ts_tree_cursor_goto_first_child(cursor)) {
-        do {
-            ts_nstack_push(s, ts_tree_cursor_current_node(cursor));
-        } while (ts_tree_cursor_goto_next_sibling(cursor));
-    }
-    /* Reverse [base, count) so the first child pops first (forward order). */
+/* Reverses the nodes pushed since the stack held `base`, so the first pushed pops first:
+ * children pushed forward by cursor then pop in source order, as a reverse index loop
+ * pushing them would have them. */
+static inline void ts_nstack_reverse_from(TSNodeStack *s, int base) {
     int lo = base, hi = s->count - 1;
     while (lo < hi) {
         TSNode tmp = s->items[lo];
@@ -101,6 +95,14 @@ static inline void ts_nstack_push_children(TSNodeStack *s, TSNode node) {
         lo++;
         hi--;
     }
+}
+
+static inline void ts_nstack_push_children(TSNodeStack *s, TSNode node) {
+    int base = s->count;
+    PDXE_FOR_EACH_CHILD(it, node) {
+        ts_nstack_push(s, it.node);
+    }
+    ts_nstack_reverse_from(s, base);
 }
 
 #endif /* PDXE_EXTRACT_NODE_STACK_H */

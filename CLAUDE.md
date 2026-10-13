@@ -152,7 +152,7 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 92 (decisions 51 and 53 to 62, engine 7, patches 0015 to 0025 together):
+Issues 83 to 93 (decisions 51 and 53 to 62, engine 7, patches 0015 to 0026 together):
 the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
@@ -258,11 +258,38 @@ the buffer Stage 2 supplies is the whole input.
     `lookup_counts.h` counts the work, `PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES` refuses a
     family of indexes. `engine/tests/typed_lookup.c` proves answers equal and work
     linear; never assert a time in a test.
+- **No positional navigation (issue 93, patch 0026).** tree-sitter's lookups by
+  position cost the position: a child by index walks from the first, a parent descends
+  from the root, a sibling finds the parent and walks its children. In an error node the
+  parser's recovery builds (one flat run holding the rest of a file) each costs the
+  position itself, so a pass doing any of them per child is quadratic in the file.
+  - Step through children with `PDXE_FOR_EACH_CHILD` / `PDXE_FOR_EACH_NAMED_CHILD`
+    (`node_iter.h`): exactly `ts_node_child`'s and `ts_node_named_child`'s children, in
+    order, `it.index` the position, `pdxe_child_iter_field_name` the field; leaving the
+    loop by `break`, `return` or `goto` gives the cursor back. Never `ts_node_child(n, i)`
+    with a variable `i`, nor `ts_node_field_name_for_child(n, i)`.
+  - In reverse, or by position: collect once (`pdxe_collect_children`) and index the
+    collection. A whole subtree in source order: `PDXE_TREE_WALK`.
+  - Parents and siblings: `pdxe_node_parent` and `pdxe_node_{prev,next}[_named]_sibling`,
+    never `ts_node_parent` or tree-sitter's sibling lookups. They answer from the walk's
+    registered path (`pdxe_walk_path_*`; the unified walk, the definitions walk, the tree
+    walk register theirs) or from a loop in progress, and give tree-sitter's answers. A
+    new walker whose handlers ask for parents or siblings registers its path or steps
+    through children with the iterator.
+  - A collection that cannot get its memory is lost work; never fall back to a positional
+    walk.
+  - Test builds count navigation (`lookup_counts.h`: children by position weighted by the
+    position, cursor steps, parent and sibling lookups weighted by the children passed,
+    field lookups) and can refuse collections (`PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES=
+    children`). `engine/tests/wide_nodes.c` proves the answers tree-sitter's and the work
+    linear in every language's wide shapes.
 - **Open.** Issues 88, 90, 91 and 92 are resolved. Issues 86, 87 and 89 are fixed, and
-  their closure stays held: the final engine-7 audit found issue 93, an error-recovered
-  file whose parse leaves one wide error node costs superlinear work (parser recovery,
-  extraction's sibling and parent steps, the Kotlin resolver's top-level walks). Engine
-  blockers: issues 82 and 93.
+  their closure stays held: issue 93 is open. Its extraction side is fixed (patch 0026),
+  but the vendored parser's own error recovery is quadratic: JavaScript after an
+  unclosed parenthesis parses in about 94 s at 2 MiB (`ts_parser__recover` rebuilding
+  the error node). Changing the parser is the driver's decision. Issue 94 (open): Python's
+  per-file resolver replays each import by scanning every import (issue 92's class).
+  Engine blockers: issues 82 and 93.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4

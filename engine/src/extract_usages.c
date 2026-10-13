@@ -44,13 +44,13 @@ static void usage_slow_parent_fallback_test_note(void) {
     atomic_fetch_add_explicit(&g_usage_slow_parent_fallbacks, 1, memory_order_relaxed);
 }
 
-/* Every ts_node_parent usage classification makes counts as a slow fallback too, so
+/* Every parent lookup usage classification makes counts as a slow fallback too, so
  * a climb that comes back counts whether or not it notes itself. */
-static TSNode usage_counted_ts_node_parent(TSNode node) {
+static TSNode usage_counted_node_parent(TSNode node) {
     usage_slow_parent_fallback_test_note();
-    return ts_node_parent(node);
+    return pdxe_node_parent(node);
 }
-#define ts_node_parent usage_counted_ts_node_parent
+#define pdxe_node_parent usage_counted_node_parent
 #else
 static void usage_field_lookup_test_note_work(void) {}
 static void usage_slow_parent_fallback_test_note(void) {}
@@ -104,7 +104,7 @@ static bool is_reference_node(TSNode node, PDXELanguage lang, WalkState *state) 
      * budget on every non-M4 venue). */
     if ((lang == PDXE_LANG_PUPPET || lang == PDXE_LANG_VIMSCRIPT) &&
         strcmp(kind, "identifier") == 0) {
-        TSNode parent = ts_node_parent(node);
+        TSNode parent = pdxe_node_parent(node);
         if (!ts_node_is_null(parent) &&
             ((lang == PDXE_LANG_PUPPET && strcmp(ts_node_type(parent), "variable") == 0) ||
              (lang == PDXE_LANG_VIMSCRIPT && strcmp(ts_node_type(parent), "argument") == 0))) {
@@ -241,13 +241,17 @@ static TSNode terminal_vhdl_identifier(TSNode node, int remaining_depth) {
     if (ts_node_is_null(node) || remaining_depth < 0) {
         return (TSNode){0};
     }
-    uint32_t count = ts_node_named_child_count(node);
-    for (uint32_t i = count; i > 0; i--) {
-        TSNode found =
-            terminal_vhdl_identifier(ts_node_named_child(node, i - 1), remaining_depth - 1);
+    /* The last child's that has one: every child asked in source order, the last answer
+     * kept (by position from the end, each lookup would cost its position). */
+    TSNode last = {0};
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode found = terminal_vhdl_identifier(it.node, remaining_depth - 1);
         if (!ts_node_is_null(found)) {
-            return found;
+            last = found;
         }
+    }
+    if (!ts_node_is_null(last)) {
+        return last;
     }
     const char *kind = ts_node_type(node);
     return strcmp(kind, "identifier") == 0 || strcmp(kind, "simple_identifier") == 0 ? node
@@ -261,7 +265,7 @@ static TSNode terminal_vhdl_identifier(TSNode node, int remaining_depth) {
 // identifiers: a sibling selector/parenthesis group is the grammar contract.
 static bool is_forward_sibling_callee(PDXELanguage language, TSNode node) {
     if (language == PDXE_LANG_DART && strcmp(ts_node_type(node), "identifier") == 0) {
-        TSNode next = ts_node_next_named_sibling(node);
+        TSNode next = pdxe_node_next_named_sibling(node);
         return !ts_node_is_null(next) && strcmp(ts_node_type(next), "selector") == 0;
     }
 
@@ -271,12 +275,12 @@ static bool is_forward_sibling_callee(PDXELanguage language, TSNode node) {
 
     TSNode owner = node;
     for (int depth = 0; depth < 4 && vhdl_forward_callee_wrapper(owner); depth++) {
-        TSNode next = ts_node_next_named_sibling(owner);
+        TSNode next = pdxe_node_next_named_sibling(owner);
         if (!ts_node_is_null(next) && strcmp(ts_node_type(next), "parenthesis_group") == 0) {
             TSNode leaf = terminal_vhdl_identifier(owner, 8);
             return !ts_node_is_null(leaf) && ts_node_eq(node, leaf);
         }
-        TSNode parent = ts_node_parent(owner);
+        TSNode parent = pdxe_node_parent(owner);
         if (ts_node_is_null(parent) || !vhdl_forward_callee_wrapper(parent)) {
             break;
         }
@@ -327,7 +331,7 @@ static bool occurrence_parent(TSTreeCursor *cursor, TSNode current, TSNode *pare
         return true;
     }
 
-    *parent = ts_node_parent(current);
+    *parent = pdxe_node_parent(current);
     if (ts_node_is_null(*parent)) {
         *field = NULL;
         return false;
@@ -578,7 +582,7 @@ static TSNode walk_parent_of(const WalkState *state, TSNode node) {
         return depth > 0 ? state->frames[depth - 1].node : (TSNode){0};
     }
     usage_slow_parent_fallback_test_note();
-    return ts_node_parent(node);
+    return pdxe_node_parent(node);
 }
 
 static bool walk_node_in_set(const WalkState *state, unsigned set, TSNode node) {
@@ -817,7 +821,7 @@ static bool chialisp_head_binds_params_at_2(const char *head) {
 
 static bool is_lisp_def_binding(PDXEExtractCtx *ctx, TSNode node) {
     bool chialisp = (ctx->language == PDXE_LANG_CHIALISP);
-    for (TSNode form = ts_node_parent(node); !ts_node_is_null(form); form = ts_node_parent(form)) {
+    for (TSNode form = pdxe_node_parent(node); !ts_node_is_null(form); form = pdxe_node_parent(form)) {
         const char *kind = ts_node_type(form);
         if ((strcmp(kind, "list") != 0 && strcmp(kind, "list_lit") != 0) ||
             ts_node_named_child_count(form) < 2) {
@@ -846,7 +850,7 @@ static bool is_lisp_def_binding(PDXEExtractCtx *ctx, TSNode node) {
 }
 
 static bool is_fennel_fn_binding(PDXEExtractCtx *ctx, TSNode node) {
-    for (TSNode form = ts_node_parent(node); !ts_node_is_null(form); form = ts_node_parent(form)) {
+    for (TSNode form = pdxe_node_parent(node); !ts_node_is_null(form); form = pdxe_node_parent(form)) {
         if (strcmp(ts_node_type(form), "list") != 0 || ts_node_named_child_count(form) < 2 ||
             !text_equals(ctx, ts_node_named_child(form, 0), "fn")) {
             continue;
@@ -865,7 +869,7 @@ static bool is_fennel_fn_binding(PDXEExtractCtx *ctx, TSNode node) {
 }
 
 static bool is_elixir_def_binding(PDXEExtractCtx *ctx, TSNode node) {
-    for (TSNode form = ts_node_parent(node); !ts_node_is_null(form); form = ts_node_parent(form)) {
+    for (TSNode form = pdxe_node_parent(node); !ts_node_is_null(form); form = pdxe_node_parent(form)) {
         if (strcmp(ts_node_type(form), "call") != 0 || ts_node_named_child_count(form) < 2) {
             continue;
         }
@@ -887,8 +891,8 @@ static bool is_elixir_def_binding(PDXEExtractCtx *ctx, TSNode node) {
 }
 
 static bool is_first_named_part_of(TSNode node, const char *container_kind) {
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), container_kind) == 0) {
             return named_child_contains(parent, 0, node);
         }
@@ -902,8 +906,8 @@ static bool is_wolfram_lhs(TSNode node) {
         "tag_set", "tag_set_top", "tag_set_delayed", "tag_set_delayed_top",
         "up_set",  "up_set_top",  "up_set_delayed",  "up_set_delayed_top",
         NULL};
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (kind_in_exact_set(ts_node_type(parent), set_nodes)) {
             return named_child_contains(parent, 0, node);
         }
@@ -914,8 +918,8 @@ static bool is_wolfram_lhs(TSNode node) {
 static bool any_field_contains_node(TSNode parent, const char *field, TSNode node);
 
 static bool is_tlaplus_binding(TSNode node) {
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         const char *kind = ts_node_type(parent);
         if (strcmp(kind, "operator_definition") == 0) {
             /* `name:` is the callable declaration, while every repeated
@@ -925,9 +929,9 @@ static bool is_tlaplus_binding(TSNode node) {
         if (strcmp(kind, "function_definition") == 0) {
             /* `F[x \in S] == ...`: only quantifier_bound.intro binds. The set
              * expression S remains an ordinary identifier_ref usage. */
-            for (TSNode bound = ts_node_parent(node);
+            for (TSNode bound = pdxe_node_parent(node);
                  !ts_node_is_null(bound) && !ts_node_eq(bound, parent);
-                 bound = ts_node_parent(bound)) {
+                 bound = pdxe_node_parent(bound)) {
                 if (strcmp(ts_node_type(bound), "quantifier_bound") == 0) {
                     return any_field_contains_node(bound, "intro", node);
                 }
@@ -935,9 +939,9 @@ static bool is_tlaplus_binding(TSNode node) {
             return false;
         }
         if (strcmp(kind, "bounded_quantification") == 0) {
-            for (TSNode bound = ts_node_parent(node);
+            for (TSNode bound = pdxe_node_parent(node);
                  !ts_node_is_null(bound) && !ts_node_eq(bound, parent);
-                 bound = ts_node_parent(bound)) {
+                 bound = pdxe_node_parent(bound)) {
                 if (strcmp(ts_node_type(bound), "quantifier_bound") == 0) {
                     return any_field_contains_node(bound, "intro", node);
                 }
@@ -952,8 +956,8 @@ static bool is_tlaplus_binding(TSNode node) {
 }
 
 static bool is_cobol_move_destination(TSNode node) {
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), "move_statement") != 0) {
             continue;
         }
@@ -971,11 +975,10 @@ static bool is_cobol_move_destination(TSNode node) {
  * public child-by-field helper returns only one match, so inspect every direct
  * child and preserve the exact field role while allowing nested wrappers. */
 static bool any_field_contains_node(TSNode parent, const char *field, TSNode node) {
-    uint32_t count = ts_node_child_count(parent);
-    for (uint32_t i = 0; i < count; i++) {
-        const char *child_field = ts_node_field_name_for_child(parent, i);
+    PDXE_FOR_EACH_CHILD(it, parent) {
+        const char *child_field = pdxe_child_iter_field_name(&it);
         if (child_field && strcmp(child_field, field) == 0 &&
-            node_contains(ts_node_child(parent, i), node)) {
+            node_contains(it.node, node)) {
             return true;
         }
     }
@@ -983,8 +986,8 @@ static bool any_field_contains_node(TSNode parent, const char *field, TSNode nod
 }
 
 static bool is_perl_lexical_declaration_binding(TSNode node) {
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), "variable_declaration") == 0) {
             /* Perl permits repeated `variables:` fields for `my ($a, $b)`;
              * inspect all direct field instances, not only the first. */
@@ -1001,9 +1004,9 @@ static bool is_cmake_function_parameter(TSNode node) {
     if (strcmp(ts_node_type(node), "unquoted_argument") != 0) {
         return false;
     }
-    TSNode argument = ts_node_parent(node);
-    TSNode arguments = ts_node_parent(argument);
-    TSNode command = ts_node_parent(arguments);
+    TSNode argument = pdxe_node_parent(node);
+    TSNode arguments = pdxe_node_parent(argument);
+    TSNode command = pdxe_node_parent(arguments);
     if (ts_node_is_null(argument) || strcmp(ts_node_type(argument), "argument") != 0 ||
         ts_node_is_null(arguments) || strcmp(ts_node_type(arguments), "argument_list") != 0 ||
         ts_node_is_null(command) ||
@@ -1011,9 +1014,8 @@ static bool is_cmake_function_parameter(TSNode node) {
          strcmp(ts_node_type(command), "macro_command") != 0)) {
         return false;
     }
-    uint32_t count = ts_node_named_child_count(arguments);
-    for (uint32_t i = 1; i < count; i++) {
-        if (node_contains(ts_node_named_child(arguments, i), node)) {
+    PDXE_FOR_EACH_NAMED_CHILD(it, arguments) {
+        if (it.index >= 1 && node_contains(it.node, node)) {
             return true;
         }
     }
@@ -1030,15 +1032,15 @@ static bool is_fish_function_parameter(PDXEExtractCtx *ctx, TSNode node, WalkSta
     if (strcmp(ts_node_type(node), "word") != 0) {
         return false;
     }
-    TSNode definition = ts_node_parent(node);
+    TSNode definition = pdxe_node_parent(node);
     const char *field =
         ts_node_is_null(definition) ? NULL : field_name_for_walk_node(state, definition, node);
     if (!field || strcmp(field, "option") != 0 ||
         strcmp(ts_node_type(definition), "function_definition") != 0) {
         return false;
     }
-    for (TSNode previous = ts_node_prev_named_sibling(node); !ts_node_is_null(previous);
-         previous = ts_node_prev_named_sibling(previous)) {
+    for (TSNode previous = pdxe_node_prev_named_sibling(node); !ts_node_is_null(previous);
+         previous = pdxe_node_prev_named_sibling(previous)) {
         char *text = pdxe_node_text(ctx->arena, previous, ctx->source);
         if (!text || text[0] != '-') {
             continue;
@@ -1049,13 +1051,13 @@ static bool is_fish_function_parameter(PDXEExtractCtx *ctx, TSNode node, WalkSta
 }
 
 static bool is_tcl_procedure_parameter(TSNode node) {
-    TSNode argument = ts_node_parent(node);
+    TSNode argument = pdxe_node_parent(node);
     if (ts_node_is_null(argument) || strcmp(ts_node_type(argument), "argument") != 0 ||
         !any_field_contains_node(argument, "name", node)) {
         return false;
     }
-    TSNode arguments = ts_node_parent(argument);
-    TSNode procedure = ts_node_parent(arguments);
+    TSNode arguments = pdxe_node_parent(argument);
+    TSNode procedure = pdxe_node_parent(arguments);
     return !ts_node_is_null(arguments) && strcmp(ts_node_type(arguments), "arguments") == 0 &&
            !ts_node_is_null(procedure) && strcmp(ts_node_type(procedure), "procedure") == 0 &&
            any_field_contains_node(procedure, "arguments", node);
@@ -1065,8 +1067,8 @@ static bool cfml_argument_tag_name_binding(PDXEExtractCtx *ctx, TSNode node) {
     if (strcmp(ts_node_type(node), "attribute_value") != 0) {
         return false;
     }
-    TSNode quoted = ts_node_parent(node);
-    TSNode attribute = ts_node_parent(quoted);
+    TSNode quoted = pdxe_node_parent(node);
+    TSNode attribute = pdxe_node_parent(quoted);
     if (ts_node_is_null(attribute) || strcmp(ts_node_type(attribute), "cf_attribute") != 0) {
         return false;
     }
@@ -1075,7 +1077,7 @@ static bool cfml_argument_tag_name_binding(PDXEExtractCtx *ctx, TSNode node) {
     if (!name_text || strcasecmp(name_text, "name") != 0) {
         return false;
     }
-    TSNode tag = ts_node_parent(attribute);
+    TSNode tag = pdxe_node_parent(attribute);
     if (ts_node_is_null(tag) || strcmp(ts_node_type(tag), "cf_selfclose_tag") != 0) {
         return false;
     }
@@ -1087,8 +1089,8 @@ static bool cfml_argument_tag_name_binding(PDXEExtractCtx *ctx, TSNode node) {
          tag_text[prefix_length] != '>' && tag_text[prefix_length] != '/')) {
         return false;
     }
-    for (TSNode parent = ts_node_parent(tag); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(tag); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), "cf_function_tag") == 0) {
             return true;
         }
@@ -1103,7 +1105,7 @@ static bool is_exact_language_binding(PDXEExtractCtx *ctx, TSNode node, WalkStat
         if (strcmp(kind, "value_pattern") != 0) {
             return false;
         }
-        TSNode parameter = ts_node_parent(node);
+        TSNode parameter = pdxe_node_parent(node);
         return !ts_node_is_null(parameter) && strcmp(ts_node_type(parameter), "parameter") == 0 &&
                field_contains_node(parameter, "pattern", node);
     }
@@ -1111,14 +1113,14 @@ static bool is_exact_language_binding(PDXEExtractCtx *ctx, TSNode node, WalkStat
         if (strcmp(kind, "variable_name") != 0) {
             return false;
         }
-        TSNode parameter = ts_node_parent(node);
+        TSNode parameter = pdxe_node_parent(node);
         return !ts_node_is_null(parameter) && strcmp(ts_node_type(parameter), "parameter") == 0;
     }
     case PDXE_LANG_FORM: {
         if (strcmp(kind, "parameter") != 0) {
             return false;
         }
-        TSNode parameters = ts_node_parent(node);
+        TSNode parameters = pdxe_node_parent(node);
         return !ts_node_is_null(parameters) &&
                strcmp(ts_node_type(parameters), "parameter_list") == 0;
     }
@@ -1126,7 +1128,7 @@ static bool is_exact_language_binding(PDXEExtractCtx *ctx, TSNode node, WalkStat
         if (strcmp(kind, "parameter") != 0) {
             return false;
         }
-        TSNode declaration = ts_node_parent(node);
+        TSNode declaration = pdxe_node_parent(node);
         return !ts_node_is_null(declaration) &&
                strcmp(ts_node_type(declaration), "parameter_declaration") == 0 &&
                field_contains_node(declaration, "name", node);
@@ -1162,8 +1164,8 @@ static bool is_exact_language_binding(PDXEExtractCtx *ctx, TSNode node, WalkStat
 
 static bool ancestor_field_binds(TSNode node, const char *container_kind,
                                  const char *const *fields) {
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), container_kind) != 0) {
             continue;
         }
@@ -1192,8 +1194,8 @@ static bool is_nix_function_binding(TSNode node) {
 static bool is_lean_binder_name(TSNode node) {
     static const char *const binder_kinds[] = {"explicit_binder", "implicit_binder",
                                                "instance_binder", NULL};
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (kind_in_exact_set(ts_node_type(parent), binder_kinds)) {
             return any_field_contains_node(parent, "name", node);
         }
@@ -1209,8 +1211,8 @@ static bool is_pascal_proc_binding(TSNode node) {
 
 static bool is_teal_function_binding(TSNode node) {
     TSNode arguments = {0};
-    for (TSNode current = ts_node_parent(node); !ts_node_is_null(current);
-         current = ts_node_parent(current)) {
+    for (TSNode current = pdxe_node_parent(node); !ts_node_is_null(current);
+         current = pdxe_node_parent(current)) {
         const char *kind = ts_node_type(current);
         if (ts_node_is_null(arguments) && strcmp(kind, "arguments") == 0) {
             arguments = current;
@@ -1232,8 +1234,8 @@ static bool is_teal_function_binding(TSNode node) {
 }
 
 static bool is_commonlisp_defun_binding(TSNode node) {
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), "defun_header") != 0) {
             continue;
         }
@@ -1244,8 +1246,8 @@ static bool is_commonlisp_defun_binding(TSNode node) {
 }
 
 static bool is_hcl_attribute_binding(TSNode node) {
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), "attribute") == 0) {
             /* HCL's attribute production exposes no fields. The first named
              * child is its key; the expression is the second named child. */
@@ -1256,8 +1258,8 @@ static bool is_hcl_attribute_binding(TSNode node) {
 }
 
 static bool is_matlab_argument_binding(TSNode node) {
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         const char *kind = ts_node_type(parent);
         if (strcmp(kind, "function_arguments") == 0 || strcmp(kind, "lambda_arguments") == 0) {
             return true;
@@ -1270,8 +1272,8 @@ static bool is_vhdl_interface_binding(TSNode node) {
     static const char *const interface_kinds[] = {
         "interface_constant_declaration", "interface_signal_declaration",
         "interface_variable_declaration", "interface_declaration", NULL};
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (kind_in_exact_set(ts_node_type(parent), interface_kinds)) {
             /* FIELD_COUNT does not name this role; every interface production
              * starts with its identifier_list before mode/type/default. */
@@ -1301,8 +1303,8 @@ static bool is_pkl_declaration_binding(TSNode node) {
                                                     "clazz",
                                                     "typeAlias",
                                                     NULL};
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (kind_in_exact_set(ts_node_type(parent), declaration_kinds)) {
             return named_child_contains(parent, 0, node);
         }
@@ -1328,8 +1330,8 @@ static bool is_policy_binding(PDXEExtractCtx *ctx, TSNode node,
     case PDXE_OCCURRENCE_TYPST_LET:
         return is_first_named_part_of(node, "let");
     case PDXE_OCCURRENCE_AGDA_FUNCTION:
-        for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-             parent = ts_node_parent(parent)) {
+        for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+             parent = pdxe_node_parent(parent)) {
             if (strcmp(ts_node_type(parent), "lhs") == 0) {
                 return true;
             }
@@ -1376,8 +1378,8 @@ static bool is_policy_binding(PDXEExtractCtx *ctx, TSNode node,
     case PDXE_OCCURRENCE_PKL_DECLARATION:
         return is_pkl_declaration_binding(node);
     case PDXE_OCCURRENCE_LLVM_FUNCTION:
-        for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-             parent = ts_node_parent(parent)) {
+        for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+             parent = pdxe_node_parent(parent)) {
             if (strcmp(ts_node_type(parent), "function_header") == 0) {
                 return field_contains_node(parent, "arguments", node);
             }
@@ -1509,9 +1511,8 @@ static bool assignment_reads_target(TSNode assignment) {
                                                        "++",
                                                        "--",
                                                        NULL};
-    uint32_t count = ts_node_child_count(assignment);
-    for (uint32_t i = 0; i < count; i++) {
-        if (kind_in_exact_set(ts_node_type(ts_node_child(assignment, i)), read_write_operators)) {
+    PDXE_FOR_EACH_CHILD(it, assignment) {
+        if (kind_in_exact_set(ts_node_type(it.node), read_write_operators)) {
             return true;
         }
     }
@@ -1593,7 +1594,7 @@ static bool is_labeled_argument_kind(const char *kind) {
 static bool is_call_argument_label(TSNode node) {
     usage_slow_parent_fallback_test_note();
     for (TSNode current = node; !ts_node_is_null(current);) {
-        TSNode parent = ts_node_parent(current);
+        TSNode parent = pdxe_node_parent(current);
         if (ts_node_is_null(parent)) {
             return false;
         }
@@ -1650,7 +1651,7 @@ static bool is_call_argument_label_walk(TSNode node, WalkState *state) {
 
 static bool is_direct_argument_value(TSNode node) {
     usage_slow_parent_fallback_test_note();
-    TSNode parent = ts_node_parent(node);
+    TSNode parent = pdxe_node_parent(node);
     if (ts_node_is_null(parent)) {
         return false;
     }
@@ -1668,7 +1669,7 @@ static bool is_direct_argument_value(TSNode node) {
     }
     const char *parent_kind = ts_node_type(parent);
     if (strcmp(parent_kind, "list_expression") == 0) {
-        TSNode call = ts_node_parent(parent);
+        TSNode call = pdxe_node_parent(parent);
         if (!ts_node_is_null(call)) {
             TSNode arguments = ts_node_child_by_field_name(call, TS_FIELD("arguments"));
             return !ts_node_is_null(arguments) && ts_node_eq(arguments, parent);
@@ -1678,7 +1679,7 @@ static bool is_direct_argument_value(TSNode node) {
     if (strcmp(parent_kind, "argument") != 0 && strcmp(parent_kind, "value_argument") != 0) {
         return false;
     }
-    TSNode grandparent = ts_node_parent(parent);
+    TSNode grandparent = pdxe_node_parent(parent);
     return !ts_node_is_null(grandparent) && is_argument_container_kind(ts_node_type(grandparent));
 }
 
@@ -1739,7 +1740,7 @@ static TSNode python_direct_callable_attribute_site(TSNode node) {
         return (TSNode){0};
     }
     TSNode site = node;
-    TSNode parent = ts_node_parent(site);
+    TSNode parent = pdxe_node_parent(site);
     while (!ts_node_is_null(parent) &&
            strcmp(ts_node_type(parent), "parenthesized_expression") == 0) {
         TSNode inner = ts_node_child_by_field_name(parent, TS_FIELD("expression"));
@@ -1750,7 +1751,7 @@ static TSNode python_direct_callable_attribute_site(TSNode node) {
             return (TSNode){0};
         }
         site = parent;
-        parent = ts_node_parent(site);
+        parent = pdxe_node_parent(site);
     }
     return is_direct_argument_value(site) ? site : (TSNode){0};
 }
@@ -1917,7 +1918,7 @@ static TSNode paren_wrapped_direct_argument_site(TSNode node, TSNode parent, TST
             }
         } else {
             usage_slow_parent_fallback_test_note();
-            next = ts_node_parent(site);
+            next = pdxe_node_parent(site);
         }
         if (ts_node_is_null(next) || strcmp(ts_node_type(next), "parenthesized_expression") != 0) {
             break;
@@ -2114,7 +2115,7 @@ static TSNode call_reference_candidate_site(PDXEExtractCtx *ctx, TSNode node, co
             (void)occurrence_parent(cursor, parent, &arguments, &member_field);
         } else {
             usage_slow_parent_fallback_test_note();
-            arguments = ts_node_parent(parent);
+            arguments = pdxe_node_parent(parent);
         }
         return !ts_node_is_null(property) && ts_node_eq(property, node) &&
                        !ts_node_is_null(arguments) &&
@@ -2295,8 +2296,8 @@ static bool python_default_value_reference(PDXEExtractCtx *ctx, WalkState *state
                           python_default_step);
     }
     usage_slow_parent_fallback_test_note();
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         PDXEClimbStep decided = python_default_step(ctx, NULL, parent, NULL, node);
         if (decided != PDXE_STEP_CONTINUE) {
             return decided == PDXE_STEP_TRUE;
@@ -2395,8 +2396,8 @@ static bool python_directive_ancestor(WalkState *state, TSNode node, bool nonloc
     }
     usage_slow_parent_fallback_test_note();
     const char *kind = nonlocal ? "nonlocal_statement" : "global_statement";
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), kind) == 0) {
             return true;
         }
@@ -2423,8 +2424,8 @@ static TSNode declared_function_name_owner(TSNode node, const PDXELangSpec *spec
         return walk_declared_name_owner(state, depth, node, PDXE_NEAREST_FUNCTION);
     }
     usage_slow_parent_fallback_test_note();
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (spec->function_node_types && pdxe_kind_in_set(parent, spec->function_node_types)) {
             return field_contains_node(parent, "name", node) ? parent : (TSNode){0};
         }
@@ -2439,8 +2440,8 @@ static TSNode declared_class_name_owner(TSNode node, const PDXELangSpec *spec,
         return walk_declared_name_owner(state, depth, node, PDXE_NEAREST_CLASS);
     }
     usage_slow_parent_fallback_test_note();
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (spec->class_node_types && pdxe_kind_in_set(parent, spec->class_node_types)) {
             return field_contains_node(parent, "name", node) ? parent : (TSNode){0};
         }
@@ -2544,8 +2545,8 @@ static bool binding_is_parameter(PDXEExtractCtx *ctx, TSNode node, const PDXELan
                field_contains_node(parent, "parameters", node);
     }
     usage_slow_parent_fallback_test_note();
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         const char *kind = ts_node_type(parent);
         if (kind_in_exact_set(kind, common_whole_binding_nodes) ||
             kind_in_exact_set(kind, occurrence->whole_binding_nodes)) {
@@ -2567,8 +2568,8 @@ static bool js_var_binding(TSNode node, WalkState *state) {
                strcmp(ts_node_type(state->frames[nearest - 1].node), "variable_declaration") == 0;
     }
     usage_slow_parent_fallback_test_note();
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         const char *kind = ts_node_type(parent);
         if (strcmp(kind, "variable_declaration") == 0) {
             return true;
@@ -2613,7 +2614,7 @@ static TSNode walk_ancestors_next(PDXEWalkAncestors *it) {
         it->depth--;
         return it->state->frames[it->depth].node;
     }
-    it->node = ts_node_is_null(it->node) ? it->node : ts_node_parent(it->node);
+    it->node = ts_node_is_null(it->node) ? it->node : pdxe_node_parent(it->node);
     return it->node;
 }
 
@@ -2624,8 +2625,8 @@ static TSNode nearest_import_ancestor(TSNode node, const PDXELangSpec *spec, Wal
         return nearest != 0 ? state->frames[nearest - 1].node : (TSNode){0};
     }
     usage_slow_parent_fallback_test_note();
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (import_kind_matches(parent, spec)) {
             return parent;
         }
@@ -2653,9 +2654,8 @@ static bool import_alias_contains(TSNode node, TSNode boundary, const WalkState 
 }
 
 static bool rust_use_list_has_direct_self(TSNode list) {
-    uint32_t count = ts_node_named_child_count(list);
-    for (uint32_t i = 0; i < count; i++) {
-        if (strcmp(ts_node_type(ts_node_named_child(list, i)), "self") == 0) {
+    PDXE_FOR_EACH_NAMED_CHILD(it, list) {
+        if (strcmp(ts_node_type(it.node), "self") == 0) {
             return true;
         }
     }
@@ -3109,8 +3109,8 @@ static bool inside_direct_perl_coderef(PDXEExtractCtx *ctx, TSNode node, WalkSta
                walk_is_direct_argument_value(state, nearest - 1);
     }
     usage_slow_parent_fallback_test_note();
-    for (TSNode parent = ts_node_parent(node); !ts_node_is_null(parent);
-         parent = ts_node_parent(parent)) {
+    for (TSNode parent = pdxe_node_parent(node); !ts_node_is_null(parent);
+         parent = pdxe_node_parent(parent)) {
         if (strcmp(ts_node_type(parent), "refgen_expression") == 0) {
             return is_direct_argument_value(parent);
         }
@@ -3186,9 +3186,10 @@ static void try_emit_usage(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec 
 // only — a node is emitted BEFORE its own kind increments the counters, so a
 // call node itself does not count as "inside a call".
 static void walk_usages(PDXEExtractCtx *ctx, TSNode root, const PDXELangSpec *spec) {
+    /* Issue 93: by cursor, in source order, the walk's path registered; a node reached
+     * at depth d closes every node entered at depth d or below it, so the frames held are
+     * exactly the node's strict ancestors'. */
     typedef struct {
-        TSNode node;
-        uint32_t next_child;
         bool counts_call;
         bool counts_import;
     } UsageFrame;
@@ -3202,50 +3203,39 @@ static void walk_usages(PDXEExtractCtx *ctx, TSNode root, const PDXELangSpec *sp
     int call_depth = 0;
     int import_depth = 0;
     int top = 0;
-    frames[top++] = (UsageFrame){root, 0, false, false};
-    bool entering = true;
 
-    while (top > 0) {
-        UsageFrame *f = &frames[top - 1];
-        if (entering) {
-            try_emit_usage(ctx, f->node, spec, call_depth > 0, import_depth > 0);
-            f->counts_call = pdxe_kind_in_set(f->node, spec->call_node_types);
-            f->counts_import =
-                (has_imports && pdxe_kind_in_set(f->node, spec->import_node_types)) ||
-                (has_from_imports && pdxe_kind_in_set(f->node, spec->import_from_types));
-            if (f->counts_call) {
-                call_depth++;
-            }
-            if (f->counts_import) {
-                import_depth++;
-            }
-        }
-        uint32_t count = ts_node_child_count(f->node);
-        if (f->next_child < count) {
-            TSNode child = ts_node_child(f->node, f->next_child);
-            f->next_child++;
-            if (top == cap) {
-                int new_cap = cap * 2;
-                UsageFrame *grown =
-                    (UsageFrame *)pdxe_arena_alloc(ctx->arena, (size_t)new_cap * sizeof(*grown));
-                if (!grown) {
-                    return;
-                }
-                memcpy(grown, frames, (size_t)cap * sizeof(*frames));
-                frames = grown;
-                cap = new_cap;
-            }
-            frames[top++] = (UsageFrame){child, 0, false, false};
-            entering = true;
-        } else {
-            if (f->counts_call) {
+    PDXE_TREE_WALK(w, root) {
+        TSNode node = w.node;
+        while (top > (int)w.depth) {
+            UsageFrame *done = &frames[--top];
+            if (done->counts_call) {
                 call_depth--;
             }
-            if (f->counts_import) {
+            if (done->counts_import) {
                 import_depth--;
             }
-            top--;
-            entering = false;
+        }
+        try_emit_usage(ctx, node, spec, call_depth > 0, import_depth > 0);
+        if (top == cap) {
+            int new_cap = cap * 2;
+            UsageFrame *grown =
+                (UsageFrame *)pdxe_arena_alloc(ctx->arena, (size_t)new_cap * sizeof(*grown));
+            if (!grown) {
+                return;
+            }
+            memcpy(grown, frames, (size_t)cap * sizeof(*frames));
+            frames = grown;
+            cap = new_cap;
+        }
+        UsageFrame *f = &frames[top++];
+        f->counts_call = pdxe_kind_in_set(node, spec->call_node_types);
+        f->counts_import = (has_imports && pdxe_kind_in_set(node, spec->import_node_types)) ||
+                           (has_from_imports && pdxe_kind_in_set(node, spec->import_from_types));
+        if (f->counts_call) {
+            call_depth++;
+        }
+        if (f->counts_import) {
+            import_depth++;
         }
     }
 }

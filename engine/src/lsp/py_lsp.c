@@ -377,9 +377,8 @@ static TSNode py_from_import_module_node(TSNode statement) {
     TSNode module = ts_node_child_by_field_name(statement, "module_name", 11);
     if (!ts_node_is_null(module))
         return module;
-    uint32_t count = ts_node_named_child_count(statement);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode child = ts_node_named_child(statement, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, statement) {
+        TSNode child = it.node;
         const char *kind = ts_node_type(child);
         if (strcmp(kind, "dotted_name") == 0 || strcmp(kind, "relative_import") == 0)
             return child;
@@ -506,9 +505,8 @@ static void py_import_match_statement(PyLSPContext *ctx, TSNode stmt, const char
     const char *stmt_kind = ts_node_type(stmt);
     if (strcmp(stmt_kind, "import_from_statement") == 0) {
         TSNode module = py_from_import_module_node(stmt);
-        uint32_t import_count = ts_node_named_child_count(stmt);
-        for (uint32_t j = 0; j < import_count; j++) {
-            TSNode item = ts_node_named_child(stmt, j);
+        PDXE_FOR_EACH_NAMED_CHILD(it, stmt) {
+            TSNode item = it.node;
             if (!ts_node_is_null(module) && ts_node_eq(item, module))
                 continue;
             py_import_match_item(ctx, stmt, true, item, local, qn, match);
@@ -517,9 +515,8 @@ static void py_import_match_statement(PyLSPContext *ctx, TSNode stmt, const char
     }
     if (strcmp(stmt_kind, "import_statement") != 0)
         return;
-    uint32_t import_count = ts_node_named_child_count(stmt);
-    for (uint32_t j = 0; j < import_count; j++) {
-        py_import_match_item(ctx, stmt, false, ts_node_named_child(stmt, j), local, qn, match);
+    PDXE_FOR_EACH_NAMED_CHILD(it, stmt) {
+        py_import_match_item(ctx, stmt, false, it.node, local, qn, match);
     }
 }
 
@@ -552,9 +549,8 @@ static PyDirectImportKind py_import_kind_from_ast(PyLSPContext *ctx, TSNode root
         return PY_DIRECT_IMPORT_UNKNOWN;
 
     PyImportSyntaxMatch match = {0};
-    uint32_t root_count = ts_node_named_child_count(root);
-    for (uint32_t i = 0; i < root_count; i++) {
-        py_import_match_statement(ctx, ts_node_named_child(root, i), local, qn, &match);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        py_import_match_statement(ctx, it.node, local, qn, &match);
     }
     return py_import_match_result(&match, qn_io);
 }
@@ -695,17 +691,15 @@ static bool py_import_keys_build(PyLSPContext *ctx, TSNode root, PyImportKeys *x
     memset(x, 0, sizeof(*x));
     if (PDXE_LOOKUP_INDEX_REFUSED("resolver"))
         return false;
-    uint32_t count = ts_node_named_child_count(root);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode stmt = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        TSNode stmt = it.node;
         const char *kind = ts_node_type(stmt);
         bool from_import = strcmp(kind, "import_from_statement") == 0;
         if (!from_import && strcmp(kind, "import_statement") != 0)
             continue;
         TSNode module = from_import ? py_from_import_module_node(stmt) : (TSNode){0};
-        uint32_t items = ts_node_named_child_count(stmt);
-        for (uint32_t j = 0; j < items; j++) {
-            TSNode item = ts_node_named_child(stmt, j);
+        PDXE_FOR_EACH_NAMED_CHILD(it2, stmt) {
+            TSNode item = it2.node;
             if (from_import && !ts_node_is_null(module) && ts_node_eq(item, module))
                 continue;
             if (!py_import_item_keys(ctx, x, stmt, from_import, item))
@@ -929,9 +923,8 @@ static char *py_string_literal_value(PyLSPContext *ctx, TSNode str_node) {
 static void py_register_dict_literal(PyLSPContext *ctx, const char *var, TSNode dict_node) {
     if (!ctx || !var || ts_node_is_null(dict_node))
         return;
-    uint32_t nc = ts_node_named_child_count(dict_node);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode pair = ts_node_named_child(dict_node, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, dict_node) {
+        TSNode pair = it.node;
         if (strcmp(ts_node_type(pair), "pair") != 0)
             continue;
         TSNode key = ts_node_child_by_field_name(pair, "key", 3);
@@ -1194,9 +1187,8 @@ static void py_resolve_value_references_at(PyLSPContext *ctx, TSNode call) {
     TSNode args = ts_node_child_by_field_name(call, "arguments", 9);
     if (ts_node_is_null(args))
         return;
-    uint32_t count = ts_node_named_child_count(args);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode arg = ts_node_named_child(args, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, args) {
+        TSNode arg = it.node;
         if (strcmp(ts_node_type(arg), "keyword_argument") == 0) {
             arg = ts_node_child_by_field_name(arg, "value", 5);
             if (ts_node_is_null(arg))
@@ -1559,9 +1551,8 @@ static void py_bind_for_target(PyLSPContext *ctx, TSNode left, const PDXEType *e
                 count = elem_type->data.template_type.arg_count;
             }
         }
-        uint32_t lc = ts_node_named_child_count(left);
-        for (uint32_t i = 0; i < lc; i++) {
-            TSNode tgt = ts_node_named_child(left, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, left) {
+            TSNode tgt = it.node;
             if (ts_node_is_null(tgt))
                 continue;
             const char *tk = ts_node_type(tgt);
@@ -1570,8 +1561,8 @@ static void py_bind_for_target(PyLSPContext *ctx, TSNode left, const PDXEType *e
                 if (!nm)
                     continue;
                 const PDXEType *bind_type;
-                if (elems && (int)i < count && elems[i])
-                    bind_type = elems[i];
+                if (elems && (int)it.index < count && elems[it.index])
+                    bind_type = elems[it.index];
                 else
                     bind_type = pdxe_type_unknown();
                 py_scope_bind(ctx, nm, bind_type);
@@ -1650,8 +1641,8 @@ static const PDXEType *py_eval_expr_type_uncached(PyLSPContext *ctx, TSNode node
             ctx->arena, (size_t)(cn + 1) * sizeof(const PDXEType *));
         if (!elems)
             return pdxe_type_builtin(ctx->arena, "tuple");
-        for (uint32_t i = 0; i < cn; i++) {
-            elems[i] = py_eval_expr_type(ctx, ts_node_named_child(node, i));
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            elems[it.index] = py_eval_expr_type(ctx, it.node);
         }
         elems[cn] = NULL;
         return pdxe_type_tuple(ctx->arena, elems, (int)cn);
@@ -1678,8 +1669,8 @@ static const PDXEType *py_eval_expr_type_uncached(PyLSPContext *ctx, TSNode node
         uint32_t cn = ts_node_named_child_count(node);
         if (cn == 0)
             return pdxe_type_builtin(ctx->arena, "dict");
-        for (uint32_t i = 0; i < cn; i++) {
-            TSNode pair = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode pair = it.node;
             if (strcmp(ts_node_type(pair), "pair") != 0)
                 continue;
             TSNode key = ts_node_child_by_field_name(pair, "key", 3);
@@ -2451,7 +2442,6 @@ static void py_process_statement(PyLSPContext *ctx, TSNode node) {
         // as a list (best-effort: list of element type).
         if (strcmp(lk, "pattern_list") == 0 || strcmp(lk, "tuple_pattern") == 0 ||
             strcmp(lk, "list_pattern") == 0 || strcmp(lk, "expression_list") == 0) {
-            uint32_t lc = ts_node_named_child_count(left);
             // Collect RHS element types.
             const PDXEType *const *rhs_elems = NULL;
             int rhs_count = 0;
@@ -2473,8 +2463,8 @@ static void py_process_statement(PyLSPContext *ctx, TSNode node) {
             // is heterogeneous).
             const PDXEType *elem_type = py_iterable_element_type(ctx, rhs_type);
 
-            for (uint32_t i = 0; i < lc; i++) {
-                TSNode tgt = ts_node_named_child(left, i);
+            PDXE_FOR_EACH_NAMED_CHILD(it, left) {
+                TSNode tgt = it.node;
                 if (ts_node_is_null(tgt))
                     continue;
                 const char *tk = ts_node_type(tgt);
@@ -2495,8 +2485,8 @@ static void py_process_statement(PyLSPContext *ctx, TSNode node) {
                 if (is_rest) {
                     bind_type = elem_type ? pdxe_type_template(ctx->arena, "list", &elem_type, 1)
                                           : pdxe_type_unknown();
-                } else if (rhs_elems && (int)i < rhs_count && rhs_elems[i]) {
-                    bind_type = rhs_elems[i];
+                } else if (rhs_elems && (int)it.index < rhs_count && rhs_elems[it.index]) {
+                    bind_type = rhs_elems[it.index];
                 } else {
                     bind_type = elem_type ? elem_type : pdxe_type_unknown();
                 }
@@ -2576,14 +2566,12 @@ static void py_process_statement(PyLSPContext *ctx, TSNode node) {
         // is X (value) and second is the target identifier `y` (alias).
         // The with_item may either contain the as_pattern as its child, or
         // directly expose value/alias as field children — we handle both.
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(clause_it, node) {
+            TSNode child = clause_it.node;
             if (strcmp(ts_node_type(child), "with_clause") != 0)
                 continue;
-            uint32_t cn = ts_node_named_child_count(child);
-            for (uint32_t j = 0; j < cn; j++) {
-                TSNode item = ts_node_named_child(child, j);
+            PDXE_FOR_EACH_NAMED_CHILD(kid_it2, child) {
+                TSNode item = kid_it2.node;
                 if (strcmp(ts_node_type(item), "with_item") != 0)
                     continue;
 
@@ -2593,9 +2581,8 @@ static void py_process_statement(PyLSPContext *ctx, TSNode node) {
 
                 if (ts_node_is_null(value) || ts_node_is_null(alias)) {
                     // Look for an as_pattern child.
-                    uint32_t ic = ts_node_named_child_count(item);
-                    for (uint32_t k2 = 0; k2 < ic; k2++) {
-                        TSNode c = ts_node_named_child(item, k2);
+                    PDXE_FOR_EACH_NAMED_CHILD(it3, item) {
+                        TSNode c = it3.node;
                         if (strcmp(ts_node_type(c), "as_pattern") == 0) {
                             uint32_t ac = ts_node_named_child_count(c);
                             if (ac >= 1)
@@ -2657,17 +2644,15 @@ static void py_process_statement(PyLSPContext *ctx, TSNode node) {
         // except E as e: bind e to NAMED(E). Tree-sitter Python wraps
         // `E as e` either as an as_pattern child of the except_clause,
         // or as flat children. Handle both shapes.
-        uint32_t nc = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < nc; i++) {
-            TSNode clause = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(kid_it, node) {
+            TSNode clause = kid_it.node;
             if (strcmp(ts_node_type(clause), "except_clause") != 0)
                 continue;
 
             TSNode exc_type = {0};
             TSNode exc_name = {0};
-            uint32_t ccn = ts_node_named_child_count(clause);
-            for (uint32_t j = 0; j < ccn; j++) {
-                TSNode c = ts_node_named_child(clause, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it2, clause) {
+                TSNode c = it2.node;
                 const char *ck = ts_node_type(c);
                 if (strcmp(ck, "block") == 0)
                     continue;
@@ -2733,11 +2718,13 @@ static void py_emit_call_for(PyLSPContext *ctx, TSNode call_node) {
             ctx->current_scope = py_scope_push_checked(ctx);
             // Bind each lambda param to the call-site arg's type.
             if (!ts_node_is_null(params) && !ts_node_is_null(args)) {
-                uint32_t pn = ts_node_named_child_count(params);
-                uint32_t an = ts_node_named_child_count(args);
-                for (uint32_t pi = 0; pi < pn && pi < an; pi++) {
-                    TSNode p = ts_node_named_child(params, pi);
-                    TSNode a = ts_node_named_child(args, pi);
+                /* The i-th parameter and argument by cursor, stepped together. */
+                PDXEChildIter param_it PDXE_CHILD_ITER_SCOPED =
+                    pdxe_child_iter_begin(params, true);
+                PDXEChildIter arg_it PDXE_CHILD_ITER_SCOPED = pdxe_child_iter_begin(args, true);
+                while (pdxe_child_iter_next(&param_it) && pdxe_child_iter_next(&arg_it)) {
+                    TSNode p = param_it.node;
+                    TSNode a = arg_it.node;
                     const char *pname = NULL;
                     if (strcmp(ts_node_type(p), "identifier") == 0) {
                         pname = py_node_text(ctx, p);
@@ -3102,13 +3089,12 @@ static int py_match_is_none(PyLSPContext *ctx, TSNode test_node, char **out_name
         return 0;
     const char *k = ts_node_type(test_node);
     if (strcmp(k, "comparison_operator") == 0) {
-        uint32_t cn = ts_node_child_count(test_node);
         TSNode left = {0}, right = {0};
         bool is_not = false;
         bool is_is = false;
         bool first_named = true;
-        for (uint32_t i = 0; i < cn; i++) {
-            TSNode c = ts_node_child(test_node, i);
+        PDXE_FOR_EACH_CHILD(it, test_node) {
+            TSNode c = it.node;
             if (ts_node_is_null(c))
                 continue;
             if (ts_node_is_named(c)) {
@@ -3201,9 +3187,8 @@ static void py_bind_walrus_in(PyLSPContext *ctx, TSNode node) {
             }
         }
     }
-    uint32_t nc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        py_bind_walrus_in(ctx, ts_node_named_child(node, i));
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        py_bind_walrus_in(ctx, it.node);
     }
 }
 
@@ -3467,9 +3452,8 @@ static void py_resolve_calls_in_inner(PyLSPContext *ctx, TSNode node) {
         }
         py_resolve_calls_in(ctx, subject);
         if (!ts_node_is_null(body)) {
-            uint32_t bcc = ts_node_named_child_count(body);
-            for (uint32_t i = 0; i < bcc; i++) {
-                TSNode case_clause = ts_node_named_child(body, i);
+            PDXE_FOR_EACH_NAMED_CHILD(kid_it, body) {
+                TSNode case_clause = kid_it.node;
                 if (strcmp(ts_node_type(case_clause), "case_clause") != 0)
                     continue;
                 PDXEScope *saved = ctx->current_scope;
@@ -3478,9 +3462,8 @@ static void py_resolve_calls_in_inner(PyLSPContext *ctx, TSNode node) {
                 // Pattern is the first non-block named child; consequence
                 // is the block.
                 TSNode pattern = {0}, conseq = {0};
-                uint32_t cnc = ts_node_named_child_count(case_clause);
-                for (uint32_t j = 0; j < cnc; j++) {
-                    TSNode c = ts_node_named_child(case_clause, j);
+                PDXE_FOR_EACH_NAMED_CHILD(it2, case_clause) {
+                    TSNode c = it2.node;
                     const char *ck = ts_node_type(c);
                     if (strcmp(ck, "block") == 0) {
                         conseq = c;
@@ -3520,8 +3503,10 @@ static void py_resolve_calls_in_inner(PyLSPContext *ctx, TSNode node) {
                         }
                     }
                     // Bind capture sub-patterns to UNKNOWN.
-                    for (uint32_t j = 1; j < ts_node_named_child_count(actual_pattern); j++) {
-                        TSNode sub = ts_node_named_child(actual_pattern, j);
+                    PDXE_FOR_EACH_NAMED_CHILD(sub_it, actual_pattern) {
+                        if (sub_it.index < 1)
+                            continue;
+                        TSNode sub = sub_it.node;
                         if (strcmp(ts_node_type(sub), "capture_pattern") == 0) {
                             if (ts_node_named_child_count(sub) > 0) {
                                 TSNode id = ts_node_named_child(sub, 0);
@@ -3543,9 +3528,8 @@ static void py_resolve_calls_in_inner(PyLSPContext *ctx, TSNode node) {
                      strcmp(ts_node_type(actual_pattern), "tuple_pattern") == 0)) {
                     const PDXEType *subj_t = pdxe_scope_lookup(ctx->current_scope, subject_name);
                     const PDXEType *elem_t = py_iterable_element_type(ctx, subj_t);
-                    uint32_t pn = ts_node_named_child_count(actual_pattern);
-                    for (uint32_t j = 0; j < pn; j++) {
-                        TSNode elem = ts_node_named_child(actual_pattern, j);
+                    PDXE_FOR_EACH_NAMED_CHILD(kid_it2, actual_pattern) {
+                        TSNode elem = kid_it2.node;
                         // Unwrap inner case_pattern.
                         if (!ts_node_is_null(elem) &&
                             strcmp(ts_node_type(elem), "case_pattern") == 0 &&
@@ -3579,9 +3563,8 @@ static void py_resolve_calls_in_inner(PyLSPContext *ctx, TSNode node) {
                             // splat_pattern's first named child is the
                             // identifier (or another wrapper).
                             TSNode id = {0};
-                            uint32_t snc = ts_node_named_child_count(elem);
-                            for (uint32_t s = 0; s < snc; s++) {
-                                TSNode c = ts_node_named_child(elem, s);
+                            PDXE_FOR_EACH_NAMED_CHILD(it3, elem) {
+                                TSNode c = it3.node;
                                 if (strcmp(ts_node_type(c), "identifier") == 0) {
                                     id = c;
                                     break;
@@ -3619,12 +3602,11 @@ static void py_resolve_calls_in_inner(PyLSPContext *ctx, TSNode node) {
         strcmp(k, "set_comprehension") == 0 || strcmp(k, "generator_expression") == 0) {
         PDXEScope *saved = ctx->current_scope;
         ctx->current_scope = py_scope_push_checked(ctx);
-        uint32_t cnc = ts_node_named_child_count(node);
         // First pass: bind for-clause vars (process in source order so
         // chained comprehensions like `for x in xs for y in x.ys` see
         // x bound by the time we evaluate x.ys).
-        for (uint32_t i = 0; i < cnc; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             const char *ck = ts_node_type(child);
             if (strcmp(ck, "for_in_clause") == 0) {
                 TSNode left = ts_node_child_by_field_name(child, "left", 4);
@@ -3639,8 +3621,8 @@ static void py_resolve_calls_in_inner(PyLSPContext *ctx, TSNode node) {
         }
         // Second pass: recurse into all children (body + filter clauses
         // benefit from the bound vars).
-        for (uint32_t i = 0; i < cnc; i++) {
-            py_resolve_calls_in(ctx, ts_node_named_child(node, i));
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            py_resolve_calls_in(ctx, it.node);
         }
         py_scope_restore(ctx, saved);
         return;
@@ -3656,9 +3638,8 @@ static void py_resolve_calls_in_inner(PyLSPContext *ctx, TSNode node) {
         return;
     }
 
-    uint32_t nc = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < nc; i++) {
-        py_resolve_calls_in(ctx, ts_node_named_child(node, i));
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        py_resolve_calls_in(ctx, it.node);
     }
 }
 
@@ -4149,9 +4130,8 @@ static const PDXEType *py_resolve_annotation(PyLSPContext *ctx, const char *ann)
 static void py_bind_parameters(PyLSPContext *ctx, TSNode params) {
     if (ts_node_is_null(params))
         return;
-    uint32_t nc = ts_node_named_child_count(params);
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode p = ts_node_named_child(params, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+        TSNode p = it.node;
         const char *pk = ts_node_type(p);
 
         TSNode ident_node = {0};
@@ -4247,9 +4227,8 @@ static void py_process_function(PyLSPContext *ctx, TSNode func_node, const char 
     if (!ts_node_is_null(body)) {
         py_resolve_calls_in(ctx, body);
         // Also descend into nested function/class definitions in the body.
-        uint32_t bnc = ts_node_named_child_count(body);
-        for (uint32_t i = 0; i < bnc; i++) {
-            TSNode c = ts_node_named_child(body, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "function_definition") == 0) {
                 py_process_function(ctx, c, ctx->enclosing_func_qn);
@@ -4289,13 +4268,12 @@ static void py_process_class(PyLSPContext *ctx, TSNode class_node) {
 
     TSNode body = ts_node_child_by_field_name(class_node, "body", 4);
     if (!ts_node_is_null(body)) {
-        uint32_t bnc = ts_node_named_child_count(body);
         // First pass: process class-level annotated assignments (PEP 526
         // class-body field annotations like `x: int`) and dunder __init__
         // methods so fields are registered before sibling methods that
         // reference them.
-        for (uint32_t i = 0; i < bnc; i++) {
-            TSNode c = ts_node_named_child(body, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "expression_statement") == 0 && ts_node_named_child_count(c) > 0) {
                 TSNode inner = ts_node_named_child(c, 0);
@@ -4317,8 +4295,8 @@ static void py_process_class(PyLSPContext *ctx, TSNode class_node) {
             }
         }
         // Second pass: __init__ (so self.x assignments populate fields).
-        for (uint32_t i = 0; i < bnc; i++) {
-            TSNode c = ts_node_named_child(body, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             TSNode fn_node = c;
             bool is_decorated = strcmp(ck, "decorated_definition") == 0;
@@ -4335,8 +4313,8 @@ static void py_process_class(PyLSPContext *ctx, TSNode class_node) {
             }
         }
         // Third pass: every other method (and nested classes).
-        for (uint32_t i = 0; i < bnc; i++) {
-            TSNode c = ts_node_named_child(body, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, body) {
+            TSNode c = it.node;
             const char *ck = ts_node_type(c);
             if (strcmp(ck, "function_definition") == 0) {
                 if (!py_is_init_method(ctx, c)) {
@@ -4377,10 +4355,9 @@ static TSNode py_root_class_name_node(TSNode node) {
  * the registry decides whether the resulting class type is known precisely.
  * Test builds keep this scan of the module for reference (issue 92). */
 static bool py_root_defines_class_named(PyLSPContext *ctx, TSNode root, const char *name) {
-    uint32_t count = ts_node_named_child_count(root);
-    for (uint32_t i = 0; i < count; i++) {
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
         PDXE_LOOKUP_COUNT(PDXE_LC_PY_CLASS_SCAN);
-        TSNode name_node = py_root_class_name_node(ts_node_named_child(root, i));
+        TSNode name_node = py_root_class_name_node(it.node);
         if (!ts_node_is_null(name_node) && py_import_node_text_equals(ctx, name_node, name))
             return true;
     }
@@ -4573,9 +4550,8 @@ static void py_bind_module_function(PyLSPContext *ctx, TSNode func_node) {
 }
 
 static bool py_import_statement_is_wildcard(TSNode stmt) {
-    uint32_t count = ts_node_named_child_count(stmt);
-    for (uint32_t i = 0; i < count; i++) {
-        if (strcmp(ts_node_type(ts_node_named_child(stmt, i)), "wildcard_import") == 0)
+    PDXE_FOR_EACH_NAMED_CHILD(it, stmt) {
+        if (strcmp(ts_node_type(it.node), "wildcard_import") == 0)
             return true;
     }
     return false;
@@ -4688,8 +4664,8 @@ static void py_invalidate_binding_target(PyLSPContext *ctx, TSNode target, int d
     uint32_t count = ts_node_named_child_count(target);
     if (strcmp(kind, "dotted_name") == 0 && count != 1)
         return;
-    for (uint32_t i = 0; i < count; i++)
-        py_invalidate_binding_target(ctx, ts_node_named_child(target, i), depth + 1);
+    PDXE_FOR_EACH_NAMED_CHILD(it, target)
+        py_invalidate_binding_target(ctx, it.node, depth + 1);
 }
 
 /* An assignment expression binds in the CONTAINING scope (PEP 572), which is
@@ -4725,9 +4701,7 @@ static void py_invalidate_walrus_bindings(PyLSPContext *ctx, TSNode node, int de
         else
             py_invalidate_binding_target(ctx, name, depth + 1);
     }
-    uint32_t count = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < count; i++)
-        py_invalidate_walrus_bindings(ctx, ts_node_named_child(node, i), depth + 1);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) py_invalidate_walrus_bindings(ctx, it.node, depth + 1);
 }
 
 /* Match patterns mix value expressions and capture targets. Skip the class
@@ -4743,8 +4717,10 @@ static void py_invalidate_match_pattern(PyLSPContext *ctx, TSNode pattern, int d
     const char *kind = ts_node_type(pattern);
     uint32_t count = ts_node_named_child_count(pattern);
     if (strcmp(kind, "class_pattern") == 0) {
-        for (uint32_t i = 1; i < count; i++)
-            py_invalidate_match_pattern(ctx, ts_node_named_child(pattern, i), depth + 1);
+        PDXE_FOR_EACH_NAMED_CHILD(it, pattern) {
+            if (it.index >= 1)
+                py_invalidate_match_pattern(ctx, it.node, depth + 1);
+        }
         return;
     }
     if (strcmp(kind, "keyword_pattern") == 0) {
@@ -4763,8 +4739,7 @@ static void py_invalidate_match_pattern(PyLSPContext *ctx, TSNode pattern, int d
         py_invalidate_binding_target(ctx, pattern, depth + 1);
         return;
     }
-    for (uint32_t i = 0; i < count; i++)
-        py_invalidate_match_pattern(ctx, ts_node_named_child(pattern, i), depth + 1);
+    PDXE_FOR_EACH_NAMED_CHILD(it, pattern) py_invalidate_match_pattern(ctx, it.node, depth + 1);
 }
 
 static void py_invalidate_import_bindings(PyLSPContext *ctx, TSNode stmt) {
@@ -4774,9 +4749,8 @@ static void py_invalidate_import_bindings(PyLSPContext *ctx, TSNode stmt) {
     }
     bool from_import = strcmp(ts_node_type(stmt), "import_from_statement") == 0;
     TSNode module = from_import ? py_from_import_module_node(stmt) : (TSNode){0};
-    uint32_t count = ts_node_named_child_count(stmt);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode item = ts_node_named_child(stmt, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, stmt) {
+        TSNode item = it.node;
         if (from_import && !ts_node_is_null(module) && ts_node_eq(item, module))
             continue;
         const char *kind = ts_node_type(item);
@@ -4873,17 +4847,14 @@ static void py_invalidate_possible_bindings(PyLSPContext *ctx, TSNode node, int 
         return;
     }
     if (strcmp(kind, "delete_statement") == 0) {
-        uint32_t count = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < count; i++)
-            py_invalidate_binding_target(ctx, ts_node_named_child(node, i), depth + 1);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) py_invalidate_binding_target(ctx, it.node, depth + 1);
         return;
     }
     if (strcmp(kind, "for_statement") == 0) {
         TSNode left = ts_node_child_by_field_name(node, "left", 4);
         py_invalidate_binding_target(ctx, left, depth + 1);
-        uint32_t count = ts_node_named_child_count(node);
-        for (uint32_t i = 0; i < count; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             if (!ts_node_eq(child, left))
                 py_invalidate_possible_bindings(ctx, child, depth + 1);
         }
@@ -4895,8 +4866,8 @@ static void py_invalidate_possible_bindings(PyLSPContext *ctx, TSNode node, int 
         if (ts_node_is_null(alias) && count > 1)
             alias = ts_node_named_child(node, count - 1);
         py_invalidate_binding_target(ctx, alias, depth + 1);
-        for (uint32_t i = 0; i < count; i++) {
-            TSNode child = ts_node_named_child(node, i);
+        PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+            TSNode child = it.node;
             if (!ts_node_eq(child, alias))
                 py_invalidate_possible_bindings(ctx, child, depth + 1);
         }
@@ -4906,15 +4877,13 @@ static void py_invalidate_possible_bindings(PyLSPContext *ctx, TSNode node, int 
         TSNode subject = ts_node_child_by_field_name(node, "subject", 7);
         TSNode body = ts_node_child_by_field_name(node, "body", 4);
         py_invalidate_possible_bindings(ctx, subject, depth + 1);
-        uint32_t cases = ts_node_named_child_count(body);
-        for (uint32_t i = 0; i < cases; i++) {
-            TSNode clause = ts_node_named_child(body, i);
+        PDXE_FOR_EACH_NAMED_CHILD(kid_it, body) {
+            TSNode clause = kid_it.node;
             if (strcmp(ts_node_type(clause), "case_clause") != 0)
                 continue;
             TSNode pattern = {0};
-            uint32_t count = ts_node_named_child_count(clause);
-            for (uint32_t j = 0; j < count; j++) {
-                TSNode child = ts_node_named_child(clause, j);
+            PDXE_FOR_EACH_NAMED_CHILD(it2, clause) {
+                TSNode child = it2.node;
                 if (ts_node_is_null(pattern) && strcmp(ts_node_type(child), "block") != 0) {
                     pattern = child;
                     py_invalidate_match_pattern(ctx, pattern, depth + 1);
@@ -4925,9 +4894,7 @@ static void py_invalidate_possible_bindings(PyLSPContext *ctx, TSNode node, int 
         }
         return;
     }
-    uint32_t count = ts_node_named_child_count(node);
-    for (uint32_t i = 0; i < count; i++)
-        py_invalidate_possible_bindings(ctx, ts_node_named_child(node, i), depth + 1);
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) py_invalidate_possible_bindings(ctx, it.node, depth + 1);
 }
 
 static bool py_replayable_import_kind(PyDirectImportKind kind) {
@@ -4985,9 +4952,8 @@ static void py_replay_import_statement(PyLSPContext *ctx, TSNode stmt, unsigned 
     }
     bool from_import = strcmp(ts_node_type(stmt), "import_from_statement") == 0;
     TSNode module = from_import ? py_from_import_module_node(stmt) : (TSNode){0};
-    uint32_t count = ts_node_named_child_count(stmt);
-    for (uint32_t i = 0; i < count; i++) {
-        TSNode item = ts_node_named_child(stmt, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, stmt) {
+        TSNode item = it.node;
         if (from_import && !ts_node_is_null(module) && ts_node_eq(item, module))
             continue;
         char *local = py_import_item_local_name(ctx, item, from_import);
@@ -5026,13 +4992,12 @@ void py_lsp_process_file(PyLSPContext *ctx, TSNode root) {
             memset(consumed_imports, 0, (size_t)ctx->import_count);
     }
 
-    uint32_t nc = ts_node_named_child_count(root);
     const char *prev_func = ctx->enclosing_func_qn;
     ctx->enclosing_func_qn = pdxe_arena_sprintf(ctx->arena, "%s.__module__", ctx->module_qn);
     // Pass 1: execute top-level binding effects in source order. Function
     // bodies remain deferred until the final module scope has been assembled.
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        TSNode c = it.node;
         const char *ck = ts_node_type(c);
         if (strcmp(ck, "import_statement") == 0 || strcmp(ck, "import_from_statement") == 0) {
             py_replay_import_statement(ctx, c, consumed_imports);
@@ -5070,8 +5035,8 @@ void py_lsp_process_file(PyLSPContext *ctx, TSNode root) {
         }
     }
     // Pass 2: top-level calls (rare) and nested definitions.
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_named_child(root, i);
+    PDXE_FOR_EACH_NAMED_CHILD(it, root) {
+        TSNode c = it.node;
         const char *ck = ts_node_type(c);
         if (strcmp(ck, "function_definition") == 0) {
             py_process_function(ctx, c, NULL);

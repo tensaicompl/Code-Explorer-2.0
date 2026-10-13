@@ -359,6 +359,16 @@ if(PDXE_BUILD_TESTS)
   # interface's translation look up by index, the answers the scans' and the work linear
   # (issue 92, decision 62, patches/0025).
   add_test(NAME typed_lookup COMMAND typed_lookup ${PDXE_RESOLVE_FIXTURE_ROOT})
+  # Nor a wide node's children by position, nor a parent or sibling by descending from the
+  # root: the iterator's and the lookups' answers are tree-sitter's on every corpus and
+  # smoke file, the work is linear in every language's wide shapes and the issue's own
+  # error-recovered files, and a collection refused its memory is counted lost work, never
+  # a positional walk (issue 93, patches/0026).
+  add_test(NAME wide_nodes COMMAND wide_nodes ${PDXE_CORPUS} ${PDXE_SMOKE_FIXTURES})
+  add_test(NAME wide_nodes_refused
+    COMMAND wide_nodes --refused ${PDXE_CORPUS} ${PDXE_SMOKE_FIXTURES})
+  set_tests_properties(wide_nodes_refused PROPERTIES
+    ENVIRONMENT PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES=children)
   # Nor can its syntax drive a grammar scanner past the parser's state buffer, or end
   # the process: four scanners' own code is compiled into the test a second time, entry
   # points renamed, so it reaches their state directly; their warnings are the vendored
