@@ -20,6 +20,20 @@ secret detector, contract reader, discovery or output policy, and is not P5-06.
 hold.** Do not merge `main`. The plan's projection is unchanged (98 tasks, 28 done):
 never hand-edit `docs/plan/tasks.json`, `TASKS.md` or `PROGRESS.md` for A0.
 
+A0.1 and A0.2's results are in `bench/results/a0/`; `methodology.md` there explains
+them. They are produced by:
+
+- `pdx-bench audit-sites`, which writes the product's own Stage 1 to 3 decisions as a
+  site dataset;
+- `scripts/a0/`, the stdlib-only audit: a SCIP reader, the language parsers' call
+  sites, rules M1 to M6, 4.13.1's measures, the counterfactuals, and `run.py`, which
+  reruns everything;
+- `bench/a0/sanity/`, the oracle sanity fixtures.
+
+The oracles (`scip-python`, `rust-analyzer`) run from an isolated work directory
+and are never project dependencies. A0.3, what to change, is the driver's decision:
+A0 never edits resolver behaviour.
+
 ## State: P2 in progress
 
 P0 and P1 are done and gates G0 and G1a have passed; P2 has begun with the graph

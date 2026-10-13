@@ -1,0 +1,2704 @@
+{
+ "blocklist": {
+  "edges_drawn": 0,
+  "examples_correct_suppressed": [
+   {
+    "band": "blocked",
+    "callee": "benchmark(\"\").run",
+    "file": "axum/benches/benches.rs",
+    "line": 22,
+    "oracle_status": "mapped",
+    "oracle_target": "axum.benches.benches.BenchmarkBuilder.run",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "value_unproven",
+    "site": 3,
+    "span": [
+     354,
+     391
+    ],
+    "token": [
+     375,
+     378
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "benchmark(\"\").run",
+    "file": "axum/benches/benches.rs",
+    "line": 57,
+    "oracle_status": "mapped",
+    "oracle_target": "axum.benches.benches.BenchmarkBuilder.run",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "value_unproven",
+    "site": 45,
+    "span": [
+     1558,
+     1849
+    ],
+    "token": [
+     1581,
+     1584
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "benchmark(\"\").run",
+    "file": "axum/benches/benches.rs",
+    "line": 79,
+    "oracle_status": "mapped",
+    "oracle_target": "axum.benches.benches.BenchmarkBuilder.run",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "value_unproven",
+    "site": 57,
+    "span": [
+     2114,
+     2283
+    ],
+    "token": [
+     2137,
+     2140
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "benchmark(\"\").run",
+    "file": "axum/benches/benches.rs",
+    "line": 85,
+    "oracle_status": "mapped",
+    "oracle_target": "axum.benches.benches.BenchmarkBuilder.run",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "value_unproven",
+    "site": 65,
+    "span": [
+     2290,
+     2445
+    ],
+    "token": [
+     2309,
+     2312
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "call",
+    "file": "axum/src/routing/method_routing.rs",
+    "line": 1440,
+    "oracle_status": "mapped",
+    "oracle_target": "axum.src.routing.method_routing.call",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "none",
+    "site": 261,
+    "span": [
+     44004,
+     44031
+    ],
+    "token": [
+     44004,
+     44008
+    ]
+   }
+  ],
+  "final_band:blocked": 1439,
+  "no_typed_answer_and_blocked": 1407,
+  "no_typed_answer_and_blocked_with_oracle_relation": 357,
+  "oracle_relation": 389,
+  "oracle_verifiable": 945,
+  "recall_c0": {
+   "denominator": 4061,
+   "numerator": 1377,
+   "value": 0.339079
+  },
+  "recall_c4": {
+   "denominator": 4061,
+   "numerator": 1408,
+   "value": 0.346713
+  },
+  "relations_recovered_in_c4": 31,
+  "sites": 1439,
+  "suppressed_typed_answer_correct": 31,
+  "suppressed_typed_answer_false_positive": 1,
+  "typed_answer_suppressed_by_blocklist": 32
+ },
+ "corpus": "rust-golden",
+ "counterfactuals": {
+  "C0": {
+   "drawn": 2640,
+   "false_positives_added": 0,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 2592,
+   "oracle_verifiable_fraction": {
+    "denominator": 2640,
+    "numerator": 2592,
+    "value": 0.981818
+   },
+   "policy": "current behaviour",
+   "precision": {
+    "denominator": 2592,
+    "numerator": 1580,
+    "value": 0.609568
+   },
+   "recall": {
+    "denominator": 4061,
+    "numerator": 1377,
+    "value": 0.339079
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 0,
+   "typed": {
+    "denominator": 836,
+    "numerator": 821,
+    "value": 0.982057
+   }
+  },
+  "C1": {
+   "drawn": 1456,
+   "false_positives_added": 0,
+   "false_positives_removed": 659,
+   "oracle_verifiable": 1424,
+   "oracle_verifiable_fraction": {
+    "denominator": 1456,
+    "numerator": 1424,
+    "value": 0.978022
+   },
+   "policy": "`exact` not drawn",
+   "precision": {
+    "denominator": 1424,
+    "numerator": 1071,
+    "value": 0.752107
+   },
+   "recall": {
+    "denominator": 4061,
+    "numerator": 868,
+    "value": 0.21374
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 509,
+   "typed": {
+    "denominator": 836,
+    "numerator": 821,
+    "value": 0.982057
+   }
+  },
+  "C2": {
+   "drawn": 2148,
+   "false_positives_added": 0,
+   "false_positives_removed": 337,
+   "oracle_verifiable": 2100,
+   "oracle_verifiable_fraction": {
+    "denominator": 2148,
+    "numerator": 2100,
+    "value": 0.977654
+   },
+   "policy": "`scoped` not drawn",
+   "precision": {
+    "denominator": 2100,
+    "numerator": 1425,
+    "value": 0.678571
+   },
+   "recall": {
+    "denominator": 4061,
+    "numerator": 1232,
+    "value": 0.303374
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 155,
+   "typed": {
+    "denominator": 836,
+    "numerator": 821,
+    "value": 0.982057
+   }
+  },
+  "C3": {
+   "drawn": 964,
+   "false_positives_added": 0,
+   "false_positives_removed": 996,
+   "oracle_verifiable": 932,
+   "oracle_verifiable_fraction": {
+    "denominator": 964,
+    "numerator": 932,
+    "value": 0.966805
+   },
+   "policy": "neither `exact` nor `scoped` drawn",
+   "precision": {
+    "denominator": 932,
+    "numerator": 916,
+    "value": 0.982833
+   },
+   "recall": {
+    "denominator": 4061,
+    "numerator": 723,
+    "value": 0.178035
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 664,
+   "typed": {
+    "denominator": 836,
+    "numerator": 821,
+    "value": 0.982057
+   }
+  },
+  "C4": {
+   "drawn": 2672,
+   "false_positives_added": 1,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 2624,
+   "oracle_verifiable_fraction": {
+    "denominator": 2672,
+    "numerator": 2624,
+    "value": 0.982036
+   },
+   "policy": "a valid typed answer is accepted before the generic-name blocklist",
+   "precision": {
+    "denominator": 2624,
+    "numerator": 1611,
+    "value": 0.613948
+   },
+   "recall": {
+    "denominator": 4061,
+    "numerator": 1408,
+    "value": 0.346713
+   },
+   "true_positives_added": 31,
+   "true_positives_lost": 0,
+   "typed": {
+    "denominator": 868,
+    "numerator": 852,
+    "value": 0.981567
+   }
+  },
+  "C5": {
+   "drawn": 1381,
+   "false_positives_added": 0,
+   "false_positives_removed": 852,
+   "oracle_verifiable": 1347,
+   "oracle_verifiable_fraction": {
+    "denominator": 1381,
+    "numerator": 1347,
+    "value": 0.97538
+   },
+   "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
+   "precision": {
+    "denominator": 1347,
+    "numerator": 1187,
+    "value": 0.881218
+   },
+   "recall": {
+    "denominator": 4061,
+    "numerator": 984,
+    "value": 0.242305
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 393,
+   "typed": {
+    "denominator": 836,
+    "numerator": 821,
+    "value": 0.982057
+   }
+  },
+  "C6": {
+   "drawn": 996,
+   "false_positives_added": 1,
+   "false_positives_removed": 996,
+   "oracle_verifiable": 964,
+   "oracle_verifiable_fraction": {
+    "denominator": 996,
+    "numerator": 964,
+    "value": 0.967871
+   },
+   "policy": "C3, C4 and C5 together",
+   "precision": {
+    "denominator": 964,
+    "numerator": 947,
+    "value": 0.982365
+   },
+   "recall": {
+    "denominator": 4061,
+    "numerator": 754,
+    "value": 0.185669
+   },
+   "true_positives_added": 31,
+   "true_positives_lost": 664,
+   "typed": {
+    "denominator": 868,
+    "numerator": 852,
+    "value": 0.981567
+   }
+  }
+ },
+ "coverage": {
+  "drawn_edges_by_kind": {
+   "CALLS": 2424,
+   "CALL_REFERENCE": 216
+  },
+  "engine_sites": 9,
+  "language_files": 301,
+  "language_files_indexed_by_oracle": 180,
+  "name_token_rules": {
+   "M1": 11193,
+   "M1c": 45,
+   "None": 3
+  },
+  "oracle_assumed_encoding": {},
+  "oracle_call_sites": 13216,
+  "oracle_call_sites_by_status": {
+   "ambiguous": 1,
+   "external": 6872,
+   "file_not_indexed": 200,
+   "local": 89,
+   "mapped": 4455,
+   "no_token": 19,
+   "none": 603,
+   "unmapped": 977
+  },
+  "oracle_symbols": {
+   "ambiguous": 30,
+   "mapped": 2393,
+   "unmapped": 1292
+  },
+  "oracle_unconvertible_occurrences": 0,
+  "parse_failures": [],
+  "structural_call_sites": 11241,
+  "structural_call_sites_by_band": {
+   "blocked": 1439,
+   "candidate": 2830,
+   "exact": 1184,
+   "external": 920,
+   "import-guided": 33,
+   "inheritance-guided": 63,
+   "scoped": 492,
+   "typed": 877,
+   "unresolved": 3403
+  },
+  "structural_call_sites_not_materialized_by_band": {
+   "typed": 9
+  },
+  "structural_call_sites_without_name_token": 3,
+  "structural_sites_not_call_sites": 2677
+ },
+ "exact_scoped_false_positives": {
+  "exact": {
+   "examples": {
+    "constructor_collision": [
+     {
+      "band": "exact",
+      "callee": "TypedHeaderRejectionReason::Error",
+      "file": "axum-extra/src/typed_header.rs",
+      "line": 75,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum-extra typed_header/TypedHeaderRejectionReason#Error#",
+      "pdx_target": "axum-core.src.error.Error",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_bound",
+      "site": 8,
+      "span": [
+       2146,
+       2184
+      ],
+      "token": [
+       2174,
+       2179
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "TypedHeaderRejectionReason::Error",
+      "file": "axum-extra/src/typed_header.rs",
+      "line": 101,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum-extra typed_header/TypedHeaderRejectionReason#Error#",
+      "pdx_target": "axum-core.src.error.Error",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_bound",
+      "site": 15,
+      "span": [
+       2851,
+       2889
+      ],
+      "token": [
+       2879,
+       2884
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "MethodEndpoint::Route",
+      "file": "axum/src/routing/method_routing.rs",
+      "line": 884,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum routing/method_routing/MethodEndpoint#Route#",
+      "pdx_target": "axum.src.routing.route.Route",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_bound",
+      "site": 90,
+      "span": [
+       26432,
+       26470
+      ],
+      "token": [
+       26448,
+       26453
+      ]
+     }
+    ],
+    "external_receiver_mistaken_for_local": [
+     {
+      "band": "exact",
+      "callee": "k.take",
+      "file": "axum-core/src/body.rs",
+      "line": 33,
+      "oracle_status": "external",
+      "oracle_target": "core option/impl#[`Option<T>`]take().",
+      "pdx_target": "axum.src.test_helpers.tracing_helpers.Handle.take",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 5,
+      "span": [
+       853,
+       861
+      ],
+      "token": [
+       855,
+       859
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "frame.into_data",
+      "file": "axum-core/src/body.rs",
+      "line": 179,
+      "oracle_status": "external",
+      "oracle_target": "http-body frame/impl#[`Frame<T>`]into_data().",
+      "pdx_target": "axum.src.extract.ws.Message.into_data",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 30,
+      "span": [
+       5035,
+       5052
+      ],
+      "token": [
+       5041,
+       5050
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "usize::try_from(v).ok",
+      "file": "axum-core/src/body.rs",
+      "line": 192,
+      "oracle_status": "external",
+      "oracle_target": "core result/impl#[`Result<T, E>`]ok().",
+      "pdx_target": "axum.src.routing.method_routing.ok",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 39,
+      "span": [
+       5502,
+       5525
+      ],
+      "token": [
+       5521,
+       5523
+      ]
+     }
+    ],
+    "import_provenance_failure": [
+     {
+      "band": "exact",
+      "callee": "post",
+      "file": "axum-extra/src/routing/resource.rs",
+      "line": 72,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum routing/method_routing/post().",
+      "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "none",
+      "site": 7,
+      "span": [
+       1940,
+       1953
+      ],
+      "token": [
+       1940,
+       1944
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "post",
+      "file": "axum/benches/benches.rs",
+      "line": 55,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum routing/method_routing/post().",
+      "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "none",
+      "site": 44,
+      "span": [
+       1516,
+       1549
+      ],
+      "token": [
+       1516,
+       1520
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "get(root).post",
+      "file": "axum/src/routing/tests/mod.rs",
+      "line": 87,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum routing/method_routing/impl#[`MethodRouter<S>`]post().",
+      "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "value_unproven",
+      "site": 14,
+      "span": [
+       2499,
+       2518
+      ],
+      "token": [
+       2509,
+       2513
+      ]
+     }
+    ],
+    "other": [
+     {
+      "band": "exact",
+      "callee": "post",
+      "file": "axum-extra/src/extract/form.rs",
+      "line": 109,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum routing/method_routing/post().",
+      "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "none",
+      "site": 16,
+      "span": [
+       3356,
+       3423
+      ],
+      "token": [
+       3356,
+       3360
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "post",
+      "file": "axum-extra/src/extract/json_deserializer.rs",
+      "line": 236,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum routing/method_routing/post().",
+      "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "none",
+      "site": 31,
+      "span": [
+       8010,
+       8023
+      ],
+      "token": [
+       8010,
+       8014
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "post",
+      "file": "axum-extra/src/extract/json_deserializer.rs",
+      "line": 266,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum routing/method_routing/post().",
+      "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "none",
+      "site": 42,
+      "span": [
+       8963,
+       8976
+      ],
+      "token": [
+       8963,
+       8967
+      ]
+     }
+    ],
+    "self_edge": [
+     {
+      "band": "exact",
+      "callee": "LengthLimitError::from_err",
+      "file": "axum-core/src/extract/rejection.rs",
+      "line": 36,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum-core extract/rejection/impl#[LengthLimitError]from_err().",
+      "pdx_target": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_unproven",
+      "site": 4,
+      "span": [
+       1105,
+       1136
+      ],
+      "token": [
+       1123,
+       1131
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "UnknownBodyError::from_err",
+      "file": "axum-core/src/extract/rejection.rs",
+      "line": 37,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum-core extract/rejection/impl#[UnknownBodyError]from_err().",
+      "pdx_target": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_unproven",
+      "site": 6,
+      "span": [
+       1186,
+       1217
+      ],
+      "token": [
+       1204,
+       1212
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "self.res.status_mut",
+      "file": "axum-core/src/response/into_response_parts.rs",
+      "line": 119,
+      "oracle_status": "external",
+      "oracle_target": "http response/impl#[`Response<T>`]status_mut().",
+      "pdx_target": "axum-core.src.response.into_response_parts.ResponseParts.status_mut",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 2,
+      "span": [
+       3599,
+       3620
+      ],
+      "token": [
+       3608,
+       3618
+      ]
+     }
+    ],
+    "unknown_or_unproven_receiver": [
+     {
+      "band": "exact",
+      "callee": "FailedToDeserializeForm::from_err",
+      "file": "axum-extra/src/extract/form.rs",
+      "line": 52,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum-extra extract/form/impl#[FailedToDeserializeForm]from_err().",
+      "pdx_target": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_unproven",
+      "site": 8,
+      "span": [
+       1745,
+       1783
+      ],
+      "token": [
+       1770,
+       1778
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "FailedToDeserializeFormBody::from_err",
+      "file": "axum-extra/src/extract/form.rs",
+      "line": 54,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum-extra extract/form/impl#[FailedToDeserializeFormBody]from_err().",
+      "pdx_target": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_unproven",
+      "site": 10,
+      "span": [
+       1836,
+       1878
+      ],
+      "token": [
+       1865,
+       1873
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "JsonDataError::from_err",
+      "file": "axum-extra/src/extract/json_deserializer.rs",
+      "line": 119,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum-extra extract/json_deserializer/impl#[JsonDataError]from_err().",
+      "pdx_target": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_unproven",
+      "site": 9,
+      "span": [
+       4264,
+       4292
+      ],
+      "token": [
+       4279,
+       4287
+      ]
+     }
+    ]
+   },
+   "false_positives": 659,
+   "primary": {
+    "constructor_collision": 20,
+    "external_receiver_mistaken_for_local": 481,
+    "hierarchy_evidence_missing": 0,
+    "import_provenance_failure": 43,
+    "module_or_package_uniqueness_only": 0,
+    "other": 43,
+    "same_short_name_on_unrelated_type": 0,
+    "self_edge": 31,
+    "unknown_or_unproven_receiver": 41
+   },
+   "tagged": {
+    "constructor_collision": 20,
+    "external_receiver_mistaken_for_local": 510,
+    "hierarchy_evidence_missing": 13,
+    "import_provenance_failure": 149,
+    "module_or_package_uniqueness_only": 0,
+    "other": 43,
+    "same_short_name_on_unrelated_type": 0,
+    "self_edge": 31,
+    "unknown_or_unproven_receiver": 543
+   }
+  },
+  "scoped": {
+   "examples": {
+    "constructor_collision": [
+     {
+      "band": "scoped",
+      "callee": "Unknown::new",
+      "file": "axum-core/src/body.rs",
+      "line": 80,
+      "oracle_status": "mapped",
+      "oracle_target": "axum-core.src.body.unknown.Unknown.new",
+      "pdx_target": "axum-core.src.body.Body.new",
+      "reason": "other_target",
+      "receiver_proof": "path_unproven",
+      "site": 13,
+      "span": [
+       2601,
+       2615
+      ],
+      "token": [
+       2610,
+       2613
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "Error::new",
+      "file": "axum-core/src/body.rs",
+      "line": 243,
+      "oracle_status": "mapped",
+      "oracle_target": "axum-core.src.error.Error.new",
+      "pdx_target": "axum-core.src.body.Body.new",
+      "reason": "other_target",
+      "receiver_proof": "path_bound",
+      "site": 53,
+      "span": [
+       6714,
+       6729
+      ],
+      "token": [
+       6721,
+       6724
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "Router::new",
+      "file": "axum-extra/src/extract/cookie/mod.rs",
+      "line": 367,
+      "oracle_status": "mapped",
+      "oracle_target": "axum.src.routing.mod.Router.new",
+      "pdx_target": "axum-extra.src.extract.cookie.mod.CookieJar.new",
+      "reason": "other_target",
+      "receiver_proof": "path_unproven",
+      "site": 40,
+      "span": [
+       11281,
+       11294
+      ],
+      "token": [
+       11289,
+       11292
+      ]
+     }
+    ],
+    "external_receiver_mistaken_for_local": [
+     {
+      "band": "scoped",
+      "callee": "http_body_util::Empty::new",
+      "file": "axum-core/src/body.rs",
+      "line": 56,
+      "oracle_status": "external",
+      "oracle_target": "http-body-util empty/impl#[`Empty<D>`]new().",
+      "pdx_target": "axum-core.src.body.Body.new",
+      "reason": "oracle_external",
+      "receiver_proof": "path_unproven",
+      "site": 11,
+      "span": [
+       1405,
+       1433
+      ],
+      "token": [
+       1428,
+       1431
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "cookie::CookieJar::new",
+      "file": "axum-extra/src/extract/cookie/mod.rs",
+      "line": 134,
+      "oracle_status": "external",
+      "oracle_target": "cookie jar/impl#[CookieJar]new().",
+      "pdx_target": "axum-extra.src.extract.cookie.mod.CookieJar.new",
+      "reason": "oracle_external",
+      "receiver_proof": "path_unproven",
+      "site": 12,
+      "span": [
+       4306,
+       4330
+      ],
+      "token": [
+       4325,
+       4328
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "cookie::CookieJar::new",
+      "file": "axum-extra/src/extract/cookie/private.rs",
+      "line": 158,
+      "oracle_status": "external",
+      "oracle_target": "cookie jar/impl#[CookieJar]new().",
+      "pdx_target": "axum-extra.src.extract.cookie.private.PrivateCookieJar.new",
+      "reason": "oracle_external",
+      "receiver_proof": "path_unproven",
+      "site": 7,
+      "span": [
+       4737,
+       4761
+      ],
+      "token": [
+       4756,
+       4759
+      ]
+     }
+    ],
+    "hierarchy_evidence_missing": [
+     {
+      "band": "scoped",
+      "callee": "self.clone",
+      "file": "axum/src/extract/connect_info.rs",
+      "line": 215,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum extract/connect_info/impl#[`MockConnectInfo<T>`][Clone]clone().",
+      "pdx_target": "axum.src.extract.connect_info.IntoMakeServiceWithConnectInfo.clone",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "self",
+      "site": 18,
+      "span": [
+       6377,
+       6389
+      ],
+      "token": [
+       6382,
+       6387
+      ]
+     }
+    ],
+    "import_provenance_failure": [
+     {
+      "band": "scoped",
+      "callee": "StripPrefix::layer",
+      "file": "axum/src/routing/path_router.rs",
+      "line": 153,
+      "oracle_status": "mapped",
+      "oracle_target": "axum.src.routing.strip_prefix.StripPrefix.layer",
+      "pdx_target": "axum.src.routing.path_router.PathRouter.layer",
+      "reason": "other_target",
+      "receiver_proof": "path_bound",
+      "site": 42,
+      "span": [
+       4594,
+       4620
+      ],
+      "token": [
+       4607,
+       4612
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "SetNestedPath::layer",
+      "file": "axum/src/routing/path_router.rs",
+      "line": 154,
+      "oracle_status": "mapped",
+      "oracle_target": "axum.src.extract.nested_path.SetNestedPath.layer",
+      "pdx_target": "axum.src.routing.path_router.PathRouter.layer",
+      "reason": "other_target",
+      "receiver_proof": "path_bound",
+      "site": 43,
+      "span": [
+       4638,
+       4675
+      ],
+      "token": [
+       4653,
+       4658
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "StripPrefix::layer",
+      "file": "axum/src/routing/path_router.rs",
+      "line": 189,
+      "oracle_status": "mapped",
+      "oracle_target": "axum.src.routing.strip_prefix.StripPrefix.layer",
+      "pdx_target": "axum.src.routing.path_router.PathRouter.layer",
+      "reason": "other_target",
+      "receiver_proof": "path_bound",
+      "site": 50,
+      "span": [
+       5652,
+       5678
+      ],
+      "token": [
+       5665,
+       5670
+      ]
+     }
+    ],
+    "self_edge": [
+     {
+      "band": "scoped",
+      "callee": "self.inner.fmt",
+      "file": "axum-core/src/error.rs",
+      "line": 27,
+      "oracle_status": "external",
+      "oracle_target": "alloc boxed/impl#[`Box<T, A>`][Display]fmt().",
+      "pdx_target": "axum-core.src.error.Error.fmt",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 1,
+      "span": [
+       609,
+       626
+      ],
+      "token": [
+       620,
+       623
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "self.inner.poll_ready",
+      "file": "axum-core/src/extract/default_body_limit.rs",
+      "line": 220,
+      "oracle_status": "external",
+      "oracle_target": "tower-service Service#poll_ready().",
+      "pdx_target": "axum-core.src.extract.default_body_limit.DefaultBodyLimitService.poll_ready",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 3,
+      "span": [
+       7104,
+       7129
+      ],
+      "token": [
+       7115,
+       7125
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "(self, ()).into_response",
+      "file": "axum-core/src/response/append_headers.rs",
+      "line": 45,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum-core response/into_response/impl#[`(T1, R)`][IntoResponse]into_response().",
+      "pdx_target": "axum-core.src.response.append_headers.AppendHeaders.into_response",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "value_unproven",
+      "site": 0,
+      "span": [
+       1348,
+       1374
+      ],
+      "token": [
+       1359,
+       1372
+      ]
+     }
+    ],
+    "unknown_or_unproven_receiver": [
+     {
+      "band": "scoped",
+      "callee": "E::from_request",
+      "file": "axum-core/src/ext_traits/request.rs",
+      "line": 279,
+      "oracle_status": "mapped",
+      "oracle_target": "axum-core.src.extract.mod.FromRequest.from_request",
+      "pdx_target": "axum-core.src.ext_traits.request.WorksForCustomExtractor.from_request",
+      "reason": "other_target",
+      "receiver_proof": "path_unproven",
+      "site": 1,
+      "span": [
+       8871,
+       8899
+      ],
+      "token": [
+       8874,
+       8886
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "E::from_request_parts",
+      "file": "axum-core/src/ext_traits/request_parts.rs",
+      "line": 133,
+      "oracle_status": "mapped",
+      "oracle_target": "axum-core.src.extract.mod.FromRequestParts.from_request_parts",
+      "pdx_target": "axum-core.src.ext_traits.request_parts.WorksForCustomExtractor.from_request_parts",
+      "reason": "other_target",
+      "receiver_proof": "path_unproven",
+      "site": 1,
+      "span": [
+       4070,
+       4104
+      ],
+      "token": [
+       4073,
+       4091
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "(StatusCode::CREATED, [(\"\", \"\")]).into_response",
+      "file": "axum-core/src/response/into_response_parts.rs",
+      "line": 299,
+      "oracle_status": "mapped",
+      "oracle_target": "axum-core.src.response.into_response.(StatusCode, R).into_response",
+      "pdx_target": "axum-core.src.response.into_response_parts.TryIntoHeaderError.into_response",
+      "reason": "other_target",
+      "receiver_proof": "value_unproven",
+      "site": 24,
+      "span": [
+       8457,
+       8510
+      ],
+      "token": [
+       8495,
+       8508
+      ]
+     }
+    ]
+   },
+   "false_positives": 337,
+   "primary": {
+    "constructor_collision": 84,
+    "external_receiver_mistaken_for_local": 54,
+    "hierarchy_evidence_missing": 1,
+    "import_provenance_failure": 4,
+    "module_or_package_uniqueness_only": 0,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 0,
+    "self_edge": 137,
+    "unknown_or_unproven_receiver": 57
+   },
+   "tagged": {
+    "constructor_collision": 109,
+    "external_receiver_mistaken_for_local": 130,
+    "hierarchy_evidence_missing": 1,
+    "import_provenance_failure": 26,
+    "module_or_package_uniqueness_only": 337,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 182,
+    "self_edge": 137,
+    "unknown_or_unproven_receiver": 309
+   }
+  }
+ },
+ "extraction_loss": 394,
+ "false_negative_examples": {
+  "drawn_wrong": [
+   {
+    "bucket": "drawn_wrong",
+    "callee": "Unknown::new",
+    "file": "axum-core/src/body.rs",
+    "line": 80,
+    "macro": null,
+    "oracle_target": "axum-core.src.body.unknown.Unknown.new",
+    "pdx_band": "scoped",
+    "pdx_site": 13,
+    "pdx_target": "axum-core.src.body.Body.new",
+    "shape": "call",
+    "span": [
+     2601,
+     2615
+    ],
+    "token": [
+     2610,
+     2613
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "Error::new",
+    "file": "axum-core/src/body.rs",
+    "line": 243,
+    "macro": null,
+    "oracle_target": "axum-core.src.error.Error.new",
+    "pdx_band": "scoped",
+    "pdx_site": 53,
+    "pdx_target": "axum-core.src.body.Body.new",
+    "shape": "call",
+    "span": [
+     6714,
+     6729
+    ],
+    "token": [
+     6721,
+     6724
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "E::from_request",
+    "file": "axum-core/src/ext_traits/request.rs",
+    "line": 279,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.mod.FromRequest.from_request",
+    "pdx_band": "scoped",
+    "pdx_site": 1,
+    "pdx_target": "axum-core.src.ext_traits.request.WorksForCustomExtractor.from_request",
+    "shape": "call",
+    "span": [
+     8871,
+     8899
+    ],
+    "token": [
+     8874,
+     8886
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "E::from_request_parts",
+    "file": "axum-core/src/ext_traits/request_parts.rs",
+    "line": 133,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.mod.FromRequestParts.from_request_parts",
+    "pdx_band": "scoped",
+    "pdx_site": 1,
+    "pdx_target": "axum-core.src.ext_traits.request_parts.WorksForCustomExtractor.from_request_parts",
+    "shape": "call",
+    "span": [
+     4070,
+     4104
+    ],
+    "token": [
+     4073,
+     4091
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "(StatusCode::INTERNAL_SERVER_ERROR, inner.to_string()).into_response",
+    "file": "axum-core/src/response/into_response_parts.rs",
+    "line": 210,
+    "macro": null,
+    "oracle_target": "axum-core.src.response.into_response.(StatusCode, R).into_response",
+    "pdx_band": "scoped",
+    "pdx_site": 17,
+    "pdx_target": "axum-core.src.response.into_response_parts.TryIntoHeaderError.into_response",
+    "shape": "method",
+    "span": [
+     5875,
+     5945
+    ],
+    "token": [
+     5930,
+     5943
+    ]
+   }
+  ],
+  "resolution_not_drawn:blocked": [
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "self.jar.get",
+    "file": "axum-extra/src/extract/cookie/private.rs",
+    "line": 301,
+    "macro": null,
+    "oracle_target": "axum-extra.src.extract.cookie.private.PrivateCookieJar.get",
+    "pdx_band": "blocked",
+    "pdx_site": 28,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     8920,
+     8947
+    ],
+    "token": [
+     8929,
+     8932
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "self.jar.get",
+    "file": "axum-extra/src/extract/cookie/signed.rs",
+    "line": 319,
+    "macro": null,
+    "oracle_target": "axum-extra.src.extract.cookie.signed.SignedCookieJar.get",
+    "pdx_band": "blocked",
+    "pdx_site": 28,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     9624,
+     9651
+    ],
+    "token": [
+     9633,
+     9636
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "client.get",
+    "file": "axum-extra/src/extract/form.rs",
+    "line": 142,
+    "macro": null,
+    "oracle_target": "axum.src.test_helpers.test_client.TestClient.get",
+    "pdx_band": "blocked",
+    "pdx_site": 27,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     4214,
+     4237
+    ],
+    "token": [
+     4221,
+     4224
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "deserializer.deserialize",
+    "file": "axum-extra/src/extract/json_deserializer.rs",
+    "line": 227,
+    "macro": null,
+    "oracle_target": "axum-extra.src.extract.json_deserializer.JsonDeserializer.deserialize",
+    "pdx_band": "blocked",
+    "pdx_site": 25,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     7692,
+     7718
+    ],
+    "token": [
+     7705,
+     7716
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "deserializer.deserialize",
+    "file": "axum-extra/src/extract/json_deserializer.rs",
+    "line": 254,
+    "macro": null,
+    "oracle_target": "axum-extra.src.extract.json_deserializer.JsonDeserializer.deserialize",
+    "pdx_band": "blocked",
+    "pdx_site": 37,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     8525,
+     8551
+    ],
+    "token": [
+     8538,
+     8549
+    ]
+   }
+  ],
+  "resolution_not_drawn:candidate": [
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "self.inner.size_hint",
+    "file": "axum-core/src/body.rs",
+    "line": 190,
+    "macro": null,
+    "oracle_target": "axum-core.src.body.Body.size_hint",
+    "pdx_band": "candidate",
+    "pdx_site": 33,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     5351,
+     5373
+    ],
+    "token": [
+     5362,
+     5371
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "self.inner.is_end_stream",
+    "file": "axum-core/src/body.rs",
+    "line": 211,
+    "macro": null,
+    "oracle_target": "axum-core.src.body.Body.is_end_stream",
+    "pdx_band": "candidate",
+    "pdx_site": 43,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     5927,
+     5953
+    ],
+    "token": [
+     5938,
+     5951
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "self.inner.size_hint",
+    "file": "axum-core/src/body.rs",
+    "line": 216,
+    "macro": null,
+    "oracle_target": "axum-core.src.body.Body.size_hint",
+    "pdx_band": "candidate",
+    "pdx_site": 44,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     6032,
+     6054
+    ],
+    "token": [
+     6043,
+     6052
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "InnerState::from_ref",
+    "file": "axum-core/src/ext_traits/mod.rs",
+    "line": 25,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.from_ref.FromRef.from_ref",
+    "pdx_band": "candidate",
+    "pdx_site": 0,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     677,
+     704
+    ],
+    "token": [
+     689,
+     697
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "String::from_ref",
+    "file": "axum-core/src/ext_traits/mod.rs",
+    "line": 45,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.from_ref.FromRef.from_ref",
+    "pdx_band": "candidate",
+    "pdx_site": 1,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     1224,
+     1247
+    ],
+    "token": [
+     1232,
+     1240
+    ]
+   }
+  ],
+  "resolution_not_drawn:external": [
+   {
+    "bucket": "resolution_not_drawn:external",
+    "callee": "Pin::new(&mut self.inner).poll_frame",
+    "file": "axum-core/src/body.rs",
+    "line": 206,
+    "macro": null,
+    "oracle_target": "axum-core.src.body.Body.poll_frame",
+    "pdx_band": "external",
+    "pdx_site": 41,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     5819,
+     5859
+    ],
+    "token": [
+     5845,
+     5855
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:external",
+    "callee": "Bytes::from_request",
+    "file": "axum-core/src/extract/request_parts.rs",
+    "line": 126,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.request_parts.Bytes.from_request",
+    "pdx_band": "external",
+    "pdx_site": 16,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     3102,
+     3133
+    ],
+    "token": [
+     3109,
+     3121
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:external",
+    "callee": "Cow::Borrowed(self).into_response",
+    "file": "axum-core/src/response/into_response.rs",
+    "line": 178,
+    "macro": null,
+    "oracle_target": "axum-core.src.response.into_response.Cow.into_response",
+    "pdx_band": "external",
+    "pdx_site": 10,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     4524,
+     4559
+    ],
+    "token": [
+     4544,
+     4557
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:external",
+    "callee": "Cow::<'static, str>::Owned(self).into_response",
+    "file": "axum-core/src/response/into_response.rs",
+    "line": 184,
+    "macro": null,
+    "oracle_target": "axum-core.src.response.into_response.Cow.into_response",
+    "pdx_band": "external",
+    "pdx_site": 12,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     4649,
+     4697
+    ],
+    "token": [
+     4682,
+     4695
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:external",
+    "callee": "Cow::Borrowed(self).into_response",
+    "file": "axum-core/src/response/into_response.rs",
+    "line": 290,
+    "macro": null,
+    "oracle_target": "axum-core.src.response.into_response.Cow.into_response",
+    "pdx_band": "external",
+    "pdx_site": 60,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     7586,
+     7621
+    ],
+    "token": [
+     7606,
+     7619
+    ]
+   }
+  ],
+  "resolution_not_materialized:typed": [
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "path_for_nested_route",
+    "file": "axum/src/routing/tests/mod.rs",
+    "line": 1150,
+    "macro": "assert_eq",
+    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_band": "typed",
+    "pdx_site": 727,
+    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "shape": "macro_tt",
+    "span": [
+     33571,
+     33602
+    ],
+    "token": [
+     33571,
+     33592
+    ]
+   },
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "path_for_nested_route",
+    "file": "axum/src/routing/tests/mod.rs",
+    "line": 1152,
+    "macro": "assert_eq",
+    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_band": "typed",
+    "pdx_site": 728,
+    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "shape": "macro_tt",
+    "span": [
+     33626,
+     33658
+    ],
+    "token": [
+     33626,
+     33647
+    ]
+   },
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "path_for_nested_route",
+    "file": "axum/src/routing/tests/mod.rs",
+    "line": 1153,
+    "macro": "assert_eq",
+    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_band": "typed",
+    "pdx_site": 729,
+    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "shape": "macro_tt",
+    "span": [
+     33682,
+     33714
+    ],
+    "token": [
+     33682,
+     33703
+    ]
+   },
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "path_for_nested_route",
+    "file": "axum/src/routing/tests/mod.rs",
+    "line": 1154,
+    "macro": "assert_eq",
+    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_band": "typed",
+    "pdx_site": 730,
+    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "shape": "macro_tt",
+    "span": [
+     33738,
+     33771
+    ],
+    "token": [
+     33738,
+     33759
+    ]
+   },
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "path_for_nested_route",
+    "file": "axum/src/routing/tests/mod.rs",
+    "line": 1155,
+    "macro": "assert_eq",
+    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_band": "typed",
+    "pdx_site": 731,
+    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "shape": "macro_tt",
+    "span": [
+     33796,
+     33829
+    ],
+    "token": [
+     33796,
+     33817
+    ]
+   }
+  ],
+  "site_missing": [
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "axum-core/src/ext_traits/request_parts.rs",
+    "line": 164,
+    "macro": null,
+    "oracle_target": "axum-core.src.ext_traits.request_parts.Parts.extract_with_state",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     4765,
+     4835
+    ],
+    "token": [
+     4784,
+     4802
+    ]
+   },
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "axum-core/src/extract/tuple.rs",
+    "line": 96,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.tuple.assert_from_request_parts",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     2909,
+     2942
+    ],
+    "token": [
+     2909,
+     2934
+    ]
+   },
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "axum-core/src/extract/tuple.rs",
+    "line": 97,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.tuple.assert_from_request",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     2952,
+     2982
+    ],
+    "token": [
+     2952,
+     2971
+    ]
+   },
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "axum-core/src/extract/tuple.rs",
+    "line": 102,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.tuple.assert_from_request_parts",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     3035,
+     3075
+    ],
+    "token": [
+     3035,
+     3060
+    ]
+   },
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "axum-core/src/extract/tuple.rs",
+    "line": 103,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.tuple.assert_from_request",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     3085,
+     3122
+    ],
+    "token": [
+     3085,
+     3104
+    ]
+   }
+  ],
+  "site_missing_macro_token_tree": [
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "axum-core/src/body.rs",
+    "line": 178,
+    "macro": "ready",
+    "oracle_target": "axum-core.src.body.Body.poll_frame",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     4979,
+     4993
+    ],
+    "token": [
+     4979,
+     4989
+    ]
+   },
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "axum-extra/src/extract/cookie/mod.rs",
+    "line": 359,
+    "macro": "format",
+    "oracle_target": "axum-extra.src.extract.cookie.signed.SignedCookieJar.get",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     11111,
+     11121
+    ],
+    "token": [
+     11111,
+     11114
+    ]
+   },
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "axum-extra/src/extract/form.rs",
+    "line": 121,
+    "macro": "assert_eq",
+    "oracle_target": "axum.src.test_helpers.test_client.TestResponse.text",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     3735,
+     3741
+    ],
+    "token": [
+     3735,
+     3739
+    ]
+   },
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "axum-extra/src/extract/form.rs",
+    "line": 145,
+    "macro": "assert_eq",
+    "oracle_target": "axum.src.test_helpers.test_client.TestResponse.text",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     4340,
+     4346
+    ],
+    "token": [
+     4340,
+     4344
+    ]
+   },
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "axum-extra/src/extract/form.rs",
+    "line": 156,
+    "macro": "assert_eq",
+    "oracle_target": "axum.src.test_helpers.test_client.TestResponse.text",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     4718,
+     4724
+    ],
+    "token": [
+     4718,
+     4722
+    ]
+   }
+  ]
+ },
+ "false_positive_examples": {
+  "exact": [
+   {
+    "band": "exact",
+    "callee": "k.take",
+    "file": "axum-core/src/body.rs",
+    "line": 33,
+    "oracle_status": "external",
+    "oracle_target": "core option/impl#[`Option<T>`]take().",
+    "pdx_target": "axum.src.test_helpers.tracing_helpers.Handle.take",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 5,
+    "span": [
+     853,
+     861
+    ],
+    "token": [
+     855,
+     859
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "frame.into_data",
+    "file": "axum-core/src/body.rs",
+    "line": 179,
+    "oracle_status": "external",
+    "oracle_target": "http-body frame/impl#[`Frame<T>`]into_data().",
+    "pdx_target": "axum.src.extract.ws.Message.into_data",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 30,
+    "span": [
+     5035,
+     5052
+    ],
+    "token": [
+     5041,
+     5050
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "usize::try_from(v).ok",
+    "file": "axum-core/src/body.rs",
+    "line": 192,
+    "oracle_status": "external",
+    "oracle_target": "core result/impl#[`Result<T, E>`]ok().",
+    "pdx_target": "axum.src.routing.method_routing.ok",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 39,
+    "span": [
+     5502,
+     5525
+    ],
+    "token": [
+     5521,
+     5523
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "self.method",
+    "file": "axum-core/src/ext_traits/request.rs",
+    "line": 299,
+    "oracle_status": "external",
+    "oracle_target": "http request/impl#[`Request<T>`]method().",
+    "pdx_target": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
+    "reason": "oracle_external",
+    "receiver_proof": "self",
+    "site": 8,
+    "span": [
+     9428,
+     9441
+    ],
+    "token": [
+     9433,
+     9439
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "req.headers_mut",
+    "file": "axum-core/src/ext_traits/request.rs",
+    "line": 301,
+    "oracle_status": "external",
+    "oracle_target": "http request/impl#[`Request<T>`]headers_mut().",
+    "pdx_target": "axum-core.src.response.into_response_parts.ResponseParts.headers_mut",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 12,
+    "span": [
+     9505,
+     9522
+    ],
+    "token": [
+     9509,
+     9520
+    ]
+   }
+  ],
+  "import-guided": [
+   {
+    "band": "import-guided",
+    "callee": "Body::from",
+    "file": "axum-core/src/ext_traits/request.rs",
+    "line": 355,
+    "oracle_status": "unmapped",
+    "oracle_target": "axum-core body/impl#[Body][`From<&'static str>`]from().",
+    "pdx_target": "axum-core.src.body.Body.from",
+    "reason": "other_target_unmapped",
+    "receiver_proof": "path_bound",
+    "site": 44,
+    "span": [
+     11246,
+     11266
+    ],
+    "token": [
+     11252,
+     11256
+    ]
+   }
+  ],
+  "inheritance-guided": [],
+  "scoped": [
+   {
+    "band": "scoped",
+    "callee": "http_body_util::Empty::new",
+    "file": "axum-core/src/body.rs",
+    "line": 56,
+    "oracle_status": "external",
+    "oracle_target": "http-body-util empty/impl#[`Empty<D>`]new().",
+    "pdx_target": "axum-core.src.body.Body.new",
+    "reason": "oracle_external",
+    "receiver_proof": "path_unproven",
+    "site": 11,
+    "span": [
+     1405,
+     1433
+    ],
+    "token": [
+     1428,
+     1431
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "Unknown::new",
+    "file": "axum-core/src/body.rs",
+    "line": 80,
+    "oracle_status": "mapped",
+    "oracle_target": "axum-core.src.body.unknown.Unknown.new",
+    "pdx_target": "axum-core.src.body.Body.new",
+    "reason": "other_target",
+    "receiver_proof": "path_unproven",
+    "site": 13,
+    "span": [
+     2601,
+     2615
+    ],
+    "token": [
+     2610,
+     2613
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "Error::new",
+    "file": "axum-core/src/body.rs",
+    "line": 243,
+    "oracle_status": "mapped",
+    "oracle_target": "axum-core.src.error.Error.new",
+    "pdx_target": "axum-core.src.body.Body.new",
+    "reason": "other_target",
+    "receiver_proof": "path_bound",
+    "site": 53,
+    "span": [
+     6714,
+     6729
+    ],
+    "token": [
+     6721,
+     6724
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "self.inner.fmt",
+    "file": "axum-core/src/error.rs",
+    "line": 27,
+    "oracle_status": "external",
+    "oracle_target": "alloc boxed/impl#[`Box<T, A>`][Display]fmt().",
+    "pdx_target": "axum-core.src.error.Error.fmt",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 1,
+    "span": [
+     609,
+     626
+    ],
+    "token": [
+     620,
+     623
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "E::from_request",
+    "file": "axum-core/src/ext_traits/request.rs",
+    "line": 279,
+    "oracle_status": "mapped",
+    "oracle_target": "axum-core.src.extract.mod.FromRequest.from_request",
+    "pdx_target": "axum-core.src.ext_traits.request.WorksForCustomExtractor.from_request",
+    "reason": "other_target",
+    "receiver_proof": "path_unproven",
+    "site": 1,
+    "span": [
+     8871,
+     8899
+    ],
+    "token": [
+     8874,
+     8886
+    ]
+   }
+  ],
+  "typed": [
+   {
+    "band": "typed",
+    "callee": "WithRejection::<TestExtractor, TestRejection>::from_request",
+    "file": "axum-extra/src/extract/with_rejection.rs",
+    "line": 196,
+    "oracle_status": "mapped",
+    "oracle_target": "axum-core.src.extract.mod.T.from_request",
+    "pdx_target": "axum-extra.src.extract.with_rejection.WithRejection.from_request",
+    "reason": "other_target",
+    "receiver_proof": "path_bound",
+    "site": 12,
+    "span": [
+     4889,
+     4958
+    ],
+    "token": [
+     4936,
+     4948
+    ]
+   },
+   {
+    "band": "typed",
+    "callee": "from_request::expand",
+    "file": "axum-macros/src/lib.rs",
+    "line": 377,
+    "oracle_status": "mapped",
+    "oracle_target": "axum-macros.src.from_request.mod.expand",
+    "pdx_target": "axum-macros.src.lib.expand",
+    "reason": "other_target",
+    "receiver_proof": "path_unproven",
+    "site": 1,
+    "span": [
+     10422,
+     10461
+    ],
+    "token": [
+     10436,
+     10442
+    ]
+   },
+   {
+    "band": "typed",
+    "callee": "from_request::expand",
+    "file": "axum-macros/src/lib.rs",
+    "line": 426,
+    "oracle_status": "mapped",
+    "oracle_target": "axum-macros.src.from_request.mod.expand",
+    "pdx_target": "axum-macros.src.lib.expand",
+    "reason": "other_target",
+    "receiver_proof": "path_unproven",
+    "site": 3,
+    "span": [
+     11705,
+     11749
+    ],
+    "token": [
+     11719,
+     11725
+    ]
+   },
+   {
+    "band": "typed",
+    "callee": "debug_handler::expand",
+    "file": "axum-macros/src/lib.rs",
+    "line": 582,
+    "oracle_status": "mapped",
+    "oracle_target": "axum-macros.src.debug_handler.expand",
+    "pdx_target": "axum-macros.src.lib.expand",
+    "reason": "other_target",
+    "receiver_proof": "path_bound",
+    "site": 5,
+    "span": [
+     16019,
+     16080
+    ],
+    "token": [
+     16034,
+     16040
+    ]
+   },
+   {
+    "band": "typed",
+    "callee": "debug_handler::expand",
+    "file": "axum-macros/src/lib.rs",
+    "line": 638,
+    "oracle_status": "mapped",
+    "oracle_target": "axum-macros.src.debug_handler.expand",
+    "pdx_target": "axum-macros.src.lib.expand",
+    "reason": "other_target",
+    "receiver_proof": "path_bound",
+    "site": 7,
+    "span": [
+     17667,
+     17731
+    ],
+    "token": [
+     17682,
+     17688
+    ]
+   }
+  ]
+ },
+ "language": "rust",
+ "macros": {
+  "macro_invocations": 2309,
+  "macro_invocations_by_band": {
+   "blocked": 11,
+   "candidate": 5,
+   "exact": 6,
+   "external": 231,
+   "scoped": 2,
+   "typed_only": 355,
+   "unresolved": 393
+  },
+  "macro_invocations_with_structural_site": 1003,
+  "macro_rules_body_call_text": 405,
+  "macro_rules_body_oracle_relations": 0,
+  "token_tree_calls": {
+   "call_text_in_token_trees": 1696,
+   "drawn_correct": 90,
+   "engine_site_band:typed": 9,
+   "invisible_to_structural_calls": 1552,
+   "invisible_with_oracle_relation": 338,
+   "oracle_relations": 437,
+   "visible_to_oracle": 1508,
+   "with_drawn_edge": 90,
+   "with_engine_site_only": 9,
+   "with_structural_call_site": 90,
+   "with_unconfirmed_site_only": 45
+  }
+ },
+ "overloads": {
+  "note": "an overloaded call is an oracle relation whose target shares its qualified name with another definition of its file; a call whose oracle symbol denotes several such definitions has no verdict",
+  "oracle_calls_whose_target_is_ambiguous": 1,
+  "oracle_verifiable_overloaded_calls": {
+   "correct_overload_selected": 49,
+   "drawn": 52,
+   "structural_site_exists": 83,
+   "total": 89,
+   "typed_answer_supplied": 2,
+   "withheld_qn_maps_to_several_definitions": 2,
+   "wrong_overload_selected": 3
+  }
+ },
+ "precision": {
+  "exact": {
+   "correct": 509,
+   "drawn": 1184,
+   "false_positive": 659,
+   "oracle_verifiable": 1168,
+   "oracle_verifiable_fraction": {
+    "denominator": 1184,
+    "numerator": 1168,
+    "value": 0.986486
+   },
+   "precision": {
+    "denominator": 1168,
+    "numerator": 509,
+    "value": 0.435788
+   }
+  },
+  "import-guided": {
+   "correct": 32,
+   "drawn": 33,
+   "false_positive": 1,
+   "oracle_verifiable": 33,
+   "oracle_verifiable_fraction": {
+    "denominator": 33,
+    "numerator": 33,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 33,
+    "numerator": 32,
+    "value": 0.969697
+   }
+  },
+  "inheritance-guided": {
+   "correct": 63,
+   "drawn": 63,
+   "false_positive": 0,
+   "oracle_verifiable": 63,
+   "oracle_verifiable_fraction": {
+    "denominator": 63,
+    "numerator": 63,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 63,
+    "numerator": 63,
+    "value": 1.0
+   }
+  },
+  "scoped": {
+   "correct": 155,
+   "drawn": 492,
+   "false_positive": 337,
+   "oracle_verifiable": 492,
+   "oracle_verifiable_fraction": {
+    "denominator": 492,
+    "numerator": 492,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 492,
+    "numerator": 155,
+    "value": 0.315041
+   }
+  },
+  "typed": {
+   "correct": 821,
+   "drawn": 868,
+   "false_positive": 15,
+   "oracle_verifiable": 836,
+   "oracle_verifiable_fraction": {
+    "denominator": 868,
+    "numerator": 836,
+    "value": 0.963134
+   },
+   "precision": {
+    "denominator": 836,
+    "numerator": 821,
+    "value": 0.982057
+   }
+  },
+  "union": {
+   "correct": 1580,
+   "drawn": 2640,
+   "false_positive": 1012,
+   "oracle_verifiable": 2592,
+   "oracle_verifiable_fraction": {
+    "denominator": 2640,
+    "numerator": 2592,
+    "value": 0.981818
+   },
+   "precision": {
+    "denominator": 2592,
+    "numerator": 1580,
+    "value": 0.609568
+   }
+  }
+ },
+ "precision_calls_only": {
+  "exact": {
+   "correct": 509,
+   "drawn": 1184,
+   "false_positive": 659,
+   "oracle_verifiable": 1168,
+   "oracle_verifiable_fraction": {
+    "denominator": 1184,
+    "numerator": 1168,
+    "value": 0.986486
+   },
+   "precision": {
+    "denominator": 1168,
+    "numerator": 509,
+    "value": 0.435788
+   }
+  },
+  "import-guided": {
+   "correct": 32,
+   "drawn": 33,
+   "false_positive": 1,
+   "oracle_verifiable": 33,
+   "oracle_verifiable_fraction": {
+    "denominator": 33,
+    "numerator": 33,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 33,
+    "numerator": 32,
+    "value": 0.969697
+   }
+  },
+  "inheritance-guided": {
+   "correct": 63,
+   "drawn": 63,
+   "false_positive": 0,
+   "oracle_verifiable": 63,
+   "oracle_verifiable_fraction": {
+    "denominator": 63,
+    "numerator": 63,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 63,
+    "numerator": 63,
+    "value": 1.0
+   }
+  },
+  "scoped": {
+   "correct": 155,
+   "drawn": 492,
+   "false_positive": 337,
+   "oracle_verifiable": 492,
+   "oracle_verifiable_fraction": {
+    "denominator": 492,
+    "numerator": 492,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 492,
+    "numerator": 155,
+    "value": 0.315041
+   }
+  },
+  "typed": {
+   "correct": 633,
+   "drawn": 652,
+   "false_positive": 14,
+   "oracle_verifiable": 647,
+   "oracle_verifiable_fraction": {
+    "denominator": 652,
+    "numerator": 647,
+    "value": 0.992331
+   },
+   "precision": {
+    "denominator": 647,
+    "numerator": 633,
+    "value": 0.978362
+   }
+  },
+  "union": {
+   "correct": 1392,
+   "drawn": 2424,
+   "false_positive": 1011,
+   "oracle_verifiable": 2403,
+   "oracle_verifiable_fraction": {
+    "denominator": 2424,
+    "numerator": 2403,
+    "value": 0.991337
+   },
+   "precision": {
+    "denominator": 2403,
+    "numerator": 1392,
+    "value": 0.579276
+   }
+  }
+ },
+ "precision_references_only": {
+  "exact": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "import-guided": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "inheritance-guided": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "scoped": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "typed": {
+   "correct": 188,
+   "drawn": 216,
+   "false_positive": 1,
+   "oracle_verifiable": 189,
+   "oracle_verifiable_fraction": {
+    "denominator": 216,
+    "numerator": 189,
+    "value": 0.875
+   },
+   "precision": {
+    "denominator": 189,
+    "numerator": 188,
+    "value": 0.994709
+   }
+  },
+  "union": {
+   "correct": 188,
+   "drawn": 216,
+   "false_positive": 1,
+   "oracle_verifiable": 189,
+   "oracle_verifiable_fraction": {
+    "denominator": 216,
+    "numerator": 189,
+    "value": 0.875
+   },
+   "precision": {
+    "denominator": 189,
+    "numerator": 188,
+    "value": 0.994709
+   }
+  }
+ },
+ "provenance": {
+  "corpus_commit": "bc8d4912435204a4a073cea70355ae0328d263fe",
+  "corpus_url": "github.com/tokio-rs/axum",
+  "dataset_format": 1,
+  "engine_health": "RunHealth { status: Clean, files: 419, files_resolved: 306, files_untyped: 113, files_empty: 0, files_over_budget: 0, files_source_unavailable: 0, files_not_reached: 0, pass_failures: 0 }",
+  "engine_version": 7,
+  "metrics_version": "a0-metrics-1",
+  "oracle": "rust-analyzer scip",
+  "oracle_setup": {
+   ".": {
+    "cargo_lock_sha256": "430c583e921c5a89e9bf10f5d8198a5109d68f4d0512c5d5c22daa3dc9ef8314",
+    "features": "all"
+   },
+   "examples": {
+    "cargo_lock_sha256": "ef2fe46bd8cf6f603511cfbbdc8040be694630978291129125d92fe7439267fc",
+    "features": "all"
+   }
+  },
+  "oracle_tools": [
+   {
+    "documents": 119,
+    "name": "rust-analyzer",
+    "prefix": "",
+    "version": "1.98.1 (48a229c 2026-09-01)"
+   },
+   {
+    "documents": 61,
+    "name": "rust-analyzer",
+    "prefix": "examples/",
+    "version": "1.98.1 (48a229c 2026-09-01)"
+   }
+  ],
+  "oracle_versions": {
+   "rust-analyzer": "rust-analyzer 1.98.1 (48a229c 2026-09-01)",
+   "scip-python": "0.6.6",
+   "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
+   "scip-python_package": "@sourcegraph/scip-python@0.6.6"
+  },
+  "pdx_note": "A0.1 adds measurement tooling only; the resolver, extraction and bands measured are those of pdx_sha",
+  "pdx_sha": "e746b1e25d42552e5dc051698b476bcac9a9a6f4",
+  "site_matching_version": "a0-match-1"
+ },
+ "recall": {
+  "at_parsed_structural_sites": 4061,
+  "breakdown": {
+   "at_parsed_site": 4061,
+   "drawn_correct": 1377,
+   "drawn_wrong": 190,
+   "resolution_not_drawn:blocked": 389,
+   "resolution_not_drawn:candidate": 2079,
+   "resolution_not_drawn:external": 17,
+   "resolution_not_materialized:typed": 9,
+   "site_missing": 56,
+   "site_missing_macro_token_tree": 338
+  },
+  "drawn_correct": 1377,
+  "end_to_end_recall": {
+   "denominator": 4455,
+   "numerator": 1377,
+   "value": 0.309091
+  },
+  "oracle_calls_outside_relations": {
+   "not_a_relation:external": 6872,
+   "not_a_relation:file_not_indexed": 200,
+   "not_a_relation:local": 89,
+   "not_a_relation:no_token": 19,
+   "not_a_relation:none": 603,
+   "oracle_target_ambiguous": 1,
+   "oracle_target_unmapped": 977
+  },
+  "oracle_relations": 4455,
+  "recall": {
+   "denominator": 4061,
+   "numerator": 1377,
+   "value": 0.339079
+  }
+ },
+ "receivers": {
+  "none": {
+   "by_band": {
+    "blocked": 496,
+    "candidate": 37,
+    "exact": 172,
+    "external": 261,
+    "import-guided": 15,
+    "scoped": 92,
+    "typed": 654,
+    "unresolved": 509
+   },
+   "call_sites": 2236,
+   "exact_or_scoped_drawn": 264,
+   "exact_or_scoped_precision": {
+    "denominator": 262,
+    "numerator": 178,
+    "value": 0.679389
+   }
+  },
+  "path_bound": {
+   "by_band": {
+    "blocked": 23,
+    "candidate": 265,
+    "exact": 97,
+    "external": 483,
+    "import-guided": 18,
+    "scoped": 25,
+    "typed": 102,
+    "unresolved": 92
+   },
+   "call_sites": 1105,
+   "exact_or_scoped_drawn": 122,
+   "exact_or_scoped_precision": {
+    "denominator": 122,
+    "numerator": 76,
+    "value": 0.622951
+   }
+  },
+  "path_unproven": {
+   "by_band": {
+    "blocked": 129,
+    "candidate": 886,
+    "exact": 116,
+    "scoped": 112,
+    "typed": 17,
+    "unresolved": 430
+   },
+   "call_sites": 1690,
+   "exact_or_scoped_drawn": 228,
+   "exact_or_scoped_precision": {
+    "denominator": 228,
+    "numerator": 48,
+    "value": 0.210526
+   }
+  },
+  "self": {
+   "by_band": {
+    "blocked": 8,
+    "candidate": 27,
+    "exact": 15,
+    "inheritance-guided": 63,
+    "scoped": 16,
+    "typed": 37,
+    "unresolved": 51
+   },
+   "call_sites": 217,
+   "exact_or_scoped_drawn": 31,
+   "exact_or_scoped_precision": {
+    "denominator": 31,
+    "numerator": 17,
+    "value": 0.548387
+   }
+  },
+  "value_unproven": {
+   "by_band": {
+    "blocked": 783,
+    "candidate": 1615,
+    "exact": 784,
+    "external": 176,
+    "scoped": 247,
+    "typed": 67,
+    "unresolved": 2321
+   },
+   "call_sites": 5993,
+   "exact_or_scoped_drawn": 1031,
+   "exact_or_scoped_precision": {
+    "denominator": 1017,
+    "numerator": 345,
+    "value": 0.339233
+   }
+  }
+ },
+ "resolution_loss": 2684,
+ "unverifiable_drawn": {
+  "exact:file_not_indexed": 13,
+  "exact:none": 3,
+  "typed:file_not_indexed": 29,
+  "typed:no_token": 3
+ }
+}

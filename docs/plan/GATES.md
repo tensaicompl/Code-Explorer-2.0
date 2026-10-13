@@ -416,7 +416,25 @@ is not patched within A0.1 or A0.2. What is done about it is A0.3, the driver's 
 
 Evaluation log:
 
-_not yet evaluated_
+_not yet evaluated by the driver._
+
+A0.1's measurement, 2026-10-14. This is evidence for A0.3, not an evaluation, and
+the status stays `pending`. It measures the code at `e746b1e`; A0.1 changes no
+product code. Each ratio has its numerator and denominator in
+`bench/results/a0/python.json` and `rust.json`; `methodology.md` gives the method.
+
+| Golden | Floor | Measured | Oracle-verifiable fraction | Floor met |
+|---|---|---|---|---|
+| Python | `typed` precision ≥ 97% | 310 / 310 = 100.00% | 310 / 310 | yes |
+| Python | union precision ≥ 95% | 620 / 653 = 94.95% | 653 / 656 = 99.54% | **no** |
+| Python | recall ≥ 85% | 603 / 1,114 = 54.13% | | **no** |
+| Rust | `typed` precision ≥ 97% | 821 / 836 = 98.21% | 836 / 868 = 96.31% | yes |
+| Rust | union precision ≥ 95% | 1,580 / 2,592 = 60.96% | 2,592 / 2,640 = 98.18% | **no** |
+| Rust | recall ≥ 85% | 1,377 / 4,061 = 33.91% | | **no** |
+
+Four of the six floors are not met. Nothing is averaged and no floor is waived or
+redefined (rule D32). The PDX repository's diagnostic result (`pdx-self.json`) is
+not part of the gate.
 
 ## G2 — after `P3-09`
 

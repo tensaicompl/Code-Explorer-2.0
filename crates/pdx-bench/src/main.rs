@@ -1,6 +1,7 @@
 //! The pdx-bench harness: `pdx-bench golden [--accept]` (P2-12), `pdx-bench bench
 //! --determinism --perf` (P2-14), which `pdx bench` launches, and `pdx-bench
-//! differential-corpora` (P2-16), which the engine differential reads. Its benchmark worker is
+//! differential-corpora` (P2-16), which the engine differential reads, and `pdx-bench
+//! audit-sites` (A0.1, decision 64), which `scripts/a0/` reads. Its benchmark worker is
 //! served before the command line is parsed, when the first argument is
 //! `pdx_bench::bench::worker::WORKER`; it is no subcommand and in no help.
 
@@ -9,6 +10,7 @@ use std::process::ExitCode;
 
 use clap::error::ErrorKind;
 use clap::{Arg, ArgAction, ArgGroup, Command};
+use pdx_bench::audit;
 use pdx_bench::bench::area::Area;
 use pdx_bench::bench::host::Host;
 use pdx_bench::bench::plan::bench_plan;
@@ -83,6 +85,30 @@ fn command() -> Command {
              commits, and print every corpus of the engine differential as JSON \
              (scripts/engine/differential.py reads it)",
         ))
+        .subcommand(
+            Command::new("audit-sites")
+                .about(
+                    "Write the A0.1 site dataset of a checkout: every call site as Stage 3 \
+                     settles it, and the definitions it can name, one JSON object a line \
+                     (scripts/a0/ reads it)",
+                )
+                .arg(
+                    Arg::new("root")
+                        .long("root")
+                        .value_name("DIR")
+                        .required(true)
+                        .value_parser(clap::value_parser!(std::path::PathBuf))
+                        .help("The checkout"),
+                )
+                .arg(
+                    Arg::new("out")
+                        .long("out")
+                        .value_name("FILE")
+                        .required(true)
+                        .value_parser(clap::value_parser!(std::path::PathBuf))
+                        .help("The dataset to write; an existing file is replaced"),
+                ),
+        )
 }
 
 fn main() -> ExitCode {
@@ -133,6 +159,12 @@ fn run_with(args: impl IntoIterator<Item = OsString>) -> ExitCode {
         })
         .map_err(|e| e.to_string()),
         Some(("differential-corpora", _)) => differential_corpora(),
+        Some(("audit-sites", m)) => audit_sites(
+            m.get_one::<std::path::PathBuf>("root")
+                .expect("a required argument"),
+            m.get_one::<std::path::PathBuf>("out")
+                .expect("a required argument"),
+        ),
         _ => unreachable!("a subcommand is required"),
     };
     match result {
@@ -236,6 +268,20 @@ fn golden(mode: Mode) -> Result<(), GoldenError> {
     )
 }
 
+/// `pdx-bench audit-sites --root DIR --out FILE`: A0.1's site dataset of the checkout
+/// at `root` (decision 64), written to `out`; its counts on standard error.
+fn audit_sites(root: &std::path::Path, out: &std::path::Path) -> Result<(), String> {
+    let file = std::fs::File::create(out).map_err(|e| format!("{}: {e}", out.display()))?;
+    let mut writer = std::io::BufWriter::new(file);
+    let counts = audit::write_dataset(root, &mut writer).map_err(|e| e.to_string())?;
+    std::io::Write::flush(&mut writer).map_err(|e| format!("{}: {e}", out.display()))?;
+    eprintln!(
+        "pdx-bench: {} files, {} definitions, {} call sites, {} other sites",
+        counts.files, counts.definitions, counts.resolved, counts.unconfirmed
+    );
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -251,7 +297,10 @@ mod tests {
         assert!(golden.get_flag("accept"));
         let cli = command();
         let names: Vec<&str> = cli.get_subcommands().map(Command::get_name).collect();
-        assert_eq!(names, ["golden", "bench", "differential-corpora"]);
+        assert_eq!(
+            names,
+            ["golden", "bench", "differential-corpora", "audit-sites"]
+        );
         for args in [
             &["pdx-bench"][..],
             &["pdx-bench", "golden", "--determinism"],
@@ -261,6 +310,8 @@ mod tests {
             &["pdx-bench", "bench", "--perf", "kubernetes"],
             &["pdx-bench", "bench", "--accept"],
             &["pdx-bench", WORKER],
+            &["pdx-bench", "audit-sites"],
+            &["pdx-bench", "audit-sites", "--root", "."],
         ] {
             assert!(command().try_get_matches_from(args).is_err(), "{args:?}");
         }

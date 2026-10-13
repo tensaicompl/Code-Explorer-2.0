@@ -116,6 +116,20 @@ not of which is right. `scripts/compare-legacy.py` produces the counts and the
 evidence, under the ignored `.cache/legacy-compare/` with the rest of the raw run; the
 explanations are written by hand, never by the script.
 
+`results/a0/` is A0.1 and A0.2's structural-accuracy audit (decision 64, issue 95,
+gate G1b): the Python and Rust goldens, and PDX itself as a diagnostic corpus,
+measured with 4.13.1's precision, recall and oracle-verifiable fraction against
+`scip-python` and `rust-analyzer`'s SCIP indexes, with counterfactual re-scoring.
+`results/a0/methodology.md` gives the oracles, the matching rules and how
+`scripts/a0/run.py` reproduces it. It is not P5-06.
+
+## a0/
+
+`a0/sanity/` holds A0.1's oracle sanity fixtures, one small Python package and one
+Rust crate. Each call case is marked `A0: <case> -> <expected>`, and
+`scripts/a0/sanity.py` checks the oracle mapping against every mark before any
+whole-repository number is accepted.
+
 ## corpus/
 
 The sanitizer corpus: small source files that `make check-asan` extracts with the

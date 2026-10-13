@@ -1,0 +1,2582 @@
+{
+ "blocklist": {
+  "edges_drawn": 0,
+  "examples_correct_suppressed": [
+   {
+    "band": "blocked",
+    "callee": "Area::open",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 174,
+    "oracle_status": "mapped",
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.open",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "path_bound",
+    "site": 60,
+    "span": [
+     5584,
+     5621
+    ],
+    "token": [
+     5590,
+     5594
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "Area::open",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 196,
+    "oracle_status": "mapped",
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.open",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "path_bound",
+    "site": 93,
+    "span": [
+     6731,
+     6768
+    ],
+    "token": [
+     6737,
+     6741
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "Area::open",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 220,
+    "oracle_status": "mapped",
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.open",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "path_bound",
+    "site": 117,
+    "span": [
+     7776,
+     7813
+    ],
+    "token": [
+     7782,
+     7786
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "stop",
+    "file": "crates/pdx-bench/src/bench/process.rs",
+    "line": 182,
+    "oracle_status": "mapped",
+    "oracle_target": "crates.pdx-bench.src.bench.process.stop",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "none",
+    "site": 39,
+    "span": [
+     5658,
+     5674
+    ],
+    "token": [
+     5658,
+     5662
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "stop",
+    "file": "crates/pdx-bench/src/bench/process.rs",
+    "line": 193,
+    "oracle_status": "mapped",
+    "oracle_target": "crates.pdx-bench.src.bench.process.stop",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": "none",
+    "site": 45,
+    "span": [
+     5969,
+     5985
+    ],
+    "token": [
+     5969,
+     5973
+    ]
+   }
+  ],
+  "final_band:blocked": 2619,
+  "no_typed_answer_and_blocked": 2207,
+  "no_typed_answer_and_blocked_with_oracle_relation": 327,
+  "oracle_relation": 736,
+  "oracle_verifiable": 2593,
+  "recall_c0": {
+   "denominator": 7844,
+   "numerator": 6064,
+   "value": 0.773075
+  },
+  "recall_c4": {
+   "denominator": 7844,
+   "numerator": 6473,
+   "value": 0.825217
+  },
+  "relations_recovered_in_c4": 409,
+  "sites": 2619,
+  "suppressed_typed_answer_correct": 409,
+  "suppressed_typed_answer_unverifiable": 3,
+  "typed_answer_suppressed_by_blocklist": 412
+ },
+ "corpus": "pdx-self",
+ "counterfactuals": {
+  "C0": {
+   "drawn": 7369,
+   "false_positives_added": 0,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 7358,
+   "oracle_verifiable_fraction": {
+    "denominator": 7369,
+    "numerator": 7358,
+    "value": 0.998507
+   },
+   "policy": "current behaviour",
+   "precision": {
+    "denominator": 7358,
+    "numerator": 6095,
+    "value": 0.82835
+   },
+   "recall": {
+    "denominator": 7844,
+    "numerator": 6064,
+    "value": 0.773075
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 0,
+   "typed": {
+    "denominator": 5356,
+    "numerator": 5311,
+    "value": 0.991598
+   }
+  },
+  "C1": {
+   "drawn": 5910,
+   "false_positives_added": 0,
+   "false_positives_removed": 904,
+   "oracle_verifiable": 5906,
+   "oracle_verifiable_fraction": {
+    "denominator": 5910,
+    "numerator": 5906,
+    "value": 0.999323
+   },
+   "policy": "`exact` not drawn",
+   "precision": {
+    "denominator": 5906,
+    "numerator": 5547,
+    "value": 0.939214
+   },
+   "recall": {
+    "denominator": 7844,
+    "numerator": 5517,
+    "value": 0.70334
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 548,
+   "typed": {
+    "denominator": 5356,
+    "numerator": 5311,
+    "value": 0.991598
+   }
+  },
+  "C2": {
+   "drawn": 7012,
+   "false_positives_added": 0,
+   "false_positives_removed": 310,
+   "oracle_verifiable": 7001,
+   "oracle_verifiable_fraction": {
+    "denominator": 7012,
+    "numerator": 7001,
+    "value": 0.998431
+   },
+   "policy": "`scoped` not drawn",
+   "precision": {
+    "denominator": 7001,
+    "numerator": 6048,
+    "value": 0.863877
+   },
+   "recall": {
+    "denominator": 7844,
+    "numerator": 6017,
+    "value": 0.767083
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 47,
+   "typed": {
+    "denominator": 5356,
+    "numerator": 5311,
+    "value": 0.991598
+   }
+  },
+  "C3": {
+   "drawn": 5553,
+   "false_positives_added": 0,
+   "false_positives_removed": 1214,
+   "oracle_verifiable": 5549,
+   "oracle_verifiable_fraction": {
+    "denominator": 5553,
+    "numerator": 5549,
+    "value": 0.99928
+   },
+   "policy": "neither `exact` nor `scoped` drawn",
+   "precision": {
+    "denominator": 5549,
+    "numerator": 5500,
+    "value": 0.99117
+   },
+   "recall": {
+    "denominator": 7844,
+    "numerator": 5470,
+    "value": 0.697348
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 595,
+   "typed": {
+    "denominator": 5356,
+    "numerator": 5311,
+    "value": 0.991598
+   }
+  },
+  "C4": {
+   "drawn": 7781,
+   "false_positives_added": 0,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 7767,
+   "oracle_verifiable_fraction": {
+    "denominator": 7781,
+    "numerator": 7767,
+    "value": 0.998201
+   },
+   "policy": "a valid typed answer is accepted before the generic-name blocklist",
+   "precision": {
+    "denominator": 7767,
+    "numerator": 6504,
+    "value": 0.837389
+   },
+   "recall": {
+    "denominator": 7844,
+    "numerator": 6473,
+    "value": 0.825217
+   },
+   "true_positives_added": 409,
+   "true_positives_lost": 0,
+   "typed": {
+    "denominator": 5765,
+    "numerator": 5720,
+    "value": 0.992194
+   }
+  },
+  "C5": {
+   "drawn": 5956,
+   "false_positives_added": 0,
+   "false_positives_removed": 958,
+   "oracle_verifiable": 5951,
+   "oracle_verifiable_fraction": {
+    "denominator": 5956,
+    "numerator": 5951,
+    "value": 0.999161
+   },
+   "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
+   "precision": {
+    "denominator": 5951,
+    "numerator": 5646,
+    "value": 0.948748
+   },
+   "recall": {
+    "denominator": 7844,
+    "numerator": 5615,
+    "value": 0.715834
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 449,
+   "typed": {
+    "denominator": 5356,
+    "numerator": 5311,
+    "value": 0.991598
+   }
+  },
+  "C6": {
+   "drawn": 5965,
+   "false_positives_added": 0,
+   "false_positives_removed": 1214,
+   "oracle_verifiable": 5958,
+   "oracle_verifiable_fraction": {
+    "denominator": 5965,
+    "numerator": 5958,
+    "value": 0.998826
+   },
+   "policy": "C3, C4 and C5 together",
+   "precision": {
+    "denominator": 5958,
+    "numerator": 5909,
+    "value": 0.991776
+   },
+   "recall": {
+    "denominator": 7844,
+    "numerator": 5879,
+    "value": 0.74949
+   },
+   "true_positives_added": 409,
+   "true_positives_lost": 595,
+   "typed": {
+    "denominator": 5765,
+    "numerator": 5720,
+    "value": 0.992194
+   }
+  }
+ },
+ "coverage": {
+  "drawn_edges_by_kind": {
+   "CALLS": 7341,
+   "CALL_REFERENCE": 28
+  },
+  "engine_sites": 137,
+  "language_files": 172,
+  "language_files_indexed_by_oracle": 163,
+  "name_token_rules": {
+   "M1": 23249,
+   "M1c": 151
+  },
+  "oracle_assumed_encoding": {},
+  "oracle_call_sites": 29205,
+  "oracle_call_sites_by_status": {
+   "external": 18255,
+   "file_not_indexed": 58,
+   "local": 669,
+   "mapped": 8871,
+   "no_token": 10,
+   "none": 66,
+   "unmapped": 1276
+  },
+  "oracle_symbols": {
+   "ambiguous": 66,
+   "mapped": 4449,
+   "unmapped": 1105
+  },
+  "oracle_unconvertible_occurrences": 0,
+  "parse_failures": [],
+  "structural_call_sites": 23400,
+  "structural_call_sites_by_band": {
+   "blocked": 2619,
+   "candidate": 3070,
+   "exact": 1459,
+   "external": 1018,
+   "import-guided": 119,
+   "inheritance-guided": 75,
+   "scoped": 357,
+   "typed": 5496,
+   "unresolved": 9187
+  },
+  "structural_call_sites_not_materialized_by_band": {
+   "typed": 137
+  },
+  "structural_call_sites_without_name_token": 0,
+  "structural_sites_not_call_sites": 7032
+ },
+ "exact_scoped_false_positives": {
+  "exact": {
+   "examples": {
+    "constructor_collision": [
+     {
+      "band": "exact",
+      "callee": "Performance::Completed",
+      "file": "crates/pdx-bench/src/bench/results.rs",
+      "line": 814,
+      "oracle_status": "unmapped",
+      "oracle_target": "pdx-bench bench/results/Performance#Completed#",
+      "pdx_target": "crates.pdx-bench.src.bench.results.Completed",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_bound",
+      "site": 262,
+      "span": [
+       28041,
+       28626
+      ],
+      "token": [
+       28054,
+       28063
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "Performance::OutOfMemory",
+      "file": "crates/pdx-bench/src/bench/results.rs",
+      "line": 951,
+      "oracle_status": "unmapped",
+      "oracle_target": "pdx-bench bench/results/Performance#OutOfMemory#",
+      "pdx_target": "crates.pdx-bench.src.bench.results.OutOfMemory",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_bound",
+      "site": 349,
+      "span": [
+       33677,
+       34222
+      ],
+      "token": [
+       33690,
+       33701
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "BuildOutcome::Stopped",
+      "file": "crates/pdx-bench/src/bench/run.rs",
+      "line": 358,
+      "oracle_status": "unmapped",
+      "oracle_target": "pdx-bench bench/run/BuildOutcome#Stopped#",
+      "pdx_target": "crates.pdx-bench.src.bench.run.Stopped",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_bound",
+      "site": 34,
+      "span": [
+       12023,
+       12251
+      ],
+      "token": [
+       12037,
+       12044
+      ]
+     }
+    ],
+    "external_receiver_mistaken_for_local": [
+     {
+      "band": "exact",
+      "callee": "dir.strip_prefix(&self.root).ok",
+      "file": "crates/pdx-bench/src/bench/area.rs",
+      "line": 109,
+      "oracle_status": "external",
+      "oracle_target": "core result/impl#[`Result<T, E>`]ok().",
+      "pdx_target": "crates.pdx-bench.tests.bench_run.Answer.ok",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 16,
+      "span": [
+       3599,
+       3632
+      ],
+      "token": [
+       3628,
+       3630
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "rest.components",
+      "file": "crates/pdx-bench/src/bench/area.rs",
+      "line": 110,
+      "oracle_status": "external",
+      "oracle_target": "std path/impl#[Path]components().",
+      "pdx_target": "crates.pdx-core.src.metrics.complexity.components",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 19,
+      "span": [
+       3661,
+       3678
+      ],
+      "token": [
+       3666,
+       3676
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "rest.components",
+      "file": "crates/pdx-bench/src/bench/area.rs",
+      "line": 111,
+      "oracle_status": "external",
+      "oracle_target": "std path/impl#[Path]components().",
+      "pdx_target": "crates.pdx-core.src.metrics.complexity.components",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 21,
+      "span": [
+       3710,
+       3727
+      ],
+      "token": [
+       3715,
+       3725
+      ]
+     }
+    ],
+    "self_edge": [
+     {
+      "band": "exact",
+      "callee": "serde_json::to_value",
+      "file": "crates/pdx-bench/src/bench/results.rs",
+      "line": 389,
+      "oracle_status": "external",
+      "oracle_target": "serde_json value/to_value().",
+      "pdx_target": "crates.pdx-bench.src.bench.results.to_value",
+      "reason": "oracle_external",
+      "receiver_proof": "path_unproven",
+      "site": 31,
+      "span": [
+       13126,
+       13152
+      ],
+      "token": [
+       13138,
+       13146
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "self.confidence_rank().cmp",
+      "file": "crates/pdx-core/src/bands.rs",
+      "line": 81,
+      "oracle_status": "external",
+      "oracle_target": "core cmp/impls/impl#[u8][Ord]cmp().",
+      "pdx_target": "crates.pdx-core.src.bands.Band.cmp",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 2,
+      "span": [
+       2990,
+       3042
+      ],
+      "token": [
+       3013,
+       3016
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "self.ptr.as_ptr",
+      "file": "crates/pdx-engine/src/engine.rs",
+      "line": 232,
+      "oracle_status": "external",
+      "oracle_target": "core ptr/non_null/impl#[`NonNull<T>`]as_ptr().",
+      "pdx_target": "crates.pdx-engine.src.engine.RawResult.as_ptr",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 60,
+      "span": [
+       8477,
+       8494
+      ],
+      "token": [
+       8486,
+       8492
+      ]
+     }
+    ],
+    "unknown_or_unproven_receiver": [
+     {
+      "band": "exact",
+      "callee": "a.contract_id.cmp",
+      "file": "crates/pdx-core/src/contracts/mod.rs",
+      "line": 391,
+      "oracle_status": "unmapped",
+      "oracle_target": "pdx-core ids/impl#[NodeId][Ord]cmp().",
+      "pdx_target": "crates.pdx-core.src.bands.Band.cmp",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "value_unproven",
+      "site": 94,
+      "span": [
+       14787,
+       14820
+      ],
+      "token": [
+       14801,
+       14804
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "n.node_id.cmp",
+      "file": "crates/pdx-core/src/index/derive/mod.rs",
+      "line": 184,
+      "oracle_status": "unmapped",
+      "oracle_target": "pdx-core ids/impl#[NodeId][Ord]cmp().",
+      "pdx_target": "crates.pdx-core.src.bands.Band.cmp",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "value_unproven",
+      "site": 3,
+      "span": [
+       7481,
+       7498
+      ],
+      "token": [
+       7491,
+       7494
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "a.0.cmp",
+      "file": "crates/pdx-core/src/index/derive/mod.rs",
+      "line": 385,
+      "oracle_status": "unmapped",
+      "oracle_target": "pdx-engine resolver/impl#[SiteRef][Ord]cmp().",
+      "pdx_target": "crates.pdx-core.src.bands.Band.cmp",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "value_unproven",
+      "site": 45,
+      "span": [
+       15360,
+       15373
+      ],
+      "token": [
+       15364,
+       15367
+      ]
+     }
+    ]
+   },
+   "false_positives": 904,
+   "primary": {
+    "constructor_collision": 72,
+    "external_receiver_mistaken_for_local": 815,
+    "hierarchy_evidence_missing": 0,
+    "import_provenance_failure": 0,
+    "module_or_package_uniqueness_only": 0,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 0,
+    "self_edge": 5,
+    "unknown_or_unproven_receiver": 12
+   },
+   "tagged": {
+    "constructor_collision": 72,
+    "external_receiver_mistaken_for_local": 820,
+    "hierarchy_evidence_missing": 0,
+    "import_provenance_failure": 51,
+    "module_or_package_uniqueness_only": 0,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 0,
+    "self_edge": 5,
+    "unknown_or_unproven_receiver": 743
+   }
+  },
+  "scoped": {
+   "examples": {
+    "constructor_collision": [
+     {
+      "band": "scoped",
+      "callee": "Bounded::default",
+      "file": "crates/pdx-bench/src/bench/process.rs",
+      "line": 134,
+      "oracle_status": "unmapped",
+      "oracle_target": "pdx-bench bench/process/impl#[Bounded][Default]default().",
+      "pdx_target": "crates.pdx-bench.src.bench.process.SystemProbe.default",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_bound",
+      "site": 13,
+      "span": [
+       4067,
+       4085
+      ],
+      "token": [
+       4076,
+       4083
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "Peak::default",
+      "file": "crates/pdx-bench/src/bench/process.rs",
+      "line": 188,
+      "oracle_status": "unmapped",
+      "oracle_target": "pdx-bench bench/measure/impl#[Peak][Default]default().",
+      "pdx_target": "crates.pdx-bench.src.bench.process.SystemProbe.default",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_bound",
+      "site": 41,
+      "span": [
+       5797,
+       5812
+      ],
+      "token": [
+       5803,
+       5810
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "Git::new",
+      "file": "crates/pdx-bench/tests/golden_fetch.rs",
+      "line": 83,
+      "oracle_status": "mapped",
+      "oracle_target": "crates.pdx-bench.src.golden.git.Git.new",
+      "pdx_target": "crates.pdx-bench.tests.golden_fetch.Scratch.new",
+      "reason": "other_target",
+      "receiver_proof": "path_bound",
+      "site": 47,
+      "span": [
+       3273,
+       3403
+      ],
+      "token": [
+       3278,
+       3281
+      ]
+     }
+    ],
+    "external_receiver_mistaken_for_local": [
+     {
+      "band": "scoped",
+      "callee": "Vec::new",
+      "file": "crates/pdx-bench/src/bench/results.rs",
+      "line": 476,
+      "oracle_status": "external",
+      "oracle_target": "alloc vec/impl#[`Vec<T>`]new().",
+      "pdx_target": "crates.pdx-bench.src.bench.results.ResultFile.new",
+      "reason": "oracle_external",
+      "receiver_proof": "path_unproven",
+      "site": 79,
+      "span": [
+       16095,
+       16105
+      ],
+      "token": [
+       16100,
+       16103
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "Vec::new",
+      "file": "crates/pdx-bench/src/bench/results.rs",
+      "line": 962,
+      "oracle_status": "external",
+      "oracle_target": "alloc vec/impl#[`Vec<T>`]new().",
+      "pdx_target": "crates.pdx-bench.src.bench.results.ResultFile.new",
+      "reason": "oracle_external",
+      "receiver_proof": "path_unproven",
+      "site": 352,
+      "span": [
+       34083,
+       34093
+      ],
+      "token": [
+       34088,
+       34091
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "u64::try_from",
+      "file": "crates/pdx-bench/src/bench/timer.rs",
+      "line": 46,
+      "oracle_status": "external",
+      "oracle_target": "core convert/num/impl#[u64][`TryFrom<u128>`]try_from().",
+      "pdx_target": "crates.pdx-bench.src.bench.timer.StageTimes.try_from",
+      "reason": "oracle_external",
+      "receiver_proof": "path_unproven",
+      "site": 2,
+      "span": [
+       1229,
+       1276
+      ],
+      "token": [
+       1234,
+       1242
+      ]
+     }
+    ],
+    "import_provenance_failure": [
+     {
+      "band": "scoped",
+      "callee": "Engine::new().unwrap().extract",
+      "file": "crates/pdx-engine/tests/site_facts.rs",
+      "line": 103,
+      "oracle_status": "mapped",
+      "oracle_target": "crates.pdx-engine.src.engine.Engine.extract",
+      "pdx_target": "crates.pdx-engine.tests.site_facts.extract",
+      "reason": "other_target",
+      "receiver_proof": "value_unproven",
+      "site": 24,
+      "span": [
+       3807,
+       3862
+      ],
+      "token": [
+       3830,
+       3837
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "Engine::new() .unwrap() .extract",
+      "file": "crates/pdx-engine/tests/site_path_budget.rs",
+      "line": 148,
+      "oracle_status": "mapped",
+      "oracle_target": "crates.pdx-engine.src.engine.Engine.extract",
+      "pdx_target": "crates.pdx-engine.tests.site_path_budget.extract",
+      "reason": "other_target",
+      "receiver_proof": "value_unproven",
+      "site": 32,
+      "span": [
+       5466,
+       5575
+      ],
+      "token": [
+       5515,
+       5522
+      ]
+     }
+    ],
+    "self_edge": [
+     {
+      "band": "scoped",
+      "callee": "Git::new",
+      "file": "crates/pdx-bench/src/golden/run.rs",
+      "line": 195,
+      "oracle_status": "mapped",
+      "oracle_target": "crates.pdx-bench.src.golden.git.Git.new",
+      "pdx_target": "crates.pdx-bench.src.golden.run.PdxProducer.new",
+      "reason": "other_target",
+      "receiver_proof": "path_bound",
+      "site": 19,
+      "span": [
+       6404,
+       6452
+      ],
+      "token": [
+       6409,
+       6412
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "self.dir.path",
+      "file": "crates/pdx-bench/tests/golden_fetch.rs",
+      "line": 26,
+      "oracle_status": "external",
+      "oracle_target": "tempfile dir/impl#[TempDir]path().",
+      "pdx_target": "crates.pdx-bench.tests.golden_fetch.Scratch.path",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 7,
+      "span": [
+       845,
+       860
+      ],
+      "token": [
+       854,
+       858
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "LanguagesConfig::default",
+      "file": "crates/pdx-core/src/config.rs",
+      "line": 337,
+      "oracle_status": "unmapped",
+      "oracle_target": "pdx-core config/impl#[LanguagesConfig][Default]default().",
+      "pdx_target": "crates.pdx-core.src.config.PdxConfig.default",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_bound",
+      "site": 19,
+      "span": [
+       11847,
+       11873
+      ],
+      "token": [
+       11864,
+       11871
+      ]
+     }
+    ],
+    "unknown_or_unproven_receiver": [
+     {
+      "band": "scoped",
+      "callee": "run.plan.determinism",
+      "file": "crates/pdx-bench/src/bench/run.rs",
+      "line": 1009,
+      "oracle_status": "mapped",
+      "oracle_target": "crates.pdx-bench.src.bench.plan.BenchPlan.determinism",
+      "pdx_target": "crates.pdx-bench.src.bench.run.Run.determinism",
+      "reason": "other_target",
+      "receiver_proof": "value_unproven",
+      "site": 304,
+      "span": [
+       34979,
+       35001
+      ],
+      "token": [
+       34988,
+       34999
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "run.plan.performance",
+      "file": "crates/pdx-bench/src/bench/run.rs",
+      "line": 1040,
+      "oracle_status": "mapped",
+      "oracle_target": "crates.pdx-bench.src.bench.plan.BenchPlan.performance",
+      "pdx_target": "crates.pdx-bench.src.bench.run.Run.performance",
+      "reason": "other_target",
+      "receiver_proof": "value_unproven",
+      "site": 314,
+      "span": [
+       36106,
+       36128
+      ],
+      "token": [
+       36115,
+       36126
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "found.observe",
+      "file": "crates/pdx-core/src/contracts/channels.rs",
+      "line": 238,
+      "oracle_status": "mapped",
+      "oracle_target": "crates.pdx-core.src.contracts.mod.Found.observe",
+      "pdx_target": "crates.pdx-core.src.contracts.channels.observe",
+      "reason": "other_target",
+      "receiver_proof": "value_unproven",
+      "site": 67,
+      "span": [
+       9571,
+       9597
+      ],
+      "token": [
+       9577,
+       9584
+      ]
+     }
+    ]
+   },
+   "false_positives": 310,
+   "primary": {
+    "constructor_collision": 67,
+    "external_receiver_mistaken_for_local": 153,
+    "hierarchy_evidence_missing": 0,
+    "import_provenance_failure": 2,
+    "module_or_package_uniqueness_only": 0,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 0,
+    "self_edge": 44,
+    "unknown_or_unproven_receiver": 44
+   },
+   "tagged": {
+    "constructor_collision": 175,
+    "external_receiver_mistaken_for_local": 170,
+    "hierarchy_evidence_missing": 0,
+    "import_provenance_failure": 70,
+    "module_or_package_uniqueness_only": 310,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 134,
+    "self_edge": 44,
+    "unknown_or_unproven_receiver": 215
+   }
+  }
+ },
+ "extraction_loss": 1027,
+ "false_negative_examples": {
+  "drawn_wrong": [
+   {
+    "bucket": "drawn_wrong",
+    "callee": "SummaryFile::merged",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 971,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.results.SummaryFile.merged",
+    "pdx_band": "typed",
+    "pdx_site": 285,
+    "pdx_target": "crates.pdx-core.tests.contracts.merged",
+    "shape": "call",
+    "span": [
+     33508,
+     33580
+    ],
+    "token": [
+     33521,
+     33527
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "run.plan.determinism",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 1009,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchPlan.determinism",
+    "pdx_band": "scoped",
+    "pdx_site": 304,
+    "pdx_target": "crates.pdx-bench.src.bench.run.Run.determinism",
+    "shape": "method",
+    "span": [
+     34979,
+     35001
+    ],
+    "token": [
+     34988,
+     34999
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "run.plan.performance",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 1040,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchPlan.performance",
+    "pdx_band": "scoped",
+    "pdx_site": 314,
+    "pdx_target": "crates.pdx-bench.src.bench.run.Run.performance",
+    "shape": "method",
+    "span": [
+     36106,
+     36128
+    ],
+    "token": [
+     36115,
+     36126
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "FsCache::at",
+    "file": "crates/pdx-bench/src/bench/worker.rs",
+    "line": 255,
+    "macro": null,
+    "oracle_target": "crates.pdx-core.src.index.extract.cache.FsCache.at",
+    "pdx_band": "typed",
+    "pdx_site": 50,
+    "pdx_target": "crates.pdx-core.tests.stages.at",
+    "shape": "call",
+    "span": [
+     8885,
+     8916
+    ],
+    "token": [
+     8894,
+     8896
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "Git::new",
+    "file": "crates/pdx-bench/src/golden/run.rs",
+    "line": 195,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.golden.git.Git.new",
+    "pdx_band": "scoped",
+    "pdx_site": 19,
+    "pdx_target": "crates.pdx-bench.src.golden.run.PdxProducer.new",
+    "shape": "call",
+    "span": [
+     6404,
+     6452
+    ],
+    "token": [
+     6409,
+     6412
+    ]
+   }
+  ],
+  "resolution_not_drawn:blocked": [
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "Area::open",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 174,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.open",
+    "pdx_band": "blocked",
+    "pdx_site": 60,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     5584,
+     5621
+    ],
+    "token": [
+     5590,
+     5594
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "Area::open",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 196,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.open",
+    "pdx_band": "blocked",
+    "pdx_site": 93,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     6731,
+     6768
+    ],
+    "token": [
+     6737,
+     6741
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "Area::open",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 220,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.open",
+    "pdx_band": "blocked",
+    "pdx_site": 117,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     7776,
+     7813
+    ],
+    "token": [
+     7782,
+     7786
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "stop",
+    "file": "crates/pdx-bench/src/bench/process.rs",
+    "line": 182,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.process.stop",
+    "pdx_band": "blocked",
+    "pdx_site": 39,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     5658,
+     5674
+    ],
+    "token": [
+     5658,
+     5662
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "stop",
+    "file": "crates/pdx-bench/src/bench/process.rs",
+    "line": 193,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.process.stop",
+    "pdx_band": "blocked",
+    "pdx_site": 45,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     5969,
+     5985
+    ],
+    "token": [
+     5969,
+     5973
+    ]
+   }
+  ],
+  "resolution_not_drawn:candidate": [
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "peak.observe",
+    "file": "crates/pdx-bench/src/bench/process.rs",
+    "line": 191,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.measure.Peak.observe",
+    "pdx_band": "candidate",
+    "pdx_site": 44,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     5903,
+     5920
+    ],
+    "token": [
+     5908,
+     5915
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "entry.key",
+    "file": "crates/pdx-bench/src/bench/results.rs",
+    "line": 82,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.key",
+    "pdx_band": "candidate",
+    "pdx_site": 2,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     3439,
+     3450
+    ],
+    "token": [
+     3445,
+     3448
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "entry.language",
+    "file": "crates/pdx-bench/src/bench/results.rs",
+    "line": 84,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.language",
+    "pdx_band": "candidate",
+    "pdx_site": 6,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     3522,
+     3538
+    ],
+    "token": [
+     3528,
+     3536
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "e.key",
+    "file": "crates/pdx-bench/src/bench/results.rs",
+    "line": 569,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.key",
+    "pdx_band": "candidate",
+    "pdx_site": 123,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     19403,
+     19410
+    ],
+    "token": [
+     19405,
+     19408
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "entry.key",
+    "file": "crates/pdx-bench/src/bench/results.rs",
+    "line": 621,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.key",
+    "pdx_band": "candidate",
+    "pdx_site": 161,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     21603,
+     21614
+    ],
+    "token": [
+     21609,
+     21612
+    ]
+   }
+  ],
+  "resolution_not_materialized:typed": [
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "prepare_checkout",
+    "file": "crates/pdx-bench/tests/golden_fetch.rs",
+    "line": 228,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.golden.git.prepare_checkout",
+    "pdx_band": "typed",
+    "pdx_site": 243,
+    "pdx_target": "crates.pdx-bench.src.golden.git.prepare_checkout",
+    "shape": "macro_tt",
+    "span": [
+     8747,
+     8809
+    ],
+    "token": [
+     8747,
+     8763
+    ]
+   },
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "check_url",
+    "file": "crates/pdx-bench/tests/golden_plan.rs",
+    "line": 183,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.golden.plan.check_url",
+    "pdx_band": "typed",
+    "pdx_site": 76,
+    "pdx_target": "crates.pdx-bench.src.golden.plan.check_url",
+    "shape": "macro_tt",
+    "span": [
+     6396,
+     6435
+    ],
+    "token": [
+     6396,
+     6405
+    ]
+   },
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "check_url",
+    "file": "crates/pdx-bench/tests/golden_plan.rs",
+    "line": 184,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.golden.plan.check_url",
+    "pdx_band": "typed",
+    "pdx_site": 77,
+    "pdx_target": "crates.pdx-bench.src.golden.plan.check_url",
+    "shape": "macro_tt",
+    "span": [
+     6458,
+     6501
+    ],
+    "token": [
+     6458,
+     6467
+    ]
+   },
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "check_component",
+    "file": "crates/pdx-bench/tests/golden_plan.rs",
+    "line": 208,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.golden.plan.check_component",
+    "pdx_band": "typed",
+    "pdx_site": 78,
+    "pdx_target": "crates.pdx-bench.src.golden.plan.check_component",
+    "shape": "macro_tt",
+    "span": [
+     6890,
+     6911
+    ],
+    "token": [
+     6890,
+     6905
+    ]
+   },
+   {
+    "bucket": "resolution_not_materialized:typed",
+    "callee": "check_component",
+    "file": "crates/pdx-bench/tests/golden_plan.rs",
+    "line": 217,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.golden.plan.check_component",
+    "pdx_band": "typed",
+    "pdx_site": 79,
+    "pdx_target": "crates.pdx-bench.src.golden.plan.check_component",
+    "shape": "macro_tt",
+    "span": [
+     7088,
+     7109
+    ],
+    "token": [
+     7088,
+     7103
+    ]
+   }
+  ],
+  "site_missing": [
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "crates/pdx-core/benches/common/mod.rs",
+    "line": 134,
+    "macro": null,
+    "oracle_target": "crates.pdx-core.src.index.derive.mod.derive",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     5471,
+     5635
+    ],
+    "token": [
+     5471,
+     5477
+    ]
+   },
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "crates/pdx-core/src/segment/reader.rs",
+    "line": 511,
+    "macro": null,
+    "oracle_target": "crates.pdx-core.src.segment.reader.json_at",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     15568,
+     15605
+    ],
+    "token": [
+     15568,
+     15575
+    ]
+   },
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "crates/pdx-core/src/segment/reader.rs",
+    "line": 540,
+    "macro": null,
+    "oracle_target": "crates.pdx-core.src.segment.reader.json_at",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     16641,
+     16678
+    ],
+    "token": [
+     16641,
+     16648
+    ]
+   },
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "crates/pdx-core/src/segment/reader.rs",
+    "line": 581,
+    "macro": null,
+    "oracle_target": "crates.pdx-core.src.segment.reader.json_at",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     18234,
+     18270
+    ],
+    "token": [
+     18234,
+     18241
+    ]
+   },
+   {
+    "bucket": "site_missing",
+    "callee": null,
+    "file": "crates/pdx-core/src/segment/reader.rs",
+    "line": 604,
+    "macro": null,
+    "oracle_target": "crates.pdx-core.src.segment.reader.json_at",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     19005,
+     19048
+    ],
+    "token": [
+     19005,
+     19012
+    ]
+   }
+  ],
+  "site_missing_macro_token_tree": [
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 200,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.fresh_determinism",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     6979,
+     7006
+    ],
+    "token": [
+     6979,
+     6996
+    ]
+   },
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 200,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.bench.area.entry",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     6998,
+     7005
+    ],
+    "token": [
+     6998,
+     7003
+    ]
+   },
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 212,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.open",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     7549,
+     7580
+    ],
+    "token": [
+     7549,
+     7553
+    ]
+   },
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 222,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.empty",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     7873,
+     7890
+    ],
+    "token": [
+     7873,
+     7878
+    ]
+   },
+   {
+    "bucket": "site_missing_macro_token_tree",
+    "callee": null,
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 226,
+    "macro": "assert",
+    "oracle_target": "crates.pdx-bench.src.bench.area.Area.empty",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     7987,
+     8027
+    ],
+    "token": [
+     7987,
+     7992
+    ]
+   }
+  ],
+  "site_not_a_call_site": [
+   {
+    "bucket": "site_not_a_call_site",
+    "callee": null,
+    "file": "crates/pdx-bench/src/bench/measure.rs",
+    "line": 165,
+    "macro": "assert_eq",
+    "oracle_target": "crates.pdx-bench.src.bench.measure.Peak.samples",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     5629,
+     5638
+    ],
+    "token": [
+     5629,
+     5636
+    ]
+   },
+   {
+    "bucket": "site_not_a_call_site",
+    "callee": null,
+    "file": "crates/pdx-bench/src/bench/timer.rs",
+    "line": 361,
+    "macro": "assert_eq",
+    "oracle_target": "crates.pdx-bench.src.bench.timer.StageTimer.running",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     11256,
+     11265
+    ],
+    "token": [
+     11256,
+     11263
+    ]
+   },
+   {
+    "bucket": "site_not_a_call_site",
+    "callee": null,
+    "file": "crates/pdx-bench/src/bench/timer.rs",
+    "line": 363,
+    "macro": "assert_eq",
+    "oracle_target": "crates.pdx-bench.src.bench.timer.StageTimer.finished",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     11374,
+     11384
+    ],
+    "token": [
+     11374,
+     11382
+    ]
+   },
+   {
+    "bucket": "site_not_a_call_site",
+    "callee": null,
+    "file": "crates/pdx-core/tests/bands.rs",
+    "line": 35,
+    "macro": "assert_eq",
+    "oracle_target": "crates.pdx-core.src.bands.Band.cmp",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     1247,
+     1253
+    ],
+    "token": [
+     1247,
+     1250
+    ]
+   },
+   {
+    "bucket": "site_not_a_call_site",
+    "callee": null,
+    "file": "crates/pdx-core/tests/bands.rs",
+    "line": 36,
+    "macro": "assert_eq",
+    "oracle_target": "crates.pdx-core.src.bands.Band.partial_cmp",
+    "pdx_band": null,
+    "pdx_site": null,
+    "pdx_target": null,
+    "shape": "macro_tt",
+    "span": [
+     1311,
+     1325
+    ],
+    "token": [
+     1311,
+     1322
+    ]
+   }
+  ]
+ },
+ "false_positive_examples": {
+  "exact": [
+   {
+    "band": "exact",
+    "callee": "dir.strip_prefix(&self.root).ok",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 109,
+    "oracle_status": "external",
+    "oracle_target": "core result/impl#[`Result<T, E>`]ok().",
+    "pdx_target": "crates.pdx-bench.tests.bench_run.Answer.ok",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 16,
+    "span": [
+     3599,
+     3632
+    ],
+    "token": [
+     3628,
+     3630
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "rest.components",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 110,
+    "oracle_status": "external",
+    "oracle_target": "std path/impl#[Path]components().",
+    "pdx_target": "crates.pdx-core.src.metrics.complexity.components",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 19,
+    "span": [
+     3661,
+     3678
+    ],
+    "token": [
+     3666,
+     3676
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "rest.components",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 111,
+    "oracle_status": "external",
+    "oracle_target": "std path/impl#[Path]components().",
+    "pdx_target": "crates.pdx-core.src.metrics.complexity.components",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 21,
+    "span": [
+     3710,
+     3727
+    ],
+    "token": [
+     3715,
+     3725
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "system.cpus().len",
+    "file": "crates/pdx-bench/src/bench/host.rs",
+    "line": 45,
+    "oracle_status": "external",
+    "oracle_target": "core slice/impl#[`[T]`]len().",
+    "pdx_target": "crates.pdx-engine.src.model.QualifiedNames.len",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 13,
+    "span": [
+     1869,
+     1888
+    ],
+    "token": [
+     1883,
+     1886
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "first.len",
+    "file": "crates/pdx-bench/src/bench/host.rs",
+    "line": 59,
+    "oracle_status": "external",
+    "oracle_target": "core str/impl#[str]len().",
+    "pdx_target": "crates.pdx-engine.src.model.QualifiedNames.len",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 20,
+    "span": [
+     2417,
+     2428
+    ],
+    "token": [
+     2423,
+     2426
+    ]
+   }
+  ],
+  "import-guided": [
+   {
+    "band": "import-guided",
+    "callee": "Performance::OutOfMemory",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 918,
+    "oracle_status": "unmapped",
+    "oracle_target": "pdx-bench bench/results/Performance#OutOfMemory#",
+    "pdx_target": "crates.pdx-bench.src.bench.results.OutOfMemory",
+    "reason": "other_target_unmapped",
+    "receiver_proof": "path_bound",
+    "site": 248,
+    "span": [
+     31221,
+     31475
+    ],
+    "token": [
+     31234,
+     31245
+    ]
+   },
+   {
+    "band": "import-guided",
+    "callee": "Performance::Completed",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 929,
+    "oracle_status": "unmapped",
+    "oracle_target": "pdx-bench bench/results/Performance#Completed#",
+    "pdx_target": "crates.pdx-bench.src.bench.results.Completed",
+    "reason": "other_target_unmapped",
+    "receiver_proof": "path_bound",
+    "site": 250,
+    "span": [
+     31554,
+     31672
+    ],
+    "token": [
+     31567,
+     31576
+    ]
+   },
+   {
+    "band": "import-guided",
+    "callee": "BuildOutcome::Stopped",
+    "file": "crates/pdx-bench/tests/bench_run.rs",
+    "line": 213,
+    "oracle_status": "unmapped",
+    "oracle_target": "pdx-bench bench/run/BuildOutcome#Stopped#",
+    "pdx_target": "crates.pdx-bench.src.bench.run.Stopped",
+    "reason": "other_target_unmapped",
+    "receiver_proof": "path_bound",
+    "site": 55,
+    "span": [
+     6313,
+     6497
+    ],
+    "token": [
+     6327,
+     6334
+    ]
+   },
+   {
+    "band": "import-guided",
+    "callee": "BuildOutcome::Built",
+    "file": "crates/pdx-bench/tests/bench_run.rs",
+    "line": 227,
+    "oracle_status": "unmapped",
+    "oracle_target": "pdx-bench bench/run/BuildOutcome#Built#",
+    "pdx_target": "crates.pdx-bench.src.bench.run.Built",
+    "reason": "other_target_unmapped",
+    "receiver_proof": "path_bound",
+    "site": 63,
+    "span": [
+     6861,
+     7677
+    ],
+    "token": [
+     6875,
+     6880
+    ]
+   }
+  ],
+  "inheritance-guided": [],
+  "scoped": [
+   {
+    "band": "scoped",
+    "callee": "Bounded::default",
+    "file": "crates/pdx-bench/src/bench/process.rs",
+    "line": 134,
+    "oracle_status": "unmapped",
+    "oracle_target": "pdx-bench bench/process/impl#[Bounded][Default]default().",
+    "pdx_target": "crates.pdx-bench.src.bench.process.SystemProbe.default",
+    "reason": "other_target_unmapped",
+    "receiver_proof": "path_bound",
+    "site": 13,
+    "span": [
+     4067,
+     4085
+    ],
+    "token": [
+     4076,
+     4083
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "Peak::default",
+    "file": "crates/pdx-bench/src/bench/process.rs",
+    "line": 188,
+    "oracle_status": "unmapped",
+    "oracle_target": "pdx-bench bench/measure/impl#[Peak][Default]default().",
+    "pdx_target": "crates.pdx-bench.src.bench.process.SystemProbe.default",
+    "reason": "other_target_unmapped",
+    "receiver_proof": "path_bound",
+    "site": 41,
+    "span": [
+     5797,
+     5812
+    ],
+    "token": [
+     5803,
+     5810
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "Vec::new",
+    "file": "crates/pdx-bench/src/bench/results.rs",
+    "line": 476,
+    "oracle_status": "external",
+    "oracle_target": "alloc vec/impl#[`Vec<T>`]new().",
+    "pdx_target": "crates.pdx-bench.src.bench.results.ResultFile.new",
+    "reason": "oracle_external",
+    "receiver_proof": "path_unproven",
+    "site": 79,
+    "span": [
+     16095,
+     16105
+    ],
+    "token": [
+     16100,
+     16103
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "Vec::new",
+    "file": "crates/pdx-bench/src/bench/results.rs",
+    "line": 962,
+    "oracle_status": "external",
+    "oracle_target": "alloc vec/impl#[`Vec<T>`]new().",
+    "pdx_target": "crates.pdx-bench.src.bench.results.ResultFile.new",
+    "reason": "oracle_external",
+    "receiver_proof": "path_unproven",
+    "site": 352,
+    "span": [
+     34083,
+     34093
+    ],
+    "token": [
+     34088,
+     34091
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "run.plan.determinism",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 1009,
+    "oracle_status": "mapped",
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchPlan.determinism",
+    "pdx_target": "crates.pdx-bench.src.bench.run.Run.determinism",
+    "reason": "other_target",
+    "receiver_proof": "value_unproven",
+    "site": 304,
+    "span": [
+     34979,
+     35001
+    ],
+    "token": [
+     34988,
+     34999
+    ]
+   }
+  ],
+  "typed": [
+   {
+    "band": "typed",
+    "callee": "fs::read_dir",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 782,
+    "oracle_status": "external",
+    "oracle_target": "std fs/read_dir().",
+    "pdx_target": "crates.pdx-bench.src.bench.area.read_dir",
+    "reason": "oracle_external",
+    "receiver_proof": "path_bound",
+    "site": 190,
+    "span": [
+     26714,
+     26736
+    ],
+    "token": [
+     26718,
+     26726
+    ]
+   },
+   {
+    "band": "typed",
+    "callee": "fs::read_dir",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 790,
+    "oracle_status": "external",
+    "oracle_target": "std fs/read_dir().",
+    "pdx_target": "crates.pdx-bench.src.bench.area.read_dir",
+    "reason": "oracle_external",
+    "receiver_proof": "path_bound",
+    "site": 195,
+    "span": [
+     26946,
+     26973
+    ],
+    "token": [
+     26950,
+     26958
+    ]
+   },
+   {
+    "band": "typed",
+    "callee": "SummaryFile::merged",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 971,
+    "oracle_status": "mapped",
+    "oracle_target": "crates.pdx-bench.src.bench.results.SummaryFile.merged",
+    "pdx_target": "crates.pdx-core.tests.contracts.merged",
+    "reason": "other_target",
+    "receiver_proof": "path_bound",
+    "site": 285,
+    "span": [
+     33508,
+     33580
+    ],
+    "token": [
+     33521,
+     33527
+    ]
+   },
+   {
+    "band": "typed",
+    "callee": "FsCache::at",
+    "file": "crates/pdx-bench/src/bench/worker.rs",
+    "line": 255,
+    "oracle_status": "mapped",
+    "oracle_target": "crates.pdx-core.src.index.extract.cache.FsCache.at",
+    "pdx_target": "crates.pdx-core.tests.stages.at",
+    "reason": "other_target",
+    "receiver_proof": "path_bound",
+    "site": 50,
+    "span": [
+     8885,
+     8916
+    ],
+    "token": [
+     8894,
+     8896
+    ]
+   },
+   {
+    "band": "typed",
+    "callee": "NodeKey::file",
+    "file": "crates/pdx-core/src/contracts/row.rs",
+    "line": 224,
+    "oracle_status": "mapped",
+    "oracle_target": "crates.pdx-core.src.ids.NodeKey.file",
+    "pdx_target": "crates.pdx-core.src.segment.reader.file",
+    "reason": "other_target",
+    "receiver_proof": "path_unproven",
+    "site": 54,
+    "span": [
+     9011,
+     9039
+    ],
+    "token": [
+     9020,
+     9024
+    ]
+   }
+  ]
+ },
+ "language": "rust",
+ "macros": {
+  "macro_invocations": 5201,
+  "macro_invocations_by_band": {
+   "candidate": 7,
+   "exact": 35,
+   "external": 26,
+   "scoped": 6,
+   "typed_only": 839,
+   "unresolved": 331
+  },
+  "macro_invocations_with_structural_site": 1244,
+  "macro_rules_body_call_text": 36,
+  "macro_rules_body_oracle_relations": 0,
+  "token_tree_calls": {
+   "call_text_in_token_trees": 5904,
+   "drawn_correct": 1092,
+   "engine_site_band:typed": 137,
+   "invisible_to_structural_calls": 3821,
+   "invisible_with_oracle_relation": 898,
+   "oracle_relations": 2256,
+   "visible_to_oracle": 5889,
+   "with_drawn_edge": 1093,
+   "with_engine_site_only": 137,
+   "with_structural_call_site": 1144,
+   "with_unconfirmed_site_only": 802
+  }
+ },
+ "overloads": {
+  "note": "an overloaded call is an oracle relation whose target shares its qualified name with another definition of its file; a call whose oracle symbol denotes several such definitions has no verdict",
+  "oracle_calls_whose_target_is_ambiguous": 0,
+  "oracle_verifiable_overloaded_calls": {
+   "correct_overload_selected": 31,
+   "drawn": 44,
+   "structural_site_exists": 125,
+   "total": 291,
+   "typed_answer_supplied": 10,
+   "withheld_qn_maps_to_several_definitions": 6,
+   "wrong_overload_selected": 13
+  }
+ },
+ "precision": {
+  "exact": {
+   "correct": 548,
+   "drawn": 1459,
+   "false_positive": 904,
+   "oracle_verifiable": 1452,
+   "oracle_verifiable_fraction": {
+    "denominator": 1459,
+    "numerator": 1452,
+    "value": 0.995202
+   },
+   "precision": {
+    "denominator": 1452,
+    "numerator": 548,
+    "value": 0.37741
+   }
+  },
+  "import-guided": {
+   "correct": 115,
+   "drawn": 119,
+   "false_positive": 4,
+   "oracle_verifiable": 119,
+   "oracle_verifiable_fraction": {
+    "denominator": 119,
+    "numerator": 119,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 119,
+    "numerator": 115,
+    "value": 0.966387
+   }
+  },
+  "inheritance-guided": {
+   "correct": 74,
+   "drawn": 75,
+   "false_positive": 0,
+   "oracle_verifiable": 74,
+   "oracle_verifiable_fraction": {
+    "denominator": 75,
+    "numerator": 74,
+    "value": 0.986667
+   },
+   "precision": {
+    "denominator": 74,
+    "numerator": 74,
+    "value": 1.0
+   }
+  },
+  "scoped": {
+   "correct": 47,
+   "drawn": 357,
+   "false_positive": 310,
+   "oracle_verifiable": 357,
+   "oracle_verifiable_fraction": {
+    "denominator": 357,
+    "numerator": 357,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 357,
+    "numerator": 47,
+    "value": 0.131653
+   }
+  },
+  "typed": {
+   "correct": 5311,
+   "drawn": 5359,
+   "false_positive": 45,
+   "oracle_verifiable": 5356,
+   "oracle_verifiable_fraction": {
+    "denominator": 5359,
+    "numerator": 5356,
+    "value": 0.99944
+   },
+   "precision": {
+    "denominator": 5356,
+    "numerator": 5311,
+    "value": 0.991598
+   }
+  },
+  "union": {
+   "correct": 6095,
+   "drawn": 7369,
+   "false_positive": 1263,
+   "oracle_verifiable": 7358,
+   "oracle_verifiable_fraction": {
+    "denominator": 7369,
+    "numerator": 7358,
+    "value": 0.998507
+   },
+   "precision": {
+    "denominator": 7358,
+    "numerator": 6095,
+    "value": 0.82835
+   }
+  }
+ },
+ "precision_calls_only": {
+  "exact": {
+   "correct": 548,
+   "drawn": 1459,
+   "false_positive": 904,
+   "oracle_verifiable": 1452,
+   "oracle_verifiable_fraction": {
+    "denominator": 1459,
+    "numerator": 1452,
+    "value": 0.995202
+   },
+   "precision": {
+    "denominator": 1452,
+    "numerator": 548,
+    "value": 0.37741
+   }
+  },
+  "import-guided": {
+   "correct": 115,
+   "drawn": 119,
+   "false_positive": 4,
+   "oracle_verifiable": 119,
+   "oracle_verifiable_fraction": {
+    "denominator": 119,
+    "numerator": 119,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 119,
+    "numerator": 115,
+    "value": 0.966387
+   }
+  },
+  "inheritance-guided": {
+   "correct": 74,
+   "drawn": 75,
+   "false_positive": 0,
+   "oracle_verifiable": 74,
+   "oracle_verifiable_fraction": {
+    "denominator": 75,
+    "numerator": 74,
+    "value": 0.986667
+   },
+   "precision": {
+    "denominator": 74,
+    "numerator": 74,
+    "value": 1.0
+   }
+  },
+  "scoped": {
+   "correct": 47,
+   "drawn": 357,
+   "false_positive": 310,
+   "oracle_verifiable": 357,
+   "oracle_verifiable_fraction": {
+    "denominator": 357,
+    "numerator": 357,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 357,
+    "numerator": 47,
+    "value": 0.131653
+   }
+  },
+  "typed": {
+   "correct": 5283,
+   "drawn": 5331,
+   "false_positive": 45,
+   "oracle_verifiable": 5328,
+   "oracle_verifiable_fraction": {
+    "denominator": 5331,
+    "numerator": 5328,
+    "value": 0.999437
+   },
+   "precision": {
+    "denominator": 5328,
+    "numerator": 5283,
+    "value": 0.991554
+   }
+  },
+  "union": {
+   "correct": 6067,
+   "drawn": 7341,
+   "false_positive": 1263,
+   "oracle_verifiable": 7330,
+   "oracle_verifiable_fraction": {
+    "denominator": 7341,
+    "numerator": 7330,
+    "value": 0.998502
+   },
+   "precision": {
+    "denominator": 7330,
+    "numerator": 6067,
+    "value": 0.827694
+   }
+  }
+ },
+ "precision_references_only": {
+  "exact": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "import-guided": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "inheritance-guided": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "scoped": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "typed": {
+   "correct": 28,
+   "drawn": 28,
+   "false_positive": 0,
+   "oracle_verifiable": 28,
+   "oracle_verifiable_fraction": {
+    "denominator": 28,
+    "numerator": 28,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 28,
+    "numerator": 28,
+    "value": 1.0
+   }
+  },
+  "union": {
+   "correct": 28,
+   "drawn": 28,
+   "false_positive": 0,
+   "oracle_verifiable": 28,
+   "oracle_verifiable_fraction": {
+    "denominator": 28,
+    "numerator": 28,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 28,
+    "numerator": 28,
+    "value": 1.0
+   }
+  }
+ },
+ "provenance": {
+  "corpus_commit": "e746b1e25d42552e5dc051698b476bcac9a9a6f4",
+  "dataset_format": 1,
+  "diagnostic_only": "cannot pass or fail G1b",
+  "engine_health": "RunHealth { status: Degraded, files: 1100, files_resolved: 903, files_untyped: 195, files_empty: 2, files_over_budget: 0, files_source_unavailable: 0, files_not_reached: 0, pass_failures: 1 }",
+  "engine_version": 7,
+  "metrics_version": "a0-metrics-1",
+  "oracle": "rust-analyzer scip",
+  "oracle_setup": {
+   "cargo_lock_sha256": "9a413a5994a556412046a3fdd96e2f1717be16798dc3b263b12b9f7e5b1f26bb",
+   "features": "all"
+  },
+  "oracle_tools": [
+   {
+    "documents": 163,
+    "name": "rust-analyzer",
+    "prefix": "",
+    "version": "1.98.1 (48a229c 2026-09-01)"
+   }
+  ],
+  "oracle_versions": {
+   "rust-analyzer": "rust-analyzer 1.98.1 (48a229c 2026-09-01)",
+   "scip-python": "0.6.6",
+   "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
+   "scip-python_package": "@sourcegraph/scip-python@0.6.6"
+  },
+  "pdx_note": "A0.1 adds measurement tooling only; the resolver, extraction and bands measured are those of pdx_sha",
+  "pdx_sha": "e746b1e25d42552e5dc051698b476bcac9a9a6f4",
+  "site_matching_version": "a0-match-1"
+ },
+ "recall": {
+  "at_parsed_structural_sites": 7844,
+  "breakdown": {
+   "at_parsed_site": 7844,
+   "drawn_correct": 6064,
+   "drawn_wrong": 174,
+   "resolution_not_drawn:blocked": 736,
+   "resolution_not_drawn:candidate": 733,
+   "resolution_not_materialized:typed": 137,
+   "site_missing": 51,
+   "site_missing_macro_token_tree": 898,
+   "site_not_a_call_site": 78
+  },
+  "drawn_correct": 6064,
+  "end_to_end_recall": {
+   "denominator": 8871,
+   "numerator": 6064,
+   "value": 0.683576
+  },
+  "oracle_calls_outside_relations": {
+   "not_a_relation:external": 18255,
+   "not_a_relation:file_not_indexed": 58,
+   "not_a_relation:local": 669,
+   "not_a_relation:no_token": 10,
+   "not_a_relation:none": 66,
+   "oracle_target_unmapped": 1276
+  },
+  "oracle_relations": 8871,
+  "recall": {
+   "denominator": 7844,
+   "numerator": 6064,
+   "value": 0.773075
+  }
+ },
+ "receivers": {
+  "none": {
+   "by_band": {
+    "blocked": 278,
+    "candidate": 117,
+    "exact": 144,
+    "external": 30,
+    "import-guided": 64,
+    "scoped": 68,
+    "typed": 4032,
+    "unresolved": 594
+   },
+   "call_sites": 5327,
+   "exact_or_scoped_drawn": 212,
+   "exact_or_scoped_precision": {
+    "denominator": 211,
+    "numerator": 91,
+    "value": 0.43128
+   }
+  },
+  "path_bound": {
+   "by_band": {
+    "blocked": 232,
+    "candidate": 275,
+    "exact": 125,
+    "external": 560,
+    "import-guided": 55,
+    "scoped": 64,
+    "typed": 740,
+    "unresolved": 308
+   },
+   "call_sites": 2359,
+   "exact_or_scoped_drawn": 189,
+   "exact_or_scoped_precision": {
+    "denominator": 189,
+    "numerator": 53,
+    "value": 0.280423
+   }
+  },
+  "path_unproven": {
+   "by_band": {
+    "blocked": 65,
+    "candidate": 437,
+    "exact": 71,
+    "external": 1,
+    "scoped": 113,
+    "typed": 63,
+    "unresolved": 420
+   },
+   "call_sites": 1170,
+   "exact_or_scoped_drawn": 184,
+   "exact_or_scoped_precision": {
+    "denominator": 184,
+    "numerator": 5,
+    "value": 0.027174
+   }
+  },
+  "self": {
+   "by_band": {
+    "blocked": 7,
+    "candidate": 4,
+    "exact": 2,
+    "inheritance-guided": 75,
+    "typed": 152,
+    "unresolved": 4
+   },
+   "call_sites": 244,
+   "exact_or_scoped_drawn": 2,
+   "exact_or_scoped_precision": {
+    "denominator": 2,
+    "numerator": 2,
+    "value": 1.0
+   }
+  },
+  "value_unproven": {
+   "by_band": {
+    "blocked": 2037,
+    "candidate": 2237,
+    "exact": 1117,
+    "external": 427,
+    "scoped": 112,
+    "typed": 509,
+    "unresolved": 7861
+   },
+   "call_sites": 14300,
+   "exact_or_scoped_drawn": 1229,
+   "exact_or_scoped_precision": {
+    "denominator": 1223,
+    "numerator": 444,
+    "value": 0.363042
+   }
+  }
+ },
+ "resolution_loss": 1780,
+ "unverifiable_drawn": {
+  "exact:file_not_indexed": 7,
+  "inheritance-guided:file_not_indexed": 1,
+  "typed:file_not_indexed": 2,
+  "typed:unmapped": 1
+ }
+}

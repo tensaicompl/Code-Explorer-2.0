@@ -21,7 +21,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 98 | 2026-10-13 | P2-03 | scr | open | Raised by an independent review: discovery excludes every directory named `build`, `target`, `dist` or `vendor` at any depth (`index::discover::HARD_EXCLUDES`, as 4.5 specifies; `vendor` unless `[discover] include_vendor`), whatever is under it. Legitimate source below such a component is not discovered, not indexed and not represented in coverage: no coverage row records that it was left out | Open. The rule is 4.5's, so a change is a specification change; not fixed in this round |
 | 97 | 2026-10-13 | P2-08 | blocker | open | Raised by an independent review: the SQL consumer reader (`contracts::tables::sql_access`) reads a call's string argument as SQL when its first word is `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `WITH` or `MERGE` in any case, so natural-language text can mint a false table contract. `t("Select an item from the list")` begins with `Select`, its `from the` reads as a `FROM` clause, and the call consumes `Table("the")` | Open; not fixed in this round |
 | 96 | 2026-10-13 | P2-04 | blocker | open | Raised by an independent review: content secret normalisation (detector 4) has credible false negatives and one destructive mask. A standalone JWT-shaped credential and a standalone GitHub personal-access-token-shaped credential match no detector (the detectors are a PEM private key, a bearer token, a credential assignment, a URI password and a cloud access-key id); a password in a semicolon-separated key-value connection string is not masked; and the credential-assignment detector masks across `"password=" + decrypt(pw) + "..."`, destroying code that is not a secret | Open; not fixed in this round. A fix must prove secrets masked, non-secret executable syntax preserved, byte length preserved and CR and LF preserved, with fixtures whose synthetic values are built at run time; a change to what a detector matches bumps `SECRET_DETECTOR_VERSION` |
-| 95 | 2026-10-13 | P2-06 | blocker | open | Structural accuracy and trust. An independent adversarial review raised low precision and recall of the drawn structural bands before P5 and P6's oracle work; its percentages are not accepted as authoritative. The driver's inspection of `1eb801d` confirmed six mechanisms: the generic-name blocklist settles a site before a valid typed answer is accepted; `exact` draws from repository-wide short-name uniqueness; `scoped` from module or package short-name uniqueness; a Rust call on an unknown receiver has none of the unresolved-member protection Python, JavaScript, TypeScript and Perl have, so it falls through to `exact` and `scoped`; overloads sharing a qualified name cannot be told apart by signature; and a call written only inside a Rust macro's token tree is not a parsed `call_expression` site | Open. A0.1's measurement and A0.2's counterfactuals (decision 64, gate G1b) are required before any architectural change; what follows is A0.3, the driver's decision |
+| 95 | 2026-10-13 | P2-06 | blocker | open | Structural accuracy and trust. An independent adversarial review raised low precision and recall of the drawn structural bands before P5 and P6's oracle work; its percentages are not accepted as authoritative. The driver's inspection of `1eb801d` confirmed six mechanisms: the generic-name blocklist settles a site before a valid typed answer is accepted; `exact` draws from repository-wide short-name uniqueness; `scoped` from module or package short-name uniqueness; a Rust call on an unknown receiver has none of the unresolved-member protection Python, JavaScript, TypeScript and Perl have, so it falls through to `exact` and `scoped`; overloads sharing a qualified name cannot be told apart by signature; and a call written only inside a Rust macro's token tree is not a parsed `call_expression` site | Open. A0.1's measurement and A0.2's counterfactuals (decision 64, gate G1b) are required before any architectural change; what follows is A0.3, the driver's decision. A0.1 and A0.2 done 2026-10-14 (`bench/results/a0/`), against `scip-python` 0.6.6 and `rust-analyzer` 1.98.1: Python golden `typed` 310/310, union 620/653 = 94.95%, recall 603/1,114 = 54.13%; Rust golden `typed` 821/836 = 98.21%, union 1,580/2,592 = 60.96%, recall 1,377/4,061 = 33.91%. Four of G1b's six floors are not met; awaiting A0.3 |
 | 94 | 2026-10-13 | P2-16 | blocker | resolved | Found by issue 93's battery: Python's per-file resolver replays each import statement by scanning every import of the file for its local name (`py_replay_import_local`), a lookup by key that issue 92's indexes do not reach, so a file's typed resolution is quadratic in its imports: a file of `from m import a` lines takes 0.14, 0.47, 1.8 and 6.7 s of per-file typed resolution at 0.25 to 2 MiB, and the project's run as long again (16 s at 2 MiB in all). Navigation stays linear. As long at `5915669` | Fixed by indexing, nothing limited (patch 0027, decision 63, engine 7): replay, an imported reference's exact candidate and a call's alias check read the file's registered imports through one index by exact local name (`imports_by_local`, issue 92's `PDXENameIndex`), each name's chain in registration order, so the import each statement takes, the conflicts and the imports consumed are the scans'; an index that cannot get memory finds nothing, never scans. The 2 MiB file's per-file typed resolution now takes 0.15 s (6.7 s) and the project's run 0.31 s (7.7 s); the imports examined double with the file at 1,000 to 16,000 imports; the 104,730-file census resolves and extracts identically; four mutations killed |
 | 93 | 2026-10-13 | P2-16 | blocker | open | Found by issue 92's resource audit, the final engine-7 audit: when a parse fails early, the parser's recovery can leave one error node holding the rest of the file as a flat run of children, and every pass that steps through it by position, or asks for a sibling or parent inside it, costs the position: the parser's own recovery, extraction's docstring, decorator and ancestor lookups, channel extraction and the Kotlin resolver's top-level walks. A Kotlin file of one-line nested classes takes 195 s at 1 MiB and 764 s at 2 MiB; JavaScript after an unclosed parenthesis 40 s and 160 s. As long at `8b3ed42` | Extraction fixed (patch 0026, engine 7), nothing limited: children are visited by cursor through one iterator, in reverse or by position from a collection made once, and parents and siblings are found from the walk's own path or the loop in progress, never by descending from the root; the answers are tree-sitter's on every node of the 104,730-file census and it extracts and resolves identically; the navigation work is linear in 75 wide shapes in 32 languages; nine mutations killed. The Kotlin file now extracts in 1.75 s at 2 MiB (764 s), 8,000 decorated TypeScript methods in one class in 0.55 s (68 s). Open: the vendored parser's recovery is quadratic in an error node's width (`ts_parser__recover` rebuilds the node for each token it takes): the JavaScript file parses in 1.5, 5.8, 22.9 and 88.7 s at 0.25 to 2 MiB, the rest of its extraction in 1.0 s. Changing the parser is the driver's decision; the battery also found issue 94 |
 | 92 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 90's resource audit: per-file typed resolution and the interface's translation are quadratic in how many definitions a file holds, in every typed language, whatever its nesting. 16,000 one-method classes take 62 s in Python (677 KB), 18 s in Java (549 KB), 15 s in TypeScript, 13 s in C++ and 8 s in C# and Go, about four times as long for each doubling; 2 MiB of distinct nested Java classes take 237 s. Within the depth ceiling, JavaScript calls nested 200 deep cost the TypeScript resolver more the more of them a file holds: 2 MiB, 441 s. Past an isolated worker's 120 s timeout a file fails the build, and whether it gets there depends on the machine. Generated code (protocol buffers, models, clients) holds thousands of classes a file | Fixed by indexing, nothing limited (patch 0025, decision 62, engine 7, and Stage 3's registry): every registry keeps exact-key chains in registration order as entries are added, the resolvers' helpers, the cross-file pass and the interface's translation index what they scanned (`index_of_qn` is gone), Stage 3 reads a name's provenance by file and name and C++ nesting by type name; an index that cannot get memory finds nothing, never scans. 16,000 classes now take 0.50 to 0.87 s in every typed language (Python 63.9 s before), each doubling about twice the last; the 2 MiB nested JavaScript 21 s (406 s) and nested Java 5.8 s (401 s). The 104,730-file census resolves and extracts identically; ten mutations killed. The final audit found issue 93 |
@@ -224,6 +224,14 @@ t("Select an item from the list")
 begins with `Select`; `from the` reads as a `FROM` clause; and the call consumes a
 `Table` named `the`, a contract nothing provides and no reader should see.
 
+**Reproduced (A0, 2026-10-14), not fixed.** `contracts::tables::sql_access`, called
+in a local test that was never committed:
+
+| Text | Tables read |
+|---|---|
+| `"Select an item from the list"` | `("the", Read)` |
+| `"SELECT id FROM users"` (control) | `("users", Read)` |
+
 Not fixed in this round.
 
 State: open.
@@ -251,6 +259,20 @@ run time. A resolution must prove that secrets are masked, that non-secret execu
 syntax is preserved, that byte length is preserved and that carriage returns and line
 feeds are preserved. A change to what a detector matches bumps
 `SECRET_DETECTOR_VERSION`, and coverage stays monotonic (issue 73).
+
+**Reproduced (A0, 2026-10-14), not fixed.** `secrets::normalise_in_place` was run on
+fixtures whose values were assembled at run time, in a local test that was never
+committed.
+
+| Class | Value masked | Length | CR and LF |
+|---|---|---|---|
+| 1. Python call argument | no | kept | kept |
+| 2. Python call argument | no | kept | kept |
+| 3. C# `"Server=…;User Id=…;Password=…;"` string, ending CRLF | no | kept | kept |
+| 4. Python `url = "password=" + decrypt(pw) + "&mode=x"` | — | kept | kept |
+
+In class 4, ` + decrypt(pw) + ` became 17 `X` bytes: the code between the two
+literals is masked.
 
 Not fixed in this round.
 
@@ -296,6 +318,67 @@ accuracy with 4.13.1's measures against a semantic oracle on the Python and Rust
 goldens (the PDX repository diagnostic only), and A0.2 re-scores the same dataset under
 counterfactual policies (decision 64, gate G1b). What is changed, if anything, is A0.3,
 the driver's decision.
+
+**A0.1 and A0.2 (2026-10-14).** The results are in `bench/results/a0/`, with
+`methodology.md`, measured at `e746b1e`. The oracles are `scip-python` 0.6.6 and
+`rust-analyzer` 1.98.1 (SCIP), and 4.13.1's measures are applied exactly. The oracle
+mapping passes all 25 sanity cases (`bench/a0/sanity/`).
+
+| Band | Python golden | Rust golden | PDX itself (diagnostic) |
+|---|---|---|---|
+| `typed` | 310 / 310 = 100.00% | 821 / 836 = 98.21% | 5,311 / 5,356 = 99.16% |
+| `import-guided` | 11 / 11 | 32 / 33 = 96.97% | 115 / 119 = 96.64% |
+| `inheritance-guided` | 14 / 14 | 63 / 63 | 74 / 74 |
+| `exact` | 284 / 310 = 91.61% | 509 / 1,168 = 43.58% | 548 / 1,452 = 37.74% |
+| `scoped` | 1 / 8 = 12.50% | 155 / 492 = 31.50% | 47 / 357 = 13.17% |
+| union | 620 / 653 = 94.95% | 1,580 / 2,592 = 60.96% | 6,095 / 7,358 = 82.84% |
+| oracle-verifiable fraction | 653 / 656 = 99.54% | 2,592 / 2,640 = 98.18% | 7,358 / 7,369 = 99.85% |
+| recall | 603 / 1,114 = 54.13% | 1,377 / 4,061 = 33.91% | 6,064 / 7,844 = 77.31% |
+
+What the evidence says of each mechanism above:
+
+1. **The blocklist before a typed answer.** The blocklist suppresses valid typed
+   answers in all three corpora: 4 in the Python golden (all 4 correct), 32 in the
+   Rust golden (31 correct, 1 false) and 412 in PDX (409 correct, 3 without a
+   verdict). Accepting them first (A0.2's C4) recovers 3, 31 and 409 relations, and
+   adds 1 false positive, in the Rust golden.
+2. **`exact`.** Its false positives are mostly an external target taken for an
+   internal one: 16 of 26 in the Python golden and 481 of 659 in the Rust golden
+   (`x.field(…)` on `fmt::DebugTuple` drawn to a repository `field`).
+3. **`scoped`.** Its false positives are mostly self-edges and constructor
+   collisions: 7 of 7 in the Python golden; in the Rust golden 137 self-edges and 84
+   constructor collisions of 337 (`TestClient::new(app)` drawn to the module's own
+   `new`).
+4. **Rust receivers.**
+   - `exact` and `scoped` are 345 / 1,017 = 33.9% precise on a value receiver, and
+     48 / 228 = 21.1% on a path receiver nothing binds.
+   - Without them (C5) the Rust golden's union is 1,187 / 1,347 = 88.1% precise and
+     its recall 24.2%.
+5. **Overloads.**
+   - In the Rust golden, 89 relations target a definition sharing its qualified name.
+     83 have a site and 52 are drawn: 49 to the right definition and 3 to a wrong one.
+     2 typed answers are withheld because their name maps to several definitions.
+   - scip-python cannot tell `@overload` stubs from their implementation, so in the
+     Python golden those 28 calls have no verdict.
+6. **Rust macro token trees.**
+   - The Rust golden has 1,696 call texts inside macro invocations' token trees. 437
+     are oracle relations; 338 of those have no structural site.
+   - 90 calls inside `assert_eq!` and `format!` arguments are extraction sites and
+     are drawn correctly.
+   - 9 are typed by the engine's own token-tree walk, but Stage 4 has no site to
+     draw them on.
+
+Neither `exact` nor `scoped` alone explains the Rust golden. With both removed (C3),
+its union is 916 / 932 = 98.3% precise, but its recall falls to 723 / 4,061 = 17.8%.
+Recall loss is mostly resolution, not extraction:
+
+| Golden | Resolution loss | Extraction loss | Largest resolution bucket |
+|---|---|---|---|
+| Python | 511 | 0 | `candidate`, 470 |
+| Rust | 2,684 | 394 | `candidate`, 2,079 |
+
+The Rust golden's extraction loss is 338 token-tree calls and 56 turbofish calls,
+such as `f::<T>()`, which have no site.
 
 State: open.
 

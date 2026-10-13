@@ -1,0 +1,1542 @@
+{
+ "blocklist": {
+  "edges_drawn": 0,
+  "examples_correct_suppressed": [
+   {
+    "band": "blocked",
+    "callee": "self.push",
+    "file": "src/flask/ctx.py",
+    "line": 507,
+    "oracle_status": "mapped",
+    "oracle_target": "src.flask.ctx.AppContext.push",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": null,
+    "site": 46,
+    "span": [
+     17338,
+     17349
+    ],
+    "token": [
+     17343,
+     17347
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "self.pop",
+    "file": "src/flask/ctx.py",
+    "line": 516,
+    "oracle_status": "mapped",
+    "oracle_target": "src.flask.ctx.AppContext.pop",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": null,
+    "site": 47,
+    "span": [
+     17547,
+     17566
+    ],
+    "token": [
+     17552,
+     17555
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "self.to_json",
+    "file": "src/flask/json/tag.py",
+    "line": 90,
+    "oracle_status": "mapped",
+    "oracle_target": "src.flask.json.tag.JSONTag.to_json",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": null,
+    "site": 0,
+    "span": [
+     2780,
+     2799
+    ],
+    "token": [
+     2785,
+     2792
+    ]
+   },
+   {
+    "band": "blocked",
+    "callee": "to_json",
+    "file": "tests/test_json_tag.py",
+    "line": 69,
+    "oracle_status": "mapped",
+    "oracle_target": "src.flask.json.tag.JSONTag.to_json",
+    "pdx_target": null,
+    "reason": null,
+    "receiver_proof": null,
+    "site": 49,
+    "span": [
+     1630,
+     1639
+    ],
+    "token": [
+     1632,
+     1639
+    ]
+   }
+  ],
+  "final_band:blocked": 690,
+  "no_typed_answer_and_blocked": 686,
+  "no_typed_answer_and_blocked_with_oracle_relation": 33,
+  "oracle_relation": 37,
+  "oracle_verifiable": 333,
+  "recall_c0": {
+   "denominator": 1114,
+   "numerator": 603,
+   "value": 0.541293
+  },
+  "recall_c4": {
+   "denominator": 1114,
+   "numerator": 606,
+   "value": 0.543986
+  },
+  "relations_recovered_in_c4": 3,
+  "sites": 690,
+  "suppressed_typed_answer_correct": 4,
+  "typed_answer_suppressed_by_blocklist": 4
+ },
+ "corpus": "python-golden",
+ "counterfactuals": {
+  "C0": {
+   "drawn": 656,
+   "false_positives_added": 0,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 653,
+   "oracle_verifiable_fraction": {
+    "denominator": 656,
+    "numerator": 653,
+    "value": 0.995427
+   },
+   "policy": "current behaviour",
+   "precision": {
+    "denominator": 653,
+    "numerator": 620,
+    "value": 0.949464
+   },
+   "recall": {
+    "denominator": 1114,
+    "numerator": 603,
+    "value": 0.541293
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 0,
+   "typed": {
+    "denominator": 310,
+    "numerator": 310,
+    "value": 1.0
+   }
+  },
+  "C1": {
+   "drawn": 344,
+   "false_positives_added": 0,
+   "false_positives_removed": 26,
+   "oracle_verifiable": 343,
+   "oracle_verifiable_fraction": {
+    "denominator": 344,
+    "numerator": 343,
+    "value": 0.997093
+   },
+   "policy": "`exact` not drawn",
+   "precision": {
+    "denominator": 343,
+    "numerator": 336,
+    "value": 0.979592
+   },
+   "recall": {
+    "denominator": 1114,
+    "numerator": 319,
+    "value": 0.286355
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 284,
+   "typed": {
+    "denominator": 310,
+    "numerator": 310,
+    "value": 1.0
+   }
+  },
+  "C2": {
+   "drawn": 648,
+   "false_positives_added": 0,
+   "false_positives_removed": 7,
+   "oracle_verifiable": 645,
+   "oracle_verifiable_fraction": {
+    "denominator": 648,
+    "numerator": 645,
+    "value": 0.99537
+   },
+   "policy": "`scoped` not drawn",
+   "precision": {
+    "denominator": 645,
+    "numerator": 619,
+    "value": 0.95969
+   },
+   "recall": {
+    "denominator": 1114,
+    "numerator": 602,
+    "value": 0.540395
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 1,
+   "typed": {
+    "denominator": 310,
+    "numerator": 310,
+    "value": 1.0
+   }
+  },
+  "C3": {
+   "drawn": 336,
+   "false_positives_added": 0,
+   "false_positives_removed": 33,
+   "oracle_verifiable": 335,
+   "oracle_verifiable_fraction": {
+    "denominator": 336,
+    "numerator": 335,
+    "value": 0.997024
+   },
+   "policy": "neither `exact` nor `scoped` drawn",
+   "precision": {
+    "denominator": 335,
+    "numerator": 335,
+    "value": 1.0
+   },
+   "recall": {
+    "denominator": 1114,
+    "numerator": 318,
+    "value": 0.285458
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 285,
+   "typed": {
+    "denominator": 310,
+    "numerator": 310,
+    "value": 1.0
+   }
+  },
+  "C4": {
+   "drawn": 660,
+   "false_positives_added": 0,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 657,
+   "oracle_verifiable_fraction": {
+    "denominator": 660,
+    "numerator": 657,
+    "value": 0.995455
+   },
+   "policy": "a valid typed answer is accepted before the generic-name blocklist",
+   "precision": {
+    "denominator": 657,
+    "numerator": 624,
+    "value": 0.949772
+   },
+   "recall": {
+    "denominator": 1114,
+    "numerator": 606,
+    "value": 0.543986
+   },
+   "true_positives_added": 4,
+   "true_positives_lost": 0,
+   "typed": {
+    "denominator": 314,
+    "numerator": 314,
+    "value": 1.0
+   }
+  },
+  "C5": {
+   "drawn": 656,
+   "false_positives_added": 0,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 653,
+   "oracle_verifiable_fraction": {
+    "denominator": 656,
+    "numerator": 653,
+    "value": 0.995427
+   },
+   "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
+   "precision": {
+    "denominator": 653,
+    "numerator": 620,
+    "value": 0.949464
+   },
+   "recall": {
+    "denominator": 1114,
+    "numerator": 603,
+    "value": 0.541293
+   },
+   "true_positives_added": 0,
+   "true_positives_lost": 0,
+   "typed": {
+    "denominator": 310,
+    "numerator": 310,
+    "value": 1.0
+   }
+  },
+  "C6": {
+   "drawn": 340,
+   "false_positives_added": 0,
+   "false_positives_removed": 33,
+   "oracle_verifiable": 339,
+   "oracle_verifiable_fraction": {
+    "denominator": 340,
+    "numerator": 339,
+    "value": 0.997059
+   },
+   "policy": "C3, C4 and C5 together",
+   "precision": {
+    "denominator": 339,
+    "numerator": 339,
+    "value": 1.0
+   },
+   "recall": {
+    "denominator": 1114,
+    "numerator": 321,
+    "value": 0.288151
+   },
+   "true_positives_added": 4,
+   "true_positives_lost": 285,
+   "typed": {
+    "denominator": 314,
+    "numerator": 314,
+    "value": 1.0
+   }
+  }
+ },
+ "coverage": {
+  "drawn_edges_by_kind": {
+   "CALLS": 639,
+   "CALL_REFERENCE": 17
+  },
+  "engine_sites": 0,
+  "language_files": 83,
+  "language_files_indexed_by_oracle": 83,
+  "name_token_rules": {
+   "M1": 3841,
+   "M1d": 14
+  },
+  "oracle_assumed_encoding": {
+   "2": 28
+  },
+  "oracle_call_sites": 3963,
+  "oracle_call_sites_by_status": {
+   "ambiguous": 28,
+   "external": 1373,
+   "local": 21,
+   "mapped": 1114,
+   "no_token": 57,
+   "none": 990,
+   "unmapped": 124,
+   "unresolved_local": 256
+  },
+  "oracle_symbols": {
+   "ambiguous": 16,
+   "mapped": 1023,
+   "unmapped": 2875
+  },
+  "oracle_unconvertible_occurrences": 0,
+  "parse_failures": [],
+  "structural_call_sites": 3855,
+  "structural_call_sites_by_band": {
+   "blocked": 690,
+   "candidate": 1031,
+   "exact": 312,
+   "external": 614,
+   "import-guided": 12,
+   "inheritance-guided": 14,
+   "scoped": 8,
+   "typed": 310,
+   "unresolved": 864
+  },
+  "structural_call_sites_not_materialized_by_band": {},
+  "structural_call_sites_without_name_token": 0,
+  "structural_sites_not_call_sites": 1988
+ },
+ "exact_scoped_false_positives": {
+  "exact": {
+   "examples": {
+    "constructor_collision": [
+     {
+      "band": "exact",
+      "callee": "View",
+      "file": "tests/test_basic.py",
+      "line": 1874,
+      "oracle_status": "unmapped",
+      "oracle_target": "flask `tests.test_basic`/test_multi_route_class_views().View#",
+      "pdx_target": "src.flask.views.View",
+      "reason": "other_target_unmapped",
+      "receiver_proof": null,
+      "site": 567,
+      "span": [
+       51178,
+       51187
+      ],
+      "token": [
+       51178,
+       51182
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "Flask",
+      "file": "tests/test_config.py",
+      "line": 205,
+      "oracle_status": "unmapped",
+      "oracle_target": "flask `tests.test_config`/test_custom_config_class().Flask#",
+      "pdx_target": "src.flask.app.Flask",
+      "reason": "other_target_unmapped",
+      "receiver_proof": null,
+      "site": 89,
+      "span": [
+       5959,
+       5974
+      ],
+      "token": [
+       5959,
+       5964
+      ]
+     }
+    ],
+    "external_receiver_mistaken_for_local": [
+     {
+      "band": "exact",
+      "callee": "flask.session.setdefault",
+      "file": "tests/test_basic.py",
+      "line": 558,
+      "oracle_status": "external",
+      "oracle_target": "python-stdlib typing/MutableMapping#setdefault().",
+      "pdx_target": "src.flask.ctx._AppCtxGlobals.setdefault",
+      "reason": "oracle_external",
+      "receiver_proof": null,
+      "site": 160,
+      "span": [
+       15928,
+       15971
+      ],
+      "token": [
+       15942,
+       15952
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "run_command.make_context",
+      "file": "tests/test_cli.py",
+      "line": 588,
+      "oracle_status": "external",
+      "oracle_target": "flask `click.core`/Command#make_context().",
+      "pdx_target": "src.flask.cli.FlaskGroup.make_context",
+      "reason": "oracle_external",
+      "receiver_proof": null,
+      "site": 178,
+      "span": [
+       16439,
+       16492
+      ],
+      "token": [
+       16451,
+       16463
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "run_command.make_context",
+      "file": "tests/test_cli.py",
+      "line": 592,
+      "oracle_status": "external",
+      "oracle_target": "flask `click.core`/Command#make_context().",
+      "pdx_target": "src.flask.cli.FlaskGroup.make_context",
+      "reason": "oracle_external",
+      "receiver_proof": null,
+      "site": 180,
+      "span": [
+       16560,
+       16612
+      ],
+      "token": [
+       16572,
+       16584
+      ]
+     }
+    ],
+    "self_edge": [
+     {
+      "band": "exact",
+      "callee": "super(AppGroup, self).command",
+      "file": "src/flask/cli.py",
+      "line": 425,
+      "oracle_status": "external",
+      "oracle_target": "flask `click.core`/Group#command().",
+      "pdx_target": "src.flask.cli.AppGroup.command",
+      "reason": "oracle_external",
+      "receiver_proof": null,
+      "site": 76,
+      "span": [
+       13653,
+       13699
+      ],
+      "token": [
+       13675,
+       13682
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "super().group",
+      "file": "src/flask/cli.py",
+      "line": 437,
+      "oracle_status": "external",
+      "oracle_target": "flask `click.core`/Group#group().",
+      "pdx_target": "src.flask.cli.AppGroup.group",
+      "reason": "oracle_external",
+      "receiver_proof": null,
+      "site": 78,
+      "span": [
+       14143,
+       14173
+      ],
+      "token": [
+       14151,
+       14156
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "super().get_command",
+      "file": "src/flask/cli.py",
+      "line": 613,
+      "oracle_status": "external",
+      "oracle_target": "flask `click.core`/Group#get_command().",
+      "pdx_target": "src.flask.cli.FlaskGroup.get_command",
+      "reason": "oracle_external",
+      "receiver_proof": null,
+      "site": 100,
+      "span": [
+       20504,
+       20534
+      ],
+      "token": [
+       20512,
+       20523
+      ]
+     }
+    ]
+   },
+   "false_positives": 26,
+   "primary": {
+    "constructor_collision": 2,
+    "external_receiver_mistaken_for_local": 16,
+    "hierarchy_evidence_missing": 0,
+    "import_provenance_failure": 0,
+    "module_or_package_uniqueness_only": 0,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 0,
+    "self_edge": 8,
+    "unknown_or_unproven_receiver": 0
+   },
+   "tagged": {
+    "constructor_collision": 2,
+    "external_receiver_mistaken_for_local": 24,
+    "hierarchy_evidence_missing": 7,
+    "import_provenance_failure": 16,
+    "module_or_package_uniqueness_only": 0,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 0,
+    "self_edge": 8,
+    "unknown_or_unproven_receiver": 17
+   }
+  },
+  "scoped": {
+   "examples": {
+    "self_edge": [
+     {
+      "band": "scoped",
+      "callee": "current_app.make_response",
+      "file": "src/flask/helpers.py",
+      "line": 197,
+      "oracle_status": "mapped",
+      "oracle_target": "src.flask.app.Flask.make_response",
+      "pdx_target": "src.flask.helpers.make_response",
+      "reason": "other_target",
+      "receiver_proof": null,
+      "site": 16,
+      "span": [
+       6598,
+       6629
+      ],
+      "token": [
+       6610,
+       6623
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "current_app.url_for",
+      "file": "src/flask/helpers.py",
+      "line": 244,
+      "oracle_status": "mapped",
+      "oracle_target": "src.flask.app.Flask.url_for",
+      "pdx_target": "src.flask.helpers.url_for",
+      "reason": "other_target",
+      "receiver_proof": null,
+      "site": 17,
+      "span": [
+       8291,
+       8457
+      ],
+      "token": [
+       8303,
+       8310
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "current_app.json.dumps",
+      "file": "src/flask/json/__init__.py",
+      "line": 41,
+      "oracle_status": "mapped",
+      "oracle_target": "src.flask.json.provider.JSONProvider.dumps",
+      "pdx_target": "src.flask.json.dumps",
+      "reason": "other_target",
+      "receiver_proof": null,
+      "site": 0,
+      "span": [
+       1152,
+       1189
+      ],
+      "token": [
+       1169,
+       1174
+      ]
+     }
+    ]
+   },
+   "false_positives": 7,
+   "primary": {
+    "constructor_collision": 0,
+    "external_receiver_mistaken_for_local": 0,
+    "hierarchy_evidence_missing": 0,
+    "import_provenance_failure": 0,
+    "module_or_package_uniqueness_only": 0,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 0,
+    "self_edge": 7,
+    "unknown_or_unproven_receiver": 0
+   },
+   "tagged": {
+    "constructor_collision": 0,
+    "external_receiver_mistaken_for_local": 2,
+    "hierarchy_evidence_missing": 2,
+    "import_provenance_failure": 5,
+    "module_or_package_uniqueness_only": 7,
+    "other": 0,
+    "same_short_name_on_unrelated_type": 5,
+    "self_edge": 7,
+    "unknown_or_unproven_receiver": 5
+   }
+  }
+ },
+ "extraction_loss": 0,
+ "false_negative_examples": {
+  "drawn_wrong": [
+   {
+    "bucket": "drawn_wrong",
+    "callee": "current_app.make_response",
+    "file": "src/flask/helpers.py",
+    "line": 197,
+    "macro": null,
+    "oracle_target": "src.flask.app.Flask.make_response",
+    "pdx_band": "scoped",
+    "pdx_site": 16,
+    "pdx_target": "src.flask.helpers.make_response",
+    "shape": "method",
+    "span": [
+     6598,
+     6629
+    ],
+    "token": [
+     6610,
+     6623
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "current_app.url_for",
+    "file": "src/flask/helpers.py",
+    "line": 244,
+    "macro": null,
+    "oracle_target": "src.flask.app.Flask.url_for",
+    "pdx_band": "scoped",
+    "pdx_site": 17,
+    "pdx_target": "src.flask.helpers.url_for",
+    "shape": "method",
+    "span": [
+     8291,
+     8457
+    ],
+    "token": [
+     8303,
+     8310
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "current_app.json.dumps",
+    "file": "src/flask/json/__init__.py",
+    "line": 41,
+    "macro": null,
+    "oracle_target": "src.flask.json.provider.JSONProvider.dumps",
+    "pdx_band": "scoped",
+    "pdx_site": 0,
+    "pdx_target": "src.flask.json.dumps",
+    "shape": "method",
+    "span": [
+     1152,
+     1189
+    ],
+    "token": [
+     1169,
+     1174
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "current_app.json.dump",
+    "file": "src/flask/json/__init__.py",
+    "line": 71,
+    "macro": null,
+    "oracle_target": "src.flask.json.provider.JSONProvider.dump",
+    "pdx_band": "scoped",
+    "pdx_site": 3,
+    "pdx_target": "src.flask.json.dump",
+    "shape": "method",
+    "span": [
+     2144,
+     2184
+    ],
+    "token": [
+     2161,
+     2165
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "current_app.json.loads",
+    "file": "src/flask/json/__init__.py",
+    "line": 103,
+    "macro": null,
+    "oracle_target": "src.flask.json.provider.JSONProvider.loads",
+    "pdx_band": "scoped",
+    "pdx_site": 6,
+    "pdx_target": "src.flask.json.loads",
+    "shape": "method",
+    "span": [
+     3163,
+     3198
+    ],
+    "token": [
+     3180,
+     3185
+    ]
+   }
+  ],
+  "resolution_not_drawn:blocked": [
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "bp.get",
+    "file": "examples/celery/src/task_app/views.py",
+    "line": 10,
+    "macro": null,
+    "oracle_target": "src.flask.sansio.scaffold.Scaffold.get",
+    "pdx_band": "blocked",
+    "pdx_site": 1,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     172,
+     194
+    ],
+    "token": [
+     175,
+     178
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "g.pop",
+    "file": "examples/tutorial/flaskr/db.py",
+    "line": 27,
+    "macro": null,
+    "oracle_target": "src.flask.ctx._AppCtxGlobals.pop",
+    "pdx_band": "blocked",
+    "pdx_site": 1,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     602,
+     619
+    ],
+    "token": [
+     604,
+     607
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "main",
+    "file": "src/flask/__main__.py",
+    "line": 3,
+    "macro": null,
+    "oracle_target": "src.flask.cli.main",
+    "pdx_band": "blocked",
+    "pdx_site": 0,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     23,
+     29
+    ],
+    "token": [
+     23,
+     27
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "super().__init__",
+    "file": "src/flask/app.py",
+    "line": 324,
+    "macro": null,
+    "oracle_target": "src.flask.sansio.app.App.__init__",
+    "pdx_band": "blocked",
+    "pdx_site": 34,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     13161,
+     13622
+    ],
+    "token": [
+     13169,
+     13177
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "ctx.push",
+    "file": "src/flask/app.py",
+    "line": 1599,
+    "macro": null,
+    "oracle_target": "src.flask.ctx.AppContext.push",
+    "pdx_band": "blocked",
+    "pdx_site": 181,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     64412,
+     64422
+    ],
+    "token": [
+     64416,
+     64420
+    ]
+   }
+  ],
+  "resolution_not_drawn:candidate": [
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "app.config.from_mapping",
+    "file": "examples/celery/src/task_app/__init__.py",
+    "line": 9,
+    "macro": null,
+    "oracle_target": "src.flask.config.Config.from_mapping",
+    "pdx_band": "candidate",
+    "pdx_site": 1,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     167,
+     363
+    ],
+    "token": [
+     178,
+     190
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "app.config.from_prefixed_env",
+    "file": "examples/celery/src/task_app/__init__.py",
+    "line": 16,
+    "macro": null,
+    "oracle_target": "src.flask.config.Config.from_prefixed_env",
+    "pdx_band": "candidate",
+    "pdx_site": 2,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     368,
+     398
+    ],
+    "token": [
+     379,
+     396
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "app.route",
+    "file": "examples/celery/src/task_app/__init__.py",
+    "line": 19,
+    "macro": null,
+    "oracle_target": "src.flask.sansio.scaffold.Scaffold.route",
+    "pdx_band": "candidate",
+    "pdx_site": 4,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     430,
+     444
+    ],
+    "token": [
+     434,
+     439
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "app.register_blueprint",
+    "file": "examples/celery/src/task_app/__init__.py",
+    "line": 25,
+    "macro": null,
+    "oracle_target": "src.flask.sansio.app.App.register_blueprint",
+    "pdx_band": "candidate",
+    "pdx_site": 6,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     544,
+     576
+    ],
+    "token": [
+     548,
+     566
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
+    "callee": "app.app_context",
+    "file": "examples/celery/src/task_app/__init__.py",
+    "line": 32,
+    "macro": null,
+    "oracle_target": "src.flask.app.Flask.app_context",
+    "pdx_band": "candidate",
+    "pdx_site": 7,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     752,
+     769
+    ],
+    "token": [
+     756,
+     767
+    ]
+   }
+  ]
+ },
+ "false_positive_examples": {
+  "exact": [
+   {
+    "band": "exact",
+    "callee": "super(AppGroup, self).command",
+    "file": "src/flask/cli.py",
+    "line": 425,
+    "oracle_status": "external",
+    "oracle_target": "flask `click.core`/Group#command().",
+    "pdx_target": "src.flask.cli.AppGroup.command",
+    "reason": "oracle_external",
+    "receiver_proof": null,
+    "site": 76,
+    "span": [
+     13653,
+     13699
+    ],
+    "token": [
+     13675,
+     13682
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "super().group",
+    "file": "src/flask/cli.py",
+    "line": 437,
+    "oracle_status": "external",
+    "oracle_target": "flask `click.core`/Group#group().",
+    "pdx_target": "src.flask.cli.AppGroup.group",
+    "reason": "oracle_external",
+    "receiver_proof": null,
+    "site": 78,
+    "span": [
+     14143,
+     14173
+    ],
+    "token": [
+     14151,
+     14156
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "super().get_command",
+    "file": "src/flask/cli.py",
+    "line": 613,
+    "oracle_status": "external",
+    "oracle_target": "flask `click.core`/Group#get_command().",
+    "pdx_target": "src.flask.cli.FlaskGroup.get_command",
+    "reason": "oracle_external",
+    "receiver_proof": null,
+    "site": 100,
+    "span": [
+     20504,
+     20534
+    ],
+    "token": [
+     20512,
+     20523
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "super().list_commands",
+    "file": "src/flask/cli.py",
+    "line": 639,
+    "oracle_status": "external",
+    "oracle_target": "flask `click.core`/Group#list_commands().",
+    "pdx_target": "src.flask.cli.FlaskGroup.list_commands",
+    "reason": "oracle_external",
+    "receiver_proof": null,
+    "site": 110,
+    "span": [
+     21491,
+     21517
+    ],
+    "token": [
+     21499,
+     21512
+    ]
+   },
+   {
+    "band": "exact",
+    "callee": "super().make_context",
+    "file": "src/flask/cli.py",
+    "line": 676,
+    "oracle_status": "external",
+    "oracle_target": "flask `click.core`/Command#make_context().",
+    "pdx_target": "src.flask.cli.FlaskGroup.make_context",
+    "reason": "oracle_external",
+    "receiver_proof": null,
+    "site": 121,
+    "span": [
+     22945,
+     23006
+    ],
+    "token": [
+     22953,
+     22965
+    ]
+   }
+  ],
+  "import-guided": [],
+  "inheritance-guided": [],
+  "scoped": [
+   {
+    "band": "scoped",
+    "callee": "current_app.make_response",
+    "file": "src/flask/helpers.py",
+    "line": 197,
+    "oracle_status": "mapped",
+    "oracle_target": "src.flask.app.Flask.make_response",
+    "pdx_target": "src.flask.helpers.make_response",
+    "reason": "other_target",
+    "receiver_proof": null,
+    "site": 16,
+    "span": [
+     6598,
+     6629
+    ],
+    "token": [
+     6610,
+     6623
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "current_app.url_for",
+    "file": "src/flask/helpers.py",
+    "line": 244,
+    "oracle_status": "mapped",
+    "oracle_target": "src.flask.app.Flask.url_for",
+    "pdx_target": "src.flask.helpers.url_for",
+    "reason": "other_target",
+    "receiver_proof": null,
+    "site": 17,
+    "span": [
+     8291,
+     8457
+    ],
+    "token": [
+     8303,
+     8310
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "current_app.json.dumps",
+    "file": "src/flask/json/__init__.py",
+    "line": 41,
+    "oracle_status": "mapped",
+    "oracle_target": "src.flask.json.provider.JSONProvider.dumps",
+    "pdx_target": "src.flask.json.dumps",
+    "reason": "other_target",
+    "receiver_proof": null,
+    "site": 0,
+    "span": [
+     1152,
+     1189
+    ],
+    "token": [
+     1169,
+     1174
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "current_app.json.dump",
+    "file": "src/flask/json/__init__.py",
+    "line": 71,
+    "oracle_status": "mapped",
+    "oracle_target": "src.flask.json.provider.JSONProvider.dump",
+    "pdx_target": "src.flask.json.dump",
+    "reason": "other_target",
+    "receiver_proof": null,
+    "site": 3,
+    "span": [
+     2144,
+     2184
+    ],
+    "token": [
+     2161,
+     2165
+    ]
+   },
+   {
+    "band": "scoped",
+    "callee": "current_app.json.loads",
+    "file": "src/flask/json/__init__.py",
+    "line": 103,
+    "oracle_status": "mapped",
+    "oracle_target": "src.flask.json.provider.JSONProvider.loads",
+    "pdx_target": "src.flask.json.loads",
+    "reason": "other_target",
+    "receiver_proof": null,
+    "site": 6,
+    "span": [
+     3163,
+     3198
+    ],
+    "token": [
+     3180,
+     3185
+    ]
+   }
+  ],
+  "typed": []
+ },
+ "language": "python",
+ "overloads": {
+  "note": "an overloaded call is an oracle relation whose target shares its qualified name with another definition of its file; a call whose oracle symbol denotes several such definitions has no verdict",
+  "oracle_calls_whose_target_is_ambiguous": 28,
+  "oracle_verifiable_overloaded_calls": {
+   "total": 0
+  }
+ },
+ "precision": {
+  "exact": {
+   "correct": 284,
+   "drawn": 312,
+   "false_positive": 26,
+   "oracle_verifiable": 310,
+   "oracle_verifiable_fraction": {
+    "denominator": 312,
+    "numerator": 310,
+    "value": 0.99359
+   },
+   "precision": {
+    "denominator": 310,
+    "numerator": 284,
+    "value": 0.916129
+   }
+  },
+  "import-guided": {
+   "correct": 11,
+   "drawn": 12,
+   "false_positive": 0,
+   "oracle_verifiable": 11,
+   "oracle_verifiable_fraction": {
+    "denominator": 12,
+    "numerator": 11,
+    "value": 0.916667
+   },
+   "precision": {
+    "denominator": 11,
+    "numerator": 11,
+    "value": 1.0
+   }
+  },
+  "inheritance-guided": {
+   "correct": 14,
+   "drawn": 14,
+   "false_positive": 0,
+   "oracle_verifiable": 14,
+   "oracle_verifiable_fraction": {
+    "denominator": 14,
+    "numerator": 14,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 14,
+    "numerator": 14,
+    "value": 1.0
+   }
+  },
+  "scoped": {
+   "correct": 1,
+   "drawn": 8,
+   "false_positive": 7,
+   "oracle_verifiable": 8,
+   "oracle_verifiable_fraction": {
+    "denominator": 8,
+    "numerator": 8,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 8,
+    "numerator": 1,
+    "value": 0.125
+   }
+  },
+  "typed": {
+   "correct": 310,
+   "drawn": 310,
+   "false_positive": 0,
+   "oracle_verifiable": 310,
+   "oracle_verifiable_fraction": {
+    "denominator": 310,
+    "numerator": 310,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 310,
+    "numerator": 310,
+    "value": 1.0
+   }
+  },
+  "union": {
+   "correct": 620,
+   "drawn": 656,
+   "false_positive": 33,
+   "oracle_verifiable": 653,
+   "oracle_verifiable_fraction": {
+    "denominator": 656,
+    "numerator": 653,
+    "value": 0.995427
+   },
+   "precision": {
+    "denominator": 653,
+    "numerator": 620,
+    "value": 0.949464
+   }
+  }
+ },
+ "precision_calls_only": {
+  "exact": {
+   "correct": 284,
+   "drawn": 312,
+   "false_positive": 26,
+   "oracle_verifiable": 310,
+   "oracle_verifiable_fraction": {
+    "denominator": 312,
+    "numerator": 310,
+    "value": 0.99359
+   },
+   "precision": {
+    "denominator": 310,
+    "numerator": 284,
+    "value": 0.916129
+   }
+  },
+  "import-guided": {
+   "correct": 11,
+   "drawn": 12,
+   "false_positive": 0,
+   "oracle_verifiable": 11,
+   "oracle_verifiable_fraction": {
+    "denominator": 12,
+    "numerator": 11,
+    "value": 0.916667
+   },
+   "precision": {
+    "denominator": 11,
+    "numerator": 11,
+    "value": 1.0
+   }
+  },
+  "inheritance-guided": {
+   "correct": 14,
+   "drawn": 14,
+   "false_positive": 0,
+   "oracle_verifiable": 14,
+   "oracle_verifiable_fraction": {
+    "denominator": 14,
+    "numerator": 14,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 14,
+    "numerator": 14,
+    "value": 1.0
+   }
+  },
+  "scoped": {
+   "correct": 1,
+   "drawn": 8,
+   "false_positive": 7,
+   "oracle_verifiable": 8,
+   "oracle_verifiable_fraction": {
+    "denominator": 8,
+    "numerator": 8,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 8,
+    "numerator": 1,
+    "value": 0.125
+   }
+  },
+  "typed": {
+   "correct": 293,
+   "drawn": 293,
+   "false_positive": 0,
+   "oracle_verifiable": 293,
+   "oracle_verifiable_fraction": {
+    "denominator": 293,
+    "numerator": 293,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 293,
+    "numerator": 293,
+    "value": 1.0
+   }
+  },
+  "union": {
+   "correct": 603,
+   "drawn": 639,
+   "false_positive": 33,
+   "oracle_verifiable": 636,
+   "oracle_verifiable_fraction": {
+    "denominator": 639,
+    "numerator": 636,
+    "value": 0.995305
+   },
+   "precision": {
+    "denominator": 636,
+    "numerator": 603,
+    "value": 0.948113
+   }
+  }
+ },
+ "precision_references_only": {
+  "exact": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "import-guided": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "inheritance-guided": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "scoped": {
+   "correct": 0,
+   "drawn": 0,
+   "false_positive": 0,
+   "oracle_verifiable": 0,
+   "oracle_verifiable_fraction": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   },
+   "precision": {
+    "denominator": 0,
+    "numerator": 0,
+    "value": null
+   }
+  },
+  "typed": {
+   "correct": 17,
+   "drawn": 17,
+   "false_positive": 0,
+   "oracle_verifiable": 17,
+   "oracle_verifiable_fraction": {
+    "denominator": 17,
+    "numerator": 17,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 17,
+    "numerator": 17,
+    "value": 1.0
+   }
+  },
+  "union": {
+   "correct": 17,
+   "drawn": 17,
+   "false_positive": 0,
+   "oracle_verifiable": 17,
+   "oracle_verifiable_fraction": {
+    "denominator": 17,
+    "numerator": 17,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 17,
+    "numerator": 17,
+    "value": 1.0
+   }
+  }
+ },
+ "provenance": {
+  "corpus_commit": "d73fa1cdcbd8b1465c151db8924ba58b1dd14e35",
+  "corpus_url": "github.com/pallets/flask",
+  "dataset_format": 1,
+  "engine_health": "RunHealth { status: Clean, files: 107, files_resolved: 80, files_untyped: 24, files_empty: 3, files_over_budget: 0, files_source_unavailable: 0, files_not_reached: 0, pass_failures: 0 }",
+  "engine_version": 7,
+  "metrics_version": "a0-metrics-1",
+  "oracle": "scip-python",
+  "oracle_setup": {
+   "lock_sha256": "22b1a704f1757d0796549ab5ed747f5f6eec1aa41b90c1804ee0c635c00381c1",
+   "pyright_config": {
+    "exclude": [
+     "**/.*",
+     "**/__pycache__",
+     "**/node_modules"
+    ],
+    "include": [
+     "."
+    ],
+    "pythonVersion": "3.10"
+   }
+  },
+  "oracle_tools": [
+   {
+    "documents": 83,
+    "name": "scip-python",
+    "prefix": "",
+    "version": "0.6.6"
+   }
+  ],
+  "oracle_versions": {
+   "rust-analyzer": "rust-analyzer 1.98.1 (48a229c 2026-09-01)",
+   "scip-python": "0.6.6",
+   "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
+   "scip-python_package": "@sourcegraph/scip-python@0.6.6"
+  },
+  "pdx_note": "A0.1 adds measurement tooling only; the resolver, extraction and bands measured are those of pdx_sha",
+  "pdx_sha": "e746b1e25d42552e5dc051698b476bcac9a9a6f4",
+  "site_matching_version": "a0-match-1"
+ },
+ "recall": {
+  "at_parsed_structural_sites": 1114,
+  "breakdown": {
+   "at_parsed_site": 1114,
+   "drawn_correct": 603,
+   "drawn_wrong": 5,
+   "resolution_not_drawn:blocked": 36,
+   "resolution_not_drawn:candidate": 470
+  },
+  "drawn_correct": 603,
+  "end_to_end_recall": {
+   "denominator": 1114,
+   "numerator": 603,
+   "value": 0.541293
+  },
+  "oracle_calls_outside_relations": {
+   "not_a_relation:external": 1373,
+   "not_a_relation:local": 21,
+   "not_a_relation:no_token": 57,
+   "not_a_relation:none": 990,
+   "not_a_relation:unresolved_local": 256,
+   "oracle_target_ambiguous": 28,
+   "oracle_target_unmapped": 124
+  },
+  "oracle_relations": 1114,
+  "recall": {
+   "denominator": 1114,
+   "numerator": 603,
+   "value": 0.541293
+  }
+ },
+ "resolution_loss": 511,
+ "unverifiable_drawn": {
+  "exact:none": 1,
+  "exact:unresolved_local": 1,
+  "import-guided:unresolved_local": 1
+ }
+}
