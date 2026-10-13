@@ -6,7 +6,7 @@
 #include <stdatomic.h> /* relaxed cache for pdxe_lsp_max_walk_depth */
 #include <stdlib.h>     /* getenv, atoi (pdxe_lsp_max_walk_depth) */
 
-typedef struct {
+typedef struct PDXEVarBinding {
     const char* name;
     const PDXEType* type;
     /* Exact callable value carried by this lexical binding, or NULL when the
@@ -14,6 +14,11 @@ typedef struct {
      * identity metadata rather than another PDXEType kind: aliases need both
      * their ordinary type and the graph QN of the value they reference. */
     const char *callable_qn;
+    /* Issue 92: a resolver's list of the bindings written since it last reset them
+     * all (Python's wildcard imports): the next binding on it, and whether this one is
+     * on it. Unused, NULL and false, elsewhere. */
+    struct PDXEVarBinding *written_next;
+    bool written;
 } PDXEVarBinding;
 
 #define PDXE_SCOPE_CHUNK_BINDINGS 16
@@ -24,10 +29,23 @@ typedef struct PDXEScopeChunk {
     struct PDXEScopeChunk* next;
 } PDXEScopeChunk;
 
+/* Issue 92: one entry of a frame's name index. */
+typedef struct {
+    uint64_t hash;
+    PDXEVarBinding *binding; /* NULL for an empty slot */
+} PDXEScopeIndexSlot;
+
 typedef struct PDXEScope {
     struct PDXEScope* parent;
     PDXEScopeChunk* chunks;
     PDXEArena* arena;        // owning arena, propagated to children at push time
+    /* Issue 92: how many names the frame binds, and, once that passes one chunk, the
+     * frame's names by hash (open addressing, a power of two at most half full), so a
+     * frame holding a module's every name finds one without scanning them all. Names
+     * are unique within a frame, so the index answers exactly what a scan answered. */
+    int count;
+    PDXEScopeIndexSlot *index;
+    int index_cap;
 } PDXEScope;
 
 // Bail-to-UNKNOWN depth for type-lookup chains: alias resolution, MRO walks,
@@ -91,5 +109,7 @@ const char *pdxe_scope_lookup_callable(const PDXEScope *scope, const char *name)
  * lexical binding. Returns false when name is unbound. This is for assignment;
  * declarations should continue to use pdxe_scope_bind[_callable]. */
 bool pdxe_scope_update_callable(PDXEScope *scope, const char *name, const char *callable_qn);
+/* Issue 92: the binding of `name` in this one frame (not its parents), or NULL. */
+PDXEVarBinding *pdxe_scope_frame_find(const PDXEScope *frame, const char *name);
 
 #endif // PDXE_LSP_SCOPE_H

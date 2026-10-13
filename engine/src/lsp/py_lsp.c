@@ -13,6 +13,8 @@
 #include "py_lsp.h"
 #include "../pdxe_core.h"
 #include "../helpers.h"
+#include "../lookup_counts.h"
+#include "lost_work.h" /* a refused allocation is counted where it is refused */
 #include "tree_sitter/api.h"
 #include <ctype.h>
 #include <stdint.h>
@@ -189,11 +191,26 @@ static void py_disable_callable_value_proof(PyLSPContext *ctx) {
         ctx->callable_value_proof_disabled = true;
 }
 
+/* Issue 92: a write to the frame a wildcard import last reset puts the binding on the
+ * frame's written list (see py_invalidate_module_bindings_for_wildcard). */
+static void py_note_wildcard_write(PyLSPContext *ctx, const char *name) {
+    if (!ctx->wildcard_scope || ctx->current_scope != ctx->wildcard_scope ||
+        ctx->wildcard_resetting || !name)
+        return;
+    PDXEVarBinding *b = pdxe_scope_frame_find(ctx->current_scope, name);
+    if (b && !b->written) {
+        b->written = true;
+        b->written_next = ctx->wildcard_written;
+        ctx->wildcard_written = b;
+    }
+}
+
 static void py_scope_bind(PyLSPContext *ctx, const char *name, const PDXEType *type) {
     ctx->type_cache_gen++;
     pdxe_scope_bind(ctx->current_scope, name, type);
     if (name && !pdxe_scope_contains(ctx->current_scope, name))
         py_disable_callable_value_proof(ctx);
+    py_note_wildcard_write(ctx, name);
 }
 
 static void py_scope_bind_callable(PyLSPContext *ctx, const char *name, const PDXEType *type,
@@ -205,6 +222,7 @@ static void py_scope_bind_callable(PyLSPContext *ctx, const char *name, const PD
                  (callable_qn && (!bound || strcmp(bound, callable_qn) != 0)))) {
         py_disable_callable_value_proof(ctx);
     }
+    py_note_wildcard_write(ctx, name);
 }
 
 static PDXEScope *py_scope_push_checked(PyLSPContext *ctx) {
@@ -220,6 +238,7 @@ static PDXEScope *py_scope_push_checked(PyLSPContext *ctx) {
 static void py_scope_clear_callable(PyLSPContext *ctx, const char *name) {
     if (pdxe_scope_update_callable(ctx->current_scope, name, NULL)) {
         ctx->type_cache_gen++;
+        py_note_wildcard_write(ctx, name);
     }
 }
 
@@ -251,29 +270,37 @@ void py_lsp_add_import(PyLSPContext *ctx, const char *local_name, const char *mo
         return;
 
     int new_count = ctx->import_count + 1;
-    const char **names =
-        (const char **)pdxe_arena_alloc(ctx->arena, (size_t)(new_count + 1) * sizeof(const char *));
-    const char **qns =
-        (const char **)pdxe_arena_alloc(ctx->arena, (size_t)(new_count + 1) * sizeof(const char *));
-    unsigned char *kinds =
-        (unsigned char *)pdxe_arena_alloc(ctx->arena, (size_t)new_count * sizeof(unsigned char));
-    if (!names || !qns || !kinds)
-        return;
-
-    for (int i = 0; i < ctx->import_count; i++) {
-        names[i] = ctx->import_local_names[i];
-        qns[i] = ctx->import_module_qns[i];
-        kinds[i] = ctx->import_kinds ? ctx->import_kinds[i] : 0;
+    /* Grown by doubling (issue 92: copying every import on each add was quadratic in
+     * the imports, in time and in arena memory). */
+    if (new_count > ctx->import_cap) {
+        int cap = ctx->import_cap ? ctx->import_cap * 2 : 16;
+        if (cap < new_count)
+            cap = new_count;
+        const char **names =
+            (const char **)pdxe_arena_alloc(ctx->arena, (size_t)(cap + 1) * sizeof(const char *));
+        const char **qns =
+            (const char **)pdxe_arena_alloc(ctx->arena, (size_t)(cap + 1) * sizeof(const char *));
+        unsigned char *kinds =
+            (unsigned char *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(unsigned char));
+        if (!names || !qns || !kinds)
+            return;
+        for (int i = 0; i < ctx->import_count; i++) {
+            names[i] = ctx->import_local_names[i];
+            qns[i] = ctx->import_module_qns[i];
+            kinds[i] = ctx->import_kinds ? ctx->import_kinds[i] : 0;
+        }
+        ctx->import_local_names = names;
+        ctx->import_module_qns = qns;
+        ctx->import_kinds = kinds;
+        ctx->import_cap = cap;
     }
+    const char **names = ctx->import_local_names;
+    const char **qns = ctx->import_module_qns;
     names[ctx->import_count] = pdxe_arena_strdup(ctx->arena, local_name);
     qns[ctx->import_count] = pdxe_arena_strdup(ctx->arena, module_qn);
-    kinds[ctx->import_count] = 0;
+    ctx->import_kinds[ctx->import_count] = 0;
     names[new_count] = NULL;
     qns[new_count] = NULL;
-
-    ctx->import_local_names = names;
-    ctx->import_module_qns = qns;
-    ctx->import_kinds = kinds;
     ctx->import_count = new_count;
 }
 
@@ -427,6 +454,51 @@ static const char *py_canonical_from_import_qn(PyLSPContext *ctx, TSNode stateme
  * binding for the local name. Python permits later imports to rebind the same
  * local; selecting the first would turn conflicting runtime identities into
  * false semantic proof. */
+/* One item of an import statement: `from_import` tells which kind of statement holds
+ * it (an item of a from-import other than its module). */
+static void py_import_match_item(PyLSPContext *ctx, TSNode stmt, bool from_import, TSNode item,
+                                 const char *local, const char *qn, PyImportSyntaxMatch *match) {
+    PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ITEMS);
+    const char *kind = ts_node_type(item);
+    if (from_import) {
+        if (strcmp(kind, "aliased_import") == 0) {
+            TSNode name = ts_node_child_by_field_name(item, "name", 4);
+            TSNode alias = ts_node_child_by_field_name(item, "alias", 5);
+            if (py_import_node_text_equals(ctx, alias, local)) {
+                const char *canonical = py_canonical_from_import_qn(ctx, stmt, name, qn);
+                py_import_syntax_match_add(match,
+                                           canonical ? PY_FROM_IMPORT : PY_IMPORT_UNCLASSIFIED,
+                                           canonical ? canonical : qn);
+            }
+        } else if ((strcmp(kind, "identifier") == 0 || strcmp(kind, "dotted_name") == 0) &&
+                   py_import_node_text_equals(ctx, item, local)) {
+            const char *canonical = py_canonical_from_import_qn(ctx, stmt, item, qn);
+            py_import_syntax_match_add(match, canonical ? PY_FROM_IMPORT : PY_IMPORT_UNCLASSIFIED,
+                                       canonical ? canonical : qn);
+        }
+        return;
+    }
+    if (strcmp(kind, "aliased_import") == 0) {
+        TSNode name = ts_node_child_by_field_name(item, "name", 4);
+        TSNode alias = ts_node_child_by_field_name(item, "alias", 5);
+        if (py_import_node_text_equals(ctx, alias, local)) {
+            char *imported_path = py_import_node_text_dup(ctx, name);
+            PyDirectImportKind matched_kind =
+                imported_path && py_qn_has_boundary_suffix(qn, imported_path)
+                    ? PY_DIRECT_IMPORT_ALIASED
+                    : PY_IMPORT_UNCLASSIFIED;
+            py_import_syntax_match_add(match, matched_kind, qn);
+        }
+    } else if ((strcmp(kind, "dotted_name") == 0 || strcmp(kind, "identifier") == 0) &&
+               py_import_node_root_equals(ctx, item, local)) {
+        char *imported_path = py_import_node_text_dup(ctx, item);
+        PyDirectImportKind matched_kind = imported_path && py_qn_has_boundary_suffix(qn, imported_path)
+                                              ? PY_DIRECT_IMPORT_UNALIASED
+                                              : PY_IMPORT_UNCLASSIFIED;
+        py_import_syntax_match_add(match, matched_kind, qn);
+    }
+}
+
 static void py_import_match_statement(PyLSPContext *ctx, TSNode stmt, const char *local,
                                       const char *qn, PyImportSyntaxMatch *match) {
     if (!ctx || ts_node_is_null(stmt) || !local || !qn || !match)
@@ -439,23 +511,7 @@ static void py_import_match_statement(PyLSPContext *ctx, TSNode stmt, const char
             TSNode item = ts_node_named_child(stmt, j);
             if (!ts_node_is_null(module) && ts_node_eq(item, module))
                 continue;
-            const char *kind = ts_node_type(item);
-            if (strcmp(kind, "aliased_import") == 0) {
-                TSNode name = ts_node_child_by_field_name(item, "name", 4);
-                TSNode alias = ts_node_child_by_field_name(item, "alias", 5);
-                if (py_import_node_text_equals(ctx, alias, local)) {
-                    const char *canonical = py_canonical_from_import_qn(ctx, stmt, name, qn);
-                    py_import_syntax_match_add(match,
-                                               canonical ? PY_FROM_IMPORT : PY_IMPORT_UNCLASSIFIED,
-                                               canonical ? canonical : qn);
-                }
-            } else if ((strcmp(kind, "identifier") == 0 || strcmp(kind, "dotted_name") == 0) &&
-                       py_import_node_text_equals(ctx, item, local)) {
-                const char *canonical = py_canonical_from_import_qn(ctx, stmt, item, qn);
-                py_import_syntax_match_add(match,
-                                           canonical ? PY_FROM_IMPORT : PY_IMPORT_UNCLASSIFIED,
-                                           canonical ? canonical : qn);
-            }
+            py_import_match_item(ctx, stmt, true, item, local, qn, match);
         }
         return;
     }
@@ -463,28 +519,7 @@ static void py_import_match_statement(PyLSPContext *ctx, TSNode stmt, const char
         return;
     uint32_t import_count = ts_node_named_child_count(stmt);
     for (uint32_t j = 0; j < import_count; j++) {
-        TSNode item = ts_node_named_child(stmt, j);
-        const char *kind = ts_node_type(item);
-        if (strcmp(kind, "aliased_import") == 0) {
-            TSNode name = ts_node_child_by_field_name(item, "name", 4);
-            TSNode alias = ts_node_child_by_field_name(item, "alias", 5);
-            if (py_import_node_text_equals(ctx, alias, local)) {
-                char *imported_path = py_import_node_text_dup(ctx, name);
-                PyDirectImportKind matched_kind =
-                    imported_path && py_qn_has_boundary_suffix(qn, imported_path)
-                        ? PY_DIRECT_IMPORT_ALIASED
-                        : PY_IMPORT_UNCLASSIFIED;
-                py_import_syntax_match_add(match, matched_kind, qn);
-            }
-        } else if ((strcmp(kind, "dotted_name") == 0 || strcmp(kind, "identifier") == 0) &&
-                   py_import_node_root_equals(ctx, item, local)) {
-            char *imported_path = py_import_node_text_dup(ctx, item);
-            PyDirectImportKind matched_kind =
-                imported_path && py_qn_has_boundary_suffix(qn, imported_path)
-                    ? PY_DIRECT_IMPORT_UNALIASED
-                    : PY_IMPORT_UNCLASSIFIED;
-            py_import_syntax_match_add(match, matched_kind, qn);
-        }
+        py_import_match_item(ctx, stmt, false, ts_node_named_child(stmt, j), local, qn, match);
     }
 }
 
@@ -563,20 +598,187 @@ static void py_bind_dotted_prefixes(PyLSPContext *ctx, const char *qn) {
     }
 }
 
+/* Issue 92: the module's import items by the local names they may bind, collected in
+ * one pass over the module, so classifying an import reads the items that can match
+ * its local name instead of every statement of the module: per import, that scan made
+ * a module of many imports quadratic. A from-import's item binds its alias or its own
+ * text; an import statement's aliased item its alias, and a plain one every dotted
+ * prefix of its text ending at a '.' and the whole text (py_import_node_root_equals).
+ * Each name's chain holds its items in module order, so they match as the scan did. */
+typedef struct {
+    TSNode stmt;
+    TSNode item;
+    bool from_import;
+    uint32_t start; /* the name's bytes in the source */
+    uint32_t end;
+} PyImportKey;
+
+typedef struct {
+    PyImportKey *keys;
+    int count;
+    int cap_keys;
+    int *next;  /* per key: the next key with its name, -1 */
+    int *slots; /* open addressing: a name's first key, -1 empty */
+    int cap;
+} PyImportKeys;
+
+static uint64_t py_bytes_hash_n(const char *s, size_t n) {
+    uint64_t h = 1469598103934665603ULL;
+    for (size_t i = 0; i < n; i++) {
+        h = (h ^ (unsigned char)s[i]) * 1099511628211ULL;
+    }
+    return h;
+}
+
+/* Adds the key [start, end) of `item`; false when it cannot be held. */
+static bool py_import_key_push(PyLSPContext *ctx, PyImportKeys *x, TSNode stmt, bool from_import,
+                               TSNode item, uint32_t start, uint32_t end) {
+    if (x->count == x->cap_keys) {
+        int cap = x->cap_keys ? x->cap_keys * 2 : 64;
+        PyImportKey *grown = (PyImportKey *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(*grown));
+        if (!grown)
+            return false;
+        if (x->count)
+            memcpy(grown, x->keys, (size_t)x->count * sizeof(*grown));
+        x->keys = grown;
+        x->cap_keys = cap;
+    }
+    x->keys[x->count++] = (PyImportKey){stmt, item, from_import, start, end};
+    return true;
+}
+
+/* The keys one item of an import statement offers (see PyImportKeys): the names
+ * py_import_node_text_equals and py_import_node_root_equals can match it with. */
+static bool py_import_item_keys(PyLSPContext *ctx, PyImportKeys *x, TSNode stmt, bool from_import,
+                                TSNode item) {
+    const char *kind = ts_node_type(item);
+    bool aliased = strcmp(kind, "aliased_import") == 0;
+    if (!aliased && strcmp(kind, "identifier") != 0 && strcmp(kind, "dotted_name") != 0)
+        return true;
+    TSNode name = aliased ? ts_node_child_by_field_name(item, "alias", 5) : item;
+    if (ts_node_is_null(name))
+        return true;
+    uint32_t start = ts_node_start_byte(name);
+    uint32_t end = ts_node_end_byte(name);
+    if (end < start || (int)end > ctx->source_len)
+        return true; /* text no matcher reads */
+    if (aliased || from_import)
+        return py_import_key_push(ctx, x, stmt, from_import, item, start, end);
+    /* A plain imported path's root: its text up to a first NUL (the matcher reads a
+     * copy of it as a string), cut before any '.', or whole. */
+    size_t len = strnlen(ctx->source + start, end - start);
+    for (size_t k = 0; k < len; k++) {
+        if (ctx->source[start + k] == '.' &&
+            !py_import_key_push(ctx, x, stmt, false, item, start, start + (uint32_t)k))
+            return false;
+    }
+    return py_import_key_push(ctx, x, stmt, false, item, start, start + (uint32_t)len);
+}
+
+/* The slot of the name name[0, n): where its chain is, or the empty slot it takes. */
+static int py_import_key_slot(const PyLSPContext *ctx, const PyImportKeys *x, const char *name,
+                              size_t n) {
+    int mask = x->cap - 1;
+    for (int at = (int)(py_bytes_hash_n(name, n) & (uint64_t)mask);; at = (at + 1) & mask) {
+        int k = x->slots[at];
+        if (k < 0)
+            return at;
+        const PyImportKey *key = &x->keys[k];
+        if ((size_t)(key->end - key->start) == n && memcmp(ctx->source + key->start, name, n) == 0)
+            return at;
+    }
+}
+
+/* Collects the module's import keys; false when they cannot be held (the failed
+ * allocation is counted as lost work). */
+static bool py_import_keys_build(PyLSPContext *ctx, TSNode root, PyImportKeys *x) {
+    memset(x, 0, sizeof(*x));
+    if (PDXE_LOOKUP_INDEX_REFUSED("resolver"))
+        return false;
+    uint32_t count = ts_node_named_child_count(root);
+    for (uint32_t i = 0; i < count; i++) {
+        TSNode stmt = ts_node_named_child(root, i);
+        const char *kind = ts_node_type(stmt);
+        bool from_import = strcmp(kind, "import_from_statement") == 0;
+        if (!from_import && strcmp(kind, "import_statement") != 0)
+            continue;
+        TSNode module = from_import ? py_from_import_module_node(stmt) : (TSNode){0};
+        uint32_t items = ts_node_named_child_count(stmt);
+        for (uint32_t j = 0; j < items; j++) {
+            TSNode item = ts_node_named_child(stmt, j);
+            if (from_import && !ts_node_is_null(module) && ts_node_eq(item, module))
+                continue;
+            if (!py_import_item_keys(ctx, x, stmt, from_import, item))
+                return false;
+        }
+    }
+    x->cap = 16;
+    while (x->cap < 2 * x->count && x->cap < (1 << 30))
+        x->cap *= 2;
+    if (x->cap < 2 * x->count) {
+        pdxe_lost_allocation(); /* refused: more keys than the slots can hold */
+        return false;
+    }
+    x->slots = (int *)pdxe_arena_alloc(ctx->arena, (size_t)x->cap * sizeof(int));
+    x->next = (int *)pdxe_arena_alloc(ctx->arena, (size_t)(x->count > 0 ? x->count : 1) * sizeof(int));
+    if (!x->slots || !x->next)
+        return false;
+    for (int i = 0; i < x->cap; i++)
+        x->slots[i] = -1;
+    /* Prepending in descending order leaves every chain in module order. */
+    for (int k = x->count - 1; k >= 0; k--) {
+        const PyImportKey *key = &x->keys[k];
+        int at = py_import_key_slot(ctx, x, ctx->source + key->start, key->end - key->start);
+        x->next[k] = x->slots[at];
+        x->slots[at] = k;
+    }
+    return true;
+}
+
+/* py_import_kind_from_ast over the items the keys offer for `local`. */
+static PyDirectImportKind py_import_kind_from_keys(PyLSPContext *ctx, const PyImportKeys *x,
+                                                   const char *local, const char **qn_io) {
+    PyImportSyntaxMatch match = {0};
+    for (int k = x->slots[py_import_key_slot(ctx, x, local, strlen(local))]; k >= 0; k = x->next[k]) {
+        const PyImportKey *key = &x->keys[k];
+        py_import_match_item(ctx, key->stmt, key->from_import, key->item, local, *qn_io, &match);
+    }
+    return py_import_match_result(&match, qn_io);
+}
+
 static void py_classify_imports_for_root(PyLSPContext *ctx, TSNode root) {
     if (!ctx)
         return;
+    /* The module's import keys (issue 92). When they cannot be held every import is
+     * classified as if the module had no syntax tree -- by its spelling alone -- and
+     * the module is never rescanned per import. */
+    PyImportKeys keys;
+    bool keyed = false;
+    bool unkeyed = false;
+    bool scan = false;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    scan = reference && reference[0];
+#endif
+    if (!scan && !ts_node_is_null(root) && ctx->import_count > 0) {
+        keyed = py_import_keys_build(ctx, root, &keys);
+        unkeyed = !keyed;
+    }
     for (int i = 0; i < ctx->import_count; i++) {
         const char *local = ctx->import_local_names[i];
         const char *qn = ctx->import_module_qns[i];
         if (!local || !qn)
             continue;
-        PyDirectImportKind direct_kind = py_import_kind_from_ast(ctx, root, local, &qn);
+        PyDirectImportKind direct_kind =
+            keyed     ? py_import_kind_from_keys(ctx, &keys, local, &qn)
+            : unkeyed ? PY_DIRECT_IMPORT_UNKNOWN
+                      : py_import_kind_from_ast(ctx, root, local, &qn);
         ctx->import_module_qns[i] = qn;
         if (ctx->import_kinds)
             ctx->import_kinds[i] = (unsigned char)direct_kind;
     }
 }
+
 
 static void py_bind_import_index(PyLSPContext *ctx, int index, bool synthetic_fallback) {
     if (!ctx || !ctx->current_scope || index < 0 || index >= ctx->import_count)
@@ -4156,25 +4358,129 @@ static void py_process_class(PyLSPContext *ctx, TSNode class_node) {
     ctx->enclosing_class_qn = prev_class;
 }
 
+/* The name node of a module-level class definition `node` (possibly decorated), or a
+ * null node when `node` is none. */
+static TSNode py_root_class_name_node(TSNode node) {
+    const char *kind = ts_node_type(node);
+    if (strcmp(kind, "decorated_definition") == 0) {
+        node = ts_node_child_by_field_name(node, "definition", 10);
+        kind = ts_node_is_null(node) ? "" : ts_node_type(node);
+    }
+    if (strcmp(kind, "class_definition") != 0)
+        return (TSNode){0};
+    return ts_node_child_by_field_name(node, "name", 4);
+}
+
+#if defined(PDXE_ENABLE_TEST_SEAMS)
 /* Module bindings are replayed in source order before deferred function bodies
  * are analyzed. Class definitions always replace an earlier callable identity;
- * the registry decides whether the resulting class type is known precisely. */
+ * the registry decides whether the resulting class type is known precisely.
+ * Test builds keep this scan of the module for reference (issue 92). */
 static bool py_root_defines_class_named(PyLSPContext *ctx, TSNode root, const char *name) {
     uint32_t count = ts_node_named_child_count(root);
     for (uint32_t i = 0; i < count; i++) {
-        TSNode node = ts_node_named_child(root, i);
-        const char *kind = ts_node_type(node);
-        if (strcmp(kind, "decorated_definition") == 0) {
-            node = ts_node_child_by_field_name(node, "definition", 10);
-            kind = ts_node_is_null(node) ? "" : ts_node_type(node);
-        }
-        if (strcmp(kind, "class_definition") != 0)
-            continue;
-        TSNode name_node = ts_node_child_by_field_name(node, "name", 4);
-        if (py_import_node_text_equals(ctx, name_node, name))
+        PDXE_LOOKUP_COUNT(PDXE_LC_PY_CLASS_SCAN);
+        TSNode name_node = py_root_class_name_node(ts_node_named_child(root, i));
+        if (!ts_node_is_null(name_node) && py_import_node_text_equals(ctx, name_node, name))
             return true;
     }
     return false;
+}
+#endif
+
+/* Issue 92: the names of the module's own top-level classes (decorated or not), each
+ * the exact source bytes of its name, collected in one pass over the module: whether
+ * the module defines a class named N is then one probe, where scanning the module for
+ * every class made a file of classes quadratic. Open addressing over byte ranges. */
+typedef struct {
+    uint32_t *start; /* the name's byte range in the source; end 0 marks an empty slot */
+    uint32_t *end;
+    uint64_t *hash;
+    uint32_t cap;
+    bool has_empty; /* a class whose name node has no bytes (parser recovery) */
+} PyRootClassNames;
+
+static uint64_t py_bytes_hash(const char *s, size_t n) {
+    uint64_t h = 1469598103934665603ULL;
+    for (size_t i = 0; i < n; i++) {
+        h = (h ^ (unsigned char)s[i]) * 1099511628211ULL;
+    }
+    return h;
+}
+
+/* The slot of the name `s` (n bytes, hashed h): where it is, or the empty slot. */
+static uint32_t py_root_class_slot(const PyLSPContext *ctx, const PyRootClassNames *names,
+                                   const char *s, size_t n, uint64_t h) {
+    uint32_t mask = names->cap - 1;
+    for (uint32_t at = (uint32_t)h & mask;; at = (at + 1) & mask) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_PY_CLASS_SCAN);
+        if (names->end[at] == 0) {
+            return at;
+        }
+        if (names->hash[at] == h && names->end[at] - names->start[at] == n &&
+            memcmp(ctx->source + names->start[at], s, n) == 0) {
+            return at;
+        }
+    }
+}
+
+/* Collects the module's class names; false when they cannot be held. */
+static bool py_root_class_names_build(PyLSPContext *ctx, TSNode root, PyRootClassNames *names) {
+    uint32_t count = ts_node_named_child_count(root);
+    names->cap = 16;
+    while (names->cap < 2 * count + 2) {
+        names->cap *= 2;
+    }
+    if (PDXE_LOOKUP_INDEX_REFUSED("resolver")) {
+        return false;
+    }
+    names->start = (uint32_t *)pdxe_arena_alloc(ctx->arena, (size_t)names->cap * sizeof(uint32_t));
+    names->end = (uint32_t *)pdxe_arena_alloc(ctx->arena, (size_t)names->cap * sizeof(uint32_t));
+    names->hash = (uint64_t *)pdxe_arena_alloc(ctx->arena, (size_t)names->cap * sizeof(uint64_t));
+    if (!names->start || !names->end || !names->hash) {
+        return false;
+    }
+    memset(names->end, 0, (size_t)names->cap * sizeof(uint32_t));
+    names->has_empty = false;
+    TSTreeCursor cursor = ts_tree_cursor_new(root);
+    if (ts_tree_cursor_goto_first_child(&cursor)) {
+        do {
+            TSNode child = ts_tree_cursor_current_node(&cursor);
+            if (!ts_node_is_named(child))
+                continue;
+            TSNode name_node = py_root_class_name_node(child);
+            if (ts_node_is_null(name_node))
+                continue;
+            uint32_t start = ts_node_start_byte(name_node);
+            uint32_t end = ts_node_end_byte(name_node);
+            if (end < start || (int)end > ctx->source_len)
+                continue; /* no text: equal to no name, as the scan compared it */
+            if (end == start) {
+                names->has_empty = true;
+                continue;
+            }
+            size_t n = end - start;
+            uint64_t h = py_bytes_hash(ctx->source + start, n);
+            uint32_t at = py_root_class_slot(ctx, names, ctx->source + start, n, h);
+            if (names->end[at] == 0) {
+                names->start[at] = start;
+                names->end[at] = end;
+                names->hash[at] = h;
+            }
+        } while (ts_tree_cursor_goto_next_sibling(&cursor));
+    }
+    ts_tree_cursor_delete(&cursor);
+    return true;
+}
+
+static bool py_root_class_names_contain(const PyLSPContext *ctx, const PyRootClassNames *names,
+                                        const char *name) {
+    size_t n = strlen(name);
+    if (n == 0) {
+        return names->has_empty;
+    }
+    uint64_t h = py_bytes_hash(name, n);
+    return names->end[py_root_class_slot(ctx, names, name, n, h)] != 0;
 }
 
 /* A project registry can contain another file's class in the same logical
@@ -4185,16 +4491,33 @@ static void py_bind_external_module_classes(PyLSPContext *ctx, TSNode root) {
     if (!ctx || !ctx->registry || !ctx->module_qn)
         return;
     size_t prefix_len = strlen(ctx->module_qn);
+    /* Issue 92: the module's own class names, collected once. When they cannot be
+     * held, no external class is bound: the work they would have saved is lost
+     * (the failed allocation is counted), never done by rescanning the module. */
+    PyRootClassNames root_classes;
+    if (!py_root_class_names_build(ctx, root, &root_classes))
+        return;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    bool scan = reference && reference[0];
+#endif
     PDXETypeShortIter all_types;
     pdxe_registry_all_types_chain(ctx->registry, &all_types);
     for (int i = -1; (i = pdxe_type_short_iter_next(&all_types)) >= 0;) {
         const PDXERegisteredType *type = &all_types.reg->types[i];
         const char *qn = type->qualified_name;
         const char *name = type->short_name;
-        if (!qn || !name || strncmp(qn, ctx->module_qn, prefix_len) != 0 || qn[prefix_len] != '.' ||
-            py_root_defines_class_named(ctx, root, name)) {
+        if (!qn || !name || strncmp(qn, ctx->module_qn, prefix_len) != 0 || qn[prefix_len] != '.')
             continue;
-        }
+        bool defined_here;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+        if (scan)
+            defined_here = py_root_defines_class_named(ctx, root, name);
+        else
+#endif
+            defined_here = py_root_class_names_contain(ctx, &root_classes, name);
+        if (defined_here)
+            continue;
         py_scope_bind(ctx, name, pdxe_type_named(ctx->arena, qn));
     }
 }
@@ -4285,6 +4608,30 @@ static void py_invalidate_registry_module_functions(PyLSPContext *ctx,
 static void py_invalidate_module_bindings_for_wildcard(PyLSPContext *ctx) {
     if (!ctx || !ctx->current_scope)
         return;
+    int funcs = 0;
+    for (const PDXETypeRegistry *r = ctx->registry; r; r = r->fallback)
+        funcs += r->func_count;
+    bool scan = false;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    scan = reference && reference[0];
+#endif
+    /* Issue 92: after a wildcard reset this frame, every binding of it -- the
+     * registry's module functions among them -- was UNKNOWN, so a later wildcard in
+     * the frame resets only the bindings written since. Resetting every binding again
+     * made a module of many wildcard imports quadratic. */
+    PDXEVarBinding *written = ctx->wildcard_written;
+    ctx->wildcard_written = NULL;
+    for (PDXEVarBinding *b = written; b; b = b->written_next)
+        b->written = false;
+    ctx->wildcard_resetting = true;
+    if (!scan && ctx->wildcard_scope == ctx->current_scope && ctx->wildcard_funcs == funcs) {
+        ctx->type_cache_gen++;
+        for (PDXEVarBinding *b = written; b; b = b->written_next)
+            py_scope_bind(ctx, b->name, pdxe_type_unknown());
+        ctx->wildcard_resetting = false;
+        return;
+    }
     for (PDXEScopeChunk *chunk = ctx->current_scope->chunks; chunk; chunk = chunk->next) {
         for (int i = 0; i < chunk->used; i++) {
             const char *name = chunk->bindings[i].name;
@@ -4293,6 +4640,9 @@ static void py_invalidate_module_bindings_for_wildcard(PyLSPContext *ctx) {
         }
     }
     py_invalidate_registry_module_functions(ctx, ctx->registry);
+    ctx->wildcard_resetting = false;
+    ctx->wildcard_scope = ctx->current_scope;
+    ctx->wildcard_funcs = funcs;
 }
 
 static char *py_import_item_local_name(PyLSPContext *ctx, TSNode item, bool from_import) {

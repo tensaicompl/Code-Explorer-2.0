@@ -25,6 +25,8 @@
 #define PDXE_LSP_RUST_LSP_H
 
 #include "type_rep.h"
+#include "site_index.h"
+#include "name_index.h"
 #include "scope.h"
 #include "type_registry.h"
 #include "lsp_neg_memo.h"
@@ -75,6 +77,7 @@ typedef struct {
     const char **use_local_names;
     const char **use_module_paths;
     int use_count;
+    int use_cap; // entries the use arrays hold
 
     const char **glob_module_qns;
     int glob_count;
@@ -115,6 +118,9 @@ typedef struct {
      * The arrays are doubling-grown out of `arena`. */
     struct RustMacroRule **macro_rules_arr;
     int macro_rules_count;
+    int macro_rules_cap;
+    /* Issue 92: the rules by macro name, extended as rules are recorded. */
+    PDXENameIndex macro_rules_by_name;
 
     /* Original-file occurrence that established the lexical environment for
      * the current macro expansion. Nested macro invocations are parsed from a
@@ -182,6 +188,8 @@ typedef struct {
      * callers provide a separate output array and merge it into the owning
      * file result with explicit arena-aware copying. */
     PDXECallArray *syn_calls;
+    /* Issue 92: `syn_calls` by their site, extended as the array grows. */
+    PDXESiteIndex syn_sites;
 
     /* While >0, rust_emit_resolved_call also injects a matching synthetic
      * PDXECall into `syn_calls` so the recovered call becomes an edge. Set

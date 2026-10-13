@@ -489,12 +489,9 @@ static const PDXEScope *kt_scope_declaring_name(const PDXEScope *scope, const ch
     if (!name)
         return NULL;
     for (const PDXEScope *current = scope; current; current = current->parent) {
-        for (const PDXEScopeChunk *chunk = current->chunks; chunk; chunk = chunk->next) {
-            for (int i = 0; i < chunk->used; i++) {
-                if (chunk->bindings[i].name && strcmp(chunk->bindings[i].name, name) == 0) {
-                    return current;
-                }
-            }
+        /* Issue 92: the frame's own index, never a scan of every binding. */
+        if (pdxe_scope_frame_find(current, name)) {
+            return current;
         }
     }
     return NULL;
@@ -1135,18 +1132,16 @@ const char *kotlin_resolve_function_name(KotlinLSPContext *ctx, const char *name
     if (ctx->registry && ctx->registry->funcs) {
         const char *only_qn = NULL;
         int matches = 0;
-        for (int i = 0; i < ctx->registry->func_count && matches < 2; i++) {
+        /* Issue 92: the top-level funs named `name`, in registration order, from the
+         * index (the receiver-less, short-name chain), instead of every func. */
+        for (int i = pdxe_registry_free_func_first(ctx->registry, name); i >= 0 && matches < 2;
+             i = pdxe_registry_free_func_next(ctx->registry, i)) {
             const PDXERegisteredFunc *f = &ctx->registry->funcs[i];
-            if (!f->qualified_name || !f->short_name) {
+            if (!f->qualified_name) {
                 continue;
             }
-            if (f->receiver_type) { /* method / extension — not a bare top-level fun */
-                continue;
-            }
-            if (strcmp(f->short_name, name) == 0) {
-                only_qn = f->qualified_name;
-                matches++;
-            }
+            only_qn = f->qualified_name;
+            matches++;
         }
         if (matches == 1 && only_qn) {
             return pdxe_arena_strdup(ctx->arena, only_qn);

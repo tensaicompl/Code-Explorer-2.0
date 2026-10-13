@@ -35,6 +35,7 @@
 #include "foundation/compat_fs.h"
 #include "foundation/compat.h" /* PDXE_TLS */
 #include "lost_work.h" /* what a run loses is counted where it is lost */
+#include "lookup_counts.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -497,25 +498,83 @@ static int pxc_build_lsp_def(PDXEArena *arena, const PDXEDefinition *src, const 
  * so scanning the file's own defs covers every case. Runs inside
  * pdxe_pxc_collect_all_defs — one site covers both the prebuilt-registry path
  * and the per-file fallback, since both consume all_defs. */
+/* Whether file definition `fd` is a struct field the fold carries. */
+static bool pxc_go_field(const PDXEDefinition *fd) {
+    return fd->label && fd->parent_class && fd->name && fd->name[0] && fd->return_type &&
+           fd->return_type[0] && strcmp(fd->label, "Field") == 0;
+}
+
+static uint64_t pxc_text_hash(const char *s) {
+    uint64_t h = 1469598103934665603ULL;
+    for (; *s; s++) {
+        h ^= (unsigned char)*s;
+        h *= 1099511628211ULL;
+    }
+    return h;
+}
+
 static void pxc_fold_go_struct_fields(PDXEArena *arena, const PDXEFileResult *result, PDXELSPDef *defs,
                                       int start, int end) {
     if (!arena || !result || !defs || start >= end) {
         return;
+    }
+    /* Issue 92: the file's fields by owning struct, each struct's chain in definition
+     * order -- one pass over the definitions, where every struct scanned all of them,
+     * twice. Open-addressed slots hold a parent's first field (-1 empty); `next` the
+     * field after each. If they cannot be allocated (the memory core counts it as lost
+     * work) no struct receives fields, rather than scanning for them. */
+    int count_defs = result->defs.count;
+    int cap = 16;
+    while (cap < 2 * count_defs && cap < (1 << 30)) {
+        cap *= 2;
+    }
+    if (cap < 2 * count_defs) {
+        pdxe_lost_allocation(); /* refused: more definitions than the slots can hold */
+        return;
+    }
+    if (PDXE_LOOKUP_INDEX_REFUSED("resolver")) {
+        return;
+    }
+    int *slots = (int *)pdxe_counted_malloc((size_t)cap * sizeof(int));
+    int *next = (int *)pdxe_counted_malloc((size_t)(count_defs > 0 ? count_defs : 1) * sizeof(int));
+    if (!slots || !next) {
+        free(slots);
+        free(next);
+        return;
+    }
+    for (int i = 0; i < cap; i++) {
+        slots[i] = -1;
+    }
+    /* Prepending in descending order leaves every chain in definition order. */
+    for (int di = count_defs - 1; di >= 0; di--) {
+        const PDXEDefinition *fd = &result->defs.items[di];
+        next[di] = -1;
+        if (!pxc_go_field(fd)) {
+            continue;
+        }
+        int at = (int)(pxc_text_hash(fd->parent_class) & (uint64_t)(cap - 1));
+        while (slots[at] >= 0 &&
+               strcmp(result->defs.items[slots[at]].parent_class, fd->parent_class) != 0) {
+            at = (at + 1) & (cap - 1);
+        }
+        next[di] = slots[at];
+        slots[at] = di;
     }
     for (int si = start; si < end; si++) {
         PDXELSPDef *dst = &defs[si];
         if (!dst->label || strcmp(dst->label, "Struct") != 0 || !dst->qualified_name) {
             continue;
         }
+        int at = (int)(pxc_text_hash(dst->qualified_name) & (uint64_t)(cap - 1));
+        while (slots[at] >= 0 &&
+               strcmp(result->defs.items[slots[at]].parent_class, dst->qualified_name) != 0) {
+            at = (at + 1) & (cap - 1);
+        }
+        int first = slots[at];
         int count = 0;
         size_t total = 0; /* "name:type" bytes; separators and NUL added below */
-        for (int di = 0; di < result->defs.count; di++) {
+        for (int di = first; di >= 0; di = next[di]) {
             const PDXEDefinition *fd = &result->defs.items[di];
-            if (!fd->label || !fd->parent_class || !fd->name || !fd->name[0] || !fd->return_type ||
-                !fd->return_type[0] || strcmp(fd->label, "Field") != 0 ||
-                strcmp(fd->parent_class, dst->qualified_name) != 0) {
-                continue;
-            }
             total += strlen(fd->name) + 1 + strlen(fd->return_type);
             count++;
         }
@@ -530,13 +589,8 @@ static void pxc_fold_go_struct_fields(PDXEArena *arena, const PDXEFileResult *re
         }
         char *p = buf;
         int written = 0;
-        for (int di = 0; di < result->defs.count; di++) {
+        for (int di = first; di >= 0; di = next[di]) {
             const PDXEDefinition *fd = &result->defs.items[di];
-            if (!fd->label || !fd->parent_class || !fd->name || !fd->name[0] || !fd->return_type ||
-                !fd->return_type[0] || strcmp(fd->label, "Field") != 0 ||
-                strcmp(fd->parent_class, dst->qualified_name) != 0) {
-                continue;
-            }
             size_t n = strlen(fd->name);
             memcpy(p, fd->name, n);
             p += n;
@@ -552,6 +606,8 @@ static void pxc_fold_go_struct_fields(PDXEArena *arena, const PDXEFileResult *re
         *p = '\0';
         dst->field_defs = buf;
     }
+    free(slots);
+    free(next);
 }
 
 /* Carry one Rust type-level impl independently of any method definition.
@@ -687,18 +743,90 @@ PDXELSPDef *pdxe_pxc_collect_all_defs(const pdxe_pipeline_ctx_t *ctx, PDXEArena 
     return defs;
 }
 
+/* Issue 92: a file's imports by local name, and the import map's keys so far, for one
+ * pdxe_pxc_build_import_map: finding a local's imports, and whether the map holds a
+ * local, scanned every import and every key, per import -- quadratic in a file's
+ * imports. Each local's chain is in import order, so it visits the imports the scan
+ * matched, in its order. */
+typedef struct {
+    const PDXEFileResult *result;
+    int *first;          /* open addressing over local names: a local's first import, -1 */
+    int *next;           /* per import: the next with its local name, -1 */
+    const char **keys;   /* open addressing over the map's keys: a key, or NULL */
+    size_t cap;          /* a power of two, at least twice the imports and the keys */
+} pxc_import_index;
+
+static size_t pxc_import_slot(const pxc_import_index *ix, const char *local_name) {
+    size_t mask = ix->cap - 1;
+    for (size_t at = (size_t)pxc_text_hash(local_name) & mask;; at = (at + 1) & mask) {
+        int i = ix->first[at];
+        if (i < 0 || strcmp(ix->result->imports.items[i].local_name, local_name) == 0)
+            return at;
+    }
+}
+
+static size_t pxc_key_slot(const pxc_import_index *ix, const char *local_name) {
+    size_t mask = ix->cap - 1;
+    for (size_t at = (size_t)pxc_text_hash(local_name) & mask;; at = (at + 1) & mask) {
+        if (!ix->keys[at] || strcmp(ix->keys[at], local_name) == 0)
+            return at;
+    }
+}
+
+static void pxc_import_index_free(pxc_import_index *ix) {
+    free(ix->first);
+    free(ix->next);
+    free((void *)ix->keys);
+}
+
+/* False when it cannot be allocated (the memory core counts that as lost work). */
+static bool pxc_import_index_open(pxc_import_index *ix, const PDXEFileResult *result,
+                                  size_t keys) {
+    memset(ix, 0, sizeof(*ix));
+    ix->result = result;
+    if (PDXE_LOOKUP_INDEX_REFUSED("resolver")) {
+        return false;
+    }
+    size_t imports = result ? (size_t)result->imports.count : 0;
+    size_t n = imports > keys ? imports : keys;
+    ix->cap = 16;
+    while (ix->cap < 2 * n)
+        ix->cap *= 2;
+    ix->first = (int *)pdxe_counted_malloc(ix->cap * sizeof(int));
+    ix->next = (int *)pdxe_counted_malloc((imports ? imports : 1) * sizeof(int));
+    ix->keys = (const char **)pdxe_counted_calloc(ix->cap, sizeof(const char *));
+    if (!ix->first || !ix->next || !ix->keys) {
+        pxc_import_index_free(ix);
+        return false;
+    }
+    for (size_t at = 0; at < ix->cap; at++)
+        ix->first[at] = -1;
+    /* Prepending in descending order leaves every chain in import order. */
+    for (int i = (int)imports - 1; i >= 0; i--) {
+        const char *local = result->imports.items[i].local_name;
+        ix->next[i] = -1;
+        if (!local)
+            continue;
+        size_t at = pxc_import_slot(ix, local);
+        ix->next[i] = ix->first[at];
+        ix->first[at] = i;
+    }
+    return true;
+}
+
 /* Return the one source import path bound to `local_name`, or NULL when the
  * extraction metadata is absent or two distinct imports bind the same local.
  * The latter is deliberately fail-closed: choosing either path would turn an
  * ambiguous Python value into a fabricated CALL_REFERENCE. */
-static const char *pxc_unique_import_path(const PDXEFileResult *result, const char *local_name,
+static const char *pxc_unique_import_path(const pxc_import_index *ix, const char *local_name,
                                           bool *out_ambiguous) {
     if (out_ambiguous)
         *out_ambiguous = false;
+    const PDXEFileResult *result = ix->result;
     if (!result || !local_name)
         return NULL;
     const char *path = NULL;
-    for (int i = 0; i < result->imports.count; i++) {
+    for (int i = ix->first[pxc_import_slot(ix, local_name)]; i >= 0; i = ix->next[i]) {
         const PDXEImport *imp = &result->imports.items[i];
         if (!imp->local_name || !imp->module_path || strcmp(imp->local_name, local_name) != 0) {
             continue;
@@ -724,9 +852,9 @@ static const char *pxc_import_leaf(const char *path) {
     return leaf;
 }
 
-static char *pxc_kotlin_import_from_metadata(const PDXEFileResult *result, const char *local_name) {
+static char *pxc_kotlin_import_from_metadata(const pxc_import_index *ix, const char *local_name) {
     bool ambiguous = false;
-    const char *path = pxc_unique_import_path(result, local_name, &ambiguous);
+    const char *path = pxc_unique_import_path(ix, local_name, &ambiguous);
     const char *leaf = pxc_import_leaf(path);
     if (ambiguous || !path || !path[0] || path[0] == '.' || !leaf ||
         strcmp(leaf, local_name) != 0) {
@@ -745,17 +873,17 @@ static char *pxc_kotlin_import_from_metadata(const PDXEFileResult *result, const
  * Reattach that member only when the raw metadata proves one unique,
  * non-aliased path. The shared Python registry must still materialize the
  * resulting exact QN before it earns CALL_REFERENCE. */
-static char *pxc_import_value_qn(PDXELanguage lang, const PDXEFileResult *result,
+static char *pxc_import_value_qn(PDXELanguage lang, const pxc_import_index *ix,
                                  const char *local_name, const pdxe_gbuf_node_t *target) {
     if (!target || !target->qualified_name)
         return NULL;
     if (lang == PDXE_LANG_KOTLIN)
-        return pxc_kotlin_import_from_metadata(result, local_name);
+        return pxc_kotlin_import_from_metadata(ix, local_name);
     if (lang != PDXE_LANG_PYTHON)
         return pdxe_counted_strdup(target->qualified_name);
 
     bool ambiguous = false;
-    const char *path = pxc_unique_import_path(result, local_name, &ambiguous);
+    const char *path = pxc_unique_import_path(ix, local_name, &ambiguous);
     if (ambiguous)
         return NULL;
     const char *source_leaf = pxc_import_leaf(path);
@@ -774,14 +902,17 @@ static char *pxc_import_value_qn(PDXELanguage lang, const PDXEFileResult *result
     return qualified;
 }
 
-static bool pxc_import_map_has_local(const char *const *keys, int count, const char *local_name) {
-    if (!keys || !local_name)
+static bool pxc_import_map_has_local(const pxc_import_index *ix, const char *local_name) {
+    if (!local_name)
         return false;
-    for (int i = 0; i < count; i++) {
-        if (keys[i] && strcmp(keys[i], local_name) == 0)
-            return true;
-    }
-    return false;
+    return ix->keys[pxc_key_slot(ix, local_name)] != NULL;
+}
+
+/* Records `key` as one of the import map's keys. */
+static void pxc_import_map_note_key(pxc_import_index *ix, const char *key) {
+    size_t at = pxc_key_slot(ix, key);
+    if (!ix->keys[at])
+        ix->keys[at] = key;
 }
 
 /* Recover a Python import directly from extraction metadata when graph import
@@ -865,7 +996,8 @@ int pdxe_pxc_build_import_map(const pdxe_gbuf_t *gbuf, const char *project_name,
     size_t capacity = (size_t)edge_count + (size_t)metadata_count;
     const char **keys = (const char **)pdxe_counted_calloc(capacity, sizeof(const char *));
     const char **vals = (const char **)pdxe_counted_calloc(capacity, sizeof(const char *));
-    if (!keys || !vals) {
+    pxc_import_index ix;
+    if (!keys || !vals || !pxc_import_index_open(&ix, result, capacity)) {
         free(keys);
         free(vals);
         return 0;
@@ -889,13 +1021,14 @@ int pdxe_pxc_build_import_map(const pdxe_gbuf_t *gbuf, const char *project_name,
             continue;
         memcpy(local, start, n);
         local[n] = '\0';
-        char *value = pxc_import_value_qn(lang, result, local, target);
+        char *value = pxc_import_value_qn(lang, &ix, local, target);
         if (!value) {
             free(local);
             continue;
         }
         keys[count] = local;
         vals[count] = value;
+        pxc_import_map_note_key(&ix, local);
         count++;
     }
 
@@ -906,16 +1039,16 @@ int pdxe_pxc_build_import_map(const pdxe_gbuf_t *gbuf, const char *project_name,
     for (int i = 0; i < metadata_count; i++) {
         const PDXEImport *imp = &result->imports.items[i];
         if (!imp->local_name || !imp->local_name[0] || !imp->module_path ||
-            pxc_import_map_has_local(keys, count, imp->local_name)) {
+            pxc_import_map_has_local(&ix, imp->local_name)) {
             continue;
         }
         bool ambiguous = false;
-        const char *path = pxc_unique_import_path(result, imp->local_name, &ambiguous);
+        const char *path = pxc_unique_import_path(&ix, imp->local_name, &ambiguous);
         if (ambiguous || !path)
             continue;
         char *value =
             lang == PDXE_LANG_KOTLIN
-                ? pxc_kotlin_import_from_metadata(result, imp->local_name)
+                ? pxc_kotlin_import_from_metadata(&ix, imp->local_name)
                 : pxc_python_import_from_metadata(gbuf, project_name, imp->local_name, path);
         if (!value)
             continue;
@@ -926,8 +1059,10 @@ int pdxe_pxc_build_import_map(const pdxe_gbuf_t *gbuf, const char *project_name,
         }
         keys[count] = local;
         vals[count] = value;
+        pxc_import_map_note_key(&ix, local);
         count++;
     }
+    pxc_import_index_free(&ix);
     *out_keys = keys;
     *out_vals = vals;
     *out_count = count;

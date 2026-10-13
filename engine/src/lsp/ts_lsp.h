@@ -32,6 +32,17 @@ typedef struct {
     const char **import_local_names;
     const char **import_module_qns;
     int import_count;
+    int import_cap; // entries the import arrays hold
+    // The imports by local name (issue 92), kept as imports are added, in `arena`:
+    // open-addressed slots holding a name's first and last import (-1 empty) and, per
+    // import, the next with its name (-1). import_index_failed: an array could not
+    // grow (counted as lost work), and no import is found by name from then on.
+    int *import_slot_head;
+    int *import_slot_tail;
+    int import_slot_cap;
+    int *import_next;
+    int import_next_cap;
+    bool import_index_failed;
 
     // File / surrounding context.
     const char *module_qn;          // QN of this file's module
@@ -44,6 +55,14 @@ typedef struct {
     // pass marks occurrence-exact module/import shadows without emitting a
     // semantic reference record for them.
     PDXEUsageArray *usages;
+    // The usages a lexical shadow may block, indexed by their site (issue 92), built
+    // from `usages` on the first shadow check, in `arena`: open-addressed slots holding
+    // a site's first usage (-1 empty) and, per usage, the next with its site (-1).
+    // usage_site_cap stays 0 when they could not be allocated.
+    int *usage_site_slots;
+    int *usage_site_next;
+    int usage_site_cap;
+    bool usage_sites_built;
 
     // Type-parameter scope (innermost generic function/class).
     // type_param_constraints may be NULL or shorter — entries default to "any".

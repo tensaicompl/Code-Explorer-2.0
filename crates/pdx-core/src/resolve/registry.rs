@@ -281,6 +281,11 @@ pub struct SymbolRegistry {
     module_files: BTreeMap<ModuleKey, BTreeSet<String>>,
     module_definitions: BTreeMap<ModuleKey, Vec<DefinitionRef>>,
     imports: BTreeMap<String, Vec<ImportRecord>>,
+    /// A file's top-level definitions by name, in index order (issue 92: where a name
+    /// comes from was found by scanning every definition of the file, per site).
+    top_level: BTreeMap<String, BTreeMap<String, Vec<DefinitionRef>>>,
+    /// A file's imports by the names they bind, in import order, each import once.
+    import_bindings: BTreeMap<String, BTreeMap<String, Vec<usize>>>,
     bases: BTreeMap<DefinitionRef, Vec<BaseRelation>>,
     derived: BTreeMap<DefinitionRef, Vec<DefinitionRef>>,
     impls: BTreeMap<String, Vec<ImplRelation>>,
@@ -325,6 +330,8 @@ impl SymbolRegistry {
             module_files: BTreeMap::new(),
             module_definitions: BTreeMap::new(),
             imports: BTreeMap::new(),
+            top_level: BTreeMap::new(),
+            import_bindings: BTreeMap::new(),
             bases: BTreeMap::new(),
             derived: BTreeMap::new(),
             impls: BTreeMap::new(),
@@ -359,6 +366,7 @@ impl SymbolRegistry {
                 .collect();
             // The index is keyed by whole names: each spelled out once, per file.
             let names = extract.qualified_names();
+            let mut top_level: BTreeMap<String, Vec<DefinitionRef>> = BTreeMap::new();
             for (i, (d, r)) in extract.definitions.iter().zip(&refs).enumerate() {
                 self.by_name
                     .entry(d.name.clone())
@@ -368,7 +376,11 @@ impl SymbolRegistry {
                     .entry(names.get(i).to_owned())
                     .or_default()
                     .push(r.clone());
+                if d.parent.is_none() && !(d.kind == DefinitionKind::Module && d.name == *path) {
+                    top_level.entry(d.name.clone()).or_default().push(r.clone());
+                }
             }
+            self.top_level.insert(path.clone(), top_level);
             self.by_file.insert(path.clone(), refs);
         }
         // Files arrive in path order and definitions in index order, so each list is
@@ -445,7 +457,7 @@ impl SymbolRegistry {
             module_files: &self.module_files,
             namespaces,
         };
-        let mut all = BTreeMap::new();
+        let mut all: BTreeMap<String, Vec<ImportRecord>> = BTreeMap::new();
         for (path, state) in &sources.files {
             let (Some(language), FileOutcome::Extracted { extract, .. }) =
                 (state.discovered.language, &state.outcome)
@@ -473,6 +485,18 @@ impl SymbolRegistry {
                 })
                 .collect();
             all.insert(path.clone(), records);
+        }
+        for (path, records) in &all {
+            let mut by_binding: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+            for (i, record) in records.iter().enumerate() {
+                for binding in &record.bindings {
+                    let imports = by_binding.entry(binding.clone()).or_default();
+                    if imports.last() != Some(&i) {
+                        imports.push(i);
+                    }
+                }
+            }
+            self.import_bindings.insert(path.clone(), by_binding);
         }
         self.imports = all;
     }
@@ -991,25 +1015,25 @@ impl SymbolRegistry {
     /// every import that binds it is an import of an external package and nothing in
     /// the file or the repository's imports offers it otherwise.
     pub fn name_provenance(&self, path: &str, name: &str) -> NameProvenance {
+        // The file's top-level definitions and imports of that name, from their indexes
+        // (issue 92), in the order a scan of the file's definitions and imports met them.
         let defined: Vec<DefinitionRef> = self
-            .by_file(path)
-            .iter()
-            .filter(|r| {
-                self.definition(r).is_some_and(|d| {
-                    d.name == name
-                        && d.parent.is_none()
-                        && !(d.kind == DefinitionKind::Module && d.name == path)
-                })
-            })
+            .top_level
+            .get(path)
+            .and_then(|by_name| by_name.get(name))
             .cloned()
-            .collect();
+            .unwrap_or_default();
         if !defined.is_empty() {
             return NameProvenance::Defined(defined);
         }
+        let imports = self.imports_of(path);
         let binding: Vec<&ImportRecord> = self
-            .imports_of(path)
+            .import_bindings
+            .get(path)
+            .and_then(|by_binding| by_binding.get(name))
+            .map_or(&[][..], Vec::as_slice)
             .iter()
-            .filter(|i| i.bindings.iter().any(|b| b == name))
+            .filter_map(|&i| imports.get(i))
             .collect();
         if binding.is_empty() {
             return NameProvenance::Unknown;

@@ -1,4 +1,5 @@
 #include "type_registry.h"
+#include "../lookup_counts.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -38,6 +39,406 @@ static int next_pow2(int n) {
     while (p < n)
         p <<= 1;
     return p;
+}
+
+/* --- Issue 92: live exact-key indexes ------------------------------------------
+ *
+ * Kept as entries are added, in every registry, so that no lookup scans the registry.
+ * A registry that is never finalized (every per-file resolver's) answered each lookup
+ * by scanning every entry, which made a file's typed resolution quadratic in its
+ * definitions. Each key's chain is in ascending registration order: its head is the
+ * entry the scan found first, and walking it visits exactly the entries the scan
+ * matched, in the scan's order. A finalized registry keeps its hash indexes for the
+ * entries it was finalized with, and reads the entries added later from these chains
+ * instead of scanning them.
+ *
+ * An index that cannot grow (its allocation failed, which the memory core counts as
+ * lost work) leaves those lookups answering nothing from then on: never a fallback
+ * to scanning, which would make the work depend on the machine's memory.
+ *
+ * Test builds keep the scans for reference: with PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE
+ * set when a registry is initialised, its lookups scan exactly as before. */
+enum {
+    LIVE_FUNC_QN,
+    LIVE_TYPE_QN,
+    LIVE_METHOD,
+    LIVE_FREE_FUNC,
+    LIVE_RECEIVER,
+    LIVE_TYPE_SHORT,
+    LIVE_TYPE_LAST
+};
+
+static bool live_kind_is_type(int kind) {
+    return kind == LIVE_TYPE_QN || kind == LIVE_TYPE_SHORT || kind == LIVE_TYPE_LAST;
+}
+
+static PDXERegistryLiveTable *live_table(PDXETypeRegistry *reg, int kind) {
+    switch (kind) {
+    case LIVE_FUNC_QN:
+        return &reg->live_func_qn;
+    case LIVE_TYPE_QN:
+        return &reg->live_type_qn;
+    case LIVE_METHOD:
+        return &reg->live_method;
+    case LIVE_RECEIVER:
+        return &reg->live_receiver;
+    case LIVE_TYPE_SHORT:
+        return &reg->live_type_short;
+    case LIVE_TYPE_LAST:
+        return &reg->live_type_last;
+    default:
+        return &reg->live_free_func;
+    }
+}
+
+static const PDXERegistryLiveTable *live_table_const(const PDXETypeRegistry *reg, int kind) {
+    return live_table((PDXETypeRegistry *)reg, kind);
+}
+
+static int *live_next(const PDXETypeRegistry *reg, int kind) {
+    switch (kind) {
+    case LIVE_FUNC_QN:
+        return reg->live_func_next_qn;
+    case LIVE_TYPE_QN:
+        return reg->live_type_next_qn;
+    case LIVE_METHOD:
+        return reg->live_func_next_method;
+    case LIVE_RECEIVER:
+        return reg->live_func_next_receiver;
+    case LIVE_TYPE_SHORT:
+        return reg->live_type_next_short;
+    case LIVE_TYPE_LAST:
+        return reg->live_type_next_last;
+    default:
+        return reg->live_func_next_free;
+    }
+}
+
+/* The key's hash, finished with a 64-bit mixer: FNV-1a's low bits, which pick the slot,
+ * cluster on keys that differ only in a counter (C1, C2, ...), and linear probing
+ * makes a cluster's every lookup longer. */
+static uint64_t live_hash(int kind, const char *a, const char *b) {
+    uint64_t h = kind == LIVE_METHOD ? fnv1a_pair(a, b) : fnv1a(a);
+    h ^= h >> 33;
+    h *= 0xff51afd7ed558ccdULL;
+    h ^= h >> 33;
+    h *= 0xc4ceb9fe1a85ec53ULL;
+    h ^= h >> 33;
+    return h;
+}
+
+/* Entry `e`'s key in index `kind`; false when the entry has none there. */
+static bool live_key_of(const PDXETypeRegistry *reg, int kind, int e, const char **a,
+                        const char **b) {
+    *b = NULL;
+    switch (kind) {
+    case LIVE_FUNC_QN:
+        *a = reg->funcs[e].qualified_name;
+        return *a != NULL;
+    case LIVE_TYPE_QN:
+        *a = reg->types[e].qualified_name;
+        return *a != NULL;
+    case LIVE_METHOD:
+        *a = reg->funcs[e].receiver_type;
+        *b = reg->funcs[e].short_name;
+        return *a != NULL && *b != NULL;
+    case LIVE_RECEIVER:
+        *a = reg->funcs[e].receiver_type;
+        return *a != NULL;
+    case LIVE_TYPE_SHORT:
+        *a = reg->types[e].short_name;
+        return *a != NULL;
+    case LIVE_TYPE_LAST: {
+        const char *qn = reg->types[e].qualified_name;
+        if (!qn) {
+            return false;
+        }
+        const char *dot = strrchr(qn, '.');
+        *a = dot ? dot + 1 : qn;
+        return true;
+    }
+    default:
+        *a = reg->funcs[e].short_name;
+        return reg->funcs[e].receiver_type == NULL && *a != NULL;
+    }
+}
+
+/* Whether entry `e` has the key (a, b) in index `kind`: the predicate the scans used. */
+static bool entry_has_key(const PDXETypeRegistry *reg, int kind, int e, const char *a,
+                          const char *b) {
+    const char *ka, *kb;
+    if (!live_key_of(reg, kind, e, &ka, &kb)) {
+        return false;
+    }
+    if (kind != LIVE_FUNC_QN && kind != LIVE_TYPE_QN) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_NAME_COMPARES);
+    } else {
+        PDXE_LOOKUP_COUNT(PDXE_LC_QN_COMPARES);
+    }
+    return strcmp(ka, a) == 0 && (kind != LIVE_METHOD || strcmp(kb, b) == 0);
+}
+
+/* The slot of key (a, b), hashed h: where it is, or the empty slot it would take. */
+static int live_slot(const PDXETypeRegistry *reg, int kind, uint64_t h, const char *a,
+                     const char *b) {
+    const PDXERegistryLiveTable *t = live_table_const(reg, kind);
+    int mask = t->cap - 1;
+    for (int at = (int)(h & (uint64_t)mask);; at = (at + 1) & mask) {
+        const PDXERegistryLiveSlot *slot = &t->slots[at];
+        PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
+        if (slot->head < 0 || (slot->hash == h && entry_has_key(reg, kind, slot->head, a, b))) {
+            return at;
+        }
+    }
+}
+
+/* The first entry with key (a, b) in index `kind`, or -1. */
+static int live_head(const PDXETypeRegistry *reg, int kind, const char *a, const char *b) {
+    const PDXERegistryLiveTable *t = live_table_const(reg, kind);
+    if (reg->live_failed || t->cap == 0 || !a || (kind == LIVE_METHOD && !b)) {
+        return -1;
+    }
+    return t->slots[live_slot(reg, kind, live_hash(kind, a, b), a, b)].head;
+}
+
+/* Doubles a table, placing every key again; false when it cannot be allocated. */
+static bool live_table_grow(PDXETypeRegistry *reg, PDXERegistryLiveTable *t) {
+    if (t->cap > (1 << 29) || PDXE_LOOKUP_INDEX_REFUSED("registry")) {
+        return false;
+    }
+    int cap = t->cap ? t->cap * 2 : 64;
+    PDXERegistryLiveSlot *slots =
+        (PDXERegistryLiveSlot *)pdxe_arena_alloc(reg->arena, (size_t)cap * sizeof(*slots));
+    if (!slots) {
+        return false;
+    }
+    for (int i = 0; i < cap; i++) {
+        slots[i].head = -1;
+    }
+    for (int i = 0; i < t->cap; i++) {
+        if (t->slots[i].head < 0) {
+            continue;
+        }
+        int at = (int)(t->slots[i].hash & (uint64_t)(cap - 1));
+        while (slots[at].head >= 0) {
+            at = (at + 1) & (cap - 1);
+        }
+        slots[at] = t->slots[i];
+    }
+    t->slots = slots;
+    t->cap = cap;
+    return true;
+}
+
+/* Grows a per-entry chain array to `cap` entries, keeping what it holds. */
+static bool live_grow_next(PDXETypeRegistry *reg, int **next, int old_cap, int cap) {
+    if (PDXE_LOOKUP_INDEX_REFUSED("registry")) {
+        return false;
+    }
+    int *grown = (int *)pdxe_arena_alloc(reg->arena, (size_t)cap * sizeof(int));
+    if (!grown) {
+        return false;
+    }
+    if (*next && old_cap > 0) {
+        memcpy(grown, *next, (size_t)old_cap * sizeof(int));
+    }
+    *next = grown;
+    return true;
+}
+
+/* Chains entry `e` at the end of its key's chain in index `kind`. */
+static bool live_insert(PDXETypeRegistry *reg, int kind, int e) {
+    int *next = live_next(reg, kind);
+    next[e] = -1;
+    const char *a, *b;
+    if (!live_key_of(reg, kind, e, &a, &b)) {
+        return true;
+    }
+    PDXERegistryLiveTable *t = live_table(reg, kind);
+    if (2 * (t->used + 1) > t->cap && !live_table_grow(reg, t)) {
+        return false;
+    }
+    uint64_t h = live_hash(kind, a, b);
+    PDXERegistryLiveSlot *slot = &t->slots[live_slot(reg, kind, h, a, b)];
+    if (slot->head < 0) {
+        slot->hash = h;
+        slot->head = e;
+        slot->tail = e;
+        t->used++;
+    } else {
+        next[slot->tail] = e;
+        slot->tail = e;
+    }
+    return true;
+}
+
+static void live_add_func(PDXETypeRegistry *reg, int e) {
+    if (reg->live_failed) {
+        return;
+    }
+    if (e >= reg->live_func_cap) {
+        int cap = reg->func_cap;
+        if (!live_grow_next(reg, &reg->live_func_next_qn, reg->live_func_cap, cap) ||
+            !live_grow_next(reg, &reg->live_func_next_method, reg->live_func_cap, cap) ||
+            !live_grow_next(reg, &reg->live_func_next_free, reg->live_func_cap, cap) ||
+            !live_grow_next(reg, &reg->live_func_next_receiver, reg->live_func_cap, cap)) {
+            reg->live_failed = true;
+            return;
+        }
+        reg->live_func_cap = cap;
+    }
+    if (!live_insert(reg, LIVE_FUNC_QN, e) || !live_insert(reg, LIVE_METHOD, e) ||
+        !live_insert(reg, LIVE_FREE_FUNC, e) || !live_insert(reg, LIVE_RECEIVER, e)) {
+        reg->live_failed = true;
+    }
+}
+
+static void live_add_type(PDXETypeRegistry *reg, int e) {
+    if (reg->live_failed) {
+        return;
+    }
+    if (e >= reg->live_type_cap) {
+        int cap = reg->type_cap;
+        if (!live_grow_next(reg, &reg->live_type_next_qn, reg->live_type_cap, cap) ||
+            !live_grow_next(reg, &reg->live_type_next_short, reg->live_type_cap, cap) ||
+            !live_grow_next(reg, &reg->live_type_next_last, reg->live_type_cap, cap)) {
+            reg->live_failed = true;
+            return;
+        }
+        reg->live_type_cap = cap;
+    }
+    if (!live_insert(reg, LIVE_TYPE_QN, e) || !live_insert(reg, LIVE_TYPE_SHORT, e) ||
+        !live_insert(reg, LIVE_TYPE_LAST, e)) {
+        reg->live_failed = true;
+    }
+}
+
+/* The entries with key (a, b) in index `kind`, from entry `from` on, in ascending
+ * registration order: read from the key's live chain, or, for the reference, by
+ * scanning every entry from `from` as before issue 92. */
+typedef struct {
+    const PDXETypeRegistry *reg;
+    int kind;
+    const char *a;
+    const char *b;
+    int from;
+    int next;
+} match_iter;
+
+static void match_open(match_iter *it, const PDXETypeRegistry *reg, int kind, const char *a,
+                       const char *b, int from) {
+    it->reg = reg;
+    it->kind = kind;
+    it->a = a;
+    it->b = b;
+    it->from = from;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (reg->reference_scan) {
+        it->next = from;
+        return;
+    }
+#endif
+    it->next = live_head(reg, kind, a, b);
+}
+
+static int match_next(match_iter *it) {
+    const PDXETypeRegistry *reg = it->reg;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (reg->reference_scan) {
+        int count = live_kind_is_type(it->kind) ? reg->type_count : reg->func_count;
+        while (it->next < count) {
+            int i = it->next++;
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_ENTRIES);
+            if (it->a && (it->kind != LIVE_METHOD || it->b) &&
+                entry_has_key(reg, it->kind, i, it->a, it->b)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+#endif
+    const int *next = live_next(reg, it->kind);
+    while (it->next >= 0) {
+        int i = it->next;
+        it->next = next[i];
+        PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
+        if (i >= it->from) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* The first entry with key (a, b) from entry `from` on, or -1. */
+static int match_first(const PDXETypeRegistry *reg, int kind, const char *a, const char *b,
+                       int from) {
+    match_iter it;
+    match_open(&it, reg, kind, a, b, from);
+    return match_next(&it);
+}
+
+/* The entry after `i` with the same key as entry `i` in index `kind`, or -1. */
+static int match_after(const PDXETypeRegistry *reg, int kind, int i) {
+    if (!reg || i < 0) {
+        return -1;
+    }
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (reg->reference_scan) {
+        const char *a, *b;
+        if (!live_key_of(reg, kind, i, &a, &b)) {
+            return -1;
+        }
+        return match_first(reg, kind, a, b, i + 1);
+    }
+#endif
+    if (reg->live_failed) {
+        return -1;
+    }
+    PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
+    return live_next(reg, kind)[i];
+}
+
+int pdxe_registry_func_first_by_qn(const PDXETypeRegistry *reg, const char *qualified_name) {
+    return reg && qualified_name ? match_first(reg, LIVE_FUNC_QN, qualified_name, NULL, 0) : -1;
+}
+
+int pdxe_registry_func_next_by_qn(const PDXETypeRegistry *reg, int i) {
+    return match_after(reg, LIVE_FUNC_QN, i);
+}
+
+int pdxe_registry_type_first_by_qn(const PDXETypeRegistry *reg, const char *qualified_name) {
+    return reg && qualified_name ? match_first(reg, LIVE_TYPE_QN, qualified_name, NULL, 0) : -1;
+}
+
+int pdxe_registry_type_next_by_qn(const PDXETypeRegistry *reg, int i) {
+    return match_after(reg, LIVE_TYPE_QN, i);
+}
+
+int pdxe_registry_func_first_by_receiver(const PDXETypeRegistry *reg, const char *receiver_qn) {
+    return reg && receiver_qn ? match_first(reg, LIVE_RECEIVER, receiver_qn, NULL, 0) : -1;
+}
+
+int pdxe_registry_func_next_by_receiver(const PDXETypeRegistry *reg, int i) {
+    return match_after(reg, LIVE_RECEIVER, i);
+}
+
+int pdxe_registry_func_first_by_method(const PDXETypeRegistry *reg, const char *receiver_qn,
+                                       const char *method_name) {
+    return reg && receiver_qn && method_name
+               ? match_first(reg, LIVE_METHOD, receiver_qn, method_name, 0)
+               : -1;
+}
+
+int pdxe_registry_func_next_by_method(const PDXETypeRegistry *reg, int i) {
+    return match_after(reg, LIVE_METHOD, i);
+}
+
+int pdxe_registry_free_func_first(const PDXETypeRegistry *reg, const char *short_name) {
+    return reg && short_name ? match_first(reg, LIVE_FREE_FUNC, short_name, NULL, 0) : -1;
+}
+
+int pdxe_registry_free_func_next(const PDXETypeRegistry *reg, int i) {
+    return match_after(reg, LIVE_FREE_FUNC, i);
 }
 
 static void build_qn_index(PDXETypeRegistry *reg, PDXEArena *idx_arena, bool for_funcs) {
@@ -305,6 +706,7 @@ void pdxe_registry_types_by_short_name(const PDXETypeRegistry *reg, const char *
     out->key = short_name;
     out->shadow = NULL;
     out->hash = fnv1a(short_name);
+    out->live = false;
     if (reg->type_qn_buckets && reg->type_qn_bucket_count > 0) {
         if (reg->type_short_buckets && reg->type_short_bucket_count > 0) {
             int slot = (int)(out->hash & (uint64_t)(reg->type_short_bucket_count - 1));
@@ -312,7 +714,7 @@ void pdxe_registry_types_by_short_name(const PDXETypeRegistry *reg, const char *
             out->tail_i = reg->type_qn_entry_count;
         } else {
             out->chain_idx = -1;
-            out->tail_i = 0; /* auxiliary-index allocation failed: preserve full-scan semantics */
+            out->tail_i = 0; /* auxiliary index not built: every entry is the tail */
         }
         out->tail_end = reg->type_count;
     } else {
@@ -320,6 +722,18 @@ void pdxe_registry_types_by_short_name(const PDXETypeRegistry *reg, const char *
         out->tail_i = 0;
         out->tail_end = reg->type_count;
     }
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (reg->reference_scan) {
+        return; /* the tail scanned entry by entry, as before issue 92 */
+    }
+#endif
+    /* Issue 92: the tail's entries named short_name, by short name or by last QN
+     * segment, from the live indexes instead of every tail entry. */
+    out->live = true;
+    out->live_from = out->tail_i;
+    out->live_short = match_first(reg, LIVE_TYPE_SHORT, short_name, NULL, out->tail_i);
+    out->live_last = match_first(reg, LIVE_TYPE_LAST, short_name, NULL, out->tail_i);
+    out->tail_i = out->tail_end;
 }
 
 static int type_short_next_local(PDXETypeShortIter *it) {
@@ -331,6 +745,22 @@ static int type_short_next_local(PDXETypeShortIter *it) {
         it->chain_idx = e->next_index;
         if (h != it->hash)
             continue;
+        return p;
+    }
+    if (it->live) {
+        /* The two ascending chains merged: each entry once, in registration order. */
+        int a = it->live_short;
+        int b = it->live_last;
+        if (a < 0 && b < 0) {
+            return -1;
+        }
+        int p = b < 0 || (a >= 0 && a <= b) ? a : b;
+        if (a == p) {
+            it->live_short = match_after(reg, LIVE_TYPE_SHORT, a);
+        }
+        if (b == p) {
+            it->live_last = match_after(reg, LIVE_TYPE_LAST, b);
+        }
         return p;
     }
     if (it->tail_i < it->tail_end)
@@ -363,6 +793,7 @@ static void type_short_open_linear(const PDXETypeRegistry *reg, PDXETypeShortIte
     out->chain_idx = -1;
     out->tail_i = 0;
     out->tail_end = reg->type_count;
+    out->live = false;
 }
 
 int pdxe_type_short_iter_next(PDXETypeShortIter *it) {
@@ -485,6 +916,7 @@ void pdxe_registry_free_funcs_by_short_name(const PDXETypeRegistry *reg, const c
     out->key = short_name;
     out->shadow = NULL;
     out->hash = fnv1a(short_name);
+    out->live_idx = -1;
     if (reg->func_qn_buckets && reg->func_qn_bucket_count > 0) {
         if (reg->ffunc_short_buckets && reg->ffunc_short_bucket_count > 0) {
             int slot = (int)(out->hash & (uint64_t)(reg->ffunc_short_bucket_count - 1));
@@ -499,6 +931,15 @@ void pdxe_registry_free_funcs_by_short_name(const PDXETypeRegistry *reg, const c
         out->tail_i = 0;
         out->tail_end = reg->func_count;
     }
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (reg->reference_scan) {
+        return; /* the tail scanned entry by entry, as before issue 92 */
+    }
+#endif
+    /* Issue 92: the tail's receiver-less funcs named short_name, from the live index
+     * instead of every tail entry. */
+    out->live_idx = match_first(reg, LIVE_FREE_FUNC, short_name, NULL, out->tail_i);
+    out->tail_i = out->tail_end;
 }
 
 static int free_func_next_local(PDXEFreeFuncIter *it) {
@@ -512,6 +953,11 @@ static int free_func_next_local(PDXEFreeFuncIter *it) {
             continue;
         return p; /* each free func has one short_name → no dedup needed */
     }
+    if (it->live_idx >= 0) {
+        int p = it->live_idx;
+        it->live_idx = match_after(reg, LIVE_FREE_FUNC, p);
+        return p;
+    }
     if (it->tail_i < it->tail_end)
         return it->tail_i++;
     return -1;
@@ -523,6 +969,7 @@ static void free_func_open_linear(const PDXETypeRegistry *reg, PDXEFreeFuncIter 
     out->chain_idx = -1;
     out->tail_i = 0;
     out->tail_end = reg->func_count;
+    out->live_idx = -1;
 }
 
 int pdxe_free_func_iter_next(PDXEFreeFuncIter *it) {
@@ -585,6 +1032,8 @@ void pdxe_registry_methods(const PDXETypeRegistry *reg, const char *receiver_qn,
         out->tail_i = 0;
         out->tail_end = reg->func_count;
     }
+    /* The entries from tail_i on come from the key's live chain (issue 92). */
+    out->live_idx = live_head(reg, LIVE_METHOD, receiver_qn, method_name);
 }
 
 static int method_next_local(PDXEMethodIter *it) {
@@ -603,11 +1052,27 @@ static int method_next_local(PDXEMethodIter *it) {
             return p;
         }
     }
-    while (it->tail_i < it->tail_end) {
-        int p = it->tail_i++;
-        const PDXERegisteredFunc *f = &reg->funcs[p];
-        if (f->receiver_type && f->short_name && strcmp(f->receiver_type, it->receiver_qn) == 0 &&
-            strcmp(f->short_name, it->method_name) == 0) {
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (reg->reference_scan) {
+        while (it->tail_i < it->tail_end) {
+            int p = it->tail_i++;
+            const PDXERegisteredFunc *f = &reg->funcs[p];
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_ENTRIES);
+            if (f->receiver_type && f->short_name &&
+                strcmp(f->receiver_type, it->receiver_qn) == 0 &&
+                strcmp(f->short_name, it->method_name) == 0) {
+                return p;
+            }
+        }
+        return -1;
+    }
+#endif
+    /* The key's entries from tail_i up to the snapshot, in registration order. */
+    while (it->live_idx >= 0) {
+        int p = it->live_idx;
+        it->live_idx = reg->live_func_next_method[p];
+        PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
+        if (p >= it->tail_i && p < it->tail_end) {
             return p;
         }
     }
@@ -708,6 +1173,12 @@ void pdxe_registry_finalize(PDXETypeRegistry *reg) {
 void pdxe_registry_init(PDXETypeRegistry *reg, PDXEArena *arena) {
     memset(reg, 0, sizeof(PDXETypeRegistry));
     reg->arena = arena;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    /* PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE=<non-empty>: this registry's lookups scan
+     * every entry, as before issue 92, so tests can compare the answers. */
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    reg->reference_scan = reference && reference[0];
+#endif
 }
 
 void pdxe_registry_add_func(PDXETypeRegistry *reg, PDXERegisteredFunc func) {
@@ -728,6 +1199,7 @@ void pdxe_registry_add_func(PDXETypeRegistry *reg, PDXERegisteredFunc func) {
         reg->func_cap = new_cap;
     }
     reg->funcs[reg->func_count++] = func;
+    live_add_func(reg, reg->func_count - 1);
 }
 
 void pdxe_registry_add_type(PDXETypeRegistry *reg, PDXERegisteredType type) {
@@ -748,46 +1220,36 @@ void pdxe_registry_add_type(PDXETypeRegistry *reg, PDXERegisteredType type) {
         reg->type_cap = new_cap;
     }
     reg->types[reg->type_count++] = type;
+    live_add_type(reg, reg->type_count - 1);
 }
 
 static const PDXERegisteredFunc *lookup_method_self(const PDXETypeRegistry *reg,
                                                    const char *receiver_qn,
                                                    const char *method_name) {
+    int from = 0;
     // Hashed path when registry is finalized.
     if (reg->method_buckets && reg->method_bucket_count > 0) {
         uint64_t h = fnv1a_pair(receiver_qn, method_name);
         int slot = (int)(h & (uint64_t)(reg->method_bucket_count - 1));
         for (int idx = reg->method_buckets[slot]; idx >= 0;
              idx = reg->method_entries[idx].next_index) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
             if (reg->method_entries[idx].hash != h)
                 continue;
             const PDXERegisteredFunc *f = &reg->funcs[reg->method_entries[idx].payload_index];
+            PDXE_LOOKUP_COUNT(PDXE_LC_NAME_COMPARES);
             if (f->receiver_type && f->short_name && strcmp(f->receiver_type, receiver_qn) == 0 &&
                 strcmp(f->short_name, method_name) == 0) {
                 return f;
             }
         }
-        /* Funcs added AFTER finalize are not in the buckets — scan only that
-         * tail (func_qn_entry_count == func_count at finalize time) so
-         * post-finalize additions stay visible instead of silently vanishing. */
-        for (int i = reg->func_qn_entry_count; i < reg->func_count; i++) {
-            const PDXERegisteredFunc *f = &reg->funcs[i];
-            if (f->receiver_type && f->short_name && strcmp(f->receiver_type, receiver_qn) == 0 &&
-                strcmp(f->short_name, method_name) == 0) {
-                return f;
-            }
-        }
-        return NULL;
+        /* Funcs added AFTER finalize are not in the buckets: they stay visible
+         * through the live index (issue 92), first by registration order, as the
+         * scan of that tail found them. */
+        from = reg->func_qn_entry_count;
     }
-
-    for (int i = 0; i < reg->func_count; i++) {
-        const PDXERegisteredFunc *f = &reg->funcs[i];
-        if (f->receiver_type && f->short_name && strcmp(f->receiver_type, receiver_qn) == 0 &&
-            strcmp(f->short_name, method_name) == 0) {
-            return f;
-        }
-    }
-    return NULL;
+    int i = match_first(reg, LIVE_METHOD, receiver_qn, method_name, from);
+    return i >= 0 ? &reg->funcs[i] : NULL;
 }
 
 const PDXERegisteredFunc *pdxe_registry_lookup_method(const PDXETypeRegistry *reg,
@@ -804,35 +1266,28 @@ const PDXERegisteredFunc *pdxe_registry_lookup_method(const PDXETypeRegistry *re
 
 static const PDXERegisteredType *lookup_type_self(const PDXETypeRegistry *reg,
                                                  const char *qualified_name) {
+    PDXE_LOOKUP_COUNT(PDXE_LC_TYPE_SELF);
+    int from = 0;
     if (reg->type_qn_buckets && reg->type_qn_bucket_count > 0) {
         uint64_t h = fnv1a(qualified_name);
         int slot = (int)(h & (uint64_t)(reg->type_qn_bucket_count - 1));
         for (int idx = reg->type_qn_buckets[slot]; idx >= 0;
              idx = reg->type_qn_entries[idx].next_index) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
             if (reg->type_qn_entries[idx].hash != h)
                 continue;
             int p = reg->type_qn_entries[idx].payload_index;
+            PDXE_LOOKUP_COUNT(PDXE_LC_QN_COMPARES);
             if (reg->types[p].qualified_name &&
                 strcmp(reg->types[p].qualified_name, qualified_name) == 0) {
                 return &reg->types[p];
             }
         }
-        /* Tail-scan types added after finalize (see lookup_method_self). */
-        for (int i = reg->type_qn_entry_count; i < reg->type_count; i++) {
-            if (reg->types[i].qualified_name &&
-                strcmp(reg->types[i].qualified_name, qualified_name) == 0) {
-                return &reg->types[i];
-            }
-        }
-        return NULL;
+        /* Types added after finalize: the live index (see lookup_method_self). */
+        from = reg->type_qn_entry_count;
     }
-
-    for (int i = 0; i < reg->type_count; i++) {
-        if (strcmp(reg->types[i].qualified_name, qualified_name) == 0) {
-            return &reg->types[i];
-        }
-    }
-    return NULL;
+    int i = match_first(reg, LIVE_TYPE_QN, qualified_name, NULL, from);
+    return i >= 0 ? &reg->types[i] : NULL;
 }
 
 const PDXERegisteredType *pdxe_registry_lookup_type(const PDXETypeRegistry *reg,
@@ -848,35 +1303,28 @@ const PDXERegisteredType *pdxe_registry_lookup_type(const PDXETypeRegistry *reg,
 
 static const PDXERegisteredFunc *lookup_func_self(const PDXETypeRegistry *reg,
                                                  const char *qualified_name) {
+    PDXE_LOOKUP_COUNT(PDXE_LC_FUNC_SELF);
+    int from = 0;
     if (reg->func_qn_buckets && reg->func_qn_bucket_count > 0) {
         uint64_t h = fnv1a(qualified_name);
         int slot = (int)(h & (uint64_t)(reg->func_qn_bucket_count - 1));
         for (int idx = reg->func_qn_buckets[slot]; idx >= 0;
              idx = reg->func_qn_entries[idx].next_index) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
             if (reg->func_qn_entries[idx].hash != h)
                 continue;
             int p = reg->func_qn_entries[idx].payload_index;
+            PDXE_LOOKUP_COUNT(PDXE_LC_QN_COMPARES);
             if (reg->funcs[p].qualified_name &&
                 strcmp(reg->funcs[p].qualified_name, qualified_name) == 0) {
                 return &reg->funcs[p];
             }
         }
-        /* Tail-scan funcs added after finalize (see lookup_method_self). */
-        for (int i = reg->func_qn_entry_count; i < reg->func_count; i++) {
-            if (reg->funcs[i].qualified_name &&
-                strcmp(reg->funcs[i].qualified_name, qualified_name) == 0) {
-                return &reg->funcs[i];
-            }
-        }
-        return NULL;
+        /* Funcs added after finalize: the live index (see lookup_method_self). */
+        from = reg->func_qn_entry_count;
     }
-
-    for (int i = 0; i < reg->func_count; i++) {
-        if (strcmp(reg->funcs[i].qualified_name, qualified_name) == 0) {
-            return &reg->funcs[i];
-        }
-    }
-    return NULL;
+    int i = match_first(reg, LIVE_FUNC_QN, qualified_name, NULL, from);
+    return i >= 0 ? &reg->funcs[i] : NULL;
 }
 
 const PDXERegisteredFunc *pdxe_registry_lookup_func(const PDXETypeRegistry *reg,
@@ -990,9 +1438,11 @@ const PDXERegisteredFunc *pdxe_registry_lookup_method_by_args(const PDXETypeRegi
                 continue;
             int pi = reg->method_entries[idx].payload_index;
             const PDXERegisteredFunc *f = &reg->funcs[pi];
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
             if (!f->receiver_type || !f->short_name || strcmp(f->receiver_type, receiver_qn) != 0 ||
                 strcmp(f->short_name, method_name) != 0)
                 continue;
+            PDXE_LOOKUP_COUNT(PDXE_LC_ARG_CANDIDATES);
             if (first_pi < 0 || pi < first_pi)
                 first_pi = pi;
             int pc = count_func_params(f);
@@ -1009,12 +1459,13 @@ const PDXERegisteredFunc *pdxe_registry_lookup_method_by_args(const PDXETypeRegi
         }
         /* Mirror lookup_method_self's post-finalize visibility contract.  The
          * hash chain covers the finalize-time prefix only; overloads added
-         * later must participate in the same exact/range/first ordering. */
-        for (int pi = reg->func_qn_entry_count; pi < reg->func_count; pi++) {
+         * later must participate in the same exact/range/first ordering. They
+         * come from the live index, in registration order (issue 92). */
+        match_iter tail;
+        match_open(&tail, reg, LIVE_METHOD, receiver_qn, method_name, reg->func_qn_entry_count);
+        for (int pi; (pi = match_next(&tail)) >= 0;) {
             const PDXERegisteredFunc *f = &reg->funcs[pi];
-            if (!f->receiver_type || !f->short_name || strcmp(f->receiver_type, receiver_qn) != 0 ||
-                strcmp(f->short_name, method_name) != 0)
-                continue;
+            PDXE_LOOKUP_COUNT(PDXE_LC_ARG_CANDIDATES);
             if (first_pi < 0 || pi < first_pi)
                 first_pi = pi;
             int pc = count_func_params(f);
@@ -1038,10 +1489,14 @@ const PDXERegisteredFunc *pdxe_registry_lookup_method_by_args(const PDXETypeRegi
         return NULL;
     }
 
-    for (int i = 0; i < reg->func_count; i++) {
+    /* Unfinalized: the key's overloads in registration order, from the live index
+     * (issue 92), exactly those the scan of every func matched, in its order. */
+    match_iter it;
+    match_open(&it, reg, LIVE_METHOD, receiver_qn, method_name, 0);
+    for (int i; (i = match_next(&it)) >= 0;) {
         const PDXERegisteredFunc *f = &reg->funcs[i];
-        if (f->receiver_type && f->short_name && strcmp(f->receiver_type, receiver_qn) == 0 &&
-            strcmp(f->short_name, method_name) == 0) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_ARG_CANDIDATES);
+        {
             if (!first_match)
                 first_match = f;
             int pc = count_func_params(f);
@@ -1189,9 +1644,11 @@ const PDXERegisteredFunc *pdxe_registry_lookup_method_by_types(const PDXETypeReg
                 continue;
             int pi = reg->method_entries[idx].payload_index;
             const PDXERegisteredFunc *f = &reg->funcs[pi];
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
             if (!f->receiver_type || !f->short_name || strcmp(f->receiver_type, receiver_qn) != 0 ||
                 strcmp(f->short_name, method_name) != 0)
                 continue;
+            PDXE_LOOKUP_COUNT(PDXE_LC_ARG_CANDIDATES);
             if (first_pi < 0 || pi < first_pi)
                 first_pi = pi;
             int s = score_overload_match(f, arg_types, arg_count);
@@ -1200,11 +1657,11 @@ const PDXERegisteredFunc *pdxe_registry_lookup_method_by_types(const PDXETypeReg
                 best_pi = pi;
             }
         }
-        for (int pi = reg->func_qn_entry_count; pi < reg->func_count; pi++) {
+        match_iter tail;
+        match_open(&tail, reg, LIVE_METHOD, receiver_qn, method_name, reg->func_qn_entry_count);
+        for (int pi; (pi = match_next(&tail)) >= 0;) {
             const PDXERegisteredFunc *f = &reg->funcs[pi];
-            if (!f->receiver_type || !f->short_name || strcmp(f->receiver_type, receiver_qn) != 0 ||
-                strcmp(f->short_name, method_name) != 0)
-                continue;
+            PDXE_LOOKUP_COUNT(PDXE_LC_ARG_CANDIDATES);
             if (first_pi < 0 || pi < first_pi)
                 first_pi = pi;
             int s = score_overload_match(f, arg_types, arg_count);
@@ -1225,10 +1682,12 @@ const PDXERegisteredFunc *pdxe_registry_lookup_method_by_types(const PDXETypeReg
         return NULL;
     }
 
-    for (int i = 0; i < reg->func_count; i++) {
+    match_iter it;
+    match_open(&it, reg, LIVE_METHOD, receiver_qn, method_name, 0);
+    for (int i; (i = match_next(&it)) >= 0;) {
         const PDXERegisteredFunc *f = &reg->funcs[i];
-        if (f->receiver_type && f->short_name && strcmp(f->receiver_type, receiver_qn) == 0 &&
-            strcmp(f->short_name, method_name) == 0) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_ARG_CANDIDATES);
+        {
             if (!first_match)
                 first_match = f;
             int s = score_overload_match(f, arg_types, arg_count);
@@ -1284,8 +1743,10 @@ const PDXERegisteredFunc *pdxe_registry_lookup_symbol_by_types(const PDXETypeReg
                 continue;
             int pi = reg->func_qn_entries[idx].payload_index;
             const PDXERegisteredFunc *f = &reg->funcs[pi];
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
             if (!f->qualified_name || strcmp(f->qualified_name, buf) != 0)
                 continue;
+            PDXE_LOOKUP_COUNT(PDXE_LC_TS_CANDIDATES);
             if (first_pi < 0 || pi < first_pi)
                 first_pi = pi;
             int s = score_overload_match(f, arg_types, arg_count);
@@ -1294,10 +1755,11 @@ const PDXERegisteredFunc *pdxe_registry_lookup_symbol_by_types(const PDXETypeReg
                 best_pi = pi;
             }
         }
-        for (int pi = reg->func_qn_entry_count; pi < reg->func_count; pi++) {
+        match_iter tail;
+        match_open(&tail, reg, LIVE_FUNC_QN, buf, NULL, reg->func_qn_entry_count);
+        for (int pi; (pi = match_next(&tail)) >= 0;) {
             const PDXERegisteredFunc *f = &reg->funcs[pi];
-            if (!f->qualified_name || strcmp(f->qualified_name, buf) != 0)
-                continue;
+            PDXE_LOOKUP_COUNT(PDXE_LC_TS_CANDIDATES);
             if (first_pi < 0 || pi < first_pi)
                 first_pi = pi;
             int s = score_overload_match(f, arg_types, arg_count);
@@ -1316,9 +1778,12 @@ const PDXERegisteredFunc *pdxe_registry_lookup_symbol_by_types(const PDXETypeReg
         return NULL;
     }
 
-    for (int i = 0; i < reg->func_count; i++) {
+    match_iter it;
+    match_open(&it, reg, LIVE_FUNC_QN, buf, NULL, 0);
+    for (int i; (i = match_next(&it)) >= 0;) {
         const PDXERegisteredFunc *f = &reg->funcs[i];
-        if (strcmp(f->qualified_name, buf) == 0) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_TS_CANDIDATES);
+        {
             if (!first_match)
                 first_match = f;
             int s = score_overload_match(f, arg_types, arg_count);
@@ -1368,8 +1833,10 @@ const PDXERegisteredFunc *pdxe_registry_lookup_symbol_by_args(const PDXETypeRegi
                 continue;
             int pi = reg->func_qn_entries[idx].payload_index;
             const PDXERegisteredFunc *f = &reg->funcs[pi];
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
             if (!f->qualified_name || strcmp(f->qualified_name, buf) != 0)
                 continue;
+            PDXE_LOOKUP_COUNT(PDXE_LC_TS_CANDIDATES);
             if (first_pi < 0 || pi < first_pi)
                 first_pi = pi;
             int pc = count_func_params(f);
@@ -1384,10 +1851,11 @@ const PDXERegisteredFunc *pdxe_registry_lookup_symbol_by_args(const PDXETypeRegi
                     range_pi = pi;
             }
         }
-        for (int pi = reg->func_qn_entry_count; pi < reg->func_count; pi++) {
+        match_iter tail;
+        match_open(&tail, reg, LIVE_FUNC_QN, buf, NULL, reg->func_qn_entry_count);
+        for (int pi; (pi = match_next(&tail)) >= 0;) {
             const PDXERegisteredFunc *f = &reg->funcs[pi];
-            if (!f->qualified_name || strcmp(f->qualified_name, buf) != 0)
-                continue;
+            PDXE_LOOKUP_COUNT(PDXE_LC_TS_CANDIDATES);
             if (first_pi < 0 || pi < first_pi)
                 first_pi = pi;
             int pc = count_func_params(f);
@@ -1410,9 +1878,12 @@ const PDXERegisteredFunc *pdxe_registry_lookup_symbol_by_args(const PDXETypeRegi
         return NULL;
     }
 
-    for (int i = 0; i < reg->func_count; i++) {
+    match_iter it;
+    match_open(&it, reg, LIVE_FUNC_QN, buf, NULL, 0);
+    for (int i; (i = match_next(&it)) >= 0;) {
         const PDXERegisteredFunc *f = &reg->funcs[i];
-        if (strcmp(f->qualified_name, buf) == 0) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_TS_CANDIDATES);
+        {
             if (!first_match)
                 first_match = f;
             int pc = count_func_params(f);

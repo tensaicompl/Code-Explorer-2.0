@@ -24,6 +24,7 @@ typedef struct {
     const char **include_paths;
     const char **include_ns_qns;
     int include_count;
+    int include_cap; // entries the include arrays hold
 
     // Namespace state
     const char *current_namespace; // current namespace QN (e.g., "proj.ns1.ns2")
@@ -75,6 +76,16 @@ typedef struct {
     const PDXEScope **fp_binding_scopes;
     int fp_count;
     int fp_cap;
+    // Issue 92: the entries by name, newest first: per entry the previous entry with
+    // its name (-1), and open-addressed slots holding a name and its newest entry
+    // (-1 when none is in force). fp_index_failed: an array could not grow (counted
+    // as lost work); no binding is found by name from then on.
+    int *fp_prev;
+    const char **fp_slot_names;
+    int *fp_slot_heads;
+    int fp_slot_cap;
+    int fp_slot_used;
+    bool fp_index_failed;
 
     // Template parameter defaults for current template scope
     const char **template_param_names;       // e.g., ["T", "U"]

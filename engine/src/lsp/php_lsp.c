@@ -20,6 +20,7 @@
 #include "php_lsp.h"
 #include "lsp_node_iter.h"
 #include "../helpers.h"
+#include "../lookup_counts.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -787,26 +788,143 @@ static void bind_phpdoc_var(PHPLSPContext *ctx, const char *docstring) {
     }
 }
 
+/* Issue 92: the children of each parent a docblock search visits, collected once in
+ * one cursor pass, and each child's position among them by its node id. Finding a
+ * node's position, and each sibling before it, by ts_node_child (O(i) on a wide
+ * node) made the search quadratic in a file's top-level declarations or a class's
+ * members, per function, class and method. */
+typedef struct {
+    const void *parent; /* the parent's node id; NULL for an empty slot */
+    TSNode *kids;
+    uint32_t count;
+    uint32_t *slots; /* open addressing over the children's ids: position + 1, 0 empty */
+    uint32_t cap;
+} PhpChildren;
+
+struct PhpSiblingTable {
+    PhpChildren *entries; /* open addressing over the parents' ids */
+    uint32_t cap;
+    uint32_t used;
+};
+
+static uint64_t php_id_hash(const void *id) {
+    uint64_t h = (uint64_t)(uintptr_t)id;
+    h ^= h >> 33;
+    h *= 0xff51afd7ed558ccdULL;
+    h ^= h >> 33;
+    return h;
+}
+
+static uint32_t php_children_slot(const PhpChildren *c, const void *child) {
+    uint32_t mask = c->cap - 1;
+    for (uint32_t at = (uint32_t)php_id_hash(child) & mask;; at = (at + 1) & mask) {
+        uint32_t p = c->slots[at];
+        if (p == 0 || c->kids[p - 1].id == child)
+            return at;
+    }
+}
+
+static uint32_t php_parent_slot(const PhpChildren *entries, uint32_t cap, const void *parent) {
+    uint32_t mask = cap - 1;
+    for (uint32_t at = (uint32_t)php_id_hash(parent) & mask;; at = (at + 1) & mask) {
+        if (!entries[at].parent || entries[at].parent == parent)
+            return at;
+    }
+}
+
+/* `parent`'s children with their positions; NULL when they cannot be held (the
+ * failed allocation is counted as lost work), and then no docblock is found. */
+static const PhpChildren *php_children_of(PHPLSPContext *ctx, TSNode parent) {
+    struct PhpSiblingTable *t = ctx->siblings;
+    if (PDXE_LOOKUP_INDEX_REFUSED("resolver"))
+        return NULL;
+    if (!t) {
+        t = (struct PhpSiblingTable *)pdxe_arena_alloc(ctx->arena, sizeof(*t));
+        if (!t)
+            return NULL;
+        memset(t, 0, sizeof(*t));
+        ctx->siblings = t;
+    }
+    if (t->cap) {
+        PhpChildren *e = &t->entries[php_parent_slot(t->entries, t->cap, parent.id)];
+        if (e->parent)
+            return e->kids || e->count == 0 ? e : NULL;
+    }
+    if (2 * (t->used + 1) > t->cap) {
+        uint32_t cap = t->cap ? t->cap * 2 : 16;
+        PhpChildren *grown = (PhpChildren *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(*grown));
+        if (!grown)
+            return NULL;
+        memset(grown, 0, (size_t)cap * sizeof(*grown));
+        for (uint32_t i = 0; i < t->cap; i++) {
+            if (t->entries[i].parent)
+                grown[php_parent_slot(grown, cap, t->entries[i].parent)] = t->entries[i];
+        }
+        t->entries = grown;
+        t->cap = cap;
+    }
+    PhpChildren c;
+    memset(&c, 0, sizeof(c));
+    c.parent = parent.id;
+    c.kids = pdxe_lsp_collect_children(ctx->arena, parent, &c.count);
+    if (!c.kids && ts_node_child_count(parent) > 0)
+        return NULL;
+    c.cap = 16;
+    while (c.cap < 2 * c.count)
+        c.cap *= 2;
+    c.slots = (uint32_t *)pdxe_arena_alloc(ctx->arena, (size_t)c.cap * sizeof(uint32_t));
+    if (!c.slots)
+        return NULL;
+    memset(c.slots, 0, (size_t)c.cap * sizeof(uint32_t));
+    for (uint32_t i = 0; i < c.count; i++) {
+        uint32_t at = php_children_slot(&c, c.kids[i].id);
+        if (c.slots[at] == 0) /* the first child with an id, as the scan found it */
+            c.slots[at] = i + 1;
+    }
+    PhpChildren *e = &t->entries[php_parent_slot(t->entries, t->cap, parent.id)];
+    *e = c;
+    t->used++;
+    return e;
+}
+
 /* Walk siblings backwards from `node` to find a leading PHPDoc comment
  * ("/**...*​/"). Returns cleaned doc text or NULL. */
 static char *fetch_leading_phpdoc(PHPLSPContext *ctx, TSNode node) {
     TSNode parent = ts_node_parent(node);
     if (ts_node_is_null(parent))
         return NULL;
-    uint32_t nc = ts_node_child_count(parent);
-    /* Find index of node within parent. */
+    /* The node's position among its parent's children, and the children before it. */
     int idx = -1;
-    for (uint32_t i = 0; i < nc; i++) {
-        TSNode c = ts_node_child(parent, i);
-        if (ts_node_eq(c, node)) {
-            idx = (int)i;
-            break;
+    const TSNode *kids = NULL;
+    bool scan = false;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    scan = reference && reference[0];
+#endif
+    if (scan) {
+        uint32_t nc = ts_node_child_count(parent);
+        for (uint32_t i = 0; i < nc; i++) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_DEF_ENTRIES);
+            TSNode c = ts_node_child(parent, i);
+            if (ts_node_eq(c, node)) {
+                idx = (int)i;
+                break;
+            }
         }
+    } else {
+        const PhpChildren *children = php_children_of(ctx, parent);
+        if (!children || children->count == 0)
+            return NULL;
+        PDXE_LOOKUP_COUNT(PDXE_LC_DEF_ENTRIES);
+        uint32_t p = children->slots[php_children_slot(children, node.id)];
+        if (p > 0 && ts_node_eq(children->kids[p - 1], node))
+            idx = (int)p - 1;
+        kids = children->kids;
     }
     if (idx <= 0)
         return NULL;
     for (int i = idx - 1; i >= 0; i--) {
-        TSNode c = ts_node_child(parent, (uint32_t)i);
+        TSNode c = kids ? kids[i] : ts_node_child(parent, (uint32_t)i);
         if (ts_node_is_null(c))
             continue;
         const char *k = ts_node_type(c);
@@ -1183,8 +1301,10 @@ static const PDXEType *eval_function_call_type(PHPLSPContext *ctx, TSNode call_n
                                      pdxe_arena_sprintf(ctx->arena, "%s.%s", ctx->module_qn, name));
     }
     if (!f && ctx->registry) {
-        /* Walk the symbol table by short_name as a last resort. */
-        for (int i = 0; i < ctx->registry->func_count; i++) {
+        /* Walk the symbol table by short_name as a last resort: the free functions of
+         * that name, in registration order, from the index (issue 92). */
+        for (int i = pdxe_registry_free_func_first(ctx->registry, name); i >= 0;
+             i = pdxe_registry_free_func_next(ctx->registry, i)) {
             const PDXERegisteredFunc *cand = &ctx->registry->funcs[i];
             if (cand->receiver_type)
                 continue;
@@ -1645,7 +1765,9 @@ static void resolve_function_call(PHPLSPContext *ctx, TSNode call, PDXEResolvedK
      * file's project (i.e. with the longest module-prefix overlap). */
     const PDXERegisteredFunc *best = NULL;
     int best_score = -1;
-    for (int i = 0; ctx->registry && i < ctx->registry->func_count; i++) {
+    /* The free functions of that name, in registration order, from the index (issue 92). */
+    for (int i = ctx->registry ? pdxe_registry_free_func_first(ctx->registry, name) : -1; i >= 0;
+         i = pdxe_registry_free_func_next(ctx->registry, i)) {
         const PDXERegisteredFunc *cand = &ctx->registry->funcs[i];
         if (cand->receiver_type)
             continue;

@@ -1,5 +1,83 @@
 #include "scope.h"
+#include "../lookup_counts.h"
 #include <string.h>
+
+static uint64_t scope_name_hash(const char *s) {
+    uint64_t h = 1469598103934665603ULL;
+    for (; *s; s++) {
+        h = (h ^ (unsigned char)*s) * 1099511628211ULL;
+    }
+    return h;
+}
+
+/* The slot of `name` (hashed h) in a frame's index: where it is, or the empty slot it
+ * would take. */
+static int scope_index_slot(const PDXEScope *frame, const char *name, uint64_t h) {
+    int mask = frame->index_cap - 1;
+    for (int at = (int)(h & (uint64_t)mask);; at = (at + 1) & mask) {
+        const PDXEScopeIndexSlot *slot = &frame->index[at];
+        if (!slot->binding || (slot->hash == h && strcmp(slot->binding->name, name) == 0)) {
+            return at;
+        }
+    }
+}
+
+PDXEVarBinding *pdxe_scope_frame_find(const PDXEScope *frame, const char *name) {
+    if (!frame || !name) {
+        return NULL;
+    }
+    if (frame->index) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
+        return frame->index[scope_index_slot(frame, name, scope_name_hash(name))].binding;
+    }
+    /* Not yet indexed: at most one chunk of bindings. */
+    for (PDXEScopeChunk *c = frame->chunks; c != NULL; c = c->next) {
+        for (int i = 0; i < c->used; i++) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_NAME_COMPARES);
+            if (c->bindings[i].name && strcmp(c->bindings[i].name, name) == 0) {
+                return &c->bindings[i];
+            }
+        }
+    }
+    return NULL;
+}
+
+/* Grows the frame's index so it holds one more name, indexing every binding the frame
+ * has when it is first built. False when it cannot be allocated. */
+static bool scope_index_reserve(PDXEScope *frame) {
+    if (frame->count + 1 <= PDXE_SCOPE_CHUNK_BINDINGS) {
+        return true; /* small frames are scanned: one chunk at most */
+    }
+    if (frame->index && 2 * (frame->count + 1) <= frame->index_cap) {
+        return true;
+    }
+    if (frame->index_cap > (1 << 28) || !frame->arena || PDXE_LOOKUP_INDEX_REFUSED("scope")) {
+        return false;
+    }
+    int cap = frame->index_cap ? 2 * frame->index_cap : 4 * PDXE_SCOPE_CHUNK_BINDINGS;
+    PDXEScopeIndexSlot *index =
+        (PDXEScopeIndexSlot *)pdxe_arena_alloc(frame->arena, (size_t)cap * sizeof(*index));
+    if (!index) {
+        return false;
+    }
+    memset(index, 0, (size_t)cap * sizeof(*index));
+    PDXEScope grown = *frame;
+    grown.index = index;
+    grown.index_cap = cap;
+    for (PDXEScopeChunk *c = frame->chunks; c != NULL; c = c->next) {
+        for (int i = 0; i < c->used; i++) {
+            if (c->bindings[i].name) {
+                uint64_t h = scope_name_hash(c->bindings[i].name);
+                int at = scope_index_slot(&grown, c->bindings[i].name, h);
+                index[at].hash = h;
+                index[at].binding = &c->bindings[i];
+            }
+        }
+    }
+    frame->index = index;
+    frame->index_cap = cap;
+    return true;
+}
 
 PDXEScope* pdxe_scope_push(PDXEArena* a, PDXEScope* current) {
     PDXEScope* scope = (PDXEScope*)pdxe_arena_alloc(a, sizeof(PDXEScope));
@@ -47,14 +125,16 @@ static bool pdxe_scope_bind_value(PDXEScope *scope, const char *name, const PDXE
     if (!scope || !name) {
         return false;
     }
-    for (PDXEScopeChunk* c = scope->chunks; c != NULL; c = c->next) {
-        for (int i = 0; i < c->used; i++) {
-            if (c->bindings[i].name && strcmp(c->bindings[i].name, name) == 0) {
-                c->bindings[i].type = type;
-                c->bindings[i].callable_qn = callable_qn;
-                return true;
-            }
-        }
+    PDXEVarBinding *existing = pdxe_scope_frame_find(scope, name);
+    if (existing) {
+        existing->type = type;
+        existing->callable_qn = callable_qn;
+        return true;
+    }
+    /* Issue 92: an index that cannot grow fails the bind, as arena exhaustion does:
+     * the frame's index stays complete for every binding it holds. */
+    if (!scope_index_reserve(scope)) {
+        return false; /* arena exhausted: the shadow did NOT take effect */
     }
     PDXEScopeChunk* head = scope->chunks;
     if (!head || head->used >= PDXE_SCOPE_CHUNK_BINDINGS) {
@@ -63,10 +143,20 @@ static bool pdxe_scope_bind_value(PDXEScope *scope, const char *name, const PDXE
             return false; /* arena exhausted: the shadow did NOT take effect */
         }
     }
-    head->bindings[head->used].name = name;
-    head->bindings[head->used].type = type;
-    head->bindings[head->used].callable_qn = callable_qn;
+    PDXEVarBinding *b = &head->bindings[head->used];
+    b->name = name;
+    b->type = type;
+    b->callable_qn = callable_qn;
+    b->written_next = NULL;
+    b->written = false;
     head->used++;
+    scope->count++;
+    if (scope->index) {
+        uint64_t h = scope_name_hash(name);
+        int at = scope_index_slot(scope, name, h);
+        scope->index[at].hash = h;
+        scope->index[at].binding = b;
+    }
     return true;
 }
 
@@ -93,12 +183,9 @@ const PDXEType* pdxe_scope_lookup(const PDXEScope* scope, const char* name) {
         return pdxe_type_unknown();
     }
     for (const PDXEScope* s = scope; s != NULL; s = s->parent) {
-        for (PDXEScopeChunk* c = s->chunks; c != NULL; c = c->next) {
-            for (int i = 0; i < c->used; i++) {
-                if (c->bindings[i].name && strcmp(c->bindings[i].name, name) == 0) {
-                    return c->bindings[i].type;
-                }
-            }
+        const PDXEVarBinding *b = pdxe_scope_frame_find(s, name);
+        if (b) {
+            return b->type;
         }
     }
     return pdxe_type_unknown();
@@ -109,12 +196,8 @@ bool pdxe_scope_contains(const PDXEScope *scope, const char *name) {
         return false;
     }
     for (const PDXEScope *s = scope; s != NULL; s = s->parent) {
-        for (const PDXEScopeChunk *c = s->chunks; c != NULL; c = c->next) {
-            for (int i = 0; i < c->used; i++) {
-                if (c->bindings[i].name && strcmp(c->bindings[i].name, name) == 0) {
-                    return true;
-                }
-            }
+        if (pdxe_scope_frame_find(s, name)) {
+            return true;
         }
     }
     return false;
@@ -125,12 +208,9 @@ const char *pdxe_scope_lookup_callable(const PDXEScope *scope, const char *name)
         return NULL;
     }
     for (const PDXEScope *s = scope; s != NULL; s = s->parent) {
-        for (const PDXEScopeChunk *c = s->chunks; c != NULL; c = c->next) {
-            for (int i = 0; i < c->used; i++) {
-                if (c->bindings[i].name && strcmp(c->bindings[i].name, name) == 0) {
-                    return c->bindings[i].callable_qn;
-                }
-            }
+        const PDXEVarBinding *b = pdxe_scope_frame_find(s, name);
+        if (b) {
+            return b->callable_qn;
         }
     }
     return NULL;
@@ -141,13 +221,10 @@ bool pdxe_scope_update_callable(PDXEScope *scope, const char *name, const char *
         return false;
     }
     for (PDXEScope *s = scope; s != NULL; s = s->parent) {
-        for (PDXEScopeChunk *c = s->chunks; c != NULL; c = c->next) {
-            for (int i = 0; i < c->used; i++) {
-                if (c->bindings[i].name && strcmp(c->bindings[i].name, name) == 0) {
-                    c->bindings[i].callable_qn = callable_qn;
-                    return true;
-                }
-            }
+        PDXEVarBinding *b = pdxe_scope_frame_find(s, name);
+        if (b) {
+            b->callable_qn = callable_qn;
+            return true;
         }
     }
     return false;

@@ -1,4 +1,5 @@
 #include "c_lsp.h"
+#include "../lookup_counts.h"
 #include "lsp_node_iter.h"
 #include "../helpers.h"
 #include <string.h>
@@ -105,8 +106,12 @@ void c_lsp_init(CLSPContext *ctx, PDXEArena *arena, const char *source, int sour
 }
 
 void c_lsp_add_include(CLSPContext *ctx, const char *header_path, const char *ns_qn) {
-    if (ctx->include_count % 32 == 0) {
-        int new_cap = ctx->include_count + 32;
+    /* Grown by doubling (issue 92: growing by 32 entries copied them O(includes^2)
+     * times over). */
+    if (ctx->include_count >= ctx->include_cap) {
+        int new_cap = ctx->include_cap ? ctx->include_cap * 2 : 32;
+        if (new_cap <= ctx->include_count)
+            new_cap = ctx->include_count + 32;
         const char **new_paths =
             (const char **)pdxe_arena_alloc(ctx->arena, (new_cap + 1) * sizeof(const char *));
         const char **new_qns =
@@ -119,6 +124,7 @@ void c_lsp_add_include(CLSPContext *ctx, const char *header_path, const char *ns
         }
         ctx->include_paths = new_paths;
         ctx->include_ns_qns = new_qns;
+        ctx->include_cap = new_cap;
     }
     ctx->include_paths[ctx->include_count] = pdxe_arena_strdup(ctx->arena, header_path);
     ctx->include_ns_qns[ctx->include_count] = pdxe_arena_strdup(ctx->arena, ns_qn);
@@ -187,6 +193,79 @@ static void c_add_ns_alias(CLSPContext *ctx, const char *alias, const char *full
     ctx->ns_alias_count++;
 }
 
+/* Issue 92: the function pointer entries by name, newest first (see CLSPContext), so a
+ * lookup visits the entries the newest-first scan of every entry matched, in its
+ * order, where that scan per identifier call and argument was quadratic. */
+static uint64_t c_fp_name_hash(const char *s) {
+    uint64_t h = 1469598103934665603ULL;
+    for (; *s; s++) {
+        h = (h ^ (unsigned char)*s) * 1099511628211ULL;
+    }
+    return h;
+}
+
+static int c_fp_slot(const char **names, int cap, const char *name) {
+    int mask = cap - 1;
+    for (int at = (int)(c_fp_name_hash(name) & (uint64_t)mask);; at = (at + 1) & mask) {
+        if (!names[at] || strcmp(names[at], name) == 0) {
+            return at;
+        }
+    }
+}
+
+/* Chains entry i, the newest, under its name. */
+static void c_fp_index_push(CLSPContext *ctx, int i) {
+    const char *name = ctx->fp_var_names[i];
+    ctx->fp_prev[i] = -1;
+    if (ctx->fp_index_failed || !name) {
+        return;
+    }
+    if (2 * (ctx->fp_slot_used + 1) > ctx->fp_slot_cap) {
+        if (PDXE_LOOKUP_INDEX_REFUSED("resolver")) {
+            ctx->fp_index_failed = true;
+            return;
+        }
+        int cap = ctx->fp_slot_cap ? ctx->fp_slot_cap * 2 : 32;
+        const char **names = (const char **)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(char *));
+        int *heads = (int *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(int));
+        if (!names || !heads) {
+            ctx->fp_index_failed = true;
+            return;
+        }
+        memset(names, 0, (size_t)cap * sizeof(char *));
+        for (int at = 0; at < ctx->fp_slot_cap; at++) {
+            if (ctx->fp_slot_names[at]) {
+                int to = c_fp_slot(names, cap, ctx->fp_slot_names[at]);
+                names[to] = ctx->fp_slot_names[at];
+                heads[to] = ctx->fp_slot_heads[at];
+            }
+        }
+        ctx->fp_slot_names = names;
+        ctx->fp_slot_heads = heads;
+        ctx->fp_slot_cap = cap;
+    }
+    int at = c_fp_slot(ctx->fp_slot_names, ctx->fp_slot_cap, name);
+    if (!ctx->fp_slot_names[at]) {
+        ctx->fp_slot_names[at] = name;
+        ctx->fp_slot_heads[at] = -1;
+        ctx->fp_slot_used++;
+    }
+    ctx->fp_prev[i] = ctx->fp_slot_heads[at];
+    ctx->fp_slot_heads[at] = i;
+}
+
+/* Drops the entries from `count` on, the newest first, as a scope's end does. */
+static void c_fp_truncate(CLSPContext *ctx, int count) {
+    for (int i = ctx->fp_count - 1; i >= count; i--) {
+        const char *name = ctx->fp_var_names[i];
+        if (!ctx->fp_index_failed && name) {
+            ctx->fp_slot_heads[c_fp_slot(ctx->fp_slot_names, ctx->fp_slot_cap, name)] =
+                ctx->fp_prev[i];
+        }
+    }
+    ctx->fp_count = count;
+}
+
 // --- Helper: track function pointer target ---
 static void c_add_fp_target(CLSPContext *ctx, const char *var_name, const char *target_qn) {
     if (ctx->fp_count >= ctx->fp_cap) {
@@ -197,21 +276,25 @@ static void c_add_fp_target(CLSPContext *ctx, const char *var_name, const char *
             (const char **)pdxe_arena_alloc(ctx->arena, new_cap * sizeof(const char *));
         const PDXEScope **new_scopes =
             (const PDXEScope **)pdxe_arena_alloc(ctx->arena, new_cap * sizeof(const PDXEScope *));
-        if (!new_names || !new_qns || !new_scopes)
+        int *new_prev = (int *)pdxe_arena_alloc(ctx->arena, new_cap * sizeof(int));
+        if (!new_names || !new_qns || !new_scopes || !new_prev)
             return;
         if (ctx->fp_var_names && ctx->fp_count > 0) {
             memcpy(new_names, ctx->fp_var_names, ctx->fp_count * sizeof(const char *));
             memcpy(new_qns, ctx->fp_target_qns, ctx->fp_count * sizeof(const char *));
             memcpy(new_scopes, ctx->fp_binding_scopes, ctx->fp_count * sizeof(const PDXEScope *));
+            memcpy(new_prev, ctx->fp_prev, ctx->fp_count * sizeof(int));
         }
         ctx->fp_var_names = new_names;
         ctx->fp_target_qns = new_qns;
         ctx->fp_binding_scopes = new_scopes;
+        ctx->fp_prev = new_prev;
         ctx->fp_cap = new_cap;
     }
     ctx->fp_var_names[ctx->fp_count] = pdxe_arena_strdup(ctx->arena, var_name);
     ctx->fp_target_qns[ctx->fp_count] = target_qn ? pdxe_arena_strdup(ctx->arena, target_qn) : NULL;
     ctx->fp_binding_scopes[ctx->fp_count] = ctx->current_scope;
+    c_fp_index_push(ctx, ctx->fp_count);
     ctx->fp_count++;
 }
 
@@ -219,14 +302,8 @@ static bool c_scope_declares_name(const PDXEScope *scope, const char *var_name) 
     if (!scope || !var_name) {
         return false;
     }
-    for (const PDXEScopeChunk *chunk = scope->chunks; chunk; chunk = chunk->next) {
-        for (int i = 0; i < chunk->used; i++) {
-            if (chunk->bindings[i].name && strcmp(chunk->bindings[i].name, var_name) == 0) {
-                return true;
-            }
-        }
-    }
-    return false;
+    /* Issue 92: the frame's own index, never a scan of every binding. */
+    return pdxe_scope_frame_find(scope, var_name) != NULL;
 }
 
 /* Return the exact fp-state entry for the nearest lexical declaration. An
@@ -236,7 +313,21 @@ static int c_find_fp_binding_index(CLSPContext *ctx, const char *var_name) {
     if (!ctx || !var_name) {
         return -1;
     }
-    for (int i = ctx->fp_count - 1; i >= 0; i--) {
+    bool scan = false;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    scan = reference && reference[0];
+#endif
+    if (!scan && (ctx->fp_index_failed || ctx->fp_slot_cap == 0)) {
+        return -1;
+    }
+    int first = scan ? ctx->fp_count - 1
+                     : ctx->fp_slot_heads[c_fp_slot(ctx->fp_slot_names, ctx->fp_slot_cap, var_name)];
+    if (!scan && !ctx->fp_slot_names[c_fp_slot(ctx->fp_slot_names, ctx->fp_slot_cap, var_name)]) {
+        return -1;
+    }
+    for (int i = first; i >= 0; i = scan ? i - 1 : ctx->fp_prev[i]) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_NAME_COMPARES);
         if (!ctx->fp_var_names[i] || strcmp(ctx->fp_var_names[i], var_name) != 0) {
             continue;
         }
@@ -4787,7 +4878,7 @@ recurse:;
 
     if (push_scope) {
         ctx->current_scope = pdxe_scope_pop(ctx->current_scope);
-        ctx->fp_count = saved_fp_count;
+        c_fp_truncate(ctx, saved_fp_count);
     }
     if (control_flow_scope) {
         ctx->control_flow_depth--;

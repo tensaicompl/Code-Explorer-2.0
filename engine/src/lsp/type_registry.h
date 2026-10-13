@@ -66,6 +66,23 @@ typedef struct {
     const PDXEType **type_param_constraints; // NULL-terminated, parallel to type_param_names
 } PDXERegisteredType;
 
+/* Issue 92: one exact key's entries, in ascending registration order: `head` is the
+ * entry a scan of the registry finds first, `tail` the last, where the next entry with
+ * the key is chained. An empty slot has head -1. */
+typedef struct {
+    uint64_t hash;
+    int head;
+    int tail;
+} PDXERegistryLiveSlot;
+
+/* Issue 92: an open-addressing table of keys to their entry chains; `cap` is a power of
+ * two, at most half full. */
+typedef struct {
+    PDXERegistryLiveSlot *slots;
+    int cap;
+    int used;
+} PDXERegistryLiveTable;
+
 // Hash-table bucket entry. Chains collisions via next-index list for overload sets.
 typedef struct {
     uint64_t hash;     // FNV-1a of key
@@ -143,6 +160,38 @@ typedef struct PDXETypeRegistry {
      * every lookup linear-scans it -> O(files*defs) (the Linux-kernel full-index
      * hang) plus a heap data race across workers. */
     bool read_only;
+
+    /* Issue 92: exact-key indexes kept as entries are added, in every registry, so no
+     * lookup scans the registry (pdxe_registry_add_func/_type maintain them). A key's
+     * chain is in ascending registration order: its head is the entry a scan found
+     * first, and walking it visits exactly the entries a scan matched, in its order. An
+     * unfinalized registry answers from them alone; a finalized one answers from its
+     * hash indexes for the entries it was finalized with and from these for the entries
+     * added later. Every array lives in `arena`, like the entries. */
+    PDXERegistryLiveTable live_func_qn;   // funcs by qualified_name
+    PDXERegistryLiveTable live_type_qn;   // types by qualified_name
+    PDXERegistryLiveTable live_method;    // funcs by (receiver_type, short_name)
+    PDXERegistryLiveTable live_free_func; // funcs without a receiver_type, by short_name
+    PDXERegistryLiveTable live_receiver;  // funcs by receiver_type
+    PDXERegistryLiveTable live_type_short; // types by short_name
+    PDXERegistryLiveTable live_type_last;  // types by the last '.'-segment of qualified_name
+    int *live_func_next_qn;               // per func: the next func with its qualified name, -1
+    int *live_func_next_method;           // per func: the next with its receiver and name, -1
+    int *live_func_next_free;             // per free func: the next with its short name, -1
+    int *live_func_next_receiver;         // per func: the next with its receiver, -1
+    int *live_type_next_qn;               // per type: the next type with its qualified name, -1
+    int *live_type_next_short;            // per type: the next type with its short name, -1
+    int *live_type_next_last;             // per type: the next with its last QN segment, -1
+    int live_func_cap;                    // capacity of the per-func arrays
+    int live_type_cap;                    // capacity of the per-type array
+    /* An index could not grow (the allocation failure is counted as lost work by the
+     * memory core): from then on the registry's lookups answer nothing, never falling
+     * back to a scan, so the work never depends on how much memory the machine has. */
+    bool live_failed;
+    /* Test builds only (PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE set when the registry
+     * was initialised): every lookup scans as before issue 92, for tests to compare the
+     * answers with. Always false in release builds. */
+    bool reference_scan;
 } PDXETypeRegistry;
 
 // Initialize a registry.
@@ -169,6 +218,24 @@ void pdxe_registry_build_type_short_index(PDXETypeRegistry *reg);
 
 // Register a function/method.
 void pdxe_registry_add_func(PDXETypeRegistry *reg, PDXERegisteredFunc func);
+
+/* Issue 92: this registry's own entries (never its fallback's) with one key, in
+ * registration order: exactly what a scan of reg->funcs or reg->types for the key
+ * found, in the scan's order, read from the live indexes. `first` gives the first
+ * entry's index, `next` the one after entry i with the same key; -1 at the end. */
+int pdxe_registry_func_first_by_qn(const PDXETypeRegistry *reg, const char *qualified_name);
+int pdxe_registry_func_next_by_qn(const PDXETypeRegistry *reg, int i);
+int pdxe_registry_type_first_by_qn(const PDXETypeRegistry *reg, const char *qualified_name);
+int pdxe_registry_type_next_by_qn(const PDXETypeRegistry *reg, int i);
+/* Funcs whose receiver_type is `receiver_qn`. */
+int pdxe_registry_func_first_by_receiver(const PDXETypeRegistry *reg, const char *receiver_qn);
+int pdxe_registry_func_next_by_receiver(const PDXETypeRegistry *reg, int i);
+/* Funcs without a receiver_type whose short_name is `short_name`. */
+int pdxe_registry_func_first_by_method(const PDXETypeRegistry *reg, const char *receiver_qn,
+                                       const char *method_name);
+int pdxe_registry_func_next_by_method(const PDXETypeRegistry *reg, int i);
+int pdxe_registry_free_func_first(const PDXETypeRegistry *reg, const char *short_name);
+int pdxe_registry_free_func_next(const PDXETypeRegistry *reg, int i);
 
 // Register a type.
 void pdxe_registry_add_type(PDXETypeRegistry *reg, PDXERegisteredType type);
@@ -230,9 +297,13 @@ const PDXERegisteredFunc *pdxe_registry_lookup_symbol_by_types(const PDXETypeReg
 //
 // Iterate registry TYPE indices whose qualified-name final segment may equal
 // `short_name`. When the optional index is present this walks its hash chain plus
-// any post-finalize tail; otherwise it degrades to the original full scan. Results
-// preserve ascending registry order. The index is a hash prefilter; callers must
-// re-check their exact predicate, including tail entries.
+// any post-finalize tail. Results preserve ascending registry order. The index is a
+// hash prefilter; callers must re-check their exact predicate, including tail
+// entries. Issue 92: the tail -- every entry of an unfinalized registry, or the
+// entries added after finalize -- is read from the live indexes: the entries whose
+// short_name or whose last qualified-name segment is `short_name`, which every
+// caller's predicate implies, so the entries a caller accepts are those of the old
+// full scan, in its order.
 // Built by finalize into type_short_buckets. Shared by the C++ short-name lookup
 // and by cs_resolve_type_name's step-9 fallback, which scanned type_count per
 // unresolved name — quadratic against the shared Tier-2 registry.
@@ -252,6 +323,13 @@ typedef struct {
     bool chain;
     const char *key;
     const PDXETypeRegistry *shadow;
+    /* Issue 92: in place of the unfiltered tail (every entry of an unfinalized
+     * registry), the entries from live_from on whose short name or last QN segment
+     * is the key, in ascending order: the next of each chain, -1 when none. */
+    bool live;
+    int live_from;
+    int live_short;
+    int live_last;
 } PDXETypeShortIter;
 void pdxe_registry_types_by_short_name(const PDXETypeRegistry *reg, const char *short_name,
                                       PDXETypeShortIter *out);
@@ -282,8 +360,9 @@ void pdxe_registry_types_by_embedded_bare(const PDXETypeRegistry *reg, const cha
 int pdxe_type_embed_iter_next(PDXETypeEmbedIter *it);
 
 // Iterate FREE-function (receiver_type==NULL) indices whose short_name equals
-// `short_name`. Same finalized/unfinalized behavior as above; caller re-checks its
-// own predicate. Read-only, allocation-free.
+// `short_name`. Same finalized/unfinalized behavior as above (issue 92: the tail is
+// the live chain of the receiver-less funcs named `short_name`, which every caller's
+// predicate implies); caller re-checks its own predicate. Read-only, allocation-free.
 typedef struct {
     const PDXETypeRegistry *reg;
     uint64_t hash;
@@ -293,6 +372,7 @@ typedef struct {
     bool chain;
     const char *key;
     const PDXETypeRegistry *shadow;
+    int live_idx; /* issue 92: the next entry of a live chain to yield, -1 when none */
 } PDXEFreeFuncIter;
 
 void pdxe_registry_free_funcs_by_short_name(const PDXETypeRegistry *reg, const char *short_name,
@@ -314,6 +394,7 @@ typedef struct {
     int tail_end;
     bool chain;
     const PDXETypeRegistry *shadow;
+    int live_idx; /* issue 92: the next entry of a live chain to yield, -1 when none */
 } PDXEMethodIter;
 void pdxe_registry_methods(const PDXETypeRegistry *reg, const char *receiver_qn,
                           const char *method_name, PDXEMethodIter *out);

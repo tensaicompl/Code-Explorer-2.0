@@ -28,6 +28,8 @@
 
 #include "ts_lsp.h"
 #include "../helpers.h"
+#include "../lookup_counts.h"
+#include "lost_work.h" /* a refused allocation is counted where it is refused */
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1389,12 +1391,9 @@ static const PDXEScope *ts_scope_binding_owner(const PDXEScope *scope, const cha
         return NULL;
     }
     for (const PDXEScope *s = scope; s; s = s->parent) {
-        for (const PDXEScopeChunk *chunk = s->chunks; chunk; chunk = chunk->next) {
-            for (int i = 0; i < chunk->used; i++) {
-                if (chunk->bindings[i].name && strcmp(chunk->bindings[i].name, name) == 0) {
-                    return s;
-                }
-            }
+        /* Issue 92: the frame's own index, never a scan of every binding. */
+        if (pdxe_scope_frame_find(s, name)) {
+            return s;
         }
     }
     return NULL;
@@ -1428,6 +1427,134 @@ static const PDXERegisteredFunc *ts_exact_same_module_function(TSLSPContext *ctx
     return full_qn ? pdxe_registry_lookup_func(ctx->registry, full_qn) : NULL;
 }
 
+/* Issue 92: the imports with a local name, in the order they were added, from the
+ * context's index (see TSLSPContext) -- each lookup by name scanned every import, per
+ * identifier and call, which made a file of many imports quadratic. Test builds scan
+ * for reference (PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE). */
+static uint64_t ts_name_hash(const char *s) {
+    uint64_t h = 1469598103934665603ULL;
+    for (; *s; s++) {
+        h = (h ^ (unsigned char)*s) * 1099511628211ULL;
+    }
+    return h;
+}
+
+static int ts_import_slot(const TSLSPContext *ctx, const char *name) {
+    int mask = ctx->import_slot_cap - 1;
+    for (int at = (int)(ts_name_hash(name) & (uint64_t)mask);; at = (at + 1) & mask) {
+        int i = ctx->import_slot_head[at];
+        if (i < 0 || strcmp(ctx->import_local_names[i], name) == 0) {
+            return at;
+        }
+    }
+}
+
+static void ts_import_chain(TSLSPContext *ctx, int i) {
+    ctx->import_next[i] = -1;
+    const char *name = ctx->import_local_names[i];
+    if (!name) {
+        return;
+    }
+    int at = ts_import_slot(ctx, name);
+    if (ctx->import_slot_head[at] < 0) {
+        ctx->import_slot_head[at] = i;
+    } else {
+        ctx->import_next[ctx->import_slot_tail[at]] = i;
+    }
+    ctx->import_slot_tail[at] = i;
+}
+
+/* Indexes import i, the last added. */
+static void ts_import_index_add(TSLSPContext *ctx, int i) {
+    if (ctx->import_index_failed) {
+        return;
+    }
+    if ((i >= ctx->import_next_cap || 2 * (i + 1) > ctx->import_slot_cap) &&
+        PDXE_LOOKUP_INDEX_REFUSED("resolver")) {
+        ctx->import_index_failed = true;
+        return;
+    }
+    if (i >= ctx->import_next_cap) {
+        int cap = ctx->import_next_cap ? ctx->import_next_cap * 2 : 16;
+        while (cap <= i) {
+            cap *= 2;
+        }
+        int *next = (int *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(int));
+        if (!next) {
+            ctx->import_index_failed = true;
+            return;
+        }
+        if (ctx->import_next_cap > 0) {
+            memcpy(next, ctx->import_next, (size_t)ctx->import_next_cap * sizeof(int));
+        }
+        ctx->import_next = next;
+        ctx->import_next_cap = cap;
+    }
+    if (2 * (i + 1) > ctx->import_slot_cap) {
+        int cap = ctx->import_slot_cap ? ctx->import_slot_cap * 2 : 32;
+        while (cap < 2 * (i + 1)) {
+            cap *= 2;
+        }
+        int *head = (int *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(int));
+        int *tail = (int *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(int));
+        if (!head || !tail) {
+            ctx->import_index_failed = true;
+            return;
+        }
+        for (int at = 0; at < cap; at++) {
+            head[at] = -1;
+        }
+        ctx->import_slot_head = head;
+        ctx->import_slot_tail = tail;
+        ctx->import_slot_cap = cap;
+        for (int j = 0; j < i; j++) { /* placed again, in order */
+            ts_import_chain(ctx, j);
+        }
+    }
+    ts_import_chain(ctx, i);
+}
+
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+static int ts_import_scan_from(const TSLSPContext *ctx, const char *name, int from) {
+    for (int i = from; i < ctx->import_count; i++) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ITEMS);
+        const char *local = ctx->import_local_names ? ctx->import_local_names[i] : NULL;
+        if (local && strcmp(local, name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+#endif
+
+/* The first import with local name `name`, -1 when none. */
+static int ts_import_first(const TSLSPContext *ctx, const char *name) {
+    if (!ctx || !name) {
+        return -1;
+    }
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (ctx->registry && ctx->registry->reference_scan) {
+        return ts_import_scan_from(ctx, name, 0);
+    }
+#endif
+    if (ctx->import_index_failed || ctx->import_slot_cap == 0) {
+        return -1;
+    }
+    PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ITEMS);
+    return ctx->import_slot_head[ts_import_slot(ctx, name)];
+}
+
+/* The import after import i with its local name, -1 when none. */
+static int ts_import_next(const TSLSPContext *ctx, int i) {
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (ctx->registry && ctx->registry->reference_scan) {
+        return ts_import_scan_from(ctx, ctx->import_local_names[i], i + 1);
+    }
+#endif
+    PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ITEMS);
+    return ctx->import_next[i];
+}
+
 /* Return a function only when the local import binding maps to one unambiguous
  * module and that module contains the exact local-name QN. Aliases whose export
  * name is unavailable in PDXEImport deliberately fail closed and remain USAGE. */
@@ -1436,7 +1563,7 @@ static const PDXERegisteredFunc *ts_exact_imported_function(TSLSPContext *ctx, c
         return NULL;
     }
     const char *matched_module = NULL;
-    for (int i = 0; i < ctx->import_count; i++) {
+    for (int i = ts_import_first(ctx, name); i >= 0; i = ts_import_next(ctx, i)) {
         const char *local = ctx->import_local_names ? ctx->import_local_names[i] : NULL;
         const char *module_qn = ctx->import_module_qns ? ctx->import_module_qns[i] : NULL;
         if (!local || !module_qn || strcmp(local, name) != 0) {
@@ -1454,6 +1581,88 @@ static const PDXERegisteredFunc *ts_exact_imported_function(TSLSPContext *ctx, c
     return full_qn ? pdxe_registry_lookup_func(ctx->registry, full_qn) : NULL;
 }
 
+/* Issue 92: the usages a lexical shadow may block -- value usages that may be call
+ * references, with a name and an enclosing function -- by their site's byte range.
+ * A shadow check scanned every usage of the file, per identifier argument, which made
+ * a function of many calls quadratic. Each site's chain is in ascending usage order, so
+ * its first match is the scan's. The usages do not change while the file is walked. */
+static bool ts_usage_blockable(const PDXEUsage *usage) {
+    return usage->kind == PDXE_USAGE_VALUE && usage->may_be_call_reference && usage->ref_name &&
+           usage->enclosing_func_qn;
+}
+
+static uint64_t ts_usage_site_hash(uint32_t start, uint32_t end) {
+    uint64_t h = ((uint64_t)start << 32) | end;
+    h ^= h >> 33;
+    h *= 0xff51afd7ed558ccdULL;
+    h ^= h >> 33;
+    h *= 0xc4ceb9fe1a85ec53ULL;
+    h ^= h >> 33;
+    return h;
+}
+
+/* The slot of the site (start, end): where its chain is, or the empty slot it takes. */
+static int ts_usage_site_slot(const TSLSPContext *ctx, uint32_t start, uint32_t end) {
+    int mask = ctx->usage_site_cap - 1;
+    for (int at = (int)(ts_usage_site_hash(start, end) & (uint64_t)mask);; at = (at + 1) & mask) {
+        int u = ctx->usage_site_slots[at];
+        if (u < 0 || (ctx->usages->items[u].site_start_byte == start &&
+                      ctx->usages->items[u].site_end_byte == end)) {
+            return at;
+        }
+    }
+}
+
+/* Builds the file's index once; false when it could not be allocated (the memory core
+ * counts that as lost work), and then no usage is blocked. */
+static bool ts_usage_sites(TSLSPContext *ctx) {
+    if (ctx->usage_sites_built) {
+        return ctx->usage_site_cap > 0;
+    }
+    ctx->usage_sites_built = true;
+    if (PDXE_LOOKUP_INDEX_REFUSED("resolver")) {
+        return false;
+    }
+    const PDXEUsageArray *usages = ctx->usages;
+    int count = usages->count;
+    int cap = 16;
+    while (cap < 2 * count && cap < (1 << 30)) {
+        cap *= 2;
+    }
+    if (cap < 2 * count) {
+        pdxe_lost_allocation(); /* refused: more usages than the slots can hold */
+        return false;
+    }
+    int *slots = (int *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(int));
+    int *next = (int *)pdxe_arena_alloc(ctx->arena, (size_t)(count > 0 ? count : 1) * sizeof(int));
+    if (!slots || !next) {
+        return false;
+    }
+    for (int i = 0; i < cap; i++) {
+        slots[i] = -1;
+    }
+    ctx->usage_site_slots = slots;
+    ctx->usage_site_next = next;
+    ctx->usage_site_cap = cap;
+    /* Prepending in descending order leaves every chain ascending. */
+    for (int i = count - 1; i >= 0; i--) {
+        const PDXEUsage *usage = &usages->items[i];
+        next[i] = -1;
+        if (!ts_usage_blockable(usage)) {
+            continue;
+        }
+        int at = ts_usage_site_slot(ctx, usage->site_start_byte, usage->site_end_byte);
+        next[i] = slots[at];
+        slots[at] = i;
+    }
+    return true;
+}
+
+static void ts_block_usage(PDXEUsage *usage, const PDXEScope *binding_scope) {
+    usage->semantic_reference_blocked = true;
+    usage->semantic_reference_local_shadow = binding_scope->parent != NULL;
+}
+
 static void ts_block_shadowed_reference_usage(TSLSPContext *ctx, const char *name, TSNode site) {
     if (!ctx || !ctx->usages || !name || !ctx->enclosing_func_qn || ts_node_is_null(site)) {
         return;
@@ -1464,14 +1673,32 @@ static void ts_block_shadowed_reference_usage(TSLSPContext *ctx, const char *nam
     }
     uint32_t start = ts_node_start_byte(site);
     uint32_t end = ts_node_end_byte(site);
-    for (int i = 0; i < ctx->usages->count; i++) {
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (ctx->registry && ctx->registry->reference_scan) {
+        /* The reference: every usage of the file, as before issue 92. */
+        for (int i = 0; i < ctx->usages->count; i++) {
+            PDXEUsage *usage = &ctx->usages->items[i];
+            PDXE_LOOKUP_COUNT(PDXE_LC_TS_USAGES);
+            if (ts_usage_blockable(usage) && strcmp(usage->ref_name, name) == 0 &&
+                strcmp(usage->enclosing_func_qn, ctx->enclosing_func_qn) == 0 &&
+                usage->site_start_byte == start && usage->site_end_byte == end) {
+                ts_block_usage(usage, binding_scope);
+                return;
+            }
+        }
+        return;
+    }
+#endif
+    if (!ts_usage_sites(ctx)) {
+        return;
+    }
+    for (int i = ctx->usage_site_slots[ts_usage_site_slot(ctx, start, end)]; i >= 0;
+         i = ctx->usage_site_next[i]) {
         PDXEUsage *usage = &ctx->usages->items[i];
-        if (usage->kind == PDXE_USAGE_VALUE && usage->may_be_call_reference && usage->ref_name &&
-            usage->enclosing_func_qn && strcmp(usage->ref_name, name) == 0 &&
-            strcmp(usage->enclosing_func_qn, ctx->enclosing_func_qn) == 0 &&
-            usage->site_start_byte == start && usage->site_end_byte == end) {
-            usage->semantic_reference_blocked = true;
-            usage->semantic_reference_local_shadow = binding_scope->parent != NULL;
+        PDXE_LOOKUP_COUNT(PDXE_LC_TS_USAGES);
+        if (strcmp(usage->ref_name, name) == 0 &&
+            strcmp(usage->enclosing_func_qn, ctx->enclosing_func_qn) == 0) {
+            ts_block_usage(usage, binding_scope);
             return;
         }
     }
@@ -1490,7 +1717,7 @@ static const PDXEType *type_of_identifier(TSLSPContext *ctx, const char *name) {
     // and look it up in the registry. If it's a registered func, return its signature;
     // if it's a registered type, return NAMED. Falls back to NAMED(module_qn) for
     // namespace-style imports where no specific symbol matches.
-    for (int i = 0; i < ctx->import_count; i++) {
+    for (int i = ts_import_first(ctx, name); i >= 0; i = ts_import_next(ctx, i)) {
         const char *local = ctx->import_local_names ? ctx->import_local_names[i] : NULL;
         const char *mqn = ctx->import_module_qns ? ctx->import_module_qns[i] : NULL;
         if (!local || !mqn || strcmp(local, name) != 0)
@@ -1930,7 +2157,7 @@ static const char *ts_import_module_for_local(const TSLSPContext *ctx, const cha
     if (!ctx || !local_name)
         return NULL;
     const char *matched = NULL;
-    for (int i = 0; i < ctx->import_count; i++) {
+    for (int i = ts_import_first(ctx, local_name); i >= 0; i = ts_import_next(ctx, i)) {
         const char *local = ctx->import_local_names ? ctx->import_local_names[i] : NULL;
         const char *module_qn = ctx->import_module_qns ? ctx->import_module_qns[i] : NULL;
         if (!local || !module_qn || strcmp(local, local_name) != 0)
@@ -2406,7 +2633,7 @@ static const PDXEType *resolve_type_with_imports(TSLSPContext *ctx, const PDXETy
                 return pdxe_type_named(ctx->arena, local_qn);
         }
 
-        for (int i = 0; i < ctx->import_count; i++) {
+        for (int i = ts_import_first(ctx, bare); i >= 0; i = ts_import_next(ctx, i)) {
             const char *lname = ctx->import_local_names ? ctx->import_local_names[i] : NULL;
             const char *mqn = ctx->import_module_qns ? ctx->import_module_qns[i] : NULL;
             if (!lname || !mqn)
@@ -2875,7 +3102,7 @@ static void resolve_call_at(TSLSPContext *ctx, TSNode call_node) {
             }
         }
         // Imported default/named function.
-        for (int i = 0; i < ctx->import_count; i++) {
+        for (int i = ts_import_first(ctx, name); i >= 0; i = ts_import_next(ctx, i)) {
             const char *lname = ctx->import_local_names ? ctx->import_local_names[i] : NULL;
             const char *mqn = ctx->import_module_qns ? ctx->import_module_qns[i] : NULL;
             if (lname && mqn && strcmp(lname, name) == 0) {
@@ -3207,7 +3434,7 @@ static void resolve_jsx_element(TSLSPContext *ctx, TSNode element_node) {
         }
     }
     // Try imports.
-    for (int i = 0; i < ctx->import_count; i++) {
+    for (int i = ts_import_first(ctx, tag_name); i >= 0; i = ts_import_next(ctx, i)) {
         const char *lname = ctx->import_local_names ? ctx->import_local_names[i] : NULL;
         const char *mqn = ctx->import_module_qns ? ctx->import_module_qns[i] : NULL;
         if (lname && mqn && strcmp(lname, tag_name) == 0) {
@@ -3808,21 +4035,30 @@ void ts_lsp_add_import(TSLSPContext *ctx, const char *local_name, const char *mo
     if (!ctx || !ctx->arena || !local_name || !module_qn)
         return;
     int new_count = ctx->import_count + 1;
-    const char **names =
-        (const char **)pdxe_arena_alloc(ctx->arena, (size_t)new_count * sizeof(const char *));
-    const char **qns =
-        (const char **)pdxe_arena_alloc(ctx->arena, (size_t)new_count * sizeof(const char *));
-    if (!names || !qns)
-        return;
-    for (int i = 0; i < ctx->import_count; i++) {
-        names[i] = ctx->import_local_names ? ctx->import_local_names[i] : NULL;
-        qns[i] = ctx->import_module_qns ? ctx->import_module_qns[i] : NULL;
+    /* Grown by doubling (issue 92: copying every import on each add was quadratic in
+     * the imports, in time and in arena memory). */
+    if (new_count > ctx->import_cap) {
+        int cap = ctx->import_cap ? ctx->import_cap * 2 : 16;
+        if (cap < new_count)
+            cap = new_count;
+        const char **names =
+            (const char **)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(const char *));
+        const char **qns =
+            (const char **)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(const char *));
+        if (!names || !qns)
+            return;
+        for (int i = 0; i < ctx->import_count; i++) {
+            names[i] = ctx->import_local_names ? ctx->import_local_names[i] : NULL;
+            qns[i] = ctx->import_module_qns ? ctx->import_module_qns[i] : NULL;
+        }
+        ctx->import_local_names = names;
+        ctx->import_module_qns = qns;
+        ctx->import_cap = cap;
     }
-    names[ctx->import_count] = pdxe_arena_strdup(ctx->arena, local_name);
-    qns[ctx->import_count] = pdxe_arena_strdup(ctx->arena, module_qn);
-    ctx->import_local_names = names;
-    ctx->import_module_qns = qns;
+    ctx->import_local_names[ctx->import_count] = pdxe_arena_strdup(ctx->arena, local_name);
+    ctx->import_module_qns[ctx->import_count] = pdxe_arena_strdup(ctx->arena, module_qn);
     ctx->import_count = new_count;
+    ts_import_index_add(ctx, new_count - 1);
 }
 
 // ── Stdlib seeds (Phase 5 will replace with generator) ────────────────────────
@@ -4601,13 +4837,12 @@ static void register_file_defs(PDXEArena *arena, PDXETypeRegistry *reg, PDXEFile
         if (!rt->qualified_name)
             continue;
 
-        // Count methods first.
+        // Count methods first: the funcs with this receiver, in registration order,
+        // from the registry's index (issue 92), never a scan of every func per type.
         int mcount = 0;
-        for (int fi = 0; fi < reg->func_count; fi++) {
-            const PDXERegisteredFunc *f = &reg->funcs[fi];
-            if (f->receiver_type && strcmp(f->receiver_type, rt->qualified_name) == 0) {
-                mcount++;
-            }
+        for (int fi = pdxe_registry_func_first_by_receiver(reg, rt->qualified_name); fi >= 0;
+             fi = pdxe_registry_func_next_by_receiver(reg, fi)) {
+            mcount++;
         }
         if (mcount == 0)
             continue;
@@ -4619,13 +4854,12 @@ static void register_file_defs(PDXEArena *arena, PDXETypeRegistry *reg, PDXEFile
         if (!mnames || !mqns)
             continue;
         int idx = 0;
-        for (int fi = 0; fi < reg->func_count && idx < mcount; fi++) {
+        for (int fi = pdxe_registry_func_first_by_receiver(reg, rt->qualified_name);
+             fi >= 0 && idx < mcount; fi = pdxe_registry_func_next_by_receiver(reg, fi)) {
             const PDXERegisteredFunc *f = &reg->funcs[fi];
-            if (f->receiver_type && strcmp(f->receiver_type, rt->qualified_name) == 0) {
-                mnames[idx] = f->short_name;
-                mqns[idx] = f->qualified_name;
-                idx++;
-            }
+            mnames[idx] = f->short_name;
+            mqns[idx] = f->qualified_name;
+            idx++;
         }
         mnames[mcount] = NULL;
         mqns[mcount] = NULL;
@@ -4822,7 +5056,9 @@ static void rebuild_signatures_from_ast(TSLSPContext *ctx, TSNode root, PDXEType
         // Build new signature and patch in registry.
         const PDXEType *rets[2] = {ret, NULL};
         const PDXEType *new_sig = pdxe_type_func(ctx->arena, p_names, p_types, rets);
-        for (int fi = 0; fi < reg->func_count; fi++) {
+        /* Issue 92: the funcs named fqn, in registration order, from the index. */
+        for (int fi = pdxe_registry_func_first_by_qn(reg, fqn); fi >= 0;
+             fi = pdxe_registry_func_next_by_qn(reg, fi)) {
             if (!reg->funcs[fi].qualified_name)
                 continue;
             if (strcmp(reg->funcs[fi].qualified_name, fqn) != 0)
@@ -4951,7 +5187,9 @@ static void convert_signature_type_params(TSLSPContext *ctx, TSNode root, PDXETy
         }
 
         // Patch the registered func's signature: rewrite NAMED → TYPE_PARAM.
-        for (int fi = 0; fi < reg->func_count; fi++) {
+        /* Issue 92: the funcs named fqn, in registration order, from the index. */
+        for (int fi = pdxe_registry_func_first_by_qn(reg, fqn); fi >= 0;
+             fi = pdxe_registry_func_next_by_qn(reg, fi)) {
             if (!reg->funcs[fi].qualified_name)
                 continue;
             if (strcmp(reg->funcs[fi].qualified_name, fqn) != 0)
@@ -5120,7 +5358,9 @@ static void apply_jsdoc_signatures(TSLSPContext *ctx, TSNode root, PDXETypeRegis
             continue;
         const char *fqn = pdxe_arena_sprintf(ctx->arena, "%s.%s", ctx->module_qn, fname);
 
-        for (int fi = 0; fi < reg->func_count; fi++) {
+        /* Issue 92: the funcs named fqn, in registration order, from the index. */
+        for (int fi = pdxe_registry_func_first_by_qn(reg, fqn); fi >= 0;
+             fi = pdxe_registry_func_next_by_qn(reg, fi)) {
             if (!reg->funcs[fi].qualified_name)
                 continue;
             if (strcmp(reg->funcs[fi].qualified_name, fqn) != 0)
@@ -5222,7 +5462,9 @@ static void infer_implicit_returns(TSLSPContext *ctx, TSNode root, PDXETypeRegis
         const PDXEType *new_sig = pdxe_type_func(ctx->arena, param_names, param_types, rets);
 
         // Patch the registered func in place.
-        for (int fi = 0; fi < reg->func_count; fi++) {
+        /* Issue 92: the funcs named fqn, in registration order, from the index. */
+        for (int fi = pdxe_registry_func_first_by_qn(reg, fqn); fi >= 0;
+             fi = pdxe_registry_func_next_by_qn(reg, fi)) {
             if (reg->funcs[fi].qualified_name == fqn ||
                 (reg->funcs[fi].qualified_name &&
                  strcmp(reg->funcs[fi].qualified_name, fqn) == 0)) {
@@ -5357,15 +5599,13 @@ static void ast_sweep_shapes(TSLSPContext *ctx, TSNode root, PDXETypeRegistry *r
                 }
             }
             // Find or insert.
+            /* Issue 92: the first type with the name, from the registry's index. */
             bool found = false;
-            for (int ti = 0; ti < reg->type_count; ti++) {
-                if (reg->types[ti].qualified_name &&
-                    strcmp(reg->types[ti].qualified_name, qn) == 0) {
-                    if (alias_qn)
-                        reg->types[ti].alias_of = alias_qn;
-                    found = true;
-                    break;
-                }
+            int ti = pdxe_registry_type_first_by_qn(reg, qn);
+            if (ti >= 0) {
+                if (alias_qn)
+                    reg->types[ti].alias_of = alias_qn;
+                found = true;
             }
             if (!found) {
                 PDXERegisteredType rt;
@@ -5391,15 +5631,10 @@ static void ast_sweep_shapes(TSLSPContext *ctx, TSNode root, PDXETypeRegistry *r
             continue;
         const char *class_qn = pdxe_arena_sprintf(ctx->arena, "%s.%s", ctx->module_qn, cname);
 
-        // Find the registered type and augment with fields.
-        PDXERegisteredType *rt = NULL;
-        for (int ti = 0; ti < reg->type_count; ti++) {
-            if (reg->types[ti].qualified_name &&
-                strcmp(reg->types[ti].qualified_name, class_qn) == 0) {
-                rt = &reg->types[ti];
-                break;
-            }
-        }
+        // Find the registered type and augment with fields: the first with the
+        // name, from the registry's index (issue 92).
+        int rt_index = pdxe_registry_type_first_by_qn(reg, class_qn);
+        PDXERegisteredType *rt = rt_index >= 0 ? &reg->types[rt_index] : NULL;
         if (!rt)
             continue;
 

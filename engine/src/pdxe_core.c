@@ -27,6 +27,7 @@
 #include "tree_sitter/api.h" // TSParser, TSNode, TSTree, TSInput, TSLanguage, TSPoint, TSParseOptions, TSParseState
 #include "foundation/constants.h"
 #include "lost_work.h" // pdxe_lost_work -- a declaration occurrence two definitions share
+#include "lookup_counts.h" // issue 92: test builds count lookup work
 #include "mimalloc.h" // mi_malloc/mi_calloc/mi_realloc/mi_free/mi_usable_size — bind 3rd-party allocators (#424)
 #if defined(PDXE_BIND_TS_ALLOCATOR) && PDXE_BIND_TS_ALLOCATOR
 #include "sqlite3.h" // sqlite3_mem_methods, sqlite3_config, SQLITE_CONFIG_MALLOC — bind sqlite to mimalloc
@@ -36,6 +37,32 @@
 #include <string.h>
 #include <ctype.h>
 #include <time.h> // struct timespec, CLOCK_MONOTONIC
+
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+/* Issue 92: this thread's lookup work counts (lookup_counts.h). */
+_Thread_local uint64_t pdxe_lookup_counts[PDXE_LC_COUNT];
+
+void pdxe_lookup_counts_reset(void) {
+    for (int k = 0; k < PDXE_LC_COUNT; k++) {
+        pdxe_lookup_counts[k] = 0;
+    }
+}
+
+void pdxe_lookup_counts_read(uint64_t out[PDXE_LC_COUNT]) {
+    for (int k = 0; k < PDXE_LC_COUNT; k++) {
+        out[k] = pdxe_lookup_counts[k];
+    }
+}
+
+bool pdxe_lookup_index_refused(const char *family) {
+    const char *refuse = getenv("PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES");
+    if (!refuse || !refuse[0] || (strcmp(refuse, "all") != 0 && strcmp(refuse, family) != 0)) {
+        return false;
+    }
+    pdxe_lost_allocation(); /* refused as a failed allocation is */
+    return true;
+}
+#endif
 
 // Atomic counters for profiling parse vs extraction time (nanoseconds).
 // Accessed from multiple threads; using _Atomic for safe accumulation.
@@ -1051,6 +1078,160 @@ static int count_params_from_signature(const char *sig, size_t len) {
         }
     }
     return commas + 1;
+}
+
+/* Issue 92: for each of the first `n_calls` calls, the innermost Function or Method
+ * definition whose line range holds the call's line: the smallest span, the lowest
+ * index among equal spans, -1 for none or for a call without a name or a line. That is
+ * what scanning every definition for each call found; this sweeps the lines once with
+ * the definitions started so far in a heap ordered by (span, index), so a file of many
+ * definitions and calls costs O((D + C) log D), not O(D x C). NULL when it cannot be
+ * allocated (the failure is counted as lost work): the metrics are then not computed.
+ * Test builds scan, as before, with PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE set. */
+typedef struct {
+    int key;   /* a definition's first line, or a call's line */
+    int index; /* its index: ties keep index order */
+} innermost_item;
+
+typedef struct {
+    int span;
+    int index;
+} innermost_entry;
+
+static int cmp_innermost_item(const void *a, const void *b) {
+    const innermost_item *x = (const innermost_item *)a;
+    const innermost_item *y = (const innermost_item *)b;
+    if (x->key != y->key) {
+        return x->key < y->key ? -1 : 1;
+    }
+    return x->index < y->index ? -1 : x->index > y->index ? 1 : 0;
+}
+
+static bool innermost_before(innermost_entry a, innermost_entry b) {
+    return a.span < b.span || (a.span == b.span && a.index < b.index);
+}
+
+static bool innermost_def(const PDXEDefinition *d) {
+    return d->name && d->label &&
+           (strcmp(d->label, "Function") == 0 || strcmp(d->label, "Method") == 0);
+}
+
+static int *pdxe_innermost_enclosing_defs(const PDXEFileResult *result, int n_calls) {
+    int def_count = result->defs.count;
+    int *out = (int *)pdxe_counted_malloc((size_t)(n_calls > 0 ? n_calls : 1) * sizeof(int));
+    if (!out) {
+        return NULL;
+    }
+    for (int ci = 0; ci < n_calls; ci++) {
+        out[ci] = -1;
+    }
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    if (reference && reference[0]) {
+        for (int ci = 0; ci < n_calls; ci++) {
+            const PDXECall *c = &result->calls.items[ci];
+            if (!c->callee_name || c->start_line <= 0) {
+                continue;
+            }
+            int best = -1;
+            int best_span = -1;
+            for (int di = 0; di < def_count; di++) {
+                const PDXEDefinition *d = &result->defs.items[di];
+                PDXE_LOOKUP_COUNT(PDXE_LC_DEF_ENTRIES);
+                if (!innermost_def(d)) {
+                    continue;
+                }
+                if ((int)d->start_line <= c->start_line && c->start_line <= (int)d->end_line) {
+                    int span = (int)d->end_line - (int)d->start_line;
+                    if (best < 0 || span < best_span) {
+                        best_span = span;
+                        best = di;
+                    }
+                }
+            }
+            out[ci] = best;
+        }
+        return out;
+    }
+#endif
+    if (PDXE_LOOKUP_INDEX_REFUSED("resolver")) {
+        free(out);
+        return NULL;
+    }
+    size_t nd_cap = (size_t)(def_count > 0 ? def_count : 1);
+    size_t nc_cap = (size_t)(n_calls > 0 ? n_calls : 1);
+    innermost_item *defs = (innermost_item *)pdxe_counted_malloc(nd_cap * sizeof(innermost_item));
+    innermost_item *calls = (innermost_item *)pdxe_counted_malloc(nc_cap * sizeof(innermost_item));
+    innermost_entry *heap = (innermost_entry *)pdxe_counted_malloc(nd_cap * sizeof(innermost_entry));
+    if (!defs || !calls || !heap) {
+        free(defs);
+        free(calls);
+        free(heap);
+        free(out);
+        return NULL;
+    }
+    int nd = 0;
+    for (int di = 0; di < def_count; di++) {
+        const PDXEDefinition *d = &result->defs.items[di];
+        if (innermost_def(d)) {
+            defs[nd++] = (innermost_item){(int)d->start_line, di};
+        }
+    }
+    int nc = 0;
+    for (int ci = 0; ci < n_calls; ci++) {
+        const PDXECall *c = &result->calls.items[ci];
+        if (c->callee_name && c->start_line > 0) {
+            calls[nc++] = (innermost_item){c->start_line, ci};
+        }
+    }
+    qsort(defs, (size_t)nd, sizeof(innermost_item), cmp_innermost_item);
+    qsort(calls, (size_t)nc, sizeof(innermost_item), cmp_innermost_item);
+    /* Sweep the lines: definitions that have started enter the heap; ones that have
+     * ended leave it when they reach its top, which is then the innermost. */
+    int nh = 0;
+    int next_def = 0;
+    for (int k = 0; k < nc; k++) {
+        int line = calls[k].key;
+        while (next_def < nd && defs[next_def].key <= line) {
+            const PDXEDefinition *d = &result->defs.items[defs[next_def].index];
+            innermost_entry e = {(int)d->end_line - (int)d->start_line, defs[next_def].index};
+            int at = nh++;
+            while (at > 0 && innermost_before(e, heap[(at - 1) / 2])) {
+                heap[at] = heap[(at - 1) / 2];
+                at = (at - 1) / 2;
+            }
+            heap[at] = e;
+            next_def++;
+            PDXE_LOOKUP_COUNT(PDXE_LC_DEF_ENTRIES);
+        }
+        while (nh > 0 && (int)result->defs.items[heap[0].index].end_line < line) {
+            innermost_entry last = heap[--nh];
+            int at = 0;
+            for (;;) {
+                int child = 2 * at + 1;
+                if (child >= nh) {
+                    break;
+                }
+                if (child + 1 < nh && innermost_before(heap[child + 1], heap[child])) {
+                    child++;
+                }
+                if (!innermost_before(heap[child], last)) {
+                    break;
+                }
+                heap[at] = heap[child];
+                at = child;
+            }
+            if (nh > 0) {
+                heap[at] = last;
+            }
+            PDXE_LOOKUP_COUNT(PDXE_LC_DEF_ENTRIES);
+        }
+        out[calls[k].index] = nh > 0 ? heap[0].index : -1;
+    }
+    free(defs);
+    free(calls);
+    free(heap);
+    return out;
 }
 
 // --- Main extraction function ---
@@ -3448,28 +3629,16 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
         d->param_count = pc;
     }
 
+    /* Issue 92: each call's innermost enclosing Function/Method, for every call at
+     * once, instead of scanning every definition for every call. */
+    int *innermost = pdxe_innermost_enclosing_defs(result, orig_calls_count);
     for (int ci = 0; ci < orig_calls_count; ci++) {
         const PDXECall *c = &result->calls.items[ci];
         if (!c->callee_name || c->start_line <= 0) {
             continue;
         }
         // Innermost enclosing Function/Method def by line range (smallest span).
-        int best = -1;
-        int best_span = -1;
-        for (int di = 0; di < def_count; di++) {
-            const PDXEDefinition *d = &result->defs.items[di];
-            if (!d->name || !d->label ||
-                (strcmp(d->label, "Function") != 0 && strcmp(d->label, "Method") != 0)) {
-                continue;
-            }
-            if ((int)d->start_line <= c->start_line && c->start_line <= (int)d->end_line) {
-                int span = (int)d->end_line - (int)d->start_line;
-                if (best < 0 || span < best_span) {
-                    best_span = span;
-                    best = di;
-                }
-            }
-        }
+        int best = innermost ? innermost[ci] : -1;
         if (best < 0) {
             continue;
         }
@@ -3514,6 +3683,7 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
     }
     free(has_self);
     free(has_guarded);
+    free(innermost);
 
     uint64_t t2 = now_ns();
 

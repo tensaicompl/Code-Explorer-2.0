@@ -53,9 +53,12 @@ void go_lsp_init(GoLSPContext *ctx, PDXEArena *arena, const char *source, int so
 }
 
 void go_lsp_add_import(GoLSPContext *ctx, const char *local_name, const char *pkg_qn) {
-    // Store in parallel arrays (arena-allocated, grow by doubling)
-    if (ctx->import_count % 32 == 0) {
-        int new_cap = ctx->import_count + 32;
+    // Store in parallel arrays (arena-allocated, grow by doubling: issue 92 -- growing
+    // by 32 entries copied them O(imports^2) times over)
+    if (ctx->import_count >= ctx->import_cap) {
+        int new_cap = ctx->import_cap ? ctx->import_cap * 2 : 32;
+        if (new_cap <= ctx->import_count)
+            new_cap = ctx->import_count + 32;
         const char **new_names =
             (const char **)pdxe_arena_alloc(ctx->arena, (new_cap + 1) * sizeof(const char *));
         const char **new_qns =
@@ -68,10 +71,13 @@ void go_lsp_add_import(GoLSPContext *ctx, const char *local_name, const char *pk
         }
         ctx->import_local_names = new_names;
         ctx->import_package_qns = new_qns;
+        ctx->import_cap = new_cap;
     }
     ctx->import_local_names[ctx->import_count] = pdxe_arena_strdup(ctx->arena, local_name);
     ctx->import_package_qns[ctx->import_count] = pdxe_arena_strdup(ctx->arena, pkg_qn);
     ctx->import_count++;
+    ctx->import_local_names[ctx->import_count] = NULL;
+    ctx->import_package_qns[ctx->import_count] = NULL;
 }
 
 // --- Helper: get node text ---
@@ -2433,7 +2439,9 @@ void pdxe_run_go_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sourc
                             const char *alias_target_qn =
                                 pdxe_arena_sprintf(arena, "%s.%s", module_qn, atarget);
                             bool found_a = false;
-                            for (int ti = 0; ti < reg.type_count; ti++) {
+                            /* Issue 92: the first type named alias_type_qn, from the index. */
+                            for (int ti = pdxe_registry_type_first_by_qn(&reg, alias_type_qn);
+                                 ti >= 0; ti = pdxe_registry_type_next_by_qn(&reg, ti)) {
                                 if (reg.types[ti].qualified_name &&
                                     strcmp(reg.types[ti].qualified_name, alias_type_qn) == 0) {
                                     reg.types[ti].alias_of = alias_target_qn;
@@ -2489,7 +2497,9 @@ void pdxe_run_go_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sourc
                         }
                     }
                     if (iface_method_count > 0) {
-                        for (int ti = 0; ti < reg.type_count; ti++) {
+                        /* Issue 92: the first type named type_qn, from the index. */
+                        for (int ti = pdxe_registry_type_first_by_qn(&reg, type_qn); ti >= 0;
+                             ti = pdxe_registry_type_next_by_qn(&reg, ti)) {
                             if (!reg.types[ti].qualified_name ||
                                 strcmp(reg.types[ti].qualified_name, type_qn) != 0)
                                 continue;
@@ -2571,7 +2581,9 @@ void pdxe_run_go_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sourc
                 }
 
                 // Find the registered type and update it
-                for (int ti = 0; ti < reg.type_count; ti++) {
+                /* Issue 92: the first type named type_qn, from the index. */
+                for (int ti = pdxe_registry_type_first_by_qn(&reg, type_qn); ti >= 0;
+                     ti = pdxe_registry_type_next_by_qn(&reg, ti)) {
                     if (!reg.types[ti].qualified_name ||
                         strcmp(reg.types[ti].qualified_name, type_qn) != 0)
                         continue;
@@ -2760,7 +2772,9 @@ static void parse_field_defs_into_type(PDXEArena *arena, PDXETypeRegistry *reg, 
     const PDXEType **types = NULL;
     if (parse_field_defs(arena, field_defs, def_module_qn, &names, &types)) {
         // Find the registered type and update field info
-        for (int ti = 0; ti < reg->type_count; ti++) {
+        /* Issue 92: the first type named type_qn, from the index. */
+        for (int ti = pdxe_registry_type_first_by_qn(reg, type_qn); ti >= 0;
+             ti = pdxe_registry_type_next_by_qn(reg, ti)) {
             if (reg->types[ti].qualified_name &&
                 strcmp(reg->types[ti].qualified_name, type_qn) == 0) {
                 reg->types[ti].field_names = names;
@@ -3065,7 +3079,9 @@ static void extract_type_params_from_ast(PDXEArena *arena, PDXETypeRegistry *reg
 
         // Find the matching registered function and set type_param_names
         const char *func_qn = pdxe_arena_sprintf(arena, "%s.%s", module_qn, func_name);
-        for (int fi = 0; fi < reg->func_count; fi++) {
+        /* Issue 92: the first func named func_qn, from the index. */
+        for (int fi = pdxe_registry_func_first_by_qn(reg, func_qn); fi >= 0;
+             fi = pdxe_registry_func_next_by_qn(reg, fi)) {
             if (reg->funcs[fi].qualified_name &&
                 strcmp(reg->funcs[fi].qualified_name, func_qn) == 0) {
                 reg->funcs[fi].type_param_names = tp_names;
@@ -3335,7 +3351,9 @@ void pdxe_run_go_lsp_cross(PDXEArena *arena, const char *source, int source_len,
                             const char *alias_target_qn =
                                 pdxe_arena_sprintf(arena, "%s.%s", module_qn, atarget);
                             bool found_a = false;
-                            for (int ti = 0; ti < reg.type_count; ti++) {
+                            /* Issue 92: the first type named alias_type_qn, from the index. */
+                            for (int ti = pdxe_registry_type_first_by_qn(&reg, alias_type_qn);
+                                 ti >= 0; ti = pdxe_registry_type_next_by_qn(&reg, ti)) {
                                 if (reg.types[ti].qualified_name &&
                                     strcmp(reg.types[ti].qualified_name, alias_type_qn) == 0) {
                                     reg.types[ti].alias_of = alias_target_qn;
@@ -3427,7 +3445,9 @@ void pdxe_run_go_lsp_cross(PDXEArena *arena, const char *source, int source_len,
                     }
                 }
 
-                for (int ti = 0; ti < reg.type_count; ti++) {
+                /* Issue 92: the first type named type_qn, from the index. */
+                for (int ti = pdxe_registry_type_first_by_qn(&reg, type_qn); ti >= 0;
+                     ti = pdxe_registry_type_next_by_qn(&reg, ti)) {
                     if (!reg.types[ti].qualified_name ||
                         strcmp(reg.types[ti].qualified_name, type_qn) != 0)
                         continue;
@@ -3515,27 +3535,11 @@ PDXETypeRegistry *pdxe_go_build_cross_registry(PDXEArena *arena, PDXELSPDef *def
     pdxe_registry_init(reg, arena);
     pdxe_go_stdlib_register(reg, arena);
 
-    /* Qualified name -> FIRST type index while the registry is built: it is
-     * not finalized until the end, so its own lookup scans every type, and the
-     * receiver check below plus the field-definition lookup made the build
-     * O(types x (methods + structs)) -- 4.4 s single-threaded on the Go corpus,
-     * the scaling lane's parse_field_defs_into_type x2.9 (waste sanitizer,
-     * 2026-09-17). First-match semantics are kept exactly: a receiver's
-     * placeholder type added before its struct still receives the fields.
-     * NULL on allocation failure: the linear paths below run as before. */
-    PDXEHashTable *first_type = pdxe_ht_create((uint32_t)(def_count / 4 + 1024));
-    int noted_types = 0;
-#define GO_NOTE_NEW_TYPES()                                                        \
-    do {                                                                           \
-        for (; first_type && noted_types < reg->type_count; noted_types++) {       \
-            const char *tqn = reg->types[noted_types].qualified_name;              \
-            if (tqn && !pdxe_ht_has(first_type, tqn)) {                             \
-                pdxe_ht_set(first_type, tqn, (void *)(uintptr_t)(noted_types + 1)); \
-            }                                                                      \
-        }                                                                          \
-    } while (0)
-    GO_NOTE_NEW_TYPES();
-
+    /* The registry is not finalized until the end, so the receiver check and the
+     * field-definition lookup below read its live qualified-name index (issue 92):
+     * the FIRST type of a name, so a receiver's placeholder type added before its
+     * struct still receives the fields. It replaces a hash table that fell back to
+     * scanning every type when it could not be allocated. */
     for (int i = 0; i < def_count; i++) {
         PDXELSPDef *d = &defs[i];
         if (!d->qualified_name || !d->short_name || !d->label)
@@ -3561,20 +3565,8 @@ PDXETypeRegistry *pdxe_go_build_cross_registry(PDXEArena *arena, PDXELSPDef *def
                 rt.method_names = split_pipe_strings(arena, d->method_names_str);
             }
             pdxe_registry_add_type(reg, rt);
-            GO_NOTE_NEW_TYPES();
             if (d->field_defs && d->field_defs[0]) {
-                if (first_type) {
-                    const char **names = NULL;
-                    const PDXEType **types = NULL;
-                    uintptr_t at = (uintptr_t)pdxe_ht_get(first_type, rt.qualified_name);
-                    if (parse_field_defs(arena, d->field_defs, def_mod, &names, &types) && at) {
-                        reg->types[at - 1].field_names = names;
-                        reg->types[at - 1].field_types = types;
-                    }
-                } else {
-                    parse_field_defs_into_type(arena, reg, rt.qualified_name, d->field_defs,
-                                               def_mod);
-                }
+                parse_field_defs_into_type(arena, reg, rt.qualified_name, d->field_defs, def_mod);
             }
         }
 
@@ -3591,8 +3583,7 @@ PDXETypeRegistry *pdxe_go_build_cross_registry(PDXEArena *arena, PDXELSPDef *def
             rf.signature = pdxe_type_func(arena, NULL, param_types, ret_types);
             if (strcmp(d->label, "Method") == 0 && d->receiver_type && d->receiver_type[0]) {
                 rf.receiver_type = d->receiver_type;
-                bool known = first_type ? pdxe_ht_has(first_type, rf.receiver_type)
-                                        : pdxe_registry_lookup_type(reg, rf.receiver_type) != NULL;
+                bool known = pdxe_registry_type_first_by_qn(reg, rf.receiver_type) >= 0;
                 if (!known) {
                     PDXERegisteredType auto_type;
                     memset(&auto_type, 0, sizeof(auto_type));
@@ -3600,15 +3591,11 @@ PDXETypeRegistry *pdxe_go_build_cross_registry(PDXEArena *arena, PDXELSPDef *def
                     const char *dot = strrchr(d->receiver_type, '.');
                     auto_type.short_name = dot ? dot + 1 : rf.receiver_type;
                     pdxe_registry_add_type(reg, auto_type);
-                    GO_NOTE_NEW_TYPES();
                 }
             }
             pdxe_registry_add_func(reg, rf);
         }
     }
-#undef GO_NOTE_NEW_TYPES
-    pdxe_ht_free(first_type);
-
     pdxe_registry_finalize(reg);
     reg->read_only = true; /* seal: shared Tier-2 registry is read-only during resolve */
     return reg;

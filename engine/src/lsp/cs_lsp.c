@@ -1520,11 +1520,13 @@ static const char *cs_resolve_callable_name(CSLSPContext *ctx, const char *name)
 
     /* C# has no true namespace-level functions, but error-tolerant parses and
      * generated fixtures can register receiverless callables. Only accept a
-     * unique short-name match; ambiguity is intentionally not guessed. */
+     * unique short-name match; ambiguity is intentionally not guessed. The
+     * candidates are the receiverless funcs named `name`, from the free-function
+     * index (issue 92), not every registered func. */
     const PDXERegisteredFunc *only = NULL;
     PDXEFreeFuncIter all_funcs;
     if (ctx->registry) {
-        pdxe_registry_all_funcs_chain(ctx->registry, &all_funcs);
+        pdxe_registry_free_funcs_by_short_name_chain(ctx->registry, name, &all_funcs);
     }
     for (int i = -1; ctx->registry && (i = pdxe_free_func_iter_next(&all_funcs)) >= 0;) {
         const PDXERegisteredFunc *candidate = &all_funcs.reg->funcs[i];
@@ -2143,12 +2145,13 @@ static void cs_resolve_invocation(CSLSPContext *ctx, TSNode call) {
                 return;
             }
         }
-        /* Last resort: any free function with this short name in registry. */
+        /* Last resort: any free function with this short name in registry, from
+         * the free-function index (issue 92), in registration order. */
         const PDXERegisteredFunc *best = NULL;
         int best_score = -1;
         PDXEFreeFuncIter all_funcs;
         if (ctx->registry) {
-            pdxe_registry_all_funcs_chain(ctx->registry, &all_funcs);
+            pdxe_registry_free_funcs_by_short_name_chain(ctx->registry, bare, &all_funcs);
         }
         for (int i = -1; ctx->registry && (i = pdxe_free_func_iter_next(&all_funcs)) >= 0;) {
             const PDXERegisteredFunc *cand = &all_funcs.reg->funcs[i];

@@ -1729,6 +1729,75 @@ fn every_module_rule_variant() {
     );
 }
 
+#[test]
+fn name_provenance_keeps_every_definition_and_import_in_order() {
+    // Issue 92: read from the registry's indexes, the answers are the scans': every
+    // top-level definition of the name in index order (a nested one never), and every
+    // import that binds it once, in import order.
+    let checkout = Checkout::new(&[
+        ("pkg/__init__.py", ""),
+        ("pkg/util.py", "def helper():\n    pass\n"),
+        ("pkg/more.py", "def helper():\n    pass\n"),
+        (
+            "main.py",
+            "from pkg.util import helper\nfrom pkg.more import helper\n\n\
+             def run():\n    def run():\n        pass\n\n\
+             def run():\n    pass\n",
+        ),
+    ]);
+    let reg = checkout.registry();
+    let NameProvenance::Defined(defined) = reg.name_provenance("main.py", "run") else {
+        panic!("run is defined in main.py");
+    };
+    let top_level: Vec<DefinitionRef> = reg
+        .by_file("main.py")
+        .iter()
+        .filter(|r| {
+            reg.definition(r)
+                .is_some_and(|d| d.name == "run" && d.parent.is_none())
+        })
+        .cloned()
+        .collect();
+    assert_eq!(defined.len(), 2);
+    assert_eq!(defined, top_level);
+    let NameProvenance::InternalImport(imports) = reg.name_provenance("main.py", "helper") else {
+        panic!("helper is imported into main.py");
+    };
+    assert_eq!(
+        imports.iter().map(|i| i.index).collect::<Vec<_>>(),
+        [0, 1],
+        "each import once, in import order"
+    );
+}
+
+#[test]
+fn cpp_definitions_take_the_namespace_of_their_outermost_type() {
+    // Issue 92: the outermost type enclosing a definition is found by its qualified
+    // name's prefixes, the shortest first and a repeated type's first definition, as
+    // the scan of every definition found it.
+    let checkout = Checkout::new(&[(
+        "c/nest.cpp",
+        "namespace x { struct Outer { struct Inner { void m() {} }; void n() {} }; }\n\
+         namespace x { struct Outer { void dup() {} }; }\n\
+         namespace y::z { struct T { struct U { void k() {} }; }; }\n\
+         void free_function() {}\n",
+    )]);
+    let reg = checkout.registry();
+    for (name, namespace) in [
+        ("m", "x"),
+        ("n", "x"),
+        ("dup", "x"),
+        ("k", "y::z"),
+        ("U", "y::z"),
+    ] {
+        assert_eq!(
+            reg.module_of_definition(&def(&reg, "c/nest.cpp", name)),
+            Some(&module("cpp", "", namespace)),
+            "{name}"
+        );
+    }
+}
+
 // --- what the registry reads, and refuses ---------------------------------------------
 
 #[test]

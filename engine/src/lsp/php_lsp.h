@@ -57,6 +57,9 @@ typedef struct {
 
     /* Debug mode (PDXE_LSP_DEBUG env). */
     bool debug;
+    /* Issue 92: the children of each parent a docblock search has visited, with
+     * each child's position (see fetch_leading_phpdoc); NULL until the first. */
+    struct PhpSiblingTable *siblings;
 } PHPLSPContext;
 
 /* Initialize a PHPLSPContext for processing one file. */

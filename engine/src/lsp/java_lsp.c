@@ -3240,15 +3240,9 @@ static void register_local_func_or_type_from_file(JavaLSPContext *ctx, PDXETypeR
                                              do the in-place update directly. */
         (void)rt;
         /* Locate the actual entry in reg->types[] and write into it. */
-        PDXERegisteredType *slot = NULL;
-        for (int ti = 0; ti < reg->type_count; ti++) {
-            if (reg->types[ti].qualified_name == d->qualified_name ||
-                (reg->types[ti].qualified_name &&
-                 strcmp(reg->types[ti].qualified_name, d->qualified_name) == 0)) {
-                slot = &reg->types[ti];
-                break;
-            }
-        }
+        /* Issue 92: the first entry with the name, from the registry's index. */
+        int slot_index = pdxe_registry_type_first_by_qn(reg, d->qualified_name);
+        PDXERegisteredType *slot = slot_index >= 0 ? &reg->types[slot_index] : NULL;
         if (!slot)
             continue;
         if (d->base_classes) {
@@ -3465,10 +3459,10 @@ static void patch_one_method(JavaLSPContext *ctx, PDXETypeRegistry *reg, TSNode 
      * first QN match keeps the legacy no-signature path best-effort. */
     PDXERegisteredFunc *slot = NULL;
     PDXERegisteredFunc *first_qn_match = NULL;
-    for (int fi = 0; fi < reg->func_count; fi++) {
+    /* Issue 92: the funcs with the name, in registration order, from the index. */
+    for (int fi = pdxe_registry_func_first_by_qn(reg, method_qn); fi >= 0;
+         fi = pdxe_registry_func_next_by_qn(reg, fi)) {
         PDXERegisteredFunc *candidate = &reg->funcs[fi];
-        if (!candidate->qualified_name || strcmp(candidate->qualified_name, method_qn) != 0)
-            continue;
         if (!first_qn_match)
             first_qn_match = candidate;
         if (!candidate->signature || candidate->signature->kind != PDXE_TYPE_FUNC)
@@ -3564,17 +3558,19 @@ static void patch_method_signatures_from_ast(JavaLSPContext *ctx, PDXETypeRegist
 /* Append (field_name, field_type) to the registry slot for `class_qn`.
  * Used by populate_class_fields_from_ast so eval_field_access can resolve
  * `obj.field.method()` for arbitrary receivers, not just `this`. */
-static void append_field_to_class(PDXETypeRegistry *reg, PDXEArena *a, const char *class_qn,
-                                  const char *field_name, const PDXEType *ftype) {
-    PDXERegisteredType *slot = NULL;
-    for (int ti = 0; ti < reg->type_count; ti++) {
-        if (reg->types[ti].qualified_name && strcmp(reg->types[ti].qualified_name, class_qn) == 0) {
-            slot = &reg->types[ti];
-            break;
-        }
-    }
-    if (!slot)
+/* Appends one declaration's fields, in order, to the first registered type named
+ * class_qn. Issue 92: the type comes from the registry's qualified-name index, and the
+ * declaration's fields are appended at once -- appending them one by one copied the
+ * class's fields per field, and finding the class scanned every type per field. */
+static void append_fields_to_class(PDXETypeRegistry *reg, PDXEArena *a, const char *class_qn,
+                                   const char *const *field_names, const PDXEType *const *ftypes,
+                                   int count) {
+    if (count <= 0)
         return;
+    int ti = pdxe_registry_type_first_by_qn(reg, class_qn);
+    if (ti < 0)
+        return;
+    PDXERegisteredType *slot = &reg->types[ti];
 
     int existing = 0;
     if (slot->field_names) {
@@ -3582,19 +3578,21 @@ static void append_field_to_class(PDXETypeRegistry *reg, PDXEArena *a, const cha
             existing++;
     }
     const char **new_names =
-        (const char **)pdxe_arena_alloc(a, (size_t)(existing + 2) * sizeof(*new_names));
+        (const char **)pdxe_arena_alloc(a, (size_t)(existing + count + 1) * sizeof(*new_names));
     const PDXEType **new_types =
-        (const PDXEType **)pdxe_arena_alloc(a, (size_t)(existing + 2) * sizeof(*new_types));
+        (const PDXEType **)pdxe_arena_alloc(a, (size_t)(existing + count + 1) * sizeof(*new_types));
     if (!new_names || !new_types)
         return;
     for (int j = 0; j < existing; j++) {
         new_names[j] = slot->field_names[j];
         new_types[j] = slot->field_types[j];
     }
-    new_names[existing] = pdxe_arena_strdup(a, field_name);
-    new_types[existing] = ftype ? ftype : pdxe_type_unknown();
-    new_names[existing + 1] = NULL;
-    new_types[existing + 1] = NULL;
+    for (int j = 0; j < count; j++) {
+        new_names[existing + j] = pdxe_arena_strdup(a, field_names[j]);
+        new_types[existing + j] = ftypes[j] ? ftypes[j] : pdxe_type_unknown();
+    }
+    new_names[existing + count] = NULL;
+    new_types[existing + count] = NULL;
     slot->field_names = new_names;
     slot->field_types = new_types;
 }
@@ -3636,6 +3634,12 @@ static void populate_class_fields_from_ast(JavaLSPContext *ctx, PDXETypeRegistry
     ctx->enclosing_class_qn = class_qn;
     push_enclosing_class(ctx, class_qn);
 
+    /* This declaration's fields, appended to the class at once below (issue 92). */
+    const char **fnames = NULL;
+    const PDXEType **ftypes = NULL;
+    int fcount = 0;
+    int fcap = 0;
+    bool fields_lost = false;
     uint32_t n = ts_node_named_child_count(body);
     for (uint32_t i = 0; i < n; i++) {
         TSNode c = ts_node_named_child(body, i);
@@ -3653,8 +3657,29 @@ static void populate_class_fields_from_ast(JavaLSPContext *ctx, PDXETypeRegistry
                 if (ts_node_is_null(dname))
                     continue;
                 char *fname = java_node_text(ctx, dname);
-                if (fname)
-                    append_field_to_class(reg, ctx->arena, class_qn, fname, ftype);
+                if (!fname || fields_lost)
+                    continue;
+                if (fcount == fcap) {
+                    int cap = fcap ? fcap * 2 : 16;
+                    const char **grown_names = (const char **)pdxe_arena_alloc(
+                        ctx->arena, (size_t)cap * sizeof(*grown_names));
+                    const PDXEType **grown_types = (const PDXEType **)pdxe_arena_alloc(
+                        ctx->arena, (size_t)cap * sizeof(*grown_types));
+                    if (!grown_names || !grown_types) {
+                        fields_lost = true; /* the failed allocation is counted */
+                        continue;
+                    }
+                    if (fcount > 0) {
+                        memcpy(grown_names, fnames, (size_t)fcount * sizeof(*fnames));
+                        memcpy(grown_types, ftypes, (size_t)fcount * sizeof(*ftypes));
+                    }
+                    fnames = grown_names;
+                    ftypes = grown_types;
+                    fcap = cap;
+                }
+                fnames[fcount] = fname;
+                ftypes[fcount] = ftype;
+                fcount++;
             }
         } else if (strcmp(ck, "class_declaration") == 0 ||
                    strcmp(ck, "interface_declaration") == 0 ||
@@ -3662,6 +3687,8 @@ static void populate_class_fields_from_ast(JavaLSPContext *ctx, PDXETypeRegistry
             populate_class_fields_from_ast(ctx, reg, c, class_qn);
         }
     }
+    if (!fields_lost)
+        append_fields_to_class(reg, ctx->arena, class_qn, fnames, ftypes, fcount);
     pop_enclosing_class(ctx);
     ctx->enclosing_class_qn = saved_enc;
 }

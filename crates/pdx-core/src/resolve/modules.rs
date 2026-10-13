@@ -5,7 +5,7 @@
 //! rules. Where a rule's evidence is missing (a declaration the engine does not
 //! record, a file outside every `go.mod` or crate), the module is `None`.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 use pdx_engine::{
     AliasScope, CrateDependency, DefinitionKind, FileExtract, NamespaceEvidence, namespace_evidence,
@@ -290,6 +290,17 @@ fn nesting(extract: &FileExtract, namespaces_only: bool) -> Vec<Option<String>> 
                 .collect(),
         )
     };
+    // Each type's first definition by qualified name (issue 92: finding the outermost
+    // type that encloses a definition scanned every definition of the file, per
+    // definition).
+    let mut types: HashMap<&str, usize> = HashMap::new();
+    if namespaces_only {
+        for (j, t) in extract.definitions.iter().enumerate() {
+            if is_type(t.kind) {
+                types.entry(names.get(j)).or_insert(j);
+            }
+        }
+    }
     extract
         .definitions
         .iter()
@@ -302,18 +313,13 @@ fn nesting(extract: &FileExtract, namespaces_only: bool) -> Vec<Option<String>> 
             if !namespaces_only {
                 return raw(qn, &d.name).map(|p| p.join("::"));
             }
-            // The outermost type whose qualified name encloses this definition's.
-            let outer = extract
-                .definitions
-                .iter()
-                .enumerate()
-                .filter(|&(j, t)| {
-                    let type_qn = names.get(j);
-                    is_type(t.kind)
-                        && type_qn != qn
-                        && qn.strip_prefix(type_qn).is_some_and(|r| r.starts_with('.'))
-                })
-                .min_by_key(|&(j, _)| names.get(j).len());
+            // The outermost type whose qualified name encloses this definition's: the
+            // shortest of its `.`-bounded prefixes that names a type, that type's first
+            // definition, as the scan's shortest and first match was.
+            let outer = qn
+                .match_indices('.')
+                .find_map(|(at, _)| types.get(&qn[..at]))
+                .map(|&j| (j, &extract.definitions[j]));
             match outer {
                 Some((j, t)) => raw(names.get(j), &t.name).map(|p| p.join("::")),
                 None => raw(qn, &d.name).map(|p| p.join("::")),

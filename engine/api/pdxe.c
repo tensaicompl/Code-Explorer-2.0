@@ -28,6 +28,7 @@
 #include "pipeline/lsp_surface.h"
 #include "pipeline/pass_lsp_cross.h"
 #include "pipeline/pipeline_internal.h"
+#include "lookup_counts.h"
 #include "lost_work.h"
 #include "shim_internal.h"
 
@@ -398,6 +399,11 @@ static pdxe_text owned_text(const char *s) {
  * memory for nothing. A result rebuilt from a cache has no engine result, so it owns
  * copies instead, in `owned`.
  */
+/* Issue 92: the positions of a result's definitions by qualified name (see
+ * qn_positions_open below). */
+typedef struct qn_positions qn_positions;
+static void qn_positions_free(qn_positions *x);
+
 typedef struct {
     pdxe_file_result pub;
     PDXEFileResult *engine;
@@ -420,6 +426,9 @@ typedef struct {
      * of: the surface is exported from it (issue 90). NULL for a rebuilt result. */
     char *source;
     size_t source_len;
+    /* While the result is translated, its definitions' positions by qualified name;
+     * NULL once translation ends. */
+    qn_positions *names;
 } result_holder;
 
 static void holder_free(result_holder *h) {
@@ -440,6 +449,7 @@ static void holder_free(result_holder *h) {
     free(h->call_args);
     free(h->routes);
     free(h->source);
+    qn_positions_free(h->names);
     if (h->engine) {
         pdxe_free_result(h->engine);
     }
@@ -631,26 +641,137 @@ static bool is_synthetic(const PDXEDefinition *d) {
  * refers to it by position in its own array, which omits synthetic definitions and so
  * does not line up with the engine's. Counted over the engine's definitions, skipping
  * the synthetic ones exactly as the translation does, so the project can answer the
- * same question for a result it never translated. Linear, since the definitions of
- * one file are few.
+ * same question for a result it never translated. Names are compared without the
+ * project sentinel, and the first definition with a name is the one found.
+ *
+ * Issue 92: built once over a result's definitions, from the engine's own strings, and
+ * looked up by hash: scanning the definitions for every fact that names one made a
+ * file's translation quadratic in its definitions. Test builds keep the scan for
+ * reference (PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE).
  */
-static uint32_t index_of_qn(const PDXEDefArray *defs, const char *engine_qn) {
-    if (!engine_qn) {
-        return PDXE_NO_PARENT;
+struct qn_positions {
+    const PDXEDefArray *defs;
+    uint32_t *position; /* engine definition -> interface position, PDXE_NO_PARENT if omitted */
+    int *slots;         /* open addressing: the first engine definition with a name; -1 empty */
+    uint64_t *hashes;   /* the name's hash, per slot */
+    size_t cap;         /* a power of two, at least twice the names */
+    bool reference;     /* test builds: answer by scanning, as before issue 92 */
+};
+
+static uint64_t qn_hash(const char *s) {
+    uint64_t h = 1469598103934665603ULL;
+    for (; *s; s++) {
+        h = (h ^ (unsigned char)*s) * 1099511628211ULL;
     }
-    const char *qn = strip_project(engine_qn);
+    return h;
+}
+
+/* The slot of `qn` (stripped, hashed h): where it is, or the empty slot it would take. */
+static size_t qn_slot(const qn_positions *x, const char *qn, uint64_t h) {
+    size_t mask = x->cap - 1;
+    for (size_t at = (size_t)h & mask;; at = (at + 1) & mask) {
+        int d = x->slots[at];
+        PDXE_LOOKUP_COUNT(PDXE_LC_DEF_ENTRIES);
+        if (d < 0) {
+            return at;
+        }
+        if (x->hashes[at] == h) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_IFACE_COMPARES);
+            if (strcmp(strip_project(x->defs->items[d].qualified_name), qn) == 0) {
+                return at;
+            }
+        }
+    }
+}
+
+static void qn_positions_free(qn_positions *x) {
+    if (!x) {
+        return;
+    }
+    free(x->position);
+    free(x->slots);
+    free(x->hashes);
+    free(x);
+}
+
+/* The positions of `defs` by qualified name; NULL when they cannot be allocated, which
+ * the caller reports as such. */
+static qn_positions *qn_positions_open(const PDXEDefArray *defs) {
+    if (PDXE_LOOKUP_INDEX_REFUSED("interface")) {
+        return NULL;
+    }
+    qn_positions *x = (qn_positions *)calloc(1, sizeof(*x));
+    if (!x) {
+        return NULL;
+    }
+    x->defs = defs;
+    size_t n = defs->count > 0 ? (size_t)defs->count : 1;
+    x->position = (uint32_t *)calloc(n, sizeof(uint32_t));
+    x->cap = 16;
+    while (x->cap < 2 * n) {
+        x->cap *= 2;
+    }
+    x->slots = (int *)malloc(x->cap * sizeof(int));
+    x->hashes = (uint64_t *)calloc(x->cap, sizeof(uint64_t));
+    if (!x->position || !x->slots || !x->hashes) {
+        qn_positions_free(x);
+        return NULL;
+    }
+    for (size_t i = 0; i < x->cap; i++) {
+        x->slots[i] = -1;
+    }
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    x->reference = reference && reference[0];
+#endif
     uint32_t kept = 0;
     for (int i = 0; i < defs->count; i++) {
         const PDXEDefinition *d = &defs->items[i];
         if (is_synthetic(d)) {
+            x->position[i] = PDXE_NO_PARENT;
             continue;
         }
-        if (d->qualified_name && strcmp(strip_project(d->qualified_name), qn) == 0) {
-            return kept;
+        x->position[i] = kept++;
+        if (!d->qualified_name) {
+            continue;
         }
-        kept++;
+        const char *qn = strip_project(d->qualified_name);
+        uint64_t h = qn_hash(qn);
+        size_t at = qn_slot(x, qn, h);
+        if (x->slots[at] < 0) { /* the first definition with the name keeps it */
+            x->slots[at] = i;
+            x->hashes[at] = h;
+        }
     }
-    return PDXE_NO_PARENT;
+    return x;
+}
+
+/* The interface position of the first non-synthetic definition named `engine_qn`. */
+static uint32_t qn_position(const qn_positions *x, const char *engine_qn) {
+    if (!engine_qn) {
+        return PDXE_NO_PARENT;
+    }
+    const char *qn = strip_project(engine_qn);
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (x->reference) {
+        uint32_t kept = 0;
+        for (int i = 0; i < x->defs->count; i++) {
+            const PDXEDefinition *d = &x->defs->items[i];
+            PDXE_LOOKUP_COUNT(PDXE_LC_DEF_ENTRIES);
+            if (is_synthetic(d)) {
+                continue;
+            }
+            PDXE_LOOKUP_COUNT(PDXE_LC_IFACE_COMPARES);
+            if (d->qualified_name && strcmp(strip_project(d->qualified_name), qn) == 0) {
+                return kept;
+            }
+            kept++;
+        }
+        return PDXE_NO_PARENT;
+    }
+#endif
+    int d = x->slots[qn_slot(x, qn, qn_hash(qn))];
+    return d < 0 ? PDXE_NO_PARENT : x->position[d];
 }
 
 /*
@@ -739,39 +860,20 @@ static uint32_t count_strings(const char *const *v) {
 typedef struct {
     const PDXEFileResult *engine;
     PDXEOccurrenceIndex occurrences; /* the engine's definitions */
-    uint32_t *position;              /* engine definition -> interface position */
+    const qn_positions *names;       /* their interface positions, and by name */
     uint32_t file;                   /* the file's own module definition */
 } owner_join;
 
-/* The interface position of each engine definition, or PDXE_NO_PARENT for one the
- * translation omits. */
-static uint32_t *definition_positions(const PDXEDefArray *defs) {
-    uint32_t *position = (uint32_t *)calloc(defs->count > 0 ? (size_t)defs->count : 1,
-                                            sizeof(uint32_t));
-    if (!position) {
-        return NULL;
-    }
-    uint32_t kept = 0;
-    for (int i = 0; i < defs->count; i++) {
-        position[i] = is_synthetic(&defs->items[i]) ? PDXE_NO_PARENT : kept++;
-    }
-    return position;
-}
-
-static bool owner_join_open(owner_join *join, const PDXEFileResult *engine) {
+static void owner_join_open(owner_join *join, const PDXEFileResult *engine,
+                            const qn_positions *names) {
     join->engine = engine;
-    join->position = definition_positions(&engine->defs);
-    if (!join->position) {
-        return false;
-    }
+    join->names = names;
     pdxe_occurrence_index_build(&join->occurrences, engine->defs.items, engine->defs.count);
-    join->file = index_of_qn(&engine->defs, engine->module_qn);
-    return true;
+    join->file = qn_position(names, engine->module_qn);
 }
 
 static void owner_join_close(owner_join *join) {
     pdxe_occurrence_index_free(&join->occurrences);
-    free(join->position);
 }
 
 /* The interface position of the definition with `declaration`, through a supersession
@@ -787,7 +889,7 @@ static uint32_t owner_position(const owner_join *join, PDXECallableOccurrence de
             }
         }
     }
-    return found >= 0 && found < join->engine->defs.count ? join->position[found]
+    return found >= 0 && found < join->engine->defs.count ? join->names->position[found]
                                                           : PDXE_NO_PARENT;
 }
 
@@ -807,14 +909,14 @@ static uint32_t caller_position(const owner_join *join, PDXESiteOwner owner,
             return position;
         }
     }
-    return index_of_qn(&join->engine->defs, enclosing_func_qn);
+    return qn_position(join->names, enclosing_func_qn);
 }
 
 /* `join`: report the represented callable that owns the call, as a file's own calls
  * do (owner_join); NULL for a resolution's site, which names the callable the call was
  * found in, all a surface records, so cached and fresh answers agree. */
-static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const source_view *src,
-                         const PDXECall *c, const owner_join *join) {
+static pdxe_call call_of(const qn_positions *names, const line_index *li,
+                         const source_view *src, const PDXECall *c, const owner_join *join) {
     pdxe_call o = {0};
     /* The engine's own static node types, borrowed; arguments are attached by the
      * caller, which owns the array they go in. */
@@ -830,7 +932,7 @@ static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const s
      */
     o.receiver_text = NULL;
     o.caller_index = join ? caller_position(join, c->owner, c->source_origin, c->enclosing_func_qn)
-                          : index_of_qn(defs, c->enclosing_func_qn);
+                          : qn_position(names, c->enclosing_func_qn);
     o.span = site_span(li, c->source_origin, c->site_start_byte, c->site_end_byte, c->start_line);
     o.is_reference = 0;
     o.typed_only = c->requires_lsp_resolution ? 1 : 0;
@@ -839,7 +941,7 @@ static pdxe_call call_of(const PDXEDefArray *defs, const line_index *li, const s
 }
 
 /* The interface's description of a usage that may be a call reference. */
-static pdxe_call reference_of(const PDXEDefArray *defs, const line_index *li,
+static pdxe_call reference_of(const qn_positions *names, const line_index *li,
                               const source_view *src, const PDXEUsage *u, const owner_join *join) {
     pdxe_call o = {0};
     o.callee_text = text_of(src, u->ref_name, u->source_origin == PDXE_SOURCE_ORIGIN_RAW,
@@ -848,7 +950,7 @@ static pdxe_call reference_of(const PDXEDefArray *defs, const line_index *li,
     o.n_ast_path = count_strings(u->ast_path);
     o.ast_path = o.n_ast_path ? u->ast_path : NULL;
     o.caller_index = join ? caller_position(join, u->owner, u->source_origin, u->enclosing_func_qn)
-                          : index_of_qn(defs, u->enclosing_func_qn);
+                          : qn_position(names, u->enclosing_func_qn);
     o.span = site_span(li, u->source_origin, u->site_start_byte, u->site_end_byte, 0);
     o.is_reference = 1;
     o.typed_only = 0;
@@ -1005,14 +1107,21 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
         }
     }
 
-    /* Second pass: parents, now that every kept definition has its position. */
+    /* Second pass: parents, now that every kept definition has its position. Every
+     * fact naming a definition is placed through one index of their names (issue 92). */
+    h->names = qn_positions_open(defs);
+    if (!h->names) {
+        holder_free(h);
+        return PDXE_E_NOMEM;
+    }
+    const qn_positions *names = h->names;
     kept = 0;
     for (int i = 0; i < defs->count; i++) {
         const PDXEDefinition *d = &defs->items[i];
         if (is_synthetic(d)) {
             continue;
         }
-        r->defs[kept++].parent_index = index_of_qn(defs, d->parent_class);
+        r->defs[kept++].parent_index = qn_position(names, d->parent_class);
     }
 
     /* Third pass: each qualified name by its relation to an earlier one (issue 90). */
@@ -1025,26 +1134,26 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
         for (uint32_t i = 0; i < r->n_defs; i++) {
             qn[i] = r->defs[i].qn_text;
         }
-        pdxe_qn_index names;
-        if (!pdxe_qn_index_init(&names, qn, r->n_defs)) {
+        pdxe_qn_index spelled;
+        if (!pdxe_qn_index_init(&spelled, qn, r->n_defs)) {
             free(qn);
             holder_free(h);
             return PDXE_E_NOMEM;
         }
-        uint32_t file = index_of_qn(defs, engine->module_qn);
+        uint32_t file = qn_position(names, engine->module_qn);
         for (uint32_t i = 0; i < r->n_defs; i++) {
             pdxe_definition *o = &r->defs[i];
             uint32_t base = PDXE_NO_PARENT;
             uint32_t keep = 0;
             const char *rest = NULL;
-            int form = pdxe_qn_choose(&names, qn, o->name, i, o->parent_index, file, &base, &keep,
+            int form = pdxe_qn_choose(&spelled, qn, o->name, i, o->parent_index, file, &base, &keep,
                                       &rest);
             o->qn_form = (uint32_t)form;
             o->qn_base = form == PDXE_QN_WHOLE ? PDXE_NO_PARENT : base;
             o->qn_keep = keep;
             o->qn_text = form == PDXE_QN_WHOLE ? qn[i] : form == PDXE_QN_MEMBER ? NULL : rest;
         }
-        pdxe_qn_index_free(&names);
+        pdxe_qn_index_free(&spelled);
         free(qn);
     }
 
@@ -1053,17 +1162,18 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
     const PDXEUsageArray *usages = &engine->usages;
     uint32_t n_refs = count_reference_sites(usages);
     r->calls = ALLOC_ARRAY(pdxe_call, (uint32_t)calls->count + n_refs);
-    owner_join join;
-    if (!r->calls || !owner_join_open(&join, engine)) {
+    if (!r->calls) {
         holder_free(h);
         return PDXE_E_NOMEM;
     }
+    owner_join join;
+    owner_join_open(&join, engine, names);
     for (int i = 0; i < calls->count; i++) {
-        r->calls[r->n_calls++] = call_of(defs, li, src, &calls->items[i], &join);
+        r->calls[r->n_calls++] = call_of(names, li, src, &calls->items[i], &join);
     }
     for (int i = 0; i < usages->count; i++) {
         if (is_reference_site(&usages->items[i])) {
-            r->calls[r->n_calls++] = reference_of(defs, li, src, &usages->items[i], &join);
+            r->calls[r->n_calls++] = reference_of(names, li, src, &usages->items[i], &join);
         }
     }
     owner_join_close(&join);
@@ -1140,7 +1250,7 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
         pdxe_usage *o = &r->usages[r->n_usages++];
         o->name = text_of(src, u->ref_name, u->source_origin == PDXE_SOURCE_ORIGIN_RAW,
                           u->site_start_byte, u->site_end_byte);
-        o->scope_index = index_of_qn(defs, u->enclosing_func_qn);
+        o->scope_index = qn_position(names, u->enclosing_func_qn);
         o->span = site_span(li, u->source_origin, u->site_start_byte, u->site_end_byte, 0);
         o->lexical = lexical_of(u);
     }
@@ -1164,12 +1274,12 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
     }
     for (int i = 0; i < types->count; i++) {
         r->types[i].type_text = types->items[i].type_name;
-        r->types[i].scope_index = index_of_qn(defs, types->items[i].enclosing_func_qn);
+        r->types[i].scope_index = qn_position(names, types->items[i].enclosing_func_qn);
     }
     r->n_types = (uint32_t)types->count;
     for (int i = 0; i < rws->count; i++) {
         r->rws[i].field_text = rws->items[i].var_name;
-        r->rws[i].scope_index = index_of_qn(defs, rws->items[i].enclosing_func_qn);
+        r->rws[i].scope_index = qn_position(names, rws->items[i].enclosing_func_qn);
         r->rws[i].is_write = rws->items[i].is_write ? 1 : 0;
     }
     r->n_rws = (uint32_t)rws->count;
@@ -1188,9 +1298,11 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
     }
     for (int i = 0; i < throws->count; i++) {
         r->throws[i].exception_text = throws->items[i].exception_name;
-        r->throws[i].scope_index = index_of_qn(defs, throws->items[i].enclosing_func_qn);
+        r->throws[i].scope_index = qn_position(names, throws->items[i].enclosing_func_qn);
     }
     r->n_throws = (uint32_t)throws->count;
+    qn_positions_free(h->names);
+    h->names = NULL;
     r->truncated = engine->walk_truncated ? 1 : 0;
 
     /* `impl Trait for Type` relations, borrowed like the other strings, in the
@@ -2544,6 +2656,192 @@ static const pdxe_gbuf_node_t *source_node(const pdxe_project *p, int i, const c
 }
 
 /*
+ * Issue 92: a file's invocation rows by the keys the resolver's matcher joins a call on,
+ * built once per file. Matching each call against every row of the file made collecting
+ * a file's answers quadratic in its calls. The matcher accepts a row only at the call's
+ * own occurrence (a row with a site) or, for a row without one (the legacy 0:0 site), by
+ * the call's callee leaf, which the row names by its callee or, for some strategies, by
+ * its reason; and only for the call's caller, or its caller's Class.method tail under
+ * the tail rule. So the rows are chained by site, and the rows without a site by
+ * (caller, leaf) and (tail, leaf): every row the matcher can accept for a call is on the
+ * call's chains, each chain is in ascending row order, and the matcher gives the full
+ * scan's answer (pdxe_pipeline_lsp_rows_t).
+ */
+enum {
+    ROWS_BY_SITE,          /* rows with a site, by site */
+    ROWS_BY_CALLER_LEAF,   /* rows without a site, by caller and callee leaf */
+    ROWS_BY_CALLER_REASON, /* ... by caller and reason leaf, for the strategies joined so */
+    ROWS_BY_TAIL_LEAF,     /* ... by the caller's Class.method tail and callee leaf */
+    ROWS_BY_TAIL_REASON,   /* ... by the caller's tail and reason leaf */
+    ROWS_KINDS
+};
+
+typedef struct {
+    const char *a;
+    const char *b;
+    uint32_t start;
+    uint32_t end;
+} row_key;
+
+typedef struct {
+    const PDXEResolvedCallArray *rows;
+    int *next[ROWS_KINDS];  /* per row: the next row with its key, -1 */
+    int *first[ROWS_KINDS]; /* open addressing: a key's first row, -1 empty */
+    size_t cap;
+    bool reference; /* test builds: match against every row, as before issue 92 */
+} invocation_index;
+
+/* Row r's key of `kind`; false when the row has none there. */
+static bool row_key_of(const PDXEResolvedCall *r, int kind, row_key *k) {
+    memset(k, 0, sizeof(*k));
+    if (r->kind != PDXE_RESOLVED_INVOCATION || !r->caller_qn || !r->callee_qn) {
+        return false; /* a row the matcher never accepts */
+    }
+    if (kind == ROWS_BY_SITE) {
+        k->start = r->site_start_byte;
+        k->end = r->site_end_byte;
+        return pdxe_pipeline_source_site_present(r->site_start_byte, r->site_end_byte);
+    }
+    if (!pdxe_pipeline_source_site_legacy(r->site_start_byte, r->site_end_byte)) {
+        return false;
+    }
+    bool by_reason = kind == ROWS_BY_CALLER_REASON || kind == ROWS_BY_TAIL_REASON;
+    if (by_reason && (!pdxe_pipeline_invocation_reason_join_strategy(r->strategy) || !r->reason)) {
+        return false;
+    }
+    k->a = kind == ROWS_BY_CALLER_LEAF || kind == ROWS_BY_CALLER_REASON
+               ? r->caller_qn
+               : pdxe_pipeline_qn_class_method_tail(r->caller_qn);
+    k->b = pdxe_lsp_bare_segment(by_reason ? r->reason : r->callee_qn);
+    return k->a && k->b;
+}
+
+static uint64_t row_key_hash(int kind, const row_key *k) {
+    uint64_t h;
+    if (kind == ROWS_BY_SITE) {
+        h = ((uint64_t)k->start << 32) | k->end;
+    } else {
+        h = qn_hash(k->a) * 1099511628211ULL ^ qn_hash(k->b);
+    }
+    h ^= h >> 33;
+    h *= 0xff51afd7ed558ccdULL;
+    h ^= h >> 33;
+    return h;
+}
+
+static bool row_key_eq(int kind, const row_key *x, const row_key *y) {
+    if (kind == ROWS_BY_SITE) {
+        return x->start == y->start && x->end == y->end;
+    }
+    return strcmp(x->a, y->a) == 0 && strcmp(x->b, y->b) == 0;
+}
+
+/* The slot of key k of `kind`: where its chain is, or the empty slot it would take. */
+static size_t row_slot(const invocation_index *x, int kind, const row_key *k) {
+    size_t mask = x->cap - 1;
+    for (size_t at = (size_t)row_key_hash(kind, k) & mask;; at = (at + 1) & mask) {
+        int r = x->first[kind][at];
+        row_key held;
+        if (r < 0 || (row_key_of(&x->rows->items[r], kind, &held) && row_key_eq(kind, &held, k))) {
+            return at;
+        }
+    }
+}
+
+static void invocation_index_free(invocation_index *x) {
+    for (int kind = 0; kind < ROWS_KINDS; kind++) {
+        free(x->next[kind]);
+        free(x->first[kind]);
+    }
+}
+
+/* Builds the index of `rows`; false when it cannot be allocated (the memory core counts
+ * that as lost work), which the caller reports as such. */
+static bool invocation_index_open(invocation_index *x, const PDXEResolvedCallArray *rows) {
+    memset(x, 0, sizeof(*x));
+    x->rows = rows;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    x->reference = reference && reference[0];
+    if (x->reference) {
+        return true;
+    }
+#endif
+    if (PDXE_LOOKUP_INDEX_REFUSED("interface")) {
+        return false;
+    }
+    size_t n = rows->count > 0 ? (size_t)rows->count : 1;
+    x->cap = 16;
+    while (x->cap < 2 * n) {
+        x->cap *= 2;
+    }
+    for (int kind = 0; kind < ROWS_KINDS; kind++) {
+        x->next[kind] = (int *)pdxe_counted_malloc(n * sizeof(int));
+        x->first[kind] = (int *)pdxe_counted_malloc(x->cap * sizeof(int));
+        if (!x->next[kind] || !x->first[kind]) {
+            invocation_index_free(x);
+            return false;
+        }
+        for (size_t at = 0; at < x->cap; at++) {
+            x->first[kind][at] = -1;
+        }
+    }
+    /* Prepending in descending order leaves every chain ascending. */
+    for (int r = rows->count - 1; r >= 0; r--) {
+        for (int kind = 0; kind < ROWS_KINDS; kind++) {
+            row_key k;
+            x->next[kind][r] = -1;
+            if (!row_key_of(&rows->items[r], kind, &k)) {
+                continue;
+            }
+            size_t at = row_slot(x, kind, &k);
+            x->next[kind][r] = x->first[kind][at];
+            x->first[kind][at] = r;
+        }
+    }
+    return true;
+}
+
+/* The first row with key k of `kind`, -1 when none. */
+static int rows_first(const invocation_index *x, int kind, const row_key *k) {
+    return x->first[kind][row_slot(x, kind, k)];
+}
+
+/* The resolver's typed answer for `call`: pdxe_pipeline_find_lsp_resolution_in_graph,
+ * inspecting only the rows on the call's chains. */
+static const PDXEResolvedCall *invocation_of(const invocation_index *x, const PDXECall *call,
+                                             bool allow_tail, const pdxe_gbuf_t *gbuf) {
+    if (x->reference || !call->enclosing_func_qn || !call->callee_name || x->rows->count == 0) {
+        return pdxe_pipeline_find_lsp_resolution_in_graph(x->rows, call, allow_tail, gbuf,
+                                                          PROJECT_SENTINEL);
+    }
+    const char *leaf = pdxe_lsp_bare_segment(call->callee_name);
+    const char *tail = pdxe_pipeline_qn_class_method_tail(call->enclosing_func_qn);
+    pdxe_pipeline_lsp_rows_t exact = pdxe_pipeline_lsp_rows_none();
+    pdxe_pipeline_lsp_rows_t by_tail = pdxe_pipeline_lsp_rows_none();
+    if (pdxe_pipeline_source_site_present(call->site_start_byte, call->site_end_byte)) {
+        row_key site = {NULL, NULL, call->site_start_byte, call->site_end_byte};
+        int first = rows_first(x, ROWS_BY_SITE, &site);
+        pdxe_pipeline_lsp_rows_add(&exact, 0, first, x->next[ROWS_BY_SITE]);
+        pdxe_pipeline_lsp_rows_add(&by_tail, 0, first, x->next[ROWS_BY_SITE]);
+    }
+    row_key caller = {call->enclosing_func_qn, leaf, 0, 0};
+    pdxe_pipeline_lsp_rows_add(&exact, 1, rows_first(x, ROWS_BY_CALLER_LEAF, &caller),
+                               x->next[ROWS_BY_CALLER_LEAF]);
+    pdxe_pipeline_lsp_rows_add(&exact, 2, rows_first(x, ROWS_BY_CALLER_REASON, &caller),
+                               x->next[ROWS_BY_CALLER_REASON]);
+    if (tail) {
+        row_key by = {tail, leaf, 0, 0};
+        pdxe_pipeline_lsp_rows_add(&by_tail, 1, rows_first(x, ROWS_BY_TAIL_LEAF, &by),
+                                   x->next[ROWS_BY_TAIL_LEAF]);
+        pdxe_pipeline_lsp_rows_add(&by_tail, 2, rows_first(x, ROWS_BY_TAIL_REASON, &by),
+                                   x->next[ROWS_BY_TAIL_REASON]);
+    }
+    return pdxe_pipeline_find_lsp_resolution_in_rows(x->rows, call, allow_tail, gbuf,
+                                                     PROJECT_SENTINEL, exact, by_tail);
+}
+
+/*
  * The typed answer for each call: the reference's calls pass, up to the point where
  * it has a target. The answer is joined to the call by the reference's own matcher
  * (caller, callee leaf, exact site, confidence floor, ambiguity), and counts only when
@@ -2556,13 +2854,22 @@ static int collect_calls(pdxe_project *p, int i, uint32_t n_refs, resolution_lis
     const file_state *st = &p->state[i];
     PDXELanguage lang = p->files[i].language;
     bool allow_tail = pdxe_pipeline_lsp_allow_tail_match(lang);
+    /* Each answer's site names its caller by position (issue 92: by index). */
+    qn_positions *names = qn_positions_open(&res->defs);
+    if (!names) {
+        return PDXE_E_NOMEM;
+    }
+    invocation_index rows;
+    if (!invocation_index_open(&rows, &res->resolved_calls)) {
+        qn_positions_free(names);
+        return PDXE_E_NOMEM;
+    }
     for (int j = 0; j < res->calls.count; j++) {
         const PDXECall *call = &res->calls.items[j];
         if (!call->callee_name) {
             continue;
         }
-        const PDXEResolvedCall *lsp = pdxe_pipeline_find_lsp_resolution_in_graph(
-            &res->resolved_calls, call, allow_tail, p->gbuf, PROJECT_SENTINEL);
+        const PDXEResolvedCall *lsp = invocation_of(&rows, call, allow_tail, p->gbuf);
         if (!lsp) {
             continue;
         }
@@ -2582,17 +2889,21 @@ static int collect_calls(pdxe_project *p, int i, uint32_t n_refs, resolution_lis
         }
         pdxe_resolution *o = next_resolution(out);
         if (!o) {
+            invocation_index_free(&rows);
+            qn_positions_free(names);
             return PDXE_E_NOMEM;
         }
         /* The resolver's own calls follow extraction's calls and references. */
         o->call_index = j < st->n_calls_before ? (uint32_t)j : (uint32_t)j + n_refs;
         source_view text = {p->sources[i], (size_t)p->source_lens[i]};
-        o->site = call_of(&res->defs, &st->li, &text, call, NULL);
+        o->site = call_of(names, &st->li, &text, call, NULL);
         o->target_qualified_name = strip_project(target->qualified_name);
         o->target_rel_path = target_path(target);
         o->score = (double)lsp->confidence;
         o->engine_strategy = engine_strategy_of(lsp);
     }
+    invocation_index_free(&rows);
+    qn_positions_free(names);
     return PDXE_OK;
 }
 
@@ -2608,6 +2919,29 @@ static int collect_references(pdxe_project *p, int i, resolution_list *out) {
     PDXELanguage lang = p->files[i].language;
     bool allow_tail = pdxe_pipeline_lsp_allow_tail_match(lang);
     uint32_t index = (uint32_t)st->n_calls_before;
+    /* Each answer's site names its caller by position (issue 92: by index). */
+    qn_positions *names = qn_positions_open(&res->defs);
+    if (!names) {
+        return PDXE_E_NOMEM;
+    }
+    /* Issue 92: the file's reference rows by occurrence, so each reference is matched
+     * against the rows at its own site -- every row either rule can accept, in their
+     * order -- not against every row of the file. Test builds keep the full match for
+     * reference (PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE). */
+    pdxe_pipeline_lsp_reference_index_t by_site;
+    pdxe_pipeline_lsp_reference_index_t *sites = &by_site;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    if (reference && reference[0]) {
+        sites = NULL;
+    }
+#endif
+    if (sites && (PDXE_LOOKUP_INDEX_REFUSED("interface") ||
+                  !pdxe_pipeline_lsp_reference_index_build(&res->resolved_calls, sites))) {
+        pdxe_lost_allocation(); /* the index could not be allocated */
+        qn_positions_free(names);
+        return PDXE_E_NOMEM;
+    }
     for (int u = 0; u < res->usages.count; u++) {
         const PDXEUsage *usage = &res->usages.items[u];
         if (!is_reference_site(usage)) {
@@ -2617,8 +2951,8 @@ static int collect_references(pdxe_project *p, int i, resolution_list *out) {
         if (!usage->ref_name) {
             continue;
         }
-        const PDXEResolvedCall *ref = pdxe_pipeline_find_lsp_reference_in_graph(
-            &res->resolved_calls, usage, allow_tail, p->gbuf, PROJECT_SENTINEL);
+        const PDXEResolvedCall *ref = pdxe_pipeline_find_lsp_reference_indexed_in_graph(
+            &res->resolved_calls, sites, usage, allow_tail, p->gbuf, PROJECT_SENTINEL);
         if (ref && !pdxe_pipeline_usage_allows_semantic_reference(usage, ref)) {
             ref = NULL;
         }
@@ -2629,17 +2963,21 @@ static int collect_references(pdxe_project *p, int i, resolution_list *out) {
             pdxe_pipeline_lsp_target_node(p->gbuf, PROJECT_SENTINEL, ref->callee_qn, allow_tail);
         pdxe_resolution *o = next_resolution(out);
         if (!o) {
+            pdxe_pipeline_lsp_reference_index_free(sites);
+            qn_positions_free(names);
             return PDXE_E_NOMEM;
         }
         o->call_index = call_index;
         source_view text = {p->sources[i], (size_t)p->source_lens[i]};
-        o->site = reference_of(&res->defs, &st->li, &text, usage, NULL);
+        o->site = reference_of(names, &st->li, &text, usage, NULL);
         o->target_qualified_name =
             strip_project(target ? target->qualified_name : ref->callee_qn);
         o->target_rel_path = target_path(target);
         o->score = (double)ref->confidence;
         o->engine_strategy = engine_strategy_of(ref);
     }
+    pdxe_pipeline_lsp_reference_index_free(sites);
+    qn_positions_free(names);
     return PDXE_OK;
 }
 

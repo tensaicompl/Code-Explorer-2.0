@@ -49,6 +49,7 @@
 
 #include "perl_lsp.h"
 #include "../helpers.h"
+#include "../lookup_counts.h"
 #include "../arena.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -1115,6 +1116,34 @@ static void process_subroutine(PerlLSPContext *ctx, TSNode node) {
 /* ── package + use collection (PASS 1) ──────────────────────────── */
 
 /* Set the current package from a package_statement. */
+/* Issue 92: whether lookups scan every entry, as before (test builds' reference). */
+static bool perl_reference_scan(void) {
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    return reference && reference[0];
+#else
+    return false;
+#endif
+}
+
+/* The first @ISA entry of package `pkg`, -1 when none: from the package index, brought
+ * up to date with the table (issue 92); every entry before, for the reference. */
+static int perl_isa_first(PerlLSPContext *ctx, const char *pkg) {
+    if (perl_reference_scan())
+        return 0;
+    PDXENameIndex *x = &ctx->isa_by_pkg;
+    while (!x->failed && x->covered < ctx->isa_count)
+        pdxe_name_index_place(x, ctx->arena, ctx->isa_pkg_qns[x->covered]);
+    return pdxe_name_index_first(x, pkg);
+}
+
+/* The @ISA entry after entry i to inspect, -1 when none. */
+static int perl_isa_next(const PerlLSPContext *ctx, int i) {
+    if (perl_reference_scan())
+        return i + 1 < ctx->isa_count ? i + 1 : -1;
+    return pdxe_name_index_next(&ctx->isa_by_pkg, i);
+}
+
 static void process_package_decl(PerlLSPContext *ctx, TSNode node) {
     TSNode name = ts_node_child_by_field_name(node, "name", 4);
     if (ts_node_is_null(name))
@@ -1132,7 +1161,9 @@ static void process_package_decl(PerlLSPContext *ctx, TSNode node) {
      * MRO root is available here. NULL when the package has no known parent —
      * SUPER:: then resolves to nothing (zero-edge guarantee). */
     ctx->enclosing_parent_qn = NULL;
-    for (int i = 0; i < ctx->isa_count; i++) {
+    for (int i = ctx->isa_count > 0 ? perl_isa_first(ctx, pkg) : -1; i >= 0;
+         i = perl_isa_next(ctx, i)) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_NAME_COMPARES);
         if (ctx->isa_pkg_qns[i] && strcmp(ctx->isa_pkg_qns[i], pkg) == 0) {
             ctx->enclosing_parent_qn = ctx->isa_parent_qns[i];
             break;
@@ -1366,6 +1397,7 @@ void perl_lsp_process_file(PerlLSPContext *ctx, TSNode root) {
     ctx->enclosing_package_qn = "";
     ctx->use_count = 0;
     ctx->isa_count = 0;
+    memset(&ctx->isa_by_pkg, 0, sizeof(ctx->isa_by_pkg)); /* reset with the table */
     perl_pass1_scan(ctx, root);
 
     /* PASS 2: walk subs in package order; resolve + emit call edges. */
@@ -1426,7 +1458,9 @@ static void perl_register_packages(PerlLSPContext *ctx, PDXETypeRegistry *reg) {
         if (!rt->qualified_name)
             continue;
         int pc = 0;
-        for (int i = 0; i < ctx->isa_count; i++) {
+        for (int i = ctx->isa_count > 0 ? perl_isa_first(ctx, rt->qualified_name) : -1; i >= 0;
+             i = perl_isa_next(ctx, i)) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_NAME_COMPARES);
             if (strcmp(ctx->isa_pkg_qns[i], rt->qualified_name) == 0)
                 pc++;
         }
@@ -1437,7 +1471,7 @@ static void perl_register_packages(PerlLSPContext *ctx, PDXETypeRegistry *reg) {
         if (!parents)
             continue;
         int w = 0;
-        for (int i = 0; i < ctx->isa_count; i++) {
+        for (int i = perl_isa_first(ctx, rt->qualified_name); i >= 0; i = perl_isa_next(ctx, i)) {
             if (strcmp(ctx->isa_pkg_qns[i], rt->qualified_name) == 0)
                 parents[w++] = ctx->isa_parent_qns[i];
         }
@@ -1511,7 +1545,9 @@ static int perl_method_ent_cmp(const void *a, const void *b) {
 static void perl_type_set_methods(PerlLSPContext *ctx, PDXETypeRegistry *reg, const char *pkg,
                                   const PerlMethodEnt *ents, int n) {
     PDXERegisteredType *rt = NULL;
-    for (int t = 0; t < reg->type_count; t++) {
+    /* Issue 92: the first type of that name, from the registry's index. */
+    for (int t = pdxe_registry_type_first_by_qn(reg, pkg); t >= 0;
+         t = pdxe_registry_type_next_by_qn(reg, t)) {
         if (reg->types[t].qualified_name && strcmp(reg->types[t].qualified_name, pkg) == 0) {
             rt = &reg->types[t];
             break;

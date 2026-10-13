@@ -24,6 +24,7 @@
 #include "pdxe_core.h"
 #include "graph_buffer/graph_buffer.h"
 #include "foundation/constants.h"
+#include "lookup_counts.h"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -353,6 +354,64 @@ static inline bool pdxe_pipeline_invocation_leaf_matches(const PDXEResolvedCall 
            call_leaf && strcmp(pdxe_lsp_bare_segment(resolved->reason), call_leaf) == 0;
 }
 
+/* Issue 92: the rows one phase of the invocation matcher below inspects -- every row
+ * of the array, or the rows of up to three chains over it (a first row and, per row, the
+ * next of its chain, -1 at the end), each chain in ascending row order, so their union
+ * is visited once per row in ascending order: the full scan's order. A caller that
+ * passes chains guarantees that every row the phase would accept is on one of them,
+ * which makes the answer the full scan's. */
+#define PDXE_PIPELINE_LSP_ROW_CHAINS 3
+typedef struct {
+    bool all;
+    int i;
+    int count;
+    int at[PDXE_PIPELINE_LSP_ROW_CHAINS];
+    const int *next[PDXE_PIPELINE_LSP_ROW_CHAINS];
+} pdxe_pipeline_lsp_rows_t;
+
+static inline pdxe_pipeline_lsp_rows_t pdxe_pipeline_lsp_rows_all(int count) {
+    pdxe_pipeline_lsp_rows_t rows;
+    memset(&rows, 0, sizeof(rows));
+    rows.all = true;
+    rows.count = count;
+    return rows;
+}
+
+/* No rows; pdxe_pipeline_lsp_rows_add then adds chains. */
+static inline pdxe_pipeline_lsp_rows_t pdxe_pipeline_lsp_rows_none(void) {
+    pdxe_pipeline_lsp_rows_t rows;
+    memset(&rows, 0, sizeof(rows));
+    for (int k = 0; k < PDXE_PIPELINE_LSP_ROW_CHAINS; k++) {
+        rows.at[k] = -1;
+    }
+    return rows;
+}
+
+static inline void pdxe_pipeline_lsp_rows_add(pdxe_pipeline_lsp_rows_t *rows, int k, int first,
+                                              const int *next) {
+    rows->at[k] = first;
+    rows->next[k] = next;
+}
+
+static inline int pdxe_pipeline_lsp_rows_next(pdxe_pipeline_lsp_rows_t *rows) {
+    PDXE_LOOKUP_COUNT(PDXE_LC_ANSWER_ROWS);
+    if (rows->all) {
+        return rows->i < rows->count ? rows->i++ : -1;
+    }
+    int row = -1;
+    for (int k = 0; k < PDXE_PIPELINE_LSP_ROW_CHAINS; k++) {
+        if (rows->at[k] >= 0 && (row < 0 || rows->at[k] < row)) {
+            row = rows->at[k];
+        }
+    }
+    for (int k = 0; row >= 0 && k < PDXE_PIPELINE_LSP_ROW_CHAINS; k++) {
+        if (rows->at[k] == row) {
+            rows->at[k] = rows->next[k][row];
+        }
+    }
+    return row;
+}
+
 /* Look up the highest-confidence LSP-resolved call entry whose caller QN
  * matches the textual call's enclosing function and whose callee QN
  * short-name matches the textual callee. Returns a pointer into `arr`
@@ -372,10 +431,14 @@ static inline bool pdxe_pipeline_invocation_leaf_matches(const PDXEResolvedCall 
  * bare last segment by pdxe_lsp_bare_segment before matching.
  *
  * The pointer returned aliases into `arr` and stays valid as long as the
- * underlying PDXEFileResult is alive. */
-static inline const PDXEResolvedCall *pdxe_pipeline_find_lsp_resolution_in_graph(
+ * underlying PDXEFileResult is alive.
+ *
+ * `exact_rows` are the rows the exact-caller rule inspects and `tail_rows` those the
+ * tail rule does (see pdxe_pipeline_lsp_rows_t): every row, in the entry point below. */
+static inline const PDXEResolvedCall *pdxe_pipeline_find_lsp_resolution_in_rows(
     const PDXEResolvedCallArray *arr, const PDXECall *call, bool allow_tail_match,
-    const pdxe_gbuf_t *gbuf, const char *project_name) {
+    const pdxe_gbuf_t *gbuf, const char *project_name, pdxe_pipeline_lsp_rows_t exact_rows,
+    pdxe_pipeline_lsp_rows_t tail_rows) {
     if (!arr || arr->count == 0 || !call) {
         return NULL;
     }
@@ -386,7 +449,7 @@ static inline const PDXEResolvedCall *pdxe_pipeline_find_lsp_resolution_in_graph
     const PDXEResolvedCall *best_exact_caller = NULL;
     int best_exact_caller_rank = 0;
     bool exact_caller_ambiguous = false;
-    for (int i = 0; i < arr->count; i++) {
+    for (int i; (i = pdxe_pipeline_lsp_rows_next(&exact_rows)) >= 0;) {
         const PDXEResolvedCall *rc = &arr->items[i];
         if (rc->kind != PDXE_RESOLVED_INVOCATION) {
             continue;
@@ -435,7 +498,7 @@ static inline const PDXEResolvedCall *pdxe_pipeline_find_lsp_resolution_in_graph
     const PDXEResolvedCall *best_tail_legacy = NULL;
     bool tail_exact_ambiguous = false;
     bool tail_legacy_ambiguous = false;
-    for (int i = 0; i < arr->count; i++) {
+    for (int i; (i = pdxe_pipeline_lsp_rows_next(&tail_rows)) >= 0;) {
         const PDXEResolvedCall *rc = &arr->items[i];
         if (rc->kind != PDXE_RESOLVED_INVOCATION) {
             continue;
@@ -481,6 +544,16 @@ static inline const PDXEResolvedCall *pdxe_pipeline_find_lsp_resolution_in_graph
         return tail_exact_ambiguous ? NULL : best_tail_exact;
     }
     return tail_legacy_ambiguous ? NULL : best_tail_legacy;
+}
+
+/* The matcher above over every row of the array. */
+static inline const PDXEResolvedCall *pdxe_pipeline_find_lsp_resolution_in_graph(
+    const PDXEResolvedCallArray *arr, const PDXECall *call, bool allow_tail_match,
+    const pdxe_gbuf_t *gbuf, const char *project_name) {
+    int count = arr ? arr->count : 0;
+    return pdxe_pipeline_find_lsp_resolution_in_rows(arr, call, allow_tail_match, gbuf,
+                                                     project_name, pdxe_pipeline_lsp_rows_all(count),
+                                                     pdxe_pipeline_lsp_rows_all(count));
 }
 
 /* Graph-free compatibility entry point for resolver unit tests. Raw distinct
@@ -710,6 +783,7 @@ static inline const PDXEResolvedCall *pdxe_pipeline_find_lsp_reference_view_in_g
     bool exact_ambiguous = false;
     for (int i = 0; i < row_count; i++) {
         pdxe_pipeline_lsp_reference_lookup_test_note_row();
+        PDXE_LOOKUP_COUNT(PDXE_LC_ANSWER_ROWS);
         const PDXEResolvedCall *rc = pdxe_pipeline_lsp_reference_view_row(arr, entries, first, i);
         if (rc->kind != PDXE_RESOLVED_CALL_REFERENCE || !rc->caller_qn || !rc->callee_qn ||
             rc->confidence < PDXE_LSP_CONFIDENCE_FLOOR) {
@@ -752,6 +826,7 @@ static inline const PDXEResolvedCall *pdxe_pipeline_find_lsp_reference_view_in_g
     bool tail_ambiguous = false;
     for (int i = 0; i < row_count; i++) {
         pdxe_pipeline_lsp_reference_lookup_test_note_row();
+        PDXE_LOOKUP_COUNT(PDXE_LC_ANSWER_ROWS);
         const PDXEResolvedCall *rc = pdxe_pipeline_lsp_reference_view_row(arr, entries, first, i);
         if (rc->kind != PDXE_RESOLVED_CALL_REFERENCE || !rc->caller_qn || !rc->callee_qn ||
             rc->confidence < PDXE_LSP_CONFIDENCE_FLOOR) {

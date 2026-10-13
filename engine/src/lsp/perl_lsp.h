@@ -4,6 +4,7 @@
 #include "type_rep.h"
 #include "scope.h"
 #include "type_registry.h"
+#include "name_index.h"
 #include "../pdxe_core.h"
 #include "go_lsp.h" /* PDXELSPDef reused across languages */
 
@@ -45,6 +46,9 @@ typedef struct {
     const char **isa_parent_qns;
     int isa_count;
     int isa_cap;
+    /* Issue 92: the @ISA entries by package, extended as entries are added, reset
+     * with the table. */
+    PDXENameIndex isa_by_pkg;
 
     /* bless var→class map: blessed_var_names[i] holds a reference blessed
      * into class blessed_class_qns[i], so $self->method() can dispatch. */

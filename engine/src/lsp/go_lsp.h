@@ -18,6 +18,7 @@ typedef struct {
     const char** import_local_names;   // NULL-terminated
     const char** import_package_qns;   // NULL-terminated
     int import_count;
+    int import_cap; // entries the arrays hold before the terminator; 0 when not ours
 
     // Current function context
     const char* enclosing_func_qn;

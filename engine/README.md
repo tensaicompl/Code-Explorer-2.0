@@ -135,7 +135,12 @@ Everything goes through `include/pdxe.h`. In outline:
   the surface holds ranges, definition references and structural names the same way,
   and is bound to the file's source when a project runs (surface version 5). Argument
   expressions and parameter lists are ranges inside the engine too, never copied
-  (`patches/0024-source-backed-extraction-text.patch`, issue 90).
+  (`patches/0024-source-backed-extraction-text.patch`, issue 90). Typed resolution and
+  the interface's translation look things up by index, never by scanning a file's or a
+  registry's definitions, imports, usages or sites per question: each index keeps its
+  entries in the scan's order, so the answers are the scans' and the work is linear in
+  the file, and an index that cannot get memory finds nothing rather than scan
+  (`patches/0025-indexed-typed-resolution.patch`, issue 92).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per
@@ -173,6 +178,7 @@ environment variable turns them on.
 | `c_eval_budget` | The C and C++ expression evaluator's budget for a source's length: zero, negative and the largest int, the boundaries of a tranche and of the cap, and every length to past the cap against a 64-bit reference; a generated source four tranches long, taking about twice the old fixed 10,000 steps, extracts losing nothing, and one under a tranche that runs its budget out still reports lost work (issue 74) |
 | `owner_census` (a diagnostic, not a test) | Counts a list of files' sites by owner from the engine's own occurrences: `scripts/owner-census.py <segment> <checkout>` runs it over a segment's files; `orphan` must be 0 |
 | `differential_dump` (the engine differential's vendored side, not a test) | Prints every row of the engine differential for a list of files: each file's extraction once the cross-file typed pass has written into it, and each file's cross-file surface from a second run in which every file comes from its exported surface; refuses a run that is not clean (P2-16, below) |
+| `typed_lookup` | Typed resolution and the interface's translation look up by index (issue 92): every resolve fixture, duplicate, overload, shadowing, alias and ambiguity cases in eleven languages, generated code and the issue's shapes extract and resolve to the same facts and answers with the indexes as with the scans (`PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE`); counted work doubles with the file for 1,000 to 16,000 flat classes in nine languages, 64 to 512 nested JavaScript groups, 16,000 definitions translated and generated code, never examining a registry entry by entry, while the scans' work grows with its square; a duplicated qualified name scopes to its first definition, found without the project's prefix; every family of indexes refused its memory (`PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES`) completes or fails as the interface says, as lost work, the work still linear |
 | `api_warnings_are_errors` | Each warning class exempt in vendored code is still an error in the interface layer, compiled with the build's own flags |
 | one per `tests/fixtures/resolve/<name>` | Typed resolution on that fixture matches the reference engine's recorded answer, the fixture's own assertions hold, and neither the order files are added in nor resolving them from a cache changes the answer |
 

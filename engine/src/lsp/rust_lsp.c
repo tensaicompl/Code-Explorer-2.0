@@ -26,6 +26,7 @@
  */
 
 #include "rust_lsp.h"
+#include "../lookup_counts.h"
 #include "rust_cargo.h"
 #include "../helpers.h"
 #include <ctype.h>
@@ -83,8 +84,13 @@ void rust_lsp_add_use(RustLSPContext *ctx, const char *local_name, const char *m
     if (!ctx || !local_name || !module_path) {
         return;
     }
-    if (ctx->use_count % 32 == 0) {
-        int new_cap = ctx->use_count + 32;
+    /* Grown by doubling (issue 92: growing by 32 entries copied them O(uses^2) times
+     * over). */
+    if (ctx->use_count >= ctx->use_cap) {
+        int new_cap = ctx->use_cap ? ctx->use_cap * 2 : 32;
+        if (new_cap <= ctx->use_count) {
+            new_cap = ctx->use_count + 32;
+        }
         const char **nl =
             (const char **)pdxe_arena_alloc(ctx->arena, (new_cap + 1) * sizeof(char *));
         const char **np =
@@ -98,6 +104,7 @@ void rust_lsp_add_use(RustLSPContext *ctx, const char *local_name, const char *m
         }
         ctx->use_local_names = nl;
         ctx->use_module_paths = np;
+        ctx->use_cap = new_cap;
     }
     ctx->use_local_names[ctx->use_count] = pdxe_arena_strdup(ctx->arena, local_name);
     ctx->use_module_paths[ctx->use_count] = pdxe_arena_strdup(ctx->arena, module_path);
@@ -2966,8 +2973,9 @@ static void rust_record_macro_rule(RustLSPContext *ctx, const char *macro_name, 
                                    TSNode transcriber, TSNode definition, TSNode scope) {
     if (!ctx || !macro_name || ts_node_is_null(transcriber))
         return;
-    if (ctx->macro_rules_count % 16 == 0) {
-        int new_cap = ctx->macro_rules_count + 16;
+    if (ctx->macro_rules_count >= ctx->macro_rules_cap) {
+        /* Doubling (issue 92: growing by 16 copied the rules O(rules^2) times over). */
+        int new_cap = ctx->macro_rules_cap ? ctx->macro_rules_cap * 2 : 16;
         struct RustMacroRule **narr = (struct RustMacroRule **)pdxe_arena_alloc(
             ctx->arena, new_cap * sizeof(struct RustMacroRule *));
         if (!narr)
@@ -2977,6 +2985,7 @@ static void rust_record_macro_rule(RustLSPContext *ctx, const char *macro_name, 
                    ctx->macro_rules_count * sizeof(struct RustMacroRule *));
         }
         ctx->macro_rules_arr = narr;
+        ctx->macro_rules_cap = new_cap;
     }
     RustMacroRule *r = (RustMacroRule *)pdxe_arena_alloc(ctx->arena, sizeof(*r));
     if (!r)
@@ -3073,7 +3082,23 @@ static RustMacroRule *rust_visible_macro_definition(RustLSPContext *ctx, const c
 
     RustMacroRule *best = NULL;
     uint32_t best_scope_width = UINT32_MAX;
-    for (int i = 0; i < ctx->macro_rules_count; i++) {
+    /* Issue 92: the rules of this name, in recorded order, from the name index, where
+     * every rule was scanned per invocation. When the index cannot grow no definition
+     * is visible: lost work (the failed allocation is counted), never a scan. */
+    bool scan = false;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    scan = reference && reference[0];
+#endif
+    PDXENameIndex *by_name = &ctx->macro_rules_by_name;
+    while (!scan && !by_name->failed && by_name->covered < ctx->macro_rules_count) {
+        const RustMacroRule *placed = ctx->macro_rules_arr[by_name->covered];
+        pdxe_name_index_place(by_name, ctx->arena, placed ? placed->macro_name : NULL);
+    }
+    for (int i = scan ? 0 : pdxe_name_index_first(by_name, macro_name);
+         scan ? i < ctx->macro_rules_count : i >= 0;
+         i = scan ? i + 1 : pdxe_name_index_next(by_name, i)) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_NAME_COMPARES);
         RustMacroRule *rule = ctx->macro_rules_arr[i];
         if (!rule || !rule->macro_name || strcmp(rule->macro_name, macro_name) != 0 ||
             position < rule->definition_end_byte || position < rule->scope_start_byte ||
@@ -3552,7 +3577,18 @@ static void rust_expand_user_macro(RustLSPContext *ctx, const char *mname, TSNod
         }
     }
 
-    for (int i = 0; i < ctx->macro_rules_count; i++) {
+    /* Issue 92: the definition's rules are among those of its name, in recorded order:
+     * the name index rust_visible_macro_definition has just brought up to date. */
+    bool scan = false;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    scan = reference && reference[0];
+#endif
+    const PDXENameIndex *by_name = &ctx->macro_rules_by_name;
+    for (int i = scan ? 0 : pdxe_name_index_first(by_name, mname);
+         scan ? i < ctx->macro_rules_count : i >= 0;
+         i = scan ? i + 1 : pdxe_name_index_next(by_name, i)) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_NAME_COMPARES);
         RustMacroRule *r = ctx->macro_rules_arr[i];
         if (strcmp(r->macro_name, mname) != 0 ||
             r->definition_start_byte != visible->definition_start_byte ||
@@ -4076,8 +4112,28 @@ static void rust_ensure_known_macro_carrier(RustLSPContext *ctx, const char *mac
 
     const char *dot = strrchr(callee_qn, '.');
     const char *short_name = dot ? dot + 1 : callee_qn;
-    for (int i = 0; i < ctx->syn_calls->count; i++) {
+    /* Issue 92: the calls at the emission's site, from the site index, where every
+     * call was scanned per emission. When the index cannot grow, the carrier is
+     * neither found nor restored: lost work (the failed allocation is counted). */
+    bool scan = false;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    scan = reference && reference[0];
+#endif
+    PDXESiteIndex *sites = &ctx->syn_sites;
+    while (!scan && !sites->failed && sites->covered < ctx->syn_calls->count) {
+        const PDXECall *call = &ctx->syn_calls->items[sites->covered];
+        pdxe_site_index_place(sites, ctx->arena, call->site_start_byte, call->site_end_byte);
+    }
+    if (!scan && sites->failed) {
+        return;
+    }
+    for (int i = scan ? 0 : pdxe_site_index_first(sites, ctx->emit_site_start_byte,
+                                                  ctx->emit_site_end_byte);
+         scan ? i < ctx->syn_calls->count : i >= 0;
+         i = scan ? i + 1 : pdxe_site_index_next(sites, i)) {
         PDXECall *call = &ctx->syn_calls->items[i];
+        PDXE_LOOKUP_COUNT(PDXE_LC_ANSWER_ROWS);
         if (!call->callee_name || !call->enclosing_func_qn ||
             strcmp(call->enclosing_func_qn, ctx->enclosing_func_qn) != 0 ||
             (strcmp(call->callee_name, macro_name) != 0 &&
@@ -5678,7 +5734,9 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
                         fld_count++;
                     }
                     if (fld_count > 0) {
-                        for (int ti = 0; ti < reg->type_count; ti++) {
+                        /* Issue 92: the types named type_qn, from the index. */
+                        for (int ti = pdxe_registry_type_first_by_qn(reg, type_qn); ti >= 0;
+                             ti = pdxe_registry_type_next_by_qn(reg, ti)) {
                             if (reg->types[ti].qualified_name &&
                                 strcmp(reg->types[ti].qualified_name, type_qn) == 0) {
                                 const char **names = (const char **)pdxe_arena_alloc(
@@ -5710,8 +5768,10 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
                     continue;
                 const char *trait_qn = pdxe_arena_sprintf(arena, "%s.%s", module_qn, tn);
 
-                /* Mark as interface and collect method names. */
-                for (int ti = 0; ti < reg->type_count; ti++) {
+                /* Mark as interface and collect method names (issue 92: the types
+                 * named trait_qn, from the index). */
+                for (int ti = pdxe_registry_type_first_by_qn(reg, trait_qn); ti >= 0;
+                     ti = pdxe_registry_type_next_by_qn(reg, ti)) {
                     if (!reg->types[ti].qualified_name)
                         continue;
                     if (strcmp(reg->types[ti].qualified_name, trait_qn) == 0) {
@@ -5777,7 +5837,9 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
                 continue;
             const PDXEType *ret = rust_parse_type_node(&tmp, rtn);
             const char *fn_qn = pdxe_arena_sprintf(arena, "%s.%s", module_qn, fname);
-            for (int k = 0; k < reg->func_count; k++) {
+            /* Issue 92: the funcs named fn_qn, from the index. */
+            for (int k = pdxe_registry_func_first_by_qn(reg, fn_qn); k >= 0;
+                 k = pdxe_registry_func_next_by_qn(reg, k)) {
                 PDXERegisteredFunc *rf = &reg->funcs[k];
                 if (!rf->qualified_name)
                     continue;
@@ -5922,7 +5984,9 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
                          * trait QN as an embedded_type on the receiver
                          * AND synthesize the method entries. */
                         PDXERegisteredType *rt = NULL;
-                        for (int ti = 0; ti < reg->type_count; ti++) {
+                        /* Issue 92: the first type of that name, from the index. */
+                        for (int ti = pdxe_registry_type_first_by_qn(reg, d->qualified_name);
+                             ti >= 0; ti = pdxe_registry_type_next_by_qn(reg, ti)) {
                             if (reg->types[ti].qualified_name &&
                                 strcmp(reg->types[ti].qualified_name, d->qualified_name) == 0) {
                                 rt = &reg->types[ti];
@@ -6037,8 +6101,10 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
                     strcmp(ret->data.named.qualified_name, "Self") == 0) {
                     ret = pdxe_type_named(arena, type_qn);
                 }
-                /* Patch the registered function's signature. */
-                for (int k = 0; k < reg->func_count; k++) {
+                /* Patch the registered function's signature: the first method of
+                 * the type with that name, from the index (issue 92). */
+                for (int k = pdxe_registry_func_first_by_method(reg, type_qn, mname); k >= 0;
+                     k = pdxe_registry_func_next_by_method(reg, k)) {
                     PDXERegisteredFunc *rf = &reg->funcs[k];
                     if (!rf->receiver_type || !rf->short_name)
                         continue;

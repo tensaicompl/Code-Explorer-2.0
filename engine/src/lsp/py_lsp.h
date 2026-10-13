@@ -56,6 +56,7 @@ typedef struct {
     const char **import_module_qns;
     unsigned char *import_kinds; // internal PyDirectImportKind, classified once from the AST
     int import_count;
+    int import_cap; // entries the import arrays hold before their terminators
 
     // Current function/class context for resolving `self`/`cls` and emitting
     // caller QNs.
@@ -109,6 +110,15 @@ typedef struct {
     // the syntactic occurrence as ordinary USAGE instead of consulting stale
     // bindings and fabricating CALL_REFERENCE/CALLS edges.
     bool callable_value_proof_disabled;
+
+    // Issue 92: the frame a wildcard import last reset (every binding of it, and of
+    // the registry's module functions, to UNKNOWN), the registry's function count
+    // then, and the frame's bindings written since -- all a later wildcard in the
+    // same frame needs to reset. `wildcard_resetting` while it resets them.
+    PDXEScope *wildcard_scope;
+    PDXEVarBinding *wildcard_written;
+    int wildcard_funcs;
+    bool wildcard_resetting;
 
     // Per-file instance-field OVERLAY. When the Tier-2 registry is shared + sealed
     // (registry->read_only), `self.x = ...` / PEP-526 field discoveries made during

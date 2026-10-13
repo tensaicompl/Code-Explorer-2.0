@@ -355,6 +355,10 @@ if(PDXE_BUILD_TESTS)
   # never a copy, and a nested definition's qualified name is given by its relation to
   # an earlier one (issue 90, decision 61, patches/0024).
   add_test(NAME source_text COMMAND source_text)
+  # Nor how many definitions, imports or sites it holds: typed resolution and the
+  # interface's translation look up by index, the answers the scans' and the work linear
+  # (issue 92, decision 62, patches/0025).
+  add_test(NAME typed_lookup COMMAND typed_lookup ${PDXE_RESOLVE_FIXTURE_ROOT})
   # Nor can its syntax drive a grammar scanner past the parser's state buffer, or end
   # the process: four scanners' own code is compiled into the test a second time, entry
   # points renamed, so it reaches their state directly; their warnings are the vendored
