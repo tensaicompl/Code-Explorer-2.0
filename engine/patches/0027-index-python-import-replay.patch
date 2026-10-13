@@ -1,0 +1,176 @@
+--- a/engine/src/lookup_counts.h
++++ b/engine/src/lookup_counts.h
+@@ -36,14 +36,21 @@ typedef enum {
+     PDXE_LC_NAV_FIELD,   /* field lookups */
+     PDXE_LC_NAV_LOST,    /* child walks cut short: a collection without memory, or a cursor
+                           * that ran out before the count */
++    /* Issue 94. */
++    PDXE_LC_IMPORT_ENTRIES, /* registered imports a lookup by local name examined */
++    PDXE_LC_NAME_PROBES,    /* slots a name index (lsp/name_index.h) probed */
+     PDXE_LC_COUNT
+ } pdxe_lookup_counter;
+ 
+ #if defined(PDXE_ENABLE_TEST_SEAMS) || defined(PDXE_LOOKUP_COUNTS_TEST_API)
+-/* Zero every count of this thread. */
++/* Zero every count of this thread, and its trace. */
+ void pdxe_lookup_counts_reset(void);
+ /* This thread's counts since its last reset, indexed by pdxe_lookup_counter. */
+ void pdxe_lookup_counts_read(uint64_t out[PDXE_LC_COUNT]);
++/* Issue 94: what the lookups that choose one entry among several chose, in the order
++ * they chose it, mixed into one value since the last reset, so a test can tell two
++ * implementations that agree on every answer apart by the entries they took. */
++uint64_t pdxe_lookup_trace_read(void);
+ #endif
+ 
+ /* Test builds can make a family of these indexes refuse their memory, as a failed
+@@ -61,11 +68,15 @@ bool pdxe_lookup_index_refused(const char *family);
+ 
+ #if defined(PDXE_ENABLE_TEST_SEAMS)
+ extern _Thread_local uint64_t pdxe_lookup_counts[PDXE_LC_COUNT];
++extern _Thread_local uint64_t pdxe_lookup_trace;
+ #define PDXE_LOOKUP_COUNT(k) ((void)(pdxe_lookup_counts[(k)]++))
+ #define PDXE_LOOKUP_COUNT_N(k, n) ((void)(pdxe_lookup_counts[(k)] += (uint64_t)(n)))
++#define PDXE_LOOKUP_TRACE(v)                                                                       \
++    ((void)(pdxe_lookup_trace = (pdxe_lookup_trace ^ (uint64_t)(v)) * 1099511628211ULL))
+ #else
+ #define PDXE_LOOKUP_COUNT(k) ((void)0)
+ #define PDXE_LOOKUP_COUNT_N(k, n) ((void)0)
++#define PDXE_LOOKUP_TRACE(v) ((void)0)
+ #endif
+ 
+ #endif /* PDXE_LOOKUP_COUNTS_H */
+--- a/engine/src/lsp/name_index.h
++++ b/engine/src/lsp/name_index.h
+@@ -48,6 +48,7 @@ static inline uint64_t pdxe_name_hash(const char *s) {
+ static inline int pdxe_name_slot(const PDXENameSlot *slots, int cap, const char *name) {
+     int mask = cap - 1;
+     for (int at = (int)(pdxe_name_hash(name) & (uint64_t)mask);; at = (at + 1) & mask) {
++        PDXE_LOOKUP_COUNT(PDXE_LC_NAME_PROBES);
+         if (!slots[at].name || strcmp(slots[at].name, name) == 0) {
+             return at;
+         }
+--- a/engine/src/lsp/py_lsp.c
++++ b/engine/src/lsp/py_lsp.c
+@@ -304,6 +304,40 @@ void py_lsp_add_import(PyLSPContext *ctx, const char *local_name, const char *mo
+     ctx->import_count = new_count;
+ }
+ 
++/* Issue 94: the registered imports with a local name, in registration order. Each
++ * lookup by local name read every import (replay per import statement, the exact
++ * reference candidate per reference, the alias check per call), so a file's typed
++ * resolution was quadratic in its imports. The index places the imports as they grow
++ * and is brought up to date before each lookup; the caller still applies every other
++ * condition of the scan to the entries the chain gives. An index that cannot get its
++ * memory finds nothing (lost work, counted), never a scan. Test builds read every entry
++ * instead, for the reference (PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE). */
++static bool py_import_reference_scan(void) {
++#if defined(PDXE_ENABLE_TEST_SEAMS)
++    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
++    return reference && reference[0];
++#else
++    return false;
++#endif
++}
++
++/* The first registered import named `local` to inspect, -1 when none. */
++static int py_import_first_by_local(PyLSPContext *ctx, const char *local) {
++    if (py_import_reference_scan())
++        return ctx->import_count > 0 ? 0 : -1;
++    PDXENameIndex *x = &ctx->imports_by_local;
++    while (!x->failed && x->covered < ctx->import_count)
++        pdxe_name_index_place(x, ctx->arena, ctx->import_local_names[x->covered]);
++    return pdxe_name_index_first(x, local);
++}
++
++/* The registered import after import i to inspect, -1 when none. */
++static int py_import_next_by_local(const PyLSPContext *ctx, int i) {
++    if (py_import_reference_scan())
++        return i + 1 < ctx->import_count ? i + 1 : -1;
++    return pdxe_name_index_next(&ctx->imports_by_local, i);
++}
++
+ /* Determine whether this import is an `import X` style binding (binds the
+  * module itself) or a `from X import Y` style binding (binds Y, an
+  * attribute of module X). Heuristic: if module_qn ends in `.<local_name>`
+@@ -1088,7 +1122,9 @@ static const char *py_exact_imported_reference_candidate(PyLSPContext *ctx,
+     if (!ctx || !local_name)
+         return NULL;
+     const char *candidate = NULL;
+-    for (int i = 0; i < ctx->import_count; i++) {
++    for (int i = py_import_first_by_local(ctx, local_name); i >= 0;
++         i = py_import_next_by_local(ctx, i)) {
++        PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ENTRIES);
+         const char *local = ctx->import_local_names[i];
+         const char *qn = ctx->import_module_qns[i];
+         if (!local || !qn || strcmp(local, local_name) != 0 ||
+@@ -2776,7 +2812,9 @@ static void py_emit_call_for(PyLSPContext *ctx, TSNode call_node) {
+                  * reason-based alias join by import metadata so an unrelated
+                  * local NAMED value cannot masquerade as an imported callable. */
+                 if (qn && qn_short && strcmp(qn_short, fname) != 0) {
+-                    for (int i = 0; i < ctx->import_count; i++) {
++                    for (int i = py_import_first_by_local(ctx, fname); i >= 0;
++                         i = py_import_next_by_local(ctx, i)) {
++                        PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ENTRIES);
+                         const char *local = ctx->import_local_names[i];
+                         const char *import_qn = ctx->import_module_qns[i];
+                         if (local && import_qn && strcmp(local, fname) == 0 &&
+@@ -4917,7 +4955,8 @@ static void py_replay_import_local(PyLSPContext *ctx, TSNode stmt, const char *l
+     PyDirectImportKind chosen_kind = PY_IMPORT_UNCLASSIFIED;
+     const char *chosen_qn = NULL;
+     bool conflicting_target = false;
+-    for (int i = 0; i < ctx->import_count; i++) {
++    for (int i = py_import_first_by_local(ctx, local); i >= 0; i = py_import_next_by_local(ctx, i)) {
++        PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ENTRIES);
+         if ((consumed && consumed[i]) || !ctx->import_local_names[i] ||
+             !ctx->import_module_qns[i] || strcmp(ctx->import_local_names[i], local) != 0) {
+             continue;
+@@ -4934,6 +4973,9 @@ static void py_replay_import_local(PyLSPContext *ctx, TSNode stmt, const char *l
+             conflicting_target = true;
+         }
+     }
++    /* Test builds: which registered import this statement took, and as what. */
++    PDXE_LOOKUP_TRACE((uint64_t)(chosen + 2) * 2 + (conflicting_target ? 1 : 0));
++    PDXE_LOOKUP_TRACE(chosen_kind);
+     if (chosen < 0 || conflicting_target)
+         return;
+ 
+--- a/engine/src/lsp/py_lsp.h
++++ b/engine/src/lsp/py_lsp.h
+@@ -6,6 +6,7 @@
+ #include "type_registry.h"
+ #include "../pdxe_core.h"
+ #include "go_lsp.h" // PDXELSPDef, PDXEResolvedCallArray reused across languages
++#include "name_index.h"
+ 
+ // Lambda body record. When a lambda is assigned to a name (`fn =
+ // lambda x: x.method()`), we stash its parameter list + body so the
+@@ -57,6 +58,9 @@ typedef struct {
+     unsigned char *import_kinds; // internal PyDirectImportKind, classified once from the AST
+     int import_count;
+     int import_cap; // entries the import arrays hold before their terminators
++    /* Issue 94: the import arrays' entries by local name, each name's chain in
++     * registration order (lsp/name_index.h), brought up to date before each lookup. */
++    PDXENameIndex imports_by_local;
+ 
+     // Current function/class context for resolving `self`/`cls` and emitting
+     // caller QNs.
+--- a/engine/src/pdxe_core.c
++++ b/engine/src/pdxe_core.c
+@@ -41,11 +41,17 @@
+ #if defined(PDXE_ENABLE_TEST_SEAMS)
+ /* Issue 92: this thread's lookup work counts (lookup_counts.h). */
+ _Thread_local uint64_t pdxe_lookup_counts[PDXE_LC_COUNT];
++_Thread_local uint64_t pdxe_lookup_trace = 1469598103934665603ULL;
+ 
+ void pdxe_lookup_counts_reset(void) {
+     for (int k = 0; k < PDXE_LC_COUNT; k++) {
+         pdxe_lookup_counts[k] = 0;
+     }
++    pdxe_lookup_trace = 1469598103934665603ULL;
++}
++
++uint64_t pdxe_lookup_trace_read(void) {
++    return pdxe_lookup_trace;
+ }
+ 
+ void pdxe_lookup_counts_read(uint64_t out[PDXE_LC_COUNT]) {

@@ -152,7 +152,7 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 93 (decisions 51 and 53 to 62, engine 7, patches 0015 to 0026 together):
+Issues 83 to 94 (decisions 51 and 53 to 63, engine 7, patches 0015 to 0027 together):
 the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
@@ -254,6 +254,11 @@ the buffer Stage 2 supplies is the whole input.
     reads `name_provenance` by file and name and C++ nesting by type name.
   - An index that cannot get memory finds nothing, the failure lost work; it never falls
     back to a scan. No answer depends on hash order.
+  - Python's registered imports are read by local name through one index
+    (`PyLSPContext::imports_by_local`; issue 94, decision 63, patch 0027): replaying each
+    import statement, an imported reference's exact candidate and a call's alias check.
+    Never loop over `import_count` to find a name; apply the scan's other conditions to
+    the chain's entries, which are in registration order.
   - Test builds: `PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE` answers by the old scans,
     `lookup_counts.h` counts the work, `PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES` refuses a
     family of indexes. `engine/tests/typed_lookup.c` proves answers equal and work
@@ -283,13 +288,12 @@ the buffer Stage 2 supplies is the whole input.
     field lookups) and can refuse collections (`PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES=
     children`). `engine/tests/wide_nodes.c` proves the answers tree-sitter's and the work
     linear in every language's wide shapes.
-- **Open.** Issues 88, 90, 91 and 92 are resolved. Issues 86, 87 and 89 are fixed, and
-  their closure stays held: issue 93 is open. Its extraction side is fixed (patch 0026),
-  but the vendored parser's own error recovery is quadratic: JavaScript after an
+- **Open.** Issues 88, 90, 91, 92 and 94 are resolved. Issues 86, 87 and 89 are fixed,
+  and their closure stays held: issue 93 is open. Its extraction side is fixed (patch
+  0026), but the vendored parser's own error recovery is quadratic: JavaScript after an
   unclosed parenthesis parses in about 94 s at 2 MiB (`ts_parser__recover` rebuilding
-  the error node). Changing the parser is the driver's decision. Issue 94 (open): Python's
-  per-file resolver replays each import by scanning every import (issue 92's class).
-  Engine blockers: issues 82 and 93.
+  the error node). Changing the parser is the driver's decision. Engine blockers: issues
+  82 and 93.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4

@@ -36,14 +36,21 @@ typedef enum {
     PDXE_LC_NAV_FIELD,   /* field lookups */
     PDXE_LC_NAV_LOST,    /* child walks cut short: a collection without memory, or a cursor
                           * that ran out before the count */
+    /* Issue 94. */
+    PDXE_LC_IMPORT_ENTRIES, /* registered imports a lookup by local name examined */
+    PDXE_LC_NAME_PROBES,    /* slots a name index (lsp/name_index.h) probed */
     PDXE_LC_COUNT
 } pdxe_lookup_counter;
 
 #if defined(PDXE_ENABLE_TEST_SEAMS) || defined(PDXE_LOOKUP_COUNTS_TEST_API)
-/* Zero every count of this thread. */
+/* Zero every count of this thread, and its trace. */
 void pdxe_lookup_counts_reset(void);
 /* This thread's counts since its last reset, indexed by pdxe_lookup_counter. */
 void pdxe_lookup_counts_read(uint64_t out[PDXE_LC_COUNT]);
+/* Issue 94: what the lookups that choose one entry among several chose, in the order
+ * they chose it, mixed into one value since the last reset, so a test can tell two
+ * implementations that agree on every answer apart by the entries they took. */
+uint64_t pdxe_lookup_trace_read(void);
 #endif
 
 /* Test builds can make a family of these indexes refuse their memory, as a failed
@@ -61,11 +68,15 @@ bool pdxe_lookup_index_refused(const char *family);
 
 #if defined(PDXE_ENABLE_TEST_SEAMS)
 extern _Thread_local uint64_t pdxe_lookup_counts[PDXE_LC_COUNT];
+extern _Thread_local uint64_t pdxe_lookup_trace;
 #define PDXE_LOOKUP_COUNT(k) ((void)(pdxe_lookup_counts[(k)]++))
 #define PDXE_LOOKUP_COUNT_N(k, n) ((void)(pdxe_lookup_counts[(k)] += (uint64_t)(n)))
+#define PDXE_LOOKUP_TRACE(v)                                                                       \
+    ((void)(pdxe_lookup_trace = (pdxe_lookup_trace ^ (uint64_t)(v)) * 1099511628211ULL))
 #else
 #define PDXE_LOOKUP_COUNT(k) ((void)0)
 #define PDXE_LOOKUP_COUNT_N(k, n) ((void)0)
+#define PDXE_LOOKUP_TRACE(v) ((void)0)
 #endif
 
 #endif /* PDXE_LOOKUP_COUNTS_H */

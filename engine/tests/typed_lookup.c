@@ -1,6 +1,7 @@
 /*
  * Typed resolution and the interface's translation look up by index (docs/plan/ISSUES.md,
- * issue 92; decision 62; engine/patches/0025-indexed-typed-resolution.patch).
+ * issue 92; decision 62; engine/patches/0025-indexed-typed-resolution.patch; issue 94;
+ * decision 63; engine/patches/0027-index-python-import-replay.patch).
  *
  *     typed_lookup <resolve fixture root>
  *
@@ -28,6 +29,14 @@
  *     stays linear.
  *   - Duplicate qualified names keep the first definition, and names are compared
  *     without the project's prefix, in the interface's translation as before.
+ *   - Python's resolver finds a file's imports by local name through one index (issue
+ *     94): replaying each import statement, the exact reference candidate
+ *     and the alias check took every import per lookup. The same imports bound twice,
+ *     from two modules, under one alias, before and after wildcards and shadowed by a
+ *     later import resolve as the scans resolved them, each statement taking the same
+ *     registered import (the decision trace, lookup_counts.h); 1,000 to 16,000 imports
+ *     examine a number of imports that doubles with the file, while the scans' grows
+ *     with its square; refused, the index finds nothing and never scans.
  *
  * Counts, never times: the counters are the engine's own (test builds only).
  */
@@ -67,7 +76,8 @@ static const char *COUNTER_NAMES[PDXE_LC_COUNT] = {
     "Python module-class scans", "TypeScript symbol candidates", "overload candidates",
     "interface definition entries", "interface comparisons", "TypeScript usages",
     "answer rows", "import items", "children reached by position", "cursor steps",
-    "parent lookups", "sibling lookups", "field lookups", "child walks cut short"};
+    "parent lookups", "sibling lookups", "field lookups", "child walks cut short",
+    "registered imports examined", "name index probes"};
 
 /* --- text ------------------------------------------------------------------- */
 
@@ -406,6 +416,8 @@ static outcome_t run(const project_t *p, mode_t_ mode, const char *family, int r
         }
     }
     pdxe_lookup_counts_read(out.work);
+    /* Which entry each choosing lookup took: the same in every mode. */
+    putf(&out.facts, "trace %016llx\n", (unsigned long long)pdxe_lookup_trace_read());
     set_mode(INDEXED, NULL);
     for (size_t i = 0; i < p->count; i++) {
         if (results[i]) {
@@ -440,7 +452,7 @@ static void first_difference(const char *a, const char *b, char *out, size_t cap
 
 /* The indexes and the scans give the same facts and the same answers, and the indexes
  * never examine a registry entry by entry. */
-static void same_answers(const project_t *p, int resolve) {
+static uint32_t same_answers(const project_t *p, int resolve) {
     outcome_t indexed = run(p, INDEXED, NULL, resolve);
     outcome_t scans = run(p, REFERENCE, NULL, resolve);
     const char *a = indexed.facts.text ? indexed.facts.text : "";
@@ -455,8 +467,10 @@ static void same_answers(const project_t *p, int resolve) {
           (unsigned long long)indexed.work[PDXE_LC_REGISTRY_ENTRIES]);
     CHECK(indexed.extract_rc == PDXE_OK && indexed.run_rc == PDXE_OK,
           "%s: extraction %d, resolution %d", p->name, indexed.extract_rc, indexed.run_rc);
+    uint32_t answers = indexed.answers;
     release(&indexed);
     release(&scans);
+    return answers;
 }
 
 /* --- the resolve fixtures ---------------------------------------------------- */
@@ -1111,6 +1125,131 @@ static void duplicates_and_prefix(void) {
     project_free(&p);
 }
 
+/* --- Python's imports by local name (issue 94) --------------------------------- */
+
+/* A package of `n` functions and a module importing each, every other one under an alias,
+ * then calling each by the name it was bound to from a function, where typed resolution
+ * answers (a call at module level gets no answer). */
+static void python_imports_shape(project_t *p, int n, const void *arg) {
+    (void)arg;
+    buf_t lib = {0}, main_py = {0};
+    for (int i = 0; i < n; i++) {
+        putf(&lib, "def a%d():\n    return %d\n", i, i);
+    }
+    for (int i = 0; i < n; i++) {
+        if (i % 2) {
+            putf(&main_py, "from pkg.lib import a%d as b%d\n", i, i);
+        } else {
+            putf(&main_py, "from pkg.lib import a%d\n", i);
+        }
+    }
+    put(&main_py, "\ndef run():\n");
+    for (int i = 0; i < n; i++) {
+        putf(&main_py, i % 2 ? "    b%d()\n" : "    a%d()\n", i);
+    }
+    add_file(p, "pkg/lib.py", "python", &lib);
+    add_file(p, "main.py", "python", &main_py);
+}
+
+/* The issue's own file: `from mN import aN` lines and nothing else. */
+static void python_import_lines_shape(project_t *p, int n, const void *arg) {
+    (void)arg;
+    buf_t b = {0};
+    for (int i = 0; i < n; i++) {
+        putf(&b, "from m%d import a%d\n", i, i);
+    }
+    add_file(p, "imports.py", "python", &b);
+}
+
+/* Imports a lookup by local name has to tell apart, each resolved as the scans resolve
+ * it, every statement taking the registered import the scans' statement took. Calls at
+ * module level see the bindings in force where they stand; `use` sees the module's final
+ * ones and gets typed answers where the bindings agree on one target. */
+static void python_import_duplicates(void) {
+    static const char *const ONE = "def f():\n    return 1\n\ndef h():\n    return 3\n";
+    static const char *const TWO = "def f():\n    return 2\n";
+    static const struct {
+        const char *name;
+        const char *path;
+        const char *source;
+    } CASES[] = {
+        {"the same local imported twice", "main.py",
+         "from pkg.one import f\nfrom pkg.one import f\nf()\n\ndef use():\n    return f()\n"},
+        {"one name from two modules", "main.py",
+         "from pkg.one import f\nfrom pkg.two import f\nf()\n\ndef use():\n    return f()\n"},
+        {"one alias for two members", "main.py",
+         "from pkg.one import f as g\nfrom pkg.two import f as g\ng()\n\ndef use():\n    return g()\n"},
+        {"one alias for two members of a module", "main.py",
+         "from pkg.one import f as g\nfrom pkg.one import h as g\ng()\n\ndef use():\n    return g()\n"},
+        {"an alias for a module and a member", "main.py",
+         "import pkg.one as g\nfrom pkg.two import f as g\ng.f()\ng()\n\ndef use():\n    g.f()\n"
+         "    return g()\n"},
+        {"an import, then a wildcard", "main.py",
+         "from pkg.one import f\nfrom pkg.two import *\nf()\n\ndef use():\n    return f()\n"},
+        {"a wildcard, then an import", "main.py",
+         "from pkg.two import *\nfrom pkg.one import f\nf()\n\ndef use():\n    return f()\n"},
+        {"wildcards repeated", "main.py",
+         "from pkg.one import *\nfrom pkg.two import *\nfrom pkg.one import *\nf()\nh()\n\n"
+         "def use():\n    f()\n    return h()\n"},
+        {"an import shadowed by a later one", "main.py",
+         "from pkg.one import f\nf()\nfrom pkg.two import f\nf()\n\ndef use():\n    return f()\n"},
+        {"relative, dotted and member imports of one module", "pkg/main.py",
+         "from . import one\nfrom .one import f\nimport pkg.one\npkg.one.f()\none.f()\nf()\n\n"
+         "def use():\n    pkg.one.f()\n    one.f()\n    return f()\n"},
+        {"one local, a module and a member", "main.py",
+         "import pkg.one as f\nfrom pkg.two import f\nf()\nf.h()\n\ndef use():\n    f()\n"
+         "    return f.h()\n"},
+    };
+    uint32_t answered = 0;
+    for (size_t i = 0; i < sizeof CASES / sizeof CASES[0]; i++) {
+        project_t p = {.name = CASES[i].name};
+        add_text(&p, "pkg/one.py", "python", ONE);
+        add_text(&p, "pkg/two.py", "python", TWO);
+        add_text(&p, CASES[i].path, "python", CASES[i].source);
+        answered += same_answers(&p, 1) > 0;
+        project_free(&p);
+    }
+    /* Not answers compared empty: half the cases resolve a call, the rest fail closed. */
+    CHECK(answered >= 5, "python import duplicates: only %u cases answered", answered);
+}
+
+/* The scans, for comparison: the imports they examine grow with the square of the
+ * file (more than sixfold when it quadruples). */
+static void import_scans_are_quadratic(void) {
+    uint64_t examined[2] = {0, 0};
+    const int sizes[2] = {500, 2000};
+    for (int s = 0; s < 2; s++) {
+        project_t p = {.name = "import scans"};
+        python_imports_shape(&p, sizes[s], NULL);
+        outcome_t o = run(&p, REFERENCE, NULL, 1);
+        examined[s] = o.work[PDXE_LC_IMPORT_ENTRIES];
+        release(&o);
+        project_free(&p);
+    }
+    printf("import scans: %llu imports examined at 500, %llu at 2000\n",
+           (unsigned long long)examined[0], (unsigned long long)examined[1]);
+    CHECK(examined[1] >= 6 * examined[0], "the import scans examined %llu, then only %llu",
+          (unsigned long long)examined[0], (unsigned long long)examined[1]);
+}
+
+/* The index refused its memory finds nothing: no import is examined one by one, the
+ * refusal is lost work, and the work stays linear. */
+static void import_index_refused(void) {
+    project_t p = {.name = "imports, the index refused"};
+    python_imports_shape(&p, 1000, NULL);
+    outcome_t o = run(&p, REFUSED, "resolver", 1);
+    CHECK(o.work[PDXE_LC_IMPORT_ENTRIES] == 0,
+          "imports refused: %llu imports examined one by one",
+          (unsigned long long)o.work[PDXE_LC_IMPORT_ENTRIES]);
+    CHECK(o.lost > 0 || o.health.pass_failures > 0,
+          "imports refused: the refusal was not lost work");
+    release(&o);
+    project_free(&p);
+    static const int SIZES[] = {1000, 2000, 4000};
+    linear_work("refused resolver, python imports", python_imports_shape, NULL, SIZES, 3, 1,
+                REFUSED, "resolver", 0);
+}
+
 /* --- refusals ------------------------------------------------------------------ */
 
 /* Each family of indexes refused its memory: extraction and resolution complete or fail
@@ -1202,6 +1341,20 @@ int main(int argc, char **argv) {
     translation_shape(&defs, 2000, NULL);
     same_answers(&defs, 1);
     project_free(&defs);
+
+    python_import_duplicates();
+    project_t imports = {.name = "python imports"};
+    python_imports_shape(&imports, 300, NULL);
+    uint32_t imported_calls = same_answers(&imports, 1);
+    CHECK(imported_calls >= 300, "python imports: %u answers for 300 imported calls",
+          imported_calls);
+    project_free(&imports);
+    static const int IMPORTS[] = {1000, 2000, 4000, 8000, 16000};
+    linear_work("python imports", python_imports_shape, NULL, IMPORTS, 5, 1, INDEXED, NULL, 1);
+    linear_work("python import lines", python_import_lines_shape, NULL, IMPORTS, 5, 1, INDEXED,
+                NULL, 1);
+    import_scans_are_quadratic();
+    import_index_refused();
 
     refusals();
 

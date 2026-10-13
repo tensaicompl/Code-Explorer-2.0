@@ -48,6 +48,7 @@ static inline uint64_t pdxe_name_hash(const char *s) {
 static inline int pdxe_name_slot(const PDXENameSlot *slots, int cap, const char *name) {
     int mask = cap - 1;
     for (int at = (int)(pdxe_name_hash(name) & (uint64_t)mask);; at = (at + 1) & mask) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_NAME_PROBES);
         if (!slots[at].name || strcmp(slots[at].name, name) == 0) {
             return at;
         }

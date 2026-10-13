@@ -15,7 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 94 | 2026-10-13 | P2-16 | blocker | open | Found by issue 93's battery: Python's per-file resolver replays each import statement by scanning every import of the file for its local name (`py_replay_import_local`), a lookup by key that issue 92's indexes do not reach, so a file's typed resolution is quadratic in its imports: a file of `from m import a` lines takes 0.14, 0.47, 1.8 and 6.7 s of per-file typed resolution at 0.25 to 2 MiB, and the project's run as long again (16 s at 2 MiB in all). Navigation stays linear. As long at `5915669` | Open: found in this round and outside issue 93's navigation; not changed. An index of the imports by local name, as issue 92's helpers have, is the likely fix |
+| 94 | 2026-10-13 | P2-16 | blocker | resolved | Found by issue 93's battery: Python's per-file resolver replays each import statement by scanning every import of the file for its local name (`py_replay_import_local`), a lookup by key that issue 92's indexes do not reach, so a file's typed resolution is quadratic in its imports: a file of `from m import a` lines takes 0.14, 0.47, 1.8 and 6.7 s of per-file typed resolution at 0.25 to 2 MiB, and the project's run as long again (16 s at 2 MiB in all). Navigation stays linear. As long at `5915669` | Fixed by indexing, nothing limited (patch 0027, decision 63, engine 7): replay, an imported reference's exact candidate and a call's alias check read the file's registered imports through one index by exact local name (`imports_by_local`, issue 92's `PDXENameIndex`), each name's chain in registration order, so the import each statement takes, the conflicts and the imports consumed are the scans'; an index that cannot get memory finds nothing, never scans. The 2 MiB file's per-file typed resolution now takes 0.15 s (6.7 s) and the project's run 0.31 s (7.7 s); the imports examined double with the file at 1,000 to 16,000 imports; the 104,730-file census resolves and extracts identically; four mutations killed |
 | 93 | 2026-10-13 | P2-16 | blocker | open | Found by issue 92's resource audit, the final engine-7 audit: when a parse fails early, the parser's recovery can leave one error node holding the rest of the file as a flat run of children, and every pass that steps through it by position, or asks for a sibling or parent inside it, costs the position: the parser's own recovery, extraction's docstring, decorator and ancestor lookups, channel extraction and the Kotlin resolver's top-level walks. A Kotlin file of one-line nested classes takes 195 s at 1 MiB and 764 s at 2 MiB; JavaScript after an unclosed parenthesis 40 s and 160 s. As long at `8b3ed42` | Extraction fixed (patch 0026, engine 7), nothing limited: children are visited by cursor through one iterator, in reverse or by position from a collection made once, and parents and siblings are found from the walk's own path or the loop in progress, never by descending from the root; the answers are tree-sitter's on every node of the 104,730-file census and it extracts and resolves identically; the navigation work is linear in 75 wide shapes in 32 languages; nine mutations killed. The Kotlin file now extracts in 1.75 s at 2 MiB (764 s), 8,000 decorated TypeScript methods in one class in 0.55 s (68 s). Open: the vendored parser's recovery is quadratic in an error node's width (`ts_parser__recover` rebuilds the node for each token it takes): the JavaScript file parses in 1.5, 5.8, 22.9 and 88.7 s at 0.25 to 2 MiB, the rest of its extraction in 1.0 s. Changing the parser is the driver's decision; the battery also found issue 94 |
 | 92 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 90's resource audit: per-file typed resolution and the interface's translation are quadratic in how many definitions a file holds, in every typed language, whatever its nesting. 16,000 one-method classes take 62 s in Python (677 KB), 18 s in Java (549 KB), 15 s in TypeScript, 13 s in C++ and 8 s in C# and Go, about four times as long for each doubling; 2 MiB of distinct nested Java classes take 237 s. Within the depth ceiling, JavaScript calls nested 200 deep cost the TypeScript resolver more the more of them a file holds: 2 MiB, 441 s. Past an isolated worker's 120 s timeout a file fails the build, and whether it gets there depends on the machine. Generated code (protocol buffers, models, clients) holds thousands of classes a file | Fixed by indexing, nothing limited (patch 0025, decision 62, engine 7, and Stage 3's registry): every registry keeps exact-key chains in registration order as entries are added, the resolvers' helpers, the cross-file pass and the interface's translation index what they scanned (`index_of_qn` is gone), Stage 3 reads a name's provenance by file and name and C++ nesting by type name; an index that cannot get memory finds nothing, never scans. 16,000 classes now take 0.50 to 0.87 s in every typed language (Python 63.9 s before), each doubling about twice the last; the 2 MiB nested JavaScript 21 s (406 s) and nested Java 5.8 s (401 s). The 104,730-file census resolves and extracts identically; ten mutations killed. The final audit found issue 93 |
 | 91 | 2026-10-12 | P2-16 | third-party | resolved | Found by issue 90's resource audit: grammar scanners of the vendored parser keep state that grows with nesting and do not keep it within the parser's 1,024-byte state buffer. YAML's writes two bytes past it from 253 nested block mappings (a 41 KB file) and Markdown's copies its open blocks past it without a bound, so the parser's own state is overwritten: a release build, where the bound is only an assertion, crashes in the parser (a null dereference), and the address sanitizer stops at the assertion. Kotlin's calls `abort()` at 1,024 open string templates (about 6 KB). Python's can write one byte past it, not reproduced. All of it happens during the parse, before any extraction pass and before the depth ceiling. Extraction is in process unless isolation is asked for, so one such file stops `pdx index`. The same at `582b58a` and on main | Resolved. Patch 0023, decision 60, engine 7: each affected scanner holds what the buffer holds, the bound derived from it (YAML 253 indentation entries, Markdown 254 open blocks, Kotlin 1,024 delimiters, Python 2 + delimiters + 2 per level at most 1,024); a push past it is refused and its token not claimed, so the parse recovers; serializers check each complete entry, deserializers read complete entries within the length. No abort remains reachable from content. All 23 scanners audited, the other 19 already bounded. Direct canary, sweep, round-trip and malformed-length tests, end-to-end children, corpus files; release and sanitizers clean; mutations killed; the census extracts identically |
@@ -156,8 +156,125 @@ indexes covers this loop. A file holding only `from mN import aN` lines, CPU sec
 Parse and navigation stay linear (0.17 s and the counters doubling). The same at
 `5915669`. Under an isolated worker's 120 s at 2 MiB, but quadratic.
 
-State: open. An index of the file's imports by local name, its chains in source order so
-the first unconsumed match is the scan's, is the likely fix.
+**The driver's decision** (decision 63): fix it by indexing. No import is limited, no
+replay skipped, no work quota added and no timeout changed, and it is not part of issue 93.
+
+**The scans.** The resolver registers a file's imports from extraction's import list, in
+its order (the source's), before the file is processed (`py_lsp_add_import`), as three
+arrays: the local name each binds (its alias, or the name it imports), its module's
+qualified name and its kind. The local names are never rewritten afterwards. Three
+lookups by local name read every registered import, in that order:
+
+- Replay (`py_replay_import_local`). The module's top-level statements are executed in
+  source order, and each import statement replays each name it binds; a wildcard
+  statement looks nothing up, but resets the module bindings a wildcard may change. The
+  name is first bound to unknown; with imports registered but no record of those consumed
+  (its memory refused), it stays unknown. Otherwise every registered import is examined
+  and skipped when it is consumed, has no local name or module, or its local name is not
+  exactly the name (`strcmp`). The statement classifies each remaining one from its own
+  syntax and the import's module (`py_import_kind_from_statement`, a from-import's target
+  canonicalised); only `import X`, `import X as Y` and `from X import Y` replay. The
+  first replayable import is chosen; a later replayable one with another target or kind
+  is a conflict, and a conflict or no choice leaves the name unknown. The choice takes
+  its canonical target and kind, is consumed (a later statement binding the same name
+  takes the next import) and binds the name. An alias is the local name itself; the
+  module and the statement's form are conditions on the entries a name matches, never
+  part of the match.
+- An imported reference's exact candidate (`py_exact_imported_reference_candidate`): the
+  target every from-binding import of the name agrees on, or none.
+- A call's alias check: whether a from-binding import of the name with that target exists.
+
+Each lookup examined every import, and replay looks up once per name a statement binds,
+so N imports examined N² of them.
+
+**The index.** One index of the registered imports by local name
+(`PyLSPContext::imports_by_local`), issue 92's `PDXENameIndex` (`lsp/name_index.h`, as
+Perl's @ISA and Rust's macro rules use it): keyed by exactly the local name the scans
+compared, each name's chain in registration order, and brought up to date with the
+arrays before each lookup by placing the imports added since. All three lookups read it
+and apply the scans' every other condition to the imports a chain gives, so each meets
+the scan's matching imports in the scan's order: the import a statement takes, the
+conflicts and the imports consumed are the scan's, and no answer depends on hash order.
+Issue 92's index of import items by local name (`PyImportKeys`) is not reused: it holds
+the module's import syntax for classification (a plain import under each dotted prefix of
+its name, by source range), is discarded once the imports are classified, and names no
+registered import. The registered arrays had no index.
+
+**Allocation.** An index that cannot get its memory finds nothing from then on: replay
+leaves the name unknown, as for a name no registered import binds, and the candidate and
+the alias check find none. The failure is lost work, counted once; it never scans.
+
+**Work.** Counted in test builds (`lookup_counts.h`: registered imports examined, name
+index probes), extraction and the project's run together:
+
+| Imports | 1,000 | 2,000 | 4,000 | 8,000 | 16,000 |
+|---|---|---|---|---|---|
+| imports, half aliased, each called from a function: imports examined | 2,500 | 5,000 | 10,000 | 20,000 | 40,000 |
+| index probes | 9,344 | 19,118 | 36,682 | 79,836 | 151,192 |
+| `from mN import aN` lines: imports examined | 2,000 | 4,000 | 8,000 | 16,000 | 32,000 |
+| index probes | 8,158 | 16,352 | 31,402 | 68,760 | 145,954 |
+
+The scans examined 562,750 imports at 500 and 9,001,000 at 2,000. The issue's file, CPU
+seconds of one extraction and one project run, single-threaded, at `735aacf` and now:
+
+| | 0.25 MiB | 0.5 MiB | 1 MiB | 2 MiB |
+|---|---|---|---|---|
+| imports | 10,937 | 21,019 | 41,184 | 81,356 |
+| per-file typed resolution, before | 0.139 | 0.469 | 1.768 | 6.731 |
+| per-file typed resolution, now | 0.019 | 0.037 | 0.068 | 0.154 |
+| the project's run, before | 0.177 | 0.581 | 2.077 | 7.656 |
+| the project's run, now | 0.039 | 0.077 | 0.144 | 0.306 |
+| extraction in all, before | 0.238 | 0.688 | 2.296 | 8.150 |
+| extraction in all, now | 0.104 | 0.206 | 0.395 | 0.816 |
+| imports examined, each pass, by the scans | 119,617,969 | 441,798,361 | 41,184² | 81,356² |
+| imports examined, each pass, now | 10,937 | 21,019 | 41,184 | 81,356 |
+| index probes, each pass | 51,377 | 111,870 | 222,957 | 419,308 |
+
+(The scans at 1 and 2 MiB are the square, not run.) The 2 MiB file took about 16 s in
+all and takes 1.1 s.
+
+**Tests.** `engine/tests/typed_lookup.c`:
+
+- Eleven fixtures of imports a lookup by local name must tell apart: the same import
+  twice; one name from two modules; one alias for two members of two modules, and of one;
+  an alias for a module and for a member; an import, then a wildcard; a wildcard, then an
+  import; wildcards repeated; an import shadowed by a later one; relative, dotted and
+  member imports of one module; one local name for a module and a member. Each calls at
+  module level and from a function, and resolves to the same facts, answers (target,
+  file, score, strategy, engine strategy, candidates, site), health and decision trace
+  with the index as with the scans. Six get typed answers (an alias of two members takes
+  the later, a wildcard then an import takes the import); the other five fail closed,
+  alike. The test requires at least five, so that no comparison is of two empty sets.
+- The decision trace (test builds, `pdxe_lookup_trace_read`) mixes in, in order, each
+  replay's chosen import, conflict and kind, so implementations that agree on every
+  answer but take different imports differ.
+- 300 imports, half aliased, called from a function: 300 answers, the same both ways.
+- The imports examined double with the file at 1,000 to 16,000 in both shapes, and the
+  scans' grow with its square. With the resolver's indexes refused, no import is
+  examined one by one, the refusal is lost work, and the work stays linear.
+
+**Mutations.** Each compiled, was killed by failing assertions and was restored byte for
+byte (sha256). A, every lookup scanning again: the imports examined grow fourfold per
+doubling (2,250,500 to 9,001,000), 1,250,500 examined with the index refused. B, the
+name index's chains newest first: the same import twice takes the other import (the
+trace differs), as does Rust's one macro name in two modules. C, the imports keyed by
+module instead of local name: 18 failures, among them every alias fixture (a target lost:
+`pkg.two.f`, `pkg.one.h`), the wildcard and relative fixtures, the resolve fixtures and
+both guards against empty answers. D, a refused index falling back to the scan: 1,250,500
+imports examined one by one, the refused work quadratic.
+
+**Census.** All 104,730 census files, as 10,928 directory projects, resolve to the same
+answers (target, file, score, strategy, engine strategy, candidates, site) and health as
+at `735aacf`, and extract to the same public facts, texts, qualified names, surfaces and
+lost counts. The goldens' segments are unchanged.
+
+**Issue 93.** With the index in force, `wide_nodes` passes, with collections and with
+them refused, and the issue's files' navigation counts are unchanged. The Kotlin file
+extracts in 0.21, 0.41, 0.81 and 1.66 s at 0.25 to 2 MiB. The JavaScript file's
+extraction after the parse takes 0.13, 0.24, 0.48 and 0.98 s, and its parse is still
+1.6, 5.9, 20.9 and 88.9 s (issue 93, open). The parser is untouched.
+
+State: resolved.
 
 ### 93 — An error-recovered file costs superlinear work in its wide error node
 

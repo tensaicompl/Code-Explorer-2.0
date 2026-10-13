@@ -41,11 +41,17 @@
 #if defined(PDXE_ENABLE_TEST_SEAMS)
 /* Issue 92: this thread's lookup work counts (lookup_counts.h). */
 _Thread_local uint64_t pdxe_lookup_counts[PDXE_LC_COUNT];
+_Thread_local uint64_t pdxe_lookup_trace = 1469598103934665603ULL;
 
 void pdxe_lookup_counts_reset(void) {
     for (int k = 0; k < PDXE_LC_COUNT; k++) {
         pdxe_lookup_counts[k] = 0;
     }
+    pdxe_lookup_trace = 1469598103934665603ULL;
+}
+
+uint64_t pdxe_lookup_trace_read(void) {
+    return pdxe_lookup_trace;
 }
 
 void pdxe_lookup_counts_read(uint64_t out[PDXE_LC_COUNT]) {

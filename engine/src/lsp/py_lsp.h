@@ -6,6 +6,7 @@
 #include "type_registry.h"
 #include "../pdxe_core.h"
 #include "go_lsp.h" // PDXELSPDef, PDXEResolvedCallArray reused across languages
+#include "name_index.h"
 
 // Lambda body record. When a lambda is assigned to a name (`fn =
 // lambda x: x.method()`), we stash its parameter list + body so the
@@ -57,6 +58,9 @@ typedef struct {
     unsigned char *import_kinds; // internal PyDirectImportKind, classified once from the AST
     int import_count;
     int import_cap; // entries the import arrays hold before their terminators
+    /* Issue 94: the import arrays' entries by local name, each name's chain in
+     * registration order (lsp/name_index.h), brought up to date before each lookup. */
+    PDXENameIndex imports_by_local;
 
     // Current function/class context for resolving `self`/`cls` and emitting
     // caller QNs.

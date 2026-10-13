@@ -304,6 +304,40 @@ void py_lsp_add_import(PyLSPContext *ctx, const char *local_name, const char *mo
     ctx->import_count = new_count;
 }
 
+/* Issue 94: the registered imports with a local name, in registration order. Each
+ * lookup by local name read every import (replay per import statement, the exact
+ * reference candidate per reference, the alias check per call), so a file's typed
+ * resolution was quadratic in its imports. The index places the imports as they grow
+ * and is brought up to date before each lookup; the caller still applies every other
+ * condition of the scan to the entries the chain gives. An index that cannot get its
+ * memory finds nothing (lost work, counted), never a scan. Test builds read every entry
+ * instead, for the reference (PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE). */
+static bool py_import_reference_scan(void) {
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    return reference && reference[0];
+#else
+    return false;
+#endif
+}
+
+/* The first registered import named `local` to inspect, -1 when none. */
+static int py_import_first_by_local(PyLSPContext *ctx, const char *local) {
+    if (py_import_reference_scan())
+        return ctx->import_count > 0 ? 0 : -1;
+    PDXENameIndex *x = &ctx->imports_by_local;
+    while (!x->failed && x->covered < ctx->import_count)
+        pdxe_name_index_place(x, ctx->arena, ctx->import_local_names[x->covered]);
+    return pdxe_name_index_first(x, local);
+}
+
+/* The registered import after import i to inspect, -1 when none. */
+static int py_import_next_by_local(const PyLSPContext *ctx, int i) {
+    if (py_import_reference_scan())
+        return i + 1 < ctx->import_count ? i + 1 : -1;
+    return pdxe_name_index_next(&ctx->imports_by_local, i);
+}
+
 /* Determine whether this import is an `import X` style binding (binds the
  * module itself) or a `from X import Y` style binding (binds Y, an
  * attribute of module X). Heuristic: if module_qn ends in `.<local_name>`
@@ -1088,7 +1122,9 @@ static const char *py_exact_imported_reference_candidate(PyLSPContext *ctx,
     if (!ctx || !local_name)
         return NULL;
     const char *candidate = NULL;
-    for (int i = 0; i < ctx->import_count; i++) {
+    for (int i = py_import_first_by_local(ctx, local_name); i >= 0;
+         i = py_import_next_by_local(ctx, i)) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ENTRIES);
         const char *local = ctx->import_local_names[i];
         const char *qn = ctx->import_module_qns[i];
         if (!local || !qn || strcmp(local, local_name) != 0 ||
@@ -2776,7 +2812,9 @@ static void py_emit_call_for(PyLSPContext *ctx, TSNode call_node) {
                  * reason-based alias join by import metadata so an unrelated
                  * local NAMED value cannot masquerade as an imported callable. */
                 if (qn && qn_short && strcmp(qn_short, fname) != 0) {
-                    for (int i = 0; i < ctx->import_count; i++) {
+                    for (int i = py_import_first_by_local(ctx, fname); i >= 0;
+                         i = py_import_next_by_local(ctx, i)) {
+                        PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ENTRIES);
                         const char *local = ctx->import_local_names[i];
                         const char *import_qn = ctx->import_module_qns[i];
                         if (local && import_qn && strcmp(local, fname) == 0 &&
@@ -4917,7 +4955,8 @@ static void py_replay_import_local(PyLSPContext *ctx, TSNode stmt, const char *l
     PyDirectImportKind chosen_kind = PY_IMPORT_UNCLASSIFIED;
     const char *chosen_qn = NULL;
     bool conflicting_target = false;
-    for (int i = 0; i < ctx->import_count; i++) {
+    for (int i = py_import_first_by_local(ctx, local); i >= 0; i = py_import_next_by_local(ctx, i)) {
+        PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ENTRIES);
         if ((consumed && consumed[i]) || !ctx->import_local_names[i] ||
             !ctx->import_module_qns[i] || strcmp(ctx->import_local_names[i], local) != 0) {
             continue;
@@ -4934,6 +4973,9 @@ static void py_replay_import_local(PyLSPContext *ctx, TSNode stmt, const char *l
             conflicting_target = true;
         }
     }
+    /* Test builds: which registered import this statement took, and as what. */
+    PDXE_LOOKUP_TRACE((uint64_t)(chosen + 2) * 2 + (conflicting_target ? 1 : 0));
+    PDXE_LOOKUP_TRACE(chosen_kind);
     if (chosen < 0 || conflicting_target)
         return;
 
