@@ -123,11 +123,11 @@ registry's own metadata, and applies a configuration's path aliases to TypeScrip
 JavaScript imports only, as the registry does (issue 43, patch 0009). Rust's `impl
 Trait for Type` relations cross the interface (`FileExtract::impl_traits`, issue 42)
 and the registry resolves them; supertraits are not recorded, so none is followed. The
-extraction cache is format 5 and the worker protocol 6 (issues 40 to 42, 46, 47 and
-54): calls carry their node-type path (`ast_path`, computed by the engine since patch
+extraction cache is format 6 and the worker protocol 7 (issues 40 to 42, 46, 47, 54 and
+90): calls carry their node-type path (`ast_path`, computed by the engine since patch
 0010) and arguments, and definitions their decorators, parameter types and every route
-binding with its declaring node's position and path (`routes`, patch 0011);
-`ENGINE_VERSION` is 7. Issue 74 (decision 45, engine 4): the C and C++ expression
+binding with its declaring node's position and path (`routes`, patch 0011); both hold
+records whose text is ranges of the source (issue 90B, below); `ENGINE_VERSION` is 7. Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -152,7 +152,7 @@ typed resolution joins as before (patch 0014, superseding 0013's join).
   text represents, Kotlin's delegate spans, the walk's frame leak in error-recovered
   regions, and C++ parse artefacts.
 
-Issues 83 to 91 (decisions 51 and 53 to 60, engine 7, patches 0015 to 0023 together):
+Issues 83 to 91 (decisions 51 and 53 to 61, engine 7, patches 0015 to 0024 together):
 the buffer Stage 2 supplies is the whole input.
 - **No file.** C and C++ preprocessing opens none: no `#include` target, and no file
   `__has_include` names, is ever found, wherever the process runs. Include directives
@@ -214,14 +214,33 @@ the buffer Stage 2 supplies is the whole input.
   `extract` and `build` tests and `pdx-engine`'s `type_sizes`, `literals_and_lines`,
   `preprocess_bounds`, `site_path_budget`, `syntax_depth`, `usage_ancestry` and
   `scanner_state` (which run on Windows too) prove it.
-- **Open.** Issues 88 and 91 are resolved. Issues 86, 87 and 89 are fixed, but their
-  closure is held on issue 90. Its usage half (90A) is fixed by patch 0022. Its memory
-  half (90B) proceeds next, as an interface and identity redesign (the driver's
-  decision): argument expressions, callee text, Python attribute usage names and nested
-  qualified names grow with nesting and are exported and read whole. Then issue 92:
-  per-file typed resolution and the interface's translation are quadratic in a file's
-  definitions in every typed language (16,000 Python classes, 62 s), and deeply nested
-  JavaScript calls too (2 MiB, 441 s). Both must be fixed before engine 7 reaches main.
+- **Source-backed text (90B, decision 61, patch 0024).** Source evidence is held once:
+  the normalised source's bytes plus bounded per-fact references.
+  - Text a fact takes from the file crosses as `pdxe_text` (24 bytes): a range of the
+    source the caller gave when it is exactly one run of it (callee, argument
+    expression, usage name, route's declaring node, parameter list), owned text when
+    synthesised or read after C-family macro expansion, never both. Arguments and
+    parameter lists are ranges inside the engine too.
+  - Qualified names are structural: whole, member, extended, or a `.`-bounded prefix of
+    an earlier name the earlier definition adds (C++ functions in nested namespaces),
+    then a rest; `pdxe_qualified_name` and `FileExtract::qualified_names` spell them.
+  - Rust: `ExtractRecord` (serialised, ranges, no source) and `FileExtract` (a record
+    bound to one `Arc<[u8]>`); `bind` checks length, digest, every range and every name,
+    refuses rather than clamps. Read text with `FileExtract::text` (borrowed); never
+    convert a range to a `String` in a loop. Range coordinates are equality within one
+    extraction only.
+  - Surface 5 (ranges, `source_len`, definition references, structural names), cache
+    format 6 (records bound to the verified current source; a misfit is a miss),
+    protocol 7 (the parent binds the worker's records to the source it sent). Identities
+    hash the bytes the whole text or name gives: segment schema stays 3.
+  - Tests: `engine/tests/source_text.c`, `pdx-engine`'s `source_text`, `pdx-core`'s
+    `derive` identity vectors (`structural_names_…`, `prefix_names_…`,
+    `source_ranges_…`) and the cache's and worker's record comparisons.
+- **Open.** Issues 88, 90 and 91 are resolved. Issues 86, 87 and 89 are fixed, and their
+  closure stays held for the final engine-7 audit. Then issue 92: per-file typed
+  resolution and the interface's translation are quadratic in a file's definitions in
+  every typed language (16,000 Python classes, 62 s), and deeply nested JavaScript calls
+  too (2 MiB, 441 s). It must be fixed before engine 7 reaches main.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: the B.4

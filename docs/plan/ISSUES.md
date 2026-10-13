@@ -17,7 +17,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 |---|---|---|---|---|---|---|
 | 92 | 2026-10-12 | P2-16 | blocker | open | Found by issue 90's resource audit: per-file typed resolution and the interface's translation are quadratic in how many definitions a file holds, in every typed language, whatever its nesting. 16,000 one-method classes take 62 s in Python (677 KB), 18 s in Java (549 KB), 15 s in TypeScript, 13 s in C++ and 8 s in C# and Go, about four times as long for each doubling; 2 MiB of distinct nested Java classes take 237 s. Within the depth ceiling, JavaScript calls nested 200 deep cost the TypeScript resolver more the more of them a file holds: 2 MiB, 441 s. Past an isolated worker's 120 s timeout a file fails the build, and whether it gets there depends on the machine. Generated code (protocol buffers, models, clients) holds thousands of classes a file | Open: predates this hotfix, on main; nothing changed in this round. Whether it holds engine 7 is the driver's decision |
 | 91 | 2026-10-12 | P2-16 | third-party | resolved | Found by issue 90's resource audit: grammar scanners of the vendored parser keep state that grows with nesting and do not keep it within the parser's 1,024-byte state buffer. YAML's writes two bytes past it from 253 nested block mappings (a 41 KB file) and Markdown's copies its open blocks past it without a bound, so the parser's own state is overwritten: a release build, where the bound is only an assertion, crashes in the parser (a null dereference), and the address sanitizer stops at the assertion. Kotlin's calls `abort()` at 1,024 open string templates (about 6 KB). Python's can write one byte past it, not reproduced. All of it happens during the parse, before any extraction pass and before the depth ceiling. Extraction is in process unless isolation is asked for, so one such file stops `pdx index`. The same at `582b58a` and on main | Resolved. Patch 0023, decision 60, engine 7: each affected scanner holds what the buffer holds, the bound derived from it (YAML 253 indentation entries, Markdown 254 open blocks, Kotlin 1,024 delimiters, Python 2 + delimiters + 2 per level at most 1,024); a push past it is refused and its token not claimed, so the parse recovers; serializers check each complete entry, deserializers read complete entries within the length. No abort remains reachable from content. All 23 scanners audited, the other 19 already bounded. Direct canary, sweep, round-trip and malformed-length tests, end-to-end children, corpus files; release and sanitizers clean; mutations killed; the census extracts identically |
-| 90 | 2026-10-12 | P2-16 | blocker | open | Found by the closure audit of issues 88 and 89, with both in force: within issue 89's 512-depth admission, usage handling still climbs to the root with `ts_node_parent`, which descends from the root again, for every usage, so each usage costs depth², and a file holds as many deep constructs as its size allows. One admitted 400-link Python member chain (about 800 bytes) takes 3.1 s, 8 of them 25 s, a 13 KB file about 50 s; Java classes 250 deep take 0.85 s each. A call's argument text, proportional to its depth, makes 2 MiB of admitted 250-deep call chains peak at 1.33 GB in the engine | Fixed in part, closure held. 90A, patch 0022, decision 59: a usage's questions about its ancestors are answered from the unified walk's own frames, each frame's answer computed once. The 400-link chain takes 2 ms (3.71 s before), 16 of them 31 ms (54.9 s), Java classes 250 deep 15 ms (0.93 s); the counted work is linear in links and chains, with no `ts_node_parent`; all 104,730 census files extract identically; mutations killed. 90B stopped at its interface condition: the text that grows with nesting (argument expressions, callee text, Python attribute usage names, nested qualified names) is exported whole and read whole (contracts, site and definition identity), so retaining it linearly needs an interface and identity change, the driver's decision. Holds the closure of issues 86, 87 and 89; see issues 91 and 92 |
+| 90 | 2026-10-12 | P2-16 | blocker | resolved | Found by the closure audit of issues 88 and 89, with both in force: within issue 89's 512-depth admission, usage handling still climbs to the root with `ts_node_parent`, which descends from the root again, for every usage, so each usage costs depth², and a file holds as many deep constructs as its size allows. One admitted 400-link Python member chain (about 800 bytes) takes 3.1 s, 8 of them 25 s, a 13 KB file about 50 s; Java classes 250 deep take 0.85 s each. A call's argument text, proportional to its depth, makes 2 MiB of admitted 250-deep call chains peak at 1.33 GB in the engine | Resolved. 90A, patch 0022, decision 59: a usage's questions about its ancestors are answered from the unified walk's own frames, each frame's answer computed once. The 400-link chain takes 2 ms (3.71 s before), 16 of them 31 ms (54.9 s), Java classes 250 deep 15 ms (0.93 s); the counted work is linear in links and chains, with no `ts_node_parent`; all 104,730 census files extract identically; mutations killed. 90B, patch 0024, decision 61 (the driver's redesign of the interface, model, cache and protocol): text a fact takes from the file is a range of the source (`pdxe_text`, `TextRef`), owned only when synthesised or macro-expanded; qualified names are structural (member, extended, or a `.`-bounded prefix of an earlier name); records hold ranges and bind to the verified source (cache format 6, protocol 7, surface 5); identities hash the same bytes, segment schema 3. An audit of every extracted string over 108 shapes in 29 languages found five fields growing with the square of the nesting (argument expressions, callees, usage names, qualified names, parameter lists); none does now. At 2 MiB the record without its surface shrinks 6 to 26 times (Python chains 443 to 49 MB) and peak RSS by 3 to 45%; all 104,730 census files extract identically; mutations killed. Closure of issues 86, 87 and 89 stays held for the final engine-7 audit; see issues 91 and 92 |
 | 89 | 2026-10-12 | P2-16 | blocker | open | Found by issue 88's extraction audit: extraction's memory and time are superlinear in syntax nesting, in many places and every language, beyond `ast_path`. Memory: each call stores its argument text and its callee text whole, so nested calls store about 1.5 n² bytes of arguments and a method chain about 2 n² bytes of callee text; nested C++ namespaces, JavaScript closures and Java `new` expressions grow ×3 to ×4 per doubling. Time: usage handling climbs to the root with `ts_node_parent`, itself a descent from the root, for every usage: O(n³). 1,000 nested Java classes (13 KB) take 56 s, 1,000 nested JavaScript functions 45 s and a 1,000-link Python member chain 50 s. Whether such a file extracts, or finishes within a worker's timeout, depends on the machine | Fixed in part, closure held. Patch 0021, decision 58, engine 7: after the parse and before any semantic pass, a cursor scan (every node, the root at depth 1) refuses a tree deeper than 512: no fact, no semantic pass, lost work once, no cross-file resolution, never cached, degraded; the expanded C and C++ tree alike, its pass alone skipped. From a census of 104,730 files (p99.9 65): the 13 past 512 are parser recovery, generated Go or expanded text. The issue's 1,000-deep reproducers take under 0.01 s; mutations killed. Held on issue 90: within the admitted depth, a file of many deep constructs still costs depth² a usage |
 | 88 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 87's security test: extraction's memory is quadratic in how deeply call sites nest, in every language. Each call site stores the node types from its owner down to it (`ast_path`, patch 0010), so n calls nested n deep store about n² entries: a 30 KB C or Python file of 10,000 nested calls stores 100,030,000, peaking at 954 MB in the engine and 6.7 GB in `build_segment`, which fails the file under an 8 GB address-space limit and is killed under a 6 GB cap; a 10,000-call method chain takes 1.6 GB and 39 s. Whether such a file extracts depends on the machine | Resolved in engine 7 (decision 57, patch 0020): a site's node-type path is complete or absent, never truncated; one per-file budget shared by every producer holds a path to 1,024 entries and the file to 500,000, checked before allocating; the first refusal is lost work once and no path is computed after it; a site without its path is counted, never stored. Of 104,730 census files only `lib/test_bpf.c` (parser recovery) passed it, and issue 89 now refuses it first; surfaces byte-identical otherwise. Mutations killed |
 | 87 | 2026-10-12 | P2-16 | blocker | open | Found by issue 86's audit: C and C++ preprocessing's work and memory are unbounded by the source. A forward `#line` within one file pads the expanded text with one line per line skipped (`#line 400000000` in a three-line source: 400 MB of text, 2.7 GB peak), and doubling macros grow exponentially (437 bytes, 22 levels: 1.3 GB, 9.8 s). Whether such a file extracts depends on the host's memory and speed, and a repository can exhaust the indexer's memory | Fixed on the branch, closure held. Patch 0019, decision 56, engine 7 with issues 83 to 86: a forward jump of more than 4,096 lines is one `#line` marker; what one file's preprocessing writes and generates, and its `#if` folding, are held to `clamp(24 × len, 256 KiB, 8 MiB)` (16 until the driver's review of five Linux files admitted `stackinit_kunit.c`), generated tokens and expansions to 500,000 each and nesting to 256, counted inside the work; passing one discards the expansion and is lost work once, never cached, degraded. `#if` arithmetic is 64-bit two's complement written out, literals read explicitly. The closest normal corpus file uses 10.9% of a ceiling; 4 of Linux's 64,432 pass one, all amplification by design. Mutations killed but one equivalent. Held: its security test found issue 88 (resolved), and the closure audit issues 89 and 90 |
@@ -496,8 +496,145 @@ chain's receivers or a nest's enclosing names: a change to 4.2.1 and 4.3 (identi
 vectors, `SEGMENT_SCHEMA_VERSION` 4, every chained site and nested definition renamed,
 every segment re-indexed).
 
-State: open. 90A is fixed; 90B waits on the driver's decision; the closure of issues 86,
-87 and 89 stays held.
+#### 90B: fixed (patch 0024, decision 61)
+
+The driver decided the stop condition above: 90B is an interface, model, cache and
+protocol redesign, provided every identity is kept. The invariant: source-backed
+evidence is held once, as the normalised source's bytes and bounded per-fact
+references to them.
+
+- **Interface.** Text a fact takes from the file crosses as `pdxe_text` (a pointer and
+  four 32-bit fields, 24 bytes, layout asserted): `SOURCE`, the bytes [start, end) of the
+  source the caller passed, when the text is exactly one contiguous run of it, nothing
+  trimmed; `OWNED`, when the engine assembled or rewrote it or read it after C-family
+  macro expansion; `NONE`. Never a range and a copy both. A range is decided by
+  verification: the text's bytes equal the source at the fact's site, inside it, and
+  the fact has raw origin. A call's callee, an argument's expression, a usage's name, a
+  route's declaring node and a definition's parameter list are texts.
+- **Inside the engine** (patch 0024): an argument's expression and a definition's
+  parameter list read in the raw source are ranges (`expr_start`/`expr_end`,
+  `signature_start`/`signature_end`), never copied; the environment-key probe and the
+  JavaScript receiver classifier read in place. A call's argument array is sized to the
+  arguments it captures, a splat after them taking a position and no slot.
+- **Qualified names** are structural (`qn_form`, `qn_base`, `qn_text`, `qn_keep`):
+  whole; a member of an earlier definition (its name, `.`, the definition's own name);
+  an earlier name extended by a rest beginning with an ASCII byte; or the first
+  `qn_keep` bytes of an earlier name, ending before a `.` that definition adds itself,
+  then a rest empty or beginning with `.` (C++ functions in nested namespaces, which
+  are no definitions). Chosen in order: the definition the name names without its
+  final `.name`, then the parent, then the module, and a prefix only when it holds
+  strictly fewer bytes, found by hashing the name's `.`-bounded prefixes once against an
+  index of the prefixes earlier names added beyond their bases. Every byte a prefix
+  form holds is a segment new to the file, so the bytes held are linear in it.
+  `pdxe_qualified_name` spells one name, linear in its chain.
+- **Rust.** `TextRef { Source { start, end }, Owned }`, `QualifiedName { Whole, Member,
+  Extended, Prefix }`; `ExtractRecord` is what is serialised (ranges, no source) and
+  `FileExtract` a record bound to one `Arc<[u8]>`. `ExtractRecord::bind` checks the
+  length, the digest, every range (start ≤ end ≤ length) and every name (bases earlier;
+  a prefix's cut a `.` in its base's own bytes, from lengths computed once, so the check
+  is linear) and returns a `BindError`, never clamping; conversion runs the same checks
+  and never spells a range out. `FileExtract::text` reads a text borrowed;
+  `qualified_name`, `qualified_name_parts` and the per-file memo `QualifiedNames` spell
+  names. Range coordinates are equality within one extraction only; consumers compare
+  text.
+- **Versions.** Extraction cache format 6: records only, no source; a hit binds the
+  record to the verified current normalised source, and a range or name that does not
+  fit is a miss (`MalformedText`), replaced. Worker protocol 7: the worker answers with
+  records and the parent binds each to the source it sent; protocol 6 is refused.
+  Surface 5 (the layout changed: `source_len`, texts as `[start, end]`, definition
+  references as indexes, names as a string, `[base]`, `[base, "rest"]` or
+  `[base, "rest", keep]`, parameter-list ranges), validated on decode and bound to the
+  source when a project runs. `ENGINE_VERSION` stays 7 (unreleased); language matrix 2,
+  secret detector 4.
+- **Identities.** Node ids and site fingerprints hash exactly the bytes the whole name
+  or text gives: fixed vectors (`structural_names_give_the_identities_their_whole_names_give`,
+  `prefix_names_give_the_identities_their_whole_names_give`,
+  `source_ranges_give_the_site_identities_their_whole_text_gave`), computed
+  independently over 4.2.1's fields. `SEGMENT_SCHEMA_VERSION` stays 3: a node's row
+  stores its whole name and parameter list, spelled out once where the row is made.
+
+The audit of every string an extraction holds (the brief's §42): 108 shapes in 29
+languages, each nested at 10 to 160 levels, every field's bytes compared across a
+doubling of the depth, relative to the source's own growth (2 is linear, 4 the square):
+
+| Field | Class | At `8538528` | Now |
+|---|---|---|---|
+| `Call.callee_text` | source range; owned when synthesised or expanded | 2.1 (3 call chains) | at most 1.03 |
+| `CallArg.expr` | source range; owned when expanded | 2.0 to 2.1 (15 shapes: nested calls, closures, lambdas, `new`, decorators' arguments) | no owned bytes |
+| `Usage.name` | source range | 2.1 (Python attribute chains) | no owned bytes |
+| `Definition.qualified_name` | structural identity | 1.6 to 1.8 (11 shapes: nested classes, modules, objects, types, TypeScript and C++ namespaces) | at most 1.00 |
+| `Definition.signature` | source range; owned when expanded | 2.0 (JavaScript functions as defaults) | no owned bytes |
+| `RouteFact.source_text` | source range | linear | linear |
+| `Definition.name`, `engine_kind`, `kind` | small, inherently bounded | 1.09 | 1.09 |
+| `Definition.doc`, `base_classes`, `decorators`, `signature_param_types` | inherently bounded (a comment, a base's spelling, a decorator, a type; class expressions as bases and decorators measured) | at most 1.02 | at most 1.02 |
+| `RouteFact.method`, `path`, `callee_text` | small, inherently bounded | linear | linear |
+| `Call.receiver_text` | always none from extraction | — | — |
+| `CallArg.value`, `keyword` | inherently bounded (a literal's or a constant's value, an identifier; 4,000 uses of one 200-byte constant measured) | 1.01 | 1.01 |
+| `Import.*`, `TypeRef.type_text`, `ReadWrite.field_text`, `Channel.channel_text`, `EnvAccess.key`, `Throw.exception_text`, `ImplTrait.*`, diagnostics | inherently bounded (nested generics, `use` trees, attribute writes, `throw new` chains, `impl` blocks in nested modules measured) | at most 1.01 | at most 1.01 |
+| the surface | the engine's per-fact encoding, linear in the facts | linear | linear |
+
+Measured through the Rust wrapper, one extraction a process, at `8538528` and now
+(retained: Rust heap the extraction holds; record: its serialised size without the
+surface; the surface itself is the engine's linear per-fact encoding):
+
+| 2 MiB of | Peak RSS | Retained | Record without surface |
+|---|---|---|---|
+| C calls nested in arguments | 3.20 GB → 2.42 GB | 1.32 GB → 832 MB | 282 MB → 35 MB |
+| JavaScript call chains | 2.96 GB → 2.16 GB | 807 MB → 398 MB | 225 MB → 24 MB |
+| Python attribute chains | 4.05 GB → 2.95 GB | 1.55 GB → 744 MB | 443 MB → 49 MB |
+| Java classes nested in classes | 1.34 GB → 1.26 GB | 339 MB → 149 MB | 105 MB → 7.3 MB |
+| JavaScript functions as defaults | 997 MB → 545 MB | 449 MB → 139 MB | 165 MB → 6.4 MB |
+| C++ functions in nested namespaces | 447 MB → 432 MB | 92 MB → 67 MB | 18 MB → 3.2 MB |
+
+The same at 0.25, 0.5 and 1 MiB scales linearly in both. At a fixed 0.5 MiB, the record
+without its surface no longer grows with the depth: Python chains of 50, 100, 200 and
+400 links 9.9, 11.1, 11.8 and 12.2 MB (17.9, 31.5, 58.0 and 110.5 MB before); C calls
+nested 50, 100 and 200 deep 14.1, 14.3 and 14.4 MB (24.4, 37.6, 63.7). Text read
+borrowed costs nothing per use; a qualified name is spelled once a file by the memo
+that needs it.
+
+- **Same results.** All 104,730 census files extract identically to `8538528`: the
+  public result with every text and name spelled out, the surface rewritten in version
+  4's form, and lost work (17 files, as before). Their surfaces total 33.99 GB, against
+  41.23 GB (17.6% smaller); 54.9 million texts are ranges and 31.6 million owned (354
+  MB); names are 104,716 whole, 7,218,322 members, 10,442 extended and 3,702 prefixes,
+  holding 8.0 MB. Goldens, the differential and the typed fixtures are unchanged.
+- **Tests.** `engine/tests/source_text.c` (layout, ranges and owned text, names and
+  their vectors, truncation and refusals, the build's and the surface's checks, retained
+  text at depths 40, 80 and 160 in six shapes), `pdx-engine`'s `source_text` (the same
+  through Rust, binding and its refusals), `isolate` (protocol 6 refused, the worker's
+  answer the in-process record), `pdx`'s
+  `isolation_carries_text_as_ranges_bound_to_the_source_sent`, `pdx-core`'s cache tests
+  (rebinding a hit, another source, a range or name that does not fit, format 5 a miss,
+  the stored record the extraction's own) and the identity vectors above.
+- **Mutations killed:** BV (eager argument copy), BW (eager callee copy), BX (eager
+  Python attribute name), BY (texts spelled out when cached), BZ (spelled out in
+  conversion), CA (a whole name a definition), CB (the member's bytes reversed), CC (the
+  separator, in Rust and in C), CD (an extension taken as a member), CE (a range past
+  the source accepted from the cache), CF (format 5 read as 6), CG (binding without the
+  digest), CH (protocol 6 accepted), CI (the worker spelling texts out), CJ (eager
+  parameter-list copy), CK (no prefix search), CL (a prefix one byte long), CM (any
+  prefix bound), CN (a prefix spelled unchecked).
+
+Residuals, none of them retained by an extraction:
+
+- **Engine working copies.** The engine still copies callee names, usage names and
+  qualified names for its own passes while it extracts; the copies go with the engine's
+  result, which conversion frees, but they are in the peak (the Python chains' peak at
+  0.5 MiB is 560, 620, 675 and 741 MB at 50 to 400 links).
+- **Typed resolution** holds text for the duration of a project: the resolvers' own
+  chain text (the TypeScript resolver's, 366 MB on the JavaScript chains) belongs to
+  issue 92's mechanism, and a project decodes and binds every file's surface.
+- **The surface** is linear in the facts but large per fact (445 MB of the 2 MiB C
+  file's record), issue 82's retention.
+- **Node-type paths** grow with a site's depth, bounded by issue 88's budget of 500,000
+  entries a file; a nested class's 4 KB arena stack is linear in the classes.
+- **The stored graph** keeps whole names and parameter lists in its node rows (4.3);
+  so does Stage 4's graph that writes them. Holding them otherwise is a change of
+  stored format, not this issue's.
+
+State: resolved. 90A is fixed by patch 0022 and 90B by patch 0024. The closure of
+issues 86, 87 and 89 stays held for the final engine-7 audit; issue 92 is open.
 
 ### 89 — Extraction's work and memory are superlinear in syntax nesting
 
