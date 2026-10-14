@@ -3859,6 +3859,17 @@ static PDXEInvocationDescriptor handle_calls_at_node(PDXEExtractCtx *ctx, TSNode
                     call.callee_is_locally_bound = python_callee_is_bound_parameter(ctx, state, fn);
                 }
             }
+            // Issue 104: a BARE Rust call foo() where an enclosing block declares
+            // fn foo is that local function, which the extractor represents by no
+            // definition, so resolution by name would reach a namesake elsewhere.
+            if (ctx->language == PDXE_LANG_RUST &&
+                strcmp(ts_node_type(node), "call_expression") == 0) {
+                TSNode fn = ts_node_child_by_field_name(node, TS_FIELD("function"));
+                if (!ts_node_is_null(fn) && strcmp(ts_node_type(fn), "identifier") == 0) {
+                    call.callee_is_locally_bound = pdxe_walk_python_param_is_bound(
+                        state, pdxe_node_text(ctx->arena, fn, ctx->source));
+                }
+            }
             // TS/JS/TSX receiver-aware guard (#592/#606 direction; same intent
             // as the Perl flag above). Flag a member call x.foo() whose receiver
             // is NOT `this`/`super`. When the TS-LSP cannot resolve the receiver

@@ -309,6 +309,27 @@ static void py_bind_scope_parameters(PDXEExtractCtx *ctx, TSNode node, WalkState
     }
 }
 
+/* Issue 104: the functions a Rust block declares are items of the block, named
+ * everywhere in it, before their declaration too. They are bound into the frame
+ * just pushed for the block, in the table Python's parameters use, so a bare call
+ * of one is known to name the local function: the extractor represents no such
+ * function, and a namesake elsewhere in the project is not it. */
+static void rust_bind_block_items(PDXEExtractCtx *ctx, TSNode node, WalkState *state) {
+    if (ctx->language != PDXE_LANG_RUST || state->scope_top == 0 ||
+        strcmp(ts_node_type(node), "block") != 0) {
+        return;
+    }
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        if (strcmp(ts_node_type(it.node), "function_item") != 0) {
+            continue;
+        }
+        TSNode name = ts_node_child_by_field_name(it.node, TS_FIELD("name"));
+        if (!ts_node_is_null(name) && strcmp(ts_node_type(name), "identifier") == 0) {
+            py_param_bind(state, pdxe_node_text(ctx->arena, name, ctx->source));
+        }
+    }
+}
+
 static bool push_scope(WalkState *state, uint8_t kind, uint32_t depth, const char *qn) {
     if (!ensure_scope_capacity(state)) {
         return false;
@@ -2733,6 +2754,7 @@ static void push_boundary_scopes(PDXEExtractCtx *ctx, TSNode node, const PDXELan
 
     push_lexical_boundary(node, state, depth);
     py_bind_scope_parameters(ctx, node, state);
+    rust_bind_block_items(ctx, node, state);
     push_call_scope(state, depth, invocation);
     if (is_actual_import_boundary(ctx, node, spec) && !is_export_of_declaration(node)) {
         push_scope(state, SCOPE_IMPORT, depth, NULL);

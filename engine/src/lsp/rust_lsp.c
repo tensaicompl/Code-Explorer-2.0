@@ -4278,6 +4278,334 @@ static void rust_emit_unresolved_call(RustLSPContext *ctx, const char *expr_text
     pdxe_resolvedcall_push(ctx->resolved_calls, ctx->arena, rc);
 }
 
+/* Issue 104: a qualified path's qualifier names where its function is.
+ *
+ * The segments of a dotted module path as a Rust path spells them: a `src`
+ * directory, a `mod.rs` file's `mod` and a crate root's `lib` or `main` are left
+ * out, since no path names them. Returns the count; `out` holds the segments. */
+static int rust_path_segments(PDXEArena *arena, const char *dotted, size_t len, char ***out) {
+    int cap = 8, n = 0;
+    char **segs = (char **)pdxe_arena_alloc(arena, (size_t)cap * sizeof(char *));
+    size_t start = 0;
+    for (size_t i = 0; segs && i <= len; i++) {
+        if (i < len && dotted[i] != '.')
+            continue;
+        if (i > start) {
+            if (n == cap) {
+                char **grown = (char **)pdxe_arena_alloc(arena, (size_t)cap * 2 * sizeof(char *));
+                if (!grown)
+                    return -1;
+                memcpy(grown, segs, (size_t)n * sizeof(char *));
+                segs = grown;
+                cap *= 2;
+            }
+            segs[n++] = pdxe_arena_strndup(arena, dotted + start, i - start);
+        }
+        start = i + 1;
+    }
+    if (!segs)
+        return -1;
+    /* A file module: its file segment is the module itself. */
+    if (n > 0 && (strcmp(segs[n - 1], "mod") == 0 || strcmp(segs[n - 1], "lib") == 0 ||
+                  strcmp(segs[n - 1], "main") == 0)) {
+        n--;
+    }
+    int kept = 0;
+    for (int i = 0; i < n; i++) {
+        if (strcmp(segs[i], "src") != 0) {
+            segs[kept++] = segs[i];
+        }
+    }
+    *out = segs;
+    return kept;
+}
+
+/* Whether `module` (path segments, `src` left out) ends with `want[0..wn)`, or its
+ * parent does: a module re-exports what its child modules define
+ * (`middleware::from_fn` for `middleware/from_fn.rs`). */
+static bool rust_module_ends_with(char **module, int mn, char **want, int wn) {
+    for (int drop = 0; drop <= 1; drop++) {
+        int m = mn - drop;
+        if (m < wn || wn <= 0)
+            continue;
+        bool same = true;
+        for (int k = 0; k < wn && same; k++) {
+            same = strcmp(module[m - wn + k], want[k]) == 0;
+        }
+        if (same)
+            return true;
+    }
+    return false;
+}
+
+/* The segments of a Rust path (`a::b::c`), each without the white space a
+ * `use` list spread over lines leaves around it. Returns the count, or -1. */
+static int rust_split_path(PDXEArena *arena, const char *path, char ***out) {
+    int cap = 8, n = 0;
+    char **segs = (char **)pdxe_arena_alloc(arena, (size_t)cap * sizeof(char *));
+    const char *p = path;
+    while (segs && p) {
+        const char *sep = strstr(p, "::");
+        const char *s = p;
+        const char *e = sep ? sep : p + strlen(p);
+        while (s < e && isspace((unsigned char)*s))
+            s++;
+        while (e > s && isspace((unsigned char)e[-1]))
+            e--;
+        if (n == cap) {
+            char **grown = (char **)pdxe_arena_alloc(arena, (size_t)cap * 2 * sizeof(char *));
+            if (!grown)
+                return -1;
+            memcpy(grown, segs, (size_t)n * sizeof(char *));
+            segs = grown;
+            cap *= 2;
+        }
+        segs[n++] = pdxe_arena_strndup(arena, s, (size_t)(e - s));
+        p = sep ? sep + 2 : NULL;
+    }
+    if (!segs)
+        return -1;
+    *out = segs;
+    return n;
+}
+
+static bool rust_path_anchor(const char *segment) {
+    return strcmp(segment, "crate") == 0 || strcmp(segment, "self") == 0 ||
+           strcmp(segment, "super") == 0;
+}
+
+/* Two crate names are the same crate's when they differ only in `-` and `_`:
+ * a package `pdx-core` is the crate `pdx_core` in a path. */
+static bool rust_same_crate_name(const char *a, size_t alen, const char *b) {
+    size_t blen = strlen(b);
+    if (alen != blen)
+        return false;
+    for (size_t i = 0; i < alen; i++) {
+        char x = a[i] == '-' ? '_' : a[i];
+        char y = b[i] == '-' ? '_' : b[i];
+        if (x != y)
+            return false;
+    }
+    return true;
+}
+
+/* The length, in rust_path_segments' segments, of the root of the crate a path
+ * names by `name`, as the function's module path `dotted[0..len)` places it: the
+ * directory of that name with the crate's `src` directory in it, or the
+ * repository's own package with `src` at the top. -1 when the function is not
+ * in a crate of that name. */
+static int rust_crate_root(RustLSPContext *ctx, const char *dotted, size_t len, const char *name) {
+    int kept = 0;
+    size_t start = 0;
+    const char *prev = NULL;
+    size_t prev_len = 0;
+    for (size_t i = 0; i <= len; i++) {
+        if (i < len && dotted[i] != '.')
+            continue;
+        const char *seg = dotted + start;
+        size_t seg_len = i - start;
+        bool is_src = seg_len == 3 && strncmp(seg, "src", 3) == 0;
+        if (is_src && prev) {
+            if (rust_same_crate_name(prev, prev_len, name))
+                return kept;
+            const PDXECargoManifest *m = (const PDXECargoManifest *)ctx->cargo_manifest;
+            if (kept == 1 && m && m->package_name &&
+                rust_same_crate_name(name, strlen(name), m->package_name))
+                return kept; /* the project's own package, `src` at the top */
+        }
+        if (!is_src)
+            kept++;
+        prev = seg;
+        prev_len = seg_len;
+        start = i + 1;
+    }
+    return -1;
+}
+
+/* Whether the module `fmod[0..fn)` is `fmod[0..base)` followed by `rest[0..rn)`,
+ * or a child of that (a module re-exports what its child modules define). */
+static bool rust_module_under(char **fmod, int fn, int base, char **rest, int rn) {
+    if (base < 0 || (fn != base + rn && fn != base + rn + 1))
+        return false;
+    for (int k = 0; k < rn; k++) {
+        if (strcmp(fmod[base + k], rest[k]) != 0)
+            return false;
+    }
+    return true;
+}
+
+/* Whether the qualifier `q[0..qn)` names the module `fmod[0..fn)` of a function
+ * whose module path is `fqn[0..flen)`. `cur[0..cn)` is the caller's module (cn
+ * -1 when unknown). An empty qualifier agrees with every module. */
+static bool rust_module_agrees(RustLSPContext *ctx, const char *fqn, size_t flen, char **fmod,
+                               int fn, char **cur, int cn, char **q, int qn) {
+    if (qn == 0)
+        return true;
+    if (!rust_path_anchor(q[0])) {
+        if (rust_module_ends_with(fmod, fn, q, qn))
+            return true;
+        /* A crate's name: the rest of the path is from that crate's root. */
+        return rust_module_under(fmod, fn, rust_crate_root(ctx, fqn, flen, q[0]), q + 1, qn - 1);
+    }
+    if (cn < 0)
+        return false;
+    int lead = 0;
+    int base = cn; /* the caller's module, as a prefix of `cur` */
+    if (strcmp(q[0], "crate") == 0) {
+        /* The crate root: the caller's module path up to the `src` directory. */
+        const char *src = strstr(ctx->module_qn, ".src");
+        if (!src || (src[4] != '.' && src[4] != '\0'))
+            return false;
+        char **root = NULL; /* a prefix of `cur`: only its length is needed */
+        base = rust_path_segments(ctx->arena, ctx->module_qn, (size_t)(src - ctx->module_qn),
+                                  &root);
+        (void)root;
+        if (base < 0)
+            return false;
+        lead = 1;
+    } else if (strcmp(q[0], "self") == 0) {
+        lead = 1;
+    } else {
+        while (lead < qn && strcmp(q[lead], "super") == 0) {
+            lead++;
+        }
+        base = cn - lead;
+    }
+    /* The function's module is `cur[0..base)` followed by the rest of the qualifier
+     * (or a child of it); for `super`, the inline module case admits the module one
+     * level down as well. */
+    int slack = strcmp(q[0], "super") == 0 ? 1 : 0;
+    for (int b = base; b <= base + slack && b <= cn; b++) {
+        if (b < 0)
+            continue;
+        bool same = true;
+        for (int k = 0; k < b && same && k < fn; k++) {
+            same = strcmp(fmod[k], cur[k]) == 0;
+        }
+        if (same && b <= fn && rust_module_under(fmod, fn, b, q + lead, qn - lead))
+            return true;
+    }
+    return false;
+}
+
+/* A call's qualifier (`a::b` in `a::b::f`), read once for every function it is
+ * weighed against. A head the file imports under a name stands for its import's
+ * path. `cur` is the caller's module (`cn` -1 when unknown). */
+typedef struct {
+    char **q;
+    int qn;
+    char **cur;
+    int cn;
+} RustQualifier;
+
+/* Reads the qualifier of `path`. False when it names no free function's module:
+ * `Self` names a type, whose associated functions are never free functions. */
+static bool rust_qualifier_read(RustLSPContext *ctx, const char *path, RustQualifier *out) {
+    char **q = NULL;
+    int qn = rust_split_path(ctx->arena, path, &q) - 1; /* the last is the function */
+    if (qn < 0)
+        return false;
+    if (qn > 0 && !rust_path_anchor(q[0]) && strcmp(q[0], "Self") != 0) {
+        const char *imported = rust_resolve_use(ctx, q[0]);
+        char **useg = NULL;
+        int un = imported ? rust_split_path(ctx->arena, imported, &useg) : -1;
+        if (un > 0) {
+            char **joined =
+                (char **)pdxe_arena_alloc(ctx->arena, (size_t)(un + qn - 1) * sizeof(char *));
+            if (!joined)
+                return false;
+            memcpy(joined, useg, (size_t)un * sizeof(char *));
+            memcpy(joined + un, q + 1, (size_t)(qn - 1) * sizeof(char *));
+            q = joined;
+            qn = un + qn - 1;
+        }
+    }
+    if (qn > 0 && strcmp(q[0], "Self") == 0)
+        return false;
+    out->q = q;
+    out->qn = qn;
+    out->cur = NULL;
+    out->cn = ctx->module_qn ? rust_path_segments(ctx->arena, ctx->module_qn,
+                                                  strlen(ctx->module_qn), &out->cur)
+                             : -1;
+    return true;
+}
+
+/* Whether the free function `fqn` is in the module the qualifier names. A function
+ * elsewhere that shares the call's last name is no evidence for the call:
+ * `from_request::expand` is not the crate root's `expand` and
+ * `multer::parse_boundary` no function of this project. The qualifier is read as
+ * Rust reads it: `crate`, `self` and `super` anchor it at the caller's crate root,
+ * module and parent module (`super` inside an inline module names the file's own
+ * module, so that is admitted too); a crate's name stands for that crate's root; and
+ * an inline module of this file, which qualified names leave out, for a function of
+ * this file. An empty qualifier agrees with every function. */
+static bool rust_qualifier_agrees(RustLSPContext *ctx, const RustQualifier *ql, const char *fqn) {
+    if (ql->qn == 0)
+        return true;
+    const char *fdot = strrchr(fqn, '.');
+    if (!fdot)
+        return false;
+    size_t flen = (size_t)(fdot - fqn);
+    char **fmod = NULL;
+    int fn = rust_path_segments(ctx->arena, fqn, flen, &fmod);
+    if (fn < 0)
+        return false;
+    if (rust_module_agrees(ctx, fqn, flen, fmod, fn, ql->cur, ql->cn, ql->q, ql->qn))
+        return true;
+    /* A function of this file through its inline modules, which its qualified name
+     * leaves out: the qualifier without them. */
+    if (ctx->module_qn && strlen(ctx->module_qn) == flen &&
+        strncmp(fqn, ctx->module_qn, flen) == 0) {
+        int keep = ql->qn;
+        while (keep > 0 && pdxe_idxmemo_get(&ctx->inline_modules, ql->q[keep - 1]) >= 0) {
+            keep--;
+        }
+        if (keep < ql->qn &&
+            rust_module_agrees(ctx, fqn, flen, fmod, fn, ql->cur, ql->cn, ql->q, keep))
+            return true;
+    }
+    return false;
+}
+
+/* Issue 104: what a bare name's import says about where its function is. The
+ * path the file imports it by, when that path has a qualifier; else NULL. */
+static const char *rust_import_evidence(RustLSPContext *ctx, const char *name) {
+    const char *imported = rust_resolve_use(ctx, name);
+    return imported && strstr(imported, "::") ? imported : NULL;
+}
+
+/* The qualifiers of the file's glob imports (`use a::b::*`), each as the path that
+ * brings `name` in. Returns how many were read into `out`, which holds glob_count. */
+static int rust_glob_qualifiers(RustLSPContext *ctx, const char *name, RustQualifier *out) {
+    int n = 0;
+    for (int i = 0; i < ctx->glob_count; i++) {
+        const char *g = ctx->glob_module_qns[i];
+        if (!g || !g[0])
+            continue;
+        /* Stored dotted; a Rust path again, with the name the glob brings in. */
+        size_t gl = strlen(g);
+        char *p = (char *)pdxe_arena_alloc(ctx->arena, gl * 2 + strlen(name) + 3);
+        if (!p)
+            return n;
+        size_t w = 0;
+        for (size_t k = 0; k < gl; k++) {
+            if (g[k] == '.') {
+                p[w++] = ':';
+                p[w++] = ':';
+            } else {
+                p[w++] = g[k];
+            }
+        }
+        p[w] = '\0';
+        strcat(p, "::");
+        strcat(p, name);
+        if (rust_qualifier_read(ctx, p, &out[n]))
+            n++;
+    }
+    return n;
+}
+
 /* Entry hook implementation: classify a call_expression and emit the best
  * edge we can. The wrapper below establishes the exact original occurrence
  * for every return path through this function. */
@@ -4583,6 +4911,8 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
                     /* `.crate_a.` — the member directory appears as a dotted
                      * QN segment for every def inside that crate. */
                     char *needle = pdxe_arena_sprintf(ctx->arena, ".%s.", head);
+                    RustQualifier mem_ql;
+                    bool mem_read = rust_qualifier_read(ctx, path, &mem_ql);
                     const PDXERegisteredFunc *mem_unique = NULL;
                     int mem_matches = 0;
                     /* Iterate only free funcs whose short_name == tail via the index;
@@ -4599,6 +4929,8 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
                             continue;
                         if (!strstr(f->qualified_name, needle))
                             continue; /* not defined in the member crate */
+                        if (!mem_read || !rust_qualifier_agrees(ctx, &mem_ql, f->qualified_name))
+                            continue; /* issue 104: not in the module the path names */
                         mem_matches++;
                         if (mem_matches == 1)
                             mem_unique = f;
@@ -4617,7 +4949,16 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
          * QN starts with the current crate prefix. This gives `mod
          * foo; use foo::bar; bar()` a chance to resolve when the
          * intermediate module wasn't tracked through an explicit
-         * use-map entry. */
+         * use-map entry.
+         *
+         * Issue 104: a function unique by its last name alone is no evidence
+         * that it is the one called, and was answered as typed. What is: the
+         * path the call spells, or for a bare name the path the file imports
+         * it by (a `use` or a glob); the one function in the module that path
+         * names is the answer. A bare name nothing imports, and a path that
+         * names a module no such function is in, have no answer. The label is
+         * unchanged: it names the one function of its short name that the
+         * path admits. */
         if (tail && *tail && ctx->module_qn) {
             /* Crate prefix is the first dotted segment of module_qn after
              * the project name, but for simplicity we just match on
@@ -4625,13 +4966,24 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
             const char *first_dot = strchr(ctx->module_qn, '.');
             size_t crate_len =
                 first_dot ? (size_t)(first_dot - ctx->module_qn) : strlen(ctx->module_qn);
-            const PDXERegisteredFunc *unique = NULL;
-            int matches = 0;
+            const char *evidence = tail != path ? path : rust_import_evidence(ctx, path);
+            RustQualifier ql;
+            bool read = evidence && rust_qualifier_read(ctx, evidence, &ql);
+            RustQualifier *globs = NULL;
+            int glob_n = 0;
+            if (!evidence && ctx->glob_count > 0) {
+                globs = (RustQualifier *)pdxe_arena_alloc(
+                    ctx->arena, (size_t)ctx->glob_count * sizeof(RustQualifier));
+                glob_n = globs ? rust_glob_qualifiers(ctx, tail, globs) : 0;
+            }
+            const PDXERegisteredFunc *agreeing = NULL;
+            int agree = 0;
             /* Iterate only free funcs whose short_name == tail via the index; the
              * receiver/short_name/crate-prefix re-checks below are unchanged. */
             PDXEFreeFuncIter ffit;
             pdxe_registry_free_funcs_by_short_name(ctx->registry, tail, &ffit);
-            for (int i; matches < 2 && (i = pdxe_free_func_iter_next(&ffit)) >= 0;) {
+            for (int i; (read || glob_n > 0) && agree < 2 &&
+                        (i = pdxe_free_func_iter_next(&ffit)) >= 0;) {
                 const PDXERegisteredFunc *f = &ctx->registry->funcs[i];
                 if (!f->short_name || !f->qualified_name)
                     continue;
@@ -4642,12 +4994,18 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
                 /* Crate-scoped: QN must start with the same prefix. */
                 if (strncmp(f->qualified_name, ctx->module_qn, crate_len) != 0)
                     continue;
-                matches++;
-                if (matches == 1)
-                    unique = f;
+                bool admitted = read && rust_qualifier_agrees(ctx, &ql, f->qualified_name);
+                for (int g = 0; !admitted && g < glob_n; g++) {
+                    admitted = rust_qualifier_agrees(ctx, &globs[g], f->qualified_name);
+                }
+                if (admitted) {
+                    agree++;
+                    if (agree == 1)
+                        agreeing = f;
+                }
             }
-            if (matches == 1 && unique) {
-                rust_emit_resolved_call(ctx, unique->qualified_name, "lsp_short_name_unique",
+            if (agree == 1 && agreeing) {
+                rust_emit_resolved_call(ctx, agreeing->qualified_name, "lsp_short_name_unique",
                                         PDXE_RUST_CONF_PROMOTED);
                 return;
             }
@@ -4895,6 +5253,19 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
     if (push_scope) {
         ctx->current_scope = pdxe_scope_push(ctx->arena, ctx->current_scope);
     }
+    /* Issue 104: a function declared in a block is a local item of the block,
+     * named everywhere in it, before its declaration too: a call of that name
+     * is the local function's, never a namesake's elsewhere in the project. */
+    if (strcmp(kind, "block") == 0) {
+        PDXE_FOR_EACH_NAMED_CHILD(fit, node) {
+            if (strcmp(ts_node_type(fit.node), "function_item") != 0)
+                continue;
+            TSNode fname = ts_node_child_by_field_name(fit.node, "name", 4);
+            char *local = ts_node_is_null(fname) ? NULL : rust_node_text(ctx, fname);
+            if (local)
+                pdxe_scope_bind(ctx->current_scope, local, pdxe_type_unknown());
+        }
+    }
     if (uncertain_callable_flow) {
         ctx->callable_control_flow_depth++;
     }
@@ -4982,6 +5353,22 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
         /* The match value type is captured by the parent walker — best
          * effort: peek at the arm's pattern and let rust_bind_pattern do the
          * work using pdxe_type_unknown() if we cannot derive it. */
+        /* Issue 104: the names the arm's pattern binds are locals of the arm,
+         * so `Ok(Self(params)) => Ok(Some(Self(params)))` passes the local
+         * `params`, never the module's function of that name. The pattern is
+         * the match pattern's first named child; a guard follows it. */
+        TSNode mp = ts_node_child_by_field_name(node, "pattern", 7);
+        if (!ts_node_is_null(mp)) {
+            TSNode pat = mp;
+            if (strcmp(ts_node_type(mp), "match_pattern") == 0) {
+                pat = (TSNode){0};
+                PDXE_FOR_EACH_NAMED_CHILD(pit, mp) {
+                    pat = pit.node;
+                    break;
+                }
+            }
+            rust_bind_pattern(ctx, pat, pdxe_type_unknown());
+        }
     }
 
     /* closure_expression: bind closure parameters.
@@ -5539,6 +5926,13 @@ static void rust_collect_uses(RustLSPContext *ctx, TSNode root) {
                     rust_lsp_add_use(ctx, alias, path_part);
                 }
             }
+        }
+        /* Issue 104: an inline module's name, for the paths through it. */
+        if (strcmp(k, "mod_item") == 0 && !ts_node_is_null(ts_node_child_by_field_name(n, "body", 4))) {
+            TSNode mname = ts_node_child_by_field_name(n, "name", 4);
+            char *name = ts_node_is_null(mname) ? NULL : rust_node_text(ctx, mname);
+            if (name)
+                pdxe_idxmemo_put_if_absent(&ctx->inline_modules, ctx->arena, name, 1);
         }
         /* Recurse into mod_item bodies so nested uses are captured too. */
         if (strcmp(k, "mod_item") == 0 || strcmp(k, "source_file") == 0 ||

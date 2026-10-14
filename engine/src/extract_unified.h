@@ -293,7 +293,8 @@ typedef struct {
 
 /* #1912: is `name` bound as a parameter by a Python function or lambda scope
  * currently open on the walk stack? O(1). Answers false on any failure, so a
- * caller can only ever lose a suppression, never a true edge. */
+ * caller can only ever lose a suppression, never a true edge. Issue 104: in Rust,
+ * whether a block currently open declares a function of that name. */
 bool pdxe_walk_python_param_is_bound(const WalkState *state, const char *name);
 
 // Per-node handler prototypes. Each is called once per node during the

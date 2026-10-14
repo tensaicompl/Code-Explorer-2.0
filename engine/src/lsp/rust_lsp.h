@@ -87,6 +87,11 @@ typedef struct {
      * this set; coincidentally same-named indexed modules stay external. */
     PDXEIdxMemo declared_modules;
 
+    /* Issue 104: names of the inline modules (`mod name { ... }`) this file
+     * declares, at any depth. Their items' qualified names are the file's
+     * module's, so a path through one names a function of this file. */
+    PDXEIdxMemo inline_modules;
+
     /* Module-qualified name for this file (e.g. "<project>.<crate>.foo"). */
     const char *module_qn;
 

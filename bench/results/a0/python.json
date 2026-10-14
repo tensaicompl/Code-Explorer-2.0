@@ -1419,7 +1419,7 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "resolver": "post-R1: issue 103, the commit 'Issue 103: accept typed answers before blocklist' (parent 2663ff5). Baseline: A0.1, resolver of e746b1e, results committed at 71bec72",
+  "resolver": "post-R2: issue 104, the commit 'Issue 104: correct Rust trusted target resolution' (parent d96bb2f). Baseline: post-R1, results committed at d96bb2f",
   "site_matching_version": "a0-match-1"
  },
  "recall": {

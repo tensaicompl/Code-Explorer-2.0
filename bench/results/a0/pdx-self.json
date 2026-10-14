@@ -1,247 +1,247 @@
 {
  "blocklist": {
-  "accepted_typed_answer_correct": 409,
+  "accepted_typed_answer_correct": 433,
   "accepted_typed_answer_unverifiable": 3,
-  "edges_drawn": 412,
+  "edges_drawn": 436,
   "examples_correct_suppressed": [],
-  "final_band:blocked": 2207,
-  "final_band:typed": 412,
-  "no_typed_answer_and_blocked": 2207,
-  "no_typed_answer_and_blocked_with_oracle_relation": 327,
+  "final_band:blocked": 2183,
+  "final_band:typed": 436,
+  "no_typed_answer_and_blocked": 2183,
+  "no_typed_answer_and_blocked_with_oracle_relation": 303,
   "oracle_relation": 736,
   "oracle_verifiable": 2593,
   "recall_c0": {
-   "denominator": 7844,
-   "numerator": 6473,
-   "value": 0.825217
+   "denominator": 7816,
+   "numerator": 6560,
+   "value": 0.839304
   },
   "recall_c4": {
-   "denominator": 7844,
-   "numerator": 6473,
-   "value": 0.825217
+   "denominator": 7816,
+   "numerator": 6560,
+   "value": 0.839304
   },
   "relations_recovered_in_c4": 0,
   "sites": 2619,
-  "typed_answer_accepted_before_blocklist": 412,
+  "typed_answer_accepted_before_blocklist": 436,
   "typed_answer_suppressed_by_blocklist": 0
  },
  "corpus": "pdx-self",
  "counterfactuals": {
   "C0": {
-   "drawn": 7781,
+   "drawn": 7766,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 7767,
+   "oracle_verifiable": 7753,
    "oracle_verifiable_fraction": {
-    "denominator": 7781,
-    "numerator": 7767,
-    "value": 0.998201
+    "denominator": 7766,
+    "numerator": 7753,
+    "value": 0.998326
    },
    "policy": "current behaviour",
    "precision": {
-    "denominator": 7767,
-    "numerator": 6504,
-    "value": 0.837389
+    "denominator": 7753,
+    "numerator": 6591,
+    "value": 0.850123
    },
    "recall": {
-    "denominator": 7844,
-    "numerator": 6473,
-    "value": 0.825217
+    "denominator": 7816,
+    "numerator": 6560,
+    "value": 0.839304
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 5765,
-    "numerator": 5720,
-    "value": 0.992194
+    "denominator": 5870,
+    "numerator": 5870,
+    "value": 1.0
    }
   },
   "C1": {
-   "drawn": 6322,
+   "drawn": 6375,
    "false_positives_added": 0,
-   "false_positives_removed": 904,
-   "oracle_verifiable": 6315,
+   "false_positives_removed": 850,
+   "oracle_verifiable": 6369,
    "oracle_verifiable_fraction": {
-    "denominator": 6322,
-    "numerator": 6315,
-    "value": 0.998893
+    "denominator": 6375,
+    "numerator": 6369,
+    "value": 0.999059
    },
    "policy": "`exact` not drawn",
    "precision": {
-    "denominator": 6315,
-    "numerator": 5956,
-    "value": 0.943151
+    "denominator": 6369,
+    "numerator": 6057,
+    "value": 0.951013
    },
    "recall": {
-    "denominator": 7844,
-    "numerator": 5926,
-    "value": 0.755482
+    "denominator": 7816,
+    "numerator": 6027,
+    "value": 0.771111
    },
    "true_positives_added": 0,
-   "true_positives_lost": 548,
+   "true_positives_lost": 534,
    "typed": {
-    "denominator": 5765,
-    "numerator": 5720,
-    "value": 0.992194
+    "denominator": 5870,
+    "numerator": 5870,
+    "value": 1.0
    }
   },
   "C2": {
-   "drawn": 7424,
+   "drawn": 7411,
    "false_positives_added": 0,
-   "false_positives_removed": 310,
-   "oracle_verifiable": 7410,
+   "false_positives_removed": 308,
+   "oracle_verifiable": 7398,
    "oracle_verifiable_fraction": {
-    "denominator": 7424,
-    "numerator": 7410,
-    "value": 0.998114
+    "denominator": 7411,
+    "numerator": 7398,
+    "value": 0.998246
    },
    "policy": "`scoped` not drawn",
    "precision": {
-    "denominator": 7410,
-    "numerator": 6457,
-    "value": 0.87139
+    "denominator": 7398,
+    "numerator": 6544,
+    "value": 0.884563
    },
    "recall": {
-    "denominator": 7844,
-    "numerator": 6426,
-    "value": 0.819225
+    "denominator": 7816,
+    "numerator": 6513,
+    "value": 0.833291
    },
    "true_positives_added": 0,
    "true_positives_lost": 47,
    "typed": {
-    "denominator": 5765,
-    "numerator": 5720,
-    "value": 0.992194
+    "denominator": 5870,
+    "numerator": 5870,
+    "value": 1.0
    }
   },
   "C3": {
-   "drawn": 5965,
+   "drawn": 6020,
    "false_positives_added": 0,
-   "false_positives_removed": 1214,
-   "oracle_verifiable": 5958,
+   "false_positives_removed": 1158,
+   "oracle_verifiable": 6014,
    "oracle_verifiable_fraction": {
-    "denominator": 5965,
-    "numerator": 5958,
-    "value": 0.998826
+    "denominator": 6020,
+    "numerator": 6014,
+    "value": 0.999003
    },
    "policy": "neither `exact` nor `scoped` drawn",
    "precision": {
-    "denominator": 5958,
-    "numerator": 5909,
-    "value": 0.991776
+    "denominator": 6014,
+    "numerator": 6010,
+    "value": 0.999335
    },
    "recall": {
-    "denominator": 7844,
-    "numerator": 5879,
-    "value": 0.74949
+    "denominator": 7816,
+    "numerator": 5980,
+    "value": 0.765097
    },
    "true_positives_added": 0,
-   "true_positives_lost": 595,
+   "true_positives_lost": 581,
    "typed": {
-    "denominator": 5765,
-    "numerator": 5720,
-    "value": 0.992194
+    "denominator": 5870,
+    "numerator": 5870,
+    "value": 1.0
    }
   },
   "C4": {
-   "drawn": 7781,
+   "drawn": 7766,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 7767,
+   "oracle_verifiable": 7753,
    "oracle_verifiable_fraction": {
-    "denominator": 7781,
-    "numerator": 7767,
-    "value": 0.998201
+    "denominator": 7766,
+    "numerator": 7753,
+    "value": 0.998326
    },
    "policy": "a valid typed answer is accepted before the generic-name blocklist",
    "precision": {
-    "denominator": 7767,
-    "numerator": 6504,
-    "value": 0.837389
+    "denominator": 7753,
+    "numerator": 6591,
+    "value": 0.850123
    },
    "recall": {
-    "denominator": 7844,
-    "numerator": 6473,
-    "value": 0.825217
+    "denominator": 7816,
+    "numerator": 6560,
+    "value": 0.839304
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 5765,
-    "numerator": 5720,
-    "value": 0.992194
+    "denominator": 5870,
+    "numerator": 5870,
+    "value": 1.0
    }
   },
   "C5": {
-   "drawn": 6368,
+   "drawn": 6417,
    "false_positives_added": 0,
-   "false_positives_removed": 958,
-   "oracle_verifiable": 6360,
+   "false_positives_removed": 898,
+   "oracle_verifiable": 6410,
    "oracle_verifiable_fraction": {
-    "denominator": 6368,
-    "numerator": 6360,
-    "value": 0.998744
+    "denominator": 6417,
+    "numerator": 6410,
+    "value": 0.998909
    },
    "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
    "precision": {
-    "denominator": 6360,
-    "numerator": 6055,
-    "value": 0.952044
+    "denominator": 6410,
+    "numerator": 6146,
+    "value": 0.958814
    },
    "recall": {
-    "denominator": 7844,
-    "numerator": 6024,
-    "value": 0.767976
+    "denominator": 7816,
+    "numerator": 6115,
+    "value": 0.782369
    },
    "true_positives_added": 0,
-   "true_positives_lost": 449,
+   "true_positives_lost": 445,
    "typed": {
-    "denominator": 5765,
-    "numerator": 5720,
-    "value": 0.992194
+    "denominator": 5870,
+    "numerator": 5870,
+    "value": 1.0
    }
   },
   "C6": {
-   "drawn": 5965,
+   "drawn": 6020,
    "false_positives_added": 0,
-   "false_positives_removed": 1214,
-   "oracle_verifiable": 5958,
+   "false_positives_removed": 1158,
+   "oracle_verifiable": 6014,
    "oracle_verifiable_fraction": {
-    "denominator": 5965,
-    "numerator": 5958,
-    "value": 0.998826
+    "denominator": 6020,
+    "numerator": 6014,
+    "value": 0.999003
    },
    "policy": "C3, C4 and C5 together",
    "precision": {
-    "denominator": 5958,
-    "numerator": 5909,
-    "value": 0.991776
+    "denominator": 6014,
+    "numerator": 6010,
+    "value": 0.999335
    },
    "recall": {
-    "denominator": 7844,
-    "numerator": 5879,
-    "value": 0.74949
+    "denominator": 7816,
+    "numerator": 5980,
+    "value": 0.765097
    },
    "true_positives_added": 0,
-   "true_positives_lost": 595,
+   "true_positives_lost": 581,
    "typed": {
-    "denominator": 5765,
-    "numerator": 5720,
-    "value": 0.992194
+    "denominator": 5870,
+    "numerator": 5870,
+    "value": 1.0
    }
   }
  },
  "coverage": {
   "drawn_edges_by_kind": {
-   "CALLS": 7753,
+   "CALLS": 7738,
    "CALL_REFERENCE": 28
   },
-  "engine_sites": 137,
+  "engine_sites": 109,
   "language_files": 172,
   "language_files_indexed_by_oracle": 163,
   "name_token_rules": {
-   "M1": 23249,
-   "M1c": 151
+   "M1": 23215,
+   "M1c": 157
   },
   "oracle_assumed_encoding": {},
   "oracle_call_sites": 29205,
@@ -261,20 +261,20 @@
   },
   "oracle_unconvertible_occurrences": 0,
   "parse_failures": [],
-  "structural_call_sites": 23400,
+  "structural_call_sites": 23372,
   "structural_call_sites_by_band": {
-   "blocked": 2207,
-   "candidate": 3070,
-   "exact": 1459,
-   "external": 1018,
-   "import-guided": 119,
-   "inheritance-guided": 75,
-   "scoped": 357,
-   "typed": 5908,
-   "unresolved": 9187
+   "blocked": 2183,
+   "candidate": 3017,
+   "exact": 1391,
+   "external": 1289,
+   "import-guided": 68,
+   "inheritance-guided": 77,
+   "scoped": 355,
+   "typed": 5984,
+   "unresolved": 9008
   },
   "structural_call_sites_not_materialized_by_band": {
-   "typed": 137
+   "typed": 109
   },
   "structural_call_sites_without_name_token": 0,
   "structural_sites_not_call_sites": 7032
@@ -409,26 +409,6 @@
     "self_edge": [
      {
       "band": "exact",
-      "callee": "serde_json::to_value",
-      "file": "crates/pdx-bench/src/bench/results.rs",
-      "line": 389,
-      "oracle_status": "external",
-      "oracle_target": "serde_json value/to_value().",
-      "pdx_target": "crates.pdx-bench.src.bench.results.to_value",
-      "reason": "oracle_external",
-      "receiver_proof": "path_unproven",
-      "site": 31,
-      "span": [
-       13126,
-       13152
-      ],
-      "token": [
-       13138,
-       13146
-      ]
-     },
-     {
-      "band": "exact",
       "callee": "self.confidence_rank().cmp",
       "file": "crates/pdx-core/src/bands.rs",
       "line": 81,
@@ -465,6 +445,26 @@
       "token": [
        8486,
        8492
+      ]
+     },
+     {
+      "band": "exact",
+      "callee": "self.ends.len",
+      "file": "crates/pdx-engine/src/model.rs",
+      "line": 1029,
+      "oracle_status": "external",
+      "oracle_target": "alloc vec/impl#[`Vec<T, A>`]len().",
+      "pdx_target": "crates.pdx-engine.src.model.QualifiedNames.len",
+      "reason": "oracle_external",
+      "receiver_proof": "value_unproven",
+      "site": 92,
+      "span": [
+       40666,
+       40681
+      ],
+      "token": [
+       40676,
+       40679
       ]
      }
     ],
@@ -531,28 +531,28 @@
      }
     ]
    },
-   "false_positives": 904,
+   "false_positives": 850,
    "primary": {
     "constructor_collision": 72,
-    "external_receiver_mistaken_for_local": 815,
+    "external_receiver_mistaken_for_local": 763,
     "hierarchy_evidence_missing": 0,
     "import_provenance_failure": 0,
     "module_or_package_uniqueness_only": 0,
     "other": 0,
     "same_short_name_on_unrelated_type": 0,
-    "self_edge": 5,
+    "self_edge": 3,
     "unknown_or_unproven_receiver": 12
    },
    "tagged": {
     "constructor_collision": 72,
-    "external_receiver_mistaken_for_local": 820,
+    "external_receiver_mistaken_for_local": 766,
     "hierarchy_evidence_missing": 0,
     "import_provenance_failure": 51,
     "module_or_package_uniqueness_only": 0,
     "other": 0,
     "same_short_name_on_unrelated_type": 0,
-    "self_edge": 5,
-    "unknown_or_unproven_receiver": 743
+    "self_edge": 3,
+    "unknown_or_unproven_receiver": 689
    }
   },
   "scoped": {
@@ -684,42 +684,62 @@
     "import_provenance_failure": [
      {
       "band": "scoped",
-      "callee": "Engine::new().unwrap().extract",
-      "file": "crates/pdx-engine/tests/site_facts.rs",
-      "line": 103,
+      "callee": "NodeKey::repo",
+      "file": "crates/pdx-core/tests/ids.rs",
+      "line": 188,
       "oracle_status": "mapped",
-      "oracle_target": "crates.pdx-engine.src.engine.Engine.extract",
-      "pdx_target": "crates.pdx-engine.tests.site_facts.extract",
+      "oracle_target": "crates.pdx-core.src.ids.NodeKey.repo",
+      "pdx_target": "crates.pdx-core.tests.ids.repo",
       "reason": "other_target",
-      "receiver_proof": "value_unproven",
-      "site": 24,
+      "receiver_proof": "path_bound",
+      "site": 49,
       "span": [
-       3807,
-       3862
+       5800,
+       5820
       ],
       "token": [
-       3830,
-       3837
+       5809,
+       5813
       ]
      },
      {
       "band": "scoped",
-      "callee": "Engine::new() .unwrap() .extract",
-      "file": "crates/pdx-engine/tests/site_path_budget.rs",
-      "line": 148,
+      "callee": "NodeKey::repo",
+      "file": "crates/pdx-core/tests/ids.rs",
+      "line": 228,
       "oracle_status": "mapped",
-      "oracle_target": "crates.pdx-engine.src.engine.Engine.extract",
-      "pdx_target": "crates.pdx-engine.tests.site_path_budget.extract",
+      "oracle_target": "crates.pdx-core.src.ids.NodeKey.repo",
+      "pdx_target": "crates.pdx-core.tests.ids.repo",
       "reason": "other_target",
-      "receiver_proof": "value_unproven",
-      "site": 32,
+      "receiver_proof": "path_bound",
+      "site": 57,
       "span": [
-       5466,
-       5575
+       6949,
+       6969
       ],
       "token": [
-       5515,
-       5522
+       6958,
+       6962
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "NodeKey::repo",
+      "file": "crates/pdx-core/tests/model.rs",
+      "line": 338,
+      "oracle_status": "mapped",
+      "oracle_target": "crates.pdx-core.src.ids.NodeKey.repo",
+      "pdx_target": "crates.pdx-core.tests.model.repo",
+      "reason": "other_target",
+      "receiver_proof": "path_bound",
+      "site": 58,
+      "span": [
+       10005,
+       10027
+      ],
+      "token": [
+       10014,
+       10018
       ]
      }
     ],
@@ -848,54 +868,34 @@
      }
     ]
    },
-   "false_positives": 310,
+   "false_positives": 308,
    "primary": {
     "constructor_collision": 67,
-    "external_receiver_mistaken_for_local": 153,
+    "external_receiver_mistaken_for_local": 147,
     "hierarchy_evidence_missing": 0,
-    "import_provenance_failure": 2,
+    "import_provenance_failure": 7,
     "module_or_package_uniqueness_only": 0,
     "other": 0,
     "same_short_name_on_unrelated_type": 0,
-    "self_edge": 44,
+    "self_edge": 43,
     "unknown_or_unproven_receiver": 44
    },
    "tagged": {
-    "constructor_collision": 175,
-    "external_receiver_mistaken_for_local": 170,
+    "constructor_collision": 169,
+    "external_receiver_mistaken_for_local": 164,
     "hierarchy_evidence_missing": 0,
-    "import_provenance_failure": 70,
-    "module_or_package_uniqueness_only": 310,
+    "import_provenance_failure": 75,
+    "module_or_package_uniqueness_only": 308,
     "other": 0,
-    "same_short_name_on_unrelated_type": 134,
-    "self_edge": 44,
-    "unknown_or_unproven_receiver": 215
+    "same_short_name_on_unrelated_type": 138,
+    "self_edge": 43,
+    "unknown_or_unproven_receiver": 209
    }
   }
  },
- "extraction_loss": 1027,
+ "extraction_loss": 1055,
  "false_negative_examples": {
   "drawn_wrong": [
-   {
-    "bucket": "drawn_wrong",
-    "callee": "SummaryFile::merged",
-    "file": "crates/pdx-bench/src/bench/run.rs",
-    "line": 971,
-    "macro": null,
-    "oracle_target": "crates.pdx-bench.src.bench.results.SummaryFile.merged",
-    "pdx_band": "typed",
-    "pdx_site": 285,
-    "pdx_target": "crates.pdx-core.tests.contracts.merged",
-    "shape": "call",
-    "span": [
-     33508,
-     33580
-    ],
-    "token": [
-     33521,
-     33527
-    ]
-   },
    {
     "bucket": "drawn_wrong",
     "callee": "run.plan.determinism",
@@ -938,26 +938,6 @@
    },
    {
     "bucket": "drawn_wrong",
-    "callee": "FsCache::at",
-    "file": "crates/pdx-bench/src/bench/worker.rs",
-    "line": 255,
-    "macro": null,
-    "oracle_target": "crates.pdx-core.src.index.extract.cache.FsCache.at",
-    "pdx_band": "typed",
-    "pdx_site": 50,
-    "pdx_target": "crates.pdx-core.tests.stages.at",
-    "shape": "call",
-    "span": [
-     8885,
-     8916
-    ],
-    "token": [
-     8894,
-     8896
-    ]
-   },
-   {
-    "bucket": "drawn_wrong",
     "callee": "Git::new",
     "file": "crates/pdx-bench/src/golden/run.rs",
     "line": 195,
@@ -974,6 +954,46 @@
     "token": [
      6409,
      6412
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "Git::new",
+    "file": "crates/pdx-bench/tests/golden_fetch.rs",
+    "line": 83,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.golden.git.Git.new",
+    "pdx_band": "scoped",
+    "pdx_site": 47,
+    "pdx_target": "crates.pdx-bench.tests.golden_fetch.Scratch.new",
+    "shape": "call",
+    "span": [
+     3273,
+     3403
+    ],
+    "token": [
+     3278,
+     3281
+    ]
+   },
+   {
+    "bucket": "drawn_wrong",
+    "callee": "found.observe",
+    "file": "crates/pdx-core/src/contracts/artifacts.rs",
+    "line": 136,
+    "macro": null,
+    "oracle_target": "crates.pdx-core.src.contracts.mod.Found.observe",
+    "pdx_band": "scoped",
+    "pdx_site": 30,
+    "pdx_target": "crates.pdx-core.src.contracts.artifacts.observe",
+    "shape": "method",
+    "span": [
+     5560,
+     5732
+    ],
+    "token": [
+     5566,
+     5573
     ]
    }
   ],
@@ -1878,108 +1898,7 @@
     ]
    }
   ],
-  "typed": [
-   {
-    "band": "typed",
-    "callee": "fs::read_dir",
-    "file": "crates/pdx-bench/src/bench/run.rs",
-    "line": 782,
-    "oracle_status": "external",
-    "oracle_target": "std fs/read_dir().",
-    "pdx_target": "crates.pdx-bench.src.bench.area.read_dir",
-    "reason": "oracle_external",
-    "receiver_proof": "path_bound",
-    "site": 190,
-    "span": [
-     26714,
-     26736
-    ],
-    "token": [
-     26718,
-     26726
-    ]
-   },
-   {
-    "band": "typed",
-    "callee": "fs::read_dir",
-    "file": "crates/pdx-bench/src/bench/run.rs",
-    "line": 790,
-    "oracle_status": "external",
-    "oracle_target": "std fs/read_dir().",
-    "pdx_target": "crates.pdx-bench.src.bench.area.read_dir",
-    "reason": "oracle_external",
-    "receiver_proof": "path_bound",
-    "site": 195,
-    "span": [
-     26946,
-     26973
-    ],
-    "token": [
-     26950,
-     26958
-    ]
-   },
-   {
-    "band": "typed",
-    "callee": "SummaryFile::merged",
-    "file": "crates/pdx-bench/src/bench/run.rs",
-    "line": 971,
-    "oracle_status": "mapped",
-    "oracle_target": "crates.pdx-bench.src.bench.results.SummaryFile.merged",
-    "pdx_target": "crates.pdx-core.tests.contracts.merged",
-    "reason": "other_target",
-    "receiver_proof": "path_bound",
-    "site": 285,
-    "span": [
-     33508,
-     33580
-    ],
-    "token": [
-     33521,
-     33527
-    ]
-   },
-   {
-    "band": "typed",
-    "callee": "FsCache::at",
-    "file": "crates/pdx-bench/src/bench/worker.rs",
-    "line": 255,
-    "oracle_status": "mapped",
-    "oracle_target": "crates.pdx-core.src.index.extract.cache.FsCache.at",
-    "pdx_target": "crates.pdx-core.tests.stages.at",
-    "reason": "other_target",
-    "receiver_proof": "path_bound",
-    "site": 50,
-    "span": [
-     8885,
-     8916
-    ],
-    "token": [
-     8894,
-     8896
-    ]
-   },
-   {
-    "band": "typed",
-    "callee": "NodeKey::file",
-    "file": "crates/pdx-core/src/contracts/row.rs",
-    "line": 224,
-    "oracle_status": "mapped",
-    "oracle_target": "crates.pdx-core.src.ids.NodeKey.file",
-    "pdx_target": "crates.pdx-core.src.segment.reader.file",
-    "reason": "other_target",
-    "receiver_proof": "path_unproven",
-    "site": 54,
-    "span": [
-     9011,
-     9039
-    ],
-    "token": [
-     9020,
-     9024
-    ]
-   }
-  ]
+  "typed": []
  },
  "language": "rust",
  "macros": {
@@ -1998,13 +1917,13 @@
   "token_tree_calls": {
    "call_text_in_token_trees": 5904,
    "drawn_correct": 1143,
-   "engine_site_band:typed": 137,
-   "invisible_to_structural_calls": 3821,
-   "invisible_with_oracle_relation": 898,
+   "engine_site_band:typed": 109,
+   "invisible_to_structural_calls": 3849,
+   "invisible_with_oracle_relation": 926,
    "oracle_relations": 2256,
    "visible_to_oracle": 5889,
    "with_drawn_edge": 1144,
-   "with_engine_site_only": 137,
+   "with_engine_site_only": 109,
    "with_structural_call_site": 1144,
    "with_unconfirmed_site_only": 802
   }
@@ -2017,204 +1936,204 @@
    "drawn": 44,
    "structural_site_exists": 125,
    "total": 291,
-   "typed_answer_supplied": 10,
+   "typed_answer_supplied": 6,
    "withheld_qn_maps_to_several_definitions": 6,
    "wrong_overload_selected": 13
   }
  },
  "precision": {
   "exact": {
-   "correct": 548,
-   "drawn": 1459,
-   "false_positive": 904,
-   "oracle_verifiable": 1452,
+   "correct": 534,
+   "drawn": 1391,
+   "false_positive": 850,
+   "oracle_verifiable": 1384,
    "oracle_verifiable_fraction": {
-    "denominator": 1459,
-    "numerator": 1452,
-    "value": 0.995202
+    "denominator": 1391,
+    "numerator": 1384,
+    "value": 0.994968
    },
    "precision": {
-    "denominator": 1452,
-    "numerator": 548,
-    "value": 0.37741
+    "denominator": 1384,
+    "numerator": 534,
+    "value": 0.385838
    }
   },
   "import-guided": {
-   "correct": 115,
-   "drawn": 119,
+   "correct": 64,
+   "drawn": 68,
    "false_positive": 4,
-   "oracle_verifiable": 119,
+   "oracle_verifiable": 68,
    "oracle_verifiable_fraction": {
-    "denominator": 119,
-    "numerator": 119,
+    "denominator": 68,
+    "numerator": 68,
     "value": 1.0
    },
    "precision": {
-    "denominator": 119,
-    "numerator": 115,
-    "value": 0.966387
+    "denominator": 68,
+    "numerator": 64,
+    "value": 0.941176
    }
   },
   "inheritance-guided": {
-   "correct": 74,
-   "drawn": 75,
+   "correct": 76,
+   "drawn": 77,
    "false_positive": 0,
-   "oracle_verifiable": 74,
+   "oracle_verifiable": 76,
    "oracle_verifiable_fraction": {
-    "denominator": 75,
-    "numerator": 74,
-    "value": 0.986667
+    "denominator": 77,
+    "numerator": 76,
+    "value": 0.987013
    },
    "precision": {
-    "denominator": 74,
-    "numerator": 74,
+    "denominator": 76,
+    "numerator": 76,
     "value": 1.0
    }
   },
   "scoped": {
    "correct": 47,
-   "drawn": 357,
-   "false_positive": 310,
-   "oracle_verifiable": 357,
+   "drawn": 355,
+   "false_positive": 308,
+   "oracle_verifiable": 355,
    "oracle_verifiable_fraction": {
-    "denominator": 357,
-    "numerator": 357,
+    "denominator": 355,
+    "numerator": 355,
     "value": 1.0
    },
    "precision": {
-    "denominator": 357,
+    "denominator": 355,
     "numerator": 47,
-    "value": 0.131653
+    "value": 0.132394
    }
   },
   "typed": {
-   "correct": 5720,
-   "drawn": 5771,
-   "false_positive": 45,
-   "oracle_verifiable": 5765,
+   "correct": 5870,
+   "drawn": 5875,
+   "false_positive": 0,
+   "oracle_verifiable": 5870,
    "oracle_verifiable_fraction": {
-    "denominator": 5771,
-    "numerator": 5765,
-    "value": 0.99896
+    "denominator": 5875,
+    "numerator": 5870,
+    "value": 0.999149
    },
    "precision": {
-    "denominator": 5765,
-    "numerator": 5720,
-    "value": 0.992194
+    "denominator": 5870,
+    "numerator": 5870,
+    "value": 1.0
    }
   },
   "union": {
-   "correct": 6504,
-   "drawn": 7781,
-   "false_positive": 1263,
-   "oracle_verifiable": 7767,
+   "correct": 6591,
+   "drawn": 7766,
+   "false_positive": 1162,
+   "oracle_verifiable": 7753,
    "oracle_verifiable_fraction": {
-    "denominator": 7781,
-    "numerator": 7767,
-    "value": 0.998201
+    "denominator": 7766,
+    "numerator": 7753,
+    "value": 0.998326
    },
    "precision": {
-    "denominator": 7767,
-    "numerator": 6504,
-    "value": 0.837389
+    "denominator": 7753,
+    "numerator": 6591,
+    "value": 0.850123
    }
   }
  },
  "precision_calls_only": {
   "exact": {
-   "correct": 548,
-   "drawn": 1459,
-   "false_positive": 904,
-   "oracle_verifiable": 1452,
+   "correct": 534,
+   "drawn": 1391,
+   "false_positive": 850,
+   "oracle_verifiable": 1384,
    "oracle_verifiable_fraction": {
-    "denominator": 1459,
-    "numerator": 1452,
-    "value": 0.995202
+    "denominator": 1391,
+    "numerator": 1384,
+    "value": 0.994968
    },
    "precision": {
-    "denominator": 1452,
-    "numerator": 548,
-    "value": 0.37741
+    "denominator": 1384,
+    "numerator": 534,
+    "value": 0.385838
    }
   },
   "import-guided": {
-   "correct": 115,
-   "drawn": 119,
+   "correct": 64,
+   "drawn": 68,
    "false_positive": 4,
-   "oracle_verifiable": 119,
+   "oracle_verifiable": 68,
    "oracle_verifiable_fraction": {
-    "denominator": 119,
-    "numerator": 119,
+    "denominator": 68,
+    "numerator": 68,
     "value": 1.0
    },
    "precision": {
-    "denominator": 119,
-    "numerator": 115,
-    "value": 0.966387
+    "denominator": 68,
+    "numerator": 64,
+    "value": 0.941176
    }
   },
   "inheritance-guided": {
-   "correct": 74,
-   "drawn": 75,
+   "correct": 76,
+   "drawn": 77,
    "false_positive": 0,
-   "oracle_verifiable": 74,
+   "oracle_verifiable": 76,
    "oracle_verifiable_fraction": {
-    "denominator": 75,
-    "numerator": 74,
-    "value": 0.986667
+    "denominator": 77,
+    "numerator": 76,
+    "value": 0.987013
    },
    "precision": {
-    "denominator": 74,
-    "numerator": 74,
+    "denominator": 76,
+    "numerator": 76,
     "value": 1.0
    }
   },
   "scoped": {
    "correct": 47,
-   "drawn": 357,
-   "false_positive": 310,
-   "oracle_verifiable": 357,
+   "drawn": 355,
+   "false_positive": 308,
+   "oracle_verifiable": 355,
    "oracle_verifiable_fraction": {
-    "denominator": 357,
-    "numerator": 357,
+    "denominator": 355,
+    "numerator": 355,
     "value": 1.0
    },
    "precision": {
-    "denominator": 357,
+    "denominator": 355,
     "numerator": 47,
-    "value": 0.131653
+    "value": 0.132394
    }
   },
   "typed": {
-   "correct": 5692,
-   "drawn": 5743,
-   "false_positive": 45,
-   "oracle_verifiable": 5737,
+   "correct": 5842,
+   "drawn": 5847,
+   "false_positive": 0,
+   "oracle_verifiable": 5842,
    "oracle_verifiable_fraction": {
-    "denominator": 5743,
-    "numerator": 5737,
-    "value": 0.998955
+    "denominator": 5847,
+    "numerator": 5842,
+    "value": 0.999145
    },
    "precision": {
-    "denominator": 5737,
-    "numerator": 5692,
-    "value": 0.992156
+    "denominator": 5842,
+    "numerator": 5842,
+    "value": 1.0
    }
   },
   "union": {
-   "correct": 6476,
-   "drawn": 7753,
-   "false_positive": 1263,
-   "oracle_verifiable": 7739,
+   "correct": 6563,
+   "drawn": 7738,
+   "false_positive": 1162,
+   "oracle_verifiable": 7725,
    "oracle_verifiable_fraction": {
-    "denominator": 7753,
-    "numerator": 7739,
-    "value": 0.998194
+    "denominator": 7738,
+    "numerator": 7725,
+    "value": 0.99832
    },
    "precision": {
-    "denominator": 7739,
-    "numerator": 6476,
-    "value": 0.836801
+    "denominator": 7725,
+    "numerator": 6563,
+    "value": 0.849579
    }
   }
  },
@@ -2342,27 +2261,27 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "resolver": "post-R1: issue 103, the commit 'Issue 103: accept typed answers before blocklist' (parent 2663ff5). Baseline: A0.1, resolver of e746b1e, results committed at 71bec72",
+  "resolver": "post-R2: issue 104, the commit 'Issue 104: correct Rust trusted target resolution' (parent d96bb2f). Baseline: post-R1, results committed at d96bb2f",
   "site_matching_version": "a0-match-1"
  },
  "recall": {
-  "at_parsed_structural_sites": 7844,
+  "at_parsed_structural_sites": 7816,
   "breakdown": {
-   "at_parsed_site": 7844,
-   "drawn_correct": 6473,
-   "drawn_wrong": 174,
-   "resolution_not_drawn:blocked": 327,
-   "resolution_not_drawn:candidate": 733,
-   "resolution_not_materialized:typed": 137,
+   "at_parsed_site": 7816,
+   "drawn_correct": 6560,
+   "drawn_wrong": 138,
+   "resolution_not_drawn:blocked": 303,
+   "resolution_not_drawn:candidate": 706,
+   "resolution_not_materialized:typed": 109,
    "site_missing": 51,
-   "site_missing_macro_token_tree": 898,
+   "site_missing_macro_token_tree": 926,
    "site_not_a_call_site": 78
   },
-  "drawn_correct": 6473,
+  "drawn_correct": 6560,
   "end_to_end_recall": {
    "denominator": 8871,
-   "numerator": 6473,
-   "value": 0.729681
+   "numerator": 6560,
+   "value": 0.739488
   },
   "oracle_calls_outside_relations": {
    "not_a_relation:external": 18255,
@@ -2374,66 +2293,66 @@
   },
   "oracle_relations": 8871,
   "recall": {
-   "denominator": 7844,
-   "numerator": 6473,
-   "value": 0.825217
+   "denominator": 7816,
+   "numerator": 6560,
+   "value": 0.839304
   }
  },
  "receivers": {
   "none": {
    "by_band": {
     "blocked": 74,
-    "candidate": 117,
-    "exact": 144,
+    "candidate": 105,
+    "exact": 152,
     "external": 30,
-    "import-guided": 64,
+    "import-guided": 30,
     "scoped": 68,
-    "typed": 4236,
-    "unresolved": 594
+    "typed": 4234,
+    "unresolved": 606
    },
-   "call_sites": 5327,
-   "exact_or_scoped_drawn": 212,
+   "call_sites": 5299,
+   "exact_or_scoped_drawn": 220,
    "exact_or_scoped_precision": {
-    "denominator": 211,
-    "numerator": 91,
-    "value": 0.43128
+    "denominator": 219,
+    "numerator": 99,
+    "value": 0.452055
    }
   },
   "path_bound": {
    "by_band": {
-    "blocked": 223,
-    "candidate": 275,
-    "exact": 125,
-    "external": 560,
-    "import-guided": 55,
-    "scoped": 64,
-    "typed": 749,
-    "unresolved": 308
+    "blocked": 201,
+    "candidate": 292,
+    "exact": 107,
+    "external": 565,
+    "import-guided": 38,
+    "scoped": 68,
+    "typed": 779,
+    "unresolved": 309
    },
    "call_sites": 2359,
-   "exact_or_scoped_drawn": 189,
+   "exact_or_scoped_drawn": 175,
    "exact_or_scoped_precision": {
-    "denominator": 189,
-    "numerator": 53,
-    "value": 0.280423
+    "denominator": 175,
+    "numerator": 35,
+    "value": 0.2
    }
   },
   "path_unproven": {
    "by_band": {
-    "blocked": 62,
-    "candidate": 437,
-    "exact": 71,
-    "external": 1,
-    "scoped": 113,
-    "typed": 66,
-    "unresolved": 420
+    "blocked": 60,
+    "candidate": 379,
+    "exact": 13,
+    "external": 267,
+    "scoped": 107,
+    "typed": 116,
+    "unresolved": 228
    },
    "call_sites": 1170,
-   "exact_or_scoped_drawn": 184,
+   "exact_or_scoped_drawn": 120,
    "exact_or_scoped_precision": {
-    "denominator": 184,
-    "numerator": 5,
-    "value": 0.027174
+    "denominator": 120,
+    "numerator": 1,
+    "value": 0.008333
    }
   },
   "self": {
@@ -2441,8 +2360,8 @@
     "blocked": 2,
     "candidate": 4,
     "exact": 2,
-    "inheritance-guided": 75,
-    "typed": 157,
+    "inheritance-guided": 77,
+    "typed": 155,
     "unresolved": 4
    },
    "call_sites": 244,
@@ -2472,12 +2391,11 @@
    }
   }
  },
- "resolution_loss": 1371,
+ "resolution_loss": 1256,
  "unverifiable_drawn": {
   "exact:file_not_indexed": 7,
   "inheritance-guided:file_not_indexed": 1,
   "typed:file_not_indexed": 2,
-  "typed:none": 3,
-  "typed:unmapped": 1
+  "typed:none": 3
  }
 }

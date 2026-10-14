@@ -885,10 +885,11 @@ fn a_typed_answer_the_blocklist_hid_is_drawn_as_the_engine_gives_it() {
     // with the right ones. A0 found one wrong one in the Rust golden: a trait-qualified
     // call, `Handler::call(handler, req, state)` (axum/src/handler/service.rs:171),
     // which the engine's short-name fallback (`lsp_short_name_unique`, reported as
-    // `lsp_typed`) answers with the crate's only free function named `call`. This is
-    // the smallest repository with the same answer, through typed resolution itself.
-    // The answer is wrong: the call names the trait's method. Issue 104 owns that; this
-    // test records what the engine says today and that Stage 3 now draws it.
+    // `lsp_typed`) answered with the crate's only free function named `call`. This is
+    // the smallest repository with the same call, through typed resolution itself.
+    // Issue 104 corrected the fallback: `Handler` is the trait the file imports, no
+    // module the free function is in, so the engine gives no answer and the name is
+    // blocked, as before issue 103. A typed answer would still be drawn as given.
     let checkout = Checkout::new(&[
         (
             "Cargo.toml",
@@ -915,9 +916,9 @@ fn a_typed_answer_the_blocklist_hid_is_drawn_as_the_engine_gives_it() {
     assert!(blocklist::is_blocked("rust", "call"));
     let report = resolve(checkout.root(), &reg).expect("resolution succeeds");
     let got = at(&reg, &report, "src/service.rs", "Handler::call");
-    assert_eq!(got.band(), Band::Typed);
-    assert_eq!(got.target(), Some(&def(&reg, "src/routing.rs", "call")));
-    assert_eq!(got.engine_strategy(), Some("lsp_short_name_unique"));
+    assert_eq!(got.band(), Band::Blocked);
+    assert_eq!(got.target(), None);
+    assert_eq!(got.engine_strategy(), None);
 }
 
 // --- the engine's answer ------------------------------------------------------------

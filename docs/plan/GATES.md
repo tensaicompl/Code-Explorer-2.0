@@ -470,6 +470,27 @@ Four of the six floors still fail.
 The Rust golden's `typed` band gains 31 correct edges and 1 false one,
 `Handler::call`, which belongs to issue 104.
 
+A0 after R2, 2026-10-14 (issue 104, open: Rust typed answers need path evidence).
+This is evidence, not an evaluation; the status stays `pending`. The same pins,
+oracles and rules are used, the results are `bench/results/a0/`, and the baseline is
+post-R1 (`d96bb2f`).
+
+| Golden | Floor | Post-R1 | After R2 | Floor met |
+|---|---|---|---|---|
+| Python | `typed` precision ≥ 97% | 314 / 314 | 314 / 314 = 100.00% | yes |
+| Python | union precision ≥ 95% | 624 / 657 = 94.98% | 624 / 657 = 94.98% | **no** |
+| Python | recall ≥ 85% | 606 / 1,114 = 54.40% | 606 / 1,114 = 54.40% | **no** |
+| Rust | `typed` precision ≥ 97% | 852 / 868 = 98.16% | 843 / 844 = 99.88% | yes |
+| Rust | union precision ≥ 95% | 1,611 / 2,624 = 61.39% | 1,610 / 2,559 = 62.92% | **no** |
+| Rust | recall ≥ 85% | 1,408 / 4,061 = 34.67% | 1,407 / 4,052 = 34.72% | **no** |
+
+The oracle-verifiable fraction is 657 / 660 (Python) and 2,559 / 2,607 (Rust).
+Four of the six floors still fail.
+
+Of the Rust golden's 17 trusted false positives, 15 are no longer drawn wrong; the
+blanket impl (issue 109) and the macro-written impl (issue 110) are left. 16 correct
+typed edges are `exact` now, and 6 are lost to `candidate` (issue 111).
+
 ## G2 — after `P3-09`
 
 Status: **pending**

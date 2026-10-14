@@ -292,6 +292,9 @@ pub struct SymbolRegistry {
     traits_of: BTreeMap<DefinitionRef, Vec<DefinitionRef>>,
     implementors: BTreeMap<DefinitionRef, Vec<DefinitionRef>>,
     pairs: BTreeMap<String, String>,
+    /// Each Rust file's external crates: the names a path there can start with that
+    /// lead outside the repository (issue 104).
+    rust_external_crates: BTreeMap<String, BTreeSet<String>>,
     metadata: ResolutionMetadata,
 }
 
@@ -338,6 +341,7 @@ impl SymbolRegistry {
             traits_of: BTreeMap::new(),
             implementors: BTreeMap::new(),
             pairs: BTreeMap::new(),
+            rust_external_crates: BTreeMap::new(),
             metadata: ResolutionMetadata::default(),
         };
         registry.index_definitions(&sources);
@@ -347,6 +351,7 @@ impl SymbolRegistry {
         registry.pair_headers(&sources);
         registry.resolve_bases(&sources);
         registry.resolve_impls(&sources);
+        registry.rust_external_crates = rust_external_crates(&sources, &layout);
         registry.metadata = registry.metadata_for_engine(&layout);
         registry.files = sources.files;
         Ok(registry)
@@ -1054,6 +1059,17 @@ impl SymbolRegistry {
         NameProvenance::Unknown
     }
 
+    /// Whether a path in the Rust file at `path` that starts with `head` starts with
+    /// an external crate: one of the standard distribution's, or a dependency of the
+    /// file's crate with no repository path, by name with `-` read as `_` (issue 104).
+    /// Whether something else in the file binds the name is
+    /// [`Self::name_provenance`]'s to say.
+    pub fn is_external_crate(&self, path: &str, head: &str) -> bool {
+        self.rust_external_crates
+            .get(path)
+            .is_some_and(|crates| crates.contains(&head.replace('-', "_")))
+    }
+
     /// Whether a name visible in a file is external ([`Self::name_provenance`]).
     pub fn is_external_name(&self, path: &str, name: &str) -> bool {
         matches!(
@@ -1217,6 +1233,24 @@ fn base_names(raw: &str) -> Vec<String> {
             p[..end].trim().to_owned()
         })
         .filter(|p| !p.is_empty())
+        .collect()
+}
+
+/// Each Rust file's external crates ([`imports::rust_external_crates`]).
+fn rust_external_crates(
+    sources: &Sources<'_>,
+    layout: &Layout,
+) -> BTreeMap<String, BTreeSet<String>> {
+    sources
+        .files
+        .iter()
+        .filter_map(|(path, state)| {
+            let language = state.discovered.language.filter(|l| l.id == "rust")?;
+            Some((
+                path.clone(),
+                imports::rust_external_crates(layout, language, path),
+            ))
+        })
         .collect()
 }
 

@@ -62,7 +62,13 @@ Remediation order, **each step only when the driver authorises it**:
 | R10 | 97 | SQL prose contracts |
 
 **R1 is done (issue 103 resolved, 2026-10-14).** A qualifying typed answer now comes
-before the blocklist. R2 (issue 104) is next, **only when the driver authorises it**.
+before the blocklist.
+
+**R2 is done (2026-10-14); issue 104 stays open.** Rust typed answers need path
+evidence (patch 0028, below). Of the Rust golden's 17 trusted false positives, 15 are
+no longer drawn wrong. The last typed one, a blanket impl, is issue 109, and the
+`import-guided` one, a `macro_rules!` impl, is issue 110. R3 (issue 102) is next,
+**only when the driver authorises it**.
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. A recall gain that draws
@@ -356,13 +362,33 @@ the buffer Stage 2 supplies is the whole input.
   the error node). Changing the parser is the driver's decision. Engine blockers: issues
   82 and 93.
 
+Issue 104 (decision 65's R2, engine 7 too, patch 0028): Rust typed answers need path
+evidence.
+- **Path, not name.** The Rust resolver's fallback took the project's one function with
+  a call's last name, whatever the path said, and reported it typed. It now answers only
+  with the one function of that name in the module the call's path names, or for a bare
+  name the path a `use` or a glob imports it by, read as Rust reads it (`crate`, `self`,
+  `super`, an imported head, a crate's name with `-` as `_`, an inline module of the
+  file). A name unique by itself gets no answer. The label stays the reference's
+  `lsp_short_name_unique`, so the differential compares those answers row for row.
+- **Locals.** A `match` arm's pattern binds its names in the arm, and a function a block
+  declares is bound in the block; extraction marks a call of such a function
+  `callee_is_locally_bound`, so it is `unresolved`, never a namesake.
+- **External crates.** Stage 3 makes a Rust path `external` when its first name is a
+  crate the extern prelude binds (the standard distribution, or a dependency with no
+  repository path) and nothing in the file binds it (4.5, step 4).
+- **Open.** A blanket impl the engine cannot tell from a type's own (issue 109), items a
+  `macro_rules!` invocation writes (issue 110), and `use` lists the resolver misreads
+  (issue 111).
+
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: a qualifying
 typed answer first (`typed` only through `bands::from_engine` and a target that is
 exactly one definition, whatever the callee's name; issue 103); then the B.4
 blocklist, which no engine hint passes; then the engine's other answers (a target in
 no file of the project is `external`, issue 45); then local bindings (`unresolved`) and
-external-only bindings (`external`); then import-guided, inheritance-guided, exact and
+external-only bindings (`external`, and a Rust path starting with an extern-prelude
+crate, issue 104); then import-guided, inheritance-guided, exact and
 scoped through `narrow`, which never lets a stage add a candidate or an empty stage
 erase one; then `candidate` or `unresolved`. Engine hints seed candidates and never
 restrict them; `exact` is the repository's one definition of the name, never a

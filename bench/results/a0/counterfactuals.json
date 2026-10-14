@@ -2,206 +2,206 @@
  "corpora": {
   "pdx-self": {
    "C0": {
-    "drawn": 7781,
+    "drawn": 7766,
     "false_positives_added": 0,
     "false_positives_removed": 0,
-    "oracle_verifiable": 7767,
+    "oracle_verifiable": 7753,
     "oracle_verifiable_fraction": {
-     "denominator": 7781,
-     "numerator": 7767,
-     "value": 0.998201
+     "denominator": 7766,
+     "numerator": 7753,
+     "value": 0.998326
     },
     "policy": "current behaviour",
     "precision": {
-     "denominator": 7767,
-     "numerator": 6504,
-     "value": 0.837389
+     "denominator": 7753,
+     "numerator": 6591,
+     "value": 0.850123
     },
     "recall": {
-     "denominator": 7844,
-     "numerator": 6473,
-     "value": 0.825217
+     "denominator": 7816,
+     "numerator": 6560,
+     "value": 0.839304
     },
     "true_positives_added": 0,
     "true_positives_lost": 0,
     "typed": {
-     "denominator": 5765,
-     "numerator": 5720,
-     "value": 0.992194
+     "denominator": 5870,
+     "numerator": 5870,
+     "value": 1.0
     }
    },
    "C1": {
-    "drawn": 6322,
+    "drawn": 6375,
     "false_positives_added": 0,
-    "false_positives_removed": 904,
-    "oracle_verifiable": 6315,
+    "false_positives_removed": 850,
+    "oracle_verifiable": 6369,
     "oracle_verifiable_fraction": {
-     "denominator": 6322,
-     "numerator": 6315,
-     "value": 0.998893
+     "denominator": 6375,
+     "numerator": 6369,
+     "value": 0.999059
     },
     "policy": "`exact` not drawn",
     "precision": {
-     "denominator": 6315,
-     "numerator": 5956,
-     "value": 0.943151
+     "denominator": 6369,
+     "numerator": 6057,
+     "value": 0.951013
     },
     "recall": {
-     "denominator": 7844,
-     "numerator": 5926,
-     "value": 0.755482
+     "denominator": 7816,
+     "numerator": 6027,
+     "value": 0.771111
     },
     "true_positives_added": 0,
-    "true_positives_lost": 548,
+    "true_positives_lost": 534,
     "typed": {
-     "denominator": 5765,
-     "numerator": 5720,
-     "value": 0.992194
+     "denominator": 5870,
+     "numerator": 5870,
+     "value": 1.0
     }
    },
    "C2": {
-    "drawn": 7424,
+    "drawn": 7411,
     "false_positives_added": 0,
-    "false_positives_removed": 310,
-    "oracle_verifiable": 7410,
+    "false_positives_removed": 308,
+    "oracle_verifiable": 7398,
     "oracle_verifiable_fraction": {
-     "denominator": 7424,
-     "numerator": 7410,
-     "value": 0.998114
+     "denominator": 7411,
+     "numerator": 7398,
+     "value": 0.998246
     },
     "policy": "`scoped` not drawn",
     "precision": {
-     "denominator": 7410,
-     "numerator": 6457,
-     "value": 0.87139
+     "denominator": 7398,
+     "numerator": 6544,
+     "value": 0.884563
     },
     "recall": {
-     "denominator": 7844,
-     "numerator": 6426,
-     "value": 0.819225
+     "denominator": 7816,
+     "numerator": 6513,
+     "value": 0.833291
     },
     "true_positives_added": 0,
     "true_positives_lost": 47,
     "typed": {
-     "denominator": 5765,
-     "numerator": 5720,
-     "value": 0.992194
+     "denominator": 5870,
+     "numerator": 5870,
+     "value": 1.0
     }
    },
    "C3": {
-    "drawn": 5965,
+    "drawn": 6020,
     "false_positives_added": 0,
-    "false_positives_removed": 1214,
-    "oracle_verifiable": 5958,
+    "false_positives_removed": 1158,
+    "oracle_verifiable": 6014,
     "oracle_verifiable_fraction": {
-     "denominator": 5965,
-     "numerator": 5958,
-     "value": 0.998826
+     "denominator": 6020,
+     "numerator": 6014,
+     "value": 0.999003
     },
     "policy": "neither `exact` nor `scoped` drawn",
     "precision": {
-     "denominator": 5958,
-     "numerator": 5909,
-     "value": 0.991776
+     "denominator": 6014,
+     "numerator": 6010,
+     "value": 0.999335
     },
     "recall": {
-     "denominator": 7844,
-     "numerator": 5879,
-     "value": 0.74949
+     "denominator": 7816,
+     "numerator": 5980,
+     "value": 0.765097
     },
     "true_positives_added": 0,
-    "true_positives_lost": 595,
+    "true_positives_lost": 581,
     "typed": {
-     "denominator": 5765,
-     "numerator": 5720,
-     "value": 0.992194
+     "denominator": 5870,
+     "numerator": 5870,
+     "value": 1.0
     }
    },
    "C4": {
-    "drawn": 7781,
+    "drawn": 7766,
     "false_positives_added": 0,
     "false_positives_removed": 0,
-    "oracle_verifiable": 7767,
+    "oracle_verifiable": 7753,
     "oracle_verifiable_fraction": {
-     "denominator": 7781,
-     "numerator": 7767,
-     "value": 0.998201
+     "denominator": 7766,
+     "numerator": 7753,
+     "value": 0.998326
     },
     "policy": "a valid typed answer is accepted before the generic-name blocklist",
     "precision": {
-     "denominator": 7767,
-     "numerator": 6504,
-     "value": 0.837389
+     "denominator": 7753,
+     "numerator": 6591,
+     "value": 0.850123
     },
     "recall": {
-     "denominator": 7844,
-     "numerator": 6473,
-     "value": 0.825217
+     "denominator": 7816,
+     "numerator": 6560,
+     "value": 0.839304
     },
     "true_positives_added": 0,
     "true_positives_lost": 0,
     "typed": {
-     "denominator": 5765,
-     "numerator": 5720,
-     "value": 0.992194
+     "denominator": 5870,
+     "numerator": 5870,
+     "value": 1.0
     }
    },
    "C5": {
-    "drawn": 6368,
+    "drawn": 6417,
     "false_positives_added": 0,
-    "false_positives_removed": 958,
-    "oracle_verifiable": 6360,
+    "false_positives_removed": 898,
+    "oracle_verifiable": 6410,
     "oracle_verifiable_fraction": {
-     "denominator": 6368,
-     "numerator": 6360,
-     "value": 0.998744
+     "denominator": 6417,
+     "numerator": 6410,
+     "value": 0.998909
     },
     "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
     "precision": {
-     "denominator": 6360,
-     "numerator": 6055,
-     "value": 0.952044
+     "denominator": 6410,
+     "numerator": 6146,
+     "value": 0.958814
     },
     "recall": {
-     "denominator": 7844,
-     "numerator": 6024,
-     "value": 0.767976
+     "denominator": 7816,
+     "numerator": 6115,
+     "value": 0.782369
     },
     "true_positives_added": 0,
-    "true_positives_lost": 449,
+    "true_positives_lost": 445,
     "typed": {
-     "denominator": 5765,
-     "numerator": 5720,
-     "value": 0.992194
+     "denominator": 5870,
+     "numerator": 5870,
+     "value": 1.0
     }
    },
    "C6": {
-    "drawn": 5965,
+    "drawn": 6020,
     "false_positives_added": 0,
-    "false_positives_removed": 1214,
-    "oracle_verifiable": 5958,
+    "false_positives_removed": 1158,
+    "oracle_verifiable": 6014,
     "oracle_verifiable_fraction": {
-     "denominator": 5965,
-     "numerator": 5958,
-     "value": 0.998826
+     "denominator": 6020,
+     "numerator": 6014,
+     "value": 0.999003
     },
     "policy": "C3, C4 and C5 together",
     "precision": {
-     "denominator": 5958,
-     "numerator": 5909,
-     "value": 0.991776
+     "denominator": 6014,
+     "numerator": 6010,
+     "value": 0.999335
     },
     "recall": {
-     "denominator": 7844,
-     "numerator": 5879,
-     "value": 0.74949
+     "denominator": 7816,
+     "numerator": 5980,
+     "value": 0.765097
     },
     "true_positives_added": 0,
-    "true_positives_lost": 595,
+    "true_positives_lost": 581,
     "typed": {
-     "denominator": 5765,
-     "numerator": 5720,
-     "value": 0.992194
+     "denominator": 5870,
+     "numerator": 5870,
+     "value": 1.0
     }
    }
   },
@@ -412,206 +412,206 @@
   },
   "rust": {
    "C0": {
-    "drawn": 2672,
+    "drawn": 2607,
     "false_positives_added": 0,
     "false_positives_removed": 0,
-    "oracle_verifiable": 2624,
+    "oracle_verifiable": 2559,
     "oracle_verifiable_fraction": {
-     "denominator": 2672,
-     "numerator": 2624,
-     "value": 0.982036
+     "denominator": 2607,
+     "numerator": 2559,
+     "value": 0.981588
     },
     "policy": "current behaviour",
     "precision": {
-     "denominator": 2624,
-     "numerator": 1611,
-     "value": 0.613948
+     "denominator": 2559,
+     "numerator": 1610,
+     "value": 0.629152
     },
     "recall": {
-     "denominator": 4061,
-     "numerator": 1408,
-     "value": 0.346713
+     "denominator": 4052,
+     "numerator": 1407,
+     "value": 0.347236
     },
     "true_positives_added": 0,
     "true_positives_lost": 0,
     "typed": {
-     "denominator": 868,
-     "numerator": 852,
-     "value": 0.981567
+     "denominator": 844,
+     "numerator": 843,
+     "value": 0.998815
     }
    },
    "C1": {
-    "drawn": 1488,
+    "drawn": 1441,
     "false_positives_added": 0,
-    "false_positives_removed": 659,
-    "oracle_verifiable": 1456,
+    "false_positives_removed": 625,
+    "oracle_verifiable": 1409,
     "oracle_verifiable_fraction": {
-     "denominator": 1488,
-     "numerator": 1456,
-     "value": 0.978495
+     "denominator": 1441,
+     "numerator": 1409,
+     "value": 0.977793
     },
     "policy": "`exact` not drawn",
     "precision": {
-     "denominator": 1456,
-     "numerator": 1102,
-     "value": 0.756868
+     "denominator": 1409,
+     "numerator": 1085,
+     "value": 0.77005
     },
     "recall": {
-     "denominator": 4061,
-     "numerator": 899,
-     "value": 0.221374
+     "denominator": 4052,
+     "numerator": 882,
+     "value": 0.21767
     },
     "true_positives_added": 0,
-    "true_positives_lost": 509,
+    "true_positives_lost": 525,
     "typed": {
-     "denominator": 868,
-     "numerator": 852,
-     "value": 0.981567
+     "denominator": 844,
+     "numerator": 843,
+     "value": 0.998815
     }
    },
    "C2": {
-    "drawn": 2180,
+    "drawn": 2130,
     "false_positives_added": 0,
-    "false_positives_removed": 337,
-    "oracle_verifiable": 2132,
+    "false_positives_removed": 322,
+    "oracle_verifiable": 2082,
     "oracle_verifiable_fraction": {
-     "denominator": 2180,
-     "numerator": 2132,
-     "value": 0.977982
+     "denominator": 2130,
+     "numerator": 2082,
+     "value": 0.977465
     },
     "policy": "`scoped` not drawn",
     "precision": {
-     "denominator": 2132,
-     "numerator": 1456,
-     "value": 0.682927
+     "denominator": 2082,
+     "numerator": 1455,
+     "value": 0.698847
     },
     "recall": {
-     "denominator": 4061,
-     "numerator": 1263,
-     "value": 0.311007
+     "denominator": 4052,
+     "numerator": 1262,
+     "value": 0.311451
     },
     "true_positives_added": 0,
     "true_positives_lost": 155,
     "typed": {
-     "denominator": 868,
-     "numerator": 852,
-     "value": 0.981567
+     "denominator": 844,
+     "numerator": 843,
+     "value": 0.998815
     }
    },
    "C3": {
-    "drawn": 996,
+    "drawn": 964,
     "false_positives_added": 0,
-    "false_positives_removed": 996,
-    "oracle_verifiable": 964,
+    "false_positives_removed": 947,
+    "oracle_verifiable": 932,
     "oracle_verifiable_fraction": {
-     "denominator": 996,
-     "numerator": 964,
-     "value": 0.967871
+     "denominator": 964,
+     "numerator": 932,
+     "value": 0.966805
     },
     "policy": "neither `exact` nor `scoped` drawn",
     "precision": {
-     "denominator": 964,
-     "numerator": 947,
-     "value": 0.982365
+     "denominator": 932,
+     "numerator": 930,
+     "value": 0.997854
     },
     "recall": {
-     "denominator": 4061,
-     "numerator": 754,
-     "value": 0.185669
+     "denominator": 4052,
+     "numerator": 737,
+     "value": 0.181885
     },
     "true_positives_added": 0,
-    "true_positives_lost": 664,
+    "true_positives_lost": 680,
     "typed": {
-     "denominator": 868,
-     "numerator": 852,
-     "value": 0.981567
+     "denominator": 844,
+     "numerator": 843,
+     "value": 0.998815
     }
    },
    "C4": {
-    "drawn": 2672,
+    "drawn": 2607,
     "false_positives_added": 0,
     "false_positives_removed": 0,
-    "oracle_verifiable": 2624,
+    "oracle_verifiable": 2559,
     "oracle_verifiable_fraction": {
-     "denominator": 2672,
-     "numerator": 2624,
-     "value": 0.982036
+     "denominator": 2607,
+     "numerator": 2559,
+     "value": 0.981588
     },
     "policy": "a valid typed answer is accepted before the generic-name blocklist",
     "precision": {
-     "denominator": 2624,
-     "numerator": 1611,
-     "value": 0.613948
+     "denominator": 2559,
+     "numerator": 1610,
+     "value": 0.629152
     },
     "recall": {
-     "denominator": 4061,
-     "numerator": 1408,
-     "value": 0.346713
+     "denominator": 4052,
+     "numerator": 1407,
+     "value": 0.347236
     },
     "true_positives_added": 0,
     "true_positives_lost": 0,
     "typed": {
-     "denominator": 868,
-     "numerator": 852,
-     "value": 0.981567
+     "denominator": 844,
+     "numerator": 843,
+     "value": 0.998815
     }
    },
    "C5": {
-    "drawn": 1413,
+    "drawn": 1397,
     "false_positives_added": 0,
-    "false_positives_removed": 852,
-    "oracle_verifiable": 1379,
+    "false_positives_removed": 803,
+    "oracle_verifiable": 1363,
     "oracle_verifiable_fraction": {
-     "denominator": 1413,
-     "numerator": 1379,
-     "value": 0.975938
+     "denominator": 1397,
+     "numerator": 1363,
+     "value": 0.975662
     },
     "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
     "precision": {
-     "denominator": 1379,
-     "numerator": 1218,
-     "value": 0.883249
+     "denominator": 1363,
+     "numerator": 1217,
+     "value": 0.892883
     },
     "recall": {
-     "denominator": 4061,
-     "numerator": 1015,
-     "value": 0.249938
+     "denominator": 4052,
+     "numerator": 1014,
+     "value": 0.250247
     },
     "true_positives_added": 0,
     "true_positives_lost": 393,
     "typed": {
-     "denominator": 868,
-     "numerator": 852,
-     "value": 0.981567
+     "denominator": 844,
+     "numerator": 843,
+     "value": 0.998815
     }
    },
    "C6": {
-    "drawn": 996,
+    "drawn": 964,
     "false_positives_added": 0,
-    "false_positives_removed": 996,
-    "oracle_verifiable": 964,
+    "false_positives_removed": 947,
+    "oracle_verifiable": 932,
     "oracle_verifiable_fraction": {
-     "denominator": 996,
-     "numerator": 964,
-     "value": 0.967871
+     "denominator": 964,
+     "numerator": 932,
+     "value": 0.966805
     },
     "policy": "C3, C4 and C5 together",
     "precision": {
-     "denominator": 964,
-     "numerator": 947,
-     "value": 0.982365
+     "denominator": 932,
+     "numerator": 930,
+     "value": 0.997854
     },
     "recall": {
-     "denominator": 4061,
-     "numerator": 754,
-     "value": 0.185669
+     "denominator": 4052,
+     "numerator": 737,
+     "value": 0.181885
     },
     "true_positives_added": 0,
-    "true_positives_lost": 664,
+    "true_positives_lost": 680,
     "typed": {
-     "denominator": 868,
-     "numerator": 852,
-     "value": 0.981567
+     "denominator": 844,
+     "numerator": 843,
+     "value": 0.998815
     }
    }
   }

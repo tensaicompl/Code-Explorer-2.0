@@ -1,6 +1,8 @@
 # What this fixture proves, independently of the reference: '+' rows must be
 # present and '-' rows absent. Fields: sign, kind, source, target, strategy or
 # local name; '*' matches anything.
-# Without a manifest the same call resolves only because its name is unique.
+# Without a manifest the same call resolves through its path: `alpha::compute`
+# names the crate `alpha` by its directory (issue 104; before it, the name's
+# uniqueness alone answered it, under the same label).
 +	CALLS	crates.beta.src.main.main	crates.alpha.src.lib.compute	lsp_short_name_unique
 -	CALLS	*	*	lsp_cross_crate

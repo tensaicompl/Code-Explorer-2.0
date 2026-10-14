@@ -15,11 +15,14 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 111 | 2026-10-14 | P2-06 | blocker | open | Found by issue 104 (R2): Rust typed resolution reads a file's `use` declarations as text and splits a brace list at every comma, so a nested or multi-line list (`use crate::{routing::{on, MethodFilter}, Router};`) gives some names no entry and others a wrong path (`on` as `crate::on`), and `pub use` none. Since issue 104 an imported name is a typed answer only through its import's path, so in the Rust golden 16 correct typed edges become `exact` (same targets), 6 are lost to `candidate` (`on`, `on_service`) and 9 unmaterialised typed answers are lost; PDX itself loses 38 unmaterialised | Open. Read `use` trees from the syntax tree, nested lists, aliases, `self`, globs and visibility included, and measure the typed answers recovered and any new one wrong. |
+| 110 | 2026-10-14 | P2-04 | blocker | open | Found by issue 104 (R2): an item a `macro_rules!` invocation writes is no definition. `axum-core/src/body.rs` writes `impl From<&'static str> for Body` (and others) through `body_from_impl!`, so the only `Body::from` the registry has is the handwritten `From<()>` one, and `Body::from("…")` (`axum-core/src/ext_traits/request.rs:355`) is drawn `import-guided` to it: the Rust golden's one `import-guided` false positive | Open. Decide whether item-position macro invocations are expanded for definitions (the typed pass already expands `macro_rules!` bodies for calls), or the definitions a macro may write make a name ambiguous; never block `from` by name. |
+| 109 | 2026-10-14 | P2-06 | blocker | open | Found by issue 104 (R2): Rust typed resolution chooses a trait impl for `Type::method` without its bounds. `WithRejection::<TestExtractor, TestRejection>::from_request` (`axum-extra/src/extract/with_rejection.rs:196`) reaches the blanket `impl<S, T> FromRequest<S, ViaParts> for T` (its type implements only `FromRequestParts`), but is answered `typed` (`lsp_ufcs`) with `WithRejection`'s own `FromRequest` impl, whose bound `E: FromRequest<S>` it does not meet: the Rust golden's one remaining typed false positive | Open. Find whether the engine can withhold a `Type::method` answer when a blanket impl of the same trait may supply the method, without scanning the registry per call (issue 92), or check an impl's bounds; never special-case the trait. |
 | 108 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R7): target identity among definitions that share a qualified name. In the Rust golden, 89 oracle relations target such a definition; 83 have a structural site, 52 are drawn, 49 to the right definition and 3 to a wrong one, and 2 typed answers are withheld because their qualified name maps to several definitions. A0 cannot adjudicate Python's `@overload` stubs (28 calls without a verdict) | Open. Investigate whether the extraction's normalised signature, the definition's disambiguator, the call's argument count and types, or the engine's occurrence identity can select the definition a call reaches. Overloads are never collapsed because their qualified names are equal |
 | 107 | 2026-10-14 | P2-04 | blocker | open | Child of issue 95 (decision 65, R4 and R8): Rust call sites the oracle sees and Stage 3 does not. 107A (R4): 56 oracle relations at ordinary Rust syntax with no structural site: 54 turbofish calls, 30 of a path (`assert_from_request::<_, ()>()`) and 24 of a method (`parts.extract_with_state::<S, T>(&state)`), and 2 member calls in a chain with a line comment before the dot (`examples/error-handling/src/main.rs`): a grammar or extraction gap. 107B (R8): 338 oracle relations written inside macro invocations' token trees with no site, out of 1,696 call texts there, of which 90 are already extraction sites (all drawn correctly) and 9 are typed sites Stage 4 cannot persist | Open. 107A: find why these calls are no extraction sites and make them ordinary call sites. 107B: classify token-tree calls (known standard and assertion macros, expression-position arguments, format-like macros, arbitrary macro DSLs, `macro_rules!` bodies) and define a semantics-safe policy before recovering any; no call is invented from DSL tokens, and macros are not expanded |
 | 106 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R6): Python recall. 470 of the Python golden's 1,114 oracle relations end as `candidate` (36 more are blocked and 5 drawn wrong), most of them member calls on a local value (`bp.route(…)` on a `Blueprint`) or package re-exports (`flask.make_response(…)`) | Open. Classify all 470 first, by the evidence that could resolve them: local-variable receiver, parameter receiver, factory or call-result receiver, attribute receiver, package re-export, import alias, inheritance or base method, decorator-produced binding, fixture or other untyped external value, other; and separate what is structurally recoverable from what needs a compiler or precise provider and from where the oracle itself is weak or untyped. Then design evidence fixes from the counts. 85% structural recall is not promised from information the structure does not hold |
 | 105 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R5), probably the largest recall workstream: 2,079 of the Rust golden's 4,061 oracle relations at structural call sites end as `candidate` (389 more are blocked, 190 drawn wrong and 17 external) | Open. Classify all 2,079 before any fix, by the evidence that could resolve them, with counts: receiver local-variable type, receiver field type, receiver call-result type, associated or static path type, import or `use` binding, trait bound, impl relation, generic type parameter, method through `Deref`, method of an external type, `crate`/`self`/`super` path, re-export, macro-generated type or item, other. Mark what no structural evidence can resolve, so the driver can judge what G4's structural recall floor assumes. Then design evidence-strengthening work from the counts; no fix is guessed before the classification |
-| 104 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R2): the Rust golden's 15 typed false positives (16 since issue 103 draws `Handler::call`), each a typed answer naming the wrong definition: the module path ignored (`from_request::expand`, `debug_handler::expand`, `typed_path::expand` to `lib.rs`'s `expand`, 5); an external crate's function taken for an internal look-alike (`multer::parse_boundary`, `hyper::upgrade::on`, 4); another type's associated function (`PathDeserializationError::custom` to `connect_info`'s `custom`, 2); a same-named function of another crate (`find_first_not_double` in `axum-macros`, 2); a blanket trait impl (`WithRejection::<…>::from_request`, 1); and a pattern binding answered as a call (`Ok(Self(params))`, 1). Also the one import-guided false positive (`Body::from` to another `From` impl's `from`) and the one false typed answer the blocklist now hides (`Handler::call`, `axum/src/handler/service.rs:171`) | Open. Investigate the engine's evidence, path and import identity, the project-prefix translation, the registry's mapping of a typed answer to a definition and duplicate qualified names. `TYPED_MIN_SCORE` is not lowered or raised blindly: true-positive coverage is kept and the mis-mapping removed. Locations in `bench/results/a0/mismatches.jsonl` |
+| 104 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R2): the Rust golden's 15 typed false positives (16 since issue 103 draws `Handler::call`), each a typed answer naming the wrong definition: the module path ignored (`from_request::expand`, `debug_handler::expand`, `typed_path::expand` to `lib.rs`'s `expand`, 5); an external crate's function taken for an internal look-alike (`multer::parse_boundary`, `hyper::upgrade::on`, 4); another type's associated function (`PathDeserializationError::custom` to `connect_info`'s `custom`, 2); a same-named function of another crate (`find_first_not_double` in `axum-macros`, 2); a blanket trait impl (`WithRejection::<…>::from_request`, 1); and a pattern binding answered as a call (`Ok(Self(params))`, 1). Also the one import-guided false positive (`Body::from` to another `From` impl's `from`) and the one false typed answer the blocklist now hides (`Handler::call`, `axum/src/handler/service.rs:171`) | Open. R2 (2026-10-14, patch 0028; 4.5 amended): a Rust typed answer needs path evidence, never a name's uniqueness alone; a `match` arm's bindings and a block's functions are locals; a Rust path starting with an extern-prelude crate is `external`. 15 of the 17 are no longer drawn wrong; the Rust golden's `typed` is 843 / 844 = 99.88% (from 852 / 868), PDX's 5,870 / 5,870, Python unchanged. Left: the blanket impl (issue 109) and the macro-written impl (issue 110); the 6 typed edges lost to `candidate` are issue 111 |
 | 103 | 2026-10-14 | P2-06 | scr | resolved | Child of issue 95 (decision 65, R1): the generic-name blocklist settles a site before a valid typed answer is considered (4.5 Stage 3, "`blocked`, even with a qualifying typed answer", and "Names on the blocklist are `blocked` before any stage runs"), so stronger semantic evidence is discarded for names such as `get`, `run`, `parse` or `update`. A0 measured the typed answers it suppresses: 4 in the Python golden (all correct), 32 in the Rust golden (31 correct, 1 false) and 412 in PDX (409 correct); accepting them (A0.2's C4) recovers 3, 31 and 409 relations | Resolved 2026-10-14 (R1). A qualifying unique typed answer (`from_engine` says typed and its target is exactly one definition of the repository: Stage 3's existing `typed_target`) is `typed` first, whatever the callee's name; otherwise a blocklisted name is `blocked`, before the engine's external answer and every name-based stage. An engine hint, a low-score or multi-candidate `lsp_typed` answer, an out-of-range score and an ambiguous mapping never pass the blocklist; a typed-only site, a reference or an engine site without a qualifying answer stays unconfirmed. No other precedence changed. 4.5 Stage 3 amended (both statements, steps renumbered). Tests in `crates/pdx-core/tests/stages.rs`; four mutations killed. A0 rerun (same pins, tools and rules): typed answers suppressed by the blocklist 4, 32 and 412 → 0; Python golden union 624/657 = 94.98%, recall 54.40%; Rust golden typed 852/868 = 98.16%, union 61.39%, recall 34.67%. The one false typed answer it exposes (`Handler::call`) is issue 104's. Nine goldens gain 303 typed tuples, none removed. No version change |
 | 102 | 2026-10-14 | P2-06 | scr | open | Child of issue 95 (decision 65, R3): 4.2.2 draws `exact` (the callee's short name has one definition in the repository) and `scoped` (one definition in the same module or package), but A0 measured them at 284/310 = 91.61% and 1/8 = 12.50% (Python golden), 509/1,168 = 43.58% and 155/492 = 31.50% (Rust golden), and 37.7% and 13.2% (PDX itself), against G4's 95% union floor: uniqueness of a short name does not establish which definition a call reaches | Open; approved by decision 65, implementation R3. Specification change to 4.2.2: `exact` and `scoped` remain ordered bands, numbered and named as now, but under their current semantics neither can by itself produce a drawn edge; a stronger variant may be drawn only once the harness (4.13) measures it at G4's floor. Implementation keeps their evidence for candidate ranking, explanation, coverage, trust diagnostics and calibration, keeps candidate ordering deterministic, avoids a schema or version change unless one is truly required, updates the affected tests and goldens deliberately, amends 4.2.2's table, and reruns A0. A correctness change, not a threshold |
 | 101 | 2026-10-13 | P0-02 | ambiguity | open | Raised by an independent review before the oracle work: the provenance records disagree about the engine reference's part in the Rust resolver. `bench/references.lock` gives the engine reference (`engine-ref`) the mode "vendor+refactor, and reference for the Rust ports" and lands it in `engine/` and `crates/pdx-core/src/resolve/`, while `THIRD_PARTY_NOTICES.md`'s section of algorithms and designs consulted ("Re-implementations written from scratch in this repository, with the reference whose algorithm or design was consulted") says "No entries yet" | Open. To be settled from the actual derivation history of `crates/pdx-core/src/resolve/`, never by removing an attribution to make the records agree. No legal conclusion is drawn here |
@@ -152,6 +155,61 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 111 — Rust typed resolution misreads nested `use` lists
+
+Found by issue 104 (R2). Rust typed resolution builds a file's `use` map from each
+declaration's text, splitting a brace list at every comma:
+
+- `use crate::{routing::{on, MethodFilter}, Router};` gives `on` no entry, or the
+  path `crate::on`;
+- a list spread over lines keeps the line breaks in its paths;
+- `pub use` is read with its visibility, so none of its names has an entry.
+
+Since issue 104 an imported bare name is a typed answer only through the path its
+import gives, so these imports are no evidence. In the Rust golden, 16 correct `typed`
+edges become `exact` with the same targets (`parse_attrs`, `from_fn`, `any`, …), 6 are
+lost to `candidate` (`on`, `on_service`), and 9 unmaterialised typed answers are lost;
+PDX itself loses 38 unmaterialised ones. None is drawn wrong.
+
+To read `use` trees from the syntax tree (nested lists, aliases, `self`, globs,
+visibility), and to measure the typed answers that recovers and any new one that is
+wrong. Stage 3's own reading (`resolve::imports`) already handles nested lists.
+
+State: open.
+
+### 110 — Items a `macro_rules!` invocation writes are no definitions
+
+Found by issue 104 (R2). `axum-core/src/body.rs` writes `impl From<&'static str> for
+Body`, and others, through `body_from_impl!`. The extraction represents only the
+handwritten `impl From<()> for Body`, so its `from` is the only one the registry has.
+`Body::from("…")` (`axum-core/src/ext_traits/request.rs:355`) is then drawn
+`import-guided` to it: the Rust golden's one `import-guided` false positive.
+`e9_an_import_guided_from_reaches_the_imported_types_impl` reproduces it.
+
+To decide whether item-position macro invocations are expanded for definitions (the
+typed pass already expands `macro_rules!` bodies for calls), or whether the
+definitions a macro may write make a name ambiguous. `from` is never blocked by name.
+
+State: open.
+
+### 109 — A trait impl chosen for `Type::method` without its bounds
+
+Found by issue 104 (R2). `WithRejection::<TestExtractor, TestRejection>::from_request`
+(`axum-extra/src/extract/with_rejection.rs:196`) reaches the blanket
+`impl<S, T> FromRequest<S, ViaParts> for T`, because its type implements only
+`FromRequestParts`. The engine answers it `typed` (`lsp_ufcs`) with `WithRejection`'s
+own `FromRequest` impl, whose bound `E: FromRequest<S>` the type does not meet. It is
+the Rust golden's one remaining typed false positive.
+`e6_a_call_a_blanket_impl_answers_is_recorded_as_the_engine_gives_it` records it.
+
+The registry holds the blanket impl's method under a receiver named after the impl's
+type parameter, indistinguishable from an impl for an external type. To find whether
+the engine can withhold a `Type::method` answer when a blanket impl of the same trait
+may supply the method, without scanning the registry per call (issue 92), or check an
+impl's bounds. Never special-case the trait.
+
+State: open.
 
 ### 108 — Target identity among definitions sharing a qualified name
 
@@ -330,6 +388,135 @@ To investigate:
 
 `TYPED_MIN_SCORE` is not moved blindly: true-positive coverage is kept and the
 mis-mapping removed. Every location is in `bench/results/a0/mismatches.jsonl`.
+
+**R2, 2026-10-14.** The 17 were classified before any change. None is the registry
+mapping a right engine answer to a wrong definition, and none a duplicate qualified
+name. Sixteen are wrong engine answers, and one an import resolution over an
+incomplete set of definitions:
+
+| Sites | Engine strategy | Where identity is lost | Layer | Fix | After R2 |
+|---|---|---|---|---|---|
+| 5: `axum-macros/src/lib.rs:377`, `426` `from_request::expand`; `582`, `638` `debug_handler::expand`; `665` `typed_path::expand` | `lsp_short_name_unique` | the Rust resolver's fallback (`rust_resolve_call_expression_inner`) keeps the path's last segment and drops its qualifier | engine | the fallback needs path evidence | `typed`, right target |
+| 4: `axum/src/extract/multipart.rs:76`, `94` `multer::parse_boundary`; `axum/src/extract/ws.rs:1261`, `examples/http-proxy/src/main.rs:91` `hyper::upgrade::on` | `lsp_short_name_unique` | the same fallback: an external crate's path, answered with a namesake anywhere in the project | engine | path evidence; Stage 3's extern prelude | `external` |
+| 2: `axum/src/extract/path/de.rs:265`, `296` `PathDeserializationError::custom` | `lsp_short_name_unique` | the type's path misses its definition (`path/mod.rs`), and the fallback takes a free test function `custom` | engine | path evidence | `candidate` |
+| 2: `axum/src/routing/strip_prefix.rs:191`, `193` `find_first_not_double` | `lsp_short_name_unique` | a function declared in the caller's body is bound nowhere, and has no definition | engine and extraction | block-local functions bound; the call `LOCALLY_BOUND` | `unresolved` |
+| 1: `axum/src/handler/service.rs:171` `Handler::call` | `lsp_short_name_unique` | the fallback takes the free function `call` for a trait's method | engine | path evidence | `blocked` |
+| 1: `axum/src/extract/path/inner_path.rs:168` `params` | `lsp_callable_value_reference` | a `match` arm's pattern binds nothing, so `Ok(Self(params)) => …` passes the module's function | engine | arm patterns bound | not a call (`reference`, no answer) |
+| 1: `axum-extra/src/extract/with_rejection.rs:196` `WithRejection::<…>::from_request` | `lsp_ufcs` | `Type::method` takes the type's own trait impl, whose bound the type does not meet; the call reaches a blanket impl | engine | not fixed: issue 109 | `typed`, wrong |
+| 1 `import-guided`: `axum-core/src/ext_traits/request.rs:355` `Body::from` | none | the impl the call reaches is written by `body_from_impl!`, which no extraction represents; import-guided finds the one `from` there is | extraction | not fixed: issue 110 | `import-guided`, wrong |
+
+What changed (patch `0028-rust-path-evidence.patch`; Stage 3; specification 4.5):
+
+- **Path evidence, not name uniqueness.** The fallback answered a call whose path named
+  no registered function with the project's one function of the path's last name.
+  It now answers only with the one function of that name in the module the call's
+  path names, or a child module it re-exports from. For a bare name, the path a
+  `use` or a glob imports it by stands in. The path is read as Rust reads it:
+  `crate`, `self` and `super`; a head the file imports; a crate's name, `-` as `_`;
+  an inline module of the file, which qualified names leave out. The member-crate
+  route (`lsp_cross_crate`) applies the same check. A bare name nothing imports gets
+  no answer. The label stays the reference's, `lsp_short_name_unique`, so both
+  typed-resolution differentials compare those answers row for row; the interface is
+  unchanged. The engine differential (`make engine-differential`, all 32 corpora, the
+  Rust fixtures and the axum cluster among them) is identical: no row changes, so no
+  divergence needs ratifying.
+- **Locals.** A `match` arm's pattern binds its names in the arm. A function a block
+  declares is bound in the block, and extraction marks a bare call of it
+  `callee_is_locally_bound` (the walk's table Python's parameters use), which Stage 3
+  settles `unresolved`.
+- **External crates.** A Rust path whose first name nothing in the file binds and the
+  extern prelude binds to an external crate is `external` (Stage 3, step 4): a crate of
+  the standard distribution, or a dependency of the caller's crate with no repository
+  path, classified as a `use` of it is (`resolve::imports::rust_external_crates`). Only
+  a path: a method called on a value it names may be the repository's trait's. 4.5 is
+  amended to say so, in the name-provenance rule and step 4.
+
+Nothing here moves `TYPED_MIN_SCORE`, adds a threshold, names a crate, package or
+golden name, or reads the oracle. `ENGINE_VERSION` stays 7 (patch README): engine 7 has
+not been merged or released. An extraction cached before this patch by a build of this
+branch is stale (the cache key is the engine version), so this machine's goldens were
+re-recorded with an empty cache; CI caches none.
+
+Tests (`crates/pdx-core/tests/rust_targets.rs`, through typed resolution itself):
+
+| Test | Class |
+|---|---|
+| `e1_a_module_qualified_call_reaches_the_module_its_path_names` | E1: `a::expand`, `b::expand` (a directory module), the root's `expand` |
+| `e1_paths_through_crate_names_inline_modules_and_imports_are_path_evidence` | E1: a crate's name, an inline module, an imported module, a re-exported bare import |
+| `e2_an_external_crates_function_is_external_not_a_namesake` | E2: `multer::…`, `hyper::upgrade::on` with namesakes |
+| `e3_one_types_associated_function_is_never_anothers_namesake` | E3: a type's external trait impl against a free namesake |
+| `e4_a_local_function_is_not_another_crates_namesake` | E4: a block-local function against another crate's |
+| `e4_a_bare_name_unique_by_name_alone_has_no_typed_answer` | E4: uniqueness alone is no answer |
+| `e5_a_trait_qualified_call_is_not_a_free_function_of_its_name` | E5: `Handler::respond` against free namesakes in another module and beside the trait |
+| `e6_a_call_a_blanket_impl_answers_is_recorded_as_the_engine_gives_it` | E6: today's wrong answer, issue 109 |
+| `e7_a_name_a_match_arm_binds_is_not_a_function_of_that_name` | E7: an arm's binding, a call, a callable passed |
+| `e8_an_answer_whose_name_two_definitions_share_is_withheld` | E8: two `From` impls, one qualified name: `candidate` |
+| `e9_an_import_guided_from_reaches_the_imported_types_impl` | E9: `Body::from` against another type's `from`; the macro case, issue 110 |
+| `e10_typed_answers_with_their_evidence_stay_typed` | E10: free, associated, method, module-qualified and trait calls |
+
+`crates/pdx-bench/tests/issue_104_sites.rs` holds the 17 against the committed axum
+golden. `a_typed_answer_the_blocklist_hid_is_drawn_as_the_engine_gives_it` now finds
+`Handler::call` blocked with no engine answer.
+
+Eight mutations are each killed:
+
+| Mutation | Killed by |
+|---|---|
+| a bare name promoted by uniqueness alone | E4 |
+| the qualifier ignored | E1, E2, E3 |
+| an external crate's path resolved by name | E2 |
+| a type's path dropped from the qualifier | E3 |
+| a trait's path read as its module's | E5 |
+| the first of two definitions sharing a name chosen | E8 |
+| an import-guided member taken from any type of the module | E5, E9 |
+| an arm's pattern left unbound | E7 |
+
+**A0 after R2** (same pins, tools, `a0-match-1`, `a0-metrics-1`; baseline post-R1):
+
+| Golden | | Post-R1 | Post-R2 |
+|---|---|---|---|
+| Rust | `typed` | 852 / 868 = 98.16% | 843 / 844 = 99.88% |
+| Rust | `import-guided` | 32 / 33 | 24 / 25 |
+| Rust | `exact` | 509 / 1,168 = 43.58% | 525 / 1,150 = 45.65% |
+| Rust | `scoped` | 155 / 492 = 31.50% | 155 / 477 = 32.49% |
+| Rust | union | 1,611 / 2,624 = 61.39% | 1,610 / 2,559 = 62.92% |
+| Rust | recall | 1,408 / 4,061 = 34.67% | 1,407 / 4,052 = 34.72% |
+| PDX | `typed` | 5,720 / 5,765 = 99.22% | 5,870 / 5,870 = 100.00% |
+| PDX | recall | 6,473 / 7,844 = 82.52% | 6,560 / 7,816 = 83.93% |
+
+Python's numbers are identical. Of the 17, 15 are no longer drawn wrong; no new wrong
+trusted edge appears in either Rust corpus.
+
+The Rust golden's correct `typed` edges go from 852 to 843:
+
+- 16 bare names imported through `use` lists the resolver misreads (issue 111) are
+  `exact` now, same targets;
+- 6 are lost to `candidate`: `on` and `on_service` (`axum-extra/src/routing/mod.rs:458`,
+  `axum-extra/src/routing/resource.rs:120`, `axum/src/form.rs:256`,
+  `axum/src/routing/tests/mod.rs:145`, `186`, `305`), imported through nested or
+  multi-line `use` lists the resolver misreads (issue 111);
+- 8 `import-guided` edges become `typed`, and the 5 module-qualified calls are right.
+
+Nine unmaterialised typed answers (`path_for_nested_route` in `assert_eq!`) are lost
+for the same reason, and 38 in PDX itself. The external rule settles 340 unresolved
+and 110 candidate sites of the Rust golden, and removes 34 `exact` and 15 `scoped`
+false positives; the oracle confirms every site it made external that it has an
+answer for.
+
+The axum golden loses 149 drawn edges and gains 40, node counts unchanged. Every
+`CALLS` and `CALL_REFERENCE` change is a site above: 64 wrong edges removed, 29
+re-drawn to the same or the right target, 6 lost. Every `TESTS` change follows its
+call.
+
+The closure conditions are not all met, so this issue stays open:
+
+1. Every typed false positive fixed or withheld: no, the blanket impl (issue 109).
+2. The `import-guided` one fixed or withheld: no, the macro-written impl (issue 110).
+3. No new class of trusted false positive: met.
+4. Typed coverage not materially degraded: met, with the 6 losses above (issue 111).
+5. A0 confirms: met.
+6. The fixtures pass: met.
+7. Validation and CI: see the R2 commit.
 
 State: open.
 
@@ -753,6 +940,9 @@ This issue stays the umbrella and is split into its children:
 | 106 | Python candidate resolution |
 | 107 | Rust site coverage: 107A ordinary syntax, 107B macro token trees |
 | 108 | target identity among definitions sharing a qualified name |
+| 109 | a trait impl chosen without its bounds (found by 104) |
+| 110 | items a `macro_rules!` invocation writes (found by 104) |
+| 111 | nested `use` lists the Rust resolver misreads (found by 104) |
 
 The preferred order, each step authorised separately by the driver:
 
@@ -787,6 +977,19 @@ the blocklist.
 
 PDX itself is diagnostic: `typed` 99.22%, recall 82.52%. Four of G1b's six floors
 still fail. R2 (issue 104) is next, when the driver authorises it.
+
+**R2 (2026-10-14).** Issue 104 stays open: Rust typed answers need path evidence, and
+15 of the Rust golden's 17 trusted false positives are no longer drawn wrong. It found
+three more children: issues 109 (a blanket impl), 110 (macro-written items) and 111
+(`use` lists the Rust resolver misreads).
+
+| Golden | `typed` | Union | Recall |
+|---|---|---|---|
+| Python | 314/314 | 94.98% | 54.40% |
+| Rust | 843/844 = 99.88% | 62.92% | 34.72% |
+
+PDX itself: `typed` 100.00%, recall 83.93%. Four of G1b's six floors still fail. R3
+(issue 102) is next, when the driver authorises it.
 
 State: open.
 

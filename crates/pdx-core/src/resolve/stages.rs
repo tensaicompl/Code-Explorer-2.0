@@ -17,7 +17,8 @@
 //! 4. The lexical facts and bindings, which stop resolution by name: a name the
 //!    source binds locally (`BLOCKED`, `BLOCKED_LOCALLY`, `LOCALLY_BOUND`) is
 //!    `unresolved`; a name the file binds only through imports of external packages
-//!    is `external`; a member call on a receiver nothing ties to a type
+//!    is `external`, and so is a Rust path that starts with an external crate
+//!    nothing in the file binds (issue 104); a member call on a receiver nothing ties to a type
 //!    (`UNRESOLVED_MEMBER`) is never resolved by its name alone: only the
 //!    inheritance-guided stage, and the import-guided stage when the receiver is a
 //!    name the file imports from the repository, may settle it.
@@ -761,11 +762,26 @@ impl Resolver<'_> {
         let role = receiver_of(language.id, receiver);
         if receiver.is_none() || role == Receiver::Other {
             let head = receiver.map_or(name, head_of);
-            if matches!(
-                self.registry.name_provenance(path, head),
-                NameProvenance::ExternalImport(_)
-            ) {
-                return Ok(made(Band::External, None, Vec::new())?);
+            match self.registry.name_provenance(path, head) {
+                NameProvenance::ExternalImport(_) => {
+                    return Ok(made(Band::External, None, Vec::new())?);
+                }
+                // A Rust path that starts with an external crate, which nothing in the
+                // file binds otherwise, leads outside the repository as a `use` of it
+                // would: `multer::parse_boundary` is no function of the repository's,
+                // whatever its name (issue 104). Only a path: a method called on a
+                // value the path names may be the repository's trait's.
+                NameProvenance::Unknown
+                    if language.id == "rust"
+                        && spelled
+                            .strip_prefix(head)
+                            .is_some_and(|rest| rest.starts_with("::"))
+                        && !spelled.contains('.')
+                        && self.registry.is_external_crate(path, head) =>
+                {
+                    return Ok(made(Band::External, None, Vec::new())?);
+                }
+                _ => {}
             }
         }
         // 5. The Rust stages.

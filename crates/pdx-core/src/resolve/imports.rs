@@ -590,6 +590,34 @@ fn group_bindings(prefix: &str, group: &str, out: &mut Vec<String>) {
     }
 }
 
+/// The crates a path in the Rust file at `path` can start with that are outside the
+/// repository, by name with `-` read as `_`: the standard distribution's, and its
+/// crate's dependencies that have no repository path. They are the names whose
+/// one-segment path [`rust_path`] finds external, by its rules: the standard crates
+/// first, then the first dependency of the name, ahead of every module. A call's path
+/// starting with one is external as a `use` of it is (issue 104).
+pub(crate) fn rust_external_crates(
+    layout: &Layout,
+    language: &'static Language,
+    path: &str,
+) -> BTreeSet<String> {
+    let mut external: BTreeSet<String> = RUST_STANDARD.iter().map(|s| (*s).to_owned()).collect();
+    let roots = match language.module_rule {
+        crate::languages::ModuleRule::ModTree { crate_roots } => crate_roots,
+        _ => &[],
+    };
+    let krate = modules::rust_module(layout, path, roots, language)
+        .and_then(|here| layout.crates.iter().find(|c| c.dir == here.scope));
+    let mut seen = BTreeSet::new();
+    for dependency in krate.map_or(&[][..], |c| c.dependencies.as_slice()) {
+        let name = dependency.name.replace('-', "_");
+        if seen.insert(name.clone()) && dependency.path.is_none() {
+            external.insert(name);
+        }
+    }
+    external
+}
+
 /// Where a `use` path leads from the file at `path`.
 fn rust_path(
     lookup: &Lookup<'_>,

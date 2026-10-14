@@ -416,7 +416,8 @@ typedef struct {
                                      // C++ operator). Never fall back to textual resolution.
     bool callee_is_locally_bound;    // bare call foo() whose callee identifier is bound as a
                                      // parameter of an enclosing function, so it cannot be the
-                                     // module-level foo. Python only today. Read by the
+                                     // module-level foo. Python, and Rust for a function an
+                                     // enclosing block declares (issue 104). Read by the
                                      // weak-local-binding guard. Default false.
     bool receiver_is_self_attribute; // Python member call whose receiver is an attribute
                                      // chain rooted at self/cls but not self/cls itself

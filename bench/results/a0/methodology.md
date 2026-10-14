@@ -17,10 +17,11 @@ The result files hold the latest run. Earlier runs stay in Git history:
 | Run | Resolver measured | Results committed at |
 |---|---|---|
 | A0.1 baseline | `e746b1e` | `71bec72` (`git show 71bec72:bench/results/a0/<file>`) |
-| post-R1, issue 103 (typed before the blocklist) | the commit "Issue 103: accept typed answers before blocklist", parent `2663ff5` | that commit (these files) |
+| post-R1, issue 103 (typed before the blocklist) | the commit "Issue 103: accept typed answers before blocklist", parent `2663ff5` | `d96bb2f` |
+| post-R2, issue 104 (Rust trusted targets) | the commit "Issue 104: correct Rust trusted target resolution", parent `d96bb2f` | that commit (these files) |
 
 Every run uses the same golden pins, oracle versions and configuration,
-`a0-match-1` and `a0-metrics-1`. The PDX diagnostic corpus is `e746b1e` in both, so
+`a0-match-1` and `a0-metrics-1`. The PDX diagnostic corpus is `e746b1e` in all, so
 its change is the resolver's alone.
 
 The post-R1 run also corrects three harness outputs. None of the three changes a
