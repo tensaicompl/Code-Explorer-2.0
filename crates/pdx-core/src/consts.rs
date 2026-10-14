@@ -55,9 +55,12 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// speed: its work is bounded by the source, and its `#if` arithmetic is defined (issue
 /// 87, decision 56), and a file's site node-type paths are bounded, complete or absent
 /// (issue 88, decision 57), and a tree nested deeper than 512 is not extracted (issue 89,
-/// decision 58).
+/// decision 58); 8 since Rust extraction marks a bare call of a function its block
+/// declares locally bound, and the per-file typed answers a Rust file's surface holds
+/// need path evidence and leave the names a `match` arm or a block binds alone (patch
+/// 0028, issue 104), which engine 7 cached otherwise under the same key (issue 112).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
-pub const ENGINE_VERSION: u32 = 7;
+pub const ENGINE_VERSION: u32 = 8;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the

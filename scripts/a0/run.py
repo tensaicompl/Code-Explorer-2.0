@@ -119,6 +119,17 @@ class Tools:
                 "scip-python_integrity": integrity}
 
 
+def engine_version() -> int:
+    """The engine version of the pdx-bench measured: the repository's own constant, which
+    the engine's reported version is tested equal to (issue 112: never written out here)."""
+    text = (ROOT / "crates/pdx-core/src/consts.rs").read_text()
+    found = [line for line in text.splitlines()
+             if line.startswith("pub const ENGINE_VERSION: u32 = ")]
+    if len(found) != 1:
+        sys.exit("run.py: crates/pdx-core/src/consts.rs has no single ENGINE_VERSION")
+    return int(found[0].split("=")[1].strip().rstrip(";"))
+
+
 def dataset(tools: Tools, tree: Path, out: Path) -> None:
     run([tools.pdx_bench, "audit-sites", "--root", tree, "--out", out])
 
@@ -226,7 +237,7 @@ def main() -> int:
 
     provenance_common = {
         "resolver": args.resolver,
-        "engine_version": 7,
+        "engine_version": engine_version(),
         "oracle_versions": versions,
     }
     results = {}

@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 112 | 2026-10-14 | P2-16 | blocker | resolved | Found after issue 104 (R2): patch 0028 changed what Rust extraction records while `ENGINE_VERSION` stayed 7, and the extraction cache is keyed by the engine version, so an entry engine 7 wrote before the patch was served after it for the same source, path, language and policy. What differs: a bare call of a function its block declares is now `LOCALLY_BOUND`, and a Rust file's per-file typed answers, which its surface holds, need path evidence and leave a `match` arm's and a block's names alone. Shown with both builds: the same 5 object ids, 3 entries' bytes different, and the post-patch build, served the pre-patch entries, drawing `a::expand` to the crate root's `expand` and the arm's `params` as a typed reference | Resolved 2026-10-14 (hotfix): `ENGINE_VERSION` 7 to 8, in `consts.rs` and the engine (`pdxe_version`). Engine 7 began with patch 0015; 0028 is engine 8. Every other version is unchanged. `cache_entries_of_engine_seven_are_never_served`: a faithful engine 7 entry is a miss, the file is extracted again with engine 8's facts, the old entry is left alone, an engine 8 entry is written and served warm; with the version back at 7 it fails. Goldens, A0 and the differential are unchanged but for the version |
 | 111 | 2026-10-14 | P2-06 | blocker | open | Found by issue 104 (R2): Rust typed resolution reads a file's `use` declarations as text and splits a brace list at every comma, so a nested or multi-line list (`use crate::{routing::{on, MethodFilter}, Router};`) gives some names no entry and others a wrong path (`on` as `crate::on`), and `pub use` none. Since issue 104 an imported name is a typed answer only through its import's path, so in the Rust golden 16 correct typed edges become `exact` (same targets), 6 are lost to `candidate` (`on`, `on_service`) and 9 unmaterialised typed answers are lost; PDX itself loses 38 unmaterialised | Open. Read `use` trees from the syntax tree, nested lists, aliases, `self`, globs and visibility included, and measure the typed answers recovered and any new one wrong. |
 | 110 | 2026-10-14 | P2-04 | blocker | open | Found by issue 104 (R2): an item a `macro_rules!` invocation writes is no definition. `axum-core/src/body.rs` writes `impl From<&'static str> for Body` (and others) through `body_from_impl!`, so the only `Body::from` the registry has is the handwritten `From<()>` one, and `Body::from("…")` (`axum-core/src/ext_traits/request.rs:355`) is drawn `import-guided` to it: the Rust golden's one `import-guided` false positive | Open. Decide whether item-position macro invocations are expanded for definitions (the typed pass already expands `macro_rules!` bodies for calls), or the definitions a macro may write make a name ambiguous; never block `from` by name. |
 | 109 | 2026-10-14 | P2-06 | blocker | open | Found by issue 104 (R2): Rust typed resolution chooses a trait impl for `Type::method` without its bounds. `WithRejection::<TestExtractor, TestRejection>::from_request` (`axum-extra/src/extract/with_rejection.rs:196`) reaches the blanket `impl<S, T> FromRequest<S, ViaParts> for T` (its type implements only `FromRequestParts`), but is answered `typed` (`lsp_ufcs`) with `WithRejection`'s own `FromRequest` impl, whose bound `E: FromRequest<S>` it does not meet: the Rust golden's one remaining typed false positive | Open. Find whether the engine can withhold a `Type::method` answer when a blanket impl of the same trait may supply the method, without scanning the registry per call (issue 92), or check an impl's bounds; never special-case the trait. |
@@ -153,6 +154,97 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 112 — Patch 0028 changed extraction output without moving `ENGINE_VERSION`
+
+Found after issue 104 (R2). The extraction cache keys an entry by
+`(EXTRACT_CACHE_FORMAT_VERSION, ENGINE_VERSION, LANGUAGE_MATRIX_VERSION, secret
+policy digest, language, path, blob)` (`index::extract::CacheKey`), and
+`ENGINE_VERSION` is "bumped when its output can change". Patch 0028 changed what
+Rust extraction records and left it at 7, so for the same source, path, language,
+policy and matrix an entry written by engine 7 before the patch has the same key as
+one written after it. Engine 7 had been pushed and its caches written, on this
+machine and wherever the branch was built; R2's first golden run here read such
+entries and drew wrong edges.
+
+What an extraction record holds that the patch changed:
+
+- `calls[].lexical`: a bare Rust call of a function its block declares is
+  `LOCALLY_BOUND` (`callee_is_locally_bound`, also in the surface's calls), which
+  Stage 3 settles `unresolved`.
+- The surface's `resolved_calls`: Rust's per-file typed pass runs during extraction,
+  and a cached file is resolved from its surface. Its answers need path evidence now (a
+  qualified path, or a bare name's import), and it gives none for a name a `match`
+  arm's pattern or a block binds. So the answers it stored differ: no
+  `lsp_short_name_unique` answer by uniqueness alone or against a disagreeing path,
+  and no `lsp_callable_value_reference` for an arm's binding. The cross-file pass runs
+  on every build and is not cached.
+
+Shown with the two builds, on one repository: pre-0028 engine 7 (`d96bb2f`) and
+post-0028 engine 7 (`d14ccd4`). Both store its 5 files under the same 5 object ids,
+and 3 entries' bytes differ: `src/lib.rs` (a module-qualified call), `src/strip.rs` (a
+block's function) and `src/pick.rs` (an arm's binding). Run over the pre-0028 cache,
+the post-0028 build wrote no entry, so it served them all, and drew
+`first -> lib.expand` (`scoped`) instead of `first -> a.expand` (`typed`), and the
+arm's `params` as a `typed` `CALL_REFERENCE`: two of R2's corrections undone.
+
+**Resolution (hotfix, 2026-10-14).** `ENGINE_VERSION` moves from 7 to 8, where the
+contract puts it: `crates/pdx-core/src/consts.rs` and the engine's own
+`pdxe_version()` (`engine/api/pdxe.c`), which `engine_version_is_the_engines` keeps
+equal. Engine 7 began with patch 0015 (issue 83); 0028 is engine 8, and the patch
+README says so. No other version moves:
+
+| Constant | Value | Why not |
+|---|---|---|
+| `EXTRACT_CACHE_FORMAT_VERSION` | 6 | the envelope and its layout are unchanged |
+| worker protocol | 7 | the messages are unchanged |
+| `SURFACE_VERSION` | 5 | the surface's fields are unchanged; only values differ |
+| `SEGMENT_SCHEMA_VERSION` | 3 | the segment's tables are unchanged |
+| `LANGUAGE_MATRIX_VERSION` | 2 | the matrix is unchanged |
+| `SECRET_DETECTOR_VERSION` | 4 | the detectors are unchanged |
+
+Nothing is migrated or deleted: an engine 7 entry is a miss, the file is extracted
+again, and an engine 8 entry is written beside the old one.
+
+`cache_entries_of_engine_seven_are_never_served` (`crates/pdx-core/tests/extract.rs`)
+plants, under engine 7's key, the extraction of a source with a block's function
+called, the call bound to nothing as engine 7 recorded it. Cold, the entry is a miss:
+the file is extracted again, the call is `LOCALLY_BOUND`, the old entry is unchanged
+and an engine 8 entry is written. Warm, that entry is served and equals the cold
+extraction. With `ENGINE_VERSION` back at 7 (and the engine's own), it fails: the
+engine 7 entry is served. `cache_object_id_fixed_vector` and
+`cache_key_includes_engine_version` pin engine 8's key
+(`5d5e1d9a…0b68`, independently computed), beside engines 3 to 7.
+
+With the builds above, engine 8 run over the pre-0028 cache wrote 5 new entries,
+changed none, and produced a segment byte-identical to its own cold and warm runs.
+Its graph is the post-0028 engine 7 graph: every table equal, only
+`meta.engine_version` differs.
+
+`scripts/a0/run.py` wrote `engine_version: 7` into A0's provenance whatever engine it
+measured. It now reads `ENGINE_VERSION` from `consts.rs`. The committed post-R2
+results keep 7: they were measured at `d14ccd4`, whose engine then called itself 7
+and is this engine 8.
+
+The audit since engine 7 began (patch 0015):
+
+| Patch | Extraction output | Note |
+|---|---|---|
+| 0016–0019 | changed (C-family preprocessing values and bounds) | under cache format 5 |
+| 0020 | changed (site paths complete or absent) | under cache format 5 |
+| 0021 | changed (a tree deeper than 512 is lost work) | under cache format 5 |
+| 0022 | unchanged (the climbs' answers, from frames) | performance |
+| 0023 | changed only past a scanner's bound, which overran its buffer | under cache format 5 |
+| 0024 | values unchanged; texts held as ranges | moved the cache to format 6 |
+| 0025–0027 | unchanged (each lookup meets the scan's answers in its order) | performance |
+| 0028 | changed (above) | this issue |
+
+0016 to 0021 and 0023 also changed what engine 7 extracted without moving it, the same
+defect at the time. Their entries are format 5's (`v5/`), which no build since 0024
+reads (`cache_formats_before_6_are_a_miss`). Within format 6, 0028 is the only change,
+so engine 8 at 0028 suffices.
 
 State: resolved.
 
@@ -432,10 +524,11 @@ What changed (patch `0028-rust-path-evidence.patch`; Stage 3; specification 4.5)
   amended to say so, in the name-provenance rule and step 4.
 
 Nothing here moves `TYPED_MIN_SCORE`, adds a threshold, names a crate, package or
-golden name, or reads the oracle. `ENGINE_VERSION` stays 7 (patch README): engine 7 has
+golden name, or reads the oracle. `ENGINE_VERSION` stayed 7 (patch README): engine 7 had
 not been merged or released. An extraction cached before this patch by a build of this
 branch is stale (the cache key is the engine version), so this machine's goldens were
-re-recorded with an empty cache; CI caches none.
+re-recorded with an empty cache; CI caches none. Issue 112 corrected this: patch 0028
+is engine 8.
 
 Tests (`crates/pdx-core/tests/rust_targets.rs`, through typed resolution itself):
 

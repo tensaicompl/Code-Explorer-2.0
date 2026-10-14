@@ -54,9 +54,12 @@
  * rules (issue 86, patch 0018), nor the machine's memory or speed: its work is bounded
  * by the source, and its #if arithmetic is defined (issue 87, patch 0019), and a file's
  * site node-type paths are bounded, complete or absent (issue 88, patch 0020), and a
- * tree nested deeper than 512 is not extracted (issue 89, patch 0021), and a bare Rust
- * call of a function its block declares is locally bound (issue 104, patch 0028). */
-static const char ENGINE_VERSION_STRING[] = "7";
+ * tree nested deeper than 512 is not extracted (issue 89, patch 0021). 8: a bare Rust
+ * call of a function its block declares is locally bound, and a Rust file's per-file
+ * typed answers, which its surface holds, need path evidence and leave the names a
+ * `match` arm or a block binds alone (issue 104, patch 0028); engine 7 cached the
+ * extractions before it under the same key (issue 112). */
+static const char ENGINE_VERSION_STRING[] = "8";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;

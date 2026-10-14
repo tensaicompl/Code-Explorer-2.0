@@ -24,6 +24,12 @@ Every run uses the same golden pins, oracle versions and configuration,
 `a0-match-1` and `a0-metrics-1`. The PDX diagnostic corpus is `e746b1e` in all, so
 its change is the resolver's alone.
 
+The post-R2 files record `engine_version` 7: at `d14ccd4` the engine called itself 7.
+Issue 112 renumbered that engine 8 without changing what it extracts or answers.
+Rerun at the hotfix, every document is identical but for `engine_version` (8, which
+`run.py` now reads from `consts.rs` rather than writing out) and the `resolver`
+label, and `mismatches.jsonl` and `counterfactuals.json` are byte-identical.
+
 The post-R1 run also corrects three harness outputs. None of the three changes a
 baseline number: run over the baseline's datasets, they reproduce the committed
 baseline documents and `mismatches.jsonl` exactly.

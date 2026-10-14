@@ -520,7 +520,7 @@ mod tests {
 
     #[test]
     fn the_version_names_the_four_versions() {
-        assert_eq!(version_text(), "pdx 0.1.0\nengine 7\nschema 3\nmatrix 2\n");
+        assert_eq!(version_text(), "pdx 0.1.0\nengine 8\nschema 3\nmatrix 2\n");
     }
 
     #[test]

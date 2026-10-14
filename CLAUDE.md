@@ -67,8 +67,13 @@ before the blocklist.
 **R2 is done (2026-10-14); issue 104 stays open.** Rust typed answers need path
 evidence (patch 0028, below). Of the Rust golden's 17 trusted false positives, 15 are
 no longer drawn wrong. The last typed one, a blanket impl, is issue 109, and the
-`import-guided` one, a `macro_rules!` impl, is issue 110. R3 (issue 102) is next,
-**only when the driver authorises it**.
+`import-guided` one, a `macro_rules!` impl, is issue 110.
+
+**Hotfix 112 is done (2026-10-14).** Patch 0028 changed what Rust extraction records
+while `ENGINE_VERSION` stayed 7, so a cache filled by engine 7 before it was served
+after it under the same key. `ENGINE_VERSION` is 8: what engine 7 cached is a miss.
+Next, each **only when the driver authorises it**: issue 111 (restores the typed
+answers R2 lost), then issue 109, then issue 110, then R3 (issue 102).
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. A recall gain that draws
@@ -194,7 +199,7 @@ extraction cache is format 6 and the worker protocol 7 (issues 40 to 42, 46, 47,
 90): calls carry their node-type path (`ast_path`, computed by the engine since patch
 0010) and arguments, and definitions their decorators, parameter types and every route
 binding with its declaring node's position and path (`routes`, patch 0011); both hold
-records whose text is ranges of the source (issue 90B, below); `ENGINE_VERSION` is 7. Issue 74 (decision 45, engine 4): the C and C++ expression
+records whose text is ranges of the source (issue 90B, below); `ENGINE_VERSION` is 8 (issue 112). Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -362,8 +367,8 @@ the buffer Stage 2 supplies is the whole input.
   the error node). Changing the parser is the driver's decision. Engine blockers: issues
   82 and 93.
 
-Issue 104 (decision 65's R2, engine 7 too, patch 0028): Rust typed answers need path
-evidence.
+Issue 104 (decision 65's R2, patch 0028; engine 8 since issue 112): Rust typed answers
+need path evidence.
 - **Path, not name.** The Rust resolver's fallback took the project's one function with
   a call's last name, whatever the path said, and reported it typed. It now answers only
   with the one function of that name in the module the call's path names, or for a bare
@@ -380,6 +385,10 @@ evidence.
 - **Open.** A blanket impl the engine cannot tell from a type's own (issue 109), items a
   `macro_rules!` invocation writes (issue 110), and `use` lists the resolver misreads
   (issue 111).
+- **Rule (issue 112).** A patch that changes what extraction records, in a file's facts
+  or in the per-file typed answers its surface holds, moves `ENGINE_VERSION`, delivered
+  or not: the version in the cache key is all that keeps an older engine's entries from
+  being served. `cache_entries_of_engine_seven_are_never_served` holds it for 0028.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: a qualifying
@@ -643,7 +652,7 @@ of `bench/engine-differential.toml`.
   still reads included files from there.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
-  does. All 32 corpora were identical at P2-16 and are again at engine 7, each engine
+  does. All 32 corpora were identical at P2-16 and are again at engines 7 and 8, each engine
   run from an empty working directory (issue 83, decision 52).
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
