@@ -436,6 +436,20 @@ Four of the six floors are not met. Nothing is averaged and no floor is waived o
 redefined (rule D32). The PDX repository's diagnostic result (`pdx-self.json`) is
 not part of the gate.
 
+A0.3, 2026-10-14, the driver's remediation decision (decision 65). G1b is not
+passed; it stays `pending` with the four floors above failed. The decision:
+
+- keeps `typed`, `import-guided` and `inheritance-guided` drawn;
+- stops trusting `exact` and `scoped` short-name uniqueness as graph truth (issue
+  102);
+- puts a valid typed answer before the blocklist (issue 103);
+- treats recall as a first-class blocker (issues 104 to 108);
+- orders the remediation R1 to R10, each authorised separately, with A0 rerun after
+  every change to resolution or extraction.
+
+Not drawing `exact` and `scoped` (R3) will lower recall further before it is
+recovered; that is accepted, correctness first. G4's floors are unchanged.
+
 ## G2 — after `P3-09`
 
 Status: **pending**

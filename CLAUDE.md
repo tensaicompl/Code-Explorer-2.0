@@ -31,8 +31,40 @@ them. They are produced by:
 - `bench/a0/sanity/`, the oracle sanity fixtures.
 
 The oracles (`scip-python`, `rust-analyzer`) run from an isolated work directory
-and are never project dependencies. A0.3, what to change, is the driver's decision:
-A0 never edits resolver behaviour.
+and are never project dependencies. A0 itself never edits resolver behaviour.
+
+**A0.3 is decided (decision 65, 2026-10-14); G1b stays pending, with four of six
+floors failed.**
+
+- `typed`, `import-guided` and `inheritance-guided` stay drawn.
+- `exact` and `scoped` short-name uniqueness is no longer trusted graph truth
+  (issue 102, a specification change to 4.2.2). The approved change is noted in
+  4.2.2; the table changes with the implementation.
+- A valid typed answer comes before the blocklist (issue 103, a specification change
+  to 4.5 Stage 3, amended with the implementation).
+- Recall is a first-class blocker (issues 104 to 108).
+- Rule: draw a `CALLS` edge only from positive target evidence, never because every
+  other same-name target disappeared.
+
+Remediation order, **each step only when the driver authorises it**:
+
+| Step | Issue | Work |
+|---|---|---|
+| R1 | 103 | typed before the blocklist |
+| R2 | 104 | Rust typed false positives |
+| R3 | 102 | `exact` and `scoped` not drawn |
+| R4 | 107A | Rust turbofish and other ordinary site holes |
+| R5 | 105 | Rust candidate classification, then fixes |
+| R6 | 106 | Python candidate classification, then fixes |
+| R7 | 108 | overload identity |
+| R8 | 107B | macro token-tree policy |
+| R9 | 96 | secrets |
+| R10 | 97 | SQL prose contracts |
+
+Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
+each golden's typed precision, union precision and recall. A recall gain that draws
+low-confidence edges again is not accepted. Not drawing `exact` and `scoped` lowers
+recall first; that is accepted, correctness first.
 
 ## State: P2 in progress
 

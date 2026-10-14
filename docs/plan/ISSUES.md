@@ -15,13 +15,20 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 108 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R7): target identity among definitions that share a qualified name. In the Rust golden, 89 oracle relations target such a definition; 83 have a structural site, 52 are drawn, 49 to the right definition and 3 to a wrong one, and 2 typed answers are withheld because their qualified name maps to several definitions. A0 cannot adjudicate Python's `@overload` stubs (28 calls without a verdict) | Open. Investigate whether the extraction's normalised signature, the definition's disambiguator, the call's argument count and types, or the engine's occurrence identity can select the definition a call reaches. Overloads are never collapsed because their qualified names are equal |
+| 107 | 2026-10-14 | P2-04 | blocker | open | Child of issue 95 (decision 65, R4 and R8): Rust call sites the oracle sees and Stage 3 does not. 107A (R4): 56 oracle relations at ordinary Rust syntax with no structural site: 54 turbofish calls, 30 of a path (`assert_from_request::<_, ()>()`) and 24 of a method (`parts.extract_with_state::<S, T>(&state)`), and 2 member calls in a chain with a line comment before the dot (`examples/error-handling/src/main.rs`): a grammar or extraction gap. 107B (R8): 338 oracle relations written inside macro invocations' token trees with no site, out of 1,696 call texts there, of which 90 are already extraction sites (all drawn correctly) and 9 are typed sites Stage 4 cannot persist | Open. 107A: find why these calls are no extraction sites and make them ordinary call sites. 107B: classify token-tree calls (known standard and assertion macros, expression-position arguments, format-like macros, arbitrary macro DSLs, `macro_rules!` bodies) and define a semantics-safe policy before recovering any; no call is invented from DSL tokens, and macros are not expanded |
+| 106 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R6): Python recall. 470 of the Python golden's 1,114 oracle relations end as `candidate` (36 more are blocked and 5 drawn wrong), most of them member calls on a local value (`bp.route(…)` on a `Blueprint`) or package re-exports (`flask.make_response(…)`) | Open. Classify all 470 first, by the evidence that could resolve them: local-variable receiver, parameter receiver, factory or call-result receiver, attribute receiver, package re-export, import alias, inheritance or base method, decorator-produced binding, fixture or other untyped external value, other; and separate what is structurally recoverable from what needs a compiler or precise provider and from where the oracle itself is weak or untyped. Then design evidence fixes from the counts. 85% structural recall is not promised from information the structure does not hold |
+| 105 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R5), probably the largest recall workstream: 2,079 of the Rust golden's 4,061 oracle relations at structural call sites end as `candidate` (389 more are blocked, 190 drawn wrong and 17 external) | Open. Classify all 2,079 before any fix, by the evidence that could resolve them, with counts: receiver local-variable type, receiver field type, receiver call-result type, associated or static path type, import or `use` binding, trait bound, impl relation, generic type parameter, method through `Deref`, method of an external type, `crate`/`self`/`super` path, re-export, macro-generated type or item, other. Mark what no structural evidence can resolve, so the driver can judge what G4's structural recall floor assumes. Then design evidence-strengthening work from the counts; no fix is guessed before the classification |
+| 104 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R2): the Rust golden's 15 typed false positives, each a typed answer naming the wrong definition: the module path ignored (`from_request::expand`, `debug_handler::expand`, `typed_path::expand` to `lib.rs`'s `expand`, 5); an external crate's function taken for an internal look-alike (`multer::parse_boundary`, `hyper::upgrade::on`, 4); another type's associated function (`PathDeserializationError::custom` to `connect_info`'s `custom`, 2); a same-named function of another crate (`find_first_not_double` in `axum-macros`, 2); a blanket trait impl (`WithRejection::<…>::from_request`, 1); and a pattern binding answered as a call (`Ok(Self(params))`, 1). Also the one import-guided false positive (`Body::from` to another `From` impl's `from`) and the one false typed answer the blocklist now hides (`Handler::call`, `axum/src/handler/service.rs:171`) | Open. Investigate the engine's evidence, path and import identity, the project-prefix translation, the registry's mapping of a typed answer to a definition and duplicate qualified names. `TYPED_MIN_SCORE` is not lowered or raised blindly: true-positive coverage is kept and the mis-mapping removed. Locations in `bench/results/a0/mismatches.jsonl` |
+| 103 | 2026-10-14 | P2-06 | scr | open | Child of issue 95 (decision 65, R1): the generic-name blocklist settles a site before a valid typed answer is considered (4.5 Stage 3, "`blocked`, even with a qualifying typed answer", and "Names on the blocklist are `blocked` before any stage runs"), so stronger semantic evidence is discarded for names such as `get`, `run`, `parse` or `update`. A0 measured the typed answers it suppresses: 4 in the Python golden (all correct), 32 in the Rust golden (31 correct, 1 false) and 412 in PDX (409 correct); accepting them (A0.2's C4) recovers 3, 31 and 409 relations | Open; approved by decision 65, implementation R1. Specification change to 4.5 Stage 3's precedence (both sentences above): a valid unique typed answer (`from_engine` says typed and its target is exactly one definition of the repository) is `typed`; otherwise a blocklisted name is `blocked`; an engine hint never passes the blocklist. Acceptance: the correct typed generic-name calls are recovered; name-based generic false edges stay suppressed; the one false Rust typed answer (`Handler::call`) is tested on its own, not hidden in an aggregate. 4.5 is amended with the implementation, as 4.5 itself requires |
+| 102 | 2026-10-14 | P2-06 | scr | open | Child of issue 95 (decision 65, R3): 4.2.2 draws `exact` (the callee's short name has one definition in the repository) and `scoped` (one definition in the same module or package), but A0 measured them at 284/310 = 91.61% and 1/8 = 12.50% (Python golden), 509/1,168 = 43.58% and 155/492 = 31.50% (Rust golden), and 37.7% and 13.2% (PDX itself), against G4's 95% union floor: uniqueness of a short name does not establish which definition a call reaches | Open; approved by decision 65, implementation R3. Specification change to 4.2.2: `exact` and `scoped` remain ordered bands, numbered and named as now, but under their current semantics neither can by itself produce a drawn edge; a stronger variant may be drawn only once the harness (4.13) measures it at G4's floor. Implementation keeps their evidence for candidate ranking, explanation, coverage, trust diagnostics and calibration, keeps candidate ordering deterministic, avoids a schema or version change unless one is truly required, updates the affected tests and goldens deliberately, amends 4.2.2's table, and reruns A0. A correctness change, not a threshold |
 | 101 | 2026-10-13 | P0-02 | ambiguity | open | Raised by an independent review before the oracle work: the provenance records disagree about the engine reference's part in the Rust resolver. `bench/references.lock` gives the engine reference (`engine-ref`) the mode "vendor+refactor, and reference for the Rust ports" and lands it in `engine/` and `crates/pdx-core/src/resolve/`, while `THIRD_PARTY_NOTICES.md`'s section of algorithms and designs consulted ("Re-implementations written from scratch in this repository, with the reference whose algorithm or design was consulted") says "No entries yet" | Open. To be settled from the actual derivation history of `crates/pdx-core/src/resolve/`, never by removing an attribution to make the records agree. No legal conclusion is drawn here |
 | 100 | 2026-10-13 | P0-04 | third-party | open | Raised by an independent review: supply-chain hardening has gaps. The cargo-vet store holds 142 exemptions and 0 audits (`supply-chain/config.toml`, `supply-chain/audits.toml`): every crate is accepted by exemption, none by a recorded audit, and `make vet` passing means no more than that. `cargo deny` runs its licence check alone (`scripts/licence-scan.sh`: `check licenses`); the advisory policy `deny.toml` configures (`[advisories]`) is not run as a check by any workflow. Every workflow step uses a mutable major tag (`actions/checkout@v4`, `actions/cache@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`) rather than an immutable commit | Open; not fixed in this round |
 | 99 | 2026-10-13 | P2-11 | blocker | open | Raised by an independent review: the local output's lifecycle can block the next run. `pdx index` refuses a tree `git status` does not report clean, `.pdx/` included (decision 38); it writes its segment to `.pdx/segment.db` by default and never overwrites a segment; and it does not make `.pdx/` ignored. In a repository whose ignore files do not already cover `.pdx/`, one successful index leaves the tree dirty, and the next run is refused | Open; not fixed in this round |
 | 98 | 2026-10-13 | P2-03 | scr | open | Raised by an independent review: discovery excludes every directory named `build`, `target`, `dist` or `vendor` at any depth (`index::discover::HARD_EXCLUDES`, as 4.5 specifies; `vendor` unless `[discover] include_vendor`), whatever is under it. Legitimate source below such a component is not discovered, not indexed and not represented in coverage: no coverage row records that it was left out | Open. The rule is 4.5's, so a change is a specification change; not fixed in this round |
-| 97 | 2026-10-13 | P2-08 | blocker | open | Raised by an independent review: the SQL consumer reader (`contracts::tables::sql_access`) reads a call's string argument as SQL when its first word is `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `WITH` or `MERGE` in any case, so natural-language text can mint a false table contract. `t("Select an item from the list")` begins with `Select`, its `from the` reads as a `FROM` clause, and the call consumes `Table("the")` | Open; not fixed in this round |
-| 96 | 2026-10-13 | P2-04 | blocker | open | Raised by an independent review: content secret normalisation (detector 4) has credible false negatives and one destructive mask. A standalone JWT-shaped credential and a standalone GitHub personal-access-token-shaped credential match no detector (the detectors are a PEM private key, a bearer token, a credential assignment, a URI password and a cloud access-key id); a password in a semicolon-separated key-value connection string is not masked; and the credential-assignment detector masks across `"password=" + decrypt(pw) + "..."`, destroying code that is not a secret | Open; not fixed in this round. A fix must prove secrets masked, non-secret executable syntax preserved, byte length preserved and CR and LF preserved, with fixtures whose synthetic values are built at run time; a change to what a detector matches bumps `SECRET_DETECTOR_VERSION` |
-| 95 | 2026-10-13 | P2-06 | blocker | open | Structural accuracy and trust. An independent adversarial review raised low precision and recall of the drawn structural bands before P5 and P6's oracle work; its percentages are not accepted as authoritative. The driver's inspection of `1eb801d` confirmed six mechanisms: the generic-name blocklist settles a site before a valid typed answer is accepted; `exact` draws from repository-wide short-name uniqueness; `scoped` from module or package short-name uniqueness; a Rust call on an unknown receiver has none of the unresolved-member protection Python, JavaScript, TypeScript and Perl have, so it falls through to `exact` and `scoped`; overloads sharing a qualified name cannot be told apart by signature; and a call written only inside a Rust macro's token tree is not a parsed `call_expression` site | Open. A0.1's measurement and A0.2's counterfactuals (decision 64, gate G1b) are required before any architectural change; what follows is A0.3, the driver's decision. A0.1 and A0.2 done 2026-10-14 (`bench/results/a0/`), against `scip-python` 0.6.6 and `rust-analyzer` 1.98.1: Python golden `typed` 310/310, union 620/653 = 94.95%, recall 603/1,114 = 54.13%; Rust golden `typed` 821/836 = 98.21%, union 1,580/2,592 = 60.96%, recall 1,377/4,061 = 33.91%. Four of G1b's six floors are not met; awaiting A0.3 |
+| 97 | 2026-10-13 | P2-08 | blocker | open | Raised by an independent review: the SQL consumer reader (`contracts::tables::sql_access`) reads a call's string argument as SQL when its first word is `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `WITH` or `MERGE` in any case, so natural-language text can mint a false table contract. `t("Select an item from the list")` begins with `Select`, its `from the` reads as a `FROM` clause, and the call consumes `Table("the")` | Open; not fixed in this round. Reproduced by A0 (2026-10-14); decision 65 makes it remediation R10, an early trust fix after A0.3, not release-time work |
+| 96 | 2026-10-13 | P2-04 | blocker | open | Raised by an independent review: content secret normalisation (detector 4) has credible false negatives and one destructive mask. A standalone JWT-shaped credential and a standalone GitHub personal-access-token-shaped credential match no detector (the detectors are a PEM private key, a bearer token, a credential assignment, a URI password and a cloud access-key id); a password in a semicolon-separated key-value connection string is not masked; and the credential-assignment detector masks across `"password=" + decrypt(pw) + "..."`, destroying code that is not a secret | Open; not fixed in this round. A fix must prove secrets masked, non-secret executable syntax preserved, byte length preserved and CR and LF preserved, with fixtures whose synthetic values are built at run time; a change to what a detector matches bumps `SECRET_DETECTOR_VERSION`. Reproduced by A0 (2026-10-14); decision 65 makes it remediation R9, an early trust fix after A0.3, not release-time work |
+| 95 | 2026-10-13 | P2-06 | blocker | open | Structural accuracy and trust. An independent adversarial review raised low precision and recall of the drawn structural bands before P5 and P6's oracle work; its percentages are not accepted as authoritative. The driver's inspection of `1eb801d` confirmed six mechanisms: the generic-name blocklist settles a site before a valid typed answer is accepted; `exact` draws from repository-wide short-name uniqueness; `scoped` from module or package short-name uniqueness; a Rust call on an unknown receiver has none of the unresolved-member protection Python, JavaScript, TypeScript and Perl have, so it falls through to `exact` and `scoped`; overloads sharing a qualified name cannot be told apart by signature; and a call written only inside a Rust macro's token tree is not a parsed `call_expression` site | Open. A0.1's measurement and A0.2's counterfactuals (decision 64, gate G1b) are required before any architectural change; what follows is A0.3, the driver's decision. A0.1 and A0.2 done 2026-10-14 (`bench/results/a0/`), against `scip-python` 0.6.6 and `rust-analyzer` 1.98.1: Python golden `typed` 310/310, union 620/653 = 94.95%, recall 603/1,114 = 54.13%; Rust golden `typed` 821/836 = 98.21%, union 1,580/2,592 = 60.96%, recall 1,377/4,061 = 33.91%. Four of G1b's six floors are not met. A0.3 (decision 65, 2026-10-14): `typed`, `import-guided` and `inheritance-guided` stay drawn; `exact` and `scoped` short-name uniqueness is not evidence to draw (issue 102, specification change); a valid typed answer precedes the blocklist (issue 103, specification change); recall is a first-class blocker. Split into issues 102 to 108, remediation order R1 to R10 (103, 104, 102, 107A, 105, 106, 108, 107B, 96, 97), each authorised separately; stays open as the umbrella until G1b's floors hold |
 | 94 | 2026-10-13 | P2-16 | blocker | resolved | Found by issue 93's battery: Python's per-file resolver replays each import statement by scanning every import of the file for its local name (`py_replay_import_local`), a lookup by key that issue 92's indexes do not reach, so a file's typed resolution is quadratic in its imports: a file of `from m import a` lines takes 0.14, 0.47, 1.8 and 6.7 s of per-file typed resolution at 0.25 to 2 MiB, and the project's run as long again (16 s at 2 MiB in all). Navigation stays linear. As long at `5915669` | Fixed by indexing, nothing limited (patch 0027, decision 63, engine 7): replay, an imported reference's exact candidate and a call's alias check read the file's registered imports through one index by exact local name (`imports_by_local`, issue 92's `PDXENameIndex`), each name's chain in registration order, so the import each statement takes, the conflicts and the imports consumed are the scans'; an index that cannot get memory finds nothing, never scans. The 2 MiB file's per-file typed resolution now takes 0.15 s (6.7 s) and the project's run 0.31 s (7.7 s); the imports examined double with the file at 1,000 to 16,000 imports; the 104,730-file census resolves and extracts identically; four mutations killed |
 | 93 | 2026-10-13 | P2-16 | blocker | open | Found by issue 92's resource audit, the final engine-7 audit: when a parse fails early, the parser's recovery can leave one error node holding the rest of the file as a flat run of children, and every pass that steps through it by position, or asks for a sibling or parent inside it, costs the position: the parser's own recovery, extraction's docstring, decorator and ancestor lookups, channel extraction and the Kotlin resolver's top-level walks. A Kotlin file of one-line nested classes takes 195 s at 1 MiB and 764 s at 2 MiB; JavaScript after an unclosed parenthesis 40 s and 160 s. As long at `8b3ed42` | Extraction fixed (patch 0026, engine 7), nothing limited: children are visited by cursor through one iterator, in reverse or by position from a collection made once, and parents and siblings are found from the walk's own path or the loop in progress, never by descending from the root; the answers are tree-sitter's on every node of the 104,730-file census and it extracts and resolves identically; the navigation work is linear in 75 wide shapes in 32 languages; nine mutations killed. The Kotlin file now extracts in 1.75 s at 2 MiB (764 s), 8,000 decorated TypeScript methods in one class in 0.55 s (68 s). Open: the vendored parser's recovery is quadratic in an error node's width (`ts_parser__recover` rebuilds the node for each token it takes): the JavaScript file parses in 1.5, 5.8, 22.9 and 88.7 s at 0.25 to 2 MiB, the rest of its extraction in 1.0 s. Changing the parser is the driver's decision; the battery also found issue 94 |
 | 92 | 2026-10-12 | P2-16 | blocker | resolved | Found by issue 90's resource audit: per-file typed resolution and the interface's translation are quadratic in how many definitions a file holds, in every typed language, whatever its nesting. 16,000 one-method classes take 62 s in Python (677 KB), 18 s in Java (549 KB), 15 s in TypeScript, 13 s in C++ and 8 s in C# and Go, about four times as long for each doubling; 2 MiB of distinct nested Java classes take 237 s. Within the depth ceiling, JavaScript calls nested 200 deep cost the TypeScript resolver more the more of them a file holds: 2 MiB, 441 s. Past an isolated worker's 120 s timeout a file fails the build, and whether it gets there depends on the machine. Generated code (protocol buffers, models, clients) holds thousands of classes a file | Fixed by indexing, nothing limited (patch 0025, decision 62, engine 7, and Stage 3's registry): every registry keeps exact-key chains in registration order as entries are added, the resolvers' helpers, the cross-file pass and the interface's translation index what they scanned (`index_of_qn` is gone), Stage 3 reads a name's provenance by file and name and C++ nesting by type name; an index that cannot get memory finds nothing, never scans. 16,000 classes now take 0.50 to 0.87 s in every typed language (Python 63.9 s before), each doubling about twice the last; the 2 MiB nested JavaScript 21 s (406 s) and nested Java 5.8 s (401 s). The 104,730-file census resolves and extracts identically; ten mutations killed. The final audit found issue 93 |
@@ -146,6 +153,268 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 108 — Target identity among definitions sharing a qualified name
+
+A child of issue 95 (decision 65, remediation R7). Several definitions can share one
+qualified name in a file: overloads, a trait's method implemented for several types
+under one name, a function declared twice under different `cfg` attributes. A typed
+answer naming such a name maps to several definitions and is withheld (4.5 Stage 3),
+and the name stages see each as a distinct candidate of one name.
+
+A0 measured, in the Rust golden:
+
+| | Relations |
+|---|---|
+| target shares its qualified name | 89 |
+| with a structural site | 83 |
+| with a typed answer | 2 |
+| withheld (the name maps to several definitions) | 2 |
+| drawn | 52 |
+| drawn to the right definition | 49 |
+| drawn to a wrong one | 3 |
+
+scip-python gives Python's `@overload` stubs and their implementation one symbol, so
+A0 has no verdict for those 28 calls of the Python golden.
+
+To investigate whether the extraction's normalised signature, the definition's
+disambiguator, the call's argument count and types, or the engine's occurrence
+identity can select the definition a call reaches. Overloads are never collapsed
+because their qualified names are equal.
+
+State: open.
+
+### 107 — Rust call sites the oracle sees and Stage 3 does not
+
+A child of issue 95 (decision 65, remediations R4 and R8). Of the Rust golden's 4,455
+oracle relations, 394 have no structural call site at all: site loss, apart from
+resolution loss.
+
+**107A, ordinary syntax (R4).** 56 relations at ordinary Rust syntax:
+
+- 30 turbofish calls of a path (`assert_from_request::<_, ()>()`);
+- 24 turbofish calls of a method (`parts.extract_with_state::<S, T>(&state)`);
+- 2 member calls in a chain with a line comment before the dot
+  (`examples/error-handling/src/main.rs`).
+
+These should be ordinary call sites. To find whether the grammar or the extractor
+loses them, and to make them sites.
+
+**107B, macro token trees (R8).** The Rust golden has 1,696 call-shaped texts inside
+macro invocations' token trees:
+
+- 437 are oracle relations;
+- 90 are already extraction sites (`assert_eq!`, `format!` and `assert!` arguments)
+  and are all drawn correctly;
+- 9 are sites typed resolution found by itself, which Stage 4 cannot persist;
+- 338 relations have no site at all.
+
+A macro's tokens are not Rust expressions in general. Before recovering any, the
+calls are classified: known standard and assertion macros, expression-position
+arguments, format-like macros, arbitrary macro DSLs and `macro_rules!` bodies (405
+call texts, no oracle relation). A semantics-safe policy is then defined. No call is
+invented from DSL tokens, and macros are not expanded.
+
+State: open.
+
+### 106 — Python candidate resolution
+
+A child of issue 95 (decision 65, remediation R6). Of the Python golden's 1,114 oracle
+relations, 603 are drawn correctly, 470 end as `candidate`, 36 are blocked and 5 are
+drawn wrong. Most candidates are:
+
+- member calls on a local value: `bp.route(…)` on a `Blueprint` the function made;
+- package re-exports: `flask.make_response(…)` through `flask/__init__.py`.
+
+Before any fix, all 470 are classified by the evidence that could resolve them:
+
+- local-variable receiver;
+- parameter receiver;
+- factory or call-result receiver;
+- attribute receiver;
+- package re-export;
+- import alias;
+- inheritance or base method;
+- decorator-produced binding;
+- fixture or other untyped external value;
+- other.
+
+Each class is also marked by where its evidence lies:
+
+- structurally recoverable;
+- needs a compiler or precise provider;
+- the oracle itself is weak or untyped.
+
+Evidence fixes are then designed from the counts. 85% structural recall is not
+promised from information the structure does not hold. What cannot be recovered
+structurally is reported so that the driver can judge what G4's structural recall
+floor assumes; the floor does not change here.
+
+State: open.
+
+### 105 — Rust candidate resolution
+
+A child of issue 95 (decision 65, remediation R5), and probably the largest recall
+workstream. Of the Rust golden's 4,061 oracle relations at structural call sites:
+
+| | Relations |
+|---|---|
+| drawn correctly | 1,377 |
+| end as `candidate` | 2,079 |
+| blocked | 389 |
+| drawn wrong | 190 |
+| `external` | 17 |
+| typed but not materialised | 9 |
+
+Not drawing `exact` and `scoped` alone (A0.2's C3) would leave recall at 17.80%.
+
+Before any fix, all 2,079 candidates are classified, with counts, by the evidence
+that could resolve them:
+
+- receiver local-variable type;
+- receiver field type;
+- receiver call-result type;
+- associated or static path type;
+- import or `use` binding;
+- trait bound;
+- impl relation;
+- generic type parameter;
+- method through `Deref`;
+- method of an external type;
+- `crate`/`self`/`super` path;
+- re-export;
+- macro-generated type or item;
+- other.
+
+What no structural evidence can resolve is marked as such, for the driver's later
+judgement of G4's structural recall floor. Evidence-strengthening work is designed
+from the counts; no fix is guessed before the classification.
+
+State: open.
+
+### 104 — Rust typed false positives
+
+A child of issue 95 (decision 65, remediation R2). The Rust golden's `typed` band is
+821/836 = 98.21% precise, above G1b's 97% floor. Its 15 false positives are each a
+typed answer naming the wrong definition:
+
+| Class | Sites | Example (`file:line`, call, wrong target) |
+|---|---|---|
+| module path ignored | 5 | `axum-macros/src/lib.rs:377` `from_request::expand` → `lib.rs`'s `expand`, not `from_request::expand` (also `debug_handler::expand`, `typed_path::expand`) |
+| an external crate's function taken for an internal look-alike | 4 | `axum/src/extract/multipart.rs:76` `multer::parse_boundary` → `axum-extra`'s `parse_boundary`; `axum/src/extract/ws.rs:1261` `hyper::upgrade::on` → `routing::method_routing::on` |
+| another type's associated function | 2 | `axum/src/extract/path/de.rs:265` `PathDeserializationError::custom` → `connect_info`'s `custom` |
+| a same-named function of another crate | 2 | `axum/src/routing/strip_prefix.rs:191` `find_first_not_double` → `axum-macros`'s |
+| a blanket trait impl | 1 | `axum-extra/src/extract/with_rejection.rs:196` `WithRejection::<…>::from_request` |
+| a pattern binding answered as a call | 1 | `axum/src/extract/path/inner_path.rs:168` `params` in `Ok(Self(params))` |
+
+Within this issue too:
+
+- the one `import-guided` false positive: `axum-core/src/ext_traits/request.rs:355`
+  `Body::from` is drawn to another `From` impl's `from`;
+- the one false typed answer the blocklist hides today:
+  `axum/src/handler/service.rs:171`, `Handler::call`. Once issue 103 lands, it
+  would be drawn.
+
+To investigate:
+
+- the engine's evidence;
+- path and import identity;
+- the project-prefix translation;
+- the registry's mapping of a typed answer to a definition;
+- duplicate qualified names.
+
+`TYPED_MIN_SCORE` is not moved blindly: true-positive coverage is kept and the
+mis-mapping removed. Every location is in `bench/results/a0/mismatches.jsonl`.
+
+State: open.
+
+### 103 — Typed before the blocklist (specification change)
+
+A child of issue 95 (decision 65, remediation R1). 4.5 Stage 3 settles a blocklisted
+name first. "Names on the blocklist are `blocked` before any stage runs", and the
+precedence list's first step is "`blocked`, even with a qualifying typed answer". So
+a valid typed answer for a call named `get`, `run`, `parse` or `update` is
+discarded.
+
+The blocklist exists to stop weak guessing by a generic name, not to override
+semantic evidence. A0 measured the typed answers it suppresses:
+
+| Corpus | Suppressed | Correct | False | No verdict | Relations recovered by C4 |
+|---|---|---|---|---|---|
+| Python golden | 4 | 4 | 0 | 0 | 3 |
+| Rust golden | 32 | 31 | 1 | 0 | 31 |
+| PDX itself | 412 | 409 | 0 | 3 | 409 |
+
+**Change, approved by decision 65.**
+
+- A valid unique typed answer is `typed`. Valid means `from_engine` says typed and
+  its target is exactly one definition of the repository, as Stage 3 maps a typed
+  answer.
+- Otherwise a blocklisted name is `blocked`.
+- An engine hint never passes the blocklist.
+
+4.5's two sentences quoted above are amended with the implementation (R1). 4.5 is
+not changed by A0.3.
+
+**Acceptance:**
+
+- the correct typed generic-name calls are recovered;
+- name-based generic false edges stay suppressed;
+- the one false Rust typed answer (`Handler::call`, issue 104) is tested on its own,
+  not hidden in an aggregate;
+- A0 is rerun.
+
+State: open.
+
+### 102 — `exact` and `scoped` are not drawn on uniqueness alone (specification change)
+
+A child of issue 95 (decision 65, remediation R3). 4.2.2 draws two bands:
+
+- `exact`: the callee's short name has exactly one definition in the repository;
+- `scoped`: exactly one definition in the same module or package.
+
+Both assume that a unique short name identifies the definition a call reaches. A0's
+measurements invalidate that assumption:
+
+| Band | Python golden | Rust golden | PDX itself |
+|---|---|---|---|
+| `exact` | 284/310 = 91.61% | 509/1,168 = 43.58% | 548/1,452 = 37.7% |
+| `scoped` | 1/8 = 12.50% | 155/492 = 31.50% | 47/357 = 13.2% |
+
+G4's floor for the union of drawn bands is 95%. Most false positives are an external
+target taken for an internal one, a self-edge, or a constructor collision
+(`bench/results/a0/`, `exact_scoped_false_positives`).
+
+**Change, approved by decision 65.**
+
+- `exact` and `scoped` remain ordered evidence bands. Their order, names and
+  history are kept, and no band is renumbered.
+- Under their current semantics, neither can by itself produce a drawn edge. They
+  narrow candidates and may stay candidate evidence.
+- A stronger variant may be drawn only once the harness (4.13) measures it at G4's
+  floor.
+- The principle: PDX draws a `CALLS` edge only from positive target evidence, never
+  merely because every other same-name target disappeared.
+
+**Implementation (R3):**
+
+- their evidence is kept for candidate ranking and explanation, coverage, trust
+  diagnostics and calibration;
+- candidate ordering stays deterministic;
+- no schema or version change, unless the existing candidate and evidence rows
+  truly cannot express them;
+- the affected tests and goldens are updated deliberately;
+- 4.2.2's table is amended;
+- A0 is rerun.
+
+Not drawing them alone is not the remedy. With both off, recall falls to 28.55%
+(Python) and 17.80% (Rust); recall is recovered by issues 105 to 108. R3 may still
+land first: correctness comes first.
+
+This is a correctness change, not a threshold. 4.2.2 records the approved change in
+a note; its table changes with the implementation.
+
+State: open.
+
 ### 101 — Provenance records disagree about the Rust resolver's derivation
 
 Raised by an independent review before the oracle work. `bench/references.lock` records
@@ -232,6 +501,9 @@ in a local test that was never committed:
 | `"Select an item from the list"` | `("the", Read)` |
 | `"SELECT id FROM users"` (control) | `("users", Read)` |
 
+Decision 65 sequences this as remediation R10, an early trust fix after A0.3 rather
+than release-time work. It is authorised separately.
+
 Not fixed in this round.
 
 State: open.
@@ -273,6 +545,9 @@ committed.
 
 In class 4, ` + decrypt(pw) + ` became 17 `X` bytes: the code between the two
 literals is masked.
+
+Decision 65 sequences this as remediation R9, an early trust fix after A0.3 rather
+than release-time work. It is authorised separately.
 
 Not fixed in this round.
 
@@ -379,6 +654,63 @@ Recall loss is mostly resolution, not extraction:
 
 The Rust golden's extraction loss is 338 token-tree calls and 56 turbofish calls,
 such as `f::<T>()`, which have no site.
+
+**A0.3, the driver's decision (decision 65, 2026-10-14).** The evidence above is
+accepted.
+
+- **Kept drawn:** `typed`, `import-guided` and `inheritance-guided`. Their false
+  positives are defects (issue 104).
+- **Not evidence enough to draw:** the current semantics of `exact` and `scoped`.
+  They stay ordered bands and candidate evidence (issue 102, a specification change
+  to 4.2.2).
+- **Principle:** PDX draws a `CALLS` edge only from positive target evidence, never
+  merely because every other same-name target disappeared.
+- **Blocklist:** a valid typed answer is considered before it (issue 103, a
+  specification change to 4.5 Stage 3).
+
+Demotion alone is not the remedy. Without `exact` and `scoped`:
+
+| Golden | Precision | Recall |
+|---|---|---|
+| Python | 335/335 | 28.55% |
+| Rust | 916/932 = 98.28% | 17.80% |
+
+Recall is a first-class blocker: remediation must recover positive evidence.
+
+This issue stays the umbrella and is split into its children:
+
+| Issue | Subject |
+|---|---|
+| 102 | `exact` and `scoped` not drawn on uniqueness alone |
+| 103 | typed before the blocklist |
+| 104 | Rust typed false positives |
+| 105 | Rust candidate resolution |
+| 106 | Python candidate resolution |
+| 107 | Rust site coverage: 107A ordinary syntax, 107B macro token trees |
+| 108 | target identity among definitions sharing a qualified name |
+
+The preferred order, each step authorised separately by the driver:
+
+| Step | Issue |
+|---|---|
+| R1 | 103 |
+| R2 | 104 |
+| R3 | 102 |
+| R4 | 107A |
+| R5 | 105 |
+| R6 | 106 |
+| R7 | 108 |
+| R8 | 107B |
+| R9 | 96 |
+| R10 | 97 |
+
+R3 may land before recall is recovered, though G1b's recall then falls further. A
+graph with missing edges is incomplete; a graph with invented edges is
+untrustworthy. After every remediation that changes resolution or extraction, A0 is
+rerun and reported. No change may raise recall by drawing low-confidence edges
+again.
+
+This issue closes only when G1b's floors hold. G4 is not weakened.
 
 State: open.
 
