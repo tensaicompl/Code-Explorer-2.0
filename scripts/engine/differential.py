@@ -35,7 +35,14 @@ Canonicalisation removes only the project name the engine wraps every qualified 
 in, and adds the interface's kind beside each engine label (engine/api/pdxe.c's
 mapping, read from that file). Every other value is compared as written: positions,
 callers, callees, multiplicity, scores (as the float's own nine digits). Any
-difference fails, and there is no way to accept one.
+difference fails, except one bench/engine-differential-divergences.json ratifies
+(decision 66): an exact canonical row pair, or one row against an explicit absence,
+in one category of one corpus, tied to an issue and a decision, and validated against
+the reference pin the file records. A corpus passes only when the rows that differ and
+the rows ratified for it are equal multisets: a difference no record ratifies fails,
+and so does a ratified one that no longer occurs. Nothing matches by pattern, prefix,
+field or category, and nothing here writes that file: a ratification is a reviewed
+change to it, never something a run accepts. The offline compare ratifies nothing.
 
 The reference is configured, never edited: its process environment is emptied of its
 own variables, it runs with an empty home and a configuration directory of the
@@ -74,6 +81,7 @@ ROWS_HEADER = REPO / "engine/tests/differential_rows.h"
 HOOK_SOURCE = REPO / "scripts/engine/differential_hook.c"
 DEFAULT_DUMP = REPO / "target/engine/tests/differential_dump"
 EVIDENCE = REPO / "bench/.cache/engine-differential"
+DIVERGENCES = REPO / "bench/engine-differential-divergences.json"
 ENGINE_REF = "engine-ref"
 
 # How many rows of a difference are shown each way, and how long each may be.
@@ -396,6 +404,131 @@ def describe(corpus, differences):
     return out
 
 
+# --- ratified divergences (decision 66) ----------------------------------------------
+
+# Every field a ratification record holds, and nothing else: a field that could widen a
+# record (a pattern, a prefix, a list of fields) is refused as unknown.
+RECORD = ("category", "corpus", "decision", "id", "issue", "reason", "reference_row",
+          "vendored_row")
+SIDES = (("reference", "reference_row"), ("vendored", "vendored_row"))
+RECORD_ID = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
+
+
+def divergences_bytes(document):
+    """The one byte form the ratification file is committed in."""
+    return (json.dumps(document, indent=2, sort_keys=True, ensure_ascii=True)
+            + "\n").encode("ascii")
+
+
+def canonical_row(text):
+    """True when `text` is one row exactly as canonical() writes it."""
+    try:
+        row = json.loads(text)
+    except ValueError:
+        return False
+    return (isinstance(row, dict) and isinstance(row.get("c"), str)
+            and json.dumps(row, sort_keys=True, separators=(",", ":"),
+                           ensure_ascii=True) == text)
+
+
+def load_divergences(pin, corpus_names, path=None):
+    """The ratified divergences (decision 66), checked whole before any is used: the
+    file in its canonical bytes, validated against the reference pinned now, every
+    record complete, each row a canonical row of the record's category, every corpus
+    one the manifest names, and the records sorted by their unique ids."""
+    path = pathlib.Path(path) if path is not None else DIVERGENCES
+    name = path.name
+    try:
+        raw = path.read_bytes()
+        document = json.loads(raw)
+    except (OSError, ValueError) as e:
+        fail(f"{name} cannot be read: {e}")
+    if not isinstance(document, dict) or sorted(document) != ["divergences", "format",
+                                                              "reference_commit"]:
+        fail(f"{name} holds format, reference_commit and divergences, and nothing else")
+    if document["format"] != 1:
+        fail(f"{name} is in another format")
+    if raw != divergences_bytes(document):
+        fail(f"{name} is not in its canonical form (sorted keys, two-space indent, ASCII)")
+    if document["reference_commit"] != pin:
+        fail(f"{name} was validated against reference {document['reference_commit']}, "
+             f"and the pin is now {pin}: every ratified divergence must be revalidated "
+             f"against the new reference")
+    records = document["divergences"]
+    if not isinstance(records, list):
+        fail(f"{name}: divergences is not a list")
+    for record in records:
+        if not isinstance(record, dict) or sorted(record) != list(RECORD):
+            fail(f"{name}: a record holds exactly {', '.join(RECORD)}")
+        rid = record["id"]
+        if not isinstance(rid, str) or not RECORD_ID.fullmatch(rid):
+            fail(f"{name}: {rid!r} is not a record id")
+        for key in ("issue", "decision"):
+            value = record[key]
+            if type(value) is not int or value <= 0:
+                fail(f"{name}: {rid}: {key} is not an issue or decision number")
+        if not isinstance(record["reason"], str) or not record["reason"].strip():
+            fail(f"{name}: {rid}: no reason")
+        if record["corpus"] not in corpus_names:
+            fail(f"{name}: {rid}: no corpus is named {record['corpus']!r}")
+        if record["category"] not in CATEGORIES:
+            fail(f"{name}: {rid}: no category is named {record['category']!r}")
+        rows = [record[key] for _, key in SIDES]
+        if all(row is None for row in rows) or rows[0] == rows[1]:
+            fail(f"{name}: {rid}: a divergence is two different rows, or one row and "
+                 f"an explicit absence (null)")
+        for side, key in SIDES:
+            row = record[key]
+            if row is None:
+                continue
+            if not isinstance(row, str) or not canonical_row(row):
+                fail(f"{name}: {rid}: the {side} row is not a canonical row")
+            if category_of(row) != record["category"]:
+                fail(f"{name}: {rid}: the {side} row is a {category_of(row)} row, and the "
+                     f"record says {record['category']}")
+    ids = [record["id"] for record in records]
+    if ids != sorted(set(ids)):
+        fail(f"{name}: the records' ids are not unique and sorted")
+    return records
+
+
+def ratify(corpus, differences, ratified):
+    """Decision 66 for one corpus: the rows that differ (D) against the divergences
+    ratified for that corpus by name (R), each an exact (category, side, canonical row),
+    as multisets. Returns the ids of the records that occurred, the differences no
+    record ratifies (in compare's shape) and the ids of the records that no longer
+    occur. The corpus passes only when the last two are empty, exactly when D == R."""
+    records = [record for record in ratified if record["corpus"] == corpus]
+    actual = collections.Counter()
+    for category, (only_ref, only_ven) in differences.items():
+        actual.update((category, "reference", line) for line in only_ref)
+        actual.update((category, "vendored", line) for line in only_ven)
+    occurred, stale = [], []
+    for record in records:
+        wanted = collections.Counter((record["category"], side, record[key])
+                                     for side, key in SIDES if record[key] is not None)
+        if all(actual[item] >= n for item, n in wanted.items()):
+            actual -= wanted
+            occurred.append(record["id"])
+        else:
+            stale.append(record["id"])
+    unexpected = {}
+    for name in CATEGORIES:
+        only_ref = sorted(l for c, s, l in actual.elements() if c == name and s == "reference")
+        only_ven = sorted(l for c, s, l in actual.elements() if c == name and s == "vendored")
+        if only_ref or only_ven:
+            unexpected[name] = (only_ref, only_ven)
+    return occurred, unexpected, stale
+
+
+def ratification_lines(corpus, occurred, unexpected, stale):
+    """The account of a corpus that fails decision 66: its unexpected differences,
+    bounded as any difference is, then every ratified divergence by what became of it."""
+    return (describe(corpus, unexpected)
+            + [f"  ratified divergence no longer occurs: {rid}" for rid in stale]
+            + [f"  ratified divergence occurred: {rid}" for rid in occurred])
+
+
 def checks(side, rows, files):
     """What makes one side's rows parity evidence at all: every compared file present,
     typed work complete, no textual strategy among the typed answers, at least one
@@ -505,8 +638,9 @@ def build_reference():
 
 
 def corpora(pdx_bench, names):
-    """Every corpus, from pdx-bench differential-corpora, which checks the manifest and
-    fetches the goldens it names."""
+    """The corpora to run (every one, or those named), and the names of every corpus,
+    from pdx-bench differential-corpora, which checks the manifest and fetches the
+    goldens it names."""
     done = subprocess.run([str(pdx_bench), "differential-corpora"], cwd=REPO,
                           capture_output=True, text=True, stdin=subprocess.DEVNULL)
     if done.returncode != 0:
@@ -515,12 +649,13 @@ def corpora(pdx_bench, names):
     if doc.get("format") != 1:
         fail("pdx-bench differential-corpora answered in another format")
     found = doc["corpora"]
+    every = {c["name"] for c in found}
     if names:
-        unknown = sorted(set(names) - {c["name"] for c in found})
+        unknown = sorted(set(names) - every)
         if unknown:
             fail(f"no corpus is named {', '.join(unknown)}")
         found = [c for c in found if c["name"] in names]
-    return found
+    return found, every
 
 
 def safe_file(root, rel):
@@ -691,6 +826,10 @@ def run_corpus(corpus, binary, dump, kinds, stage_root):
     return counts(ref_lines), counts(ven_lines), differences, same_bytes
 
 
+def plural(n, word):
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
 def cmd_run(args):
     pin = reference_pin()
     checkout = reference_checkout()
@@ -699,7 +838,8 @@ def cmd_run(args):
     if not dump.is_file():
         fail(f"no differential dump at {dump}: run make engine")
     kinds = kind_map()
-    found = corpora(args.pdx_bench, args.corpus)
+    found, every = corpora(args.pdx_bench, args.corpus)
+    ratified = load_divergences(pin, every)
     binary = build_reference()
     stage_root = pathlib.Path(os.environ.get("PDX_DIFFERENTIAL_STAGE",
                                              "/tmp/pdx-engine-differential")).resolve()
@@ -708,8 +848,8 @@ def cmd_run(args):
     stage_root.mkdir(parents=True, exist_ok=True)
     totals = {"fixture": collections.Counter(), "golden": collections.Counter()}
     vtotals = {"fixture": collections.Counter(), "golden": collections.Counter()}
-    languages = collections.defaultdict(list)
     failed = []
+    identical, with_ratified, occurred_total, unexpected_total, stale_total = 0, 0, 0, 0, 0
     for corpus in found:
         try:
             ref, ven, differences, same_bytes = run_corpus(corpus, binary, dump, kinds,
@@ -717,19 +857,32 @@ def cmd_run(args):
         except Failure as e:
             failed.append(corpus["name"])
             print(f"FAIL {corpus['name']}: {e}")
+            for record in ratified:
+                if record["corpus"] == corpus["name"]:
+                    print(f"  ratified divergence not checked: {record['id']}")
             continue
         totals[corpus["kind"]].update(ref)
         vtotals[corpus["kind"]].update(ven)
         summary = ", ".join(f"{name} {ref[name]}" + ("" if ref[name] == ven[name] else
                                                      f"/{ven[name]}") for name in CATEGORIES)
-        if differences:
+        occurred, unexpected, stale = ratify(corpus["name"], differences, ratified)
+        unexpected_total += sum(len(a) + len(b) for a, b in unexpected.values())
+        stale_total += len(stale)
+        if unexpected or stale:
             failed.append(corpus["name"])
             print(f"DIFFERS {corpus['name']} ({corpus['language']}): {summary}")
-            print("\n".join(describe(corpus["name"], differences)))
+            print("\n".join(ratification_lines(corpus["name"], occurred, unexpected, stale)))
+            continue
+        note = "" if same_bytes else "; surface bytes differ, rows identical"
+        if occurred:
+            with_ratified += 1
+            occurred_total += len(occurred)
+            print(f"ok {corpus['name']} ({corpus['language']}): {summary}; "
+                  f"{plural(len(occurred), 'ratified divergence')} (decision 66): "
+                  f"{', '.join(occurred)}{note}")
         else:
-            note = "" if same_bytes else "; surface bytes differ, rows identical"
+            identical += 1
             print(f"ok {corpus['name']} ({corpus['language']}): {summary}{note}")
-            languages[(corpus["kind"], corpus["language"])].append(corpus["name"])
     check_checkout(checkout, pin, "the reference engine, after the run,")
     for kind in ("fixture", "golden"):
         names = [c for c in found if c["kind"] == kind]
@@ -740,11 +893,23 @@ def cmd_run(args):
               f"{sum(len(c['files']) for c in names)} files")
         for name in CATEGORIES:
             print(f"  {name:12} reference {totals[kind][name]:7}  vendored {vtotals[kind][name]:7}")
+    selected = {c["name"] for c in found}
+    unchecked = [r["id"] for r in ratified if r["corpus"] not in selected]
+    for rid in unchecked:
+        print(f"ratified divergence not checked (its corpus was not run): {rid}")
+    print(f"corpora {len(found)}: {len(found) - len(failed)} passed, {identical} identical, "
+          f"{with_ratified} with {plural(occurred_total, 'ratified divergence')}, "
+          f"{plural(unexpected_total, 'unexpected divergence')}, "
+          f"{plural(stale_total, 'stale ratification')}, {len(failed)} differ or failed")
     print(f"mismatches {len(failed)}")
     if failed:
         print(f"engine differential: {len(failed)} corpus/corpora differ or failed; full "
               f"evidence under bench/.cache/engine-differential/")
         return 1
+    if occurred_total:
+        print(f"engine differential: passed, {identical} identical and "
+              f"{with_ratified} with only ratified divergences (decision 66)")
+        return 0
     print("engine differential: identical")
     return 0
 

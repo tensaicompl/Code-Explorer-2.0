@@ -642,14 +642,26 @@ of `bench/engine-differential.toml`.
   internal test accessor `pdxe_project_debug_lsp_surfaces`.
 - **Canonical form.** Only the project wrapper becomes `@`; the kind comes from
   `normalise_kind` in `engine/api/pdxe.c`, read from that file. Multisets, sorted, no
-  allowlist, no accept. Both engines get the same bytes, given by absolute path, the
-  same language per file (the reference configured through its own extension
-  configuration) and the same metadata.
+  allowlist, no accept (decision 66's exact ratifications aside, below). Both engines get
+  the same bytes, given by absolute path, the same language per file (the reference
+  configured through its own extension configuration) and the same metadata.
 - **Working directory.** Files around an engine are no input (decision 52). Each engine
   runs, per corpus, from a fresh empty directory of the harness's own, outside the stage,
   the corpus and the repository (`hermetic_cwd`). P2-16 ran both in the corpus root,
   which exposed issue 83; a corpus-root run is no longer comparable, since the reference
   still reads included files from there.
+- **Ratified divergences (decision 66).** An amendment to decisions 50 and 52, not a
+  replacement, and not an allowlist. `bench/engine-differential-divergences.json` holds
+  records, each one exact canonical row pair (or one row and an explicit `null`) in one
+  category of one corpus, with its id, issue, decision and reason. The rows are captured
+  from the live run's `.canonical` files, never written from prose; the file is canonical
+  JSON and no run writes it. A corpus passes only when the rows that differ (D) and the
+  rows ratified for it (R) are equal multisets: an unratified row fails, a ratification
+  that no longer occurs fails, multiplicity counts. The file's `reference_commit` must be
+  the lock's pin: a pin change fails the run until every record is revalidated. Nothing
+  matches by pattern, prefix, field, category or corpus, and a corpus with a ratified
+  divergence is never reported identical. A new difference is a finding for the driver,
+  never a record added to make a run pass.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
   does. All 32 corpora were identical at P2-16 and are again at engines 7 and 8, each engine

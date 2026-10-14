@@ -44,9 +44,24 @@ The staged files are the engines' only inputs, given by absolute path: both run 
 fresh empty working directory of the harness's own, never the corpus root (decision 52).
 `pdx-bench differential-corpora` checks it against the language matrix and the lock
 (a test does so on every `make check`) and fetches the goldens as `make golden` does.
-A difference is a finding, never a new baseline: there is nothing to accept. The full
+A difference is a finding, never a new baseline: no run accepts one, and only a
+reviewed record in `engine-differential-divergences.json` ratifies one (below). The full
 canonical rows and any difference of the last run are under
 `.cache/engine-differential/<corpus>/`.
+
+## engine-differential-divergences.json
+
+The engine differential's ratified divergences (decision 66, an amendment to decisions 50
+and 52): differences between the vendored and the reference engine that an issue shows
+are the reference's known-wrong behaviour. It is not an allowlist. Each record is one
+exact divergence, `id`, `issue`, `decision`, `corpus`, `category`, `reference_row`,
+`vendored_row` and `reason`, its rows exactly as the harness's canonical form writes them
+(the absent side of a one-sided divergence is `null`), captured from a live run's
+`.canonical` files. `reference_commit` is the reference pin the records were validated
+against. A corpus passes only when the rows that differ and the rows ratified for it are
+equal multisets: an unratified difference fails, and so does a ratified one that no
+longer occurs. A pin change fails every run until each record is revalidated. The file is
+canonical JSON (sorted keys, two-space indent, ASCII), and no run writes it.
 
 ## golden/
 

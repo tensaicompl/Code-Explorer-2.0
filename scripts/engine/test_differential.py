@@ -3,8 +3,11 @@
 of both engines. The rows here are project-authored; the reference checkout is a local
 synthetic Git repository, never the real one."""
 
+import argparse
+import contextlib
 import copy
 import importlib.util
+import io
 import json
 import os
 import pathlib
@@ -12,6 +15,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[1]
@@ -273,6 +277,178 @@ class Reports(unittest.TestCase):
         self.assertIn("  reference only: and 30 more", lines)
 
 
+class RatifiedRows:
+    """One ratified divergence, taken from compare's output, and the file holding it."""
+
+    CORPUS = "golden:lang/repo"
+    PIN = "0" * 40
+
+    def setUp(self):
+        # The difference the records ratify, taken from compare's own output as the
+        # live one is: one typed answer whose callee the vendored engine spells otherwise.
+        ven = copy.deepcopy(side(V))
+        ven[6]["callee"] = f"{V}.pkg.m.h"
+        self.differences = differs(side(P), ven)
+        (self.ref_row,), (self.ven_row,) = self.differences["typed"]
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+
+    def record(self, **kw):
+        record = {"id": "issue-1-typed-callee", "issue": 1, "decision": 66,
+                  "corpus": self.CORPUS, "category": "typed", "reference_row": self.ref_row,
+                  "vendored_row": self.ven_row, "reason": "the reference is known wrong"}
+        record.update(kw)
+        return record
+
+    def judge(self, differences, records):
+        return D.ratify(self.CORPUS, differences, records)
+
+    def manifest(self, records, pin=None, raw=None):
+        path = pathlib.Path(self.tmp.name) / "divergences.json"
+        document = {"format": 1, "reference_commit": pin or self.PIN, "divergences": records}
+        path.write_bytes(raw if raw is not None else D.divergences_bytes(document))
+        return path
+
+    def load(self, records, **kw):
+        return D.load_divergences(self.PIN, {self.CORPUS, "fixture"}, self.manifest(records, **kw))
+
+    def refused(self, records, message, **kw):
+        with self.assertRaises(D.Failure) as caught:
+            self.load(records, **kw)
+        self.assertIn(message, str(caught.exception))
+
+
+class Ratification(RatifiedRows, unittest.TestCase):
+    """Decision 66: a corpus passes when the rows that differ (D) and the rows ratified
+    for it (R) are equal multisets, every row exact. D1 to D10 are the decision's cases."""
+
+    def test_d1_the_exact_ratified_difference_passes(self):
+        records = self.load([self.record()])
+        self.assertEqual(self.judge(self.differences, records), (["issue-1-typed-callee"], {}, []))
+
+    def test_d2_a_difference_no_record_ratifies_fails(self):
+        ven = copy.deepcopy(side(V))
+        ven[6]["callee"] = f"{V}.pkg.m.h"
+        ven.pop(1)
+        differences = differs(side(P), ven)
+        occurred, unexpected, stale = self.judge(differences, [self.record()])
+        self.assertEqual((occurred, stale), (["issue-1-typed-callee"], []))
+        self.assertEqual(list(unexpected), ["definitions"])
+        lines = D.ratification_lines(self.CORPUS, occurred, unexpected, stale)
+        self.assertEqual(lines[0], f"{self.CORPUS}: definitions: 1 row(s) only the reference "
+                                   "has, 0 only the vendored engine has")
+
+    def test_d3_a_ratification_that_no_longer_occurs_fails(self):
+        occurred, unexpected, stale = self.judge({}, [self.record()])
+        self.assertEqual((occurred, unexpected, stale), ([], {}, ["issue-1-typed-callee"]))
+        self.assertIn("  ratified divergence no longer occurs: issue-1-typed-callee",
+                      D.ratification_lines(self.CORPUS, occurred, unexpected, stale))
+
+    def test_d4_a_wrong_reference_row_fails(self):
+        wrong = self.ref_row.replace('"start":10', '"start":11')
+        self.assertNotEqual(wrong, self.ref_row)
+        occurred, unexpected, stale = self.judge(self.differences,
+                                                 self.load([self.record(reference_row=wrong)]))
+        self.assertEqual((occurred, stale), ([], ["issue-1-typed-callee"]))
+        self.assertEqual(unexpected, self.differences)
+        swapped = self.load([self.record(reference_row=self.ven_row, vendored_row=self.ref_row)])
+        self.assertEqual(self.judge(self.differences, swapped),
+                         ([], self.differences, ["issue-1-typed-callee"]))
+
+    def test_d5_a_wrong_vendored_row_fails(self):
+        wrong = self.ven_row.replace(f'"callee":"@.pkg.m.h"', '"callee":"@.pkg.m.k"')
+        self.assertNotEqual(wrong, self.ven_row)
+        occurred, unexpected, stale = self.judge(self.differences,
+                                                 self.load([self.record(vendored_row=wrong)]))
+        self.assertEqual((occurred, stale), ([], ["issue-1-typed-callee"]))
+        self.assertEqual(unexpected, self.differences)
+
+    def test_d6_the_wrong_corpus_fails(self):
+        records = self.load([self.record(corpus="fixture")])
+        # In the corpus that differs nothing is ratified, and in the one named, nothing occurs.
+        self.assertEqual(self.judge(self.differences, records), ([], self.differences, []))
+        self.assertEqual(D.ratify("fixture", {}, records), ([], {}, ["issue-1-typed-callee"]))
+        self.refused([self.record(corpus="golden:lang/other")], "no corpus is named")
+        self.refused([self.record(corpus="golden:*")], "no corpus is named")
+
+    def test_d7_the_wrong_category_fails(self):
+        self.refused([self.record(category="calls")],
+                     "the reference row is a typed row, and the record says calls")
+        self.refused([self.record(category="everything")], "no category is named")
+        call_row = D.canonical([call(P)], P, KINDS)[0]
+        self.refused([self.record(vendored_row=call_row)],
+                     "the vendored row is a calls row, and the record says typed")
+
+    def test_d8_multiplicity_is_kept(self):
+        doubled = {"typed": ([self.ref_row] * 2, [self.ven_row] * 2)}
+        occurred, unexpected, stale = self.judge(doubled, [self.record()])
+        self.assertEqual((occurred, stale), (["issue-1-typed-callee"], []))
+        self.assertEqual(unexpected, {"typed": ([self.ref_row], [self.ven_row])})
+        twice = [self.record(), self.record(id="issue-1-typed-callee-again")]
+        self.assertEqual(self.judge(self.differences, twice),
+                         (["issue-1-typed-callee"], {}, ["issue-1-typed-callee-again"]))
+        self.assertEqual(self.judge(doubled, twice),
+                         (["issue-1-typed-callee", "issue-1-typed-callee-again"], {}, []))
+
+    def test_d9_a_reference_pin_change_fails_until_revalidated(self):
+        self.refused([self.record()], "must be revalidated", pin="1" * 40)
+        self.assertEqual(len(self.load([self.record()])), 1)
+
+    def test_d10_a_corpus_with_no_ratification_stays_strict(self):
+        records = self.load([self.record(corpus="fixture")])
+        self.assertEqual(self.judge({}, records), ([], {}, []))
+        for differences in (self.differences, differs(side(P), side(V)[:-1])):
+            self.assertEqual(self.judge(differences, records), ([], differences, []))
+        self.assertEqual(self.judge(self.differences, []), ([], self.differences, []))
+
+    def test_a_one_sided_divergence_names_its_absent_side(self):
+        only_ref = {"typed": ([self.ref_row], [])}
+        records = self.load([self.record(vendored_row=None)])
+        self.assertEqual(self.judge(only_ref, records), (["issue-1-typed-callee"], {}, []))
+        occurred, unexpected, stale = self.judge(self.differences, records)
+        self.assertEqual((occurred, stale), (["issue-1-typed-callee"], []))
+        self.assertEqual(unexpected, {"typed": ([], [self.ven_row])})
+        self.refused([self.record(reference_row=None, vendored_row=None)], "explicit absence")
+        self.refused([self.record(vendored_row=self.ref_row)], "two different rows")
+
+    def test_nothing_widens_a_record(self):
+        # No pattern, prefix, partial row or extra field: a row is one canonical row.
+        self.refused([{**self.record(), "pattern": "*"}], "a record holds exactly")
+        unsorted = json.dumps(dict(reversed(json.loads(self.ven_row).items())),
+                              separators=(",", ":"))
+        for row in ("*", self.ven_row[:-20], self.ven_row.replace(",", ", "), unsorted):
+            self.refused([self.record(vendored_row=row)], "the vendored row is not a canonical row")
+        fields = json.loads(self.ven_row)
+        del fields["callee"]
+        partial = json.dumps(fields, sort_keys=True, separators=(",", ":"))
+        occurred, unexpected, stale = self.judge(
+            self.differences, self.load([self.record(vendored_row=partial)]))
+        self.assertEqual((occurred, stale), ([], ["issue-1-typed-callee"]))
+        self.assertEqual(unexpected, self.differences)
+
+    def test_the_file_is_held_to_one_form(self):
+        record = self.record()
+        document = {"format": 1, "reference_commit": self.PIN, "divergences": [record]}
+        self.refused([], "canonical form", raw=json.dumps(document).encode())
+        self.refused([], "nothing else", raw=b'{"format": 1}\n')
+        self.refused([self.record(id="Issue 1")], "is not a record id")
+        self.refused([self.record(issue="111")], "issue is not")
+        self.refused([self.record(decision=True)], "decision is not")
+        self.refused([self.record(reason=" ")], "no reason")
+        self.refused([self.record(id="b"), self.record(id="a")], "unique and sorted")
+        self.refused([self.record(), self.record()], "unique and sorted")
+
+    def test_the_committed_ratifications_hold_against_the_pin_and_the_manifest(self):
+        import tomllib
+        with open(REPO / "bench/engine-differential.toml", "rb") as fh:
+            manifest = tomllib.load(fh)
+        names = ({c["name"] for c in manifest["fixture"]}
+                 | {f"golden:{g['key']}" for g in manifest["golden"]})
+        records = D.load_divergences(D.reference_pin(), names)
+        for record in records:
+            self.assertGreaterEqual(record["decision"], 66)
+
+
 class Evidence(unittest.TestCase):
     def test_incomplete_typed_work_is_no_evidence(self):
         for row in (file_row(V, lsp_skipped=True), file_row(V, walk_truncated=True)):
@@ -434,6 +610,92 @@ if SIDE == "reference":
 else:
     print("{}")
 """
+
+
+class RunVerdicts(RatifiedRows, unittest.TestCase):
+    """The live run's verdict and wording under decision 66, the engines stood in for: a
+    corpus with ratified divergences passes without being called identical, and an
+    unexpected or stale one fails the run."""
+
+    def run_with(self, results, records, pin=None):
+        """cmd_run over corpora whose differences are `results`, ratified by `records`,
+        with the reference pinned at `pin` (the file's own by default)."""
+        root = pathlib.Path(self.tmp.name).resolve()
+        dump = root / "dump"
+        dump.write_text("")
+        found = [{"name": name, "kind": "golden", "language": "lang", "files": []}
+                 for name in results]
+        every = set(results) | {"fixture"}
+        empty = {name: 0 for name in D.CATEGORIES}
+        patches = {
+            "reference_pin": lambda: pin or self.PIN,
+            "reference_checkout": lambda: root / "checkout",
+            "check_checkout": lambda *a: None,
+            "kind_map": lambda: KINDS,
+            "corpora": lambda bench, names: (found, every),
+            "build_reference": lambda: root / "binary",
+            "run_corpus": lambda corpus, *a: (self.ran.append(corpus["name"]) or
+                                              (empty, empty, results[corpus["name"]], True)),
+            "DIVERGENCES": self.manifest(records),
+        }
+        saved = {name: getattr(D, name) for name in patches}
+        self.ran = []
+        out = io.StringIO()
+        try:
+            for name, value in patches.items():
+                setattr(D, name, value)
+            with mock.patch.dict(os.environ, {"PDX_DIFFERENTIAL_STAGE": str(root / "stage")}), \
+                    contextlib.redirect_stdout(out):
+                code = D.cmd_run(argparse.Namespace(dump=str(dump), pdx_bench="bench",
+                                                    corpus=[]))
+        finally:
+            for name, value in saved.items():
+                setattr(D, name, value)
+        return code, out.getvalue()
+
+    def test_ratified_divergences_pass_without_being_called_identical(self):
+        code, out = self.run_with({self.CORPUS: self.differences, "golden:x/y": {}},
+                                  [self.record()])
+        self.assertEqual(code, 0, out)
+        self.assertIn(f"ok {self.CORPUS} (lang): ", out)
+        self.assertIn("; 1 ratified divergence (decision 66): issue-1-typed-callee", out)
+        self.assertIn("corpora 2: 2 passed, 1 identical, 1 with 1 ratified divergence, "
+                      "0 unexpected divergences, 0 stale ratifications, 0 differ or failed", out)
+        self.assertIn("engine differential: passed, 1 identical and 1 with only ratified "
+                      "divergences (decision 66)", out)
+        self.assertNotIn("engine differential: identical", out)
+
+    def test_identical_corpora_are_identical(self):
+        code, out = self.run_with({self.CORPUS: {}, "golden:x/y": {}}, [])
+        self.assertEqual(code, 0, out)
+        self.assertIn("corpora 2: 2 passed, 2 identical, 0 with 0 ratified divergences", out)
+        self.assertTrue(out.endswith("engine differential: identical\n"), out)
+
+    def test_an_unexpected_difference_fails_the_run(self):
+        code, out = self.run_with({self.CORPUS: self.differences, "golden:x/y": {}}, [])
+        self.assertEqual(code, 1, out)
+        self.assertIn(f"DIFFERS {self.CORPUS} (lang)", out)
+        self.assertIn(f"{self.CORPUS}: typed: 1 row(s) only the reference has, 1 only the "
+                      "vendored engine has", out)
+        self.assertIn("2 unexpected divergences, 0 stale ratifications, 1 differ or failed", out)
+
+    def test_a_stale_ratification_fails_the_run(self):
+        code, out = self.run_with({self.CORPUS: {}, "golden:x/y": {}}, [self.record()])
+        self.assertEqual(code, 1, out)
+        self.assertIn("  ratified divergence no longer occurs: issue-1-typed-callee", out)
+        self.assertIn("0 unexpected divergences, 1 stale ratification, 1 differ or failed", out)
+
+    def test_a_pin_change_fails_before_any_run(self):
+        with self.assertRaises(D.Failure) as caught:
+            self.run_with({self.CORPUS: self.differences}, [self.record()], pin="1" * 40)
+        self.assertIn("must be revalidated", str(caught.exception))
+        self.assertEqual(self.ran, [])
+        # An empty file is validated against a pin as well.
+        with self.assertRaises(D.Failure):
+            self.run_with({self.CORPUS: {}}, [], pin="1" * 40)
+        self.assertEqual(self.ran, [])
+        self.run_with({self.CORPUS: {}}, [])
+        self.assertEqual(self.ran, [self.CORPUS])
 
 
 class HermeticRuns(unittest.TestCase):

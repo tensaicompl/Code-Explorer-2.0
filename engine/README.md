@@ -226,7 +226,12 @@ build of its pinned checkout outside the tree with an observation hook linked in
 map, inverted), and the surfaces it stores. `scripts/engine/differential.py` stages
 each corpus, runs both, canonicalises the rows (the project name wrapping qualified
 names becomes `@`, and each engine label gets the kind `api/pdxe.c` maps it to) and
-fails on any difference; nothing can be accepted.
+fails on any difference `bench/engine-differential-divergences.json` does not ratify;
+no run accepts one. A ratification (decision 66) is one exact canonical row pair, or one
+row against an explicit absence, in one category of one corpus, tied to an issue: a
+corpus passes only when the rows that differ and the rows ratified for it are equal
+multisets, so a ratification that no longer occurs fails as an unratified difference
+does, and a change of the reference pin fails until every record is revalidated.
 
 The differential compares the explicit engine contract; files around an engine are no
 input. Each engine runs, for each corpus, from a fresh empty working directory of the
