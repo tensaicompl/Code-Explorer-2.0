@@ -27,7 +27,7 @@ them. They are produced by:
   site dataset;
 - `scripts/a0/`, the stdlib-only audit: a SCIP reader, the language parsers' call
   sites, rules M1 to M6, 4.13.1's measures, the counterfactuals, and `run.py`, which
-  reruns everything;
+  reruns everything (`test_a0.py` runs in `make test`);
 - `bench/a0/sanity/`, the oracle sanity fixtures.
 
 The oracles (`scip-python`, `rust-analyzer`) run from an isolated work directory
@@ -81,9 +81,13 @@ differential holds one ratified divergence for it (decision 66). Next, each **on
 when the driver authorises it**: issue 109, then issue 110, then R3 (issue 102).
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
-each golden's typed precision, union precision and recall. A recall gain that draws
-low-confidence edges again is not accepted. Not drawing `exact` and `scoped` lowers
-recall first; that is accepted, correctness first.
+each golden's typed precision, union precision and recall. Build `pdx-bench` first
+(`cargo build -p pdx-bench`): the runner never builds it, and refuses before measuring
+anything unless `pdx-bench versions` reports the source's engine version, `pdx_core`
+constants and worker protocol (issue 115, resolved). A result's `engine_version` is the
+executed engine's. A recall gain that draws low-confidence edges again is not accepted.
+Not drawing `exact` and `scoped` lowers recall first; that is accepted, correctness
+first.
 
 ## State: P2 in progress
 
@@ -117,7 +121,7 @@ this paragraph.
 
 | Path | State |
 |---|---|
-| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` is the CLI (`index`, `coverage`, `version`, `bench`, and the hidden `engine-worker`); `pdx-bench` is the benchmark harness (the lock files, the golden harness: `pdx-bench golden [--accept]`, the determinism and performance baselines: `pdx-bench bench --determinism --perf`, with its hidden worker, and the engine differential's corpora: `pdx-bench differential-corpora`); the rest are skeletons |
+| `crates/` | Ten crates, licence split enforced by `scripts/open-binary-check.sh`. `pdx-engine-sys` builds and links the engine and holds its raw bindings (`make bindgen` regenerates them); `pdx-engine` is the only way above it into the engine; `pdx-core` holds the specification's constants, the language matrix (`languages`) and the graph model's identities, bands, kinds and rows (`ids`, `bands`, `kinds`, `model`), segments (`segment`: writer and reader), `pdx.toml` (`config`), secret normalisation (`secrets`), the pipeline's stages as they arrive (`index`: discover, extract, derive) and resolution (`resolve`: the symbol registry, the blocklist, the stages); `pdx` is the CLI (`index`, `coverage`, `version`, `bench`, and the hidden `engine-worker`); `pdx-bench` is the benchmark harness (the lock files, the golden harness: `pdx-bench golden [--accept]`, the determinism and performance baselines: `pdx-bench bench --determinism --perf`, with its hidden worker, and the engine differential's corpora: `pdx-bench differential-corpora`; A0's site dataset, `pdx-bench audit-sites`, and the versions it was built with, `pdx-bench versions`); the rest are skeletons |
 | `engine/` | The vendored extraction and typed-resolution engine, its interface (`include/pdxe.h`, `api/`), patches and tests. Read `engine/README.md` first; never edit a vendored file in place |
 | `ui/` | Vite + React + TypeScript scaffold, lint and tests green, no views yet |
 | `bench/` | Pinned references, golden and scale repositories, pre-move tree snapshot, the sanitizer corpus (`corpus/`), the goldens (`golden/`), the baselines (`results/<version>/`) and the engine differential's corpora (`engine-differential.toml`) |

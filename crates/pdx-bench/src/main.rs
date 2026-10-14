@@ -1,9 +1,10 @@
 //! The pdx-bench harness: `pdx-bench golden [--accept]` (P2-12), `pdx-bench bench
 //! --determinism --perf` (P2-14), which `pdx bench` launches, and `pdx-bench
 //! differential-corpora` (P2-16), which the engine differential reads, and `pdx-bench
-//! audit-sites` (A0.1, decision 64), which `scripts/a0/` reads. Its benchmark worker is
-//! served before the command line is parsed, when the first argument is
-//! `pdx_bench::bench::worker::WORKER`; it is no subcommand and in no help.
+//! audit-sites` (A0.1, decision 64), which `scripts/a0/` reads, and `pdx-bench versions`,
+//! which `scripts/a0/run.py` checks before it measures anything (issue 115). Its
+//! benchmark worker is served before the command line is parsed, when the first argument
+//! is `pdx_bench::bench::worker::WORKER`; it is no subcommand and in no help.
 
 use std::ffi::OsString;
 use std::process::ExitCode;
@@ -109,6 +110,11 @@ fn command() -> Command {
                         .help("The dataset to write; an existing file is replaced"),
                 ),
         )
+        .subcommand(Command::new("versions").about(
+            "Print, as JSON, the version of the engine this executable links and the \
+             versions compiled into it (scripts/a0/run.py refuses to measure unless they \
+             are the checkout's own)",
+        ))
 }
 
 fn main() -> ExitCode {
@@ -165,6 +171,10 @@ fn run_with(args: impl IntoIterator<Item = OsString>) -> ExitCode {
             m.get_one::<std::path::PathBuf>("out")
                 .expect("a required argument"),
         ),
+        Some(("versions", _)) => {
+            println!("{}", audit::versions());
+            Ok(())
+        }
         _ => unreachable!("a subcommand is required"),
     };
     match result {
@@ -299,7 +309,13 @@ mod tests {
         let names: Vec<&str> = cli.get_subcommands().map(Command::get_name).collect();
         assert_eq!(
             names,
-            ["golden", "bench", "differential-corpora", "audit-sites"]
+            [
+                "golden",
+                "bench",
+                "differential-corpora",
+                "audit-sites",
+                "versions"
+            ]
         );
         for args in [
             &["pdx-bench"][..],
@@ -312,6 +328,7 @@ mod tests {
             &["pdx-bench", WORKER],
             &["pdx-bench", "audit-sites"],
             &["pdx-bench", "audit-sites", "--root", "."],
+            &["pdx-bench", "versions", "--json"],
         ] {
             assert!(command().try_get_matches_from(args).is_err(), "{args:?}");
         }

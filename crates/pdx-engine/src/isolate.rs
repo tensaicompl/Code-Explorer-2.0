@@ -68,8 +68,9 @@ pub const DEFAULT_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(120);
 /// declaring node in place of one route (issue 54), 7 since the worker answers with
 /// records whose text is held as ranges of the request's source and whose qualified
 /// names are held structurally, which the parent binds to the source it sent (issue 90):
-/// an answer never sends a source back, and is proportional to the facts.
-const PROTOCOL: u32 = 7;
+/// an answer never sends a source back, and is proportional to the facts. Public so a
+/// program can report the protocol it was built with (issue 115).
+pub const PROTOCOL: u32 = 7;
 
 /// Whether the environment asks for isolation.
 pub fn isolation_requested() -> bool {

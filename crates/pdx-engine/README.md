@@ -122,7 +122,9 @@ after 6 for every route binding with its declaring node, 5 for sites' node-type 
 arguments, decorators, parameter types and one route, 4 for `impl Trait for Type`
 relations and 3 for bases and declared namespaces) and engine version first and is
 refused if they differ. An answer that does not bind to the source sent for it is no
-answer of the protocol: the exchange fails as a worker dying does.
+answer of the protocol: the exchange fails as a worker dying does. The version is
+`isolate::PROTOCOL`, public so a program can report what it was built with
+(`pdx-bench versions`, issue 115).
 
 Every exchange with a worker, its introduction included, is bounded in time: the
 request written and the response read within `DEFAULT_EXCHANGE_TIMEOUT` (120 s), or

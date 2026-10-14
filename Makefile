@@ -79,6 +79,7 @@ test: engine
 	python3 scripts/test_owner_census.py
 	python3 scripts/engine/test_differential.py
 	python3 scripts/engine/test_typed_differential.py
+	python3 scripts/a0/test_a0.py
 
 # Every third-party crate in Cargo.lock is covered by supply-chain/: audited, imported
 # by an owner's decision, or exempted on the record (Part 5.12, issue 36). Needs the

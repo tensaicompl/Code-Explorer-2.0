@@ -31,6 +31,31 @@ use serde_json::{Value, json};
 /// The dataset's format; a change to any field's meaning moves it.
 pub const FORMAT: u32 = 1;
 
+/// The format of [`versions`]' report; a change to any field's meaning moves it.
+pub const VERSIONS_FORMAT: u32 = 1;
+
+/// The versions this executable was built with, as `pdx-bench versions` prints them:
+/// the version the engine it links reports at run time, the `pdx_core` constants
+/// compiled into it and the worker protocol it speaks. `scripts/a0/run.py` measures
+/// nothing unless they are the checkout's own (issue 115), so a stale executable is
+/// never recorded under the source's versions. Only what the executable itself holds
+/// is reported: the engine's surface version is not in its interface.
+pub fn versions() -> Value {
+    use pdx_core::consts;
+    json!({
+        "format": VERSIONS_FORMAT,
+        "engine_version": pdx_engine::Engine::version(),
+        "pdx_core": {
+            "ENGINE_VERSION": consts::ENGINE_VERSION,
+            "EXTRACT_CACHE_FORMAT_VERSION": consts::EXTRACT_CACHE_FORMAT_VERSION,
+            "LANGUAGE_MATRIX_VERSION": consts::LANGUAGE_MATRIX_VERSION,
+            "SECRET_DETECTOR_VERSION": consts::SECRET_DETECTOR_VERSION,
+            "SEGMENT_SCHEMA_VERSION": consts::SEGMENT_SCHEMA_VERSION,
+        },
+        "worker_protocol": pdx_engine::isolate::PROTOCOL,
+    })
+}
+
 /// Why the dataset could not be made.
 #[derive(Debug, thiserror::Error)]
 pub enum AuditError {

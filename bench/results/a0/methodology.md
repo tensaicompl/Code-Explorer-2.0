@@ -28,8 +28,8 @@ its change is the resolver's alone.
 The post-R2 files record `engine_version` 7: at `d14ccd4` the engine called itself 7.
 Issue 112 renumbered that engine 8 without changing what it extracts or answers.
 Rerun at the hotfix, every document is identical but for `engine_version` (8, which
-`run.py` now reads from `consts.rs` rather than writing out) and the `resolver`
-label, and `mismatches.jsonl` and `counterfactuals.json` are byte-identical. The
+`run.py` then read from `consts.rs` rather than writing out; since issue 115 it is what
+the executed engine reports, checked equal to the source) and the `resolver` label, and `mismatches.jsonl` and `counterfactuals.json` are byte-identical. The
 post-111 files record engine 9.
 
 The post-R1 run also corrects three harness outputs. None of the three changes a
@@ -272,6 +272,18 @@ python3 scripts/a0/run.py --work DIR \
     --toolchain ~/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu \
     --self-sha <PDX corpus commit> --resolver "<the resolver measured>"
 ```
+
+Before anything else, `run.py` runs `target/debug/pdx-bench versions` and compares its
+report with the checkout's source (issue 115): the engine version the linked engine
+reports, the `pdx_core` constants compiled in (`ENGINE_VERSION`,
+`EXTRACT_CACHE_FORMAT_VERSION`, `LANGUAGE_MATRIX_VERSION`, `SECRET_DETECTOR_VERSION`,
+`SEGMENT_SCHEMA_VERSION`) and the worker protocol. It never builds the executable. A
+missing executable, one that cannot report, or any version unequal to the source's
+refuses the run before any corpus is measured or anything is written, naming both
+values; rebuild it and run again. The executable's bytes are then held: each dataset
+and the results check it is unchanged. The results are staged in the work directory
+and promoted together once all are written. A document's `engine_version` is the
+executed engine's own.
 
 `run.py` checks the sanity fixtures first. These are the cases in
 `bench/a0/sanity/`, each marked `A0: <case> -> <expected>`, and every one must pass

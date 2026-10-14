@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Tests of A0.1's audit tooling (decision 64) that need no indexer: the SCIP reader,
 the name tokens, rust-analyzer's tree dump, the verdict rules and 4.13.1's formulas
-on a synthetic case.
+on a synthetic case, and `run.py`'s check of the executable it measures (issue 115).
 
     python3 scripts/a0/test_a0.py
 """
 
 from __future__ import annotations
 
+import json
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -291,6 +293,287 @@ class Verdicts(unittest.TestCase):
         tags = score.fp_tags(row, self.ds.defs)
         self.assertEqual(tags[0], "self_edge")
         self.assertIn("module_or_package_uniqueness_only", tags)
+
+
+class ExecutableGuard(unittest.TestCase):
+    """Issue 115: `run.py` measures with the pdx-bench it runs only once that executable
+    has reported the source's versions, and records the executed engine's version."""
+
+    # Every version the source declares that the executable reports, and where.
+    DECLARED = {
+        "ENGINE_VERSION": "crates/pdx-core/src/consts.rs",
+        "EXTRACT_CACHE_FORMAT_VERSION": "crates/pdx-core/src/consts.rs",
+        "LANGUAGE_MATRIX_VERSION": "crates/pdx-core/src/consts.rs",
+        "SECRET_DETECTOR_VERSION": "crates/pdx-core/src/consts.rs",
+        "SEGMENT_SCHEMA_VERSION": "crates/pdx-core/src/consts.rs",
+        "PROTOCOL": "crates/pdx-engine/src/isolate.rs",
+    }
+
+    def setUp(self):
+        import contextlib
+        import io
+        import tempfile
+        import run
+        self.run = run
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(__import__("shutil").rmtree, self.tmp)
+        # A checkout: the real files declaring the versions, at a root of the test's own.
+        self.root = self.tmp / "checkout"
+        self.declared = {}
+        for name, rel in self.DECLARED.items():
+            (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
+            text = (run.ROOT / rel).read_text()
+            (self.root / rel).write_text(text)
+            prefix = f"pub const {name}: u32 = "
+            (line,) = [x for x in text.splitlines() if x.startswith(prefix)]
+            self.declared[name] = int(line.removeprefix(prefix).rstrip(";"))
+        self.bench = self.root / run.EXECUTABLE
+        self.calls = self.tmp / "calls.log"
+        self.report = self.tmp / "report.json"
+        self.executable(self.built_from_source())
+        # Oracles that record being run and fail: the first thing run after the guard.
+        self.bin = self.tmp / "bin"
+        self.bin.mkdir()
+        for tool in ("rust-analyzer", "scip-python"):
+            self.script(self.bin / tool, f'echo "{tool} $@" >> "{self.calls}"\nexit 1\n')
+        self.out = self.tmp / "results"
+        self.out.mkdir()
+        (self.out / "rust.json").write_text("the results before this run\n")
+        self.quiet = contextlib.redirect_stdout(io.StringIO())
+
+    def script(self, path: Path, body: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("#!/bin/sh\n" + body)
+        path.chmod(0o755)
+
+    def built_from_source(self, **stale) -> dict:
+        """The report of an executable built from the checkout's source, or with the
+        versions given in place of the source's (an executable not rebuilt since)."""
+        v = {**self.declared, **stale}
+        return {"format": 1, "engine_version": str(v["ENGINE_VERSION"]),
+                "pdx_core": {k: v[k] for k in (
+                    "ENGINE_VERSION", "EXTRACT_CACHE_FORMAT_VERSION",
+                    "LANGUAGE_MATRIX_VERSION", "SECRET_DETECTOR_VERSION",
+                    "SEGMENT_SCHEMA_VERSION")},
+                "worker_protocol": v["PROTOCOL"]}
+
+    def executable(self, report: dict | None, exit_code: int = 0) -> None:
+        if report is not None:
+            self.report.write_text(json.dumps(report))
+        self.script(self.bench,
+                    f'echo "pdx-bench $@" >> "{self.calls}"\n'
+                    f'if [ "$1" = versions ]; then cat "{self.report}"; exit {exit_code}; fi\n'
+                    'exit 3\n')
+
+    def bump(self, name: str) -> None:
+        """A source change of `name` with no rebuild."""
+        path = self.root / self.DECLARED[name]
+        line = f"pub const {name}: u32 = {self.declared[name]};"
+        text = path.read_text()
+        self.assertEqual(text.count(line), 1)
+        path.write_text(text.replace(line, f"pub const {name}: u32 = {self.declared[name] + 1};"))
+
+    def main(self):
+        """`run.py` over the test's checkout, with every tool the test's own."""
+        argv = ["--work", str(self.tmp / "work"), "--scip-python", str(self.bin / "scip-python"),
+                "--rust-analyzer", str(self.bin / "rust-analyzer"),
+                "--rust-src", str(self.tmp / "rust-src"), "--toolchain", str(self.tmp / "tc"),
+                "--self-sha", "0" * 40, "--resolver", "test", "--out", str(self.out)]
+        saved = self.run.ROOT
+        self.run.ROOT = self.root
+        try:
+            with self.quiet:
+                return self.run.main(argv)
+        finally:
+            self.run.ROOT = saved
+
+    def ran(self) -> list[str]:
+        return self.calls.read_text().splitlines() if self.calls.exists() else []
+
+    def refused(self) -> str:
+        with self.assertRaises(SystemExit) as e:
+            self.main()
+        return str(e.exception.code)
+
+    def assert_nothing_measured_or_written(self):
+        self.assertEqual(self.ran(), ["pdx-bench versions"])
+        self.assertFalse((self.tmp / "work").exists())
+        self.assertEqual(sorted(p.name for p in self.out.iterdir()), ["rust.json"])
+        self.assertEqual((self.out / "rust.json").read_text(), "the results before this run\n")
+
+    def test_a1_an_executable_built_from_the_source_proceeds(self):
+        with self.quiet:
+            executable = self.run.Executable(self.bench, self.root)
+        self.assertEqual(executable.versions, self.built_from_source())
+        # Past the guard, run.py goes on to the oracles' versions, which fail here.
+        with self.assertRaises(subprocess.CalledProcessError):
+            self.main()
+        self.assertEqual(self.ran()[-2:], ["pdx-bench versions", "rust-analyzer --version"])
+
+    def test_a2_a_stale_executable_is_refused_before_any_corpus(self):
+        e = self.declared["ENGINE_VERSION"]
+        self.executable(self.built_from_source(ENGINE_VERSION=e - 1))
+        message = self.refused()
+        self.assertEqual(message, (
+            f"A0 refused: source ENGINE_VERSION={e} but pdx-bench reports engine_version={e - 1}; "
+            f"source ENGINE_VERSION={e} but pdx-bench reports pdx_core.ENGINE_VERSION={e - 1}. "
+            "Rebuild the executable (cargo build -p pdx-bench) before running the audit."))
+        self.assert_nothing_measured_or_written()
+
+    def test_a3_a_refusal_writes_and_promotes_nothing(self):
+        for report, code in ((self.built_from_source(SEGMENT_SCHEMA_VERSION=0), 0),
+                             (None, 1), ({"format": 2}, 0)):
+            with self.subTest(report=report, code=code):
+                self.calls.unlink(missing_ok=True)
+                if report is None:
+                    self.report.write_text("")
+                self.executable(report, code)
+                self.assertTrue(self.refused().startswith("A0 refused: "))
+                self.assert_nothing_measured_or_written()
+        self.bench.unlink()
+        self.calls.unlink(missing_ok=True)
+        self.assertIn("does not exist", self.refused())
+        self.assertEqual(self.ran(), [])
+        self.assertFalse((self.tmp / "work").exists())
+
+    def test_a4_the_provenance_is_the_executed_engines(self):
+        with self.quiet:
+            executable = self.run.Executable(self.bench, self.root)
+        version = self.declared["ENGINE_VERSION"]
+        saved = self.run.ROOT
+        self.run.ROOT = self.root
+        try:
+            provenance = self.run.common_provenance("r", executable, {"oracle": "v"})
+            self.assertEqual(provenance, {"resolver": "r", "engine_version": version,
+                                          "oracle_versions": {"oracle": "v"}})
+            # Read from what the executable reported, never the source again.
+            self.bump("ENGINE_VERSION")
+            self.report.write_text(json.dumps(self.built_from_source(ENGINE_VERSION=version + 7)))
+            provenance = self.run.common_provenance("r", executable, {})
+            self.assertEqual(provenance["engine_version"], version)
+        finally:
+            self.run.ROOT = saved
+        # And an executable rebuilt after its check measures nothing more.
+        self.script(self.bench, self.bench.read_text().removeprefix("#!/bin/sh\n") + "# rebuilt\n")
+        tools = type("Tools", (), {"executable": executable, "pdx_bench": self.bench})()
+        self.calls.unlink(missing_ok=True)
+        with self.assertRaises(SystemExit) as e:
+            self.run.dataset(tools, self.root, self.tmp / "sites.jsonl")
+        self.assertIn("changed after its versions were checked", str(e.exception.code))
+        self.assertEqual(self.ran(), [])
+
+    def test_a5_a_source_bump_without_a_rebuild_is_caught(self):
+        fields = {name: [f"pdx_core.{name}"] for name in self.DECLARED}
+        fields["ENGINE_VERSION"].insert(0, "engine_version")
+        fields["PROTOCOL"] = ["worker_protocol"]
+        for name, reported in fields.items():
+            with self.subTest(name=name):
+                self.setUp()
+                self.bump(name)
+                message = self.refused()
+                v = self.declared[name]
+                self.assertEqual(message, "A0 refused: " + "; ".join(
+                    f"source {name}={v + 1} but pdx-bench reports {f}={v}" for f in reported)
+                    + ". Rebuild the executable (cargo build -p pdx-bench) before running "
+                    "the audit.")
+                self.assert_nothing_measured_or_written()
+
+    def test_the_checkouts_own_versions_are_read(self):
+        self.assertEqual({(name, rel) for name, rel, _ in self.run.VERSIONS},
+                         set(self.DECLARED.items()))
+        for name, rel in self.DECLARED.items():
+            self.assertEqual(self.run.source_version(self.run.ROOT, rel, name),
+                             self.declared[name])
+
+    def test_results_are_written_only_with_the_executable_checked_and_together(self):
+        with self.quiet:
+            executable = self.run.Executable(self.bench, self.root)
+        work = self.tmp / "work"
+        work.mkdir()
+        tools = type("Tools", (), {"executable": executable, "work": work,
+                                   "pdx_bench": self.bench})()
+        results = {name: (name, self.tmp / "sites", self.tmp, {})
+                   for name in ("python", "rust", "pdx-self")}
+        reports = []
+        fail = [0]
+        rebuild = [0]
+
+        def rebuilt():
+            self.script(self.bench,
+                        self.bench.read_text().removeprefix("#!/bin/sh\n") + "# rebuilt\n")
+
+        def report(cmd, **_):
+            cmd = [str(c) for c in cmd]
+            reports.append(cmd)
+            if len(reports) == fail[0]:
+                raise subprocess.CalledProcessError(1, cmd)
+            if len(reports) == rebuild[0]:
+                rebuilt()
+            Path(cmd[cmd.index("--out") + 1]).write_text(json.dumps({"counterfactuals": {}}))
+
+        saved = self.run.run
+        self.run.run = report
+        try:
+            # A report that fails part way promotes nothing.
+            fail[0] = 2
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.run.write_results(tools, results, self.out)
+            self.assertEqual(sorted(p.name for p in self.out.iterdir()), ["rust.json"])
+            self.assertEqual((self.out / "rust.json").read_text(),
+                             "the results before this run\n")
+            # Every report written: all promoted.
+            fail[0], reports[:] = 0, []
+            self.run.write_results(tools, results, self.out)
+            self.assertEqual(len(reports), 3)
+            self.assertEqual(sorted(p.name for p in self.out.iterdir()), [
+                "counterfactuals.json", "mismatches.jsonl", "pdx-self.json", "python.json",
+                "rust.json"])
+            self.assertEqual(json.loads((self.out / "rust.json").read_text()),
+                             {"counterfactuals": {}})
+            # An executable rebuilt while the reports are written: nothing is promoted.
+            before = {p.name: p.read_bytes() for p in self.out.iterdir()}
+            rebuild[0], reports[:] = 2, []
+            with self.assertRaises(SystemExit):
+                self.run.write_results(tools, results, self.out)
+            self.assertEqual(len(reports), 3)
+            self.assertEqual({p.name: p.read_bytes() for p in self.out.iterdir()}, before)
+            # Rebuilt before: no report runs.
+            rebuilt()
+            reports[:] = []
+            with self.assertRaises(SystemExit):
+                self.run.write_results(tools, results, self.out)
+            self.assertEqual(reports, [])
+            self.assertEqual({p.name: p.read_bytes() for p in self.out.iterdir()}, before)
+        finally:
+            self.run.run = saved
+
+    def test_results_are_promoted_together(self):
+        staged = self.tmp / "staged"
+        staged.mkdir()
+        for name in ("rust.json", "python.json"):
+            (staged / name).write_text(f"new {name}\n")
+        # A copy that fails replaces nothing.
+        copy = self.run.shutil.copyfile
+        copied = []
+
+        def failing(src, dst):
+            copied.append(src)
+            if len(copied) == 2:
+                raise OSError("no space")
+            return copy(src, dst)
+
+        self.run.shutil.copyfile = failing
+        try:
+            with self.assertRaises(OSError):
+                self.run.promote(staged, self.out)
+        finally:
+            self.run.shutil.copyfile = copy
+        self.assertEqual(sorted(p.name for p in self.out.iterdir()), ["rust.json"])
+        self.assertEqual((self.out / "rust.json").read_text(), "the results before this run\n")
+        self.run.promote(staged, self.out)
+        self.assertEqual(sorted(p.name for p in self.out.iterdir()),
+                         ["python.json", "rust.json"])
+        self.assertEqual((self.out / "rust.json").read_text(), "new rust.json\n")
 
 
 if __name__ == "__main__":

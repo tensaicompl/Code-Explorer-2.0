@@ -22,6 +22,9 @@ make perf                   # the same, then pdx bench --perf
 
 pdx-bench differential-corpora   # the engine differential's corpora, checked, as JSON
 make engine-differential         # the engine against the reference engine (nightly)
+
+pdx-bench audit-sites --root DIR --out FILE   # A0.1's site dataset (scripts/a0/)
+pdx-bench versions               # the versions this executable was built with, as JSON
 ```
 
 Run from the workspace root (the directory holding `Cargo.toml`, `bench/repos.lock` and
@@ -207,6 +210,21 @@ Before printing anything it checks (`differential::check_manifest`):
 The golden checkouts are prepared exactly as `golden` prepares them (P2-12's Git
 settings and invariants); nothing else here fetches.
 
+## A0's site dataset and the executable's versions (decision 64, issue 115)
+
+`pdx-bench audit-sites` writes A0.1's site dataset (`audit::write_dataset`): Stages 1
+to 3 run in this process, as the pipeline runs them, and every call site is written as
+Stage 3 settled it. `scripts/a0/run.py` runs it over each corpus.
+
+`pdx-bench versions` prints one JSON object (`audit::versions`, format 1): the version
+the engine it links reports at run time (`engine_version`, the engine's own string),
+the `pdx_core` constants compiled into it (`ENGINE_VERSION`,
+`EXTRACT_CACHE_FORMAT_VERSION`, `LANGUAGE_MATRIX_VERSION`, `SECRET_DETECTOR_VERSION`,
+`SEGMENT_SCHEMA_VERSION`) and the worker protocol it speaks (`worker_protocol`). Before
+it measures anything, `run.py` refuses an executable whose report is not the checkout's
+own source. The engine's surface version is not in the engine's interface, so it is
+not reported.
+
 ## The golden format (plan 5.7, decision 44)
 
 ```json
@@ -247,6 +265,7 @@ settings and invariants); nothing else here fetches.
 | `bench::process` | `run_monitored` (input, bounded output, resident-memory sampling, the ceiling), `SystemProbe`, `MEMORY_CEILING_BYTES`, `SAMPLE_INTERVAL` |
 | `bench::host` | `Host` (the machine, never named), `available_workers` |
 | `bench::results` | `ResultFile`, `SummaryFile`, `merge`, `summarise`, `canonical_bytes`, `stage_and_promote` |
+| `audit` | `write_dataset`, `FORMAT`: A0.1's site dataset; `versions`, `VERSIONS_FORMAT`: what the executable was built with |
 | `differential` | `parse`, `check_manifest`, `fixture_corpus`, `golden_corpus`, `check_files`, `typed_languages`, `typed_goldens`: the engine differential's corpora |
 | `bench::run` | `preflight`, `Settings`, `determinism_specs`, `sample_spec`, `check_determinism`, `aggregate`, `run(run, checkouts, builder, out, err)`, the `Builder` and `Checkouts` traits, `WorkerBuilder`, `GitCheckouts` |
 
@@ -313,6 +332,8 @@ cargo test -p pdx-bench
   the resident-memory probe and ceiling, the host record, the result format and the
   safe emptying of the area.
 
+- `audit_sites` writes site datasets of small fixtures, and runs `pdx-bench versions`:
+  its report is the linked engine's version and the compiled constants.
 - `engine_differential` holds `engine_differential_identical`: the differential's
   canonical comparison, on a committed synthetic pair of row dumps
   (`tests/data/engine-differential/`), gives the same bytes for the same facts whatever

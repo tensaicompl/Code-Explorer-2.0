@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 115 | 2026-10-14 | P2-06 | blocker | resolved | Found in issue 114's A0 run: `scripts/a0/run.py` measures with `target/debug/pdx-bench`, which it never builds, and took the `engine_version` it records from `consts.rs`, the source. Nothing tied a result to the executable that produced it: with `ENGINE_VERSION` moved to 10 in the working tree and the executable built before, at 9, the run measured engine 9 and labelled every document engine 10. That run was discarded and measured again after a rebuild; no committed result came from it | Resolved 2026-10-14 (hotfix): `pdx-bench versions` prints, as JSON, the version the linked engine reports at run time, the `pdx_core` constants compiled in (`ENGINE_VERSION`, `EXTRACT_CACHE_FORMAT_VERSION`, `LANGUAGE_MATRIX_VERSION`, `SECRET_DETECTOR_VERSION`, `SEGMENT_SCHEMA_VERSION`) and the worker protocol. Before anything runs, `run.py` compares each with the source and refuses, naming both values and writing nothing, on any difference, a missing executable or one that cannot report. The executable's bytes are held for the run (checked before each dataset and the results), the results are staged and promoted together, and a document's `engine_version` is the executed engine's. Tests A1 to A5 in `scripts/a0/test_a0.py`, now part of `make test`; 14 mutations killed. No resolution, extraction, version or A0 rule (`a0-match-1`, `a0-metrics-1`) changes |
 | 114 | 2026-10-14 | P2-06 | blocker | open | Found by issue 111: a Rust `use` has no lexical scope in PDX. The typed pass reads a file's top-level and inline-module `use` declarations as the whole file's, so a test module's `use crate::other::fetch;` makes the module's own call of its own `fetch` a typed answer to `other::fetch` (engine 8 with a plain `use`; engine 9 also with a list it now reads); neither pass reads a `use` in a function body, so 34 calls of PDX itself imported that way have no typed answer; and Stage 3 reads a file's top-level imports only, so an inline module's call is drawn `import-guided` to the module's import. The measured corpora hold no wrong trusted edge from it | Open. Give each `use` its lexical scope (module, inline module, block, function body) and bind its names only for the sites in it, in the typed pass and Stage 3 alike. Never by reading a function's or an inline module's imports as the file's: that broadening is what draws the wrong edge now. |
 | 113 | 2026-10-14 | P2-06 | blocker | open | Found by issue 111, three causes: (A) a type path through `crate::` and a re-export names no definition: the typed pass keeps `crate::extract::NestedPath` as written, neither anchoring `crate::` nor following `pub use self::nested_path::NestedPath;`, so 5 `NestedPath::as_str` calls of the Rust golden have no typed answer; (B) an impl of an imported type names its methods' caller under the import (`http.header.HeaderMap.into_response_parts`) while extraction names the owner by the file's module, so 2 correct answers (`headers_mut`, `extensions_mut`) join no site and are drawn `exact`; (C) a module file named `index.rs` is named as its parent (`golden/index.rs`'s functions as `golden`'s), so a path through `golden::index` names no such function: 4 calls of PDX itself. All predate issue 111 (engine 8 with a plain `use` does the same) and draw no wrong edge | Open. (A) Anchor `crate::`, `self::` and `super::` in a type path and follow re-exports to the definition by identity, never a last-segment guess. (B) Name an impl's methods' caller as extraction names their owner. (C) Name a module file by its stem. Separate fixes. |
 | 112 | 2026-10-14 | P2-16 | blocker | resolved | Found after issue 104 (R2): patch 0028 changed what Rust extraction records while `ENGINE_VERSION` stayed 7, and the extraction cache is keyed by the engine version, so an entry engine 7 wrote before the patch was served after it for the same source, path, language and policy. What differs: a bare call of a function its block declares is now `LOCALLY_BOUND`, and a Rust file's per-file typed answers, which its surface holds, need path evidence and leave a `match` arm's and a block's names alone. Shown with both builds: the same 5 object ids, 3 entries' bytes different, and the post-patch build, served the pre-patch entries, drawing `a::expand` to the crate root's `expand` and the arm's `params` as a typed reference | Resolved 2026-10-14 (hotfix): `ENGINE_VERSION` 7 to 8, in `consts.rs` and the engine (`pdxe_version`). Engine 7 began with patch 0015; 0028 is engine 8. Every other version is unchanged. `cache_entries_of_engine_seven_are_never_served`: a faithful engine 7 entry is a miss, the file is extracted again with engine 8's facts, the old entry is left alone, an engine 8 entry is written and served warm; with the version back at 7 it fails. Goldens, A0 and the differential are unchanged but for the version |
@@ -156,6 +157,78 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 115 — The A0 runner can record the source's `ENGINE_VERSION` while running a stale executable
+
+Found during issue 114's A0 run. `scripts/a0/run.py` measures with
+`target/debug/pdx-bench` and never builds it, rightly: a run must not change what it
+measures. But it took the `engine_version` it records from
+`crates/pdx-core/src/consts.rs`, the source, so nothing tied a result to the executable
+that produced it. Issue 114's working tree had moved `ENGINE_VERSION` to 10, the
+executable had been built before that change, at engine 9, and the run measured engine
+9 and labelled every document engine 10. The numbers showed none of the expected
+change; the run was discarded and measured again after a rebuild. No committed result
+came from it.
+
+**Resolution (hotfix, 2026-10-14).** The executable reports its versions and the runner
+refuses to measure with one that is not the source's.
+
+- **The report.** `pdx-bench versions` prints one JSON object (`audit::versions`,
+  format 1): `engine_version`, the linked engine's own answer at run time
+  (`pdxe_version`, a string); `pdx_core`, the constants compiled in
+  (`ENGINE_VERSION`, `EXTRACT_CACHE_FORMAT_VERSION`, `LANGUAGE_MATRIX_VERSION`,
+  `SECRET_DETECTOR_VERSION`, `SEGMENT_SCHEMA_VERSION`); and `worker_protocol`, the
+  protocol its isolated extraction speaks (`pdx_engine::isolate::PROTOCOL`, now public).
+  The engine's `SURFACE_VERSION` is private to the engine's interface code and the
+  executable cannot report it, so it is not checked.
+- **The check.** First, before any directory is made or any tool runs, `run.py` reads
+  each constant from the source (`pub const NAME: u32 = n;`, exactly once) and compares
+  it with the report: `ENGINE_VERSION` against both the engine's answer and the
+  compiled constant, the others against their compiled values, `PROTOCOL` against
+  `worker_protocol`. Any difference refuses the run, naming every one:
+  `A0 refused: source ENGINE_VERSION=10 but pdx-bench reports engine_version=9; source
+  ENGINE_VERSION=10 but pdx-bench reports pdx_core.ENGINE_VERSION=9. Rebuild the
+  executable (cargo build -p pdx-bench) before running the audit.` A missing
+  executable, one whose `versions` fails (any executable built before this fix), one
+  that prints no JSON or another format are refused the same way.
+- **Held.** The executable's SHA-256 is taken at the check. Each dataset and the
+  result set check it unchanged; an executable rebuilt during the run refuses it before
+  any result is written.
+- **Results.** Written to a stage in the work directory and promoted into
+  `bench/results/a0/` together, only once all are written; a copy that fails leaves the
+  directory as it was.
+- **Provenance.** A document's `engine_version` is the executed engine's answer,
+  checked equal to the source's, never the source read again.
+
+Tests (`scripts/a0/test_a0.py`, `ExecutableGuard`, now run by `make test`), each with a
+checkout and an executable of its own: A1, an executable built from the source passes
+and the run goes on to the oracles; A2, an executable reporting engine 9 against source
+10 is refused with the message above, and only `pdx-bench versions` ran; A3, a refusal
+(a stale schema version, a failing `versions`, another format, no executable) writes no
+work directory and leaves the results as they were; A4, the provenance's version is the
+executed engine's, unchanged when the source moves after the check, and an executable
+rebuilt after it runs no dataset; A5, a source move of each of the six constants without
+a rebuild is refused naming it. Also: results promoted only when every report is
+written and the executable is unchanged, and promotion all or nothing.
+`versions_report_what_the_executable_was_built_with` (`crates/pdx-bench/tests/
+audit_sites.rs`) runs the built executable and compares its report with the engine and
+the constants.
+
+Mutations, each killed: the check removed, a difference not refused, the check after
+the work directory, a missing executable accepted, a constant or the protocol dropped
+from the comparison, no check before a dataset, before the reports or before promotion,
+the provenance or the executed version read from the source, results written in place,
+promoted one by one, and staging files left after a failed copy.
+
+Live: the executable left by issue 114's parked work (no `versions`) is refused; with
+`ENGINE_VERSION` moved to 10 in `consts.rs` and no rebuild, the run is refused with the
+message above; rebuilt, the check passes. `bench/results/a0/` was byte-identical
+throughout.
+
+No resolution, extraction, band or version changes, and no A0 rule: `a0-match-1` and
+`a0-metrics-1` are unchanged and the committed results are not regenerated.
 
 State: resolved.
 

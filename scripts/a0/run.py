@@ -18,6 +18,13 @@ Steps for each corpus: the site dataset (`pdx-bench audit-sites`), the oracle's
 SCIP index, the audit (`audit.py`), the result document (`report.py`). Then the
 sanity fixtures, which must pass before any number is accepted. Every external
 command is printed before it runs.
+
+Before any of it, the `target/debug/pdx-bench` it runs must report, through
+`pdx-bench versions`, the versions the checkout's source declares (issue 115): it is
+never built here and never assumed fresh. A mismatch, a missing executable or one that
+cannot report refuses the run before anything is measured or written, and an
+executable that changes during the run refuses it before any result is written. The
+results are staged and promoted together, only once all of them are written.
 """
 
 from __future__ import annotations
@@ -31,6 +38,7 @@ import subprocess
 import sys
 import tomllib
 from pathlib import Path
+from typing import NoReturn
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
@@ -81,7 +89,8 @@ class Tools:
         self.rust_analyzer = args.rust_analyzer.resolve()
         self.rust_src = args.rust_src.resolve()
         self.toolchain = args.toolchain.resolve()
-        self.pdx_bench = ROOT / "target/debug/pdx-bench"
+        self.pdx_bench = ROOT / EXECUTABLE
+        self.executable: Executable | None = None
 
     def rust_env(self, cargo_home: Path | None, offline: bool) -> dict:
         env = {
@@ -119,18 +128,118 @@ class Tools:
                 "scip-python_integrity": integrity}
 
 
-def engine_version() -> int:
-    """The engine version of the pdx-bench measured: the repository's own constant, which
-    the engine's reported version is tested equal to (issue 112: never written out here)."""
-    text = (ROOT / "crates/pdx-core/src/consts.rs").read_text()
-    found = [line for line in text.splitlines()
-             if line.startswith("pub const ENGINE_VERSION: u32 = ")]
+EXECUTABLE = "target/debug/pdx-bench"
+
+# The versions the checkout's source declares and an executable built from it reports
+# (issue 115): the constant's name, the file declaring it, and the field of
+# `pdx-bench versions` reporting it. ENGINE_VERSION is checked twice: as the engine the
+# executable links answers at run time (its `pdxe_version`, a string) and as compiled
+# into `pdx_core`. The engine's surface version is not reported: the executable cannot
+# tell it.
+CONSTS = "crates/pdx-core/src/consts.rs"
+VERSIONS = (
+    ("ENGINE_VERSION", CONSTS, "engine_version"),
+    ("ENGINE_VERSION", CONSTS, "pdx_core.ENGINE_VERSION"),
+    ("EXTRACT_CACHE_FORMAT_VERSION", CONSTS, "pdx_core.EXTRACT_CACHE_FORMAT_VERSION"),
+    ("LANGUAGE_MATRIX_VERSION", CONSTS, "pdx_core.LANGUAGE_MATRIX_VERSION"),
+    ("SECRET_DETECTOR_VERSION", CONSTS, "pdx_core.SECRET_DETECTOR_VERSION"),
+    ("SEGMENT_SCHEMA_VERSION", CONSTS, "pdx_core.SEGMENT_SCHEMA_VERSION"),
+    ("PROTOCOL", "crates/pdx-engine/src/isolate.rs", "worker_protocol"),
+)
+VERSIONS_FORMAT = 1
+REBUILD = "Rebuild the executable (cargo build -p pdx-bench) before running the audit."
+
+
+def refuse(message: str) -> NoReturn:
+    raise SystemExit(f"A0 refused: {message}")
+
+
+def source_version(root: Path, rel: str, name: str) -> int:
+    """`pub const <name>: u32 = <n>;` in the source file `rel`, exactly once."""
+    prefix = f"pub const {name}: u32 = "
+    found = [line for line in (root / rel).read_text().splitlines()
+             if line.startswith(prefix)]
     if len(found) != 1:
-        sys.exit("run.py: crates/pdx-core/src/consts.rs has no single ENGINE_VERSION")
-    return int(found[0].split("=")[1].strip().rstrip(";"))
+        refuse(f"{rel} declares {len(found)} {name}, not one")
+    return int(found[0].removeprefix(prefix).strip().rstrip(";"))
+
+
+def reported_versions(pdx_bench: Path) -> dict:
+    """What the executable reports of itself: `pdx-bench versions`' JSON."""
+    if not pdx_bench.is_file():
+        refuse(f"{pdx_bench} does not exist. {REBUILD}")
+    try:
+        done = subprocess.run([str(pdx_bench), "versions"], capture_output=True,
+                              text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        refuse(f"{pdx_bench} versions could not run ({e}). {REBUILD}")
+    if done.returncode != 0:
+        refuse(f"{pdx_bench} cannot report its versions (`versions` exited "
+               f"{done.returncode}). {REBUILD}")
+    try:
+        report = json.loads(done.stdout)
+    except ValueError:
+        refuse(f"{pdx_bench} versions printed no JSON document. {REBUILD}")
+    if not isinstance(report, dict) or report.get("format") != VERSIONS_FORMAT:
+        refuse(f"{pdx_bench} versions is not format {VERSIONS_FORMAT}. {REBUILD}")
+    return report
+
+
+def field(report: dict, path: str):
+    value = report
+    for part in path.split("."):
+        value = value.get(part) if isinstance(value, dict) else None
+    return value
+
+
+def check_versions(pdx_bench: Path, root: Path) -> dict:
+    """The executable's report, only if every version it reports is the source's at
+    `root`; refuses naming every one that is not."""
+    report = reported_versions(pdx_bench)
+    wrong = []
+    for name, rel, path in VERSIONS:
+        declared = source_version(root, rel, name)
+        reported = field(report, path)
+        # The engine answers with its own string; the constants are compiled integers.
+        expected = str(declared) if path == "engine_version" else declared
+        if type(reported) is not type(expected) or reported != expected:
+            shown = reported if type(reported) is type(expected) else json.dumps(reported)
+            wrong.append(f"source {name}={declared} but pdx-bench reports {path}={shown}")
+    if wrong:
+        refuse("; ".join(wrong) + f". {REBUILD}")
+    return report
+
+
+class Executable:
+    """The pdx-bench measured: checked against the source before the first corpus, and
+    held to the bytes it had then (issue 115)."""
+
+    def __init__(self, path: Path, root: Path):
+        self.path = path
+        self.digest = sha256(path) if path.is_file() else None
+        self.versions = check_versions(path, root)
+        self.verify()
+        print(f"pdx-bench: {json.dumps(self.versions, sort_keys=True)}", flush=True)
+
+    def verify(self) -> None:
+        if not self.path.is_file() or sha256(self.path) != self.digest:
+            refuse(f"{self.path} changed after its versions were checked; nothing measured "
+                   f"with it is recorded. {REBUILD}")
+
+    def engine_version(self) -> int:
+        """The executed engine's version, checked equal to the source's."""
+        return int(self.versions["engine_version"])
+
+
+def common_provenance(resolver: str, executable: Executable, oracles: dict) -> dict:
+    """What every result document records of the run: the engine version is the one the
+    executed engine reported, checked equal to the source's (issue 115)."""
+    return {"resolver": resolver, "engine_version": executable.engine_version(),
+            "oracle_versions": oracles}
 
 
 def dataset(tools: Tools, tree: Path, out: Path) -> None:
+    tools.executable.verify()
     run([tools.pdx_bench, "audit-sites", "--root", tree, "--out", out])
 
 
@@ -196,7 +305,7 @@ def rust_only(src: Path, dest: Path) -> None:
                 out.write(line)
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--work", required=True, type=Path)
     ap.add_argument("--scip-python", required=True, type=Path)
@@ -209,8 +318,10 @@ def main() -> int:
                     help="the resolver measured: the commit whose pdx-bench runs Stages 1 to 3, "
                          "as results should name it")
     ap.add_argument("--out", type=Path, default=ROOT / "bench/results/a0")
-    args = ap.parse_args()
+    args = ap.parse_args(argv)
     tools = Tools(args)
+    # Nothing is measured, run or written before the executable is checked.
+    tools.executable = Executable(tools.pdx_bench, ROOT)
     tools.work.mkdir(parents=True, exist_ok=True)
     (tools.work / "out").mkdir(exist_ok=True)
     versions = tools.versions()
@@ -235,11 +346,7 @@ def main() -> int:
         run([sys.executable, HERE / "sanity.py", "--fixture", ROOT / "bench/a0/sanity" / language,
              "--audit", tools.work / "out", "--corpus", corpus])
 
-    provenance_common = {
-        "resolver": args.resolver,
-        "engine_version": engine_version(),
-        "oracle_versions": versions,
-    }
+    provenance_common = common_provenance(args.resolver, tools.executable, versions)
     results = {}
 
     # The Python golden.
@@ -292,13 +399,24 @@ def main() -> int:
         "oracle": "rust-analyzer scip", "oracle_setup": setup,
         "diagnostic_only": "cannot pass or fail G1b"})
 
-    # The result set.
-    args.out.mkdir(parents=True, exist_ok=True)
-    mismatches = args.out / "mismatches.jsonl"
-    mismatches.unlink(missing_ok=True)
+    write_results(tools, results, args.out)
+    return 0
+
+
+def write_results(tools: Tools, results: dict, dest: Path) -> None:
+    """The result set: written to a stage in the work directory, then promoted into
+    `dest` together, once every document is written and only if the executable measured
+    is still the one checked (issue 115)."""
+    tools.executable.verify()
+    staged = tools.work / "results"
+    if staged.exists():
+        shutil.rmtree(staged)
+    staged.mkdir()
+    mismatches = staged / "mismatches.jsonl"
+    mismatches.touch()
     counterfactuals = {}
     for name, (corpus, sites, tree, provenance) in results.items():
-        out = args.out / f"{name}.json"
+        out = staged / f"{name}.json"
         run([sys.executable, HERE / "report.py", "--audit", tools.work / "out",
              "--corpus", corpus, "--sites", sites, "--checkout", tree,
              "--provenance", json.dumps(provenance), "--out", out,
@@ -308,13 +426,30 @@ def main() -> int:
             + (["--false-positives-only"] if name == "pdx-self" else []))
         doc = json.loads(out.read_text())
         counterfactuals[name] = doc["counterfactuals"]
-    (args.out / "counterfactuals.json").write_text(json.dumps({
+    (staged / "counterfactuals.json").write_text(json.dumps({
         "policies": score.POLICY_TEXT,
         "metrics_version": score.METRICS_VERSION,
         "note": "A0.2 re-scores A0.1's one dataset per corpus; no resolver behaviour was "
                 "changed. pdx-self is diagnostic only.",
         "corpora": counterfactuals}, indent=1, sort_keys=True) + "\n")
-    return 0
+    tools.executable.verify()
+    promote(staged, dest)
+
+
+def promote(staged: Path, out: Path) -> None:
+    """Every staged result into `out`: all copied beside their places first, then each
+    renamed into place. A copy that fails leaves `out` as it was."""
+    names = sorted(p.name for p in staged.iterdir())
+    out.mkdir(parents=True, exist_ok=True)
+    try:
+        for name in names:
+            shutil.copyfile(staged / name, out / f".{name}.staged")
+    except BaseException:
+        for name in names:
+            (out / f".{name}.staged").unlink(missing_ok=True)
+        raise
+    for name in names:
+        os.replace(out / f".{name}.staged", out / name)
 
 
 if __name__ == "__main__":

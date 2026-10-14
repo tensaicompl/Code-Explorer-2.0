@@ -104,3 +104,48 @@ fn a_blocklisted_name_is_typed_with_a_qualifying_answer_and_blocked_without() {
     assert_eq!(blocked["target"], Value::Null);
     assert_ne!(blocked["engine"]["verdict"], "typed");
 }
+
+/// `pdx-bench versions` (issue 115) is what `scripts/a0/run.py` compares with the
+/// checkout's source before it measures anything: the executable's own engine's answer
+/// and the constants compiled into it, never text from the checkout.
+#[test]
+fn versions_report_what_the_executable_was_built_with() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_pdx-bench"))
+        .arg("versions")
+        .output()
+        .expect("pdx-bench runs");
+    assert!(output.status.success(), "{output:?}");
+    let report: Value = serde_json::from_slice(&output.stdout).expect("one JSON document");
+    assert_eq!(report, pdx_bench::audit::versions());
+    assert_eq!(report["format"], pdx_bench::audit::VERSIONS_FORMAT);
+    assert_eq!(report["engine_version"], pdx_engine::Engine::version());
+    assert_eq!(
+        report["engine_version"],
+        pdx_core::consts::ENGINE_VERSION.to_string()
+    );
+    let core = report["pdx_core"].as_object().expect("the constants");
+    for (name, value) in [
+        ("ENGINE_VERSION", pdx_core::consts::ENGINE_VERSION),
+        (
+            "EXTRACT_CACHE_FORMAT_VERSION",
+            pdx_core::consts::EXTRACT_CACHE_FORMAT_VERSION,
+        ),
+        (
+            "LANGUAGE_MATRIX_VERSION",
+            pdx_core::consts::LANGUAGE_MATRIX_VERSION,
+        ),
+        (
+            "SECRET_DETECTOR_VERSION",
+            pdx_core::consts::SECRET_DETECTOR_VERSION,
+        ),
+        (
+            "SEGMENT_SCHEMA_VERSION",
+            pdx_core::consts::SEGMENT_SCHEMA_VERSION,
+        ),
+    ] {
+        assert_eq!(core[name], value, "{name}");
+    }
+    assert_eq!(core.len(), 5);
+    assert_eq!(report["worker_protocol"], pdx_engine::isolate::PROTOCOL);
+    assert_eq!(report.as_object().expect("an object").len(), 4);
+}
