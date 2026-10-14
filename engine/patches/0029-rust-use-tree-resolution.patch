@@ -1,0 +1,392 @@
+--- a/engine/src/lsp/rust_lsp.c
++++ b/engine/src/lsp/rust_lsp.c
+@@ -314,17 +314,46 @@ static void rust_strip_turbofish(char *path) {
+ }
+ 
+ /* Look up a `use` alias and return its fully-qualified module path,
+- * or NULL if absent. The returned pointer aliases into the use map. */
++ * or NULL if absent. The returned pointer aliases into the use map.
++ *
++ * Issue 111: found through the use map's index by local name (issue 92), in the
++ * order the entries were added: the file's own use trees, in source order, then the
++ * imports a caller bridged in. A name the file's use trees bind to two different
++ * paths is no import at all: the map is the file's, Rust's `use` is a module's or a
++ * block's, and which binding a site sees is not known here, so neither is chosen.
++ * When the index cannot grow nothing is found (lost work, counted where the
++ * allocation failed), never a scan. */
+ static const char *rust_resolve_use(RustLSPContext *ctx, const char *local_name) {
+     if (!ctx || !local_name) {
+         return NULL;
+     }
+-    for (int i = 0; i < ctx->use_count; i++) {
+-        if (strcmp(ctx->use_local_names[i], local_name) == 0) {
+-            return ctx->use_module_paths[i];
++    bool scan = false;
++#if defined(PDXE_ENABLE_TEST_SEAMS)
++    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
++    scan = reference && reference[0];
++#endif
++    PDXENameIndex *by_name = &ctx->uses_by_name;
++    while (!scan && !by_name->failed && by_name->covered < ctx->use_count) {
++        pdxe_name_index_place(by_name, ctx->arena, ctx->use_local_names[by_name->covered]);
++    }
++    const char *found = NULL;
++    for (int i = scan ? 0 : pdxe_name_index_first(by_name, local_name);
++         scan ? i < ctx->use_count : i >= 0; i = scan ? i + 1 : pdxe_name_index_next(by_name, i)) {
++        PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ENTRIES);
++        if (strcmp(ctx->use_local_names[i], local_name) != 0) {
++            continue;
++        }
++        if (i >= ctx->use_tree_count) {
++            /* A bridged import: what the use trees bind comes first. */
++            return found ? found : ctx->use_module_paths[i];
++        }
++        if (!found) {
++            found = ctx->use_module_paths[i];
++        } else if (strcmp(found, ctx->use_module_paths[i]) != 0) {
++            return NULL; /* bound to two paths */
+         }
+     }
+-    return NULL;
++    return found;
+ }
+ 
+ /* The Rust prelude is auto-imported into every module. We map each name
+@@ -4967,6 +4996,10 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+             size_t crate_len =
+                 first_dot ? (size_t)(first_dot - ctx->module_qn) : strlen(ctx->module_qn);
+             const char *evidence = tail != path ? path : rust_import_evidence(ctx, path);
++            /* Issue 111: an import binds the name its path ends in, under an alias
++             * when it has one (`use a::on_service as service;`): that name is the
++             * function's. */
++            const char *wanted = evidence && tail == path ? path_last_segment(evidence) : tail;
+             RustQualifier ql;
+             bool read = evidence && rust_qualifier_read(ctx, evidence, &ql);
+             RustQualifier *globs = NULL;
+@@ -4978,10 +5011,10 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+             }
+             const PDXERegisteredFunc *agreeing = NULL;
+             int agree = 0;
+-            /* Iterate only free funcs whose short_name == tail via the index; the
++            /* Iterate only free funcs whose short_name == wanted via the index; the
+              * receiver/short_name/crate-prefix re-checks below are unchanged. */
+             PDXEFreeFuncIter ffit;
+-            pdxe_registry_free_funcs_by_short_name(ctx->registry, tail, &ffit);
++            pdxe_registry_free_funcs_by_short_name(ctx->registry, wanted, &ffit);
+             for (int i; (read || glob_n > 0) && agree < 2 &&
+                         (i = pdxe_free_func_iter_next(&ffit)) >= 0;) {
+                 const PDXERegisteredFunc *f = &ctx->registry->funcs[i];
+@@ -4989,7 +5022,7 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+                     continue;
+                 if (f->receiver_type)
+                     continue; /* free functions only */
+-                if (strcmp(f->short_name, tail) != 0)
++                if (strcmp(f->short_name, wanted) != 0)
+                     continue;
+                 /* Crate-scoped: QN must start with the same prefix. */
+                 if (strncmp(f->qualified_name, ctx->module_qn, crate_len) != 0)
+@@ -5005,8 +5038,16 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+                 }
+             }
+             if (agree == 1 && agreeing) {
+-                rust_emit_resolved_call(ctx, agreeing->qualified_name, "lsp_short_name_unique",
+-                                        PDXE_RUST_CONF_PROMOTED);
++                if (strcmp(wanted, tail) != 0) {
++                    /* Called by its alias: the site joins by the name it spells, as
++                     * Python's imported aliases do. */
++                    rust_emit_resolved_call_reason(ctx, agreeing->qualified_name,
++                                                   "lsp_import_alias", PDXE_RUST_CONF_PROMOTED,
++                                                   path);
++                } else {
++                    rust_emit_resolved_call(ctx, agreeing->qualified_name, "lsp_short_name_unique",
++                                            PDXE_RUST_CONF_PROMOTED);
++                }
+                 return;
+             }
+         }
+@@ -5825,131 +5866,156 @@ void rust_lsp_process_file(RustLSPContext *ctx, TSNode root) {
+  * 11. Per-file entry: build registry + run
+  * ════════════════════════════════════════════════════════════════════ */
+ 
+-/* Collect `use_declaration`s in the file and materialise our use map.
+- * Tree-sitter-rust models the pattern as:
++/* Issue 111: a `use` tree read from the syntax tree, never from its text, so that
++ * nested and multi-line lists, comments, aliases, `self`, globs and a visibility
++ * before `use` all mean what Rust says. The pinned grammar's shapes:
+  *
+- *   use_declaration → identifier | scoped_identifier | scoped_use_list |
+- *                     use_list | use_as_clause | use_wildcard.
++ *   use_declaration: visibility_modifier? `use` argument: <tree> `;`
++ *   <tree>: identifier | crate | self | super | scoped_identifier (path?, name)
++ *         | scoped_use_list (path?, list: use_list)
++ *         | use_list ({ <tree> or a comment, ... })
++ *         | use_as_clause (path, alias)
++ *         | use_wildcard (<path>?)
+  *
+- * We expand each of these into one or more (alias, full-path) entries. */
+-static void rust_collect_uses(RustLSPContext *ctx, TSNode root) {
+-    /* Recursive walker. */
+-    typedef struct stack_t {
+-        TSNode node;
+-        struct stack_t *prev;
+-    } stack_t;
+-    stack_t *top = (stack_t *)pdxe_arena_alloc(ctx->arena, sizeof(stack_t));
+-    top->node = root;
+-    top->prev = NULL;
+-    while (top) {
+-        TSNode n = top->node;
+-        top = top->prev;
+-        if (ts_node_is_null(n))
+-            continue;
+-        const char *k = ts_node_type(n);
+-        if (strcmp(k, "use_declaration") == 0) {
+-            char *full = rust_node_text(ctx, n);
+-            if (full) {
+-                if (strncmp(full, "use ", 4) == 0)
+-                    full += 4;
+-                size_t len = strlen(full);
+-                if (len > 0 && full[len - 1] == ';')
+-                    full[len - 1] = '\0';
+-                /* Trim leading whitespace. */
+-                while (*full == ' ')
+-                    full++;
+-                /* Detect glob. */
+-                size_t flen = strlen(full);
+-                if (flen >= 3 && strcmp(full + flen - 3, "::*") == 0) {
+-                    char *mod = pdxe_arena_strndup(ctx->arena, full, flen - 3);
+-                    rust_lsp_add_glob(ctx, convert_path_to_qn(ctx->arena, mod));
+-                } else if (flen >= 1 && full[flen - 1] == '}') {
+-                    /* Brace list: prefix::{a, b as c, d}. */
+-                    char *lbr = strchr(full, '{');
+-                    if (lbr) {
+-                        size_t prefix_len = (size_t)(lbr - full);
+-                        /* Strip trailing "::" from prefix. */
+-                        while (prefix_len >= 2 && full[prefix_len - 1] == ':' &&
+-                               full[prefix_len - 2] == ':') {
+-                            prefix_len -= 2;
+-                        }
+-                        char *prefix = pdxe_arena_strndup(ctx->arena, full, prefix_len);
+-                        char *body = pdxe_arena_strdup(ctx->arena, lbr + 1);
+-                        size_t blen = strlen(body);
+-                        if (blen > 0 && body[blen - 1] == '}')
+-                            body[blen - 1] = '\0';
+-                        char *save = NULL;
+-                        char *tok = strtok_r(body, ",", &save);
+-                        while (tok) {
+-                            while (*tok == ' ')
+-                                tok++;
+-                            char *eb = tok + strlen(tok) - 1;
+-                            while (eb > tok && *eb == ' ')
+-                                *eb-- = '\0';
+-                            if (*tok == '\0') {
+-                                tok = strtok_r(NULL, ",", &save);
+-                                continue;
+-                            }
+-                            /* `Read` or `Read as R`. */
+-                            char *asp = strstr(tok, " as ");
+-                            char *alias = NULL;
+-                            char *path_part = tok;
+-                            if (asp) {
+-                                *asp = '\0';
+-                                alias = asp + 4;
+-                                while (*alias == ' ')
+-                                    alias++;
+-                            } else {
+-                                alias = (char *)path_last_segment(tok);
+-                            }
+-                            char *full_path =
+-                                (strcmp(tok, "self") == 0)
+-                                    ? pdxe_arena_strdup(ctx->arena, prefix)
+-                                    : pdxe_arena_sprintf(ctx->arena, "%s::%s", prefix, path_part);
+-                            rust_lsp_add_use(ctx, alias, full_path);
+-                            tok = strtok_r(NULL, ",", &save);
+-                        }
+-                    }
+-                } else {
+-                    /* Single path; possibly followed by ` as X`. */
+-                    char *asp = strstr(full, " as ");
+-                    char *alias = NULL;
+-                    char *path_part = full;
+-                    if (asp) {
+-                        *asp = '\0';
+-                        alias = asp + 4;
+-                        while (*alias == ' ')
+-                            alias++;
+-                    } else {
+-                        alias = (char *)path_last_segment(full);
+-                    }
+-                    rust_lsp_add_use(ctx, alias, path_part);
+-                }
++ * The path a path node spells, its segments joined by `::`, a leading `::` left
++ * out: in Rust 2018 it names an extern crate, as the bare name does. NULL for a
++ * node that is no path (a macro's metavariable). */
++static char *rust_use_path(RustLSPContext *ctx, TSNode node) {
++    if (ts_node_is_null(node)) {
++        return NULL;
++    }
++    const char *kind = ts_node_type(node);
++    if (strcmp(kind, "identifier") == 0 || strcmp(kind, "crate") == 0 ||
++        strcmp(kind, "self") == 0 || strcmp(kind, "super") == 0) {
++        return rust_node_text(ctx, node);
++    }
++    if (strcmp(kind, "scoped_identifier") != 0) {
++        return NULL;
++    }
++    char *name = rust_use_path(ctx, ts_node_child_by_field_name(node, "name", 4));
++    TSNode head = ts_node_child_by_field_name(node, "path", 4);
++    if (!name || ts_node_is_null(head)) {
++        return name;
++    }
++    char *path = rust_use_path(ctx, head);
++    return path ? pdxe_arena_sprintf(ctx->arena, "%s::%s", path, name) : NULL;
++}
++
++/* `prefix::path`, or `path` alone at the top of a tree. */
++static char *rust_use_join(RustLSPContext *ctx, const char *prefix, const char *path) {
++    if (!path) {
++        return NULL;
++    }
++    return prefix ? pdxe_arena_sprintf(ctx->arena, "%s::%s", prefix, path)
++                  : pdxe_arena_strdup(ctx->arena, path);
++}
++
++/* Binds `name` to `path`, unless the name is no binding: `_` (`use Trait as _;`),
++ * or a keyword a path ends in (`use super::{self};`, which Rust rejects). */
++static void rust_use_bind(RustLSPContext *ctx, const char *name, const char *path) {
++    if (!name || !path || !name[0] || strcmp(name, "_") == 0 || strcmp(name, "self") == 0 ||
++        strcmp(name, "super") == 0 || strcmp(name, "crate") == 0) {
++        return;
++    }
++    rust_lsp_add_use(ctx, name, path);
++}
++
++/* Adds what one use tree binds, below `prefix` (NULL at the top): each name to the
++ * path it is imported by, in source order, and each glob's module. */
++static void rust_collect_use_tree(RustLSPContext *ctx, TSNode tree, const char *prefix) {
++    const char *kind = ts_node_type(tree);
++    if (strcmp(kind, "use_list") == 0) {
++        PDXE_FOR_EACH_NAMED_CHILD(it, tree) {
++            rust_collect_use_tree(ctx, it.node, prefix);
++        }
++        return;
++    }
++    if (strcmp(kind, "scoped_use_list") == 0) {
++        TSNode path = ts_node_child_by_field_name(tree, "path", 4);
++        TSNode list = ts_node_child_by_field_name(tree, "list", 4);
++        const char *base = prefix;
++        if (!ts_node_is_null(path)) {
++            base = rust_use_join(ctx, prefix, rust_use_path(ctx, path));
++            if (!base) {
++                return;
+             }
+         }
+-        /* Issue 104: an inline module's name, for the paths through it. */
+-        if (strcmp(k, "mod_item") == 0 && !ts_node_is_null(ts_node_child_by_field_name(n, "body", 4))) {
+-            TSNode mname = ts_node_child_by_field_name(n, "name", 4);
++        if (!ts_node_is_null(list)) {
++            rust_collect_use_tree(ctx, list, base);
++        }
++        return;
++    }
++    if (strcmp(kind, "use_as_clause") == 0) {
++        TSNode path = ts_node_child_by_field_name(tree, "path", 4);
++        TSNode alias = ts_node_child_by_field_name(tree, "alias", 5);
++        if (ts_node_is_null(path) || ts_node_is_null(alias)) {
++            return;
++        }
++        /* `{self as name}` names the prefix itself. */
++        const char *full = strcmp(ts_node_type(path), "self") == 0 && prefix
++                               ? prefix
++                               : rust_use_join(ctx, prefix, rust_use_path(ctx, path));
++        rust_use_bind(ctx, rust_node_text(ctx, alias), full);
++        return;
++    }
++    if (strcmp(kind, "use_wildcard") == 0) {
++        TSNode path = (TSNode){0};
++        PDXE_FOR_EACH_NAMED_CHILD(it, tree) {
++            path = it.node;
++            break;
++        }
++        const char *module =
++            ts_node_is_null(path) ? prefix : rust_use_join(ctx, prefix, rust_use_path(ctx, path));
++        if (module) {
++            rust_lsp_add_glob(ctx, convert_path_to_qn(ctx->arena, module));
++        }
++        return;
++    }
++    if (strcmp(kind, "self") == 0 && prefix) {
++        /* `{self}` binds the prefix under its last name. */
++        rust_use_bind(ctx, path_last_segment(prefix), prefix);
++        return;
++    }
++    /* A path; anything else (a comment, a metavariable) binds nothing. */
++    char *full = rust_use_join(ctx, prefix, rust_use_path(ctx, tree));
++    if (full) {
++        rust_use_bind(ctx, path_last_segment(full), full);
++    }
++}
++
++/* Collects the file's `use` declarations, at the top and in inline modules, into the
++ * use map, in source order, and the names of its inline modules. A visibility before
++ * `use` (`pub`, `pub(crate)`, `pub(in path)`) binds the names in the module all the
++ * same. */
++static void rust_collect_uses_in(RustLSPContext *ctx, TSNode items) {
++    PDXE_FOR_EACH_NAMED_CHILD(it, items) {
++        TSNode item = it.node;
++        const char *kind = ts_node_type(item);
++        if (strcmp(kind, "use_declaration") == 0) {
++            TSNode tree = ts_node_child_by_field_name(item, "argument", 8);
++            if (!ts_node_is_null(tree)) {
++                rust_collect_use_tree(ctx, tree, NULL);
++            }
++        } else if (strcmp(kind, "mod_item") == 0) {
++            TSNode body = ts_node_child_by_field_name(item, "body", 4);
++            if (ts_node_is_null(body)) {
++                continue;
++            }
++            /* Issue 104: an inline module's name, for the paths through it. */
++            TSNode mname = ts_node_child_by_field_name(item, "name", 4);
+             char *name = ts_node_is_null(mname) ? NULL : rust_node_text(ctx, mname);
+             if (name)
+                 pdxe_idxmemo_put_if_absent(&ctx->inline_modules, ctx->arena, name, 1);
+-        }
+-        /* Recurse into mod_item bodies so nested uses are captured too. */
+-        if (strcmp(k, "mod_item") == 0 || strcmp(k, "source_file") == 0 ||
+-            strcmp(k, "declaration_list") == 0) {
+-            PDXE_FOR_EACH_CHILD(it, n) {
+-                TSNode c = it.node;
+-                if (ts_node_is_null(c))
+-                    continue;
+-                stack_t *nx = (stack_t *)pdxe_arena_alloc(ctx->arena, sizeof(stack_t));
+-                nx->node = c;
+-                nx->prev = top;
+-                top = nx;
+-            }
++            rust_collect_uses_in(ctx, body);
+         }
+     }
+ }
+ 
++static void rust_collect_uses(RustLSPContext *ctx, TSNode root) {
++    rust_collect_uses_in(ctx, root);
++    ctx->use_tree_count = ctx->use_count;
++}
++
+ /* Build the registry from the per-file `result->defs`, `result->impl_traits`,
+  * and a Rust prelude seed. */
+ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDXEFileResult *result,
+--- a/engine/src/lsp/rust_lsp.h
++++ b/engine/src/lsp/rust_lsp.h
+@@ -78,6 +78,12 @@ typedef struct {
+     const char **use_module_paths;
+     int use_count;
+     int use_cap; // entries the use arrays hold
++    /* Issue 111: the entries [0, use_tree_count) are the file's own `use` trees,
++     * read from its syntax tree; the ones after, the imports a caller bridges in.
++     * `uses_by_name` finds an entry by its local name (`name_index.h`), placed as
++     * entries are added. */
++    int use_tree_count;
++    PDXENameIndex uses_by_name;
+ 
+     const char **glob_module_qns;
+     int glob_count;

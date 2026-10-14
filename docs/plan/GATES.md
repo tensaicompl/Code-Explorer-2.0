@@ -491,6 +491,27 @@ Of the Rust golden's 17 trusted false positives, 15 are no longer drawn wrong; t
 blanket impl (issue 109) and the macro-written impl (issue 110) are left. 16 correct
 typed edges are `exact` now, and 6 are lost to `candidate` (issue 111).
 
+A0 after issue 111, 2026-10-14 (resolved: Rust `use` declarations read from the syntax
+tree, engine 9). This is evidence, not an evaluation; the status stays `pending`. The
+same pins, oracles and rules are used, the results are `bench/results/a0/`, and the
+baseline is post-R2 (`d14ccd4`).
+
+| Golden | Floor | Post-R2 | After issue 111 | Floor met |
+|---|---|---|---|---|
+| Python | `typed` precision ≥ 97% | 314 / 314 = 100.00% | 314 / 314 = 100.00% | yes |
+| Python | union precision ≥ 95% | 624 / 657 = 94.98% | 624 / 657 = 94.98% | **no** |
+| Python | recall ≥ 85% | 606 / 1,114 = 54.40% | 606 / 1,114 = 54.40% | **no** |
+| Rust | `typed` precision ≥ 97% | 843 / 844 = 99.88% | 859 / 860 = 99.88% | yes |
+| Rust | union precision ≥ 95% | 1,610 / 2,559 = 62.92% | 1,612 / 2,560 = 62.97% | **no** |
+| Rust | recall ≥ 85% | 1,407 / 4,052 = 34.72% | 1,409 / 4,056 = 34.74% | **no** |
+
+The oracle-verifiable fraction is 657 / 660 (Python) and 2,560 / 2,608 (Rust).
+Four of the six floors still fail.
+
+The 31 typed answers R2 lost to misread `use` lists are correct `typed` again, and one
+`scoped` false positive is now correct `typed`. No new wrong trusted edge appears. Seven
+correct typed edges are lost to paths the engine still misreads (issue 113).
+
 ## G2 — after `P3-09`
 
 Status: **pending**

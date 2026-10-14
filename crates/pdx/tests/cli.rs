@@ -707,7 +707,7 @@ fn cli_version_prints_four_versions() {
     let output = world.pdx_in(world.elsewhere.path(), &["version"], &[]);
     assert_eq!(code(&output), 0);
     // Written out here, not taken from the code under test.
-    assert_eq!(stdout(&output), "pdx 0.1.0\nengine 8\nschema 3\nmatrix 2\n");
+    assert_eq!(stdout(&output), "pdx 0.1.0\nengine 9\nschema 3\nmatrix 2\n");
     assert_eq!(stderr(&output), "");
 }
 

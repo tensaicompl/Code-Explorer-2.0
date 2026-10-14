@@ -58,9 +58,12 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// decision 58); 8 since Rust extraction marks a bare call of a function its block
 /// declares locally bound, and the per-file typed answers a Rust file's surface holds
 /// need path evidence and leave the names a `match` arm or a block binds alone (patch
-/// 0028, issue 104), which engine 7 cached otherwise under the same key (issue 112).
+/// 0028, issue 104), which engine 7 cached otherwise under the same key (issue 112); 9
+/// since a Rust file's `use` declarations are read from its syntax tree, so the names
+/// nested and multi-line lists, aliases, `self` and `pub use` bind reach its per-file
+/// typed answers and the calls those answers add (patch 0029, issue 111).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
-pub const ENGINE_VERSION: u32 = 8;
+pub const ENGINE_VERSION: u32 = 9;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the

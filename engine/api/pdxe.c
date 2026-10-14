@@ -58,8 +58,11 @@
  * call of a function its block declares is locally bound, and a Rust file's per-file
  * typed answers, which its surface holds, need path evidence and leave the names a
  * `match` arm or a block binds alone (issue 104, patch 0028); engine 7 cached the
- * extractions before it under the same key (issue 112). */
-static const char ENGINE_VERSION_STRING[] = "8";
+ * extractions before it under the same key (issue 112). 9: a Rust file's `use`
+ * declarations are read from its syntax tree, so what nested and multi-line lists,
+ * aliases, `self` and `pub use` bind reaches its per-file typed answers and the calls
+ * they add (issue 111, patch 0029). */
+static const char ENGINE_VERSION_STRING[] = "9";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;

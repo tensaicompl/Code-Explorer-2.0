@@ -735,27 +735,27 @@ fn cache_object_id_fixed_vector() {
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (8, 2),
-        "the vector below is engine 8's and matrix 2's"
+        (9, 2),
+        "the vector below is engine 9's and matrix 2's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 4,
         "the vector below is detector 4's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 6, 8 and 2, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 6, 9 and 2, the policy digest
     // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
-    // 3's to 7's are in cache_key_includes_engine_version. Format 5's (texts copied,
+    // 3's to 8's are in cache_key_includes_engine_version. Format 5's (texts copied,
     // before issue 90) was 59c9f740…550a: the format moved every key. Detector 3's was
     // c1c95f71…8e28 and detector 2's 6ff3be1c…d177: each policy moved every key, and
     // the format did not move.
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "5d5e1d9acd18caca1bdbf4d474efd464d71394cd77b2fba043be60ef334c0b68"
+        "b8e9117f1091c8d80dad018e6a08a46c5bff4fada4dd25d919f27a44b5561d31"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v6").join("5d").join(&id));
+    assert_eq!(path, Path::new("cache").join("v6").join("b8").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -766,8 +766,8 @@ fn cache_object_id_fixed_vector() {
 
 #[test]
 fn cache_key_includes_engine_version() {
-    // An engine whose output can differ is another key: what engines 3 to 7 cached is
-    // never found by engine 8 (issues 74 to 76, 83 and 112). Independently computed, as the
+    // An engine whose output can differ is another key: what engines 3 to 8 cached is
+    // never found by engine 9 (issues 74 to 76, 83, 112 and 111). Independently computed, as the
     // vector above, with each engine version, under format 6 (issue 90); format 5's
     // were 088819a1…0d81, ba0eb494…1508, 582d9e04…2bd4, c44fe667…0069 and
     // 59c9f740…550a.
@@ -804,6 +804,10 @@ fn cache_key_includes_engine_version() {
             8,
             "5d5e1d9acd18caca1bdbf4d474efd464d71394cd77b2fba043be60ef334c0b68",
         ),
+        (
+            9,
+            "b8e9117f1091c8d80dad018e6a08a46c5bff4fada4dd25d919f27a44b5561d31",
+        ),
     ] {
         let mut versioned = key.clone();
         versioned.engine_version = engine;
@@ -816,10 +820,10 @@ fn cache_key_includes_engine_version() {
         assert!(path.starts_with(Path::new("cache").join("v6")), "{path:?}");
         ids.push(versioned.object_id());
     }
-    assert_eq!(key.object_id(), ids[5], "the current key is engine 8's");
+    assert_eq!(key.object_id(), ids[6], "the current key is engine 9's");
     ids.sort();
     ids.dedup();
-    assert_eq!(ids.len(), 6, "each engine version is another key");
+    assert_eq!(ids.len(), 7, "each engine version is another key");
 }
 
 #[test]
@@ -2390,7 +2394,8 @@ fn cache_entries_of_engine_seven_are_never_served() {
     // source, path, language and policy: only the version in the key keeps what engine
     // 7 cached from being served (issue 112). Cold, the engine 7 entry is a miss and
     // the file is extracted again, as engine 8 does; the old entry is left as it was,
-    // an engine 8 entry is written beside it, and that is what a warm run serves.
+    // an entry of the current engine is written beside it, and that is what a warm run
+    // serves.
     const PATH: &str = "src/strip.rs";
     let checkout = Checkout::new();
     checkout.write(
@@ -2414,7 +2419,10 @@ fn cache_entries_of_engine_seven_are_never_served() {
     };
     let fresh = run(&checkout, None, &Probe::new(Twist::None));
     let fresh = extract_of(&fresh, PATH);
-    assert!(bound(fresh), "engine 8 marks the call locally bound");
+    assert!(
+        bound(fresh),
+        "the current engine marks the call locally bound"
+    );
 
     // What engine 7 cached for these bytes: the same extraction, the call bound to
     // nothing.
@@ -2445,14 +2453,85 @@ fn cache_entries_of_engine_seven_are_never_served() {
         .cache
         .object_path(&key_for(&checkout, &config, PATH, "rust"));
     assert_ne!(current, stale_path);
-    assert!(current.is_file(), "no engine 8 entry was written");
+    assert!(
+        current.is_file(),
+        "no entry of the current engine was written"
+    );
     assert_eq!(cache.entries().len(), 2);
 
     let probe = Probe::new(Twist::None);
     let warm = run(&checkout, Some(&cache), &probe);
     assert_eq!(
         warm.stats.cache_hits, 1,
-        "the engine 8 entry was not served"
+        "the current engine's entry was not served"
+    );
+    assert_eq!(probe.files(), 0);
+    assert_eq!(extract_of(&warm, PATH), cold);
+}
+
+#[test]
+fn cache_entries_of_engine_eight_are_never_served() {
+    // Engine 8 read a Rust `use` declaration as text and split its brace list at every
+    // comma, so a nested list over several lines bound none of its names: here
+    // `AtomicU32`. Engine 9 reads the syntax tree (issue 111): the static's type is
+    // known, the per-file typed pass answers `COUNTER.load(...)` inside `assert_eq!`,
+    // and the call that answer adds is part of the extraction. Same source, path,
+    // language and policy: only the version in the key keeps what engine 8 cached, the
+    // extraction without that call, from being served.
+    const PATH: &str = "src/lib.rs";
+    let checkout = Checkout::new();
+    checkout.write(
+        PATH,
+        "use std::{\n    fmt,\n    sync::atomic::{AtomicU32, Ordering},\n};\n\nstatic COUNTER: AtomicU32 = AtomicU32::new(0);\n\npub fn check() -> fmt::Result {\n    assert_eq!(COUNTER.load(Ordering::SeqCst), 0);\n    Ok(())\n}\n",
+    );
+    let config = checkout.config();
+    let load_calls = |extract: &FileExtract| -> Vec<usize> {
+        (0..extract.record().calls.len())
+            .filter(|&i| extract.text(&extract.record().calls[i].callee_text) == "load")
+            .collect()
+    };
+    let fresh = run(&checkout, None, &Probe::new(Twist::None));
+    let fresh = extract_of(&fresh, PATH);
+    let [load] = load_calls(fresh)[..] else {
+        panic!("the current engine adds one `load` call");
+    };
+
+    // What engine 8 cached for these bytes: the same extraction without that call.
+    let mut stale = fresh.record().clone();
+    stale.calls.remove(load);
+    let mut key = key_for(&checkout, &config, PATH, "rust");
+    key.engine_version = 8;
+    let cache = Cache::new();
+    let stale_bytes = CacheEnvelope::encode(&key, &stale);
+    plant(&cache, &key, &stale_bytes);
+    let stale_path = cache.cache.object_path(&key);
+
+    let probe = Probe::new(Twist::None);
+    let cold = run(&checkout, Some(&cache), &probe);
+    assert_eq!(cold.stats.cache_hits, 0, "an engine 8 entry was served");
+    assert_eq!(probe.files(), 1, "the file was not extracted again");
+    let cold = extract_of(&cold, PATH);
+    assert_eq!(load_calls(cold).len(), 1, "the `load` call is missing");
+    assert_eq!(cold, fresh);
+    assert_eq!(
+        fs::read(&stale_path).unwrap(),
+        stale_bytes,
+        "the engine 8 entry changed"
+    );
+    let current = cache
+        .cache
+        .object_path(&key_for(&checkout, &config, PATH, "rust"));
+    assert_ne!(current, stale_path);
+    assert!(
+        current.is_file(),
+        "no entry of the current engine was written"
+    );
+
+    let probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &probe);
+    assert_eq!(
+        warm.stats.cache_hits, 1,
+        "the current engine's entry was not served"
     );
     assert_eq!(probe.files(), 0);
     assert_eq!(extract_of(&warm, PATH), cold);

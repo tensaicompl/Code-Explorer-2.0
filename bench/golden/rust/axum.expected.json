@@ -194,11 +194,11 @@
       "src_qn": "axum-core.src.body.Body.unknown",
       "dst_qn": "axum-core.src.body.Body.new",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "typed"
     },
     {
       "src_qn": "axum-core.src.body.Body.unknown",
-      "dst_qn": "axum-core.src.body.Body.new",
+      "dst_qn": "axum-core.src.body.unknown.Unknown.new",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -638,13 +638,13 @@
       "src_qn": "axum-core.src.response.into_response_parts.Extensions.into_response_parts",
       "dst_qn": "axum-core.src.response.into_response_parts.ResponseParts.extensions_mut",
       "kind": "CALLS",
-      "band": "typed"
+      "band": "exact"
     },
     {
       "src_qn": "axum-core.src.response.into_response_parts.HeaderMap.into_response_parts",
       "dst_qn": "axum-core.src.response.into_response_parts.ResponseParts.headers_mut",
       "kind": "CALLS",
-      "band": "typed"
+      "band": "exact"
     },
     {
       "src_qn": "axum-core.src.response.into_response_parts.ResponseParts.extensions",
@@ -4034,7 +4034,13 @@
       "src_qn": "axum-extra.src.routing.mod.add_tsr_redirect_route",
       "dst_qn": "axum.src.routing.method_routing.any",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum-extra.src.routing.mod.add_tsr_redirect_route",
+      "dst_qn": "axum.src.routing.method_routing.on",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "axum-extra.src.routing.mod.map_path",
@@ -4149,6 +4155,12 @@
       "dst_qn": "axum-extra.src.routing.resource.Resource.show_update_destroy_path",
       "kind": "CALLS",
       "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "axum-extra.src.routing.resource.Resource.update",
+      "dst_qn": "axum.src.routing.method_routing.on",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "axum-extra.src.routing.resource.call_route",
@@ -4592,7 +4604,7 @@
       "src_qn": "axum-macros.src.debug_handler.Attrs.parse",
       "dst_qn": "axum-macros.src.attr_parsing.parse_assignment_attribute",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.debug_handler.FunctionKind.fmt",
@@ -5006,13 +5018,13 @@
       "src_qn": "axum-macros.src.from_request.mod.expand",
       "dst_qn": "axum-macros.src.attr_parsing.parse_attrs",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.from_request.mod.expand",
       "dst_qn": "axum-macros.src.attr_parsing.parse_attrs",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.from_request.mod.expand",
@@ -5072,13 +5084,13 @@
       "src_qn": "axum-macros.src.from_request.mod.extract_fields",
       "dst_qn": "axum-macros.src.attr_parsing.parse_attrs",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.from_request.mod.extract_fields",
       "dst_qn": "axum-macros.src.attr_parsing.parse_attrs",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.from_request.mod.extract_fields",
@@ -5156,13 +5168,13 @@
       "src_qn": "axum-macros.src.from_request.mod.impl_enum_by_extracting_all_at_once",
       "dst_qn": "axum-macros.src.attr_parsing.parse_attrs",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.from_request.mod.impl_enum_by_extracting_all_at_once",
       "dst_qn": "axum-macros.src.attr_parsing.parse_attrs",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.from_request.mod.impl_enum_by_extracting_all_at_once",
@@ -5198,7 +5210,7 @@
       "src_qn": "axum-macros.src.from_request.mod.impl_struct_by_extracting_all_at_once",
       "dst_qn": "axum-macros.src.attr_parsing.parse_attrs",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.from_request.mod.impl_struct_by_extracting_all_at_once",
@@ -5306,13 +5318,13 @@
       "src_qn": "axum-macros.src.from_request.mod.infer_state_type_from_field_attributes",
       "dst_qn": "axum-macros.src.attr_parsing.parse_attrs",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.from_request.mod.infer_state_type_from_field_attributes",
       "dst_qn": "axum-macros.src.attr_parsing.parse_attrs",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-macros.src.from_request.mod.infer_state_type_from_field_attributes",
@@ -6506,13 +6518,13 @@
       "src_qn": "axum.src.extract.matched_path.doesnt_panic_if_router_called_from_wildcard_route",
       "dst_qn": "axum.src.routing.method_routing.any",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.extract.matched_path.doesnt_panic_if_router_called_from_wildcard_route",
       "dst_qn": "axum.src.routing.method_routing.any",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.extract.matched_path.extracting_on_handler",
@@ -7013,18 +7025,6 @@
       "band": "scoped"
     },
     {
-      "src_qn": "axum.src.extract.nested_path.in_fallbacks",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
-      "kind": "CALLS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.nested_path.in_fallbacks",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
-      "kind": "TESTS",
-      "band": "typed"
-    },
-    {
       "src_qn": "axum.src.extract.nested_path.in_middleware",
       "dst_qn": "axum.src.extract.nested_path.SetNestedPath.layer",
       "kind": "CALLS",
@@ -7040,59 +7040,11 @@
       "src_qn": "axum.src.extract.nested_path.in_middleware",
       "dst_qn": "axum.src.middleware.from_fn.from_fn",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.extract.nested_path.in_middleware",
       "dst_qn": "axum.src.middleware.from_fn.from_fn",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.nested_path.one_level_of_nesting",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
-      "kind": "CALLS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.nested_path.one_level_of_nesting",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
-      "kind": "TESTS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.nested_path.one_level_of_nesting_with_trailing_slash",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
-      "kind": "CALLS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.nested_path.one_level_of_nesting_with_trailing_slash",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
-      "kind": "TESTS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.nested_path.two_levels_of_nesting",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
-      "kind": "CALLS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.nested_path.two_levels_of_nesting",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
-      "kind": "TESTS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.nested_path.two_levels_of_nesting_with_trailing_slash",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
-      "kind": "CALLS",
-      "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.nested_path.two_levels_of_nesting_with_trailing_slash",
-      "dst_qn": "axum.src.extract.nested_path.NestedPath.as_str",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -7694,13 +7646,13 @@
       "src_qn": "axum.src.extract.path.inner_path.in_nested_middleware",
       "dst_qn": "axum.src.middleware.from_fn.from_fn",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.extract.path.inner_path.in_nested_middleware",
       "dst_qn": "axum.src.middleware.from_fn.from_fn",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.extract.path.inner_path.inner_route_without_captures",
@@ -9423,6 +9375,18 @@
       "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.form.deserialize_error_status_codes",
+      "dst_qn": "axum.src.routing.method_routing.on",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.form.deserialize_error_status_codes",
+      "dst_qn": "axum.src.routing.method_routing.on",
+      "kind": "TESTS",
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.form.deserialize_error_status_codes",
@@ -13718,7 +13682,7 @@
       "src_qn": "axum.src.routing.mod.Router.fallback",
       "dst_qn": "axum.src.routing.method_routing.any",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.routing.mod.Router.fallback",
@@ -16242,6 +16206,18 @@
     },
     {
       "src_qn": "axum.src.routing.tests.mod.multiple_methods_for_one_handler",
+      "dst_qn": "axum.src.routing.method_routing.on",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.tests.mod.multiple_methods_for_one_handler",
+      "dst_qn": "axum.src.routing.method_routing.on",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.tests.mod.multiple_methods_for_one_handler",
       "dst_qn": "axum.src.test_helpers.test_client.TestClient.post",
       "kind": "CALLS",
       "band": "exact"
@@ -16362,6 +16338,18 @@
     },
     {
       "src_qn": "axum.src.routing.tests.mod.router_type_doesnt_change",
+      "dst_qn": "axum.src.routing.method_routing.on",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.tests.mod.router_type_doesnt_change",
+      "dst_qn": "axum.src.routing.method_routing.on",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.tests.mod.router_type_doesnt_change",
       "dst_qn": "axum.src.test_helpers.test_client.TestClient.post",
       "kind": "CALLS",
       "band": "exact"
@@ -16395,6 +16383,18 @@
       "dst_qn": "axum.src.test_helpers.test_client.TestClient.post",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.routing.tests.mod.routing_between_services",
+      "dst_qn": "axum.src.routing.method_routing.on_service",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.tests.mod.routing_between_services",
+      "dst_qn": "axum.src.routing.method_routing.on_service",
+      "kind": "TESTS",
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.routing.tests.mod.routing_between_services",
@@ -19748,7 +19748,7 @@
       "src_qn": "examples.error-handling.src.main.main",
       "dst_qn": "axum.src.middleware.from_fn.from_fn",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "examples.error-handling.src.main.main",

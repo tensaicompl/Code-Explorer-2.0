@@ -15,8 +15,10 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 114 | 2026-10-14 | P2-06 | blocker | open | Found by issue 111: a Rust `use` has no lexical scope in PDX. The typed pass reads a file's top-level and inline-module `use` declarations as the whole file's, so a test module's `use crate::other::fetch;` makes the module's own call of its own `fetch` a typed answer to `other::fetch` (engine 8 with a plain `use`; engine 9 also with a list it now reads); neither pass reads a `use` in a function body, so 34 calls of PDX itself imported that way have no typed answer; and Stage 3 reads a file's top-level imports only, so an inline module's call is drawn `import-guided` to the module's import. The measured corpora hold no wrong trusted edge from it | Open. Give each `use` its lexical scope (module, inline module, block, function body) and bind its names only for the sites in it, in the typed pass and Stage 3 alike. Never by reading a function's or an inline module's imports as the file's: that broadening is what draws the wrong edge now. |
+| 113 | 2026-10-14 | P2-06 | blocker | open | Found by issue 111, three causes: (A) a type path through `crate::` and a re-export names no definition: the typed pass keeps `crate::extract::NestedPath` as written, neither anchoring `crate::` nor following `pub use self::nested_path::NestedPath;`, so 5 `NestedPath::as_str` calls of the Rust golden have no typed answer; (B) an impl of an imported type names its methods' caller under the import (`http.header.HeaderMap.into_response_parts`) while extraction names the owner by the file's module, so 2 correct answers (`headers_mut`, `extensions_mut`) join no site and are drawn `exact`; (C) a module file named `index.rs` is named as its parent (`golden/index.rs`'s functions as `golden`'s), so a path through `golden::index` names no such function: 4 calls of PDX itself. All predate issue 111 (engine 8 with a plain `use` does the same) and draw no wrong edge | Open. (A) Anchor `crate::`, `self::` and `super::` in a type path and follow re-exports to the definition by identity, never a last-segment guess. (B) Name an impl's methods' caller as extraction names their owner. (C) Name a module file by its stem. Separate fixes. |
 | 112 | 2026-10-14 | P2-16 | blocker | resolved | Found after issue 104 (R2): patch 0028 changed what Rust extraction records while `ENGINE_VERSION` stayed 7, and the extraction cache is keyed by the engine version, so an entry engine 7 wrote before the patch was served after it for the same source, path, language and policy. What differs: a bare call of a function its block declares is now `LOCALLY_BOUND`, and a Rust file's per-file typed answers, which its surface holds, need path evidence and leave a `match` arm's and a block's names alone. Shown with both builds: the same 5 object ids, 3 entries' bytes different, and the post-patch build, served the pre-patch entries, drawing `a::expand` to the crate root's `expand` and the arm's `params` as a typed reference | Resolved 2026-10-14 (hotfix): `ENGINE_VERSION` 7 to 8, in `consts.rs` and the engine (`pdxe_version`). Engine 7 began with patch 0015; 0028 is engine 8. Every other version is unchanged. `cache_entries_of_engine_seven_are_never_served`: a faithful engine 7 entry is a miss, the file is extracted again with engine 8's facts, the old entry is left alone, an engine 8 entry is written and served warm; with the version back at 7 it fails. Goldens, A0 and the differential are unchanged but for the version |
-| 111 | 2026-10-14 | P2-06 | blocker | open | Found by issue 104 (R2): Rust typed resolution reads a file's `use` declarations as text and splits a brace list at every comma, so a nested or multi-line list (`use crate::{routing::{on, MethodFilter}, Router};`) gives some names no entry and others a wrong path (`on` as `crate::on`), and `pub use` none. Since issue 104 an imported name is a typed answer only through its import's path, so in the Rust golden 16 correct typed edges become `exact` (same targets), 6 are lost to `candidate` (`on`, `on_service`) and 9 unmaterialised typed answers are lost; PDX itself loses 38 unmaterialised | Open. Read `use` trees from the syntax tree, nested lists, aliases, `self`, globs and visibility included, and measure the typed answers recovered and any new one wrong. |
+| 111 | 2026-10-14 | P2-06 | blocker | resolved | Found by issue 104 (R2): Rust typed resolution reads a file's `use` declarations as text and splits a brace list at every comma, so a nested or multi-line list (`use crate::{routing::{on, MethodFilter}, Router};`) gives some names no entry and others a wrong path (`on` as `crate::on`), and `pub use` none. Since issue 104 an imported name is a typed answer only through its import's path, so in the Rust golden 16 correct typed edges become `exact` (same targets), 6 are lost to `candidate` (`on`, `on_service`) and 9 unmaterialised typed answers are lost; PDX itself loses 38 unmaterialised | Resolved 2026-10-14 (patch 0029, engine 9): `use` declarations are read from the syntax tree, nested and multi-line lists, comments, aliases, `self`, globs and `pub`, `pub(crate)` and `pub(in …)` included; a name the file's own use trees bind to two paths is withheld; lookups by local name through an index; an alias reaches its function (`lsp_import_alias`). All 31 Rust golden sites are correct `typed` again (16 from `exact`, 6 from `candidate`, 9 unmaterialised), and one `scoped` false positive is `typed` and right. A0: Rust golden `typed` 843/844 → 859/860 = 99.88%, union 62.92% → 62.97%, recall 1,407/4,052 → 1,409/4,056; PDX itself `typed` 5,904/5,904, 43 sites strengthened and none lost; Python unchanged; no new wrong trusted edge. Not restored: 5 `NestedPath::as_str` and 2 impl sites (issue 113), 34 PDX calls through a function body's `use` (issue 114). The engine differential's one changed row (`pub(crate) use unknown::Unknown;`, which the reference reads as a path) is ratified by decision 66. `ENGINE_VERSION` 8 → 9; `cache_entries_of_engine_eight_are_never_served` |
 | 110 | 2026-10-14 | P2-04 | blocker | open | Found by issue 104 (R2): an item a `macro_rules!` invocation writes is no definition. `axum-core/src/body.rs` writes `impl From<&'static str> for Body` (and others) through `body_from_impl!`, so the only `Body::from` the registry has is the handwritten `From<()>` one, and `Body::from("…")` (`axum-core/src/ext_traits/request.rs:355`) is drawn `import-guided` to it: the Rust golden's one `import-guided` false positive | Open. Decide whether item-position macro invocations are expanded for definitions (the typed pass already expands `macro_rules!` bodies for calls), or the definitions a macro may write make a name ambiguous; never block `from` by name. |
 | 109 | 2026-10-14 | P2-06 | blocker | open | Found by issue 104 (R2): Rust typed resolution chooses a trait impl for `Type::method` without its bounds. `WithRejection::<TestExtractor, TestRejection>::from_request` (`axum-extra/src/extract/with_rejection.rs:196`) reaches the blanket `impl<S, T> FromRequest<S, ViaParts> for T` (its type implements only `FromRequestParts`), but is answered `typed` (`lsp_ufcs`) with `WithRejection`'s own `FromRequest` impl, whose bound `E: FromRequest<S>` it does not meet: the Rust golden's one remaining typed false positive | Open. Find whether the engine can withhold a `Type::method` answer when a blanket impl of the same trait may supply the method, without scanning the registry per call (issue 92), or check an impl's bounds; never special-case the trait. |
 | 108 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R7): target identity among definitions that share a qualified name. In the Rust golden, 89 oracle relations target such a definition; 83 have a structural site, 52 are drawn, 49 to the right definition and 3 to a wrong one, and 2 typed answers are withheld because their qualified name maps to several definitions. A0 cannot adjudicate Python's `@overload` stubs (28 calls without a verdict) | Open. Investigate whether the extraction's normalised signature, the definition's disambiguator, the call's argument count and types, or the engine's occurrence identity can select the definition a call reaches. Overloads are never collapsed because their qualified names are equal |
@@ -157,6 +159,117 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 114 — Rust `use` declarations have no lexical scope
+
+Found by issue 111. A Rust `use` binds its names in the module or block it is written
+in, and nowhere else. Neither of PDX's readings models that scope:
+
+- **The typed pass's use map is the file's.** It reads the `use` declarations at the
+  top of a file and in its inline modules' bodies, as the reference does, and answers
+  every site of the file from all of them. A test module's `use crate::other::fetch;`
+  is evidence for the module's own `call()`, which calls the module's own `fetch`.
+- **A `use` in a function body is read by neither pass.** Its names are no evidence for
+  the calls in its function, so a call through it has no typed answer, and Stage 3
+  finds no import for it.
+- **Stage 3 reads a file's top-level imports only.** An inline module's `use` is not
+  in the file's import map, so a call in a test module that imports another `fetch` is
+  drawn `import-guided` to the module's.
+
+Shown with engine 8 (`48c8d7e`) and engine 9 (issue 111) on one project-authored crate:
+a module that defines `fetch` and calls it from `call()`, and a test module that
+imports `crate::other::fetch` and calls it from `probe()`, once with a plain `use`
+(`plain.rs`) and once in a list (`use crate::{other::{fetch}};`, `listed.rs`); and a
+function that imports `crate::other::on` in its body (`fnscope.rs`).
+
+| Site | Rust's target | Engine 8 | Engine 9 |
+|---|---|---|---|
+| `plain::call` → `fetch` | `plain::fetch` | `typed` `other::fetch` (wrong) | `typed` `other::fetch` (wrong) |
+| `plain::tests::probe` → `fetch` | `other::fetch` | `typed` `other::fetch` | `typed` `other::fetch` |
+| `listed::call` → `fetch` | `listed::fetch` | `typed` `listed::fetch` | `typed` `other::fetch` (wrong) |
+| `listed::tests::probe` → `fetch` | `other::fetch` | `typed` `listed::fetch` (wrong) | `typed` `other::fetch` |
+| `fnscope::inner` → `on` | `other::on` | `exact` | `exact` |
+| `fnscope::outer` → `on` | none (does not compile) | `exact` | `exact` |
+
+The file-wide map is the reference's and predates issue 111: engine 8 draws
+`plain::call` wrong. Engine 8 read no `use` list, so for `listed.rs` it drew the test
+module's call wrong instead; issue 111 reads the list, and the wrong edge moves to the
+module's call. Issue 111 withholds a name the file's own `use` trees bind to two
+different paths, which covers the conflicting case but not a module's own definition.
+The measured corpora hold no such site: A0 after issue 111 finds no new wrong trusted
+edge in the Rust golden or PDX itself.
+
+What it costs: PDX itself has 34 calls imported by a function body's `use` that lost
+their typed answers to issue 104 (R2): 31 in `crates/pdx-core/tests/derive.rs` (`is_test_path` 18
+times, `normalise_type`, `overload_disambiguators`, `is_repository_path`, `file_status`,
+`edge_id`) and 3 in `crates/pdx-core/tests/ids.rs` (`module_node_key`,
+`route_qualified_name`), each inside `assert_eq!` or `assert!`, imported by a test
+function's own `use`. Issue 111 does not restore them; they have no site. `crates/pdx-core/tests/rust_use_trees.rs` records the Stage 3 side
+(`a_name_bound_to_two_paths_is_no_evidence`: both `fetch` calls `import-guided` to the
+module's) and that a function's `use` is no evidence outside it
+(`a_functions_use_is_no_evidence_outside_it`).
+
+To fix: give every `use` its lexical scope (the file's module, an inline module, a
+block, a function body) and bind its names only for the sites in that scope, Rust's
+shadowing applied, in the typed pass and in Stage 3 alike. Not a fix: reading a
+function's or an inline module's imports as the file's. That broadening is what draws
+`plain::call` wrong; it must not be extended to function bodies, and the inline
+modules' share of it is this issue's to remove.
+
+State: open.
+
+### 113 — Rust paths through `crate::`, re-exports and `index.rs`, and an imported type's impls
+
+Found by issue 111, which reads the `use` lists that hid the first two. Three causes,
+recorded together because each makes a Rust path name the wrong module or caller, and to
+be fixed separately.
+
+**113A: a path through `crate::` and a re-export names no definition.** In
+`axum/src/extract/nested_path.rs`, the test module imports `crate::{extract::{NestedPath,
+Request}, …}`. `axum::extract` re-exports the type (`pub use
+self::nested_path::NestedPath;`). The typed pass keeps the path as written, as
+`crate.extract.NestedPath`: `crate::` is not read as the crate's root module, and no
+lookup follows the re-export to `axum.src.extract.nested_path.NestedPath`. So the type
+of `nested_path: NestedPath` is unknown and `nested_path.as_str()` gets no answer
+(`method_not_found`): 5 sites, lines 129 to 199. Engine 8 answered them only because it
+could not read that nested `use` list and the name fell to the file's own definition.
+With a plain `use crate::extract::NestedPath;`, engine 8 draws the same call `exact`
+(shown with the crate above). To fix: anchor `crate::`, `self::` and `super::` in a
+type path as Rust does, and follow `pub use` re-exports to the definition, by
+identity, never by a last-segment guess.
+
+**113B: an impl of an imported type names its methods' caller under the import.**
+`axum-core/src/response/into_response_parts.rs` imports `HeaderMap` from `http` and
+implements `IntoResponseParts for HeaderMap`. The typed pass names that impl's
+`into_response_parts` `http.header.HeaderMap.into_response_parts`, the self type read
+through the import; the extraction names the site's owner by the file's module,
+`…response.into_response_parts.HeaderMap.into_response_parts`. A typed answer joins its
+site by the exact caller, so the correct answers (`ResponseParts::headers_mut` and
+`extensions_mut`, lines 151 and 278) join no site, and Stage 3 draws both `exact`, same
+targets. With a plain `use http::header::HeaderMap;` engine 8 does the same. This is
+not 113A's cause: the target is found, and the caller's name is wrong. To fix: name an
+impl's methods' caller as the extraction names their owner (the file's module and the
+type as written), whatever the self type resolves to.
+
+**113C: a module file named `index.rs` is named as its parent.** The engine gives the
+functions of `crates/pdx-bench/src/golden/index.rs` the qualified names of
+`golden/mod.rs`'s module (`crates.pdx-bench.src.golden.sibling_pdx`), its file stem left
+out as for `mod.rs`. Rust names that module `golden::index`, so the path a call or a `use`
+spells (`index::run_pdx`, `pdx_bench::golden::index::sibling_pdx`) names a module with no
+such function and the typed pass has no answer. In PDX itself, 4 calls that had typed
+answers before issue 104 (R2), when a unique last name was enough, have none:
+`crates/pdx-bench/src/golden/run.rs:213` and `crates/pdx-bench/src/main.rs:223` are drawn
+`import-guided` to the right targets, and `crates/pdx-bench/tests/golden_run.rs:384` and
+`397`, inside `assert_eq!`, have no site. The name is also a definition's identity: a
+`golden/mod.rs` and a `golden/index.rs` defining one name would share a qualified name.
+To fix: name a module file by its stem, `mod.rs` alone standing for its directory.
+
+All three predate issue 111 and draw no wrong edge. In the Rust golden, where several
+types define `as_str`, 113A's five calls draw no edge (in the crate above, where `as_str`
+is unique, `exact` on engines 8 and 9); 113B's two are `exact` with the right targets;
+113C's are `import-guided` and right, or have no site.
+
+State: open.
+
 ### 112 — Patch 0028 changed extraction output without moving `ENGINE_VERSION`
 
 Found after issue 104 (R2). The extraction cache keys an entry by
@@ -268,7 +381,128 @@ To read `use` trees from the syntax tree (nested lists, aliases, `self`, globs,
 visibility), and to measure the typed answers that recovers and any new one that is
 wrong. Stage 3's own reading (`resolve::imports`) already handles nested lists.
 
-State: open.
+**Resolution (2026-10-14, patch 0029, engine 9).** A file's `use` declarations are read
+from its syntax tree, never its text (`rust_collect_uses`, `engine/src/lsp/rust_lsp.c`):
+
+- every `use_declaration`'s `argument`, at the top of the file and in its inline
+  modules' bodies, in source order, through the pinned grammar's use trees:
+  `scoped_use_list` (a nested list's prefix joins its parent's), `use_list` (its
+  comments bind nothing), `use_as_clause` (the alias; `self as o` binds the prefix),
+  `use_wildcard` (the whole module), `scoped_identifier`, `identifier`, `crate`,
+  `self` (`{self}` binds the prefix's last name) and `super`; a leading `::` is dropped
+  and `_` binds nothing;
+- the visibility is not part of the path: `pub use`, `pub(crate) use` and
+  `pub(in path) use` bind their names as `use` does;
+- a name the file's own `use` trees bind to two different paths is withheld: no import
+  is evidence for it. Imports a caller bridges in after the file's own keep their
+  first-match order;
+- an import is found by its local name through an index (`RustLSPContext::uses_by_name`,
+  `lsp/name_index.h`), never by scanning the file's imports; a refused index finds
+  nothing;
+- an alias reaches its function: the fallback looks for the function by the last name
+  of the import's path, and a call by its alias is answered `lsp_import_alias`, joined
+  by the name it spells, as Python's imported aliases are.
+
+The reference reads the text. `pub(crate) use unknown::Unknown;` is to it the path
+`pub(crate) use unknown::Unknown`: a malformed path, the visibility and the whole
+declaration read as the imported path. Engine 9 records the path Rust imports,
+`unknown::Unknown`. In the engine differential that is one typed row of
+`golden:rust/axum` (`axum-core/src/body.rs`, `Unknown::new()`, both unresolved), whose
+callee the reference spells `pub(crate) use unknown.Unknown.new` and engine 9
+`unknown.Unknown.new`: a ratified semantic divergence from a known-wrong reference
+behaviour (decision 66, record `issue-111-axum-core-body-unknown-new`), captured from
+the live run. The other 31 corpora are identical.
+
+`ENGINE_VERSION` moves from 8 to 9 (issue 112's rule): a Rust file's per-file typed
+answers, which its surface holds, change for an unchanged source, and so do the calls
+those answers add inside macros. `EXTRACT_CACHE_FORMAT_VERSION` stays 6, and no other
+version moves. `cache_entries_of_engine_eight_are_never_served` plants engine 8's
+extraction of a file importing through a nested multi-line list: cold, a miss with the
+call the answer adds present, the old entry unchanged and an engine 9 entry written;
+warm, a hit.
+
+Tests: `crates/pdx-core/tests/rust_use_trees.rs` (13 tests over a crate of
+24 source files: simple, nested, deep, multi-line with comments, aliases, `self`,
+globs, visibility, `super` and an inline module, a name bound to two paths, an external
+crate, a function body's `use`, and no or wrong evidence) and `engine/tests/typed_lookup.c`
+(Rust `use` lookups: the scan's answers, linear work, the scan quadratic, the index
+refused). Sixteen mutations, all killed, every file restored
+byte-identical: nested groups flattened, lists split at raw commas, `pub use` ignored,
+aliases dropped, `{self}` and `self as` bound wrongly, a glob's prefix dropped,
+visibility-wrapped `use` ignored, the `crate`/`self`/`super` anchor lost, an external
+crate taken for the project's, the project-wide unique short name restored, the first
+of two bindings taken, the file's own trees taken for bridged imports, an alias answered
+by the path's label, a function body's `use` read as the file's, and `ENGINE_VERSION`
+left at 8. The glob-prefix mutation first survived: the fixture's nested glob read the
+same without its prefix, so a nested glob whose prefix changes the target was added.
+
+A0 (same pins, tools, `a0-match-1`, `a0-metrics-1`; baseline post-R2):
+
+| Golden | | Post-R2 | Post-111 |
+|---|---|---|---|
+| Rust | `typed` | 843 / 844 = 99.88% | 859 / 860 = 99.88% |
+| Rust | `import-guided` | 24 / 25 | 24 / 25 |
+| Rust | `exact` | 525 / 1,150 = 45.65% | 511 / 1,136 = 44.98% |
+| Rust | `scoped` | 155 / 477 = 32.49% | 155 / 476 = 32.56% |
+| Rust | union | 1,610 / 2,559 = 62.92% | 1,612 / 2,560 = 62.97% |
+| Rust | recall | 1,407 / 4,052 = 34.72% | 1,409 / 4,056 = 34.74% |
+| PDX | `typed` | 5,870 / 5,870 = 100.00% | 5,904 / 5,904 = 100.00% |
+| PDX | `import-guided` | 64 / 68 = 94.12% | 39 / 43 = 90.70% |
+| PDX | union | 6,591 / 7,753 = 85.01% | 6,599 / 7,761 = 85.03% |
+| PDX | recall | 6,560 / 7,816 = 83.93% | 6,568 / 7,825 = 83.94% |
+
+Python's numbers are identical, site for site. Compared site by site with the post-R2
+run, the Rust golden changes at 47 sites:
+
+- 16 correct `exact` edges are correct `typed` (`parse_attrs` 9 times,
+  `parse_assignment_attribute`, `any` 3 times, `from_fn` 3 times);
+- 6 `candidate` sites are correct `typed` (`on` and `on_service`:
+  `axum-extra/src/routing/mod.rs:458`, `axum-extra/src/routing/resource.rs:120`,
+  `axum/src/form.rs:256`, `axum/src/routing/tests/mod.rs:145`, `186`, `305`);
+- 9 typed answers no site held (`path_for_nested_route` in `assert_eq!`,
+  `axum/src/routing/tests/mod.rs:1150` to `1160`) are correct `typed`, still
+  unmaterialised;
+- 1 `scoped` false positive is correct `typed` (`Unknown::new()` in
+  `axum-core/src/body.rs`, drawn to `Body::new` before);
+- 8 typed-only sites appear, answers inside macros (`load`, `from_secs`, `file_name`,
+  `new`), none drawn;
+- 5 correct `typed` edges are lost: `NestedPath::as_str` in `assert_eq!`
+  (`axum/src/extract/nested_path.rs:129` to `199`), whose type path the test module's
+  nested `use` now gives as `crate::extract::NestedPath`, a re-export the typed pass
+  does not follow (issue 113A); engine 8 answered them only because it could not read
+  that list;
+- 2 correct `typed` edges are correct `exact`, same targets: `res.headers_mut` and
+  `res.extensions_mut` (`axum-core/src/response/into_response_parts.rs:151`, `278`),
+  whose answers name their caller under `HeaderMap`'s and `Extensions`' import path, now
+  read (issue 113B).
+
+PDX itself changes at 43 sites, every one to correct `typed`: 25 from `import-guided`, 7
+typed-only, 5 `blocked`, 3 `candidate`, 2 with no site before and 1 `exact`; none is lost.
+Of the 38 unmaterialised typed answers R2 cost PDX, 2 are back; 34 are calls through a
+`use` in a function body (issue 114) and 2 go through `golden/index.rs`, whose module
+the engine names without its stem (issue 113C).
+
+No site of either Rust corpus becomes a false positive: the `typed` false positive is
+still issue 109's blanket impl and the `import-guided` one issue 110's macro-written impl,
+and PDX's 4 `import-guided` false positives are the ones before.
+
+The axum golden replaces 32 of its 3,659 drawn edges, node counts unchanged: the 16
+`exact` and 1 `scoped` edges above drawn `typed`, the 6 new `typed` edges, the 5
+`NestedPath::as_str` and 2 impl edges, and the `TESTS` edges beside them. The other nine
+goldens are unchanged.
+
+The closure conditions:
+
+1. The 31 sites restored to strong evidence: met. All 31 are correct `typed`, 22 drawn
+   and 9 unmaterialised.
+2. No new wrong trusted edge: met in the Rust golden and PDX itself. The crate issue 114
+   records shows how a test module's import can draw a module's own call wrong, as
+   engine 8 already did with a plain `use`; neither corpus holds such a site.
+3. What it found, recorded: issues 113 and 114.
+4. The differential passes under decision 66: met.
+5. Validation and CI: see the commit.
+
+State: resolved.
 
 ### 110 — Items a `macro_rules!` invocation writes are no definitions
 
@@ -1036,6 +1270,8 @@ This issue stays the umbrella and is split into its children:
 | 109 | a trait impl chosen without its bounds (found by 104) |
 | 110 | items a `macro_rules!` invocation writes (found by 104) |
 | 111 | nested `use` lists the Rust resolver misreads (found by 104) |
+| 113 | Rust paths through `crate::`, re-exports and `index.rs`, and an imported type's impls (found by 111) |
+| 114 | Rust `use` without lexical scope (found by 111) |
 
 The preferred order, each step authorised separately by the driver:
 
@@ -1083,6 +1319,20 @@ three more children: issues 109 (a blanket impl), 110 (macro-written items) and 
 
 PDX itself: `typed` 100.00%, recall 83.93%. Four of G1b's six floors still fail. R3
 (issue 102) is next, when the driver authorises it.
+
+**Issue 111 (2026-10-14).** Resolved: Rust `use` declarations are read from the syntax
+tree (patch 0029, engine 9), and the typed answers R2 lost to `use` lists the resolver
+misread are back. It found two more children: issues 113 (paths through `crate::`,
+re-exports and `index.rs`, and an imported type's impls) and 114 (`use` without lexical
+scope). The engine differential holds one ratified divergence for it (decision 66).
+
+| Golden | `typed` | Union | Recall |
+|---|---|---|---|
+| Python | 314/314 | 94.98% | 54.40% |
+| Rust | 859/860 = 99.88% | 62.97% | 34.74% |
+
+PDX itself: `typed` 100.00%, recall 83.94%. Four of G1b's six floors still fail. Issue
+109 is next, then 110, then R3 (issue 102), each when the driver authorises it.
 
 State: open.
 

@@ -78,6 +78,12 @@ typedef struct {
     const char **use_module_paths;
     int use_count;
     int use_cap; // entries the use arrays hold
+    /* Issue 111: the entries [0, use_tree_count) are the file's own `use` trees,
+     * read from its syntax tree; the ones after, the imports a caller bridges in.
+     * `uses_by_name` finds an entry by its local name (`name_index.h`), placed as
+     * entries are added. */
+    int use_tree_count;
+    PDXENameIndex uses_by_name;
 
     const char **glob_module_qns;
     int glob_count;

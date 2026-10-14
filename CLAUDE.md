@@ -71,9 +71,14 @@ no longer drawn wrong. The last typed one, a blanket impl, is issue 109, and the
 
 **Hotfix 112 is done (2026-10-14).** Patch 0028 changed what Rust extraction records
 while `ENGINE_VERSION` stayed 7, so a cache filled by engine 7 before it was served
-after it under the same key. `ENGINE_VERSION` is 8: what engine 7 cached is a miss.
-Next, each **only when the driver authorises it**: issue 111 (restores the typed
-answers R2 lost), then issue 109, then issue 110, then R3 (issue 102).
+after it under the same key. `ENGINE_VERSION` became 8: what engine 7 cached is a miss.
+
+**Issue 111 is done (2026-10-14).** Rust `use` declarations are read from the syntax
+tree (patch 0029, `ENGINE_VERSION` 9), restoring the typed answers R2 lost to `use`
+lists the resolver misread. It found issues 113 (paths through `crate::` and
+re-exports; an imported type's impls) and 114 (`use` has no lexical scope). The engine
+differential holds one ratified divergence for it (decision 66). Next, each **only
+when the driver authorises it**: issue 109, then issue 110, then R3 (issue 102).
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. A recall gain that draws
@@ -199,7 +204,7 @@ extraction cache is format 6 and the worker protocol 7 (issues 40 to 42, 46, 47,
 90): calls carry their node-type path (`ast_path`, computed by the engine since patch
 0010) and arguments, and definitions their decorators, parameter types and every route
 binding with its declaring node's position and path (`routes`, patch 0011); both hold
-records whose text is ranges of the source (issue 90B, below); `ENGINE_VERSION` is 8 (issue 112). Issue 74 (decision 45, engine 4): the C and C++ expression
+records whose text is ranges of the source (issue 90B, below); `ENGINE_VERSION` is 9 (issue 111). Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -382,13 +387,35 @@ need path evidence.
 - **External crates.** Stage 3 makes a Rust path `external` when its first name is a
   crate the extern prelude binds (the standard distribution, or a dependency with no
   repository path) and nothing in the file binds it (4.5, step 4).
-- **Open.** A blanket impl the engine cannot tell from a type's own (issue 109), items a
-  `macro_rules!` invocation writes (issue 110), and `use` lists the resolver misreads
-  (issue 111).
+- **Open.** A blanket impl the engine cannot tell from a type's own (issue 109), and
+  items a `macro_rules!` invocation writes (issue 110).
 - **Rule (issue 112).** A patch that changes what extraction records, in a file's facts
   or in the per-file typed answers its surface holds, moves `ENGINE_VERSION`, delivered
   or not: the version in the cache key is all that keeps an older engine's entries from
-  being served. `cache_entries_of_engine_seven_are_never_served` holds it for 0028.
+  being served. `cache_entries_of_engine_seven_are_never_served` holds it for 0028, and
+  `cache_entries_of_engine_eight_are_never_served` for 0029.
+
+Issue 111 (patch 0029, engine 9): a Rust file's `use` declarations are read from its
+syntax tree, never its text.
+- **Use trees.** Every `use_declaration`'s `argument`, at the top and in inline modules'
+  bodies, in source order: nested and multi-line lists, comments in them, aliases
+  (`self as o` binds the prefix), `{self}` (the prefix's last name), globs (their whole
+  module), a leading `::`, `_` (binds nothing). A visibility (`pub`, `pub(crate)`,
+  `pub(in …)`) is not part of the path. The reference reads the text, so
+  `pub(crate) use unknown::Unknown;` is its path `pub(crate) use unknown::Unknown`:
+  axum's one typed row that differs is ratified (decision 66).
+- **Withheld.** A name the file's own `use` trees bind to two different paths is no
+  evidence. Imports a caller bridges in come after them, first match.
+- **Lookup.** By local name through `RustLSPContext::uses_by_name` (`name_index.h`),
+  never a scan; `PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE` answers by the scan.
+- **Alias.** The fallback looks for the function by the last name of the import's path;
+  a call by its alias is answered `lsp_import_alias`, joined by the name it spells.
+- **Not here.** `use` has no lexical scope (issue 114): the typed pass reads a file's
+  top-level and inline-module `use` as the whole file's, and neither pass reads a
+  function body's. Never fix that by reading a function's imports as the file's.
+  Paths through `crate::` and re-exports, and an imported type's impls, are issue 113.
+- **Tests.** `crates/pdx-core/tests/rust_use_trees.rs` (every form, ambiguity, external,
+  no evidence) and the cache test above.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: a qualifying
@@ -665,7 +692,8 @@ of `bench/engine-differential.toml`.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
   does. All 32 corpora were identical at P2-16 and are again at engines 7 and 8, each engine
-  run from an empty working directory (issue 83, decision 52).
+  run from an empty working directory (issue 83, decision 52). At engine 9, 31 are
+  identical and `golden:rust/axum` passes with issue 111's one ratified divergence.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

@@ -1250,6 +1250,105 @@ static void import_index_refused(void) {
                 REFUSED, "resolver", 0);
 }
 
+/* --- Rust's `use` trees by local name (issue 111) ------------------------------ */
+
+/* A crate root with an inline module of `n` functions, imported in nested lists of
+ * eight (every other one under an alias) and called, each by the name it was bound to,
+ * one statement a call. */
+static void rust_uses_shape(project_t *p, int n, const void *arg) {
+    (void)arg;
+    buf_t b = {0};
+    put(&b, "mod a {\n");
+    for (int i = 0; i < n; i++) {
+        putf(&b, "    pub fn f%d() -> i32 {\n        %d\n    }\n", i, i);
+    }
+    put(&b, "}\n\n");
+    for (int i = 0; i < n; i += 8) {
+        put(&b, "use self::{a::{\n");
+        for (int j = i; j < n && j < i + 8; j++) {
+            if (j % 2) {
+                putf(&b, "    f%d as g%d,\n", j, j);
+            } else {
+                putf(&b, "    f%d,\n", j);
+            }
+        }
+        put(&b, "}};\n");
+    }
+    put(&b, "\npub fn go() {\n");
+    for (int i = 0; i < n; i++) {
+        putf(&b, i % 2 ? "    g%d();\n" : "    f%d();\n", i);
+    }
+    put(&b, "}\n");
+    add_file(p, "src/lib.rs", "rust", &b);
+}
+
+/* Bindings a lookup by local name has to tell apart, each answered as the scan answers
+ * it: a name two of the file's own `use` trees bind to two paths is no evidence,
+ * whichever comes first and whatever an inline module or an alias says. */
+static void rust_use_duplicates(void) {
+    static const char *const MODULES =
+        "mod a {\n    pub fn f() -> i32 {\n        1\n    }\n    pub fn h() -> i32 {\n        3\n"
+        "    }\n}\n\nmod b {\n    pub fn f() -> i32 {\n        2\n    }\n}\n\n";
+    static const struct {
+        const char *name;
+        const char *uses;
+    } CASES[] = {
+        {"the same path imported twice", "use a::f;\nuse a::{f};\n"},
+        {"one name from two modules", "use a::f;\nuse b::f;\n"},
+        {"one alias for two members", "use a::h as f;\nuse b::f;\n"},
+        {"a glob, then an import", "use a::*;\nuse b::f;\n"},
+        {"an inline module's import, then the file's", "mod t {\n    use super::b::f;\n}\n"
+                                                       "use a::f;\n"},
+        {"a nested list and an alias", "use self::{a::{f as g, h}, b::f};\n"},
+    };
+    uint32_t answered = 0;
+    for (size_t i = 0; i < sizeof CASES / sizeof CASES[0]; i++) {
+        buf_t b = {0};
+        put(&b, MODULES);
+        put(&b, CASES[i].uses);
+        put(&b, "\npub fn go() -> i32 {\n    f() + h()\n}\n\npub fn alias() -> i32 {\n"
+                "    g()\n}\n");
+        project_t p = {.name = CASES[i].name};
+        add_file(&p, "src/lib.rs", "rust", &b);
+        answered += same_answers(&p, 1) > 0;
+        project_free(&p);
+    }
+    CHECK(answered >= 3, "rust use duplicates: only %u cases answered", answered);
+}
+
+/* The scan, for comparison: the bindings it examines grow with the square of the file. */
+static void rust_use_scans_are_quadratic(void) {
+    uint64_t examined[2] = {0, 0};
+    const int sizes[2] = {500, 2000};
+    for (int s = 0; s < 2; s++) {
+        project_t p = {.name = "rust use scans"};
+        rust_uses_shape(&p, sizes[s], NULL);
+        outcome_t o = run(&p, REFERENCE, NULL, 0);
+        examined[s] = o.work[PDXE_LC_IMPORT_ENTRIES];
+        release(&o);
+        project_free(&p);
+    }
+    printf("rust use scans: %llu bindings examined at 500, %llu at 2000\n",
+           (unsigned long long)examined[0], (unsigned long long)examined[1]);
+    CHECK(examined[1] >= 6 * examined[0], "the rust use scans examined %llu, then only %llu",
+          (unsigned long long)examined[0], (unsigned long long)examined[1]);
+}
+
+/* The index refused its memory finds nothing: no binding is examined one by one, and the
+ * refusal is lost work. */
+static void rust_use_index_refused(void) {
+    project_t p = {.name = "rust uses, the index refused"};
+    rust_uses_shape(&p, 1000, NULL);
+    outcome_t o = run(&p, REFUSED, "resolver", 0);
+    CHECK(o.work[PDXE_LC_IMPORT_ENTRIES] == 0,
+          "rust uses refused: %llu bindings examined one by one",
+          (unsigned long long)o.work[PDXE_LC_IMPORT_ENTRIES]);
+    CHECK(o.lost > 0 || o.health.pass_failures > 0,
+          "rust uses refused: the refusal was not lost work");
+    release(&o);
+    project_free(&p);
+}
+
 /* --- refusals ------------------------------------------------------------------ */
 
 /* Each family of indexes refused its memory: extraction and resolution complete or fail
@@ -1355,6 +1454,29 @@ int main(int argc, char **argv) {
                 NULL, 1);
     import_scans_are_quadratic();
     import_index_refused();
+
+    rust_use_duplicates();
+    project_t uses = {.name = "rust uses"};
+    rust_uses_shape(&uses, 256, NULL);
+    same_answers(&uses, 1);
+    /* Not answers compared empty: each call is answered, by its alias or by its path. */
+    outcome_t used = run(&uses, INDEXED, NULL, 1);
+    uint32_t by_alias = 0, by_path = 0;
+    for (const char *s = used.facts.text; s && (s = strstr(s, "lsp_import_alias")); s++) {
+        by_alias++;
+    }
+    for (const char *s = used.facts.text; s && (s = strstr(s, "lsp_short_name_unique")); s++) {
+        by_path++;
+    }
+    CHECK(by_alias >= 128 && by_path >= 128,
+          "rust uses: %u answers by alias and %u by path for 256 imported calls", by_alias,
+          by_path);
+    release(&used);
+    project_free(&uses);
+    static const int USES[] = {1000, 2000, 4000, 8000};
+    linear_work("rust uses", rust_uses_shape, NULL, USES, 4, 0, INDEXED, NULL, 1);
+    rust_use_scans_are_quadratic();
+    rust_use_index_refused();
 
     refusals();
 

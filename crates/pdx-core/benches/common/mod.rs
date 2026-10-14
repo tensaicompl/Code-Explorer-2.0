@@ -41,7 +41,7 @@ pub const COMMIT: &str = "0123456789abcdef0123456789abcdef01234567";
 /// functions, two in each of the 48 classes, one in each of the six tests.
 pub const SITES: usize = 2_406;
 
-/// Its call sites by band, as resolution settles them at engine 8: per function, the
+/// Its call sites by band, as resolution settles them at engine 9: per function, the
 /// imported function (import-guided), a sibling, a class, a module attribute and
 /// `h.run`, whose name the generic-name blocklist holds but whose typed answer comes
 /// first (issue 103) (typed), `len` and `str` (external) and a name nothing defines
