@@ -821,6 +821,7 @@ fn blocklisted_sites_that_are_no_call_need_a_qualifying_answer() {
         lexical: pdx_engine::LexicalFacts::default(),
         ast_path: Vec::new(),
         args: Vec::new(),
+        use_scope: None,
     };
     let run = def(&reg, "store.py", "run");
     let typed = with_answers(
@@ -1885,6 +1886,7 @@ fn engine_sites_past_the_extraction_need_an_answer() {
             lexical: pdx_engine::LexicalFacts::default(),
             ast_path: Vec::new(),
             args: Vec::new(),
+            use_scope: None,
         },
         target_qn: "lib.compute".into(),
         target_rel_path: Some("lib.py".into()),

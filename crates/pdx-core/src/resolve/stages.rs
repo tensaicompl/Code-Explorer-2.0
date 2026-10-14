@@ -53,7 +53,8 @@ use crate::languages::Language;
 
 use super::blocklist;
 use super::registry::{
-    BaseResolution, DefinitionRef, ImportTarget, InternalTarget, NameProvenance, SymbolRegistry,
+    BaseResolution, DefinitionRef, ImportRecord, ImportTarget, InternalTarget, NameProvenance,
+    SymbolRegistry,
 };
 
 /// The engine's answer for a site, verbatim: kept beside the band for calibration
@@ -669,6 +670,8 @@ struct SiteContext<'s> {
     role: Receiver,
     caller: Option<DefinitionRef>,
     current_type: Option<DefinitionRef>,
+    /// Rust: the `use` scope the site is in (issue 114).
+    use_scope: Option<u32>,
 }
 
 impl Resolver<'_> {
@@ -775,9 +778,18 @@ impl Resolver<'_> {
             return Ok(made(Band::Unresolved, None, Vec::new())?);
         }
         let role = receiver_of(language.id, receiver);
+        // Issue 114: a Rust name's imports are those in force in the site's `use` scope.
+        let provenance = |name: &str| {
+            if language.id == "rust" {
+                self.registry
+                    .rust_name_provenance(path, call.use_scope, name)
+            } else {
+                self.registry.name_provenance(path, name)
+            }
+        };
         if receiver.is_none() || role == Receiver::Other {
             let head = receiver.map_or(name, head_of);
-            match self.registry.name_provenance(path, head) {
+            match provenance(head) {
                 NameProvenance::ExternalImport(_) => {
                     return Ok(made(Band::External, None, Vec::new())?);
                 }
@@ -813,6 +825,7 @@ impl Resolver<'_> {
             role,
             caller,
             current_type,
+            use_scope: call.use_scope,
         };
         let named = self.named(&context);
         let mut universe: BTreeSet<DefinitionRef> = named.iter().cloned().collect();
@@ -825,12 +838,8 @@ impl Resolver<'_> {
         // repository (a module or type imported under it), which follows the import
         // rather than guessing a value's type.
         let arbitrary_member = call.lexical.contains(LexicalFacts::UNRESOLVED_MEMBER);
-        let receiver_imported = receiver.is_some_and(|r| {
-            matches!(
-                self.registry.name_provenance(path, head_of(r)),
-                NameProvenance::InternalImport(_)
-            )
-        });
+        let receiver_imported = receiver
+            .is_some_and(|r| matches!(provenance(head_of(r)), NameProvenance::InternalImport(_)));
         let mut stages = Vec::new();
         if !arbitrary_member || receiver_imported {
             stages.push(NarrowingStage {
@@ -859,9 +868,20 @@ impl Resolver<'_> {
                 evidence: Box::new(|current: &[DefinitionRef]| self.in_module(&context, current)),
             });
         }
-        // 6. What is left. A member a stage settled on is no target while a macro may
-        // write another of its name for the type (issue 110).
-        match narrow(universe.into_iter().collect(), stages) {
+        // 6. What is left.
+        let narrowed = narrow(universe.into_iter().collect(), stages);
+        self.settled(&context, narrowed)
+    }
+
+    /// What the stages left settles a site: their one target, unless a macro may write
+    /// another member of its name for its type (issue 110), then the candidates.
+    fn settled(
+        &self,
+        context: &SiteContext<'_>,
+        narrowed: Narrowed,
+    ) -> Result<Resolution, ResolutionError> {
+        let made = |band, target, candidates| Resolution::new(band, target, candidates, None);
+        match narrowed {
             Narrowed::Resolved { target, .. }
                 if self.member_unproven(
                     context.language,
@@ -1000,6 +1020,18 @@ impl Resolver<'_> {
             .any(|f| *f == r.path || self.registry.paired_file(f) == Some(r.path.as_str()))
     }
 
+    /// The imports a site sees for `key` (the callee's name, or its receiver's head): a
+    /// Rust site those in force in its `use` scope, never the whole file's (issue 114);
+    /// any other the file's.
+    fn imports_for(&self, context: &SiteContext<'_>, key: &str) -> Vec<&ImportRecord> {
+        if context.language.id == "rust" {
+            self.registry
+                .rust_imports_at(context.path, context.use_scope, key)
+        } else {
+            self.registry.imports_of(context.path).iter().collect()
+        }
+    }
+
     /// Definitions a bare call reaches under another name: the member an import binds
     /// to the callee's name (`from a import f as g`, `import a.b.C as D`).
     fn through_aliases(&self, context: &SiteContext<'_>) -> Vec<DefinitionRef> {
@@ -1007,7 +1039,7 @@ impl Resolver<'_> {
             return Vec::new();
         }
         let mut found = Vec::new();
-        for import in self.registry.imports_of(context.path) {
+        for import in self.imports_for(context, context.name) {
             if !import.bindings.iter().any(|b| b == context.name) {
                 continue;
             }
@@ -1063,7 +1095,8 @@ impl Resolver<'_> {
             .and_then(|t| self.registry.definition(&t).map(|d| d.name.clone()));
         let inside_type =
             context.current_type.is_some() && IMPLICIT_RECEIVER.contains(&context.language.id);
-        for import in self.registry.imports_of(context.path) {
+        let key = context.receiver.map_or(context.name, head_of);
+        for import in self.imports_for(context, key) {
             let targets = Self::targets(&import.target);
             if targets.is_empty() {
                 continue;

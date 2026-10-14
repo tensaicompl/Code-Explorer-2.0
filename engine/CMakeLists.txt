@@ -348,6 +348,9 @@ if(PDXE_BUILD_TESTS)
   # Nor how deeply its syntax nests: a tree deeper than PDXE_MAX_SYNTAX_DEPTH is not
   # extracted (issue 89, patches/0021).
   add_test(NAME syntax_depth COMMAND syntax_depth)
+  # A Rust `use` binds only in its lexical scope, a macro is read in its invocation's,
+  # and the scopes cross the interface for Stage 3 (issue 114, patches/0031).
+  add_test(NAME rust_use_scopes COMMAND rust_use_scopes)
   # Nor how deeply its usages sit: a usage's ancestors are answered from the walk's own
   # path, the work linear in the nesting (issue 90, patches/0022).
   add_test(NAME usage_ancestry COMMAND usage_ancestry)

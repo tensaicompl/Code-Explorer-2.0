@@ -126,6 +126,88 @@ pub struct ImportRecord {
     pub target: ImportTarget,
 }
 
+/// Issue 114: one of a Rust file's imports: one of its module's own (`imports_of`), or
+/// one declared inside a scope of it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+enum ScopedImportRef {
+    File(usize),
+    Scoped(usize),
+}
+
+/// Issue 114: a Rust file's `use` scopes, as the engine recorded them
+/// (`ExtractRecord::use_scopes`), and what each scope's `use` declarations bring in: the
+/// typed pass's own model, so that a site sees the imports in Stage 3 that it sees there.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+struct RustUseScopes {
+    /// Each scope's parent, earlier in the table, and whether it is a module.
+    scopes: Vec<pdx_engine::UseScope>,
+    /// The imports declared inside every scope but the file's module, in extraction
+    /// order; their `ImportRef` indexes follow the file's own imports'.
+    scoped: Vec<ImportRecord>,
+    /// Each scope's imports by the names they bind, in extraction order.
+    bindings: Vec<BTreeMap<String, Vec<ScopedImportRef>>>,
+    /// Each scope's imports that bind no name of their own (a glob), in order.
+    globs: Vec<Vec<ScopedImportRef>>,
+    /// Each scope's links: the enclosing modules of the file a `use super::*` of it
+    /// names, whose imports it sees after its own.
+    links: Vec<Vec<usize>>,
+}
+
+impl RustUseScopes {
+    /// The imports scope `s` binds `key` to: its own, else those of the first enclosing
+    /// module a glob of it links to that binds it. Links name earlier scopes only.
+    fn explicit(&self, s: usize, key: &str) -> Vec<ScopedImportRef> {
+        if let Some(own) = self.bindings[s].get(key) {
+            return own.clone();
+        }
+        for &l in &self.links[s] {
+            if l < s {
+                let linked = self.explicit(l, key);
+                if !linked.is_empty() {
+                    return linked;
+                }
+            }
+        }
+        Vec::new()
+    }
+
+    /// Scope `s`'s globs, and those of the enclosing modules it links to.
+    fn globs_of(&self, s: usize, out: &mut Vec<ScopedImportRef>) {
+        out.extend(self.globs[s].iter().copied());
+        for &l in &self.links[s] {
+            if l < s {
+                self.globs_of(l, out);
+            }
+        }
+    }
+
+    /// The imports in force for `key` at a site in scope `start`: the explicit imports
+    /// of the nearest scope that binds it, which shadow that scope's globs, with the
+    /// globs of the scopes nearer than it (a nearer glob may bring the name in, which
+    /// Stage 3 cannot tell, so both are kept); when none binds it, the globs of every
+    /// scope out to the first module. The search ends at the first module: an inline
+    /// module does not see its parent module's names unless it imports them.
+    fn in_force(&self, start: usize, key: &str) -> (Vec<ScopedImportRef>, Vec<ScopedImportRef>) {
+        let mut globs = Vec::new();
+        let mut s = start;
+        while s < self.scopes.len() {
+            let explicit = self.explicit(s, key);
+            if !explicit.is_empty() {
+                return (explicit, globs);
+            }
+            self.globs_of(s, &mut globs);
+            if self.scopes[s].module {
+                break;
+            }
+            match self.scopes[s].parent {
+                Some(parent) => s = parent as usize,
+                None => break,
+            }
+        }
+        (Vec::new(), globs)
+    }
+}
+
 /// Where a name visible in a file comes from.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum NameProvenance {
@@ -298,6 +380,8 @@ pub struct SymbolRegistry {
     /// The members Rust's `macro_rules!` invocations may write, by the type's last name,
     /// across the repository (issue 110).
     macro_members: BTreeMap<String, MacroMembers>,
+    /// Each Rust file's `use` scopes and the imports in each (issue 114).
+    rust_use_scopes: BTreeMap<String, RustUseScopes>,
     metadata: ResolutionMetadata,
 }
 
@@ -355,6 +439,7 @@ impl SymbolRegistry {
             pairs: BTreeMap::new(),
             rust_external_crates: BTreeMap::new(),
             macro_members: BTreeMap::new(),
+            rust_use_scopes: BTreeMap::new(),
             metadata: ResolutionMetadata::default(),
         };
         registry.index_definitions(&sources);
@@ -483,7 +568,7 @@ impl SymbolRegistry {
             else {
                 continue;
             };
-            let records = extract
+            let records: Vec<ImportRecord> = extract
                 .imports
                 .iter()
                 .enumerate()
@@ -503,6 +588,10 @@ impl SymbolRegistry {
                     }
                 })
                 .collect();
+            if language.id == "rust" && !extract.use_scopes.is_empty() {
+                let scopes = rust_use_scopes(&lookup, language, path, extract, &records);
+                self.rust_use_scopes.insert(path.clone(), scopes);
+            }
             all.insert(path.clone(), records);
         }
         for (path, records) in &all {
@@ -1024,36 +1113,75 @@ impl SymbolRegistry {
         self.imports.get(path).map_or(&[], Vec::as_slice)
     }
 
-    /// One import.
+    /// One import: of the file's imports, or (Rust) past them, one declared inside a
+    /// scope of the file (issue 114).
     pub fn import(&self, r: &ImportRef) -> Option<&ImportRecord> {
-        self.imports_of(&r.path).get(usize::try_from(r.index).ok()?)
+        let index = usize::try_from(r.index).ok()?;
+        let own = self.imports_of(&r.path);
+        match index.checked_sub(own.len()) {
+            None => own.get(index),
+            Some(scoped) => self.rust_use_scopes.get(&r.path)?.scoped.get(scoped),
+        }
     }
 
-    /// Where a name visible in a file comes from: the file's own top-level
-    /// definitions first, then the imports that bind it. A name is external only when
-    /// every import that binds it is an import of an external package and nothing in
-    /// the file or the repository's imports offers it otherwise.
-    pub fn name_provenance(&self, path: &str, name: &str) -> NameProvenance {
-        // The file's top-level definitions and imports of that name, from their indexes
-        // (issue 92), in the order a scan of the file's definitions and imports met them.
-        let defined: Vec<DefinitionRef> = self
-            .top_level
-            .get(path)
-            .and_then(|by_name| by_name.get(name))
-            .cloned()
-            .unwrap_or_default();
-        if !defined.is_empty() {
+    fn rust_record(&self, path: &str, r: ScopedImportRef) -> Option<&ImportRecord> {
+        match r {
+            ScopedImportRef::File(i) => self.imports_of(path).get(i),
+            ScopedImportRef::Scoped(i) => self.rust_use_scopes.get(path)?.scoped.get(i),
+        }
+    }
+
+    /// Issue 114: the imports in force for `key` at a site of the Rust file at `path`
+    /// in `use` scope `scope`, each once: those that bind it in the nearest scope that
+    /// does, and the globs of the scopes out to there (out to the first module when none
+    /// binds it). None for a site placed in no scope: never the whole file's imports.
+    pub fn rust_imports_at(&self, path: &str, scope: Option<u32>, key: &str) -> Vec<&ImportRecord> {
+        let (Some(scopes), Some(scope)) = (self.rust_use_scopes.get(path), scope) else {
+            return Vec::new();
+        };
+        let (explicit, globs) = scopes.in_force(scope as usize, key);
+        let mut refs: Vec<ScopedImportRef> = explicit.into_iter().chain(globs).collect();
+        refs.sort();
+        refs.dedup();
+        refs.into_iter()
+            .filter_map(|r| self.rust_record(path, r))
+            .collect()
+    }
+
+    /// Issue 114: as [`Self::name_provenance`], for a site of the Rust file at `path` in
+    /// `use` scope `scope`: the file's top-level definitions first, then the imports that
+    /// bind the name in the nearest scope that does.
+    pub fn rust_name_provenance(
+        &self,
+        path: &str,
+        scope: Option<u32>,
+        name: &str,
+    ) -> NameProvenance {
+        if let Some(defined) = self.defined_at_top(path, name) {
             return NameProvenance::Defined(defined);
         }
-        let imports = self.imports_of(path);
-        let binding: Vec<&ImportRecord> = self
-            .import_bindings
+        let binding: Vec<&ImportRecord> = match (self.rust_use_scopes.get(path), scope) {
+            (Some(scopes), Some(scope)) => scopes
+                .in_force(scope as usize, name)
+                .0
+                .into_iter()
+                .filter_map(|r| self.rust_record(path, r))
+                .collect(),
+            _ => Vec::new(),
+        };
+        Self::provenance_of(&binding)
+    }
+
+    fn defined_at_top(&self, path: &str, name: &str) -> Option<Vec<DefinitionRef>> {
+        self.top_level
             .get(path)
-            .and_then(|by_binding| by_binding.get(name))
-            .map_or(&[][..], Vec::as_slice)
-            .iter()
-            .filter_map(|&i| imports.get(i))
-            .collect();
+            .and_then(|by_name| by_name.get(name))
+            .filter(|defined| !defined.is_empty())
+            .cloned()
+    }
+
+    /// What the imports binding a name say of it.
+    fn provenance_of(binding: &[&ImportRecord]) -> NameProvenance {
         if binding.is_empty() {
             return NameProvenance::Unknown;
         }
@@ -1071,6 +1199,28 @@ impl SymbolRegistry {
             );
         }
         NameProvenance::Unknown
+    }
+
+    /// Where a name visible in a file comes from: the file's own top-level
+    /// definitions first, then the imports that bind it. A name is external only when
+    /// every import that binds it is an import of an external package and nothing in
+    /// the file or the repository's imports offers it otherwise.
+    pub fn name_provenance(&self, path: &str, name: &str) -> NameProvenance {
+        // The file's top-level definitions and imports of that name, from their indexes
+        // (issue 92), in the order a scan of the file's definitions and imports met them.
+        if let Some(defined) = self.defined_at_top(path, name) {
+            return NameProvenance::Defined(defined);
+        }
+        let imports = self.imports_of(path);
+        let binding: Vec<&ImportRecord> = self
+            .import_bindings
+            .get(path)
+            .and_then(|by_binding| by_binding.get(name))
+            .map_or(&[][..], Vec::as_slice)
+            .iter()
+            .filter_map(|&i| imports.get(i))
+            .collect();
+        Self::provenance_of(&binding)
     }
 
     /// Whether a macro invocation of the repository may write a member named `member`
@@ -1358,6 +1508,144 @@ fn pair_stages(
 
 /// Every definition index an extraction's facts use is one of its definitions, and
 /// no definition is its own ancestor.
+/// Issue 114: a Rust file's `use` scopes and what each binds, from its extraction and its
+/// module's own import records (scope 0's).
+fn rust_use_scopes(
+    lookup: &Lookup<'_>,
+    language: &'static Language,
+    path: &str,
+    extract: &FileExtract,
+    own: &[ImportRecord],
+) -> RustUseScopes {
+    let scopes = extract.use_scopes.clone();
+    let n = scopes.len();
+    // Inline modules between the file's module and each scope's module.
+    let mut depth = vec![0usize; n];
+    for (i, scope) in scopes.iter().enumerate().skip(1) {
+        let parent = scope.parent.map_or(0, |p| p as usize);
+        depth[i] = depth[parent] + usize::from(scope.module);
+    }
+    // The module `k` modules out from scope `s`'s own module, if the file has it.
+    let enclosing = |s: usize, k: usize| -> Option<usize> {
+        let module_of = |mut m: usize| {
+            while !scopes[m].module {
+                m = scopes[m].parent? as usize;
+            }
+            Some(m)
+        };
+        let mut m = module_of(s)?;
+        for _ in 0..k {
+            m = module_of(scopes[m].parent? as usize)?;
+        }
+        Some(m)
+    };
+    let mut out = RustUseScopes {
+        scopes: scopes.clone(),
+        scoped: Vec::new(),
+        bindings: vec![BTreeMap::new(); n],
+        globs: vec![Vec::new(); n],
+        links: vec![Vec::new(); n],
+    };
+    let add = |out: &mut RustUseScopes, s: usize, at: ScopedImportRef, record: &ImportRecord| {
+        if record.bindings.is_empty() {
+            out.globs[s].push(at);
+        }
+        for binding in &record.bindings {
+            let bound = out.bindings[s].entry(binding.clone()).or_default();
+            if bound.last() != Some(&at) {
+                bound.push(at);
+            }
+        }
+    };
+    for (i, record) in own.iter().enumerate() {
+        add(&mut out, 0, ScopedImportRef::File(i), record);
+    }
+    for (j, scoped) in extract.scoped_imports.iter().enumerate() {
+        let s = scoped.scope as usize;
+        let text = scoped.import.module_text.trim();
+        // `use super::*` in an inline module: a link to the enclosing module it names.
+        let supers = text.matches("super::").count();
+        if text == format!("{}*", "super::".repeat(supers))
+            && (1..=depth[s]).contains(&supers)
+            && let Some(m) = enclosing(s, supers)
+        {
+            out.links[s].push(m);
+        }
+        // `use super::x` in an inline module names what its enclosing module binds `x`
+        // to when that module imports it (its own bindings, read before this one).
+        let parent_binding = text
+            .rsplit_once("::")
+            .filter(|(head, name)| {
+                is_rust_name(name) && {
+                    let k = head.split("::").filter(|s| *s == "super").count();
+                    k > 0 && *head == vec!["super"; k].join("::") && k <= depth[s]
+                }
+            })
+            .and_then(|(head, name)| {
+                let k = head.split("::").count();
+                let m = enclosing(s, k)?;
+                let bound = out.explicit(m, name);
+                (!bound.is_empty()).then(|| (name.to_owned(), bound))
+            });
+        let read = pdx_engine::Import {
+            module_text: from_inline_module(text, depth[s]),
+            ..scoped.import.clone()
+        };
+        let (bindings, target) = imports::interpret(lookup, language, path, &read);
+        let record = ImportRecord {
+            import: ImportRef {
+                path: path.to_owned(),
+                index: u32::try_from(own.len() + j).unwrap_or(u32::MAX),
+            },
+            module_text: scoped.import.module_text.clone(),
+            imported_name: scoped.import.imported_name.clone(),
+            alias: scoped.import.alias.clone(),
+            bindings,
+            target,
+        };
+        match parent_binding {
+            Some((name, bound)) => {
+                out.bindings[s].insert(name, bound);
+            }
+            None => add(&mut out, s, ScopedImportRef::Scoped(j), &record),
+        }
+        out.scoped.push(record);
+    }
+    out
+}
+
+/// Whether `s` is one Rust name: letters, digits and `_`, not leading with a digit.
+fn is_rust_name(s: &str) -> bool {
+    s.chars()
+        .next()
+        .is_some_and(|c| c.is_alphabetic() || c == '_')
+        && s.chars().all(|c| c.is_alphanumeric() || c == '_')
+}
+
+/// Issue 114: a `use` path declared `depth` inline modules below the file's module, read
+/// from the file's module as Stage 3 reads every path: inline modules are no modules of
+/// their own here (their items are the file's), so `self` and a `super` that stays within
+/// the file name the file's module, and a `super` past it its parent.
+fn from_inline_module(text: &str, depth: usize) -> String {
+    if depth == 0 {
+        return text.to_owned();
+    }
+    let mut rest = text;
+    let mut supers = 0;
+    while let Some(after) = rest.strip_prefix("super::") {
+        supers += 1;
+        rest = after;
+    }
+    if supers == 0 {
+        return text.to_owned();
+    }
+    if supers <= depth {
+        format!("self::{rest}")
+    } else {
+        format!("{}{rest}", "super::".repeat(supers - depth))
+    }
+}
+
 fn validate(path: &str, extract: &FileExtract) -> Result<(), RegistryError> {
     let n = extract.definitions.len();
     let check = |what: &'static str, index: Option<u32>| -> Result<(), RegistryError> {

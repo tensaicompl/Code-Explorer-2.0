@@ -372,39 +372,39 @@ fn super_crate_and_inline_modules_anchor_the_path() {
 }
 
 #[test]
-fn a_name_bound_to_two_paths_is_no_evidence() {
+fn one_name_in_a_module_and_its_test_module_is_two_bindings() {
     // `fetch` is `crate::routing::fetch` in the module and `crate::other::fetch` in its
-    // test module. The typed pass's use map is the file's, so it cannot tell which a
-    // site sees and answers neither call (before issue 111 the first binding it read
-    // answered both). Stage 3 knows only the module's own import: the extraction reads
-    // no `use` inside an inline module (issue 114), so it draws both calls to
-    // `routing::fetch`, the test module's wrongly. Recorded so that its correction is
-    // seen.
+    // test module. Issue 111 read both into one map for the file and withheld the name;
+    // Stage 3 then drew both calls to `routing::fetch`, the test module's wrongly. Each
+    // `use` binds in its own scope (issue 114): each call is its scope's import's, and
+    // nothing is ambiguous. One scope binding a name twice is rust_use_scopes' S14.
     let calls = all_at("src/ambiguous.rs", "fetch");
     assert_eq!(calls.len(), 2, "{calls:?}");
-    for got in calls {
-        assert!(got.engine().is_none(), "{got:?}");
-        assert_ne!(got.band(), Band::Typed, "{got:?}");
-        assert_eq!(got.band(), Band::ImportGuided, "{got:?}");
-        assert_eq!(got.target(), Some(&def("src/routing/mod.rs", "fetch")));
+    for (got, target) in calls
+        .into_iter()
+        .zip(["src/routing/mod.rs", "src/other/mod.rs"])
+    {
+        assert_eq!(got.band(), Band::Typed, "{got:?}");
+        assert_eq!(got.target(), Some(&def(target, "fetch")), "{got:?}");
     }
 }
 
 #[test]
 fn a_functions_use_is_no_evidence_outside_it() {
     // `inner` imports `helper_one` in its body; `outer`, in the same file, imports
-    // nothing and in Rust cannot call it. A function body's imports read as the file's
-    // would answer `outer`'s call: it must never be typed or import-guided. Neither pass
-    // reads a function body's `use` yet (issue 114), so `inner`'s call has no typed
-    // answer either; when it has, it is `inner`'s alone.
+    // nothing and in Rust cannot call it. The body's `use` binds in the body (issue
+    // 114): `inner`'s call is typed through it, and `outer`'s is never typed or
+    // import-guided, as it would be were a function's imports read as the file's.
     let calls = all_at("src/fnscope.rs", "helper_one");
     assert_eq!(calls.len(), 2, "{calls:?}");
     let (inner, outer) = (calls[0], calls[1]);
-    for got in [inner, outer] {
-        assert!(got.engine().is_none(), "{got:?}");
-        assert_ne!(got.band(), Band::Typed, "{got:?}");
-    }
-    assert_ne!(outer.band(), Band::ImportGuided, "{outer:?}");
+    assert_eq!(inner.band(), Band::Typed, "{inner:?}");
+    assert_eq!(inner.target(), Some(&def("src/helpers.rs", "helper_one")));
+    assert!(outer.engine().is_none(), "{outer:?}");
+    assert!(
+        !matches!(outer.band(), Band::Typed | Band::ImportGuided),
+        "{outer:?}"
+    );
 }
 
 #[test]

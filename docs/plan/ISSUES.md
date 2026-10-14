@@ -16,7 +16,8 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
 | 115 | 2026-10-14 | P2-06 | blocker | resolved | Found in issue 114's A0 run: `scripts/a0/run.py` measures with `target/debug/pdx-bench`, which it never builds, and took the `engine_version` it records from `consts.rs`, the source. Nothing tied a result to the executable that produced it: with `ENGINE_VERSION` moved to 10 in the working tree and the executable built before, at 9, the run measured engine 9 and labelled every document engine 10. That run was discarded and measured again after a rebuild; no committed result came from it | Resolved 2026-10-14 (hotfix): `pdx-bench versions` prints, as JSON, the version the linked engine reports at run time, the `pdx_core` constants compiled in (`ENGINE_VERSION`, `EXTRACT_CACHE_FORMAT_VERSION`, `LANGUAGE_MATRIX_VERSION`, `SECRET_DETECTOR_VERSION`, `SEGMENT_SCHEMA_VERSION`) and the worker protocol. Before anything runs, `run.py` compares each with the source and refuses, naming both values and writing nothing, on any difference, a missing executable or one that cannot report. The executable's bytes are held for the run (checked before each dataset and the results), the results are staged and promoted together, and a document's `engine_version` is the executed engine's. Tests A1 to A5 in `scripts/a0/test_a0.py`, now part of `make test`; 14 mutations killed. No resolution, extraction, version or A0 rule (`a0-match-1`, `a0-metrics-1`) changes |
-| 114 | 2026-10-14 | P2-06 | blocker | open | Found by issue 111: a Rust `use` has no lexical scope in PDX. The typed pass reads a file's top-level and inline-module `use` declarations as the whole file's, so a test module's `use crate::other::fetch;` makes the module's own call of its own `fetch` a typed answer to `other::fetch` (engine 8 with a plain `use`; engine 9 also with a list it now reads); neither pass reads a `use` in a function body, so 34 calls of PDX itself imported that way have no typed answer; and Stage 3 reads a file's top-level imports only, so an inline module's call is drawn `import-guided` to the module's import. The measured corpora hold no wrong trusted edge from it | Open. Give each `use` its lexical scope (module, inline module, block, function body) and bind its names only for the sites in it, in the typed pass and Stage 3 alike. Never by reading a function's or an inline module's imports as the file's: that broadening is what draws the wrong edge now. |
+| 116 | 2026-10-14 | P2-06 | blocker | open | Found by issue 114: Stage 3 makes a Rust site `external` when its receiver's first name is an external import, whatever the site binds it to. With an inline test module's imports now in scope, ten correct `exact` edges of the Rust golden become `external`: `axum/src/response/sse.rs` `stream.chunk_text` ×9 (a local `let mut stream` shadows the module's `use futures_util::stream;`) and `axum/src/serve/mod.rs:1024` `TcpListener::bind(addr).await.unwrap().tap_io` (a repository trait's method called on a value the external path produced). Recall only; no wrong edge | Open. Read a receiver's first name as its binding at the site: a local binding shadows an import, and a method called on a value is not decided by the path that made the value. Not by restoring a file's imports to a module. |
+| 114 | 2026-10-14 | P2-06 | blocker | resolved | Found by issue 111: a Rust `use` has no lexical scope in PDX. The typed pass reads a file's top-level and inline-module `use` declarations as the whole file's, so a test module's `use crate::other::fetch;` makes the module's own call of its own `fetch` a typed answer to `other::fetch` (engine 8 with a plain `use`; engine 9 also with a list it now reads); neither pass reads a `use` in a function body, so 34 calls of PDX itself imported that way have no typed answer; and Stage 3 reads a file's top-level imports only, so an inline module's call is drawn `import-guided` to the module's import. The measured corpora hold no wrong trusted edge from it | Resolved 2026-10-14 (patch 0031, engine 11, on issue 110): every Rust `use` binds in its lexical scope (the file's module, an inline module, a block), in the typed pass and Stage 3 alike; a lookup goes out from the site's scope and stops at the first module, so an inline module sees its parent's names only through `use super::…`; a nearer glob shadows an outer `use`, an explicit `use` the globs of its own scope; one scope binding a name twice withholds it. The extraction records the scopes, the imports inside them and each call's scope (cache format 8, protocol 9, surface 5). A0: Rust `typed` 859 / 860 → 865 / 866, `import-guided` 24 / 24 → 109 / 109, union 63.02% → 64.04%, recall 1,409 → 1,400 / 4,056 (ten correct `exact` edges now `external`, issue 116; one `blocked` site now correct `typed`); every newly drawn site correct, no new wrong trusted edge; the five `Body::from` sites stay `candidate` (issue 110). PDX itself: the 34 calls through a function body's `use` are correct `typed`. Python unchanged. The differential holds a second ratified divergence (decision 66) |
 | 113 | 2026-10-14 | P2-06 | blocker | open | Found by issue 111, three causes: (A) a type path through `crate::` and a re-export names no definition: the typed pass keeps `crate::extract::NestedPath` as written, neither anchoring `crate::` nor following `pub use self::nested_path::NestedPath;`, so 5 `NestedPath::as_str` calls of the Rust golden have no typed answer; (B) an impl of an imported type names its methods' caller under the import (`http.header.HeaderMap.into_response_parts`) while extraction names the owner by the file's module, so 2 correct answers (`headers_mut`, `extensions_mut`) join no site and are drawn `exact`; (C) a module file named `index.rs` is named as its parent (`golden/index.rs`'s functions as `golden`'s), so a path through `golden::index` names no such function: 4 calls of PDX itself. All predate issue 111 (engine 8 with a plain `use` does the same) and draw no wrong edge | Open. (A) Anchor `crate::`, `self::` and `super::` in a type path and follow re-exports to the definition by identity, never a last-segment guess. (B) Name an impl's methods' caller as extraction names their owner. (C) Name a module file by its stem. Separate fixes. |
 | 112 | 2026-10-14 | P2-16 | blocker | resolved | Found after issue 104 (R2): patch 0028 changed what Rust extraction records while `ENGINE_VERSION` stayed 7, and the extraction cache is keyed by the engine version, so an entry engine 7 wrote before the patch was served after it for the same source, path, language and policy. What differs: a bare call of a function its block declares is now `LOCALLY_BOUND`, and a Rust file's per-file typed answers, which its surface holds, need path evidence and leave a `match` arm's and a block's names alone. Shown with both builds: the same 5 object ids, 3 entries' bytes different, and the post-patch build, served the pre-patch entries, drawing `a::expand` to the crate root's `expand` and the arm's `params` as a typed reference | Resolved 2026-10-14 (hotfix): `ENGINE_VERSION` 7 to 8, in `consts.rs` and the engine (`pdxe_version`). Engine 7 began with patch 0015; 0028 is engine 8. Every other version is unchanged. `cache_entries_of_engine_seven_are_never_served`: a faithful engine 7 entry is a miss, the file is extracted again with engine 8's facts, the old entry is left alone, an engine 8 entry is written and served warm; with the version back at 7 it fails. Goldens, A0 and the differential are unchanged but for the version |
 | 111 | 2026-10-14 | P2-06 | blocker | resolved | Found by issue 104 (R2): Rust typed resolution reads a file's `use` declarations as text and splits a brace list at every comma, so a nested or multi-line list (`use crate::{routing::{on, MethodFilter}, Router};`) gives some names no entry and others a wrong path (`on` as `crate::on`), and `pub use` none. Since issue 104 an imported name is a typed answer only through its import's path, so in the Rust golden 16 correct typed edges become `exact` (same targets), 6 are lost to `candidate` (`on`, `on_service`) and 9 unmaterialised typed answers are lost; PDX itself loses 38 unmaterialised | Resolved 2026-10-14 (patch 0029, engine 9): `use` declarations are read from the syntax tree, nested and multi-line lists, comments, aliases, `self`, globs and `pub`, `pub(crate)` and `pub(in …)` included; a name the file's own use trees bind to two paths is withheld; lookups by local name through an index; an alias reaches its function (`lsp_import_alias`). All 31 Rust golden sites are correct `typed` again (16 from `exact`, 6 from `candidate`, 9 unmaterialised), and one `scoped` false positive is `typed` and right. A0: Rust golden `typed` 843/844 → 859/860 = 99.88%, union 62.92% → 62.97%, recall 1,407/4,052 → 1,409/4,056; PDX itself `typed` 5,904/5,904, 43 sites strengthened and none lost; Python unchanged; no new wrong trusted edge. Not restored: 5 `NestedPath::as_str` and 2 impl sites (issue 113), 34 PDX calls through a function body's `use` (issue 114). The engine differential's one changed row (`pub(crate) use unknown::Unknown;`, which the reference reads as a path) is ratified by decision 66. `ENGINE_VERSION` 8 → 9; `cache_entries_of_engine_eight_are_never_served` |
@@ -160,6 +161,32 @@ Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
 
+### 116 — Stage 3 calls a Rust receiver external by the import its first name shares
+
+Found by issue 114. Stage 3 (4.5, step 4) makes a Rust site `external` when the first
+name of its receiver is bound only by imports of external crates in the scope it reads.
+It reads the import, not the binding the site sees, so two things are taken for the
+external package:
+
+- **A local binding of the same name.** `axum/src/response/sse.rs`'s test module has
+  `use futures_util::stream;`, and its tests read `let mut stream = client.get("/")…`.
+  `stream.chunk_text()` (lines 862, 866, 870, 930, 936, 973, 1003, 1009 and 1014) is a
+  method of the repository's test client, and Stage 3 makes it `external`.
+- **A method of the value the path produced.** `axum/src/serve/mod.rs:1024`,
+  `TcpListener::bind(addr).await.unwrap().tap_io(…)`: `TcpListener` is the external
+  crate's, `tap_io` the repository's own trait method on the listener.
+
+Before issue 114 the test modules' imports were invisible to Stage 3, and the ten sites
+were drawn `exact` and correct. Issue 114 puts the imports in the scope where Rust binds
+them; the reading of the receiver is what is wrong. Recall only: ten correct edges are
+not drawn, none is drawn wrong.
+
+To fix: read a receiver's first name as the site sees it (a `let`, a parameter or a
+pattern shadows an import), and decide a method on a value by the value, not by the path
+that made it. Not a fix: hiding a module's imports from its own sites again.
+
+State: open.
+
 ### 115 — The A0 runner can record the source's `ENGINE_VERSION` while running a stale executable
 
 Found during issue 114's A0 run. `scripts/a0/run.py` measures with
@@ -288,7 +315,81 @@ function's or an inline module's imports as the file's. That broadening is what 
 `plain::call` wrong; it must not be extended to function bodies, and the inline
 modules' share of it is this issue's to remove.
 
-State: open.
+**Resolution (2026-10-14, patch 0031, engine 11).** Implemented first on engine 9, held
+because A0 then showed four new `import-guided` false positives of issue 110's class
+(`Body::from` in `axum/src/extract/raw_form.rs` and `axum/src/form.rs`, which the test
+modules' newly scoped imports exposed), parked whole as work in progress, and reapplied
+after issue 110: every hunk reviewed against 110's code, the version numbers taken from
+110's (engine 10 → 11, cache format 7 → 8, worker protocol 8 → 9), the patch renumbered
+0031.
+
+- **Rust semantics.** A `use` binds in the scope it is written in: the file's module, an
+  inline module's body (a module) or a block. An inline module does not inherit its
+  parent's `use` bindings; it gets them through `use super::X` (the enclosing module's
+  binding of `X`) or `use super::*` (a link to the enclosing module's bindings). Blocks
+  see their enclosing scopes' bindings until the first module.
+- **Typed pass.** One collector (`rust_collect_uses`) records the scopes in source order
+  with their parents, each with its own bindings (indexed by local name; issue 111's
+  withholding per scope), globs and links. The walk sets the scope in force as it enters a
+  block or an inline module; a macro's expansion keeps its invocation's scope. A lookup
+  goes from the site's scope out and stops at the first module; a nearer glob that brings
+  the name in shadows an outer `use`.
+- **Extraction.** The scopes (`use_scopes`), the `use` declarations inside every scope but
+  the file's module (`scoped_imports`, recorded as the file's own imports are) and each
+  call's scope (`Call::use_scope`, by its exact occurrence) cross the interface for Stage
+  3. The file's own `imports` and the surface are unchanged.
+- **Stage 3** reads, for a Rust site, the imports in force in its scope
+  (`rust_imports_at`, `rust_name_provenance`), never the file's whole import list: an
+  explicit `use` shadows the globs of its own scope, a nearer scope's globs an outer
+  explicit `use`.
+
+Tests: `crates/pdx-core/tests/rust_use_scopes.rs` (25: S1 to S15, module boundaries
+four ways, a macro's imported name, the issue's two reproductions, Stage 3 alone),
+`engine/tests/rust_use_scopes.c`, `typed_lookup` (scoped lookups linear),
+`pdx-engine`'s `use_scopes`, `isolation_carries_use_scopes` and
+`cache_entries_of_engine_ten_are_never_served`; the cache key vectors for format 8,
+computed independently. Mutations: 25, each killed (the typed pass's scopes, lookups,
+shadowing, globs and links; Stage 3's scopes, provenance, module boundary, links and
+shadowing; the representation, the engine version, the cache format and the protocol).
+
+The engine differential holds a second ratified divergence (decision 66), restored
+exactly and checked against the live run: `issue-114-axum-core-default-body-limit-kind-limit`
+(the reference applies an inline module's `use super::DefaultBodyLimitKind` to the whole
+file). Every corpus passes: 31 identical, `golden:rust/axum` with exactly its two ratified
+divergences, none unexpected, none stale.
+
+A0 (guarded by issue 115, engine 11; baseline post-110):
+
+| Golden | | Post-110 | Post-114 |
+|---|---|---|---|
+| Rust | `typed` | 859 / 860 = 99.88% | 865 / 866 = 99.88% |
+| Rust | `import-guided` | 24 / 24 | 109 / 109 |
+| Rust | `inheritance-guided` | 63 / 63 | 60 / 60 |
+| Rust | `exact` | 511 / 1,136 = 44.98% | 483 / 1,071 = 45.10% |
+| Rust | `scoped` | 155 / 475 = 32.63% | 86 / 397 = 21.66% |
+| Rust | union | 1,612 / 2,558 = 63.02% | 1,603 / 2,503 = 64.04% |
+| Rust | recall | 1,409 / 4,056 = 34.74% | 1,400 / 4,056 = 34.52% |
+| Python | all | | unchanged |
+| PDX | `typed` | 5,904 / 5,904 | 5,911 / 5,911 |
+| PDX | union, recall | 85.03%, 83.94% | 85.05%, 83.62% (6,572 / 7,859) |
+
+315 Rust golden sites change: 91 correct edges change band (69 `scoped` and 17 `exact`
+to `import-guided`; 3 `inheritance-guided`, one `exact` and one `import-guided` to
+`typed`), 46 false `exact` and `scoped` edges become `external`, 166 undrawn sites
+become `external`, one `blocked` site becomes correct `typed`, one typed-only site
+appears, and ten correct `exact` edges become `external` (issue 116). Every site newly
+drawn is correct: no new wrong trusted edge. The Rust golden's one trusted false
+positive left is issue 109's `typed` blanket impl. The five `Body::from` sites
+(`request.rs:355`, `raw_form.rs:83` and `:113`, `form.rs:168` and `:230`) are all
+`candidate` (issue 110). PDX itself: the 34 calls through a function body's `use` are
+correct `typed` (its recall denominator grows by them), four `candidate` sites are drawn
+correct `import-guided`, 16 correct edges change band, one false `exact` edge and two
+undrawn sites become `external`; Python changes at no site.
+The golden: `rust/axum` 3,656 → 3,563 drawn edges (228 out, 135 in; 133 of them band
+changes on one edge, 94 `exact` and `scoped` edges now `external`, one new `typed`); the
+other nine are unchanged.
+
+State: resolved.
 
 ### 113 — Rust paths through `crate::`, re-exports and `index.rs`, and an imported type's impls
 
@@ -1508,6 +1609,21 @@ moves but one false `scoped` self-edge.
 |---|---|---|---|
 | Python | 314/314 | 94.98% | 54.40% |
 | Rust | 859/860 = 99.88% | 63.02% | 34.74% |
+
+**Issue 114 (2026-10-14).** Resolved on top of issue 110 (patch 0031, engine 11): a
+Rust `use` binds only in its lexical scope, in the typed pass and Stage 3. Every newly
+drawn site is correct; the four `Body::from` sites its scopes expose stay `candidate`
+(110). It found issue 116 (an import's name read for a local binding or a value's
+method: ten correct edges now `external`). The differential holds a second ratified
+divergence.
+
+| Golden | `typed` | Union | Recall |
+|---|---|---|---|
+| Python | 314/314 | 94.98% | 54.40% |
+| Rust | 865/866 = 99.88% | 64.04% | 34.52% |
+
+PDX itself: `typed` 100.00%, union 85.05%, recall 83.62%. Four of G1b's six floors still
+fail. Next, each when the driver authorises it: issue 109, then R3 (issue 102).
 
 State: open.
 

@@ -401,6 +401,36 @@ pub struct Call {
     /// The arguments the engine captured, in its order; empty for a reference and a
     /// resolution's site (issue 47).
     pub args: Vec<CallArg>,
+    /// Rust: the `use` scope the site is in, an index into the extraction's
+    /// [`ExtractRecord::use_scopes`], which decides the `use` bindings in force at it;
+    /// `None` when the engine placed it in none: every other language, a reference, a
+    /// resolution's site (issue 114).
+    pub use_scope: Option<u32>,
+}
+
+/// Rust: a lexical scope `use` declarations bind in, and in which a call sees them
+/// (issue 114). The first is the file's module, whose `use` declarations are the
+/// extraction's [`ExtractRecord::imports`]; the others are each inline module's body and
+/// each block that declares a `use`, in source order, every scope after its parent. A
+/// lookup goes from a site's scope out through its parents and ends at the first module:
+/// an inline module does not see its parent module's names unless it imports them
+/// (`use super::...`). Extraction-local: an index means nothing outside its extraction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UseScope {
+    /// The enclosing scope, earlier in the table; `None` for the file's module.
+    pub parent: Option<u32>,
+    /// The file's module or an inline module's, where a lookup ends; else a block.
+    pub module: bool,
+}
+
+/// Rust: a `use` declared inside a scope other than the file's module, recorded as the
+/// file's own imports are, and the scope it binds in (issue 114).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ScopedImport {
+    /// The import, as an import of the file's module is recorded.
+    pub import: Import,
+    /// Its scope, an index into [`ExtractRecord::use_scopes`], never the file's module.
+    pub scope: u32,
 }
 
 /// An import.
@@ -658,8 +688,13 @@ pub struct ExtractRecord {
     pub macro_members: Vec<MacroMember>,
     /// Calls, then callables passed as values.
     pub calls: Vec<Call>,
-    /// Imports.
+    /// Imports. For Rust, the `use` declarations of the file's module.
     pub imports: Vec<Import>,
+    /// Rust's `use` scopes (issue 114); empty for every other language, and when the
+    /// engine could not record them whole, in which case no call is placed in one.
+    pub use_scopes: Vec<UseScope>,
+    /// Rust's `use` declarations inside every scope but the file's module (issue 114).
+    pub scoped_imports: Vec<ScopedImport>,
     /// Uses of names that are not calls.
     pub usages: Vec<Usage>,
     /// Type references.
@@ -702,6 +737,11 @@ pub enum BindError {
         /// The source's length.
         len: u64,
     },
+    /// The `use` scopes are not a table of scopes each after its parent, the first the
+    /// file's module, or a call or scoped import names a scope that is not in it, or the
+    /// file's module (issue 114).
+    #[error("the use scopes are not well formed: {0}")]
+    UseScope(&'static str),
     /// A qualified name is given relative to a definition that is not an earlier one.
     #[error(
         "definition {index}'s qualified name is given by definition {base}, not an earlier one"
@@ -805,6 +845,42 @@ impl ExtractRecord {
         }
         for u in &self.usages {
             range(&u.name)?;
+        }
+        self.check_use_scopes()
+    }
+
+    /// Issue 114: the scopes a tree in source order, the file's module first and only it
+    /// without a parent; every call's and scoped import's scope one of them, a scoped
+    /// import's never the file's module.
+    fn check_use_scopes(&self) -> Result<(), BindError> {
+        let n = self.use_scopes.len();
+        for (index, scope) in self.use_scopes.iter().enumerate() {
+            match (index, scope.parent) {
+                (0, None) if scope.module => {}
+                (0, _) => return Err(BindError::UseScope("the first is not the file's module")),
+                (_, Some(parent)) if (parent as usize) < index => {}
+                _ => {
+                    return Err(BindError::UseScope(
+                        "a scope's parent is not an earlier one",
+                    ));
+                }
+            }
+        }
+        if self
+            .calls
+            .iter()
+            .any(|c| c.use_scope.is_some_and(|s| s as usize >= n))
+        {
+            return Err(BindError::UseScope("a call's scope is not in the table"));
+        }
+        if self
+            .scoped_imports
+            .iter()
+            .any(|i| i.scope == 0 || i.scope as usize >= n)
+        {
+            return Err(BindError::UseScope(
+                "a scoped import's scope is not in the table",
+            ));
         }
         Ok(())
     }

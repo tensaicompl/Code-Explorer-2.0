@@ -359,6 +359,14 @@ typedef struct {
      */
     const pdxe_call_arg *args;
     uint32_t n_args;
+    /*
+     * Rust: the `use` scope the site is in, an index into the result's use_scopes, which
+     * decides the `use` bindings in force at it; PDXE_NO_PARENT when the engine placed it
+     * in none (every other language, a reference, a resolution's site, a result rebuilt
+     * from a cache). Appended by a specification change; see docs/plan/ISSUES.md, issue
+     * 114.
+     */
+    uint32_t use_scope;
 } pdxe_call;
 
 typedef struct {
@@ -367,6 +375,27 @@ typedef struct {
     const char *alias;
     pdxe_span span;
 } pdxe_import;
+
+/*
+ * Rust: a lexical scope `use` declarations bind in, and in which a call sees them (issue
+ * 114). use_scopes[0] is the file's module, whose `use` declarations are the result's
+ * imports; the others are each inline module's body and each block that declares a
+ * `use`, in source order, every scope after its parent. A lookup goes from a site's
+ * scope out through its parents and ends at the first module: an inline module does
+ * not see its parent module's names unless it imports them (`use super::...`).
+ * Extraction-local: an index means nothing outside its result.
+ */
+typedef struct {
+    uint32_t parent; /* PDXE_NO_PARENT for the file's module */
+    uint8_t module;  /* 1 for the file's module or an inline module's, 0 for a block */
+} pdxe_use_scope;
+
+/* Rust: a `use` declared inside a scope other than the file's module, recorded as the
+ * file's own imports are, and the index of the scope it binds in (issue 114). */
+typedef struct {
+    pdxe_import import;
+    uint32_t scope;
+} pdxe_scoped_import;
 
 /* A use of a name as a value. `lexical` as for calls. The name is a range of the source
  * where it is spelled out there (a Python attribute chain included), owned otherwise;
@@ -525,6 +554,17 @@ typedef struct {
      */
     pdxe_macro_member *macro_members;
     uint32_t n_macro_members;
+    /*
+     * Rust's `use` scopes and the `use` declarations inside every scope but the file's
+     * module (pdxe_use_scope, pdxe_scoped_import); each call's is pdxe_call.use_scope.
+     * NULL and 0 for every other language, for a result rebuilt from a cache, and when
+     * the engine could not record them whole (lost work), in which case no call is
+     * placed. Appended by a specification change; see docs/plan/ISSUES.md, issue 114.
+     */
+    pdxe_use_scope *use_scopes;
+    uint32_t n_use_scopes;
+    pdxe_scoped_import *scoped_imports;
+    uint32_t n_scoped_imports;
 } pdxe_file_result;
 
 /*

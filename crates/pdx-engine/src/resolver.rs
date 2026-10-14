@@ -968,6 +968,8 @@ fn c_call(c: &Call, strings: &mut Strings) -> Result<sys::pdxe_call, EngineError
         n_ast_path: count(c.ast_path.len())?,
         args: strings.args(&c.args)?,
         n_args: count(c.args.len())?,
+        // The engine reads no scope from a result built from parts (issue 114).
+        use_scope: c_index(c.use_scope),
     })
 }
 

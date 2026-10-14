@@ -9,6 +9,16 @@
       "reason": "Issue 111 replaces the reference engine's textual Rust-use parser with syntax-tree use-tree parsing. The reference incorrectly treats visibility and the whole use declaration as part of the imported path. The vendored engine records the actual Rust import path.",
       "reference_row": "{\"c\":\"typed\",\"callee\":\"pub(crate) use unknown.Unknown.new\",\"caller\":\"@.axum-core.src.body.Body.unknown\",\"confidence\":0,\"end\":2615,\"file\":\"axum-core/src/body.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":2601,\"strategy\":\"lsp_unresolved\"}",
       "vendored_row": "{\"c\":\"typed\",\"callee\":\"unknown.Unknown.new\",\"caller\":\"@.axum-core.src.body.Body.unknown\",\"confidence\":0,\"end\":2615,\"file\":\"axum-core/src/body.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":2601,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-114-axum-core-default-body-limit-kind-limit",
+      "issue": 114,
+      "reason": "The reference engine applies an inline module's `use super::DefaultBodyLimitKind` binding to the whole file. The Issue-114 implementation keeps that import inside the inline module's lexical scope, so the call outside that module is interpreted from the name written at the site instead.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"super.DefaultBodyLimitKind.Limit\",\"caller\":\"@.axum-core.src.extract.default_body_limit.DefaultBodyLimit.max\",\"confidence\":0,\"end\":5228,\"file\":\"axum-core/src/extract/default_body_limit.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":5194,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"DefaultBodyLimitKind.Limit\",\"caller\":\"@.axum-core.src.extract.default_body_limit.DefaultBodyLimit.max\",\"confidence\":0,\"end\":5228,\"file\":\"axum-core/src/extract/default_body_limit.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":5194,\"strategy\":\"lsp_unresolved\"}"
     }
   ],
   "format": 1,

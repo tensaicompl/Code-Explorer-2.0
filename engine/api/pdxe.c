@@ -63,8 +63,10 @@
  * aliases, `self` and `pub use` bind reaches its per-file typed answers and the calls
  * they add (issue 111, patch 0029). 10: a Rust file's extraction records the members
  * its `macro_rules!` invocations may write, which no definition represents (issue 110,
- * patch 0030). */
-static const char ENGINE_VERSION_STRING[] = "10";
+ * patch 0030). 11: a Rust `use` binds only in its lexical scope (an inline module's, a
+ * block's), so what a file's per-file typed answers and the calls they add see changes
+ * (issue 114, patch 0031). */
+static const char ENGINE_VERSION_STRING[] = "11";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;
@@ -456,6 +458,8 @@ static void holder_free(result_holder *h) {
     free(h->pub.throws);
     free(h->pub.impl_traits);
     free(h->pub.macro_members);
+    free(h->pub.use_scopes);
+    free(h->pub.scoped_imports);
     free(h->call_args);
     free(h->routes);
     free(h->source);
@@ -947,6 +951,8 @@ static pdxe_call call_of(const qn_positions *names, const line_index *li,
     o.is_reference = 0;
     o.typed_only = c->requires_lsp_resolution ? 1 : 0;
     o.lexical = call_lexical_of(c);
+    /* Issue 114: the `use` scope the engine placed it in, if any. */
+    o.use_scope = c->use_scope > 0 ? (uint32_t)(c->use_scope - 1) : PDXE_NO_PARENT;
     return o;
 }
 
@@ -965,6 +971,7 @@ static pdxe_call reference_of(const qn_positions *names, const line_index *li,
     o.is_reference = 1;
     o.typed_only = 0;
     o.lexical = lexical_of(u);
+    o.use_scope = PDXE_NO_PARENT;
     return o;
 }
 
@@ -1245,6 +1252,39 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
         r->imports[i].alias = NULL;
     }
     r->n_imports = (uint32_t)imports->count;
+
+    /* Issue 114: Rust's `use` scopes and the imports declared inside them, as the
+     * engine recorded them (in the file's arena, which the holder keeps). */
+    const PDXEUseScopeArray *use_scopes = &engine->use_scopes;
+    if (use_scopes->count > 0) {
+        r->use_scopes = ALLOC_ARRAY(pdxe_use_scope, use_scopes->count);
+        if (!r->use_scopes) {
+            holder_free(h);
+            return PDXE_E_NOMEM;
+        }
+        for (int i = 0; i < use_scopes->count; i++) {
+            r->use_scopes[i].parent = use_scopes->items[i].parent < 0
+                                          ? PDXE_NO_PARENT
+                                          : (uint32_t)use_scopes->items[i].parent;
+            r->use_scopes[i].module = use_scopes->items[i].module ? 1 : 0;
+        }
+        r->n_use_scopes = (uint32_t)use_scopes->count;
+    }
+    const PDXEScopedImportArray *scoped = &engine->scoped_imports;
+    if (scoped->count > 0) {
+        r->scoped_imports = ALLOC_ARRAY(pdxe_scoped_import, scoped->count);
+        if (!r->scoped_imports) {
+            holder_free(h);
+            return PDXE_E_NOMEM;
+        }
+        for (int i = 0; i < scoped->count; i++) {
+            r->scoped_imports[i].import.module_text = scoped->items[i].import.module_path;
+            r->scoped_imports[i].import.imported_name = scoped->items[i].import.local_name;
+            r->scoped_imports[i].import.alias = NULL;
+            r->scoped_imports[i].scope = (uint32_t)scoped->items[i].scope;
+        }
+        r->n_scoped_imports = (uint32_t)scoped->count;
+    }
 
     /* Usages: every use of a name, except those already reported as references. */
     r->usages = ALLOC_ARRAY(pdxe_usage, (uint32_t)usages->count - n_refs);
@@ -1755,6 +1795,8 @@ int pdxe_result_build(pdxe_ctx *ctx, size_t source_len, const pdxe_definition *d
         r->calls[i].n_ast_path = r->calls[i].ast_path ? calls[i].n_ast_path : 0;
         r->calls[i].args = NULL;
         r->calls[i].n_args = 0;
+        /* Issue 114: a result built from parts has no `use` scopes to place it in. */
+        r->calls[i].use_scope = PDXE_NO_PARENT;
         if (calls[i].n_args && !failed) {
             pdxe_call_arg *args = (pdxe_call_arg *)calloc(calls[i].n_args, sizeof(*args));
             if (!args || !adopt(h, (char *)args)) {
@@ -2931,6 +2973,7 @@ static int collect_calls(pdxe_project *p, int i, uint32_t n_refs, resolution_lis
         o->call_index = j < st->n_calls_before ? (uint32_t)j : (uint32_t)j + n_refs;
         source_view text = {p->sources[i], (size_t)p->source_lens[i]};
         o->site = call_of(names, &st->li, &text, call, NULL);
+        o->site.use_scope = PDXE_NO_PARENT; /* a resolution's site, issue 114 */
         o->target_qualified_name = strip_project(target->qualified_name);
         o->target_rel_path = target_path(target);
         o->score = (double)lsp->confidence;

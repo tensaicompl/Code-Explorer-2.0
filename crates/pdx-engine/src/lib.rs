@@ -31,7 +31,8 @@ pub use model::{
     BindError, Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic,
     EnvAccess, ExtractRecord, FileExtract, FileStatus, ImplTrait, Import, LexicalFacts,
     MacroMember, NamespaceEvidence, QualifiedName, QualifiedNames, ReadWrite, RouteFact,
-    SourceDigest, Span, Surface, TextRef, Throw, TypeRef, Usage, Visibility, namespace_evidence,
+    ScopedImport, SourceDigest, Span, Surface, TextRef, Throw, TypeRef, Usage, UseScope,
+    Visibility, namespace_evidence,
 };
 pub use resolver::{
     AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ProjectResolution,

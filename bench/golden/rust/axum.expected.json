@@ -815,18 +815,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "axum-extra.src.extract.cached.works",
-      "dst_qn": "examples.error-handling.src.main.Timestamp.now",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum-extra.src.extract.cached.works",
-      "dst_qn": "examples.error-handling.src.main.Timestamp.now",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "axum-extra.src.extract.cookie.mod.CookieJar.from_headers",
       "dst_qn": "axum-extra.src.extract.cookie.mod.cookies_from_request",
       "kind": "CALLS",
@@ -914,13 +902,13 @@
       "src_qn": "axum-extra.src.extract.cookie.mod.signed_cannot_access_invalid_cookies#cfg(feature=cookie-signed)]",
       "dst_qn": "axum-extra.src.extract.cookie.mod.CustomKey",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.extract.cookie.mod.signed_cannot_access_invalid_cookies#cfg(feature=cookie-signed)]",
       "dst_qn": "axum-extra.src.extract.cookie.mod.CustomKey",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.extract.cookie.mod.signed_cannot_access_invalid_cookies#cfg(feature=cookie-signed)]",
@@ -2462,13 +2450,13 @@
       "src_qn": "axum-extra.src.protobuf.encode_body",
       "dst_qn": "axum-extra.src.protobuf.Protobuf",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.protobuf.encode_body",
       "dst_qn": "axum-extra.src.protobuf.Protobuf",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.protobuf.encode_body",
@@ -2774,13 +2762,13 @@
       "src_qn": "axum-extra.src.response.error_response.internal_server_error",
       "dst_qn": "axum-extra.src.response.error_response.InternalServerError",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.error_response.internal_server_error",
       "dst_qn": "axum-extra.src.response.error_response.InternalServerError",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.error_response.internal_server_error",
@@ -2954,19 +2942,7 @@
       "src_qn": "axum-extra.src.response.file_stream.filename_escapes_backslashes",
       "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
       "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.filename_escapes_backslashes",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.filename_escapes_backslashes",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "TESTS",
-      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.response.file_stream.filename_escapes_backslashes",
@@ -3038,19 +3014,7 @@
       "src_qn": "axum-extra.src.response.file_stream.filename_escapes_quotes",
       "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
       "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.filename_escapes_quotes",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.filename_escapes_quotes",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "TESTS",
-      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.response.file_stream.filename_escapes_quotes",
@@ -3152,19 +3116,7 @@
       "src_qn": "axum-extra.src.response.file_stream.response",
       "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
       "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.response",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.response",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "TESTS",
-      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.response.file_stream.response",
@@ -3308,19 +3260,7 @@
       "src_qn": "axum-extra.src.response.file_stream.response_not_set_content_size",
       "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
       "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.response_not_set_content_size",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.response_not_set_content_size",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "TESTS",
-      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.response.file_stream.response_not_set_content_size",
@@ -3404,19 +3344,7 @@
       "src_qn": "axum-extra.src.response.file_stream.response_not_set_filename",
       "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
       "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.response_not_set_filename",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.response_not_set_filename",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "TESTS",
-      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.response.file_stream.response_not_set_filename",
@@ -3662,19 +3590,7 @@
       "src_qn": "axum-extra.src.response.file_stream.response_with_content_size_and_filename",
       "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
       "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.response_with_content_size_and_filename",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum-extra.src.response.file_stream.response_with_content_size_and_filename",
-      "dst_qn": "axum-extra.src.response.file_stream.FileStream.new",
-      "kind": "TESTS",
-      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.response.file_stream.response_with_content_size_and_filename",
@@ -3744,9 +3660,15 @@
     },
     {
       "src_qn": "axum-extra.src.response.multiple.MultipartForm.into_response",
+      "dst_qn": "axum-extra.src.response.multiple.Part.serialize",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum-extra.src.response.multiple.MultipartForm.into_response",
       "dst_qn": "axum-extra.src.response.multiple.generate_boundary_for_parts",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "typed"
     },
     {
       "src_qn": "axum-extra.src.response.multiple.Part.contains_boundary",
@@ -3869,18 +3791,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "axum-extra.src.response.multiple.multipart_form_rejects_newlines_in_field_metadata",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum-extra.src.response.multiple.multipart_form_rejects_newlines_in_field_metadata",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "axum-extra.src.response.multiple.multipart_part_escapes_content_disposition_params",
       "dst_qn": "axum-extra.src.response.multiple.Part.file",
       "kind": "CALLS",
@@ -3925,18 +3835,6 @@
     {
       "src_qn": "axum-extra.src.response.multiple.process_form",
       "dst_qn": "axum.src.body.mod.to_bytes",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum-extra.src.response.multiple.process_form",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum-extra.src.response.multiple.process_form",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
       "kind": "TESTS",
       "band": "exact"
     },
@@ -4153,18 +4051,6 @@
     {
       "src_qn": "axum-extra.src.routing.resource.call_route",
       "dst_qn": "axum.src.body.mod.to_bytes",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum-extra.src.routing.resource.call_route",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum-extra.src.routing.resource.call_route",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -6164,13 +6050,13 @@
       "src_qn": "axum.src.extension.extension_extractor",
       "dst_qn": "axum.src.extension.Extension",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extension.extension_extractor",
       "dst_qn": "axum.src.extension.Extension",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extension.extension_extractor",
@@ -6188,13 +6074,13 @@
       "src_qn": "axum.src.extension.extension_extractor",
       "dst_qn": "axum.src.extension.Foo",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extension.extension_extractor",
       "dst_qn": "axum.src.extension.Foo",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.connect_info.ConnectInfo.from_request_parts",
@@ -6290,13 +6176,13 @@
       "src_qn": "axum.src.extract.connect_info.both_mock_and_real_connect_info",
       "dst_qn": "axum.src.extract.connect_info.MockConnectInfo",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.connect_info.both_mock_and_real_connect_info",
       "dst_qn": "axum.src.extract.connect_info.MockConnectInfo",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.connect_info.both_mock_and_real_connect_info",
@@ -6350,13 +6236,13 @@
       "src_qn": "axum.src.extract.connect_info.mock_connect_info",
       "dst_qn": "axum.src.extract.connect_info.MockConnectInfo",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.connect_info.mock_connect_info",
       "dst_qn": "axum.src.extract.connect_info.MockConnectInfo",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.connect_info.mock_connect_info",
@@ -8555,12 +8441,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "axum.src.extract.query.check",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "axum.src.extract.query.test_query",
       "dst_qn": "axum.src.extract.query.check",
       "kind": "CALLS",
@@ -8624,67 +8504,31 @@
       "src_qn": "axum.src.extract.raw_form.RawForm.from_request",
       "dst_qn": "axum.src.extract.mod.has_content_type",
       "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.extract.raw_form.RawForm.from_request",
+      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.extract.raw_form.RawForm.from_request",
+      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
+      "kind": "CALLS",
+      "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.extract.raw_form.check_head_query",
+      "dst_qn": "axum-core.src.body.Body.empty",
+      "kind": "CALLS",
       "band": "import-guided"
     },
     {
-      "src_qn": "axum.src.extract.raw_form.RawForm.from_request",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.RawForm.from_request",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.check_body",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.check_body",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.check_body",
-      "dst_qn": "axum.src.test_helpers.test_client.TestClient.post",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.check_head_query",
-      "dst_qn": "axum-core.src.body.Body.empty",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.check_head_query",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.check_head_query",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "axum.src.extract.raw_form.check_query",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.check_query",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.raw_form.test_from_body",
@@ -8757,30 +8601,6 @@
       "dst_qn": "axum.src.extract.raw_form.check_query",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.test_incorrect_content_type",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.test_incorrect_content_type",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.test_incorrect_content_type",
-      "dst_qn": "axum.src.test_helpers.test_client.TestClient.post",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.raw_form.test_incorrect_content_type",
-      "dst_qn": "axum.src.test_helpers.test_client.TestClient.post",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "axum.src.extract.ws.Message.from_tungstenite",
@@ -9048,66 +8868,6 @@
     },
     {
       "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.http2#cfg(feature=http2)]",
       "dst_qn": "axum.src.test_helpers.test_client.spawn_service",
       "kind": "CALLS",
       "band": "typed"
@@ -9180,18 +8940,6 @@
     },
     {
       "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
       "dst_qn": "axum.src.routing.method_routing.any",
       "kind": "CALLS",
       "band": "typed"
@@ -9201,66 +8949,6 @@
       "dst_qn": "axum.src.routing.method_routing.any",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.extract.ws.rejects_http_1_0_requests",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "axum.src.extract.ws.sign",
@@ -9275,12 +8963,6 @@
       "band": "exact"
     },
     {
-      "src_qn": "axum.src.extract.ws.test_echo_app",
-      "dst_qn": "axum.src.extract.ws.Utf8Bytes.from_static",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "axum.src.form.Form.from_request",
       "dst_qn": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
       "kind": "CALLS",
@@ -9321,30 +9003,12 @@
       "dst_qn": "axum.src.form.Form.from_request",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.form.check_body",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.form.check_body",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.form.check_body",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "axum.src.form.check_query",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.form.check_query",
@@ -9353,12 +9017,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "axum.src.form.check_query",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "axum.src.form.deserialize_error_status_codes",
       "dst_qn": "axum.src.routing.method_routing.on",
       "kind": "CALLS",
@@ -9477,42 +9135,6 @@
       "dst_qn": "axum.src.form.check_query",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.form.test_incorrect_content_type",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.form.test_incorrect_content_type",
-      "dst_qn": "axum.src.routing.method_filter.NoMatchingMethodFilter.method",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.form.test_incorrect_content_type",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.form.test_incorrect_content_type",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.body",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.form.test_incorrect_content_type",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.form.test_incorrect_content_type",
-      "dst_qn": "axum.src.test_helpers.test_client.RequestBuilder.header",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "axum.src.handler.future.LayeredFuture.poll",
@@ -9627,18 +9249,6 @@
       "dst_qn": "axum.src.handler.mod.Handler.with_state",
       "kind": "TESTS",
       "band": "scoped"
-    },
-    {
-      "src_qn": "axum.src.handler.mod.with_layer_that_changes_request_body_and_state",
-      "dst_qn": "axum.src.response.redirect.Redirect.with_status_code",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.handler.mod.with_layer_that_changes_request_body_and_state",
-      "dst_qn": "axum.src.response.redirect.Redirect.with_status_code",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "axum.src.handler.service.HandlerService.call",
@@ -10484,13 +10094,13 @@
       "src_qn": "axum.src.response.mod.status_code_tuple_doesnt_override_error_json",
       "dst_qn": "axum-core.src.response.mod.ForceStatusCode",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.mod.status_code_tuple_doesnt_override_error_json",
       "dst_qn": "axum-core.src.response.mod.ForceStatusCode",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.mod.status_code_tuple_doesnt_override_error_json",
@@ -10502,30 +10112,6 @@
       "src_qn": "axum.src.response.mod.status_code_tuple_doesnt_override_error_json",
       "dst_qn": "axum.src.response.mod.Html.from",
       "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum.src.response.mod.status_code_tuple_doesnt_override_error_json",
-      "dst_qn": "axum.src.response.mod.Html.from",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum.src.response.mod.status_code_tuple_doesnt_override_error_json",
-      "dst_qn": "axum.src.response.mod.Html.from",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum.src.response.mod.status_code_tuple_doesnt_override_error_json",
-      "dst_qn": "axum.src.response.mod.Html.from",
-      "kind": "TESTS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum.src.response.mod.status_code_tuple_doesnt_override_error_json",
-      "dst_qn": "axum.src.response.mod.Html.from",
-      "kind": "TESTS",
       "band": "scoped"
     },
     {
@@ -10586,19 +10172,19 @@
       "src_qn": "axum.src.response.redirect.Redirect.permanent",
       "dst_qn": "axum.src.response.redirect.Redirect.with_status_code",
       "kind": "CALLS",
-      "band": "inheritance-guided"
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.response.redirect.Redirect.temporary",
       "dst_qn": "axum.src.response.redirect.Redirect.with_status_code",
       "kind": "CALLS",
-      "band": "inheritance-guided"
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.response.redirect.Redirect.to",
       "dst_qn": "axum.src.response.redirect.Redirect.with_status_code",
       "kind": "CALLS",
-      "band": "inheritance-guided"
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_explicit_status_overrides",
@@ -10616,13 +10202,13 @@
       "src_qn": "axum.src.response.redirect.into_response_parts_explicit_status_overrides",
       "dst_qn": "axum.src.response.redirect.Redirect.to",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_explicit_status_overrides",
       "dst_qn": "axum.src.response.redirect.Redirect.to",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_invalid_location",
@@ -10640,13 +10226,13 @@
       "src_qn": "axum.src.response.redirect.into_response_parts_invalid_location",
       "dst_qn": "axum.src.response.redirect.Redirect.permanent",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_invalid_location",
       "dst_qn": "axum.src.response.redirect.Redirect.permanent",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_sets_status_and_location",
@@ -10664,13 +10250,13 @@
       "src_qn": "axum.src.response.redirect.into_response_parts_sets_status_and_location",
       "dst_qn": "axum.src.response.redirect.Redirect.to",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_sets_status_and_location",
       "dst_qn": "axum.src.response.redirect.Redirect.to",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_with_permanent_redirect",
@@ -10688,13 +10274,13 @@
       "src_qn": "axum.src.response.redirect.into_response_parts_with_permanent_redirect",
       "dst_qn": "axum.src.response.redirect.Redirect.permanent",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_with_permanent_redirect",
       "dst_qn": "axum.src.response.redirect.Redirect.permanent",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_with_temporary_redirect",
@@ -10712,13 +10298,13 @@
       "src_qn": "axum.src.response.redirect.into_response_parts_with_temporary_redirect",
       "dst_qn": "axum.src.response.redirect.Redirect.temporary",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.into_response_parts_with_temporary_redirect",
       "dst_qn": "axum.src.response.redirect.Redirect.temporary",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.test_internal_error",
@@ -10736,13 +10322,13 @@
       "src_qn": "axum.src.response.redirect.test_internal_error",
       "dst_qn": "axum.src.response.redirect.Redirect.permanent",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.redirect.test_internal_error",
       "dst_qn": "axum.src.response.redirect.Redirect.permanent",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.response.sse.Event.comment",
@@ -11063,42 +10649,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "axum.src.response.sse.basic",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.basic",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.basic",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.basic",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.basic",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.basic",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "axum.src.response.sse.crlf_is_one_line_ending",
       "dst_qn": "axum.src.response.sse.Event.data",
       "kind": "CALLS",
@@ -11315,30 +10865,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "axum.src.response.sse.keep_alive",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "axum.src.response.sse.keep_alive_ends_when_the_stream_ends",
       "dst_qn": "axum.src.response.sse.Event.data",
       "kind": "CALLS",
@@ -11447,54 +10973,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "axum.src.response.sse.keep_alive_ends_when_the_stream_ends",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive_ends_when_the_stream_ends",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive_ends_when_the_stream_ends",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive_ends_when_the_stream_ends",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive_ends_when_the_stream_ends",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive_ends_when_the_stream_ends",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive_ends_when_the_stream_ends",
-      "dst_qn": "axum.src.test_helpers.tracing_helpers.Handle.take",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive_ends_when_the_stream_ends",
-      "dst_qn": "axum.src.test_helpers.tracing_helpers.Handle.take",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "axum.src.response.sse.keep_alive_with_raw_events",
       "dst_qn": "axum.src.extract.ws.Utf8Bytes.from_static",
       "kind": "CALLS",
@@ -11577,18 +11055,6 @@
       "dst_qn": "axum.src.response.sse.parse_event",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive_with_raw_events",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.response.sse.keep_alive_with_raw_events",
-      "dst_qn": "axum.src.test_helpers.test_client.TestResponse.chunk_text",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "axum.src.response.sse.leading_space_is_not_stripped",
@@ -12858,19 +12324,7 @@
     },
     {
       "src_qn": "axum.src.routing.method_routing.building_complex_router",
-      "dst_qn": "axum.src.response.redirect.Redirect.with_status_code",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.routing.method_routing.building_complex_router",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.fallback",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum.src.routing.method_routing.building_complex_router",
-      "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
       "kind": "CALLS",
       "band": "scoped"
     },
@@ -12913,12 +12367,6 @@
     {
       "src_qn": "axum.src.routing.method_routing.call",
       "dst_qn": "axum-core.src.body.Body.empty",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.routing.method_routing.call",
-      "dst_qn": "axum.src.body.mod.to_bytes",
       "kind": "CALLS",
       "band": "exact"
     },
@@ -14480,7 +13928,7 @@
       "src_qn": "axum.src.routing.strip_prefix.ascii_alphanumeric",
       "dst_qn": "axum.src.routing.strip_prefix.u8_between",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.routing.strip_prefix.count_captures",
@@ -16844,13 +16292,13 @@
       "src_qn": "axum.src.serve.mod.graceful_shutdown_completes_inflight_request",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.graceful_shutdown_completes_inflight_request",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.graceful_shutdown_completes_inflight_request",
@@ -16926,12 +16374,6 @@
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
-      "dst_qn": "axum.src.serve.listener.ListenerExt.tap_io",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.max_connection_age",
       "kind": "CALLS",
       "band": "exact"
@@ -17048,247 +16490,247 @@
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.into_future_outside_tokio",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.into_future_outside_tokio",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
@@ -17354,13 +16796,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
@@ -17438,13 +16880,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
@@ -17510,13 +16952,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
@@ -17582,13 +17024,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
@@ -17666,13 +17108,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
@@ -17762,13 +17204,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
@@ -17834,13 +17276,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_jitter_extends_deadline",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_jitter_extends_deadline",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
@@ -17882,13 +17324,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
@@ -17966,13 +17408,13 @@
       "src_qn": "axum.src.serve.mod.serving_on_custom_io_type",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_on_custom_io_type",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_on_custom_io_type",
@@ -17990,13 +17432,13 @@
       "src_qn": "axum.src.serve.mod.serving_with_custom_body_type",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_body_type",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor",
@@ -18050,13 +17492,13 @@
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor",
@@ -18122,13 +17564,13 @@
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor_http2#cfg(feature=http2)]",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor_http2#cfg(feature=http2)]",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor_http2#cfg(feature=http2)]",
@@ -18170,13 +17612,13 @@
       "src_qn": "axum.src.serve.mod.tap_io_runs_on_each_accepted_connection",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.tap_io_runs_on_each_accepted_connection",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.tap_io_runs_on_each_accepted_connection",
@@ -18206,25 +17648,25 @@
       "src_qn": "axum.src.serve.mod.test_hyper_header_read_timeout_is_enabled",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.test_hyper_header_read_timeout_is_enabled",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.test_serve_local_addr",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.test_serve_local_addr",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.test_with_graceful_shutdown_local_addr",
@@ -18242,13 +17684,13 @@
       "src_qn": "axum.src.serve.mod.test_with_graceful_shutdown_local_addr",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.test_with_graceful_shutdown_local_addr",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.test_with_graceful_shutdown_request_header_timeout",
@@ -18278,13 +17720,13 @@
       "src_qn": "axum.src.serve.mod.test_with_graceful_shutdown_request_header_timeout",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.test_with_graceful_shutdown_request_header_timeout",
       "dst_qn": "axum.src.serve.mod.serve#cfg(all(feature=tokio,any(feature=http1,feature=http2)))]",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.service_ext.S.into_make_service_with_connect_info",
@@ -19844,13 +19286,13 @@
       "src_qn": "examples.form.src.main.test_get",
       "dst_qn": "examples.form.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.form.src.main.test_get",
       "dst_qn": "examples.form.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.form.src.main.test_post",
@@ -19904,13 +19346,13 @@
       "src_qn": "examples.form.src.main.test_post",
       "dst_qn": "examples.form.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.form.src.main.test_post",
       "dst_qn": "examples.form.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.global-404-handler.src.main.handler",
@@ -20000,13 +19442,13 @@
       "src_qn": "examples.handle-head-request.src.main.test_get",
       "dst_qn": "examples.handle-head-request.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.handle-head-request.src.main.test_get",
       "dst_qn": "examples.handle-head-request.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.handle-head-request.src.main.test_implicit_head",
@@ -20060,13 +19502,13 @@
       "src_qn": "examples.handle-head-request.src.main.test_implicit_head",
       "dst_qn": "examples.handle-head-request.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.handle-head-request.src.main.test_implicit_head",
       "dst_qn": "examples.handle-head-request.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.hello-world.src.main.handler",
@@ -20690,13 +20132,13 @@
       "src_qn": "examples.sse.src.main.integration_test",
       "dst_qn": "examples.sse.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.sse.src.main.integration_test",
       "dst_qn": "examples.sse.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.sse.src.main.main",
@@ -21074,13 +20516,13 @@
       "src_qn": "examples.testing.src.main.hello_world",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.hello_world",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.json",
@@ -21134,13 +20576,13 @@
       "src_qn": "examples.testing.src.main.json",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.json",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.json",
@@ -21212,13 +20654,13 @@
       "src_qn": "examples.testing.src.main.multiple_request",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.multiple_request",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.not_found",
@@ -21260,13 +20702,13 @@
       "src_qn": "examples.testing.src.main.not_found",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.not_found",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.the_real_deal",
@@ -21368,13 +20810,13 @@
       "src_qn": "examples.testing.src.main.with_into_make_service_with_connect_info",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.with_into_make_service_with_connect_info",
       "dst_qn": "examples.testing.src.main.app",
       "kind": "TESTS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.tls-graceful-shutdown.src.main.main",

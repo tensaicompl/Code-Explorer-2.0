@@ -181,6 +181,63 @@ fn isolation_carries_macro_members() {
     );
 }
 
+/// Issue 114: a Rust file with a `use` in each kind of scope: the file's module, an
+/// inline module, a function's body and a block inside it.
+const SCOPED_USES: &str = "use crate::a::x;\n\nmod inner {\n    use super::helper;\n\n    pub fn f() -> u32 {\n        helper()\n    }\n}\n\npub fn helper() -> u32 {\n    use crate::a::y;\n    let a = {\n        use crate::b::z;\n        z()\n    };\n    a + y() + x()\n}\n";
+
+#[test]
+fn isolation_carries_use_scopes() {
+    // Protocol 9 carries Rust's `use` scopes, the imports declared in them and each
+    // call's scope (issue 114): a worker's extraction has them exactly as this
+    // process's, and both have the table the source gives.
+    let files = vec![SourceFile {
+        language: "rust".to_owned(),
+        rel_path: "src/lib.rs".to_owned(),
+        source: SCOPED_USES.as_bytes().to_vec(),
+    }];
+    let expected = in_process(&files);
+    let mut isolated = IsolatedExtractor::new(worker());
+    let outcomes = isolated.extract_batch(&files).expect("a worker");
+    assert_eq!(outcomes, expected);
+    let ExtractOutcome::Extracted(e) = &outcomes[0] else {
+        panic!("not extracted: {:?}", outcomes[0]);
+    };
+    let scopes: Vec<(Option<u32>, bool)> =
+        e.use_scopes.iter().map(|s| (s.parent, s.module)).collect();
+    assert_eq!(
+        scopes,
+        [
+            (None, true),
+            (Some(0), true),
+            (Some(0), false),
+            (Some(2), false)
+        ],
+        "the file, `inner`, `helper`'s body and the block in it"
+    );
+    let imports_in_scopes: Vec<(&str, u32)> = e
+        .scoped_imports
+        .iter()
+        .map(|i| (i.import.module_text.as_str(), i.scope))
+        .collect();
+    assert_eq!(
+        imports_in_scopes,
+        [("super::helper", 1), ("crate::a::y", 2), ("crate::b::z", 3)]
+    );
+    let imports: Vec<&str> = e.imports.iter().map(|i| i.module_text.as_str()).collect();
+    assert_eq!(imports, ["crate::a::x"], "the file's module's own");
+    let call_scope = |name: &str| {
+        e.calls
+            .iter()
+            .filter(|c| e.text(&c.callee_text) == name)
+            .map(|c| c.use_scope)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(call_scope("helper"), [Some(1)]);
+    assert_eq!(call_scope("z"), [Some(3)]);
+    assert_eq!(call_scope("y"), [Some(2)]);
+    assert_eq!(call_scope("x"), [Some(2)]);
+}
+
 #[test]
 fn isolation_carries_site_paths_and_derivation_facts() {
     // Protocol 6 carries each call's node-type path and arguments and each

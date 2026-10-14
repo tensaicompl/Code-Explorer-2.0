@@ -53,6 +53,38 @@ struct PDXECargoManifest;
 
 /* Rust-flavoured LSP context: one per file, lifetime tied to a single
  * `pdxe_engine_extract_file()` invocation (or the cross-file caller's arena). */
+/* Issue 114: a lexical scope a Rust `use` binds in, and what it binds. The file and
+ * each inline module's body are modules: a lookup does not go past one, as Rust's
+ * does not (a module sees its parent's names only through `use super::...`). A block
+ * is a scope when it declares a `use`; one that declares none adds nothing to a
+ * lookup and is not recorded. Scopes are numbered in source order, the file's 0. */
+typedef struct RustUseScope {
+    uint32_t start_byte, end_byte; /* the scope's node in the file */
+    int parent;                    /* the enclosing scope; -1 for the file */
+    int module_depth;              /* inline modules between the file and this scope */
+    bool module;
+    /* What its `use` declarations bind: a local name (a path's last segment or its
+     * `as` alias) to the whole path (`std::collections::HashMap`), in source order.
+     * [0, tree_count) are its own use trees, read from the syntax tree; after them,
+     * in the file's scope only, the imports a caller bridges in. `by_name` finds an
+     * entry by its local name (`name_index.h`), placed as entries are added. */
+    const char **names;
+    const char **paths;
+    int count;
+    int cap;
+    int tree_count;
+    PDXENameIndex by_name;
+    /* Its glob imports (`use a::b::*`), each module's dotted name. */
+    const char **globs;
+    int glob_count;
+    int glob_cap;
+    /* The enclosing modules of this file a glob of it names (`use super::*` in an
+     * inline module), whose bindings it sees after its own. */
+    int *links;
+    int link_count;
+    int link_cap;
+} RustUseScope;
+
 typedef struct {
     PDXEArena *arena;
     const char *source;
@@ -71,22 +103,16 @@ typedef struct {
      * dies with the file. Zeroed by rust_lsp_init's memset (lazy alloc). */
     PDXENegMemo neg_memo;
 
-    /* `use` map: parallel arrays mapping a local-name (the last segment, or
-     * the `as` alias) to its full module path (`std::collections::HashMap`,
-     * `crate::foo::Bar`). Glob imports go in `glob_module_qns` instead. */
-    const char **use_local_names;
-    const char **use_module_paths;
-    int use_count;
-    int use_cap; // entries the use arrays hold
-    /* Issue 111: the entries [0, use_tree_count) are the file's own `use` trees,
-     * read from its syntax tree; the ones after, the imports a caller bridges in.
-     * `uses_by_name` finds an entry by its local name (`name_index.h`), placed as
-     * entries are added. */
-    int use_tree_count;
-    PDXENameIndex uses_by_name;
-
-    const char **glob_module_qns;
-    int glob_count;
+    /* Issue 114: the `use` map, scope by scope (RustUseScope, below), each scope's
+     * bindings visible only within it. `use_scopes[0]` is the file's; `use_scope` is
+     * the scope in force where the walk is. */
+    struct RustUseScope *use_scopes;
+    int use_scope_count;
+    int use_scope_cap;
+    int use_scope;
+    /* Issue 114: set only while pdxe_rust_export_use_scopes reads the file's scopes
+     * into an extraction result; the collector records into it as it goes. */
+    struct RustScopeExport *scope_export;
 
     /* Exact names from top-level out-of-line `mod name;` declarations. A
      * relative scoped type may be project-qualified only when its head is in
@@ -242,7 +268,8 @@ void rust_lsp_init(RustLSPContext *ctx, PDXEArena *arena, const char *source, in
                    const PDXETypeRegistry *registry, const char *module_qn,
                    PDXEResolvedCallArray *out);
 
-/* Register a `use` alias. `local_name` may be the last segment of the path
+/* Register a `use` alias of the file's module (its scope, use_scopes[0]; issue 114),
+ * after the file's own use trees. `local_name` may be the last segment of the path
  * (`HashMap` for `use std::collections::HashMap`) or an `as` alias. The
  * full `module_path` is stored verbatim (e.g. `std::collections::HashMap`).
  * Glob imports (`use foo::*`) go through `rust_lsp_add_glob` instead. */
@@ -252,6 +279,15 @@ void rust_lsp_add_glob(RustLSPContext *ctx, const char *module_qn);
 /* Process every function/method in the file, walking statements and
  * evaluating expression types as we go. */
 void rust_lsp_process_file(RustLSPContext *ctx, TSNode root);
+
+/* Issue 114: reads the file's `use` scopes with the typed pass's own collector into
+ * `result`: the scopes (use_scopes), the `use` declarations inside every scope but the
+ * file's (scoped_imports, recorded as the file's own imports are), and each call's
+ * scope (PDXECall.use_scope) by its exact occurrence, for the calls not placed yet.
+ * When any of it cannot be recorded, none of it is (lost work, counted where the
+ * allocation failed), and every call is left unplaced. */
+void pdxe_rust_export_use_scopes(PDXEArena *arena, PDXEFileResult *result, const char *source,
+                                int source_len, TSNode root);
 
 /* Evaluate the static type of a Rust expression node. Returns
  * `pdxe_type_unknown()` for anything we cannot type. */

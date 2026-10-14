@@ -293,6 +293,8 @@ pub struct pdxe_call {
     #[doc = " The arguments the engine captured, in its order (pdxe_call_arg); NULL and 0 for a\n reference, a call with none, and a resolution's site. Appended by a specification\n change; see docs/plan/ISSUES.md, issue 47."]
     pub args: *const pdxe_call_arg,
     pub n_args: u32,
+    #[doc = " Rust: the `use` scope the site is in, an index into the result's use_scopes, which\n decides the `use` bindings in force at it; PDXE_NO_PARENT when the engine placed it\n in none (every other language, a reference, a resolution's site, a result rebuilt\n from a cache). Appended by a specification change; see docs/plan/ISSUES.md, issue\n 114."]
+    pub use_scope: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -315,6 +317,8 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_call, n_ast_path) - 72usize];
     ["Offset of field: pdxe_call::args"][::std::mem::offset_of!(pdxe_call, args) - 80usize];
     ["Offset of field: pdxe_call::n_args"][::std::mem::offset_of!(pdxe_call, n_args) - 88usize];
+    ["Offset of field: pdxe_call::use_scope"]
+        [::std::mem::offset_of!(pdxe_call, use_scope) - 92usize];
 };
 impl Default for pdxe_call {
     fn default() -> Self {
@@ -345,6 +349,49 @@ const _: () = {
     ["Offset of field: pdxe_import::span"][::std::mem::offset_of!(pdxe_import, span) - 24usize];
 };
 impl Default for pdxe_import {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
+#[doc = " Rust: a lexical scope `use` declarations bind in, and in which a call sees them (issue\n 114). use_scopes[0] is the file's module, whose `use` declarations are the result's\n imports; the others are each inline module's body and each block that declares a\n `use`, in source order, every scope after its parent. A lookup goes from a site's\n scope out through its parents and ends at the first module: an inline module does\n not see its parent module's names unless it imports them (`use super::...`).\n Extraction-local: an index means nothing outside its result."]
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct pdxe_use_scope {
+    #[doc = " PDXE_NO_PARENT for the file's module"]
+    pub parent: u32,
+    #[doc = " 1 for the file's module or an inline module's, 0 for a block"]
+    pub module: u8,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pdxe_use_scope"][::std::mem::size_of::<pdxe_use_scope>() - 8usize];
+    ["Alignment of pdxe_use_scope"][::std::mem::align_of::<pdxe_use_scope>() - 4usize];
+    ["Offset of field: pdxe_use_scope::parent"]
+        [::std::mem::offset_of!(pdxe_use_scope, parent) - 0usize];
+    ["Offset of field: pdxe_use_scope::module"]
+        [::std::mem::offset_of!(pdxe_use_scope, module) - 4usize];
+};
+#[doc = " Rust: a `use` declared inside a scope other than the file's module, recorded as the\n file's own imports are, and the index of the scope it binds in (issue 114)."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pdxe_scoped_import {
+    pub import: pdxe_import,
+    pub scope: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pdxe_scoped_import"][::std::mem::size_of::<pdxe_scoped_import>() - 56usize];
+    ["Alignment of pdxe_scoped_import"][::std::mem::align_of::<pdxe_scoped_import>() - 8usize];
+    ["Offset of field: pdxe_scoped_import::import"]
+        [::std::mem::offset_of!(pdxe_scoped_import, import) - 0usize];
+    ["Offset of field: pdxe_scoped_import::scope"]
+        [::std::mem::offset_of!(pdxe_scoped_import, scope) - 48usize];
+};
+impl Default for pdxe_scoped_import {
     fn default() -> Self {
         let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
         unsafe {
@@ -630,10 +677,15 @@ pub struct pdxe_file_result {
     #[doc = " The members the file's `macro_rules!` invocations may write, one per type and\n member, in byte order: Rust's only, none for any other language. NULL and 0 when\n there are none, and when the engine could not record them whole (lost work). A\n result rebuilt from a cache has none. Appended by a specification change; see\n docs/plan/ISSUES.md, issue 110."]
     pub macro_members: *mut pdxe_macro_member,
     pub n_macro_members: u32,
+    #[doc = " Rust's `use` scopes and the `use` declarations inside every scope but the file's\n module (pdxe_use_scope, pdxe_scoped_import); each call's is pdxe_call.use_scope.\n NULL and 0 for every other language, for a result rebuilt from a cache, and when\n the engine could not record them whole (lost work), in which case no call is\n placed. Appended by a specification change; see docs/plan/ISSUES.md, issue 114."]
+    pub use_scopes: *mut pdxe_use_scope,
+    pub n_use_scopes: u32,
+    pub scoped_imports: *mut pdxe_scoped_import,
+    pub n_scoped_imports: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 216usize];
+    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 248usize];
     ["Alignment of pdxe_file_result"][::std::mem::align_of::<pdxe_file_result>() - 8usize];
     ["Offset of field: pdxe_file_result::status"]
         [::std::mem::offset_of!(pdxe_file_result, status) - 0usize];
@@ -691,6 +743,14 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_file_result, macro_members) - 200usize];
     ["Offset of field: pdxe_file_result::n_macro_members"]
         [::std::mem::offset_of!(pdxe_file_result, n_macro_members) - 208usize];
+    ["Offset of field: pdxe_file_result::use_scopes"]
+        [::std::mem::offset_of!(pdxe_file_result, use_scopes) - 216usize];
+    ["Offset of field: pdxe_file_result::n_use_scopes"]
+        [::std::mem::offset_of!(pdxe_file_result, n_use_scopes) - 224usize];
+    ["Offset of field: pdxe_file_result::scoped_imports"]
+        [::std::mem::offset_of!(pdxe_file_result, scoped_imports) - 232usize];
+    ["Offset of field: pdxe_file_result::n_scoped_imports"]
+        [::std::mem::offset_of!(pdxe_file_result, n_scoped_imports) - 240usize];
 };
 impl Default for pdxe_file_result {
     fn default() -> Self {

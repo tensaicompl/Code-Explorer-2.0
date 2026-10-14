@@ -41,6 +41,7 @@
 
 /* Forward declarations for early callers in the file. */
 static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node);
+static int rust_use_scope_of(RustLSPContext *ctx, TSNode node);
 static void rust_emit_resolved_call(RustLSPContext *ctx, const char *callee_qn,
                                     const char *strategy, float confidence);
 static void rust_inject_syn_call(RustLSPContext *ctx, const char *callee_qn);
@@ -79,18 +80,52 @@ void rust_lsp_init(RustLSPContext *ctx, PDXEArena *arena, const char *source, in
     ctx->debug = (dbg && dbg[0]);
 }
 
-/* Doubling-array push of a `(local, full-path)` use entry. */
-void rust_lsp_add_use(RustLSPContext *ctx, const char *local_name, const char *module_path) {
-    if (!ctx || !local_name || !module_path) {
+/* Issue 114: a new scope, numbered after every scope before it in source order.
+ * -1 when the table cannot grow (lost work, counted where the allocation failed). */
+static int rust_use_scope_new(RustLSPContext *ctx, uint32_t start_byte, uint32_t end_byte,
+                              int parent, bool module, int module_depth) {
+    if (ctx->use_scope_count >= ctx->use_scope_cap) {
+        int cap = ctx->use_scope_cap ? ctx->use_scope_cap * 2 : 8;
+        RustUseScope *grown =
+            (RustUseScope *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(RustUseScope));
+        if (!grown) {
+            return -1;
+        }
+        if (ctx->use_scope_count > 0) {
+            memcpy(grown, ctx->use_scopes, (size_t)ctx->use_scope_count * sizeof(RustUseScope));
+        }
+        ctx->use_scopes = grown;
+        ctx->use_scope_cap = cap;
+    }
+    RustUseScope *sc = &ctx->use_scopes[ctx->use_scope_count];
+    memset(sc, 0, sizeof(*sc));
+    sc->start_byte = start_byte;
+    sc->end_byte = end_byte;
+    sc->parent = parent;
+    sc->module = module;
+    sc->module_depth = module_depth;
+    return ctx->use_scope_count++;
+}
+
+/* The file's scope, made when a caller adds to it before the use trees are read. */
+static RustUseScope *rust_file_scope(RustLSPContext *ctx) {
+    if (ctx->use_scope_count == 0 &&
+        rust_use_scope_new(ctx, 0, ctx->source_len > 0 ? (uint32_t)ctx->source_len : 0, -1, true,
+                           0) < 0) {
+        return NULL;
+    }
+    return &ctx->use_scopes[0];
+}
+
+/* Doubling-array push of a `(local, full-path)` entry into one scope (issue 92:
+ * growing by a fixed step copied the entries O(uses^2) times over). */
+static void rust_scope_add_use(RustLSPContext *ctx, RustUseScope *sc, const char *local_name,
+                               const char *module_path) {
+    if (!sc || !local_name || !module_path) {
         return;
     }
-    /* Grown by doubling (issue 92: growing by 32 entries copied them O(uses^2) times
-     * over). */
-    if (ctx->use_count >= ctx->use_cap) {
-        int new_cap = ctx->use_cap ? ctx->use_cap * 2 : 32;
-        if (new_cap <= ctx->use_count) {
-            new_cap = ctx->use_count + 32;
-        }
+    if (sc->count >= sc->cap) {
+        int new_cap = sc->cap ? sc->cap * 2 : 16;
         const char **nl =
             (const char **)pdxe_arena_alloc(ctx->arena, (new_cap + 1) * sizeof(char *));
         const char **np =
@@ -98,36 +133,72 @@ void rust_lsp_add_use(RustLSPContext *ctx, const char *local_name, const char *m
         if (!nl || !np) {
             return;
         }
-        if (ctx->use_local_names && ctx->use_count > 0) {
-            memcpy(nl, ctx->use_local_names, ctx->use_count * sizeof(char *));
-            memcpy(np, ctx->use_module_paths, ctx->use_count * sizeof(char *));
+        if (sc->count > 0) {
+            memcpy(nl, sc->names, sc->count * sizeof(char *));
+            memcpy(np, sc->paths, sc->count * sizeof(char *));
         }
-        ctx->use_local_names = nl;
-        ctx->use_module_paths = np;
-        ctx->use_cap = new_cap;
+        sc->names = nl;
+        sc->paths = np;
+        sc->cap = new_cap;
     }
-    ctx->use_local_names[ctx->use_count] = pdxe_arena_strdup(ctx->arena, local_name);
-    ctx->use_module_paths[ctx->use_count] = pdxe_arena_strdup(ctx->arena, module_path);
-    ctx->use_count++;
+    sc->names[sc->count] = pdxe_arena_strdup(ctx->arena, local_name);
+    sc->paths[sc->count] = pdxe_arena_strdup(ctx->arena, module_path);
+    sc->count++;
+}
+
+static void rust_scope_add_glob(RustLSPContext *ctx, RustUseScope *sc, const char *module_qn) {
+    if (!sc || !module_qn) {
+        return;
+    }
+    if (sc->glob_count >= sc->glob_cap) {
+        int new_cap = sc->glob_cap ? sc->glob_cap * 2 : 4;
+        const char **ng =
+            (const char **)pdxe_arena_alloc(ctx->arena, (new_cap + 1) * sizeof(char *));
+        if (!ng) {
+            return;
+        }
+        if (sc->glob_count > 0) {
+            memcpy(ng, sc->globs, sc->glob_count * sizeof(char *));
+        }
+        sc->globs = ng;
+        sc->glob_cap = new_cap;
+    }
+    sc->globs[sc->glob_count++] = pdxe_arena_strdup(ctx->arena, module_qn);
+}
+
+static void rust_scope_add_link(RustLSPContext *ctx, RustUseScope *sc, int target) {
+    if (!sc || target < 0) {
+        return;
+    }
+    if (sc->link_count >= sc->link_cap) {
+        int new_cap = sc->link_cap ? sc->link_cap * 2 : 2;
+        int *nl = (int *)pdxe_arena_alloc(ctx->arena, (size_t)new_cap * sizeof(int));
+        if (!nl) {
+            return;
+        }
+        if (sc->link_count > 0) {
+            memcpy(nl, sc->links, (size_t)sc->link_count * sizeof(int));
+        }
+        sc->links = nl;
+        sc->link_cap = new_cap;
+    }
+    sc->links[sc->link_count++] = target;
+}
+
+/* A caller's import of the file (issue 111's bridged entries): in the file's scope,
+ * after its own use trees, seen where the file's module's names are. */
+void rust_lsp_add_use(RustLSPContext *ctx, const char *local_name, const char *module_path) {
+    if (!ctx || !local_name || !module_path) {
+        return;
+    }
+    rust_scope_add_use(ctx, rust_file_scope(ctx), local_name, module_path);
 }
 
 void rust_lsp_add_glob(RustLSPContext *ctx, const char *module_qn) {
     if (!ctx || !module_qn) {
         return;
     }
-    if (ctx->glob_count % 16 == 0) {
-        int new_cap = ctx->glob_count + 16;
-        const char **ng =
-            (const char **)pdxe_arena_alloc(ctx->arena, (new_cap + 1) * sizeof(char *));
-        if (!ng) {
-            return;
-        }
-        if (ctx->glob_module_qns && ctx->glob_count > 0) {
-            memcpy(ng, ctx->glob_module_qns, ctx->glob_count * sizeof(char *));
-        }
-        ctx->glob_module_qns = ng;
-    }
-    ctx->glob_module_qns[ctx->glob_count++] = pdxe_arena_strdup(ctx->arena, module_qn);
+    rust_scope_add_glob(ctx, rust_file_scope(ctx), module_qn);
 }
 
 static char *rust_node_text(RustLSPContext *ctx, TSNode node) {
@@ -313,47 +384,93 @@ static void rust_strip_turbofish(char *path) {
     *write = '\0';
 }
 
-/* Look up a `use` alias and return its fully-qualified module path,
- * or NULL if absent. The returned pointer aliases into the use map.
+/* What one scope's `use` declarations bind `local_name` to: the path, or NULL when
+ * they bind nothing of that name. `*withheld` when its own use trees bind the name to
+ * two different paths (issue 111): that is no import at all, and no other scope's
+ * binding is taken instead.
  *
- * Issue 111: found through the use map's index by local name (issue 92), in the
- * order the entries were added: the file's own use trees, in source order, then the
- * imports a caller bridged in. A name the file's use trees bind to two different
- * paths is no import at all: the map is the file's, Rust's `use` is a module's or a
- * block's, and which binding a site sees is not known here, so neither is chosen.
- * When the index cannot grow nothing is found (lost work, counted where the
- * allocation failed), never a scan. */
-static const char *rust_resolve_use(RustLSPContext *ctx, const char *local_name) {
-    if (!ctx || !local_name) {
-        return NULL;
-    }
+ * Found through the scope's index by local name (issue 92), in the order the
+ * entries were added: its own use trees, in source order, then (in the file's scope)
+ * the imports a caller bridged in, which come after them. When the index cannot grow
+ * nothing is found (lost work, counted where the allocation failed), never a scan. */
+static const char *rust_scope_binding(RustLSPContext *ctx, RustUseScope *sc,
+                                      const char *local_name, bool *withheld) {
     bool scan = false;
 #if defined(PDXE_ENABLE_TEST_SEAMS)
     const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
     scan = reference && reference[0];
 #endif
-    PDXENameIndex *by_name = &ctx->uses_by_name;
-    while (!scan && !by_name->failed && by_name->covered < ctx->use_count) {
-        pdxe_name_index_place(by_name, ctx->arena, ctx->use_local_names[by_name->covered]);
+    PDXENameIndex *by_name = &sc->by_name;
+    while (!scan && !by_name->failed && by_name->covered < sc->count) {
+        pdxe_name_index_place(by_name, ctx->arena, sc->names[by_name->covered]);
     }
     const char *found = NULL;
     for (int i = scan ? 0 : pdxe_name_index_first(by_name, local_name);
-         scan ? i < ctx->use_count : i >= 0; i = scan ? i + 1 : pdxe_name_index_next(by_name, i)) {
+         scan ? i < sc->count : i >= 0; i = scan ? i + 1 : pdxe_name_index_next(by_name, i)) {
         PDXE_LOOKUP_COUNT(PDXE_LC_IMPORT_ENTRIES);
-        if (strcmp(ctx->use_local_names[i], local_name) != 0) {
+        if (strcmp(sc->names[i], local_name) != 0) {
             continue;
         }
-        if (i >= ctx->use_tree_count) {
+        if (i >= sc->tree_count) {
             /* A bridged import: what the use trees bind comes first. */
-            return found ? found : ctx->use_module_paths[i];
+            return found ? found : sc->paths[i];
         }
         if (!found) {
-            found = ctx->use_module_paths[i];
-        } else if (strcmp(found, ctx->use_module_paths[i]) != 0) {
-            return NULL; /* bound to two paths */
+            found = sc->paths[i];
+        } else if (strcmp(found, sc->paths[i]) != 0) {
+            *withheld = true; /* bound to two paths */
+            return NULL;
         }
     }
     return found;
+}
+
+/* What `local_name` is bound to in scope `s` and the enclosing modules its globs
+ * name (`use super::*`), in that order. */
+static const char *rust_scope_lookup(RustLSPContext *ctx, int s, const char *local_name,
+                                     bool *withheld) {
+    RustUseScope *sc = &ctx->use_scopes[s];
+    const char *found = rust_scope_binding(ctx, sc, local_name, withheld);
+    for (int l = 0; !found && !*withheld && l < sc->link_count; l++) {
+        /* A link names an enclosing module, so following them ends. */
+        if (sc->links[l] < s) {
+            found = rust_scope_lookup(ctx, sc->links[l], local_name, withheld);
+        }
+    }
+    return found;
+}
+
+/* Issue 114: look up a `use` alias where the walk is and return its whole path, or
+ * NULL if no `use` in force there binds it. The returned pointer aliases into the use
+ * map. The scopes are read from the innermost out: the first that binds the name
+ * decides, and the first module ends the search (Rust's modules do not see their
+ * parent's names). A name a scope binds to two paths is withheld. `*rank` is the
+ * deciding scope's distance from the innermost (0), -1 when none decides. */
+static const char *rust_resolve_use_ranked(RustLSPContext *ctx, const char *local_name,
+                                           int *rank) {
+    *rank = -1;
+    if (!ctx || !local_name || ctx->use_scope_count == 0) {
+        return NULL;
+    }
+    int s = ctx->use_scope >= 0 && ctx->use_scope < ctx->use_scope_count ? ctx->use_scope : 0;
+    for (int r = 0; s >= 0; r++) {
+        bool withheld = false;
+        const char *found = rust_scope_lookup(ctx, s, local_name, &withheld);
+        if (found || withheld) {
+            *rank = r;
+            return found;
+        }
+        if (ctx->use_scopes[s].module) {
+            break;
+        }
+        s = ctx->use_scopes[s].parent;
+    }
+    return NULL;
+}
+
+static const char *rust_resolve_use(RustLSPContext *ctx, const char *local_name) {
+    int rank;
+    return rust_resolve_use_ranked(ctx, local_name, &rank);
 }
 
 /* The Rust prelude is auto-imported into every module. We map each name
@@ -4121,6 +4238,8 @@ static void rust_inject_syn_call(RustLSPContext *ctx, const char *callee_qn) {
         call.site_end_byte = ctx->emit_site_end_byte;
         call.requires_lsp_resolution = true;
     }
+    /* Issue 114: in the `use` scope the typed pass answered it in. */
+    call.use_scope = ctx->use_scope_count > 0 ? ctx->use_scope + 1 : 0;
     pdxe_calls_push(ctx->syn_calls, ctx->arena, call);
 }
 
@@ -4602,18 +4721,66 @@ static bool rust_qualifier_agrees(RustLSPContext *ctx, const RustQualifier *ql, 
 }
 
 /* Issue 104: what a bare name's import says about where its function is. The
- * path the file imports it by, when that path has a qualifier; else NULL. */
-static const char *rust_import_evidence(RustLSPContext *ctx, const char *name) {
-    const char *imported = rust_resolve_use(ctx, name);
+ * path the `use` in force imports it by, when that path has a qualifier; else NULL.
+ * `*rank` as rust_resolve_use_ranked's. */
+static const char *rust_import_evidence(RustLSPContext *ctx, const char *name, int *rank) {
+    const char *imported = rust_resolve_use_ranked(ctx, name, rank);
     return imported && strstr(imported, "::") ? imported : NULL;
 }
 
-/* The qualifiers of the file's glob imports (`use a::b::*`), each as the path that
- * brings `name` in. Returns how many were read into `out`, which holds glob_count. */
-static int rust_glob_qualifiers(RustLSPContext *ctx, const char *name, RustQualifier *out) {
+/* Appends scope `s`'s glob imports, and those of the enclosing modules it links to. */
+static void rust_scope_globs(RustLSPContext *ctx, int s, const char ***list, int *n, int *cap) {
+    RustUseScope *sc = &ctx->use_scopes[s];
+    for (int g = 0; g < sc->glob_count; g++) {
+        if (*n >= *cap) {
+            int new_cap = *cap ? *cap * 2 : 8;
+            const char **grown =
+                (const char **)pdxe_arena_alloc(ctx->arena, (size_t)new_cap * sizeof(char *));
+            if (!grown) {
+                return;
+            }
+            if (*n > 0) {
+                memcpy(grown, *list, (size_t)*n * sizeof(char *));
+            }
+            *list = grown;
+            *cap = new_cap;
+        }
+        (*list)[(*n)++] = sc->globs[g];
+    }
+    for (int l = 0; l < sc->link_count; l++) {
+        if (sc->links[l] < s) {
+            rust_scope_globs(ctx, sc->links[l], list, n, cap);
+        }
+    }
+}
+
+/* Issue 114: the glob imports in force where the walk is: those of the scopes from
+ * the innermost out to the first module, or of the `upto` innermost when `upto` is
+ * not negative. */
+static int rust_visible_globs(RustLSPContext *ctx, int upto, const char ***out) {
+    *out = NULL;
+    int n = 0, cap = 0;
+    if (ctx->use_scope_count == 0) {
+        return 0;
+    }
+    int s = ctx->use_scope >= 0 && ctx->use_scope < ctx->use_scope_count ? ctx->use_scope : 0;
+    for (int r = 0; s >= 0 && (upto < 0 || r < upto); r++) {
+        rust_scope_globs(ctx, s, out, &n, &cap);
+        if (ctx->use_scopes[s].module) {
+            break;
+        }
+        s = ctx->use_scopes[s].parent;
+    }
+    return n;
+}
+
+/* The qualifiers of the glob imports `globs` (`use a::b::*`), each as the path that
+ * brings `name` in. Returns how many were read into `out`, which holds `glob_n`. */
+static int rust_glob_qualifiers(RustLSPContext *ctx, const char *name, const char **globs,
+                                int glob_n, RustQualifier *out) {
     int n = 0;
-    for (int i = 0; i < ctx->glob_count; i++) {
-        const char *g = ctx->glob_module_qns[i];
+    for (int i = 0; i < glob_n; i++) {
+        const char *g = globs[i];
         if (!g || !g[0])
             continue;
         /* Stored dotted; a Rust path again, with the name the glob brings in. */
@@ -4637,6 +4804,57 @@ static int rust_glob_qualifiers(RustLSPContext *ctx, const char *name, RustQuali
             n++;
     }
     return n;
+}
+
+/* The free functions named `wanted` in the caller's crate that the evidence admits:
+ * the qualifier `ql` when `read`, or one of the glob qualifiers. Counts up to two
+ * (`*agreeing` the first). */
+static int rust_agreeing_free_funcs(RustLSPContext *ctx, const char *wanted, size_t crate_len,
+                                    bool read, const RustQualifier *ql,
+                                    const RustQualifier *globs, int glob_n,
+                                    const PDXERegisteredFunc **agreeing) {
+    int agree = 0;
+    *agreeing = NULL;
+    /* Iterate only free funcs whose short_name == wanted via the index; the
+     * receiver/short_name/crate-prefix re-checks below are unchanged. */
+    PDXEFreeFuncIter ffit;
+    pdxe_registry_free_funcs_by_short_name(ctx->registry, wanted, &ffit);
+    for (int i; (read || glob_n > 0) && agree < 2 && (i = pdxe_free_func_iter_next(&ffit)) >= 0;) {
+        const PDXERegisteredFunc *f = &ctx->registry->funcs[i];
+        if (!f->short_name || !f->qualified_name)
+            continue;
+        if (f->receiver_type)
+            continue; /* free functions only */
+        if (strcmp(f->short_name, wanted) != 0)
+            continue;
+        /* Crate-scoped: QN must start with the same prefix. */
+        if (strncmp(f->qualified_name, ctx->module_qn, crate_len) != 0)
+            continue;
+        bool admitted = read && rust_qualifier_agrees(ctx, ql, f->qualified_name);
+        for (int g = 0; !admitted && g < glob_n; g++) {
+            admitted = rust_qualifier_agrees(ctx, &globs[g], f->qualified_name);
+        }
+        if (admitted) {
+            agree++;
+            if (agree == 1)
+                *agreeing = f;
+        }
+    }
+    return agree;
+}
+
+/* The glob qualifiers for `name` of the globs in force (the `upto` innermost scopes'
+ * when `upto` is not negative), read into an arena array. */
+static int rust_glob_evidence(RustLSPContext *ctx, const char *name, int upto,
+                              RustQualifier **out) {
+    const char **globs = NULL;
+    int glob_n = rust_visible_globs(ctx, upto, &globs);
+    *out = NULL;
+    if (glob_n == 0) {
+        return 0;
+    }
+    *out = (RustQualifier *)pdxe_arena_alloc(ctx->arena, (size_t)glob_n * sizeof(RustQualifier));
+    return *out ? rust_glob_qualifiers(ctx, name, globs, glob_n, *out) : 0;
 }
 
 /* Entry hook implementation: classify a call_expression and emit the best
@@ -4999,47 +5217,34 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
             const char *first_dot = strchr(ctx->module_qn, '.');
             size_t crate_len =
                 first_dot ? (size_t)(first_dot - ctx->module_qn) : strlen(ctx->module_qn);
-            const char *evidence = tail != path ? path : rust_import_evidence(ctx, path);
+            int rank = -1;
+            const char *evidence = tail != path ? path : rust_import_evidence(ctx, path, &rank);
+            const PDXERegisteredFunc *agreeing = NULL;
+            int agree = 0;
+            if (evidence && tail == path && rank > 0) {
+                /* Issue 114: a glob of a nearer scope that brings the name in
+                 * shadows the outer scope's import, as Rust's nearer names do. */
+                RustQualifier *inner = NULL;
+                int inner_n = rust_glob_evidence(ctx, tail, rank, &inner);
+                if (inner_n > 0) {
+                    agree = rust_agreeing_free_funcs(ctx, tail, crate_len, false, NULL, inner,
+                                                     inner_n, &agreeing);
+                    if (agree > 0) {
+                        evidence = NULL;
+                    }
+                }
+            }
             /* Issue 111: an import binds the name its path ends in, under an alias
              * when it has one (`use a::on_service as service;`): that name is the
              * function's. */
             const char *wanted = evidence && tail == path ? path_last_segment(evidence) : tail;
-            RustQualifier ql;
-            bool read = evidence && rust_qualifier_read(ctx, evidence, &ql);
-            RustQualifier *globs = NULL;
-            int glob_n = 0;
-            if (!evidence && ctx->glob_count > 0) {
-                globs = (RustQualifier *)pdxe_arena_alloc(
-                    ctx->arena, (size_t)ctx->glob_count * sizeof(RustQualifier));
-                glob_n = globs ? rust_glob_qualifiers(ctx, tail, globs) : 0;
-            }
-            const PDXERegisteredFunc *agreeing = NULL;
-            int agree = 0;
-            /* Iterate only free funcs whose short_name == wanted via the index; the
-             * receiver/short_name/crate-prefix re-checks below are unchanged. */
-            PDXEFreeFuncIter ffit;
-            pdxe_registry_free_funcs_by_short_name(ctx->registry, wanted, &ffit);
-            for (int i; (read || glob_n > 0) && agree < 2 &&
-                        (i = pdxe_free_func_iter_next(&ffit)) >= 0;) {
-                const PDXERegisteredFunc *f = &ctx->registry->funcs[i];
-                if (!f->short_name || !f->qualified_name)
-                    continue;
-                if (f->receiver_type)
-                    continue; /* free functions only */
-                if (strcmp(f->short_name, wanted) != 0)
-                    continue;
-                /* Crate-scoped: QN must start with the same prefix. */
-                if (strncmp(f->qualified_name, ctx->module_qn, crate_len) != 0)
-                    continue;
-                bool admitted = read && rust_qualifier_agrees(ctx, &ql, f->qualified_name);
-                for (int g = 0; !admitted && g < glob_n; g++) {
-                    admitted = rust_qualifier_agrees(ctx, &globs[g], f->qualified_name);
-                }
-                if (admitted) {
-                    agree++;
-                    if (agree == 1)
-                        agreeing = f;
-                }
+            if (agree == 0) {
+                RustQualifier ql;
+                bool read = evidence && rust_qualifier_read(ctx, evidence, &ql);
+                RustQualifier *globs = NULL;
+                int glob_n = evidence ? 0 : rust_glob_evidence(ctx, tail, -1, &globs);
+                agree = rust_agreeing_free_funcs(ctx, wanted, crate_len, read, &ql, globs, glob_n,
+                                                 &agreeing);
             }
             if (agree == 1 && agreeing) {
                 if (strcmp(wanted, tail) != 0) {
@@ -5298,6 +5503,15 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
     if (push_scope) {
         ctx->current_scope = pdxe_scope_push(ctx->arena, ctx->current_scope);
     }
+    /* Issue 114: a block that declares a `use` is the scope its bindings are seen
+     * in, inside it only. */
+    int saved_use_scope = ctx->use_scope;
+    if (strcmp(kind, "block") == 0) {
+        int declared = rust_use_scope_of(ctx, node);
+        if (declared >= 0) {
+            ctx->use_scope = declared;
+        }
+    }
     /* Issue 104: a function declared in a block is a local item of the block,
      * named everywhere in it, before its declaration too: a call of that name
      * is the local function's, never a namesake's elsewhere in the project. */
@@ -5464,6 +5678,7 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
     if (push_scope) {
         ctx->current_scope = saved;
     }
+    ctx->use_scope = saved_use_scope;
     if (uncertain_callable_flow) {
         ctx->callable_control_flow_depth--;
     }
@@ -5847,9 +6062,15 @@ void rust_lsp_process_file(RustLSPContext *ctx, TSNode root) {
         } else if (strcmp(ck, "impl_item") == 0) {
             rust_process_impl(ctx, c);
         } else if (strcmp(ck, "mod_item") == 0) {
-            /* Inline module — recurse into its declaration_list. */
+            /* Inline module — recurse into its declaration_list, where its own
+             * `use` declarations are in force and the file's are not (issue 114). */
             TSNode body = ts_node_child_by_field_name(c, "body", 4);
             if (!ts_node_is_null(body)) {
+                int saved_use_scope = ctx->use_scope;
+                int declared = rust_use_scope_of(ctx, body);
+                if (declared >= 0) {
+                    ctx->use_scope = declared;
+                }
                 PDXE_FOR_EACH_CHILD(it2, body) {
                     TSNode mc = it2.node;
                     if (ts_node_is_null(mc))
@@ -5861,6 +6082,7 @@ void rust_lsp_process_file(RustLSPContext *ctx, TSNode root) {
                         rust_process_impl(ctx, mc);
                     }
                 }
+                ctx->use_scope = saved_use_scope;
             }
         }
     }
@@ -5914,23 +6136,77 @@ static char *rust_use_join(RustLSPContext *ctx, const char *prefix, const char *
                   : pdxe_arena_strdup(ctx->arena, path);
 }
 
-/* Binds `name` to `path`, unless the name is no binding: `_` (`use Trait as _;`),
- * or a keyword a path ends in (`use super::{self};`, which Rust rejects). */
-static void rust_use_bind(RustLSPContext *ctx, const char *name, const char *path) {
+static int rust_enclosing_module(RustLSPContext *ctx, int s, int k);
+static int rust_super_count(const char *path);
+
+/* Binds `name` to `path` in scope `s`, unless the name is no binding: `_` (`use Trait
+ * as _;`), or a keyword a path ends in (`use super::{self};`, which Rust rejects).
+ *
+ * Issue 114: `use super::x` in an inline module names what its enclosing module binds
+ * `x` to when that module imports it: the enclosing module's own `use` bindings, read
+ * before this one (scopes are read outside in). A name the enclosing module defines
+ * itself keeps the path, which names that module. */
+static void rust_use_bind(RustLSPContext *ctx, int s, const char *name, const char *path) {
     if (!name || !path || !name[0] || strcmp(name, "_") == 0 || strcmp(name, "self") == 0 ||
         strcmp(name, "super") == 0 || strcmp(name, "crate") == 0) {
         return;
     }
-    rust_lsp_add_use(ctx, name, path);
+    const char *last = strrchr(path, ':');
+    if (last && last > path && last[-1] == ':') {
+        size_t head_len = (size_t)(last - 1 - path);
+        char *head = pdxe_arena_strndup(ctx->arena, path, head_len);
+        int k = head ? rust_super_count(head) : 0;
+        if (k > 0 && k <= ctx->use_scopes[s].module_depth) {
+            int module = rust_enclosing_module(ctx, s, k);
+            bool withheld = false;
+            const char *imported =
+                module >= 0 ? rust_scope_lookup(ctx, module, last + 1, &withheld) : NULL;
+            if (imported) {
+                path = imported;
+            }
+        }
+    }
+    rust_scope_add_use(ctx, &ctx->use_scopes[s], name, path);
 }
 
-/* Adds what one use tree binds, below `prefix` (NULL at the top): each name to the
- * path it is imported by, in source order, and each glob's module. */
-static void rust_collect_use_tree(RustLSPContext *ctx, TSNode tree, const char *prefix) {
+/* Issue 114: the scope of the module `k` modules out from scope `s`'s own module
+ * (`super` k times), or -1 past the file. */
+static int rust_enclosing_module(RustLSPContext *ctx, int s, int k) {
+    while (s >= 0 && !ctx->use_scopes[s].module) {
+        s = ctx->use_scopes[s].parent;
+    }
+    for (; s >= 0 && k > 0; k--) {
+        s = ctx->use_scopes[s].parent;
+        while (s >= 0 && !ctx->use_scopes[s].module) {
+            s = ctx->use_scopes[s].parent;
+        }
+    }
+    return s;
+}
+
+/* How many `super` segments `path` is made of, 0 when it is anything else. */
+static int rust_super_count(const char *path) {
+    int k = 0;
+    for (const char *p = path; *p;) {
+        if (strncmp(p, "super", 5) != 0 || (p[5] != '\0' && strncmp(p + 5, "::", 2) != 0)) {
+            return 0;
+        }
+        k++;
+        p += 5;
+        if (*p) {
+            p += 2;
+        }
+    }
+    return k;
+}
+
+/* Adds what one use tree binds in scope `s`, below `prefix` (NULL at the top): each
+ * name to the path it is imported by, in source order, and each glob's module. */
+static void rust_collect_use_tree(RustLSPContext *ctx, TSNode tree, const char *prefix, int s) {
     const char *kind = ts_node_type(tree);
     if (strcmp(kind, "use_list") == 0) {
         PDXE_FOR_EACH_NAMED_CHILD(it, tree) {
-            rust_collect_use_tree(ctx, it.node, prefix);
+            rust_collect_use_tree(ctx, it.node, prefix, s);
         }
         return;
     }
@@ -5945,7 +6221,7 @@ static void rust_collect_use_tree(RustLSPContext *ctx, TSNode tree, const char *
             }
         }
         if (!ts_node_is_null(list)) {
-            rust_collect_use_tree(ctx, list, base);
+            rust_collect_use_tree(ctx, list, base, s);
         }
         return;
     }
@@ -5959,7 +6235,7 @@ static void rust_collect_use_tree(RustLSPContext *ctx, TSNode tree, const char *
         const char *full = strcmp(ts_node_type(path), "self") == 0 && prefix
                                ? prefix
                                : rust_use_join(ctx, prefix, rust_use_path(ctx, path));
-        rust_use_bind(ctx, rust_node_text(ctx, alias), full);
+        rust_use_bind(ctx, s, rust_node_text(ctx, alias), full);
         return;
     }
     if (strcmp(kind, "use_wildcard") == 0) {
@@ -5971,53 +6247,294 @@ static void rust_collect_use_tree(RustLSPContext *ctx, TSNode tree, const char *
         const char *module =
             ts_node_is_null(path) ? prefix : rust_use_join(ctx, prefix, rust_use_path(ctx, path));
         if (module) {
-            rust_lsp_add_glob(ctx, convert_path_to_qn(ctx->arena, module));
+            rust_scope_add_glob(ctx, &ctx->use_scopes[s], convert_path_to_qn(ctx->arena, module));
+            /* Issue 114: `use super::*` in an inline module names an enclosing
+             * module of this file, whose own `use` bindings it brings in too. */
+            int k = rust_super_count(module);
+            if (k > 0 && k <= ctx->use_scopes[s].module_depth) {
+                rust_scope_add_link(ctx, &ctx->use_scopes[s], rust_enclosing_module(ctx, s, k));
+            }
         }
         return;
     }
     if (strcmp(kind, "self") == 0 && prefix) {
         /* `{self}` binds the prefix under its last name. */
-        rust_use_bind(ctx, path_last_segment(prefix), prefix);
+        rust_use_bind(ctx, s, path_last_segment(prefix), prefix);
         return;
     }
     /* A path; anything else (a comment, a metavariable) binds nothing. */
     char *full = rust_use_join(ctx, prefix, rust_use_path(ctx, tree));
     if (full) {
-        rust_use_bind(ctx, path_last_segment(full), full);
+        rust_use_bind(ctx, s, path_last_segment(full), full);
     }
 }
 
-/* Collects the file's `use` declarations, at the top and in inline modules, into the
- * use map, in source order, and the names of its inline modules. A visibility before
- * `use` (`pub`, `pub(crate)`, `pub(in path)`) binds the names in the module all the
- * same. */
-static void rust_collect_uses_in(RustLSPContext *ctx, TSNode items) {
-    PDXE_FOR_EACH_NAMED_CHILD(it, items) {
-        TSNode item = it.node;
-        const char *kind = ts_node_type(item);
-        if (strcmp(kind, "use_declaration") == 0) {
-            TSNode tree = ts_node_child_by_field_name(item, "argument", 8);
-            if (!ts_node_is_null(tree)) {
-                rust_collect_use_tree(ctx, tree, NULL);
-            }
-        } else if (strcmp(kind, "mod_item") == 0) {
-            TSNode body = ts_node_child_by_field_name(item, "body", 4);
-            if (ts_node_is_null(body)) {
-                continue;
-            }
-            /* Issue 104: an inline module's name, for the paths through it. */
-            TSNode mname = ts_node_child_by_field_name(item, "name", 4);
-            char *name = ts_node_is_null(mname) ? NULL : rust_node_text(ctx, mname);
-            if (name)
-                pdxe_idxmemo_put_if_absent(&ctx->inline_modules, ctx->arena, name, 1);
-            rust_collect_uses_in(ctx, body);
+/* Issue 114: what pdxe_rust_export_use_scopes records into, as the collector goes. */
+typedef struct {
+    uint32_t start, end;
+    int call;
+} RustCallOccurrence;
+
+typedef struct RustScopeExport {
+    PDXEFileResult *result;
+    RustCallOccurrence *calls; /* the calls to place, by occurrence */
+    int call_count;
+    bool failed;
+} RustScopeExport;
+
+/* The last name of an import's text, as the extractor reads one (extract_imports.c's
+ * path_last), so a scoped import is recorded exactly as the file's own are. */
+static const char *rust_import_last(PDXEArena *a, const char *path) {
+    const char *last_sep = NULL;
+    for (const char *p = path; *p; p++) {
+        if (*p == '/' || *p == '.' || *p == ':' || *p == '\\') {
+            last_sep = p;
         }
     }
+    return last_sep ? pdxe_arena_strdup(a, last_sep + 1) : path;
 }
 
+/* Records a `use` declared in scope `s` (not the file's), as the file's own imports are
+ * recorded: its text without `use ` and `;`, and that text's last name. */
+static void rust_export_scoped_import(RustLSPContext *ctx, TSNode decl, int s) {
+    RustScopeExport *ex = ctx->scope_export;
+    char *full = pdxe_node_text(ctx->arena, decl, ctx->source);
+    if (!full) {
+        ex->failed = true;
+        return;
+    }
+    if (strncmp(full, "use ", 4) == 0) {
+        full += 4;
+    }
+    size_t len = strlen(full);
+    if (len > 0 && full[len - 1] == ';') {
+        full[len - 1] = '\0';
+    }
+    PDXEScopedImportArray *arr = &ex->result->scoped_imports;
+    if (arr->count >= arr->cap) {
+        int cap = arr->cap ? arr->cap * 2 : 8;
+        PDXEScopedImport *grown =
+            (PDXEScopedImport *)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(*grown));
+        if (!grown) {
+            ex->failed = true;
+            return;
+        }
+        if (arr->count > 0) {
+            memcpy(grown, arr->items, (size_t)arr->count * sizeof(*grown));
+        }
+        arr->items = grown;
+        arr->cap = cap;
+    }
+    PDXEScopedImport *imp = &arr->items[arr->count++];
+    imp->import.local_name = rust_import_last(ctx->arena, full);
+    imp->import.module_path = full;
+    imp->scope = s;
+}
+
+/* Places the calls whose occurrence is exactly `node` in scope `s`. */
+static void rust_export_place_calls(RustLSPContext *ctx, TSNode node, int s) {
+    RustScopeExport *ex = ctx->scope_export;
+    uint32_t start = ts_node_start_byte(node), end = ts_node_end_byte(node);
+    int lo = 0, hi = ex->call_count;
+    while (lo < hi) {
+        int mid = lo + (hi - lo) / 2;
+        const RustCallOccurrence *o = &ex->calls[mid];
+        if (o->start < start || (o->start == start && o->end < end)) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    for (int i = lo; i < ex->call_count && ex->calls[i].start == start && ex->calls[i].end == end;
+         i++) {
+        ex->result->calls.items[ex->calls[i].call].use_scope = s + 1;
+    }
+}
+
+/* Binds what the `use` declarations among `items`' children declare in scope `s`. A
+ * visibility before `use` (`pub`, `pub(crate)`, `pub(in path)`) binds the names in the
+ * scope all the same: it says who else may name them, not where they are visible. */
+static void rust_declare_uses(RustLSPContext *ctx, TSNode items, int s) {
+    PDXE_FOR_EACH_NAMED_CHILD(it, items) {
+        if (strcmp(ts_node_type(it.node), "use_declaration") == 0) {
+            TSNode tree = ts_node_child_by_field_name(it.node, "argument", 8);
+            if (!ts_node_is_null(tree)) {
+                rust_collect_use_tree(ctx, tree, NULL, s);
+            }
+            if (ctx->scope_export && s != 0) {
+                rust_export_scoped_import(ctx, it.node, s);
+            }
+        }
+    }
+    ctx->use_scopes[s].tree_count = ctx->use_scopes[s].count;
+}
+
+/* Whether a block declares a `use` of its own. */
+static bool rust_declares_use(TSNode block) {
+    PDXE_FOR_EACH_NAMED_CHILD(it, block) {
+        if (strcmp(ts_node_type(it.node), "use_declaration") == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* Issue 114: records the scopes below `node`, which is in scope `s`: each inline
+ * module's body (a module, one deeper) and each block that declares a `use`, with
+ * what its `use` declarations bind; and the names of the inline modules. */
+static void rust_collect_scopes(RustLSPContext *ctx, TSNode node, int s) {
+    PDXE_FOR_EACH_NAMED_CHILD(it, node) {
+        TSNode c = it.node;
+        const char *kind = ts_node_type(c);
+        if (strcmp(kind, "use_declaration") == 0) {
+            continue;
+        }
+        if (ctx->scope_export && ctx->scope_export->call_count > 0) {
+            rust_export_place_calls(ctx, c, s);
+        }
+        int inner = s;
+        if (strcmp(kind, "mod_item") == 0) {
+            TSNode body = ts_node_child_by_field_name(c, "body", 4);
+            if (!ts_node_is_null(body)) {
+                /* Issue 104: an inline module's name, for the paths through it. */
+                TSNode mname = ts_node_child_by_field_name(c, "name", 4);
+                char *name = ts_node_is_null(mname) ? NULL : rust_node_text(ctx, mname);
+                if (name)
+                    pdxe_idxmemo_put_if_absent(&ctx->inline_modules, ctx->arena, name, 1);
+                int depth = ctx->use_scopes[s].module_depth + 1;
+                int m = rust_use_scope_new(ctx, ts_node_start_byte(body), ts_node_end_byte(body),
+                                           s, true, depth);
+                if (m >= 0) {
+                    rust_declare_uses(ctx, body, m);
+                    rust_collect_scopes(ctx, body, m);
+                }
+                continue;
+            }
+        } else if (strcmp(kind, "block") == 0 && rust_declares_use(c)) {
+            int b = rust_use_scope_new(ctx, ts_node_start_byte(c), ts_node_end_byte(c), s, false,
+                                       ctx->use_scopes[s].module_depth);
+            if (b >= 0) {
+                rust_declare_uses(ctx, c, b);
+                inner = b;
+            }
+        }
+        rust_collect_scopes(ctx, c, inner);
+    }
+}
+
+/* Issue 111 and 114: reads the file's `use` declarations from its syntax tree, each
+ * into the scope it is declared in: the file, an inline module, a block. */
 static void rust_collect_uses(RustLSPContext *ctx, TSNode root) {
-    rust_collect_uses_in(ctx, root);
-    ctx->use_tree_count = ctx->use_count;
+    if (!rust_file_scope(ctx)) {
+        return;
+    }
+    ctx->use_scopes[0].start_byte = ts_node_start_byte(root);
+    ctx->use_scopes[0].end_byte = ts_node_end_byte(root);
+    rust_declare_uses(ctx, root, 0);
+    rust_collect_scopes(ctx, root, 0);
+    ctx->use_scope = 0;
+}
+
+/* Issue 114: the recorded scope whose node is `node`, or -1 (a block that declares
+ * no `use` is none). Only the file's own tree has scopes: a macro's expansion, parsed
+ * from a buffer of its own, keeps the scope of its invocation. Scopes are numbered in
+ * source order, so their starts never decrease. */
+static int rust_use_scope_of(RustLSPContext *ctx, TSNode node) {
+    if (ctx->source != ctx->root_source || ctx->use_scope_count == 0) {
+        return -1;
+    }
+    uint32_t start = ts_node_start_byte(node), end = ts_node_end_byte(node);
+    int lo = 0, hi = ctx->use_scope_count;
+    while (lo < hi) {
+        int mid = lo + (hi - lo) / 2;
+        if (ctx->use_scopes[mid].start_byte < start) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    for (int i = lo; i < ctx->use_scope_count && ctx->use_scopes[i].start_byte == start; i++) {
+        if (ctx->use_scopes[i].end_byte == end) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static int rust_call_occurrence_cmp(const void *a, const void *b) {
+    const RustCallOccurrence *x = (const RustCallOccurrence *)a;
+    const RustCallOccurrence *y = (const RustCallOccurrence *)b;
+    if (x->start != y->start) {
+        return x->start < y->start ? -1 : 1;
+    }
+    if (x->end != y->end) {
+        return x->end < y->end ? -1 : 1;
+    }
+    return x->call < y->call ? -1 : (x->call > y->call);
+}
+
+void pdxe_rust_export_use_scopes(PDXEArena *arena, PDXEFileResult *result, const char *source,
+                                int source_len, TSNode root) {
+    if (!arena || !result || !source || ts_node_is_null(root)) {
+        return;
+    }
+    RustScopeExport ex = {.result = result};
+    /* The calls of the file's own text not placed yet (the typed pass places the calls
+     * it adds itself), by occurrence. */
+    int n = 0;
+    for (int i = 0; i < result->calls.count; i++) {
+        const PDXECall *c = &result->calls.items[i];
+        n += c->use_scope == 0 && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+             c->site_end_byte > c->site_start_byte;
+    }
+    if (n > 0) {
+        ex.calls = (RustCallOccurrence *)pdxe_arena_alloc(arena, (size_t)n * sizeof(*ex.calls));
+        if (!ex.calls) {
+            ex.failed = true;
+        } else {
+            for (int i = 0; i < result->calls.count; i++) {
+                const PDXECall *c = &result->calls.items[i];
+                if (c->use_scope == 0 && c->source_origin == PDXE_SOURCE_ORIGIN_RAW &&
+                    c->site_end_byte > c->site_start_byte) {
+                    ex.calls[ex.call_count++] =
+                        (RustCallOccurrence){c->site_start_byte, c->site_end_byte, i};
+                }
+            }
+            qsort(ex.calls, (size_t)ex.call_count, sizeof(*ex.calls), rust_call_occurrence_cmp);
+        }
+    }
+    RustLSPContext ctx;
+    rust_lsp_init(&ctx, arena, source, source_len, NULL, result->module_qn, NULL);
+    ctx.scope_export = &ex;
+    if (!ex.failed) {
+        rust_collect_uses(&ctx, root);
+    }
+    if (!ex.failed && ctx.use_scope_count > 0) {
+        PDXEUseScope *scopes =
+            (PDXEUseScope *)pdxe_arena_alloc(arena, (size_t)ctx.use_scope_count * sizeof(*scopes));
+        if (!scopes) {
+            ex.failed = true;
+        } else {
+            for (int i = 0; i < ctx.use_scope_count; i++) {
+                scopes[i].parent = ctx.use_scopes[i].parent;
+                scopes[i].module = ctx.use_scopes[i].module;
+            }
+            result->use_scopes.items = scopes;
+            result->use_scopes.count = ctx.use_scope_count;
+            result->use_scopes.cap = ctx.use_scope_count;
+        }
+    } else {
+        ex.failed = true;
+    }
+    if (ex.failed) {
+        /* A table not made whole is no table: no scope, no scoped import, and every
+         * call unplaced, the typed pass's own included. */
+        memset(&result->use_scopes, 0, sizeof(result->use_scopes));
+        memset(&result->scoped_imports, 0, sizeof(result->scoped_imports));
+        for (int i = 0; i < result->calls.count; i++) {
+            result->calls.items[i].use_scope = 0;
+        }
+    }
 }
 
 /* ── Issue 110: the members a macro invocation may write ───────────

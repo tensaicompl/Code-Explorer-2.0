@@ -3309,6 +3309,12 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
     if (language == PDXE_LANG_RUST) {
         pdxe_rust_export_macro_members(a, result, source, source_len, root);
     }
+    /* Issue 114: Rust's `use` scopes, the imports declared inside them and each call's
+     * scope, read by the typed pass's own collector, for Stage 3 to see a site's imports
+     * as the typed pass does. After the pass, which places the calls it adds. */
+    if (language == PDXE_LANG_RUST) {
+        pdxe_rust_export_use_scopes(a, result, source, source_len, root);
+    }
     atomic_fetch_add(&total_lsp_ns, now_ns() - lsp_start);
     stamp_late_site_paths(a, result, &ctx, root, spec);
 

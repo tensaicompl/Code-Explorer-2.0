@@ -1349,6 +1349,24 @@ static void rust_use_index_refused(void) {
     project_free(&p);
 }
 
+/* Issue 114: `n` functions, each importing a function of its own in its body under the
+ * one local name `item` and calling it: n scopes binding one name, none ambiguous. A
+ * lookup reads the scopes from the call's out, so its work is the call's scopes', never
+ * every scope's of the file. */
+static void rust_scoped_uses_shape(project_t *p, int n, const void *arg) {
+    (void)arg;
+    buf_t b = {0};
+    put(&b, "mod a {\n");
+    for (int i = 0; i < n; i++) {
+        putf(&b, "    pub fn g%d() -> i32 {\n        %d\n    }\n", i, i);
+    }
+    put(&b, "}\n\n");
+    for (int i = 0; i < n; i++) {
+        putf(&b, "pub fn f%d() -> i32 {\n    use self::a::{g%d as item};\n    item()\n}\n", i, i);
+    }
+    add_file(p, "src/lib.rs", "rust", &b);
+}
+
 /* --- refusals ------------------------------------------------------------------ */
 
 /* Each family of indexes refused its memory: extraction and resolution complete or fail
@@ -1477,6 +1495,21 @@ int main(int argc, char **argv) {
     linear_work("rust uses", rust_uses_shape, NULL, USES, 4, 0, INDEXED, NULL, 1);
     rust_use_scans_are_quadratic();
     rust_use_index_refused();
+    project_t scoped = {.name = "rust scoped uses"};
+    rust_scoped_uses_shape(&scoped, 256, NULL);
+    same_answers(&scoped, 1);
+    outcome_t in_scope = run(&scoped, INDEXED, NULL, 1);
+    uint32_t aliased = 0;
+    for (const char *s = in_scope.facts.text; s && (s = strstr(s, "lsp_import_alias")); s++) {
+        aliased++;
+    }
+    CHECK(aliased >= 256, "rust scoped uses: %u answers by alias for 256 calls", aliased);
+    release(&in_scope);
+    project_free(&scoped);
+    /* A function is about 25 nodes: 8,000 of them pass the typed pass's per-file step
+     * budget, which is lost work of its own. */
+    static const int SCOPED[] = {500, 1000, 2000, 4000};
+    linear_work("rust scoped uses", rust_scoped_uses_shape, NULL, SCOPED, 4, 0, INDEXED, NULL, 1);
 
     refusals();
 

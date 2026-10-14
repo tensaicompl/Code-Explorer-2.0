@@ -20,8 +20,8 @@ use crate::error::EngineError;
 use crate::model::{
     Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
     ExtractRecord, FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, MacroMember,
-    QualifiedName, ReadWrite, RouteFact, SourceDigest, Span, Surface, TextRef, Throw, TypeRef,
-    Usage, Visibility,
+    QualifiedName, ReadWrite, RouteFact, ScopedImport, SourceDigest, Span, Surface, TextRef, Throw,
+    TypeRef, Usage, UseScope, Visibility,
 };
 
 /// A string the engine owns, copied, or `None` for NULL.
@@ -376,6 +376,7 @@ pub(crate) unsafe fn call(
         n_ast_path,
         args,
         n_args,
+        use_scope,
     } = *c;
     // A resolution's site may belong to another file's result, whose definition count
     // is not at hand; only the bound the file's own result gives is checked.
@@ -395,6 +396,7 @@ pub(crate) unsafe fn call(
         // SAFETY: the arrays hold their counts, and their strings are alive.
         ast_path: unsafe { strings(ast_path.cast_const(), n_ast_path, "a node type") }?,
         args: unsafe { each(args, n_args, "a call's arguments", |a| call_arg(a, len)) }?,
+        use_scope: (use_scope != sys::PDXE_NO_PARENT).then_some(use_scope),
     })
 }
 
@@ -432,6 +434,25 @@ unsafe fn import(i: &sys::pdxe_import) -> Result<Import, EngineError> {
             span: span(at),
         })
     }
+}
+
+/// Issue 114: a Rust `use` scope.
+fn use_scope(s: sys::pdxe_use_scope) -> UseScope {
+    UseScope {
+        parent: (s.parent != sys::PDXE_NO_PARENT).then_some(s.parent),
+        module: s.module != 0,
+    }
+}
+
+/// # Safety
+///
+/// The strings in `i` are NULL or alive for the call.
+unsafe fn scoped_import(i: &sys::pdxe_scoped_import) -> Result<ScopedImport, EngineError> {
+    Ok(ScopedImport {
+        // SAFETY: as the caller guarantees.
+        import: unsafe { import(&i.import) }?,
+        scope: i.scope,
+    })
 }
 
 /// # Safety
@@ -622,6 +643,10 @@ pub(crate) unsafe fn file_extract(
         n_impl_traits,
         macro_members,
         n_macro_members,
+        use_scopes,
+        n_use_scopes,
+        scoped_imports,
+        n_scoped_imports,
     } = *r;
 
     let status = match u32::try_from(status) {
@@ -661,6 +686,15 @@ pub(crate) unsafe fn file_extract(
             })?,
             calls: each(calls, n_calls, "the calls", |c| call(c, Some(n_defs), len))?,
             imports: each(imports, n_imports, "the imports", |i| import(i))?,
+            use_scopes: each(use_scopes, n_use_scopes, "the use scopes", |s| {
+                Ok(use_scope(*s))
+            })?,
+            scoped_imports: each(
+                scoped_imports,
+                n_scoped_imports,
+                "the scoped imports",
+                |i| scoped_import(i),
+            )?,
             usages: each(usages, n_usages, "the usages", |u| usage(u, n_defs, len))?,
             type_refs: each(types, n_types, "the type references", |t| {
                 type_ref(t, n_defs)

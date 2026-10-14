@@ -63,7 +63,15 @@ class Settings:
     let deep = format!("{}1{}", "f(".repeat(200), ")".repeat(200));
     let nested = extract(&engine, "perl", "deep.pl", deep.as_bytes());
 
-    let all = [&events, &settings, &nested];
+    // Issue 114: a `use` in an inline module and in a function's body.
+    let scoped = extract(
+        &engine,
+        "rust",
+        "src/lib.rs",
+        b"use crate::a::x;\n\nmod inner {\n    use super::x;\n}\n\npub fn f() -> u32 {\n    use crate::b::y;\n    x() + y()\n}\n",
+    );
+
+    let all = [&events, &settings, &nested, &scoped];
     let any = |f: fn(&FileExtract) -> bool| all.iter().any(|e| f(e));
     assert!(any(|e| !e.definitions.is_empty()), "no definitions");
     assert!(any(|e| !e.calls.is_empty()), "no calls");
@@ -79,6 +87,12 @@ class Settings:
     );
     assert!(any(|e| !e.diagnostics.is_empty()), "no diagnostics");
     assert!(any(|e| !e.surface.as_bytes().is_empty()), "no surface");
+    assert!(any(|e| !e.use_scopes.is_empty()), "no use scopes");
+    assert!(any(|e| !e.scoped_imports.is_empty()), "no scoped imports");
+    assert!(
+        any(|e| e.calls.iter().any(|c| c.use_scope.is_some())),
+        "no call placed in a use scope"
+    );
 
     assert!(
         events

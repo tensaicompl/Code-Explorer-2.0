@@ -79,12 +79,15 @@ lists the resolver misread. It found issues 113 (paths through `crate::` and
 re-exports; an imported type's impls) and 114 (`use` has no lexical scope). The engine
 differential holds one ratified divergence for it (decision 66).
 
-**Hotfix 115 and issue 110 are done (2026-10-14).** `scripts/a0/run.py` refuses an
-executable whose versions are not the source's (115). A member a `macro_rules!`
-invocation may write another of its name for is no target (110, patch 0030,
-`ENGINE_VERSION` 10): the Rust golden's `import-guided` false positive is gone. Issue
-114 (lexical `use` scope) is parked as work in progress and is reapplied on top of 110
-next; then issue 109, then R3 (issue 102), each **only when the driver authorises it**.
+**Hotfix 115 and issues 110 and 114 are done (2026-10-14).** `scripts/a0/run.py`
+refuses an executable whose versions are not the source's (115). A member a
+`macro_rules!` invocation may write another of its name for is no target (110, patch
+0030, `ENGINE_VERSION` 10): the Rust golden's `import-guided` false positive is gone. A
+Rust `use` binds only in its lexical scope, in the typed pass and Stage 3 alike (114,
+patch 0031, `ENGINE_VERSION` 11, cache format 8, worker protocol 9): a test module's
+import no longer draws a module's own call wrong. The engine differential holds a second
+ratified divergence for 114 (decision 66). Next, each **only when the driver authorises
+it**: issue 109, then R3 (issue 102); issue 113 waits for recall work.
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. Build `pdx-bench` first
@@ -210,12 +213,13 @@ registry's own metadata, and applies a configuration's path aliases to TypeScrip
 JavaScript imports only, as the registry does (issue 43, patch 0009). Rust's `impl
 Trait for Type` relations cross the interface (`FileExtract::impl_traits`, issue 42)
 and the registry resolves them; supertraits are not recorded, so none is followed. The
-extraction cache is format 7 and the worker protocol 8 (issues 40 to 42, 46, 47, 54, 90
-and 110): calls carry their node-type path (`ast_path`, computed by the engine since patch
+extraction cache is format 8 and the worker protocol 9 (issues 40 to 42, 46, 47, 54, 90,
+110 and 114): calls carry their node-type path (`ast_path`, computed by the engine since patch
 0010) and arguments, and definitions their decorators, parameter types and every route
 binding with its declaring node's position and path (`routes`, patch 0011); both hold
-records whose text is ranges of the source (issue 90B, below), and a Rust file the members
-its macro invocations may write (issue 110, below); `ENGINE_VERSION` is 10 (issue 110). Issue 74 (decision 45, engine 4): the C and C++ expression
+records whose text is ranges of the source (issue 90B, below), a Rust file the members
+its macro invocations may write (issue 110) and Rust calls their `use` scope (issue 114,
+both below); `ENGINE_VERSION` is 11 (issue 114). Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -404,8 +408,10 @@ need path evidence.
   or in the per-file typed answers its surface holds, moves `ENGINE_VERSION`, delivered
   or not: the version in the cache key is all that keeps an older engine's entries from
   being served. `cache_entries_of_engine_seven_are_never_served` holds it for 0028,
-  `cache_entries_of_engine_eight_are_never_served` for 0029 and
-  `cache_entries_of_engine_nine_are_never_served` for 0030.
+  `cache_entries_of_engine_eight_are_never_served` for 0029,
+  `cache_entries_of_engine_nine_are_never_served` for 0030 and
+  `cache_entries_of_engine_ten_are_never_served` for 0031 (planted in the current cache
+  format, so that the engine version alone keeps it out).
 
 Issue 111 (patch 0029, engine 9): a Rust file's `use` declarations are read from its
 syntax tree, never its text.
@@ -422,10 +428,8 @@ syntax tree, never its text.
   never a scan; `PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE` answers by the scan.
 - **Alias.** The fallback looks for the function by the last name of the import's path;
   a call by its alias is answered `lsp_import_alias`, joined by the name it spells.
-- **Not here.** `use` has no lexical scope (issue 114): the typed pass reads a file's
-  top-level and inline-module `use` as the whole file's, and neither pass reads a
-  function body's. Never fix that by reading a function's imports as the file's.
-  Paths through `crate::` and re-exports, and an imported type's impls, are issue 113.
+- **Not here.** Paths through `crate::`, re-exports and `index.rs`, and an imported
+  type's impls, are issue 113.
 - **Tests.** `crates/pdx-core/tests/rust_use_trees.rs` (every form, ambiguity, external,
   no evidence) and the cache test above.
 
@@ -454,6 +458,40 @@ of them.
   rust_macro_members.rs` (the issue's shape, bound type and member, a generated name,
   impl-body invocation, uninvoked macro, another language), `e9_…` in `rust_targets.rs`,
   `isolation_carries_macro_members` and the cache test above.
+
+Issue 114 (patch 0031, engine 11): a Rust `use` binds only in its lexical scope.
+- **Scopes.** One collector (`rust_collect_uses` in `engine/src/lsp/rust_lsp.c`) records
+  the file's module (scope 0), each inline module's body (a module) and each block that
+  declares a `use`, in source order, each with its parent; a block that declares none is
+  no scope. Each scope holds its own bindings (indexed by local name) and globs. The
+  typed pass sets the scope in force as its walk enters a block or an inline module; a
+  macro's expansion, parsed from a buffer of its own, keeps its invocation's.
+- **Lookup.** From the site's scope out through its parents; the nearest scope that binds
+  the name decides, and the first module ends the search: a module is a namespace of its
+  own, so an inline module never sees its parent's imports unqualified. It sees them
+  through `use super::*` (a link to the enclosing module's bindings, after its own) or
+  `use super::x` (the enclosing module's binding of `x`, when it imports one). A name one
+  scope binds to two paths is withheld (issue 111's rule, now per scope); one name in two
+  scopes is no ambiguity. A nearer glob that brings the name in shadows an outer `use`.
+  The work is the site's scopes', never every scope's: no file-wide scan.
+- **Extraction.** The same collector exports the scopes (`use_scopes`: parent, module),
+  the `use` declarations inside every scope but the file's (`scoped_imports`, recorded
+  as the file's own imports are) and each call's scope (`Call::use_scope`), placed by the
+  call's exact occurrence; the typed pass places the calls it adds. A table not made
+  whole is none (lost work), every call unplaced. The file's own `imports` are unchanged,
+  so the surface, the engine's import edges and the cross-file pass are too. Interface
+  (`pdxe_use_scope`, `pdxe_scoped_import`, `pdxe_call.use_scope`), cache format 8 and
+  protocol 9; the surface stays 5.
+- **Stage 3** (`SymbolRegistry::rust_imports_at`, `rust_name_provenance`): for a Rust
+  site, the imports in force in its scope, never `imports_of` the file; a site placed in
+  no scope sees none. A scoped import's `self` and a `super` within the file are read
+  from the file's module.
+- **Rule.** Never fix a missing answer by reading a function's or an inline module's
+  imports as the file's, or a parent module's as its child's.
+- **Tests.** `crates/pdx-core/tests/rust_use_scopes.rs` (S1 to S15, module boundaries,
+  macros, the issue's two reproductions; typed and Stage 3 alone), `engine/tests/rust_use_scopes.c`,
+  `typed_lookup` (scoped lookups linear), `pdx-engine`'s `use_scopes` and the worker's
+  `isolation_carries_use_scopes`.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: a qualifying
@@ -730,8 +768,9 @@ of `bench/engine-differential.toml`.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
   does. All 32 corpora were identical at P2-16 and are again at engines 7 and 8, each engine
-  run from an empty working directory (issue 83, decision 52). At engine 9, 31 are
-  identical and `golden:rust/axum` passes with issue 111's one ratified divergence.
+  run from an empty working directory (issue 83, decision 52). At engine 11, 31 are
+  identical and `golden:rust/axum` passes with two ratified divergences, issue 111's and
+  issue 114's.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

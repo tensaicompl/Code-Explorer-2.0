@@ -258,6 +258,9 @@ pub enum CacheDefect {
     /// (issue 90): it is no extraction of that source.
     #[error("text or names that do not fit its source")]
     MalformedText,
+    /// Its `use` scopes are not a well-formed table (issue 114).
+    #[error("use scopes that are not well formed")]
+    MalformedScopes,
 }
 
 impl From<BindError> for CacheDefect {
@@ -267,6 +270,7 @@ impl From<BindError> for CacheDefect {
             BindError::Range { .. }
             | BindError::QualifiedName { .. }
             | BindError::Prefix { .. } => Self::MalformedText,
+            BindError::UseScope(_) => Self::MalformedScopes,
         }
     }
 }

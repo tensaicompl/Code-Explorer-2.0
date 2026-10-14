@@ -429,6 +429,10 @@ typedef struct {
      * The strings are the language's own and static. NULL when the walk could not
      * record them. Kept at the tail, as impl_trait is, for zero-initialised callers. */
     const char **ast_path;
+    /* Issue 114: the Rust `use` scope the call is in, as 1 + its index in the result's
+     * use_scopes (whose `use` declarations are in force there); 0 when the call was
+     * not placed in one. Never encoded in a surface. */
+    int use_scope;
 } PDXECall;
 
 typedef struct {
@@ -664,6 +668,35 @@ typedef struct {
     int cap;
 } PDXEMacroMemberArray;
 
+/* Issue 114: a Rust lexical scope `use` declarations bind in: the file's module (0),
+ * an inline module's body, or a block that declares a `use`, numbered in source order,
+ * each its syntax node's. A lookup goes from a site's scope out through its parents and
+ * ends at the first module. Not the unified walk's PDXELexicalScope, which holds a
+ * file's value bindings: these are the typed pass's own scopes, made by its collector. */
+typedef struct {
+    int parent;  /* the enclosing scope; -1 for the file's */
+    bool module; /* the file's module or an inline module's */
+} PDXEUseScope;
+
+typedef struct {
+    PDXEUseScope *items;
+    int count;
+    int cap;
+} PDXEUseScopeArray;
+
+/* Issue 114: a Rust `use` declared inside a scope other than the file's module, recorded
+ * as the file's own imports are (the declaration's text), with the scope it binds in. */
+typedef struct {
+    PDXEImport import;
+    int scope;
+} PDXEScopedImport;
+
+typedef struct {
+    PDXEScopedImport *items;
+    int count;
+    int cap;
+} PDXEScopedImportArray;
+
 // Full extraction result for one file.
 typedef struct PDXEFileResult {
     PDXEArena arena; // owns local memory; composites may also retain child arenas below
@@ -778,6 +811,14 @@ typedef struct PDXEFileResult {
      * reads it so that no stage takes a type's represented members for all of them.
      * Empty for every other language, and when the table could not be made whole. */
     PDXEMacroMemberArray macro_members;
+
+    /* Issue 114: Rust's lexical scopes for `use`, and the `use` declarations inside
+     * every scope but the file's (whose are `imports`). Each call's scope is
+     * PDXECall.use_scope. Part of the interface, never of a surface: what Stage 3
+     * reads to see a site's imports as the typed pass does. Empty for every other
+     * language, and when the table could not be made whole (lost work). */
+    PDXEUseScopeArray use_scopes;
+    PDXEScopedImportArray scoped_imports;
 } PDXEFileResult;
 
 /* Whether `result`'s site paths are spent: a producer computes no path once they are. */

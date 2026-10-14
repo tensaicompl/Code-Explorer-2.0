@@ -112,7 +112,7 @@ const FACT_STRUCTURES: [&str; 16] = [
 ];
 
 /// Members of the file result a surface does not carry, and why.
-const NOT_IN_A_SURFACE: [(&str, &str); 15] = [
+const NOT_IN_A_SURFACE: [(&str, &str); 17] = [
     (
         "arena",
         "the memory the result lives in; a rebuilt result has its own",
@@ -182,11 +182,21 @@ const NOT_IN_A_SURFACE: [(&str, &str); 15] = [
          from the extraction record the cache and the worker carry; typed resolution never \
          reads it",
     ),
+    (
+        "use_scopes",
+        "Rust's `use` scopes (issue 114), read by the file's own translation for Stage 3; \
+         typed resolution reads them again from the source it parses",
+    ),
+    (
+        "scoped_imports",
+        "the `use` declarations inside Rust's scopes (issue 114), read by the file's own \
+         translation for Stage 3; typed resolution reads them again from the source",
+    ),
 ];
 
 /// Fields of facts a surface does not carry, and why. Each must be one the resolver
 /// never reads, or cached answers would differ from fresh ones.
-const FACT_FIELDS_NOT_IN_A_SURFACE: [(&str, &str, &str); 3] = [
+const FACT_FIELDS_NOT_IN_A_SURFACE: [(&str, &str, &str); 4] = [
     (
         "PDXEDefinition",
         "occurrence",
@@ -203,6 +213,12 @@ const FACT_FIELDS_NOT_IN_A_SURFACE: [(&str, &str, &str); 3] = [
         "PDXEUsage",
         "owner",
         "as PDXECall's: reported in the file's own callable references only",
+    ),
+    (
+        "PDXECall",
+        "use_scope",
+        "the Rust `use` scope a call is in (issue 114), reported in the file's own calls for \
+         Stage 3; typed resolution places its sites in scopes it reads from the source again",
     ),
 ];
 
