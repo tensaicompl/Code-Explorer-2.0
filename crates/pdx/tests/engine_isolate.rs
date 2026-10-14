@@ -146,6 +146,41 @@ fn isolation_carries_impl_relations() {
     assert_eq!(relations, [1, 4]);
 }
 
+/// Issue 110: a Rust file whose macro writes members of two types, one named in the
+/// transcriber and one by the invocation's argument.
+const MACRO_MEMBERS: &str = "pub struct Payload;\npub struct Gadget;\n\nmacro_rules! make {\n    ($t:ident) => {\n        impl From<u8> for Payload {\n            fn from(_: u8) -> Self {\n                Payload\n            }\n        }\n        impl $t {\n            pub fn $t() {}\n            pub fn fixed() {}\n        }\n    };\n}\n\nmake!(Gadget);\n";
+
+#[test]
+fn isolation_carries_macro_members() {
+    // Protocol 8 carries the members Rust's macro invocations may write (issue 110): a
+    // worker's extraction has them exactly as this process's, as the source gives them.
+    let files = vec![SourceFile {
+        language: "rust".to_owned(),
+        rel_path: "src/lib.rs".to_owned(),
+        source: MACRO_MEMBERS.as_bytes().to_vec(),
+    }];
+    let expected = in_process(&files);
+    let mut isolated = IsolatedExtractor::new(worker());
+    let outcomes = isolated.extract_batch(&files).expect("a worker");
+    assert_eq!(outcomes, expected);
+    let ExtractOutcome::Extracted(e) = &outcomes[0] else {
+        panic!("not extracted: {:?}", outcomes[0]);
+    };
+    let members: Vec<(&str, Option<&str>)> = e
+        .macro_members
+        .iter()
+        .map(|m| (m.type_name.as_str(), m.member.as_deref()))
+        .collect();
+    assert_eq!(
+        members,
+        [
+            ("Gadget", Some("Gadget")),
+            ("Gadget", Some("fixed")),
+            ("Payload", Some("from"))
+        ]
+    );
+}
+
 #[test]
 fn isolation_carries_site_paths_and_derivation_facts() {
     // Protocol 6 carries each call's node-type path and arguments and each

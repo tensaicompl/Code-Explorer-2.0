@@ -290,6 +290,13 @@ const PDXERegisteredFunc *rust_lookup_method(RustLSPContext *ctx, const char *ty
 void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDXEFileResult *result,
                                    const char *module_qn, TSNode root, const char *source);
 
+/* Issue 110: the members the file's `macro_rules!` invocations may write, by type and
+ * name, into `result->macro_members` (rust_lsp.c says how they are read). Empty when the
+ * file defines no macro its invocations see, and when the table could not be made
+ * whole (lost work). */
+void pdxe_rust_export_macro_members(PDXEArena *arena, PDXEFileResult *result, const char *source,
+                                   int source_len, TSNode root);
+
 /* Entry point — called from `pdxe_engine_extract_file()` after the unified
  * extractor has filled `result->defs`, `result->imports`, and
  * `result->impl_traits`. Builds a per-file registry, parses the `use`

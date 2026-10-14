@@ -184,6 +184,7 @@ resolves no call and assigns no band.
 | `NameProvenance`, `name_provenance`, `is_external_name`, `external_names` | A name is external only when every import binding it leads outside the repository and the file does not define it |
 | `BaseRelation`, `BaseResolution`, `direct_bases`, `direct_derived`, `ancestors`, `declaring_type` | Hierarchy from `Definition::base_classes`: exact qualified name, same module, import binding, unique name, in that order; ambiguity kept; external only by import. Ancestors breadth-first, cycle-safe |
 | `ImplRelation`, `impl_relations`, `implemented_traits`, `implementors` | Rust's `impl Trait for Type` blocks (`FileExtract::impl_traits`), the type by its recorded qualified name or else as a base is resolved, the trait as a base is resolved; a relation counts only when both are exactly one internal type. Supertraits are not recorded (issue 42) |
+| `macro_may_write` | Whether a Rust macro invocation of the repository may write a member of a name for a type of a name (`FileExtract::macro_members`, issue 110): by the type's last name, across the repository, a generated member name standing for every name. No definition represents such a member |
 | `resolution_metadata` | Go modules, packages from `package.json`, declared packages, `tsconfig.json` alias scopes and the root crate manifest, as `pdx_engine::ResolutionMetadata`: the same the registry resolves with |
 | `RegistryError` | Stages that disagree, a definition index or parent an extraction does not have, metadata that cannot be read or parsed, or has changed since Stage 2 |
 
@@ -219,7 +220,10 @@ the project, issue 45); names bound locally (`unresolved`) or only by external i
 (`external`); then import-guided, inheritance-guided, exact and scoped over the
 candidates (definitions a call can invoke, of the caller's language family, by name, by
 qualified name, through aliasing imports, and the engine's hint); then `candidate` or
-`unresolved`. An `UNRESOLVED_MEMBER` call is never resolved by its name alone.
+`unresolved`. An `UNRESOLVED_MEMBER` call is never resolved by its name alone. A Rust
+member a macro invocation may write another of its name for (`macro_may_write`: for the
+type the call's path names, or the type the member is declared in) is no target, typed
+or by a stage: the site is a `candidate` with it (issue 110, decision 65).
 
 ### `index`
 

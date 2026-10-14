@@ -3304,6 +3304,11 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
             pdxe_run_rust_lsp(a, result, source, source_len, root);
         }
     }
+    /* Issue 110: the members Rust's `macro_rules!` invocations may write, which no
+     * definition represents, for Stage 3. */
+    if (language == PDXE_LANG_RUST) {
+        pdxe_rust_export_macro_members(a, result, source, source_len, root);
+    }
     atomic_fetch_add(&total_lsp_ns, now_ns() - lsp_start);
     stamp_late_site_paths(a, result, &ctx, root, spec);
 

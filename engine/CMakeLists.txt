@@ -359,6 +359,10 @@ if(PDXE_BUILD_TESTS)
   # interface's translation look up by index, the answers the scans' and the work linear
   # (issue 92, decision 62, patches/0025).
   add_test(NAME typed_lookup COMMAND typed_lookup ${PDXE_RESOLVE_FIXTURE_ROOT})
+  # Nor can a member a `macro_rules!` invocation writes pass for none: the members each
+  # invocation may write are recorded from the definition's tokens (issue 110,
+  # patches/0030).
+  add_test(NAME rust_macro_members COMMAND rust_macro_members)
   # Nor a wide node's children by position, nor a parent or sibling by descending from the
   # root: the iterator's and the lookups' answers are tree-sitter's on every corpus and
   # smoke file, the work is linear in every language's wide shapes and the issue's own

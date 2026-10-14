@@ -263,12 +263,6 @@
       "band": "inheritance-guided"
     },
     {
-      "src_qn": "axum-core.src.error.Error.fmt",
-      "dst_qn": "axum-core.src.error.Error.fmt",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
       "src_qn": "axum-core.src.ext_traits.request.Request.extract_parts_with_state",
       "dst_qn": "axum-core.src.response.into_response_parts.ResponseParts.extensions_mut",
       "kind": "CALLS",
@@ -333,18 +327,6 @@
       "dst_qn": "axum-core.src.response.into_response_parts.ResponseParts.extensions",
       "kind": "CALLS",
       "band": "exact"
-    },
-    {
-      "src_qn": "axum-core.src.ext_traits.request.extract_body_without_state",
-      "dst_qn": "axum-core.src.body.Body.from",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "axum-core.src.ext_traits.request.extract_body_without_state",
-      "dst_qn": "axum-core.src.body.Body.from",
-      "kind": "TESTS",
-      "band": "import-guided"
     },
     {
       "src_qn": "axum-core.src.ext_traits.request.extract_parts_with_state",

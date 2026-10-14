@@ -295,7 +295,19 @@ pub struct SymbolRegistry {
     /// Each Rust file's external crates: the names a path there can start with that
     /// lead outside the repository (issue 104).
     rust_external_crates: BTreeMap<String, BTreeSet<String>>,
+    /// The members Rust's `macro_rules!` invocations may write, by the type's last name,
+    /// across the repository (issue 110).
+    macro_members: BTreeMap<String, MacroMembers>,
     metadata: ResolutionMetadata,
+}
+
+/// The members macro invocations may write for types of one name (issue 110).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct MacroMembers {
+    /// A transcriber generates a member's name: any member.
+    any: bool,
+    /// The members named.
+    names: BTreeSet<String>,
 }
 
 impl SymbolRegistry {
@@ -342,6 +354,7 @@ impl SymbolRegistry {
             implementors: BTreeMap::new(),
             pairs: BTreeMap::new(),
             rust_external_crates: BTreeMap::new(),
+            macro_members: BTreeMap::new(),
             metadata: ResolutionMetadata::default(),
         };
         registry.index_definitions(&sources);
@@ -352,6 +365,7 @@ impl SymbolRegistry {
         registry.resolve_bases(&sources);
         registry.resolve_impls(&sources);
         registry.rust_external_crates = rust_external_crates(&sources, &layout);
+        registry.macro_members = macro_members(&sources);
         registry.metadata = registry.metadata_for_engine(&layout);
         registry.files = sources.files;
         Ok(registry)
@@ -1059,6 +1073,17 @@ impl SymbolRegistry {
         NameProvenance::Unknown
     }
 
+    /// Whether a macro invocation of the repository may write a member named `member`
+    /// for a type named `type_name` (issue 110): one whose `impl` a `macro_rules!`
+    /// transcriber writes, read by the engine from the definition the invocation sees,
+    /// by the type's last name. No definition represents such a member, so the type's
+    /// members of that name the registry holds may not be all of them.
+    pub fn macro_may_write(&self, type_name: &str, member: &str) -> bool {
+        self.macro_members
+            .get(type_name)
+            .is_some_and(|m| m.any || m.names.contains(member))
+    }
+
     /// Whether a path in the Rust file at `path` that starts with `head` starts with
     /// an external crate: one of the standard distribution's, or a dependency of the
     /// file's crate with no repository path, by name with `-` read as `_` (issue 104).
@@ -1234,6 +1259,26 @@ fn base_names(raw: &str) -> Vec<String> {
         })
         .filter(|p| !p.is_empty())
         .collect()
+}
+
+/// The members every Rust file's macro invocations may write, by type name (issue 110).
+fn macro_members(sources: &Sources<'_>) -> BTreeMap<String, MacroMembers> {
+    let mut by_type: BTreeMap<String, MacroMembers> = BTreeMap::new();
+    for state in sources.files.values() {
+        let FileOutcome::Extracted { extract, .. } = &state.outcome else {
+            continue;
+        };
+        for m in &extract.macro_members {
+            let entry = by_type.entry(m.type_name.clone()).or_default();
+            match &m.member {
+                Some(name) => {
+                    entry.names.insert(name.clone());
+                }
+                None => entry.any = true,
+            }
+        }
+    }
+    by_type
 }
 
 /// Each Rust file's external crates ([`imports::rust_external_crates`]).

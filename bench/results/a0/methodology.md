@@ -19,7 +19,8 @@ The result files hold the latest run. Earlier runs stay in Git history:
 | A0.1 baseline | `e746b1e` | `71bec72` (`git show 71bec72:bench/results/a0/<file>`) |
 | post-R1, issue 103 (typed before the blocklist) | the commit "Issue 103: accept typed answers before blocklist", parent `2663ff5` | `d96bb2f` |
 | post-R2, issue 104 (Rust trusted targets) | the commit "Issue 104: correct Rust trusted target resolution", parent `d96bb2f` | `d14ccd4` |
-| post-111, issue 111 (Rust `use` trees) | the commit "Issue 111: parse Rust use trees structurally", parent `d6fbdd9` | that commit (these files) |
+| post-111, issue 111 (Rust `use` trees) | the commit "Issue 111: parse Rust use trees structurally", parent `d6fbdd9` | `8c93aba` |
+| post-110, issue 110 (members macros may write) | the commit "Issue 110: prevent false targets from macro-generated impl gaps", parent `450e1e8` | that commit (these files) |
 
 Every run uses the same golden pins, oracle versions and configuration,
 `a0-match-1` and `a0-metrics-1`. The PDX diagnostic corpus is `e746b1e` in all, so
@@ -29,8 +30,10 @@ The post-R2 files record `engine_version` 7: at `d14ccd4` the engine called itse
 Issue 112 renumbered that engine 8 without changing what it extracts or answers.
 Rerun at the hotfix, every document is identical but for `engine_version` (8, which
 `run.py` then read from `consts.rs` rather than writing out; since issue 115 it is what
-the executed engine reports, checked equal to the source) and the `resolver` label, and `mismatches.jsonl` and `counterfactuals.json` are byte-identical. The
-post-111 files record engine 9.
+the executed engine reports, checked equal to the source) and the `resolver` label,
+and `mismatches.jsonl` and `counterfactuals.json` are byte-identical. The post-111
+files record engine 9, the post-110 files engine 10, the first measured by an
+executable `run.py` checked against the source (issue 115).
 
 The post-R1 run also corrects three harness outputs. None of the three changes a
 baseline number: run over the baseline's datasets, they reproduce the committed

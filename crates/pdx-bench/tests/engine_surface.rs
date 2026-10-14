@@ -112,7 +112,7 @@ const FACT_STRUCTURES: [&str; 16] = [
 ];
 
 /// Members of the file result a surface does not carry, and why.
-const NOT_IN_A_SURFACE: [(&str, &str); 14] = [
+const NOT_IN_A_SURFACE: [(&str, &str); 15] = [
     (
         "arena",
         "the memory the result lives in; a rebuilt result has its own",
@@ -175,6 +175,12 @@ const NOT_IN_A_SURFACE: [(&str, &str); 14] = [
         "semantic_passes",
         "how many semantic passes ran (issue 89), for the engine's own tests; resolution \
          never reads it",
+    ),
+    (
+        "macro_members",
+        "the members Rust's macro invocations may write (issue 110), which Stage 3 reads \
+         from the extraction record the cache and the worker carry; typed resolution never \
+         reads it",
     ),
 ];
 

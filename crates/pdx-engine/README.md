@@ -30,6 +30,7 @@ copying it):
 | `declared_namespace` | The package or namespace the file declares, as written, for the languages whose declaration the engine reads (Java, Kotlin, C#, PHP); `None` otherwise. `namespace_evidence(language)` says where a language's evidence is: this field, C++'s qualified names, or nowhere |
 | `definitions` | With normalised kind and the engine's own, spans, parent, visibility, test and entry-point flags, three complexity metrics, and `base_classes`: the bases it names, in the engine's order and spelling, unresolved. `decorators` (annotations, decorators and attributes as written) and `signature_param_types` (the declared parameter types, `?` for an unknown one), as the engine extracted them (issue 47). `routes` (`RouteFact`): every HTTP route binding its annotations or decorators declare (Spring, JAX-RS, FastAPI, Flask, Django REST framework), one per method and path, joined to the class's own mapping, each with its callee as written, the declaration's text, position and node-type path; a path or method that is not a literal gives none (issue 54). The engine's `is_test` flag marks every definition of a test file, helpers included |
 | `impl_traits` | Rust's `impl Trait for Type` blocks (`ImplTrait`: the trait and the type as spelt, without type arguments, and the type's qualified name), empty blocks included, in the engine's order; empty for every other language. Supertraits are not recorded (issue 42) |
+| `macro_members` | The members Rust's `macro_rules!` invocations may write (`MacroMember`: the type by the last name of its path, the member's name or `None` for any), read from the definition each invocation sees in its own file, its metavariables bound as the engine's macro matcher binds them or else taken for any identifier of the invocation: one per type and member, in byte order; empty for every other language (issue 110) |
 | `calls` | Calls, then callables passed as values (`is_reference`); `typed_only` sites; lexical facts. `caller`: the innermost enclosing definition the extractor represents, never a nested callable it does not (issue 75), joined to it by its declaration occurrence, never by comparing names (issue 76); for a call with no position in the file, the callable its name names. `ast_path`: the node types from that definition's node (the root's, at file scope) down to the site's own, for every site with a position in the file (issue 46); empty for a site found only in preprocessed text. `args` (`CallArg`): each argument's text, its literal value where the engine resolved one, its keyword, and its position (issue 47). A callee and an argument's expression are `TextRef`s |
 | `imports`, `usages` | Usages with their lexical facts; a usage's name is a `TextRef` |
 | `type_refs`, `throws`, `read_writes`, `channels`, `env_accesses` | Positionless: the engine records only their scope |
@@ -116,9 +117,10 @@ ordinary child processes on every system.
 
 The protocol is length-prefixed postcard frames (decision 19), with a size limit, each
 encoded straight into the pipe so a batch's sources are not copied on the way; the
-worker names its protocol (7: since the worker answers with records whose text is ranges
+worker names its protocol (8: since a record carries the members Rust's macro
+invocations may write, issue 110, after 7 for records whose text is ranges
 of the source sent, which the parent binds to that source, never receiving it back,
-after 6 for every route binding with its declaring node, 5 for sites' node-type paths,
+6 for every route binding with its declaring node, 5 for sites' node-type paths,
 arguments, decorators, parameter types and one route, 4 for `impl Trait for Type`
 relations and 3 for bases and declared namespaces) and engine version first and is
 refused if they differ. An answer that does not bind to the source sent for it is no

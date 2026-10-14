@@ -2983,6 +2983,9 @@ typedef struct RustMacroRule {
     uint32_t definition_end_byte;
     uint32_t scope_start_byte;
     uint32_t scope_end_byte;
+    /* Issue 110: the transcriber's own token tree, read for the members an invocation
+     * may write (pdxe_rust_export_macro_members), while the file's tree lives. */
+    TSNode transcriber_node;
 } RustMacroRule;
 
 /* Strip a single outer pair of matching brackets from a token-tree
@@ -3026,6 +3029,7 @@ static void rust_record_macro_rule(RustLSPContext *ctx, const char *macro_name, 
     r->definition_end_byte = ts_node_end_byte(definition);
     r->scope_start_byte = ts_node_start_byte(scope);
     r->scope_end_byte = ts_node_end_byte(scope);
+    r->transcriber_node = transcriber;
 
     /* Cache pattern text for matching at invocation time. */
     if (!ts_node_is_null(pattern)) {
@@ -6014,6 +6018,632 @@ static void rust_collect_uses_in(RustLSPContext *ctx, TSNode items) {
 static void rust_collect_uses(RustLSPContext *ctx, TSNode root) {
     rust_collect_uses_in(ctx, root);
     ctx->use_tree_count = ctx->use_count;
+}
+
+/* ── Issue 110: the members a macro invocation may write ───────────
+ *
+ * An item a `macro_rules!` invocation writes is no definition: extraction reads the
+ * file's syntax, and an expansion is in no file. So when a macro writes an `impl` for a
+ * type, the type's members the registry holds are not all of them, and its one member of
+ * a name is no evidence that a call of the name means it (decision 65). What is recorded
+ * is what an invocation may write, read from the definition's own tokens; nothing is
+ * expanded:
+ *
+ *   - for every `impl` a transcriber holds, at any depth, the type it is for, by the last
+ *     name of its path, with the name of every function directly in its body;
+ *   - a type or function name the transcriber gives by a metavariable is what the rule's
+ *     pattern binds it to, as expansion's own matcher (`macro_pattern_match`) binds it,
+ *     for the rules that matcher matches the invocation against; when it matches none,
+ *     every rule is read and each identifier of the invocation's arguments stands for
+ *     it, as it does for a metavariable no matched rule binds (one in a repetition);
+ *   - a function name the transcriber generates (`fn [<…>]`) is any member (NULL);
+ *   - an invocation directly in an `impl` body writes its transcriber's own functions as
+ *     members of that impl's type.
+ *
+ * It over-approximates where it cannot bind: these facts only withhold a draw. Only a definition
+ * the invocation sees in its own file is read (textual scope, as expansion finds one);
+ * a definition in another file, a macro another macro's transcriber invokes, and a macro
+ * outside the repository are not followed. */
+
+typedef struct {
+    TSNode *items;
+    int count;
+    int cap;
+} RustMMTokens;
+
+typedef struct {
+    RustLSPContext *ctx;
+    PDXEMacroMemberArray *out;
+    bool failed;
+} RustMMExport;
+
+/* The tokens of a token tree in order, a repetition's (`$( … )*`) spliced in, a nested
+ * token tree kept as one token. */
+static void rust_mm_tokens(RustMMExport *ex, TSNode tree, RustMMTokens *out) {
+    PDXE_FOR_EACH_CHILD(it, tree) {
+        TSNode c = it.node;
+        if (strcmp(ts_node_type(c), "token_repetition") == 0) {
+            rust_mm_tokens(ex, c, out);
+            continue;
+        }
+        if (out->count >= out->cap) {
+            int cap = out->cap ? out->cap * 2 : 32;
+            TSNode *grown = (TSNode *)pdxe_arena_alloc(ex->ctx->arena, (size_t)cap * sizeof(*grown));
+            if (!grown) {
+                ex->failed = true;
+                return;
+            }
+            if (out->count > 0) {
+                memcpy(grown, out->items, (size_t)out->count * sizeof(*grown));
+            }
+            out->items = grown;
+            out->cap = cap;
+        }
+        out->items[out->count++] = c;
+    }
+}
+
+static bool rust_mm_is(TSNode n, const char *type) {
+    return strcmp(ts_node_type(n), type) == 0;
+}
+
+/* Whether token `n` is spelled exactly `text`. */
+static bool rust_mm_spelled(const RustLSPContext *ctx, TSNode n, const char *text) {
+    uint32_t start = ts_node_start_byte(n);
+    uint32_t end = ts_node_end_byte(n);
+    size_t len = strlen(text);
+    return end >= start && end <= (uint32_t)ctx->source_len && (size_t)(end - start) == len &&
+           memcmp(ctx->source + start, text, len) == 0;
+}
+
+/* The first byte of token `n`, or 0. */
+static char rust_mm_first(const RustLSPContext *ctx, TSNode n) {
+    uint32_t start = ts_node_start_byte(n);
+    return start < (uint32_t)ctx->source_len && ts_node_end_byte(n) > start ? ctx->source[start]
+                                                                              : '\0';
+}
+
+/* Whether token `n` is a word: an identifier, or a keyword the grammar reads as its own
+ * token (`gen`, `default`, …), which a path or a function may still be named by. */
+static bool rust_mm_word(const RustLSPContext *ctx, TSNode n) {
+    if (rust_mm_is(n, "identifier")) {
+        return true;
+    }
+    uint32_t start = ts_node_start_byte(n);
+    uint32_t end = ts_node_end_byte(n);
+    if (ts_node_child_count(n) > 0 || end <= start || end > (uint32_t)ctx->source_len) {
+        return false;
+    }
+    for (uint32_t i = start; i < end; i++) {
+        char c = ctx->source[i];
+        bool letter = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
+        if (!letter && !(i > start && c >= '0' && c <= '9')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* The change in angle-bracket depth a punctuation token makes; `->` and `=>` none. */
+static int rust_mm_angles(const RustLSPContext *ctx, TSNode n) {
+    if (ts_node_named_child_count(n) > 0 || ts_node_is_named(n)) {
+        return 0;
+    }
+    uint32_t start = ts_node_start_byte(n);
+    uint32_t end = ts_node_end_byte(n);
+    if (end > (uint32_t)ctx->source_len) {
+        return 0;
+    }
+    int delta = 0;
+    for (uint32_t i = start; i < end; i++) {
+        char c = ctx->source[i];
+        if (c == '<') {
+            delta++;
+        } else if (c == '>' && !(i > start && (ctx->source[i - 1] == '-' || ctx->source[i - 1] == '='))) {
+            delta--;
+        }
+    }
+    return delta;
+}
+
+static void rust_mm_add(RustMMExport *ex, const char *type_name, const char *member) {
+    if (ex->failed || !type_name || !type_name[0]) {
+        return;
+    }
+    PDXEMacroMemberArray *arr = ex->out;
+    if (arr->count >= arr->cap) {
+        int cap = arr->cap ? arr->cap * 2 : 8;
+        PDXEMacroMember *grown =
+            (PDXEMacroMember *)pdxe_arena_alloc(ex->ctx->arena, (size_t)cap * sizeof(*grown));
+        if (!grown) {
+            ex->failed = true;
+            return;
+        }
+        if (arr->count > 0) {
+            memcpy(grown, arr->items, (size_t)arr->count * sizeof(*grown));
+        }
+        arr->items = grown;
+        arr->cap = cap;
+    }
+    arr->items[arr->count++] = (PDXEMacroMember){type_name, member};
+}
+
+/* What one invocation's metavariables may stand for: the bindings of a rule the
+ * engine's matcher matched it against (expansion's own matcher), or, with none, every
+ * identifier of its arguments. */
+typedef struct {
+    const MacroEnv *env;  /* the matched rule's bindings, or NULL */
+    const char **idents;  /* every identifier of the arguments, at any depth */
+    int ident_count;
+    int ident_cap;
+} RustMMBinding;
+
+static void rust_mm_collect_identifiers(RustMMExport *ex, TSNode tree, RustMMBinding *b) {
+    PDXE_FOR_EACH_CHILD(it, tree) {
+        if (ex->failed) {
+            break;
+        }
+        TSNode c = it.node;
+        if (rust_mm_is(c, "identifier")) {
+            const char *name = rust_node_text(ex->ctx, c);
+            if (!name) {
+                ex->failed = true;
+                return;
+            }
+            if (b->ident_count >= b->ident_cap) {
+                int cap = b->ident_cap ? b->ident_cap * 2 : 16;
+                const char **grown = (const char **)pdxe_arena_alloc(
+                    ex->ctx->arena, (size_t)cap * sizeof(*grown));
+                if (!grown) {
+                    ex->failed = true;
+                    return;
+                }
+                if (b->ident_count > 0) {
+                    memcpy(grown, b->idents, (size_t)b->ident_count * sizeof(*grown));
+                }
+                b->idents = grown;
+                b->ident_cap = cap;
+            }
+            b->idents[b->ident_count++] = name;
+        } else if (ts_node_child_count(c) > 0) {
+            rust_mm_collect_identifiers(ex, c, b);
+        }
+    }
+}
+
+/* The last name of the path a bound value spells as a type (`&'static [u8]` none,
+ * `Cow<'static, str>` `Cow`, `crate::x::Y<T>` `Y`), or NULL. */
+static const char *rust_mm_value_type_name(RustMMExport *ex, const char *v, int len) {
+    int k = 0;
+    for (;;) {
+        while (k < len && (v[k] == ' ' || v[k] == '\t' || v[k] == '\n' || v[k] == '\r' ||
+                           v[k] == '&')) {
+            k++;
+        }
+        if (k < len && v[k] == '\'') {
+            k = macro_consume_ident(v, len, k + 1);
+            continue;
+        }
+        int word = macro_consume_ident(v, len, k);
+        if ((word - k == 3 && strncmp(v + k, "mut", 3) == 0) ||
+            (word - k == 3 && strncmp(v + k, "dyn", 3) == 0)) {
+            k = word;
+            continue;
+        }
+        break;
+    }
+    int last_start = -1, last_end = -1;
+    while (k < len) {
+        if (v[k] == '$') {
+            k++;
+        }
+        int word = macro_consume_ident(v, len, k);
+        if (word == k) {
+            break;
+        }
+        bool prefix = (word - k == 4 && strncmp(v + k, "self", 4) == 0) ||
+                      (word - k == 5 && strncmp(v + k, "super", 5) == 0) ||
+                      (word - k == 5 && strncmp(v + k, "crate", 5) == 0);
+        if (prefix) {
+            last_start = -1;
+        } else {
+            last_start = k;
+            last_end = word;
+        }
+        k = word;
+        if (k + 1 < len && v[k] == ':' && v[k + 1] == ':') {
+            k += 2;
+        } else {
+            break;
+        }
+    }
+    if (last_start < 0) {
+        return NULL;
+    }
+    char *name = pdxe_arena_strndup(ex->ctx->arena, v + last_start, (size_t)(last_end - last_start));
+    if (!name) {
+        ex->failed = true;
+    }
+    return name;
+}
+
+/* The names metavariable token `meta` may stand for: its binding, read as a type or as
+ * a name, when the matched rule bound it; every identifier of the arguments otherwise. */
+static int rust_mm_meta_names(RustMMExport *ex, TSNode meta, const RustMMBinding *b,
+                              bool as_type, const char **one, const char ***many) {
+    *many = NULL;
+    if (b->env) {
+        const char *text = rust_node_text(ex->ctx, meta);
+        if (!text) {
+            ex->failed = true;
+            return 0;
+        }
+        const MacroBinding *bound = macro_env_lookup(b->env, text[0] == '$' ? text + 1 : text);
+        if (bound && bound->value_len > 0) {
+            if (as_type) {
+                /* A type that is no named path (a tuple, a slice) has no members here. */
+                *one = rust_mm_value_type_name(ex, bound->value, bound->value_len);
+                return *one ? 1 : 0;
+            }
+            int word = macro_consume_ident(bound->value, bound->value_len, 0);
+            if (word > 0 && word == bound->value_len) {
+                *one = pdxe_arena_strndup(ex->ctx->arena, bound->value, (size_t)word);
+                if (!*one) {
+                    ex->failed = true;
+                    return 0;
+                }
+                return 1;
+            }
+        }
+    }
+    *many = b->idents;
+    return b->ident_count;
+}
+
+/* The type `tokens[from, to)` names, as the last name of its path: the identifier, the
+ * metavariable (`*meta`), or neither (a tuple, an array, a slice, a pointer's target
+ * left as written). A leading `&`, lifetime, `mut` or `dyn` is passed over. */
+static TSNode rust_mm_type_name(RustMMExport *ex, const RustMMTokens *t, int from, int to,
+                                bool *meta) {
+    const RustLSPContext *ctx = ex->ctx;
+    TSNode none = {0};
+    *meta = false;
+    int k = from;
+    while (k < to) {
+        TSNode n = t->items[k];
+        if (rust_mm_spelled(ctx, n, "&") || rust_mm_spelled(ctx, n, "&&") ||
+            rust_mm_is(n, "mutable_specifier") || rust_mm_is(n, "dyn")) {
+            k++;
+        } else if (rust_mm_spelled(ctx, n, "'") && k + 1 < to) {
+            k += 2;
+        } else if (rust_mm_is(n, "lifetime")) {
+            k++;
+        } else {
+            break;
+        }
+    }
+    TSNode last = none;
+    bool have = false;
+    while (k < to) {
+        TSNode n = t->items[k];
+        if (rust_mm_is(n, "self") || rust_mm_is(n, "super") || rust_mm_is(n, "crate") ||
+            rust_mm_spelled(ctx, n, "self") || rust_mm_spelled(ctx, n, "super") ||
+            rust_mm_spelled(ctx, n, "crate") || rust_mm_spelled(ctx, n, "$crate")) {
+            have = false;
+            k++;
+        } else if (rust_mm_is(n, "metavariable") || rust_mm_word(ctx, n)) {
+            last = n;
+            have = true;
+            k++;
+        } else if (rust_mm_spelled(ctx, n, "::")) {
+            k++;
+        } else {
+            break;
+        }
+    }
+    if (!have) {
+        return none;
+    }
+    *meta = rust_mm_is(last, "metavariable");
+    return last;
+}
+
+/* Every type a member is written for, each with every name it may have. */
+static void rust_mm_add_all(RustMMExport *ex, const char *type_one, const char **types,
+                            int type_count, const char *member_one, const char **members,
+                            int member_count, bool any_member) {
+    int nt = types ? type_count : (type_one ? 1 : 0);
+    for (int i = 0; i < nt && !ex->failed; i++) {
+        const char *type = types ? types[i] : type_one;
+        if (any_member) {
+            rust_mm_add(ex, type, NULL);
+            continue;
+        }
+        int nm = members ? member_count : (member_one ? 1 : 0);
+        for (int j = 0; j < nm && !ex->failed; j++) {
+            rust_mm_add(ex, type, members ? members[j] : member_one);
+        }
+    }
+}
+
+/* The functions a token sequence holds directly, each `fn` and its name, written as
+ * members of the type(s) given: a name the transcriber gives by a metavariable is what
+ * it is bound to, a name it gives otherwise than by a word (a generated one) any. */
+static void rust_mm_add_functions(RustMMExport *ex, TSNode tree, const char *type_one,
+                                  const char **types, int type_count, const RustMMBinding *b) {
+    RustMMTokens t = {0};
+    rust_mm_tokens(ex, tree, &t);
+    for (int i = 0; i + 1 < t.count && !ex->failed; i++) {
+        if (!rust_mm_is(t.items[i], "fn")) {
+            continue;
+        }
+        TSNode name = t.items[i + 1];
+        if (rust_mm_is(name, "metavariable")) {
+            const char *one = NULL;
+            const char **many = NULL;
+            int n = rust_mm_meta_names(ex, name, b, false, &one, &many);
+            rust_mm_add_all(ex, type_one, types, type_count, one, many, n, false);
+        } else if (rust_mm_word(ex->ctx, name)) {
+            const char *member = rust_node_text(ex->ctx, name);
+            if (!member) {
+                ex->failed = true;
+                return;
+            }
+            rust_mm_add_all(ex, type_one, types, type_count, member, NULL, 0, false);
+        } else if (rust_mm_is(name, "token_tree") && rust_mm_first(ex->ctx, name) == '[') {
+            rust_mm_add_all(ex, type_one, types, type_count, NULL, NULL, 0, true);
+        }
+    }
+}
+
+/* The `impl` blocks of a transcriber's token tree, at any depth, and their members. */
+static void rust_mm_scan(RustMMExport *ex, TSNode tree, const RustMMBinding *b) {
+    const RustLSPContext *ctx = ex->ctx;
+    RustMMTokens t = {0};
+    rust_mm_tokens(ex, tree, &t);
+    for (int i = 0; i < t.count && !ex->failed; i++) {
+        TSNode n = t.items[i];
+        if (rust_mm_is(n, "token_tree")) {
+            rust_mm_scan(ex, n, b);
+            continue;
+        }
+        if (!rust_mm_is(n, "impl")) {
+            continue;
+        }
+        /* The header: generics, then a trait and `for`, or the type, up to `where` or
+         * the body, at angle depth 0. */
+        int k = i + 1;
+        int depth = 0;
+        if (k < t.count && rust_mm_first(ctx, t.items[k]) == '<') {
+            do {
+                depth += rust_mm_angles(ctx, t.items[k]);
+                k++;
+            } while (k < t.count && depth > 0);
+        }
+        int type_from = k;
+        int type_to = -1;
+        int body = -1;
+        depth = 0;
+        for (; k < t.count; k++) {
+            TSNode h = t.items[k];
+            if (rust_mm_is(h, "token_tree")) {
+                if (depth == 0 && rust_mm_first(ctx, h) == '{') {
+                    body = k;
+                    break;
+                }
+                continue;
+            }
+            if (depth == 0 && rust_mm_is(h, "for") &&
+                !(k + 1 < t.count && rust_mm_first(ctx, t.items[k + 1]) == '<')) {
+                type_from = k + 1;
+                type_to = -1;
+            } else if (depth == 0 && rust_mm_is(h, "where") && type_to < 0) {
+                type_to = k;
+            } else if (depth == 0 && rust_mm_spelled(ctx, h, ";")) {
+                break;
+            }
+            depth += rust_mm_angles(ctx, h);
+        }
+        if (body < 0) {
+            continue;
+        }
+        bool meta = false;
+        TSNode type = rust_mm_type_name(ex, &t, type_from, type_to < 0 ? body : type_to, &meta);
+        if (ts_node_is_null(type)) {
+            continue;
+        }
+        if (meta) {
+            const char *one = NULL;
+            const char **many = NULL;
+            int n = rust_mm_meta_names(ex, type, b, true, &one, &many);
+            rust_mm_add_functions(ex, t.items[body], one, many, n, b);
+        } else {
+            const char *type_name = rust_node_text(ex->ctx, type);
+            if (!type_name) {
+                ex->failed = true;
+                return;
+            }
+            rust_mm_add_functions(ex, t.items[body], type_name, NULL, 0, b);
+        }
+    }
+}
+
+/* The type an `impl` item is for, by the last name of its path; NULL when it names
+ * none (a tuple, a reference to one, …). */
+static const char *rust_mm_impl_type(RustLSPContext *ctx, TSNode impl) {
+    TSNode type = ts_node_child_by_field_name(impl, "type", 4);
+    for (int guard = 0; !ts_node_is_null(type) && guard < 8; guard++) {
+        const char *kind = ts_node_type(type);
+        if (strcmp(kind, "type_identifier") == 0) {
+            return rust_node_text(ctx, type);
+        }
+        if (strcmp(kind, "scoped_type_identifier") == 0) {
+            type = ts_node_child_by_field_name(type, "name", 4);
+        } else if (strcmp(kind, "generic_type") == 0 || strcmp(kind, "reference_type") == 0) {
+            type = ts_node_child_by_field_name(type, "type", 4);
+        } else {
+            return NULL;
+        }
+    }
+    return NULL;
+}
+
+/* One invocation: the rules of the definition it sees, each transcriber read. The rules
+ * the engine's matcher matches the invocation against are read with their bindings;
+ * when it matches none, every rule is read and each metavariable may be any identifier
+ * of the arguments. */
+static void rust_mm_invocation(RustMMExport *ex, TSNode invocation, const char *impl_type) {
+    RustLSPContext *ctx = ex->ctx;
+    TSNode macro = ts_node_child_by_field_name(invocation, "macro", 5);
+    if (!ts_node_is_null(macro) && rust_mm_is(macro, "scoped_identifier")) {
+        macro = ts_node_child_by_field_name(macro, "name", 4);
+    }
+    if (ts_node_is_null(macro)) {
+        return;
+    }
+    char *name = rust_node_text(ctx, macro);
+    if (!name) {
+        ex->failed = true;
+        return;
+    }
+    RustMacroRule *visible = rust_visible_macro_definition(ctx, name, invocation);
+    if (!visible) {
+        return;
+    }
+    /* The arguments: the invocation's token tree, which the grammar gives no field, and
+     * its text without the delimiters, as expansion matches it. */
+    TSNode args = {0};
+    PDXE_FOR_EACH_CHILD(it, invocation) {
+        if (rust_mm_is(it.node, "token_tree")) {
+            args = it.node;
+            break;
+        }
+    }
+    RustMMBinding unbound = {0};
+    const char *inv = NULL;
+    int inv_len = 0;
+    if (!ts_node_is_null(args)) {
+        rust_mm_collect_identifiers(ex, args, &unbound);
+        char *text = pdxe_node_text(ctx->arena, args, ctx->source);
+        if (!text) {
+            ex->failed = true;
+            return;
+        }
+        rust_macro_strip_outer(text, (int)strlen(text), &inv, &inv_len);
+    }
+    /* The definition's rules, from the name index rust_visible_macro_definition has just
+     * brought up to date, as expansion reads them (issue 92): first whether the matcher
+     * matches any, then each read. */
+    bool scan = false;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+    scan = reference && reference[0];
+#endif
+    const PDXENameIndex *by_name = &ctx->macro_rules_by_name;
+    bool any_matched = false;
+    for (int pass = 0; pass < 2 && !ex->failed; pass++) {
+        for (int i = scan ? 0 : pdxe_name_index_first(by_name, name);
+             (scan ? i < ctx->macro_rules_count : i >= 0) && !ex->failed;
+             i = scan ? i + 1 : pdxe_name_index_next(by_name, i)) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_NAME_COMPARES);
+            RustMacroRule *r = ctx->macro_rules_arr[i];
+            if (!r || strcmp(r->macro_name, name) != 0 ||
+                r->definition_start_byte != visible->definition_start_byte ||
+                r->scope_start_byte != visible->scope_start_byte ||
+                r->scope_end_byte != visible->scope_end_byte ||
+                ts_node_is_null(r->transcriber_node)) {
+                continue;
+            }
+            MacroEnv env;
+            memset(&env, 0, sizeof(env));
+            bool matched = r->pattern_text && inv &&
+                           macro_pattern_match(r->pattern_text, r->pattern_len, inv, inv_len, &env);
+            if (pass == 0) {
+                any_matched = any_matched || matched;
+                continue;
+            }
+            if (any_matched && !matched) {
+                continue;
+            }
+            RustMMBinding b = unbound;
+            b.env = matched ? &env : NULL;
+            rust_mm_scan(ex, r->transcriber_node, &b);
+            if (impl_type) {
+                /* In an impl body: the transcriber's own functions are the impl type's. */
+                rust_mm_add_functions(ex, r->transcriber_node, impl_type, NULL, 0, &b);
+            }
+        }
+    }
+}
+
+/* Every invocation of the tree, each knowing the impl type whose body it is directly
+ * in, if any. */
+static void rust_mm_walk(RustMMExport *ex, TSNode node, const char *impl_type) {
+    PDXE_FOR_EACH_CHILD(it, node) {
+        if (ex->failed) {
+            break;
+        }
+        TSNode c = it.node;
+        const char *kind = ts_node_type(c);
+        if (strcmp(kind, "macro_invocation") == 0) {
+            rust_mm_invocation(ex, c, impl_type);
+        } else if (strcmp(kind, "impl_item") == 0) {
+            TSNode body = ts_node_child_by_field_name(c, "body", 4);
+            if (!ts_node_is_null(body)) {
+                rust_mm_walk(ex, body, rust_mm_impl_type(ex->ctx, c));
+            }
+        } else if (ts_node_child_count(c) > 0 && strcmp(kind, "token_tree") != 0 &&
+                   strcmp(kind, "macro_definition") != 0) {
+            rust_mm_walk(ex, c, NULL);
+        }
+    }
+}
+
+static int rust_mm_cmp(const void *pa, const void *pb) {
+    const PDXEMacroMember *a = (const PDXEMacroMember *)pa;
+    const PDXEMacroMember *b = (const PDXEMacroMember *)pb;
+    int c = strcmp(a->type_name, b->type_name);
+    if (c != 0) {
+        return c;
+    }
+    if (!a->member || !b->member) {
+        return (a->member != NULL) - (b->member != NULL);
+    }
+    return strcmp(a->member, b->member);
+}
+
+void pdxe_rust_export_macro_members(PDXEArena *arena, PDXEFileResult *result, const char *source,
+                                   int source_len, TSNode root) {
+    if (!arena || !result || !source || ts_node_is_null(root)) {
+        return;
+    }
+    RustLSPContext ctx;
+    rust_lsp_init(&ctx, arena, source, source_len, NULL, result->module_qn, NULL);
+    rust_collect_macro_rules(&ctx, root);
+    if (ctx.macro_rules_count == 0) {
+        return;
+    }
+    RustMMExport ex = {.ctx = &ctx, .out = &result->macro_members};
+    rust_mm_walk(&ex, root, NULL);
+    PDXEMacroMemberArray *arr = &result->macro_members;
+    if (ex.failed) {
+        /* A table not made whole is no table: lost work, counted where the allocation
+         * failed. */
+        memset(arr, 0, sizeof(*arr));
+        return;
+    }
+    /* One entry per type and member, in byte order: what an invocation writes, never
+     * how often. */
+    if (arr->count > 1) {
+        qsort(arr->items, (size_t)arr->count, sizeof(*arr->items), rust_mm_cmp);
+        int kept = 1;
+        for (int i = 1; i < arr->count; i++) {
+            if (rust_mm_cmp(&arr->items[kept - 1], &arr->items[i]) != 0) {
+                arr->items[kept++] = arr->items[i];
+            }
+        }
+        arr->count = kept;
+    }
 }
 
 /* Build the registry from the per-file `result->defs`, `result->impl_traits`,

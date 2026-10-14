@@ -19,8 +19,9 @@ use pdx_engine_sys as sys;
 use crate::error::EngineError;
 use crate::model::{
     Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
-    ExtractRecord, FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, QualifiedName,
-    ReadWrite, RouteFact, SourceDigest, Span, Surface, TextRef, Throw, TypeRef, Usage, Visibility,
+    ExtractRecord, FileExtract, FileStatus, ImplTrait, Import, LexicalFacts, MacroMember,
+    QualifiedName, ReadWrite, RouteFact, SourceDigest, Span, Surface, TextRef, Throw, TypeRef,
+    Usage, Visibility,
 };
 
 /// A string the engine owns, copied, or `None` for NULL.
@@ -567,6 +568,18 @@ unsafe fn impl_trait(t: &sys::pdxe_impl_trait) -> Result<ImplTrait, EngineError>
     })
 }
 
+/// # Safety
+///
+/// The strings in `m` are NULL or alive for the call.
+unsafe fn macro_member(m: &sys::pdxe_macro_member) -> Result<MacroMember, EngineError> {
+    let sys::pdxe_macro_member { type_name, member } = *m;
+    Ok(MacroMember {
+        // SAFETY: as the caller guarantees.
+        type_name: unsafe { required(type_name, "a macro member's type") }?,
+        member: unsafe { optional(member) },
+    })
+}
+
 /// Everything an extraction result holds, its owned text copied and its ranges kept,
 /// with the surface taken from it, bound to `source`, the bytes it was extracted from.
 ///
@@ -607,6 +620,8 @@ pub(crate) unsafe fn file_extract(
         declared_namespace,
         impl_traits,
         n_impl_traits,
+        macro_members,
+        n_macro_members,
     } = *r;
 
     let status = match u32::try_from(status) {
@@ -640,6 +655,9 @@ pub(crate) unsafe fn file_extract(
                 .collect::<Result<_, _>>()?,
             impl_traits: each(impl_traits, n_impl_traits, "the impl relations", |t| {
                 impl_trait(t)
+            })?,
+            macro_members: each(macro_members, n_macro_members, "the macro members", |m| {
+                macro_member(m)
             })?,
             calls: each(calls, n_calls, "the calls", |c| call(c, Some(n_defs), len))?,
             imports: each(imports, n_imports, "the imports", |i| import(i))?,

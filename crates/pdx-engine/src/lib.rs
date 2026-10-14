@@ -30,8 +30,8 @@ pub use error::{EngineError, SourceDifference};
 pub use model::{
     BindError, Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic,
     EnvAccess, ExtractRecord, FileExtract, FileStatus, ImplTrait, Import, LexicalFacts,
-    NamespaceEvidence, QualifiedName, QualifiedNames, ReadWrite, RouteFact, SourceDigest, Span,
-    Surface, TextRef, Throw, TypeRef, Usage, Visibility, namespace_evidence,
+    MacroMember, NamespaceEvidence, QualifiedName, QualifiedNames, ReadWrite, RouteFact,
+    SourceDigest, Span, Surface, TextRef, Throw, TypeRef, Usage, Visibility, namespace_evidence,
 };
 pub use resolver::{
     AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ProjectResolution,

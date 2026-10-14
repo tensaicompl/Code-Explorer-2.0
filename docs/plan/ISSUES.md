@@ -20,7 +20,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 113 | 2026-10-14 | P2-06 | blocker | open | Found by issue 111, three causes: (A) a type path through `crate::` and a re-export names no definition: the typed pass keeps `crate::extract::NestedPath` as written, neither anchoring `crate::` nor following `pub use self::nested_path::NestedPath;`, so 5 `NestedPath::as_str` calls of the Rust golden have no typed answer; (B) an impl of an imported type names its methods' caller under the import (`http.header.HeaderMap.into_response_parts`) while extraction names the owner by the file's module, so 2 correct answers (`headers_mut`, `extensions_mut`) join no site and are drawn `exact`; (C) a module file named `index.rs` is named as its parent (`golden/index.rs`'s functions as `golden`'s), so a path through `golden::index` names no such function: 4 calls of PDX itself. All predate issue 111 (engine 8 with a plain `use` does the same) and draw no wrong edge | Open. (A) Anchor `crate::`, `self::` and `super::` in a type path and follow re-exports to the definition by identity, never a last-segment guess. (B) Name an impl's methods' caller as extraction names their owner. (C) Name a module file by its stem. Separate fixes. |
 | 112 | 2026-10-14 | P2-16 | blocker | resolved | Found after issue 104 (R2): patch 0028 changed what Rust extraction records while `ENGINE_VERSION` stayed 7, and the extraction cache is keyed by the engine version, so an entry engine 7 wrote before the patch was served after it for the same source, path, language and policy. What differs: a bare call of a function its block declares is now `LOCALLY_BOUND`, and a Rust file's per-file typed answers, which its surface holds, need path evidence and leave a `match` arm's and a block's names alone. Shown with both builds: the same 5 object ids, 3 entries' bytes different, and the post-patch build, served the pre-patch entries, drawing `a::expand` to the crate root's `expand` and the arm's `params` as a typed reference | Resolved 2026-10-14 (hotfix): `ENGINE_VERSION` 7 to 8, in `consts.rs` and the engine (`pdxe_version`). Engine 7 began with patch 0015; 0028 is engine 8. Every other version is unchanged. `cache_entries_of_engine_seven_are_never_served`: a faithful engine 7 entry is a miss, the file is extracted again with engine 8's facts, the old entry is left alone, an engine 8 entry is written and served warm; with the version back at 7 it fails. Goldens, A0 and the differential are unchanged but for the version |
 | 111 | 2026-10-14 | P2-06 | blocker | resolved | Found by issue 104 (R2): Rust typed resolution reads a file's `use` declarations as text and splits a brace list at every comma, so a nested or multi-line list (`use crate::{routing::{on, MethodFilter}, Router};`) gives some names no entry and others a wrong path (`on` as `crate::on`), and `pub use` none. Since issue 104 an imported name is a typed answer only through its import's path, so in the Rust golden 16 correct typed edges become `exact` (same targets), 6 are lost to `candidate` (`on`, `on_service`) and 9 unmaterialised typed answers are lost; PDX itself loses 38 unmaterialised | Resolved 2026-10-14 (patch 0029, engine 9): `use` declarations are read from the syntax tree, nested and multi-line lists, comments, aliases, `self`, globs and `pub`, `pub(crate)` and `pub(in …)` included; a name the file's own use trees bind to two paths is withheld; lookups by local name through an index; an alias reaches its function (`lsp_import_alias`). All 31 Rust golden sites are correct `typed` again (16 from `exact`, 6 from `candidate`, 9 unmaterialised), and one `scoped` false positive is `typed` and right. A0: Rust golden `typed` 843/844 → 859/860 = 99.88%, union 62.92% → 62.97%, recall 1,407/4,052 → 1,409/4,056; PDX itself `typed` 5,904/5,904, 43 sites strengthened and none lost; Python unchanged; no new wrong trusted edge. Not restored: 5 `NestedPath::as_str` and 2 impl sites (issue 113), 34 PDX calls through a function body's `use` (issue 114). The engine differential's one changed row (`pub(crate) use unknown::Unknown;`, which the reference reads as a path) is ratified by decision 66. `ENGINE_VERSION` 8 → 9; `cache_entries_of_engine_eight_are_never_served` |
-| 110 | 2026-10-14 | P2-04 | blocker | open | Found by issue 104 (R2): an item a `macro_rules!` invocation writes is no definition. `axum-core/src/body.rs` writes `impl From<&'static str> for Body` (and others) through `body_from_impl!`, so the only `Body::from` the registry has is the handwritten `From<()>` one, and `Body::from("…")` (`axum-core/src/ext_traits/request.rs:355`) is drawn `import-guided` to it: the Rust golden's one `import-guided` false positive | Open. Decide whether item-position macro invocations are expanded for definitions (the typed pass already expands `macro_rules!` bodies for calls), or the definitions a macro may write make a name ambiguous; never block `from` by name. |
+| 110 | 2026-10-14 | P2-04 | blocker | resolved | Found by issue 104 (R2): an item a `macro_rules!` invocation writes is no definition. `axum-core/src/body.rs` writes `impl From<&'static str> for Body` (and others) through `body_from_impl!`, so the only `Body::from` the registry has is the handwritten `From<()>` one, and `Body::from("…")` (`axum-core/src/ext_traits/request.rs:355`) is drawn `import-guided` to it: the Rust golden's one `import-guided` false positive | Resolved 2026-10-14 (option 110-B, patch 0030, engine 10): the generated definitions are not represented (no identity of their own; the expansion is a subset matcher), and the members a type's macro invocations may write are recorded instead. Each Rust extraction carries `macro_members`, read from the definition each invocation sees in its own file: every `impl` its transcribers hold, the type's last name and each function's name, a metavariable bound as expansion's matcher binds it or, unbound, any identifier of the invocation's arguments, a generated name any member. Stage 3 takes no member a macro may write another of its name for (the type the call's path names, or the member's declaring type) as a target, typed or by a stage: the site is a `candidate` with it. A0: Rust `import-guided` 24 / 25 → 24 / 24 (the issue's site withheld), `scoped` 155 / 476 → 155 / 475 (a false self-edge withheld by the over-approximation), `typed` 859 / 860 and recall 1,409 / 4,056 unchanged, union 62.97% → 63.02%; Python and PDX itself unchanged; no correct edge lost, no new wrong one. Cache format 7, protocol 8, surface 5. The differential is unchanged (issue 111's ratification only) |
 | 109 | 2026-10-14 | P2-06 | blocker | open | Found by issue 104 (R2): Rust typed resolution chooses a trait impl for `Type::method` without its bounds. `WithRejection::<TestExtractor, TestRejection>::from_request` (`axum-extra/src/extract/with_rejection.rs:196`) reaches the blanket `impl<S, T> FromRequest<S, ViaParts> for T` (its type implements only `FromRequestParts`), but is answered `typed` (`lsp_ufcs`) with `WithRejection`'s own `FromRequest` impl, whose bound `E: FromRequest<S>` it does not meet: the Rust golden's one remaining typed false positive | Open. Find whether the engine can withhold a `Type::method` answer when a blanket impl of the same trait may supply the method, without scanning the registry per call (issue 92), or check an impl's bounds; never special-case the trait. |
 | 108 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R7): target identity among definitions that share a qualified name. In the Rust golden, 89 oracle relations target such a definition; 83 have a structural site, 52 are drawn, 49 to the right definition and 3 to a wrong one, and 2 typed answers are withheld because their qualified name maps to several definitions. A0 cannot adjudicate Python's `@overload` stubs (28 calls without a verdict) | Open. Investigate whether the extraction's normalised signature, the definition's disambiguator, the call's argument count and types, or the engine's occurrence identity can select the definition a call reaches. Overloads are never collapsed because their qualified names are equal |
 | 107 | 2026-10-14 | P2-04 | blocker | open | Child of issue 95 (decision 65, R4 and R8): Rust call sites the oracle sees and Stage 3 does not. 107A (R4): 56 oracle relations at ordinary Rust syntax with no structural site: 54 turbofish calls, 30 of a path (`assert_from_request::<_, ()>()`) and 24 of a method (`parts.extract_with_state::<S, T>(&state)`), and 2 member calls in a chain with a line comment before the dot (`examples/error-handling/src/main.rs`): a grammar or extraction gap. 107B (R8): 338 oracle relations written inside macro invocations' token trees with no site, out of 1,696 call texts there, of which 90 are already extraction sites (all drawn correctly) and 9 are typed sites Stage 4 cannot persist | Open. 107A: find why these calls are no extraction sites and make them ordinary call sites. 107B: classify token-tree calls (known standard and assertion macros, expression-position arguments, format-like macros, arbitrary macro DSLs, `macro_rules!` bodies) and define a semantics-safe policy before recovering any; no call is invented from DSL tokens, and macros are not expanded |
@@ -586,11 +586,102 @@ handwritten `impl From<()> for Body`, so its `from` is the only one the registry
 `import-guided` to it: the Rust golden's one `import-guided` false positive.
 `e9_an_import_guided_from_reaches_the_imported_types_impl` reproduces it.
 
-To decide whether item-position macro invocations are expanded for definitions (the
-typed pass already expands `macro_rules!` bodies for calls), or whether the
-definitions a macro may write make a name ambiguous. `from` is never blocked by name.
+**Investigation.**
 
-State: open.
+- **The definition** is no definition: `macro_definition` is not a Rust definition kind
+  of the engine's language specification. The typed pass collects each `macro_rules!`
+  rule (pattern, transcriber, definition and textual scope; `rust_collect_macro_rules`)
+  to expand the invocations it meets in function bodies.
+- **Its invocations** at item position (`body_from_impl!(String);`) are call sites of
+  the file's module (`body_from_impl`, `unresolved`): `macro_invocation` is a Rust call
+  type. Nothing read what they write.
+- **Expansion exists for calls only.** The typed pass re-parses a matched transcriber as
+  a function body and walks it for calls. Its matcher is a clean-room subset (no nested
+  repetition, repetitions as wildcards, no string-literal fragment).
+- **No stable identity** for what an expansion writes: the seven `From` impls would be
+  seven more `axum-core.src.body.Body.from` methods with no span of their own, told apart
+  only by an expansion-derived disambiguator. Identities (4.2.1) never come from a
+  heuristic expansion, so 110-A (represent the generated definitions) is rejected.
+- **A generic mechanism exists** for 110-B: what an invocation may write is in the
+  definition's own tokens (`impl … for T { fn m … }`), read without expanding anything.
+  Withholding is safe: it removes draws, never adds one.
+- **Not 107B.** 107B is the call sites inside macro token trees. This reads
+  transcribers for the members they write and adds or moves no call site.
+
+**Resolution (2026-10-14, option 110-B, patch 0030, engine 10).**
+
+- **Recorded.** Each Rust file's extraction carries `macro_members` (one per type and
+  member, byte order; `pdxe_rust_export_macro_members`). For every invocation of a
+  `macro_rules!` definition it sees in its own file (textual scope, as expansion finds
+  one), every `impl` the transcribers hold at any depth gives the type it is for, by the
+  last name of its path, and the name of every function directly in its body. A
+  metavariable (type or name) is what the rule's pattern binds it to, as expansion's own
+  matcher binds it, for the rules that matcher matches; when it matches none, every rule
+  is read and each identifier of the invocation's arguments stands for it, as for a
+  metavariable bound in a repetition. A generated name (`fn [<…>]`) is any member. An
+  invocation directly in an impl body writes its transcriber's functions as that impl's
+  type's. A path segment is any word token (`gen` is one).
+- **Withheld.** `SymbolRegistry::macro_may_write(type, name)` holds them across the
+  repository by type name. A Rust member a macro may write another of its name for, for
+  the type the call's path names or the member's declaring type, is no target, typed or
+  by a stage (`member_unproven`): the site is a `candidate` with it. Typed resolution
+  answered `Self::from(7u32)` inside the type with its one `from` too, so a typed answer
+  is held to the same rule. Never by blocking `from`, a trait's methods or a type.
+- **Not followed** (an invocation of these writes nothing recorded): a definition in
+  another file, a macro another macro's transcriber invokes, a macro outside the
+  repository (a derive, a procedural macro).
+- **Versions.** `ENGINE_VERSION` 9 → 10, cache format 6 → 7, protocol 7 → 8 (the
+  record's shape); surface 5, segment schema 3, matrix 2, detector 4 unchanged. The fact
+  is not in a surface: Stage 3 reads it from the record.
+
+Tests: `engine/tests/rust_macro_members.c` (literal type, path and generics and `where`,
+a bound type and member, the bound type never the arguments' other identifiers, only
+the rules the invocation matches, no rule matched, a generated name, a repetition, an
+impl nested in the transcriber, an impl body's invocation, an uninvoked macro, a
+function nested in a method, a macro outside the file, another language, order and
+duplicates); `crates/pdx-core/tests/rust_macro_members.rs` (the issue's shape with the
+handwritten member withheld for every call, typed answers inside the type, a member no
+macro writes still drawn, an uninvoked macro, bound type and member, a generated name
+leaving every member unproven, an impl-body invocation against another type's `exact`
+namesake, another language's member of a written name untouched); the
+E9 reproduction (both `Body::from` calls `candidate`, `Other::from` still
+`import-guided`); `isolation_carries_macro_members`; and
+`cache_entries_of_engine_nine_are_never_served`. 28 mutations, each killed: the
+invocation not read, bindings ignored, no identifier fallback, a bound name dropped, a
+generated name ignored, a `fn(…)` type taken for a member, unmatched rules read, a
+bound type spelt whole, the trait taken for the type, nested impls missed, an impl
+body's invocation ignored, textual scope ignored (both ways), no deduplication, a
+nested function counted, keyword segments refused, not exported; Stage 3 drawing the
+member, typed answers drawn, the named type or the declaring type ignored, every
+language, any member ignored, the registry empty; and the engine version, cache format
+and protocol each kept, the record not converted.
+
+A0 (same pins, tools, `a0-match-1`, `a0-metrics-1`; the executable checked by issue
+115's guard, engine 10; baseline post-111):
+
+| Golden | | Post-111 | Post-110 |
+|---|---|---|---|
+| Rust | `typed` | 859 / 860 = 99.88% | 859 / 860 = 99.88% |
+| Rust | `import-guided` | 24 / 25 | 24 / 24 |
+| Rust | `scoped` | 155 / 476 | 155 / 475 |
+| Rust | union | 1,612 / 2,560 = 62.97% | 1,612 / 2,558 = 63.02% |
+| Rust | recall | 1,409 / 4,056 = 34.74% | 1,409 / 4,056 = 34.74% |
+| Python | `typed`, union, recall | 314 / 314, 94.98%, 54.40% | unchanged |
+| PDX | `typed`, union, recall | 5,904 / 5,904, 85.03%, 83.94% | unchanged |
+
+Two sites change, both false positives to `candidate`, and none else in any corpus:
+`request.rs:355` (`Body::from`, the issue's site: `body_from_impl!` writes `Body.from`)
+and `axum-core/src/error.rs:27` (`self.inner.fmt`, `scoped` to `Error.fmt`, a false
+self-edge). The second is withheld by the over-approximation, not by evidence: the
+matcher matches no rule of `__define_rejection!` in a test module (it cannot consume the
+`$body:literal` string), so each identifier of that invocation, `Error` among them,
+stands for its type. No correct edge is lost. The other four `Body::from` sites (issue
+114's) are `candidate` before and after. The golden: `rust/axum` loses those three drawn
+edges (the `CALLS` and `TESTS` edges of `Body.from` and the self-edge), the other nine
+are unchanged. The engine differential is unchanged: 31 identical, `golden:rust/axum`
+with issue 111's one ratified divergence.
+
+State: resolved.
 
 ### 109 — A trait impl chosen for `Type::method` without its bounds
 
@@ -1406,6 +1497,17 @@ scope). The engine differential holds one ratified divergence for it (decision 6
 
 PDX itself: `typed` 100.00%, recall 83.94%. Four of G1b's six floors still fail. Issue
 109 is next, then 110, then R3 (issue 102), each when the driver authorises it.
+
+**Issue 110 (2026-10-14).** Resolved (option 110-B, patch 0030, engine 10): the members
+a type's `macro_rules!` invocations may write are recorded, and Stage 3 takes no member
+a macro may write another of its name for as a target. Its A0 is the guarded one (issue
+115): the Rust golden's `import-guided` false positive is withheld, and nothing else
+moves but one false `scoped` self-edge.
+
+| Golden | `typed` | Union | Recall |
+|---|---|---|---|
+| Python | 314/314 | 94.98% | 54.40% |
+| Rust | 859/860 = 99.88% | 63.02% | 34.74% |
 
 State: open.
 

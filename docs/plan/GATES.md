@@ -512,6 +512,25 @@ The 31 typed answers R2 lost to misread `use` lists are correct `typed` again, a
 `scoped` false positive is now correct `typed`. No new wrong trusted edge appears. Seven
 correct typed edges are lost to paths the engine still misreads (issue 113).
 
+A0 after issue 110, 2026-10-14 (resolved: no member a macro invocation may write another
+of its name for is a target, engine 10; the executable checked by issue 115's guard).
+Evidence, not an evaluation; the status stays `pending`. Same pins, oracles and rules;
+baseline post-111 (`8c93aba`).
+
+| Golden | Floor | After issue 111 | After issue 110 | Floor met |
+|---|---|---|---|---|
+| Python | `typed` precision ≥ 97% | 314 / 314 = 100.00% | 314 / 314 = 100.00% | yes |
+| Python | union precision ≥ 95% | 624 / 657 = 94.98% | 624 / 657 = 94.98% | **no** |
+| Python | recall ≥ 85% | 606 / 1,114 = 54.40% | 606 / 1,114 = 54.40% | **no** |
+| Rust | `typed` precision ≥ 97% | 859 / 860 = 99.88% | 859 / 860 = 99.88% | yes |
+| Rust | union precision ≥ 95% | 1,612 / 2,560 = 62.97% | 1,612 / 2,558 = 63.02% | **no** |
+| Rust | recall ≥ 85% | 1,409 / 4,056 = 34.74% | 1,409 / 4,056 = 34.74% | **no** |
+
+The oracle-verifiable fraction is 657 / 660 (Python) and 2,558 / 2,606 (Rust). Four of
+the six floors still fail. The Rust golden's `import-guided` false positive (the
+macro-written impl) is withheld, and one false `scoped` self-edge with it; no correct
+edge is lost. The one trusted false positive left is issue 109's `typed` blanket impl.
+
 ## G2 — after `P3-09`
 
 Status: **pending**

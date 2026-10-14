@@ -2240,7 +2240,7 @@
   "dataset_format": 1,
   "diagnostic_only": "cannot pass or fail G1b",
   "engine_health": "RunHealth { status: Degraded, files: 1100, files_resolved: 903, files_untyped: 195, files_empty: 2, files_over_budget: 0, files_source_unavailable: 0, files_not_reached: 0, pass_failures: 1 }",
-  "engine_version": 9,
+  "engine_version": 10,
   "metrics_version": "a0-metrics-1",
   "oracle": "rust-analyzer scip",
   "oracle_setup": {
@@ -2261,7 +2261,7 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "resolver": "post-111: issue 111, the commit 'Issue 111: parse Rust use trees structurally' (parent: the commit 'Decision 66: ratify exact engine divergences'). Baseline: post-R2, results committed at d14ccd4 (renumbered engine 8 at 48c8d7e)",
+  "resolver": "post-110: issue 110, the commit 'Issue 110: prevent false targets from macro-generated impl gaps' (parent: the commit 'Hotfix 115: bind A0 provenance to executed engine'). Baseline: post-111, results committed at 8c93aba",
   "site_matching_version": "a0-match-1"
  },
  "recall": {

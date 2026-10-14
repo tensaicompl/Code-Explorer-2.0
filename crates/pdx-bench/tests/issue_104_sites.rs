@@ -107,10 +107,12 @@ fn no_call_of_the_seventeen_is_drawn_to_its_wrong_definition() {
 }
 
 #[test]
-fn the_two_issue_104_leaves_open_are_still_drawn() {
+fn the_issue_104_leaf_left_open_is_still_drawn() {
     // What R2 did not correct, recorded so that its correction is seen: a blanket impl
-    // the engine cannot tell from the type's own (issue 109), and an impl a macro
-    // writes, which no extraction represents (issue 110).
+    // the engine cannot tell from the type's own (issue 109). The other, an impl a
+    // macro writes, which no extraction represents, is withheld since issue 110: the
+    // macro may write another `from` for `Body`, so the one the registry holds is drawn
+    // no more.
     let golden = axum();
     assert_eq!(
         bands(
@@ -128,6 +130,6 @@ fn the_two_issue_104_leaves_open_are_still_drawn() {
             "axum-core.src.body.Body.from",
             "CALLS"
         ),
-        ["import-guided"]
+        Vec::<&str>::new()
     );
 }

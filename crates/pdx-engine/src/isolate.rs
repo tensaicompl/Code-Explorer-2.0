@@ -68,9 +68,10 @@ pub const DEFAULT_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(120);
 /// declaring node in place of one route (issue 54), 7 since the worker answers with
 /// records whose text is held as ranges of the request's source and whose qualified
 /// names are held structurally, which the parent binds to the source it sent (issue 90):
-/// an answer never sends a source back, and is proportional to the facts. Public so a
-/// program can report the protocol it was built with (issue 115).
-pub const PROTOCOL: u32 = 7;
+/// an answer never sends a source back, and is proportional to the facts; 8 since a
+/// record carries the members Rust's `macro_rules!` invocations may write (issue 110).
+/// Public so a program can report the protocol it was built with (issue 115).
+pub const PROTOCOL: u32 = 8;
 
 /// Whether the environment asks for isolation.
 pub fn isolation_requested() -> bool {
@@ -705,10 +706,10 @@ mod tests {
 
     #[test]
     fn a_worker_of_another_protocol_is_refused() {
-        // 7 since a worker answers with records whose text is ranges of the request's
-        // source (issue 90): a worker still speaking 6 sends every text copied, which
-        // the parent would read as the old shape.
-        assert_eq!(PROTOCOL, 7);
+        // 8 since a record carries the members Rust's macro invocations may write (issue
+        // 110): a worker still speaking 7 sends records without them, which the parent
+        // would read as the new shape.
+        assert_eq!(PROTOCOL, 8);
         let ours = Engine::version();
         for (protocol, version) in [
             (2, ours.as_str()),
@@ -716,7 +717,8 @@ mod tests {
             (4, ours.as_str()),
             (5, ours.as_str()),
             (6, ours.as_str()),
-            (8, ours.as_str()),
+            (7, ours.as_str()),
+            (9, ours.as_str()),
             (PROTOCOL, "0"),
         ] {
             let err = accept(protocol, version).unwrap_err();

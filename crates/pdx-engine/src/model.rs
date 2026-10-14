@@ -352,6 +352,20 @@ pub struct ImplTrait {
     pub struct_qn: String,
 }
 
+/// A member a Rust `macro_rules!` invocation of the file may write, which no definition
+/// represents (issue 110): the type, by the last name of its path, and the member's name,
+/// or `None` for any member. Read from the definition the invocation sees in its own
+/// file, its metavariables bound as the engine's macro matcher binds them or else taken
+/// for any identifier of the invocation: what an expansion may write, never less.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct MacroMember {
+    /// The type, by the last name of its path, as the transcriber or the invocation's
+    /// arguments spell it.
+    pub type_name: String,
+    /// The member's name; `None` for any member (a name the transcriber generates).
+    pub member: Option<String>,
+}
+
 /// A call site, or a callable passed as a value.
 ///
 /// Calls are in the order the engine found them, then references in the order their
@@ -639,6 +653,9 @@ pub struct ExtractRecord {
     pub definitions: Vec<Definition>,
     /// The file's `impl Trait for Type` relations, in the engine's order: Rust's only.
     pub impl_traits: Vec<ImplTrait>,
+    /// The members the file's `macro_rules!` invocations may write, one per type and
+    /// member, in byte order: Rust's only (issue 110).
+    pub macro_members: Vec<MacroMember>,
     /// Calls, then callables passed as values.
     pub calls: Vec<Call>,
     /// Imports.

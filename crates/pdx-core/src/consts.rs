@@ -61,9 +61,11 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// 0028, issue 104), which engine 7 cached otherwise under the same key (issue 112); 9
 /// since a Rust file's `use` declarations are read from its syntax tree, so the names
 /// nested and multi-line lists, aliases, `self` and `pub use` bind reach its per-file
-/// typed answers and the calls those answers add (patch 0029, issue 111).
+/// typed answers and the calls those answers add (patch 0029, issue 111); 10 since a
+/// Rust file's extraction records the members its `macro_rules!` invocations may write
+/// (patch 0030, issue 110).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
-pub const ENGINE_VERSION: u32 = 9;
+pub const ENGINE_VERSION: u32 = 10;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the
@@ -87,8 +89,9 @@ pub const SECRET_DETECTOR_VERSION: u32 = 4;
 /// one route (issue 54), 6 since an entry holds the extraction's record: its text as
 /// ranges of the source, never the source, its qualified names structurally, and its
 /// surface in surface version 5, bound to the source being extracted on a hit (issue
-/// 90).
-pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 6;
+/// 90), 7 since an extraction carries the members Rust's `macro_rules!` invocations may
+/// write (issue 110).
+pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 7;
 
 // --- resolution ------------------------------------------------------------
 

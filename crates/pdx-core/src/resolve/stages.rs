@@ -596,6 +596,18 @@ pub fn split_callee(text: &str) -> (Option<&str>, &str) {
 }
 
 /// A receiver's parts, split at every `.`, `->`, `::` and `\\`.
+/// The type a Rust receiver path names, by its last name without type arguments
+/// (`crate::body::Body`, `Body::<T>`); none for a receiver that is no path (a value, a
+/// call, a field).
+fn type_named_by(receiver: &str) -> Option<&str> {
+    if receiver.contains(['.', '(', ')', '[', ']', ' ']) {
+        return None;
+    }
+    let path = receiver.split('<').next().unwrap_or(receiver);
+    let last = path.trim_end_matches(':').rsplit("::").next()?;
+    (!last.is_empty()).then_some(last)
+}
+
 fn parts_of(receiver: &str) -> Vec<&str> {
     let mut parts = Vec::new();
     let mut rest = receiver;
@@ -682,7 +694,7 @@ impl Resolver<'_> {
                 detail: "a call site in a file with no extraction",
             }
         })?;
-        let (_, name) = split_callee(&callee);
+        let (receiver, name) = split_callee(&callee);
         let engine = answer.map(EngineAnswer::from);
         let mapped = answer.map(|a| self.engine_targets(a)).unwrap_or_default();
         let engine_external = answer.is_some_and(|a| a.target_rel_path.is_none());
@@ -693,7 +705,10 @@ impl Resolver<'_> {
             .and_then(|_| match mapped.as_slice() {
                 [one] => Some(one.clone()),
                 _ => None,
-            });
+            })
+            // A member a macro may write another of its name for is no proven target,
+            // typed or not (issue 110).
+            .filter(|t| !self.member_unproven(language, receiver, name, t));
 
         // Not a call site unless typed resolution settles it.
         let question = if engine_site {
@@ -844,14 +859,58 @@ impl Resolver<'_> {
                 evidence: Box::new(|current: &[DefinitionRef]| self.in_module(&context, current)),
             });
         }
-        // 6. What is left.
+        // 6. What is left. A member a stage settled on is no target while a macro may
+        // write another of its name for the type (issue 110).
         match narrow(universe.into_iter().collect(), stages) {
+            Narrowed::Resolved { target, .. }
+                if self.member_unproven(
+                    context.language,
+                    context.receiver,
+                    context.name,
+                    &target,
+                ) =>
+            {
+                Ok(made(Band::Candidate, None, vec![target])?)
+            }
             Narrowed::Resolved { band, target } => Ok(made(band, Some(target), Vec::new())?),
             Narrowed::Remaining(candidates) if !candidates.is_empty() => {
                 Ok(made(Band::Candidate, None, candidates)?)
             }
             Narrowed::Remaining(_) => Ok(made(Band::Unresolved, None, Vec::new())?),
         }
+    }
+
+    /// Whether a member settled on, by typed resolution or by a stage, is unproven as
+    /// the target of a call of `name` because a macro invocation may write another
+    /// member of the name for its type (issue 110): the type the call's path names, or
+    /// the type the member is declared in. An item a macro writes is no definition, so
+    /// that type's members the registry holds are not all of them, and its one member of
+    /// the name is no evidence (decision 65). Rust only: the engine records what macros
+    /// write for Rust alone.
+    fn member_unproven(
+        &self,
+        language: &Language,
+        receiver: Option<&str>,
+        name: &str,
+        target: &DefinitionRef,
+    ) -> bool {
+        if language.id != "rust" {
+            return false;
+        }
+        if receiver
+            .and_then(type_named_by)
+            .is_some_and(|ty| self.registry.macro_may_write(ty, name))
+        {
+            return true;
+        }
+        let Some(member) = self.registry.definition(target) else {
+            return false;
+        };
+        self.registry
+            .declaring_type(target)
+            .as_ref()
+            .and_then(|t| self.registry.definition(t))
+            .is_some_and(|ty| self.registry.macro_may_write(&ty.name, &member.name))
     }
 
     /// The definitions of the repository the engine's answer names: in its file, with

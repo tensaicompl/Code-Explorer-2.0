@@ -608,8 +608,10 @@ fn e9_an_import_guided_from_reaches_the_imported_types_impl() {
     // `Body::from(…)` in `axum-core/src/ext_traits/request.rs` is import-guided: the
     // file imports `Body`, and `Body`'s `from` is the answer. Another type's `from` is
     // never it. The call A0 found reaches an impl a `macro_rules!` invocation writes,
-    // which no extraction represents, so the one `from` the extraction has is drawn
-    // instead: issue 110 owns that; this records it too.
+    // which no extraction represents, so the one `from` the extraction had was drawn
+    // instead. Since issue 110 the extraction records that the macro writes `Body`'s
+    // `from`, and neither call draws the handwritten one: which impl a call of the name
+    // means is not told by the members the registry holds.
     let checkout = Checkout::new(&[
         CRATE,
         ("src/lib.rs", "pub mod body;\npub mod ext;\n"),
@@ -619,7 +621,7 @@ fn e9_an_import_guided_from_reaches_the_imported_types_impl() {
         ),
         (
             "src/ext.rs",
-            "use crate::body::Body;\n\npub fn empty() -> Body {\n    Body::from(())\n}\n\npub fn text() -> Body {\n    Body::from(\"text\")\n}\n",
+            "use crate::body::Body;\nuse crate::body::Other;\n\npub fn empty() -> Body {\n    Body::from(())\n}\n\npub fn text() -> Body {\n    Body::from(\"text\")\n}\n\npub fn other() -> Other {\n    Other::from(())\n}\n",
         ),
     ]);
     let (reg, report) = checkout.resolved();
@@ -637,11 +639,21 @@ fn e9_an_import_guided_from_reaches_the_imported_types_impl() {
         .first()
         .expect("Body's from")
         .clone();
-    assert_eq!(empty.band(), Band::ImportGuided, "{empty:?}");
-    assert_eq!(empty.target(), Some(&bodys));
-    // The macro's impl is no definition: the drawn `from` is the handwritten one.
-    assert_eq!(text.band(), Band::ImportGuided, "{text:?}");
-    assert_eq!(text.target(), Some(&bodys));
+    let others = reg
+        .by_qualified_name("src.body.Other.from")
+        .first()
+        .expect("Other's from")
+        .clone();
+    for (got, what) in [(empty, "Body::from(())"), (text, "Body::from(\"text\")")] {
+        assert_eq!(got.band(), Band::Candidate, "{what}: {got:?}");
+        assert_eq!(got.target(), None, "{what}");
+        assert!(got.candidates().contains(&bodys), "{what}: {got:?}");
+        assert!(!got.candidates().contains(&others), "{what}: {got:?}");
+    }
+    // A type no macro writes for keeps its one `from`.
+    let other = at(&reg, &report, "src/ext.rs", "Other::from");
+    assert_eq!(other.band(), Band::ImportGuided, "{other:?}");
+    assert_eq!(other.target(), Some(&others));
 }
 
 // --- E10: true positives stay typed ------------------------------------------------

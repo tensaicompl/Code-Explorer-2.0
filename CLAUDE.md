@@ -77,8 +77,14 @@ after it under the same key. `ENGINE_VERSION` became 8: what engine 7 cached is 
 tree (patch 0029, `ENGINE_VERSION` 9), restoring the typed answers R2 lost to `use`
 lists the resolver misread. It found issues 113 (paths through `crate::` and
 re-exports; an imported type's impls) and 114 (`use` has no lexical scope). The engine
-differential holds one ratified divergence for it (decision 66). Next, each **only
-when the driver authorises it**: issue 109, then issue 110, then R3 (issue 102).
+differential holds one ratified divergence for it (decision 66).
+
+**Hotfix 115 and issue 110 are done (2026-10-14).** `scripts/a0/run.py` refuses an
+executable whose versions are not the source's (115). A member a `macro_rules!`
+invocation may write another of its name for is no target (110, patch 0030,
+`ENGINE_VERSION` 10): the Rust golden's `import-guided` false positive is gone. Issue
+114 (lexical `use` scope) is parked as work in progress and is reapplied on top of 110
+next; then issue 109, then R3 (issue 102), each **only when the driver authorises it**.
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. Build `pdx-bench` first
@@ -204,11 +210,12 @@ registry's own metadata, and applies a configuration's path aliases to TypeScrip
 JavaScript imports only, as the registry does (issue 43, patch 0009). Rust's `impl
 Trait for Type` relations cross the interface (`FileExtract::impl_traits`, issue 42)
 and the registry resolves them; supertraits are not recorded, so none is followed. The
-extraction cache is format 6 and the worker protocol 7 (issues 40 to 42, 46, 47, 54 and
-90): calls carry their node-type path (`ast_path`, computed by the engine since patch
+extraction cache is format 7 and the worker protocol 8 (issues 40 to 42, 46, 47, 54, 90
+and 110): calls carry their node-type path (`ast_path`, computed by the engine since patch
 0010) and arguments, and definitions their decorators, parameter types and every route
 binding with its declaring node's position and path (`routes`, patch 0011); both hold
-records whose text is ranges of the source (issue 90B, below); `ENGINE_VERSION` is 9 (issue 111). Issue 74 (decision 45, engine 4): the C and C++ expression
+records whose text is ranges of the source (issue 90B, below), and a Rust file the members
+its macro invocations may write (issue 110, below); `ENGINE_VERSION` is 10 (issue 110). Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -391,13 +398,14 @@ need path evidence.
 - **External crates.** Stage 3 makes a Rust path `external` when its first name is a
   crate the extern prelude binds (the standard distribution, or a dependency with no
   repository path) and nothing in the file binds it (4.5, step 4).
-- **Open.** A blanket impl the engine cannot tell from a type's own (issue 109), and
-  items a `macro_rules!` invocation writes (issue 110).
+- **Open.** A blanket impl the engine cannot tell from a type's own (issue 109). Items a
+  `macro_rules!` invocation writes are issue 110's, resolved by withholding (below).
 - **Rule (issue 112).** A patch that changes what extraction records, in a file's facts
   or in the per-file typed answers its surface holds, moves `ENGINE_VERSION`, delivered
   or not: the version in the cache key is all that keeps an older engine's entries from
-  being served. `cache_entries_of_engine_seven_are_never_served` holds it for 0028, and
-  `cache_entries_of_engine_eight_are_never_served` for 0029.
+  being served. `cache_entries_of_engine_seven_are_never_served` holds it for 0028,
+  `cache_entries_of_engine_eight_are_never_served` for 0029 and
+  `cache_entries_of_engine_nine_are_never_served` for 0030.
 
 Issue 111 (patch 0029, engine 9): a Rust file's `use` declarations are read from its
 syntax tree, never its text.
@@ -420,6 +428,32 @@ syntax tree, never its text.
   Paths through `crate::` and re-exports, and an imported type's impls, are issue 113.
 - **Tests.** `crates/pdx-core/tests/rust_use_trees.rs` (every form, ambiguity, external,
   no evidence) and the cache test above.
+
+Issue 110 (patch 0030, engine 10, option 110-B): an item a `macro_rules!` invocation
+writes is no definition, and a type's members the registry holds are not taken for all
+of them.
+- **Recorded.** Each Rust file's extraction carries `macro_members`: for every invocation
+  of a definition it sees in its own file (textual scope), every `impl` of the
+  definition's transcribers, the type by the last name of its path and the name of every
+  function directly in its body; a metavariable is its binding in each rule expansion's
+  matcher matches, else (no rule matched, or bound in a repetition) any identifier of the
+  invocation's arguments; a generated name (`fn [<…>]`) is any member; an invocation
+  in an impl body writes that impl's type's members. Read from the definition's tokens,
+  nothing expanded: it may over-approximate, never under. One per type and member.
+- **Withheld.** `SymbolRegistry::macro_may_write(type, name)`, across the repository by
+  type name. A Rust member a macro may write another of its name for (the type the
+  call's path names, or the member's declaring type) is no target, typed or by a stage:
+  the site is a `candidate` with it (`stages::member_unproven`). Never by blocking a name
+  (`from`) or a type, never a library's name in production code.
+- **Not represented.** Generated definitions are not added (110-A rejected: no identity
+  of their own, the expansion is a subset matcher). Not followed: a definition in another
+  file, a macro another macro's transcriber invokes, a macro outside the repository.
+- **Versions.** Cache format 7, protocol 8, surface 5 (the fact is not in a surface:
+  Stage 3 reads it from the record).
+- **Tests.** `engine/tests/rust_macro_members.c`, `crates/pdx-core/tests/
+  rust_macro_members.rs` (the issue's shape, bound type and member, a generated name,
+  impl-body invocation, uninvoked macro, another language), `e9_…` in `rust_targets.rs`,
+  `isolation_carries_macro_members` and the cache test above.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: a qualifying

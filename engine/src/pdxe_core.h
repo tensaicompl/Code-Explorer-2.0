@@ -649,6 +649,21 @@ typedef struct {
     int cap;
 } PDXEChannelArray;
 
+/* Issue 110: a member a Rust `macro_rules!` invocation of the file may write: the type,
+ * by the last name of its path, and the member's name, NULL for any. What extraction
+ * cannot see as definitions, so that a type's members the registry holds are not taken
+ * for all of them. */
+typedef struct {
+    const char *type_name;
+    const char *member;
+} PDXEMacroMember;
+
+typedef struct {
+    PDXEMacroMember *items;
+    int count;
+    int cap;
+} PDXEMacroMemberArray;
+
 // Full extraction result for one file.
 typedef struct PDXEFileResult {
     PDXEArena arena; // owns local memory; composites may also retain child arenas below
@@ -757,6 +772,12 @@ typedef struct PDXEFileResult {
     bool syntax_rejected;
     bool pp_syntax_rejected;
     uint32_t semantic_passes;
+
+    /* Issue 110: the members the file's `macro_rules!` invocations may write, one per
+     * type and member, in byte order. Part of the interface, never of a surface: Stage 3
+     * reads it so that no stage takes a type's represented members for all of them.
+     * Empty for every other language, and when the table could not be made whole. */
+    PDXEMacroMemberArray macro_members;
 } PDXEFileResult;
 
 /* Whether `result`'s site paths are spent: a producer computes no path once they are. */

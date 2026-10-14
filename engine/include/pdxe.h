@@ -440,6 +440,19 @@ typedef struct {
     const char *struct_qn;
 } pdxe_impl_trait;
 
+/*
+ * A member a Rust `macro_rules!` invocation of the file may write, which no definition
+ * represents: the type, by the last name of its path as the macro's transcriber or the
+ * invocation's arguments spell it, and the member's name, or NULL for any member (a name
+ * the transcriber generates). Read from the definition the invocation sees in its own
+ * file, its metavariables bound as expansion's matcher binds them, or else taken for any
+ * identifier of the invocation: what an expansion may write, never less. Appended by a specification change; see docs/plan/ISSUES.md, issue 110.
+ */
+typedef struct {
+    const char *type_name;
+    const char *member;
+} pdxe_macro_member;
+
 /* `status`: 0 parsed, 1 partial (the tree carries errors), 2 failed. */
 enum pdxe_file_status {
     PDXE_FILE_PARSED = 0,
@@ -503,6 +516,15 @@ typedef struct {
      */
     pdxe_impl_trait *impl_traits;
     uint32_t n_impl_traits;
+    /*
+     * The members the file's `macro_rules!` invocations may write, one per type and
+     * member, in byte order: Rust's only, none for any other language. NULL and 0 when
+     * there are none, and when the engine could not record them whole (lost work). A
+     * result rebuilt from a cache has none. Appended by a specification change; see
+     * docs/plan/ISSUES.md, issue 110.
+     */
+    pdxe_macro_member *macro_members;
+    uint32_t n_macro_members;
 } pdxe_file_result;
 
 /*

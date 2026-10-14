@@ -563,6 +563,31 @@ impl Default for pdxe_impl_trait {
         }
     }
 }
+#[doc = " A member a Rust `macro_rules!` invocation of the file may write, which no definition\n represents: the type, by the last name of its path as the macro's transcriber or the\n invocation's arguments spell it, and the member's name, or NULL for any member (a name\n the transcriber generates). Read from the definition the invocation sees in its own\n file, its metavariables bound as expansion's matcher binds them, or else taken for any\n identifier of the invocation: what an expansion may write, never less. Appended by a specification change; see docs/plan/ISSUES.md, issue 110."]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pdxe_macro_member {
+    pub type_name: *const ::std::os::raw::c_char,
+    pub member: *const ::std::os::raw::c_char,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pdxe_macro_member"][::std::mem::size_of::<pdxe_macro_member>() - 16usize];
+    ["Alignment of pdxe_macro_member"][::std::mem::align_of::<pdxe_macro_member>() - 8usize];
+    ["Offset of field: pdxe_macro_member::type_name"]
+        [::std::mem::offset_of!(pdxe_macro_member, type_name) - 0usize];
+    ["Offset of field: pdxe_macro_member::member"]
+        [::std::mem::offset_of!(pdxe_macro_member, member) - 8usize];
+};
+impl Default for pdxe_macro_member {
+    fn default() -> Self {
+        let mut s = ::std::mem::MaybeUninit::<Self>::uninit();
+        unsafe {
+            ::std::ptr::write_bytes(s.as_mut_ptr(), 0, 1);
+            s.assume_init()
+        }
+    }
+}
 pub const PDXE_FILE_PARSED: pdxe_file_status = 0;
 pub const PDXE_FILE_PARTIAL: pdxe_file_status = 1;
 pub const PDXE_FILE_FAILED: pdxe_file_status = 2;
@@ -602,10 +627,13 @@ pub struct pdxe_file_result {
     #[doc = " The file's `impl Trait for Type` relations, in the engine's order: Rust's only,\n none for any other language. NULL and 0 when there are none. A relation the\n engine could not record whole (an allocation that failed, which it counts as\n lost work) is left out. Appended by a specification change; see\n docs/plan/ISSUES.md, issue 42."]
     pub impl_traits: *mut pdxe_impl_trait,
     pub n_impl_traits: u32,
+    #[doc = " The members the file's `macro_rules!` invocations may write, one per type and\n member, in byte order: Rust's only, none for any other language. NULL and 0 when\n there are none, and when the engine could not record them whole (lost work). A\n result rebuilt from a cache has none. Appended by a specification change; see\n docs/plan/ISSUES.md, issue 110."]
+    pub macro_members: *mut pdxe_macro_member,
+    pub n_macro_members: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 200usize];
+    ["Size of pdxe_file_result"][::std::mem::size_of::<pdxe_file_result>() - 216usize];
     ["Alignment of pdxe_file_result"][::std::mem::align_of::<pdxe_file_result>() - 8usize];
     ["Offset of field: pdxe_file_result::status"]
         [::std::mem::offset_of!(pdxe_file_result, status) - 0usize];
@@ -659,6 +687,10 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_file_result, impl_traits) - 184usize];
     ["Offset of field: pdxe_file_result::n_impl_traits"]
         [::std::mem::offset_of!(pdxe_file_result, n_impl_traits) - 192usize];
+    ["Offset of field: pdxe_file_result::macro_members"]
+        [::std::mem::offset_of!(pdxe_file_result, macro_members) - 200usize];
+    ["Offset of field: pdxe_file_result::n_macro_members"]
+        [::std::mem::offset_of!(pdxe_file_result, n_macro_members) - 208usize];
 };
 impl Default for pdxe_file_result {
     fn default() -> Self {

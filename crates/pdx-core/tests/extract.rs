@@ -31,8 +31,8 @@ use pdx_core::index::extract::{
 use pdx_core::secrets::{PRIVATE_KEY_LABELS, SecretPolicyDigest};
 use pdx_engine::isolate::{ExtractFailure, ExtractOutcome, Extractor, IsolationError, SourceFile};
 use pdx_engine::{
-    Engine, EngineError, ExtractRecord, FileExtract, FileStatus, LexicalFacts, NODE_BUDGET_ENV,
-    SourceDigest, TextRef,
+    Engine, EngineError, ExtractRecord, FileExtract, FileStatus, LexicalFacts, MacroMember,
+    NODE_BUDGET_ENV, SourceDigest, TextRef,
 };
 
 /// `extract` with its record changed by `f` and bound again to its source, as a twisted
@@ -730,32 +730,33 @@ fn cache_object_id_fixed_vector() {
     assert_eq!(key.engine_version, ENGINE_VERSION);
     assert_eq!(key.language_matrix_version, LANGUAGE_MATRIX_VERSION);
     assert_eq!(
-        EXTRACT_CACHE_FORMAT_VERSION, 6,
-        "the vector below is format 6's"
+        EXTRACT_CACHE_FORMAT_VERSION, 7,
+        "the vector below is format 7's"
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (9, 2),
-        "the vector below is engine 9's and matrix 2's"
+        (10, 2),
+        "the vector below is engine 10's and matrix 2's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 4,
         "the vector below is detector 4's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 6, 9 and 2, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 7, 10 and 2, the policy digest
     // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
-    // 3's to 8's are in cache_key_includes_engine_version. Format 5's (texts copied,
-    // before issue 90) was 59c9f740…550a: the format moved every key. Detector 3's was
-    // c1c95f71…8e28 and detector 2's 6ff3be1c…d177: each policy moved every key, and
-    // the format did not move.
+    // 3's to 9's are in cache_key_includes_engine_version. Format 6's (before issue 110)
+    // was b8e9117f…1d31 at engine 9, and format 5's (texts copied, before issue 90)
+    // 59c9f740…550a: each format moved every key. Detector 3's was c1c95f71…8e28 and
+    // detector 2's 6ff3be1c…d177: each policy moved every key, and the format did not
+    // move.
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "b8e9117f1091c8d80dad018e6a08a46c5bff4fada4dd25d919f27a44b5561d31"
+        "da5d96b435b51227ce0d9b7639f0dd0535744be25d09af34f2463f4582400cb3"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v6").join("b8").join(&id));
+    assert_eq!(path, Path::new("cache").join("v7").join("da").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -766,11 +767,12 @@ fn cache_object_id_fixed_vector() {
 
 #[test]
 fn cache_key_includes_engine_version() {
-    // An engine whose output can differ is another key: what engines 3 to 8 cached is
-    // never found by engine 9 (issues 74 to 76, 83, 112 and 111). Independently computed, as the
-    // vector above, with each engine version, under format 6 (issue 90); format 5's
-    // were 088819a1…0d81, ba0eb494…1508, 582d9e04…2bd4, c44fe667…0069 and
-    // 59c9f740…550a.
+    // An engine whose output can differ is another key: what engines 3 to 9 cached is
+    // never found by engine 10 (issues 74 to 76, 83, 112, 111 and 110). Independently
+    // computed, as the vector above, with each engine version, under format 7 (issue
+    // 110); format 6's were 3fa196f4…50cb, 23be5c37…785d, b7bbfafb…c8b0,
+    // 37947f52…7ffd, 24ad54eb…5e31, 5d5e1d9a…0b68 and b8e9117f…1d31, and format 5's
+    // 088819a1…0d81, ba0eb494…1508, 582d9e04…2bd4, c44fe667…0069 and 59c9f740…550a.
     let key = CacheKey::new(
         SecretPolicyDigest::of(&PdxConfig::default().secrets),
         "python",
@@ -782,31 +784,35 @@ fn cache_key_includes_engine_version() {
     for (engine, expected) in [
         (
             3,
-            "3fa196f407bcfa0bf93bf797091563fa715c8d01f5c280a13dfa006d48ca50cb",
+            "c21a4e24385389e184ca197606d908f608ac16a35f61e464f6bc151dbfae3a7c",
         ),
         (
             4,
-            "23be5c371a5d1c0bf0536f41753d63167901127e216caf17c72b7f547ff6785d",
+            "7d29db63ab75610c2538c02364a37244a16df97004c146d7233a898712dc639f",
         ),
         (
             5,
-            "b7bbfafb4910209c643fe34ed3fde0cf3814d0ae87b9ff8c17a0ef1bda90c8b0",
+            "022aa61dfdb209f3b94868d037a784b59509238f8acce85a1dbe3cce5dc7c299",
         ),
         (
             6,
-            "37947f52c28f43440efef43287c1fdbbf0202c9db3b81037982cde1922807ffd",
+            "f935e676681f7bb60f80786e2918836e1849083ec4af6c5c8a75e5874b9be0ec",
         ),
         (
             7,
-            "24ad54eb9a537935eb70e65bd3ec3b856f3bab753788b0ff1a4dad86b4dc5e31",
+            "38141cd1980f74913cb4ee252d344d948d65ec38f5483019635500da46147c9c",
         ),
         (
             8,
-            "5d5e1d9acd18caca1bdbf4d474efd464d71394cd77b2fba043be60ef334c0b68",
+            "cb2ebe0df88fe19d963c26e0989bfbcfbffee3e6c871d1ae86c3fb6d958e7c4d",
         ),
         (
             9,
-            "b8e9117f1091c8d80dad018e6a08a46c5bff4fada4dd25d919f27a44b5561d31",
+            "fa0e0d93abbdaf57141c6a69332f7390025610da2d9b3f98bd69c73044847bd4",
+        ),
+        (
+            10,
+            "da5d96b435b51227ce0d9b7639f0dd0535744be25d09af34f2463f4582400cb3",
         ),
     ] {
         let mut versioned = key.clone();
@@ -817,13 +823,13 @@ fn cache_key_includes_engine_version() {
             "engine {engine}"
         );
         let path = cache.object_path(&versioned);
-        assert!(path.starts_with(Path::new("cache").join("v6")), "{path:?}");
+        assert!(path.starts_with(Path::new("cache").join("v7")), "{path:?}");
         ids.push(versioned.object_id());
     }
-    assert_eq!(key.object_id(), ids[6], "the current key is engine 9's");
+    assert_eq!(key.object_id(), ids[7], "the current key is engine 10's");
     ids.sort();
     ids.dedup();
-    assert_eq!(ids.len(), 7, "each engine version is another key");
+    assert_eq!(ids.len(), 8, "each engine version is another key");
 }
 
 #[test]
@@ -1128,8 +1134,9 @@ fn cache_rejects_wrong_source_digest() {
 }
 
 #[test]
-fn cache_formats_before_6_are_a_miss() {
-    // Format 5 held every text copied and qualified names whole, with surface 4 (issue
+fn cache_formats_before_7_are_a_miss() {
+    // Format 6 held no members Rust's macro invocations may write (issue 110); format 5
+    // held every text copied and qualified names whole, with surface 4 (issue
     // 90); format 4 a definition's one route without its declaring node (issue 54);
     // format 3 calls without their node-type path and arguments and definitions
     // without decorators, parameter types and route (issues 46 and 47); format 2 also
@@ -1137,7 +1144,7 @@ fn cache_formats_before_6_are_a_miss() {
     // classes and extractions without a declared namespace. Their entries are never
     // decoded as the current format: not in the directory their format used, which is
     // never read, and not at the current path with their format written in them.
-    for old_format in [1, 2, 3, 4, 5] {
+    for old_format in [1, 2, 3, 4, 5, 6] {
         let checkout = Checkout::new();
         checkout.write("src/app.py", PYTHON);
         let config = checkout.config();
@@ -1155,7 +1162,7 @@ fn cache_formats_before_6_are_a_miss() {
         let cache = Cache::new();
         let current = cache.cache.object_path(&key);
         let current_text = current.to_string_lossy().replace('\\', "/");
-        assert!(current_text.contains("/v6/"), "{current_text}");
+        assert!(current_text.contains("/v7/"), "{current_text}");
         let old_dir = cache
             .cache
             .root()
@@ -2517,6 +2524,76 @@ fn cache_entries_of_engine_eight_are_never_served() {
         fs::read(&stale_path).unwrap(),
         stale_bytes,
         "the engine 8 entry changed"
+    );
+    let current = cache
+        .cache
+        .object_path(&key_for(&checkout, &config, PATH, "rust"));
+    assert_ne!(current, stale_path);
+    assert!(
+        current.is_file(),
+        "no entry of the current engine was written"
+    );
+
+    let probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &probe);
+    assert_eq!(
+        warm.stats.cache_hits, 1,
+        "the current engine's entry was not served"
+    );
+    assert_eq!(probe.files(), 0);
+    assert_eq!(extract_of(&warm, PATH), cold);
+}
+
+#[test]
+fn cache_entries_of_engine_nine_are_never_served() {
+    // Engine 9 recorded no members a Rust `macro_rules!` invocation may write. Engine 10
+    // records them (issue 110): here `Payload.from`, which the file's own macro writes
+    // beside the handwritten `From<()>` impl. Same source, path, language and policy:
+    // only the version in the key keeps what engine 9 cached, the extraction without
+    // them, from being served.
+    const PATH: &str = "src/lib.rs";
+    let checkout = Checkout::new();
+    checkout.write(
+        PATH,
+        "pub struct Payload(u8);\n\nimpl From<()> for Payload {\n    fn from(_: ()) -> Self {\n        Payload(0)\n    }\n}\n\nmacro_rules! make_impl {\n    ($ty:ty) => {\n        impl From<$ty> for Payload {\n            fn from(_: $ty) -> Self {\n                Payload(1)\n            }\n        }\n    };\n}\n\nmake_impl!(u32);\n",
+    );
+    let config = checkout.config();
+    let fresh = run(&checkout, None, &Probe::new(Twist::None));
+    let fresh = extract_of(&fresh, PATH);
+    assert_eq!(
+        fresh.record().macro_members,
+        [MacroMember {
+            type_name: "Payload".into(),
+            member: Some("from".into()),
+        }],
+        "the current engine records the member the macro writes"
+    );
+
+    // What engine 9 cached for these bytes: the same extraction without it.
+    let mut stale = fresh.record().clone();
+    stale.macro_members.clear();
+    let mut key = key_for(&checkout, &config, PATH, "rust");
+    key.engine_version = 9;
+    let cache = Cache::new();
+    let stale_bytes = CacheEnvelope::encode(&key, &stale);
+    plant(&cache, &key, &stale_bytes);
+    let stale_path = cache.cache.object_path(&key);
+
+    let probe = Probe::new(Twist::None);
+    let cold = run(&checkout, Some(&cache), &probe);
+    assert_eq!(cold.stats.cache_hits, 0, "an engine 9 entry was served");
+    assert_eq!(probe.files(), 1, "the file was not extracted again");
+    let cold = extract_of(&cold, PATH);
+    assert_eq!(
+        cold.record().macro_members.len(),
+        1,
+        "the member is missing"
+    );
+    assert_eq!(cold, fresh);
+    assert_eq!(
+        fs::read(&stale_path).unwrap(),
+        stale_bytes,
+        "the engine 9 entry changed"
     );
     let current = cache
         .cache

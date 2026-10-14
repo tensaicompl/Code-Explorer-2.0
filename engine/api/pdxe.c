@@ -61,8 +61,10 @@
  * extractions before it under the same key (issue 112). 9: a Rust file's `use`
  * declarations are read from its syntax tree, so what nested and multi-line lists,
  * aliases, `self` and `pub use` bind reaches its per-file typed answers and the calls
- * they add (issue 111, patch 0029). */
-static const char ENGINE_VERSION_STRING[] = "9";
+ * they add (issue 111, patch 0029). 10: a Rust file's extraction records the members
+ * its `macro_rules!` invocations may write, which no definition represents (issue 110,
+ * patch 0030). */
+static const char ENGINE_VERSION_STRING[] = "10";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;
@@ -453,6 +455,7 @@ static void holder_free(result_holder *h) {
     free(h->pub.diags);
     free(h->pub.throws);
     free(h->pub.impl_traits);
+    free(h->pub.macro_members);
     free(h->call_args);
     free(h->routes);
     free(h->source);
@@ -1336,6 +1339,30 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
         if (r->n_impl_traits == 0) {
             free(r->impl_traits);
             r->impl_traits = NULL;
+        }
+    }
+
+    /* Issue 110: the members the file's macro invocations may write, borrowed like the
+     * other strings, in the engine's (byte) order. */
+    const PDXEMacroMemberArray *members = &engine->macro_members;
+    if (members->count > 0) {
+        r->macro_members =
+            (pdxe_macro_member *)calloc((size_t)members->count, sizeof(pdxe_macro_member));
+        if (!r->macro_members) {
+            holder_free(h);
+            return PDXE_E_NOMEM;
+        }
+        for (int i = 0; i < members->count; i++) {
+            if (!members->items[i].type_name) {
+                continue;
+            }
+            pdxe_macro_member *o = &r->macro_members[r->n_macro_members++];
+            o->type_name = members->items[i].type_name;
+            o->member = members->items[i].member;
+        }
+        if (r->n_macro_members == 0) {
+            free(r->macro_members);
+            r->macro_members = NULL;
         }
     }
 
