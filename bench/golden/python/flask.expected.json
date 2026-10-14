@@ -1199,6 +1199,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.flask.ctx.AppContext.__enter__",
+      "dst_qn": "src.flask.ctx.AppContext.push",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.ctx.AppContext.__exit__",
+      "dst_qn": "src.flask.ctx.AppContext.pop",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "src.flask.ctx.AppContext.pop",
       "dst_qn": "src.flask.helpers._CollectErrors",
       "kind": "CALLS",
@@ -1333,6 +1345,12 @@
     {
       "src_qn": "src.flask.json.provider.JSONProvider.response",
       "dst_qn": "src.flask.json.provider.JSONProvider.dumps",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.flask.json.tag.JSONTag.tag",
+      "dst_qn": "src.flask.json.tag.JSONTag.to_json",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -5143,6 +5161,12 @@
     {
       "src_qn": "tests.test_json_tag.test_tag_interface",
       "dst_qn": "src.flask.json.tag.JSONTag.check",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "tests.test_json_tag.test_tag_interface",
+      "dst_qn": "src.flask.json.tag.JSONTag.to_json",
       "kind": "CALL_REFERENCE",
       "band": "typed"
     },

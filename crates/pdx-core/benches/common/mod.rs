@@ -4,7 +4,7 @@
 //!
 //! A project-authored Python package, generated: modules that import and call each
 //! other's functions, call their own, call a method every helper class defines, call
-//! names nothing defines, and call builtins. So resolution meets five bands, and the
+//! names nothing defines, and call builtins. So resolution meets four bands, and the
 //! segment holds the rows a structural build writes. No third-party source.
 
 #![allow(dead_code)] // each benchmark uses part of it
@@ -41,16 +41,16 @@ pub const COMMIT: &str = "0123456789abcdef0123456789abcdef01234567";
 /// functions, two in each of the 48 classes, one in each of the six tests.
 pub const SITES: usize = 2_406;
 
-/// Its call sites by band, as resolution settles them at engine 6: per function, the
-/// imported function (import-guided), a sibling, a class and a module attribute
-/// (typed), `run`, a name the generic-name blocklist holds (blocked), `len` and `str`
-/// (external) and a name nothing defines (unresolved); per class `self.step` (typed)
-/// and `sorted` (unresolved); per test the imported function (typed).
-pub const BANDS: [(&str, usize); 5] = [
-    ("blocked", 288),
+/// Its call sites by band, as resolution settles them at engine 7: per function, the
+/// imported function (import-guided), a sibling, a class, a module attribute and
+/// `h.run`, whose name the generic-name blocklist holds but whose typed answer comes
+/// first (issue 103) (typed), `len` and `str` (external) and a name nothing defines
+/// (unresolved); per class `self.step` (typed) and `sorted` (unresolved); per test the
+/// imported function (typed).
+pub const BANDS: [(&str, usize); 4] = [
     ("external", 576),
     ("import-guided", 288),
-    ("typed", 918),
+    ("typed", 1_206),
     ("unresolved", 336),
 ];
 

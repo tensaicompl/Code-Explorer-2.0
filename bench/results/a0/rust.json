@@ -1,250 +1,151 @@
 {
  "blocklist": {
-  "edges_drawn": 0,
-  "examples_correct_suppressed": [
-   {
-    "band": "blocked",
-    "callee": "benchmark(\"\").run",
-    "file": "axum/benches/benches.rs",
-    "line": 22,
-    "oracle_status": "mapped",
-    "oracle_target": "axum.benches.benches.BenchmarkBuilder.run",
-    "pdx_target": null,
-    "reason": null,
-    "receiver_proof": "value_unproven",
-    "site": 3,
-    "span": [
-     354,
-     391
-    ],
-    "token": [
-     375,
-     378
-    ]
-   },
-   {
-    "band": "blocked",
-    "callee": "benchmark(\"\").run",
-    "file": "axum/benches/benches.rs",
-    "line": 57,
-    "oracle_status": "mapped",
-    "oracle_target": "axum.benches.benches.BenchmarkBuilder.run",
-    "pdx_target": null,
-    "reason": null,
-    "receiver_proof": "value_unproven",
-    "site": 45,
-    "span": [
-     1558,
-     1849
-    ],
-    "token": [
-     1581,
-     1584
-    ]
-   },
-   {
-    "band": "blocked",
-    "callee": "benchmark(\"\").run",
-    "file": "axum/benches/benches.rs",
-    "line": 79,
-    "oracle_status": "mapped",
-    "oracle_target": "axum.benches.benches.BenchmarkBuilder.run",
-    "pdx_target": null,
-    "reason": null,
-    "receiver_proof": "value_unproven",
-    "site": 57,
-    "span": [
-     2114,
-     2283
-    ],
-    "token": [
-     2137,
-     2140
-    ]
-   },
-   {
-    "band": "blocked",
-    "callee": "benchmark(\"\").run",
-    "file": "axum/benches/benches.rs",
-    "line": 85,
-    "oracle_status": "mapped",
-    "oracle_target": "axum.benches.benches.BenchmarkBuilder.run",
-    "pdx_target": null,
-    "reason": null,
-    "receiver_proof": "value_unproven",
-    "site": 65,
-    "span": [
-     2290,
-     2445
-    ],
-    "token": [
-     2309,
-     2312
-    ]
-   },
-   {
-    "band": "blocked",
-    "callee": "call",
-    "file": "axum/src/routing/method_routing.rs",
-    "line": 1440,
-    "oracle_status": "mapped",
-    "oracle_target": "axum.src.routing.method_routing.call",
-    "pdx_target": null,
-    "reason": null,
-    "receiver_proof": "none",
-    "site": 261,
-    "span": [
-     44004,
-     44031
-    ],
-    "token": [
-     44004,
-     44008
-    ]
-   }
-  ],
-  "final_band:blocked": 1439,
+  "accepted_typed_answer_correct": 31,
+  "accepted_typed_answer_false_positive": 1,
+  "edges_drawn": 32,
+  "examples_correct_suppressed": [],
+  "final_band:blocked": 1407,
+  "final_band:typed": 32,
   "no_typed_answer_and_blocked": 1407,
   "no_typed_answer_and_blocked_with_oracle_relation": 357,
   "oracle_relation": 389,
   "oracle_verifiable": 945,
   "recall_c0": {
    "denominator": 4061,
-   "numerator": 1377,
-   "value": 0.339079
+   "numerator": 1408,
+   "value": 0.346713
   },
   "recall_c4": {
    "denominator": 4061,
    "numerator": 1408,
    "value": 0.346713
   },
-  "relations_recovered_in_c4": 31,
+  "relations_recovered_in_c4": 0,
   "sites": 1439,
-  "suppressed_typed_answer_correct": 31,
-  "suppressed_typed_answer_false_positive": 1,
-  "typed_answer_suppressed_by_blocklist": 32
+  "typed_answer_accepted_before_blocklist": 32,
+  "typed_answer_suppressed_by_blocklist": 0
  },
  "corpus": "rust-golden",
  "counterfactuals": {
   "C0": {
-   "drawn": 2640,
+   "drawn": 2672,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 2592,
+   "oracle_verifiable": 2624,
    "oracle_verifiable_fraction": {
-    "denominator": 2640,
-    "numerator": 2592,
-    "value": 0.981818
+    "denominator": 2672,
+    "numerator": 2624,
+    "value": 0.982036
    },
    "policy": "current behaviour",
    "precision": {
-    "denominator": 2592,
-    "numerator": 1580,
-    "value": 0.609568
+    "denominator": 2624,
+    "numerator": 1611,
+    "value": 0.613948
    },
    "recall": {
     "denominator": 4061,
-    "numerator": 1377,
-    "value": 0.339079
+    "numerator": 1408,
+    "value": 0.346713
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 836,
-    "numerator": 821,
-    "value": 0.982057
+    "denominator": 868,
+    "numerator": 852,
+    "value": 0.981567
    }
   },
   "C1": {
-   "drawn": 1456,
+   "drawn": 1488,
    "false_positives_added": 0,
    "false_positives_removed": 659,
-   "oracle_verifiable": 1424,
+   "oracle_verifiable": 1456,
    "oracle_verifiable_fraction": {
-    "denominator": 1456,
-    "numerator": 1424,
-    "value": 0.978022
+    "denominator": 1488,
+    "numerator": 1456,
+    "value": 0.978495
    },
    "policy": "`exact` not drawn",
    "precision": {
-    "denominator": 1424,
-    "numerator": 1071,
-    "value": 0.752107
+    "denominator": 1456,
+    "numerator": 1102,
+    "value": 0.756868
    },
    "recall": {
     "denominator": 4061,
-    "numerator": 868,
-    "value": 0.21374
+    "numerator": 899,
+    "value": 0.221374
    },
    "true_positives_added": 0,
    "true_positives_lost": 509,
    "typed": {
-    "denominator": 836,
-    "numerator": 821,
-    "value": 0.982057
+    "denominator": 868,
+    "numerator": 852,
+    "value": 0.981567
    }
   },
   "C2": {
-   "drawn": 2148,
+   "drawn": 2180,
    "false_positives_added": 0,
    "false_positives_removed": 337,
-   "oracle_verifiable": 2100,
+   "oracle_verifiable": 2132,
    "oracle_verifiable_fraction": {
-    "denominator": 2148,
-    "numerator": 2100,
-    "value": 0.977654
+    "denominator": 2180,
+    "numerator": 2132,
+    "value": 0.977982
    },
    "policy": "`scoped` not drawn",
    "precision": {
-    "denominator": 2100,
-    "numerator": 1425,
-    "value": 0.678571
+    "denominator": 2132,
+    "numerator": 1456,
+    "value": 0.682927
    },
    "recall": {
     "denominator": 4061,
-    "numerator": 1232,
-    "value": 0.303374
+    "numerator": 1263,
+    "value": 0.311007
    },
    "true_positives_added": 0,
    "true_positives_lost": 155,
    "typed": {
-    "denominator": 836,
-    "numerator": 821,
-    "value": 0.982057
+    "denominator": 868,
+    "numerator": 852,
+    "value": 0.981567
    }
   },
   "C3": {
-   "drawn": 964,
+   "drawn": 996,
    "false_positives_added": 0,
    "false_positives_removed": 996,
-   "oracle_verifiable": 932,
+   "oracle_verifiable": 964,
    "oracle_verifiable_fraction": {
-    "denominator": 964,
-    "numerator": 932,
-    "value": 0.966805
+    "denominator": 996,
+    "numerator": 964,
+    "value": 0.967871
    },
    "policy": "neither `exact` nor `scoped` drawn",
    "precision": {
-    "denominator": 932,
-    "numerator": 916,
-    "value": 0.982833
+    "denominator": 964,
+    "numerator": 947,
+    "value": 0.982365
    },
    "recall": {
     "denominator": 4061,
-    "numerator": 723,
-    "value": 0.178035
+    "numerator": 754,
+    "value": 0.185669
    },
    "true_positives_added": 0,
    "true_positives_lost": 664,
    "typed": {
-    "denominator": 836,
-    "numerator": 821,
-    "value": 0.982057
+    "denominator": 868,
+    "numerator": 852,
+    "value": 0.981567
    }
   },
   "C4": {
    "drawn": 2672,
-   "false_positives_added": 1,
+   "false_positives_added": 0,
    "false_positives_removed": 0,
    "oracle_verifiable": 2624,
    "oracle_verifiable_fraction": {
@@ -263,7 +164,7 @@
     "numerator": 1408,
     "value": 0.346713
    },
-   "true_positives_added": 31,
+   "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
     "denominator": 868,
@@ -272,37 +173,37 @@
    }
   },
   "C5": {
-   "drawn": 1381,
+   "drawn": 1413,
    "false_positives_added": 0,
    "false_positives_removed": 852,
-   "oracle_verifiable": 1347,
+   "oracle_verifiable": 1379,
    "oracle_verifiable_fraction": {
-    "denominator": 1381,
-    "numerator": 1347,
-    "value": 0.97538
+    "denominator": 1413,
+    "numerator": 1379,
+    "value": 0.975938
    },
    "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
    "precision": {
-    "denominator": 1347,
-    "numerator": 1187,
-    "value": 0.881218
+    "denominator": 1379,
+    "numerator": 1218,
+    "value": 0.883249
    },
    "recall": {
     "denominator": 4061,
-    "numerator": 984,
-    "value": 0.242305
+    "numerator": 1015,
+    "value": 0.249938
    },
    "true_positives_added": 0,
    "true_positives_lost": 393,
    "typed": {
-    "denominator": 836,
-    "numerator": 821,
-    "value": 0.982057
+    "denominator": 868,
+    "numerator": 852,
+    "value": 0.981567
    }
   },
   "C6": {
    "drawn": 996,
-   "false_positives_added": 1,
+   "false_positives_added": 0,
    "false_positives_removed": 996,
    "oracle_verifiable": 964,
    "oracle_verifiable_fraction": {
@@ -321,7 +222,7 @@
     "numerator": 754,
     "value": 0.185669
    },
-   "true_positives_added": 31,
+   "true_positives_added": 0,
    "true_positives_lost": 664,
    "typed": {
     "denominator": 868,
@@ -332,7 +233,7 @@
  },
  "coverage": {
   "drawn_edges_by_kind": {
-   "CALLS": 2424,
+   "CALLS": 2456,
    "CALL_REFERENCE": 216
   },
   "engine_sites": 9,
@@ -364,14 +265,14 @@
   "parse_failures": [],
   "structural_call_sites": 11241,
   "structural_call_sites_by_band": {
-   "blocked": 1439,
+   "blocked": 1407,
    "candidate": 2830,
    "exact": 1184,
    "external": 920,
    "import-guided": 33,
    "inheritance-guided": 63,
    "scoped": 492,
-   "typed": 877,
+   "typed": 909,
    "unresolved": 3403
   },
   "structural_call_sites_not_materialized_by_band": {
@@ -2296,35 +2197,35 @@
    }
   },
   "typed": {
-   "correct": 821,
-   "drawn": 868,
-   "false_positive": 15,
-   "oracle_verifiable": 836,
+   "correct": 852,
+   "drawn": 900,
+   "false_positive": 16,
+   "oracle_verifiable": 868,
    "oracle_verifiable_fraction": {
-    "denominator": 868,
-    "numerator": 836,
-    "value": 0.963134
+    "denominator": 900,
+    "numerator": 868,
+    "value": 0.964444
    },
    "precision": {
-    "denominator": 836,
-    "numerator": 821,
-    "value": 0.982057
+    "denominator": 868,
+    "numerator": 852,
+    "value": 0.981567
    }
   },
   "union": {
-   "correct": 1580,
-   "drawn": 2640,
-   "false_positive": 1012,
-   "oracle_verifiable": 2592,
+   "correct": 1611,
+   "drawn": 2672,
+   "false_positive": 1013,
+   "oracle_verifiable": 2624,
    "oracle_verifiable_fraction": {
-    "denominator": 2640,
-    "numerator": 2592,
-    "value": 0.981818
+    "denominator": 2672,
+    "numerator": 2624,
+    "value": 0.982036
    },
    "precision": {
-    "denominator": 2592,
-    "numerator": 1580,
-    "value": 0.609568
+    "denominator": 2624,
+    "numerator": 1611,
+    "value": 0.613948
    }
   }
  },
@@ -2394,35 +2295,35 @@
    }
   },
   "typed": {
-   "correct": 633,
-   "drawn": 652,
-   "false_positive": 14,
-   "oracle_verifiable": 647,
+   "correct": 664,
+   "drawn": 684,
+   "false_positive": 15,
+   "oracle_verifiable": 679,
    "oracle_verifiable_fraction": {
-    "denominator": 652,
-    "numerator": 647,
-    "value": 0.992331
+    "denominator": 684,
+    "numerator": 679,
+    "value": 0.99269
    },
    "precision": {
-    "denominator": 647,
-    "numerator": 633,
-    "value": 0.978362
+    "denominator": 679,
+    "numerator": 664,
+    "value": 0.977909
    }
   },
   "union": {
-   "correct": 1392,
-   "drawn": 2424,
-   "false_positive": 1011,
-   "oracle_verifiable": 2403,
+   "correct": 1423,
+   "drawn": 2456,
+   "false_positive": 1012,
+   "oracle_verifiable": 2435,
    "oracle_verifiable_fraction": {
-    "denominator": 2424,
-    "numerator": 2403,
-    "value": 0.991337
+    "denominator": 2456,
+    "numerator": 2435,
+    "value": 0.99145
    },
    "precision": {
-    "denominator": 2403,
-    "numerator": 1392,
-    "value": 0.579276
+    "denominator": 2435,
+    "numerator": 1423,
+    "value": 0.584394
    }
   }
  },
@@ -2562,28 +2463,27 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "pdx_note": "A0.1 adds measurement tooling only; the resolver, extraction and bands measured are those of pdx_sha",
-  "pdx_sha": "e746b1e25d42552e5dc051698b476bcac9a9a6f4",
+  "resolver": "post-R1: issue 103, the commit 'Issue 103: accept typed answers before blocklist' (parent 2663ff5). Baseline: A0.1, resolver of e746b1e, results committed at 71bec72",
   "site_matching_version": "a0-match-1"
  },
  "recall": {
   "at_parsed_structural_sites": 4061,
   "breakdown": {
    "at_parsed_site": 4061,
-   "drawn_correct": 1377,
-   "drawn_wrong": 190,
-   "resolution_not_drawn:blocked": 389,
+   "drawn_correct": 1408,
+   "drawn_wrong": 191,
+   "resolution_not_drawn:blocked": 357,
    "resolution_not_drawn:candidate": 2079,
    "resolution_not_drawn:external": 17,
    "resolution_not_materialized:typed": 9,
    "site_missing": 56,
    "site_missing_macro_token_tree": 338
   },
-  "drawn_correct": 1377,
+  "drawn_correct": 1408,
   "end_to_end_recall": {
    "denominator": 4455,
-   "numerator": 1377,
-   "value": 0.309091
+   "numerator": 1408,
+   "value": 0.316049
   },
   "oracle_calls_outside_relations": {
    "not_a_relation:external": 6872,
@@ -2597,20 +2497,20 @@
   "oracle_relations": 4455,
   "recall": {
    "denominator": 4061,
-   "numerator": 1377,
-   "value": 0.339079
+   "numerator": 1408,
+   "value": 0.346713
   }
  },
  "receivers": {
   "none": {
    "by_band": {
-    "blocked": 496,
+    "blocked": 469,
     "candidate": 37,
     "exact": 172,
     "external": 261,
     "import-guided": 15,
     "scoped": 92,
-    "typed": 654,
+    "typed": 681,
     "unresolved": 509
    },
    "call_sites": 2236,
@@ -2623,13 +2523,13 @@
   },
   "path_bound": {
    "by_band": {
-    "blocked": 23,
+    "blocked": 22,
     "candidate": 265,
     "exact": 97,
     "external": 483,
     "import-guided": 18,
     "scoped": 25,
-    "typed": 102,
+    "typed": 103,
     "unresolved": 92
    },
    "call_sites": 1105,
@@ -2677,12 +2577,12 @@
   },
   "value_unproven": {
    "by_band": {
-    "blocked": 783,
+    "blocked": 779,
     "candidate": 1615,
     "exact": 784,
     "external": 176,
     "scoped": 247,
-    "typed": 67,
+    "typed": 71,
     "unresolved": 2321
    },
    "call_sites": 5993,
@@ -2694,7 +2594,7 @@
    }
   }
  },
- "resolution_loss": 2684,
+ "resolution_loss": 2653,
  "unverifiable_drawn": {
   "exact:file_not_indexed": 13,
   "exact:none": 3,

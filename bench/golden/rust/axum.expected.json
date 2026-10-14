@@ -6054,6 +6054,30 @@
     },
     {
       "src_qn": "axum.benches.benches.main",
+      "dst_qn": "axum.benches.benches.BenchmarkBuilder.run",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.benches.benches.main",
+      "dst_qn": "axum.benches.benches.BenchmarkBuilder.run",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.benches.benches.main",
+      "dst_qn": "axum.benches.benches.BenchmarkBuilder.run",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.benches.benches.main",
+      "dst_qn": "axum.benches.benches.BenchmarkBuilder.run",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.benches.benches.main",
       "dst_qn": "axum.benches.benches.benchmark",
       "kind": "CALLS",
       "band": "typed"
@@ -9983,6 +10007,12 @@
       "band": "scoped"
     },
     {
+      "src_qn": "axum.src.handler.service.HandlerService.call",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "axum.src.handler.service.HandlerService.clone",
       "dst_qn": "axum.src.handler.service.HandlerService.clone",
       "kind": "CALLS",
@@ -12857,6 +12887,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "axum.src.routing.method_routing.accessing_state",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.accessing_state",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "axum.src.routing.method_routing.allow_header_any",
       "dst_qn": "axum.src.routing.method_routing.any",
       "kind": "CALLS",
@@ -12870,8 +12912,32 @@
     },
     {
       "src_qn": "axum.src.routing.method_routing.allow_header_any",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_any",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_any",
       "dst_qn": "axum.src.routing.method_routing.ok",
       "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_merging_get_into_head",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_merging_get_into_head",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
       "band": "typed"
     },
     {
@@ -12924,8 +12990,32 @@
     },
     {
       "src_qn": "axum.src.routing.method_routing.allow_header_noop_middleware",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_noop_middleware",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_noop_middleware",
       "dst_qn": "axum.src.routing.method_routing.ok",
       "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_when_merging",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_when_merging",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
       "band": "typed"
     },
     {
@@ -13014,6 +13104,18 @@
     },
     {
       "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback",
       "dst_qn": "axum.src.routing.method_routing.ok",
       "kind": "CALL_REFERENCE",
       "band": "typed"
@@ -13039,6 +13141,42 @@
     {
       "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback_that_sets_allow",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback_that_sets_allow",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback_that_sets_allow",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback_that_sets_allow",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback_that_sets_allow",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback_that_sets_allow",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.allow_header_with_fallback_that_sets_allow",
+      "dst_qn": "axum.src.routing.method_routing.call",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -13175,6 +13313,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "axum.src.routing.method_routing.empty_allow_header_by_default",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.empty_allow_header_by_default",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "axum.src.routing.method_routing.fallback_accessing_state",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.fallback",
       "kind": "CALLS",
@@ -13199,6 +13349,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "axum.src.routing.method_routing.fallback_accessing_state",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.fallback_accessing_state",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "axum.src.routing.method_routing.get_accepts_head",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
       "kind": "CALLS",
@@ -13207,6 +13369,18 @@
     {
       "src_qn": "axum.src.routing.method_routing.get_accepts_head",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.get_accepts_head",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.get_accepts_head",
+      "dst_qn": "axum.src.routing.method_routing.call",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -13225,6 +13399,18 @@
     {
       "src_qn": "axum.src.routing.method_routing.get_handler",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.get_handler",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.get_handler",
+      "dst_qn": "axum.src.routing.method_routing.call",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -13271,6 +13457,18 @@
       "band": "scoped"
     },
     {
+      "src_qn": "axum.src.routing.method_routing.get_service_fn",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.get_service_fn",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "axum.src.routing.method_routing.handler_overlaps",
       "dst_qn": "axum.src.routing.method_routing.ok",
       "kind": "CALL_REFERENCE",
@@ -13315,6 +13513,18 @@
     {
       "src_qn": "axum.src.routing.method_routing.head_takes_precedence_over_get",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.head_takes_precedence_over_get",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.head_takes_precedence_over_get",
+      "dst_qn": "axum.src.routing.method_routing.call",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -13355,6 +13565,66 @@
       "band": "typed"
     },
     {
+      "src_qn": "axum.src.routing.method_routing.layer",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.layer",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.layer",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.layer",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "axum.src.routing.method_routing.merge",
       "dst_qn": "axum.src.routing.method_routing.ok",
       "kind": "CALL_REFERENCE",
@@ -13383,6 +13653,30 @@
       "dst_qn": "axum.src.test_helpers.test_client.TestClient.post",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge_accessing_state",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge_accessing_state",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge_accessing_state",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.merge_accessing_state",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
     },
     {
       "src_qn": "axum.src.routing.method_routing.merge_accessing_state",
@@ -13477,6 +13771,18 @@
     {
       "src_qn": "axum.src.routing.method_routing.method_not_allowed_by_default",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.method_not_allowed_by_default",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.method_not_allowed_by_default",
+      "dst_qn": "axum.src.routing.method_routing.call",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -13505,6 +13811,30 @@
       "band": "typed"
     },
     {
+      "src_qn": "axum.src.routing.method_routing.route_layer",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.route_layer",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.route_layer",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.route_layer",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "axum.src.routing.method_routing.sets_allow_header",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
       "kind": "CALLS",
@@ -13513,6 +13843,18 @@
     {
       "src_qn": "axum.src.routing.method_routing.sets_allow_header",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.sets_allow_header",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.sets_allow_header",
+      "dst_qn": "axum.src.routing.method_routing.call",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -13561,6 +13903,18 @@
     {
       "src_qn": "axum.src.routing.method_routing.sets_allow_header_get_head",
       "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.sets_allow_header_get_head",
+      "dst_qn": "axum.src.routing.method_routing.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.method_routing.sets_allow_header_get_head",
+      "dst_qn": "axum.src.routing.method_routing.call",
       "kind": "TESTS",
       "band": "typed"
     },

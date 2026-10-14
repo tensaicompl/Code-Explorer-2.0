@@ -1,10 +1,12 @@
 //! The generic-name blocklist (Appendix B.4).
 //!
-//! A call whose callee is one of these names is `blocked` before any resolution stage
-//! runs, typed resolution included (specification 4.2.2, 4.5 Stage 3): the names are
-//! so common that a target found for them by any means is more likely a coincidence
-//! of spelling than the definition meant. Names compare exactly, case included:
-//! `toString` is blocked, `ToString` is not.
+//! A call whose callee is one of these names is `blocked` unless typed resolution
+//! gives it a qualifying answer, before the engine's other answers and every stage that
+//! resolves by name (specification 4.2.2, 4.5 Stage 3; issue 103): the names are so
+//! common that a target found for them by name is more likely a coincidence of spelling
+//! than the definition meant, while a qualifying typed answer is evidence of the
+//! target, not of the name. An engine hint never passes the blocklist. Names compare
+//! exactly, case included: `toString` is blocked, `ToString` is not.
 //!
 //! The base list is Appendix B.4's, unchanged. A language may add names of its own,
 //! each documented here with the reason it is generic in that language; nothing else

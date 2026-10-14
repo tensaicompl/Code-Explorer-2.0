@@ -1620,6 +1620,18 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.shouldParse",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeFormatter.parse",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.shouldParse",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeFormatter.parse",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.shouldParse",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
       "kind": "CALLS",
       "band": "typed"
@@ -1639,6 +1651,18 @@
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.shouldParse",
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.makePetTypes",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.shouldThrowParseException",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeFormatter.parse",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.shouldThrowParseException",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeFormatter.parse",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -1751,6 +1775,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidBirthDate",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidBirthDate",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetName",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
       "kind": "CALLS",
@@ -1799,6 +1835,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetName",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetName",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetType",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
       "kind": "CALLS",
@@ -1835,6 +1883,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetType",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetType",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithLongPetName",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
       "kind": "CALLS",
@@ -1879,6 +1939,18 @@
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithLongPetName",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithLongPetName",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithLongPetName",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -1969,6 +2041,18 @@
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.validate",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.validate",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.validate",
+      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
       "kind": "TESTS",
       "band": "typed"
     },

@@ -450,6 +450,26 @@ passed; it stays `pending` with the four floors above failed. The decision:
 Not drawing `exact` and `scoped` (R3) will lower recall further before it is
 recovered; that is accepted, correctness first. G4's floors are unchanged.
 
+A0 after R1, 2026-10-14 (issue 103: a qualifying typed answer before the
+blocklist). This is evidence, not an evaluation; the status stays `pending`. The
+same pins, oracles and rules are used, the results are `bench/results/a0/`, and the
+baseline is `71bec72`.
+
+| Golden | Floor | Baseline | After R1 | Floor met |
+|---|---|---|---|---|
+| Python | `typed` precision ≥ 97% | 310 / 310 | 314 / 314 = 100.00% | yes |
+| Python | union precision ≥ 95% | 620 / 653 = 94.95% | 624 / 657 = 94.98% | **no** |
+| Python | recall ≥ 85% | 603 / 1,114 = 54.13% | 606 / 1,114 = 54.40% | **no** |
+| Rust | `typed` precision ≥ 97% | 821 / 836 = 98.21% | 852 / 868 = 98.16% | yes |
+| Rust | union precision ≥ 95% | 1,580 / 2,592 = 60.96% | 1,611 / 2,624 = 61.39% | **no** |
+| Rust | recall ≥ 85% | 1,377 / 4,061 = 33.91% | 1,408 / 4,061 = 34.67% | **no** |
+
+The oracle-verifiable fraction is 657 / 660 (Python) and 2,624 / 2,672 (Rust).
+Four of the six floors still fail.
+
+The Rust golden's `typed` band gains 31 correct edges and 1 false one,
+`Handler::call`, which belongs to issue 104.
+
 ## G2 — after `P3-09`
 
 Status: **pending**

@@ -4938,6 +4938,12 @@
     },
     {
       "src_qn": "scripts.config.peripherals.SiFive.__init__",
+      "dst_qn": "scripts.config.peripherals.Peripheral.__init__",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "scripts.config.peripherals.SiFive.__init__",
       "dst_qn": "scripts.config.peripherals.Peripheral.add_source_dir",
       "kind": "CALLS",
       "band": "typed"
@@ -4961,6 +4967,12 @@
       "band": "typed"
     },
     {
+      "src_qn": "scripts.config.peripherals.SiFiveGPIO_0.__init__",
+      "dst_qn": "scripts.config.peripherals.SiFive.__init__",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "scripts.config.peripherals.SiFivePWM_0.__init__",
       "dst_qn": "scripts.config.peripherals.Peripheral.add_dependency",
       "kind": "CALLS",
@@ -4985,6 +4997,12 @@
       "band": "typed"
     },
     {
+      "src_qn": "scripts.config.peripherals.SiFivePWM_0.__init__",
+      "dst_qn": "scripts.config.peripherals.SiFive.__init__",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "scripts.config.peripherals.SiFiveSPI_0.__init__",
       "dst_qn": "scripts.config.peripherals.Peripheral.add_dependency",
       "kind": "CALLS",
@@ -5003,6 +5021,12 @@
       "band": "typed"
     },
     {
+      "src_qn": "scripts.config.peripherals.SiFiveSPI_0.__init__",
+      "dst_qn": "scripts.config.peripherals.SiFive.__init__",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "scripts.config.peripherals.SiFiveUART_0.__init__",
       "dst_qn": "scripts.config.peripherals.Peripheral.add_dependency",
       "kind": "CALLS",
@@ -5023,6 +5047,12 @@
     {
       "src_qn": "scripts.config.peripherals.SiFiveUART_0.__init__",
       "dst_qn": "scripts.config.peripherals.Peripheral.set_reg",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "scripts.config.peripherals.SiFiveUART_0.__init__",
+      "dst_qn": "scripts.config.peripherals.SiFive.__init__",
       "kind": "CALLS",
       "band": "typed"
     },

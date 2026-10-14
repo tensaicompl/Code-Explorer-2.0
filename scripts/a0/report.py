@@ -194,8 +194,9 @@ def build(corpus: str, sites: list[dict], rels: list[dict], meta: dict, defs: di
                          "oracle symbol denotes several such definitions has no verdict"}
 
     # The blocklist.
+    # Sites whose callee's name is on the blocklist, whatever band they end in.
     blocked = [r for r in resolved if r.get("blocklisted")]
-    bl = Counter(sites=len(blocked))
+    bl = Counter(sites=len(blocked), typed_answer_suppressed_by_blocklist=0)
     bl_examples = []
     for r in blocked:
         has_verdict = r.get("oracle_status") in ("mapped", "external", "local")
@@ -203,7 +204,12 @@ def build(corpus: str, sites: list[dict], rels: list[dict], meta: dict, defs: di
         relation = r.get("oracle_status") == "mapped" and \
             (defs.get(tuple(r["oracle_target"]), {}).get("kind") in audit.CALLABLE_KINDS)
         bl["oracle_relation"] += relation
-        if r.get("typed_target"):
+        if r.get("typed_target") and r.get("band") != "blocked":
+            # A qualifying typed answer Stage 3 takes before the blocklist (issue 103).
+            bl["typed_answer_accepted_before_blocklist"] += 1
+            v = r.get("typed_target_verdict")
+            bl["accepted_typed_answer_" + (v or "unverifiable")] += 1
+        elif r.get("typed_target"):
             bl["typed_answer_suppressed_by_blocklist"] += 1
             v = r.get("typed_target_verdict")
             bl["suppressed_typed_answer_" + (v or "unverifiable")] += 1
@@ -216,7 +222,9 @@ def build(corpus: str, sites: list[dict], rels: list[dict], meta: dict, defs: di
     rec_c4 = score.recall_table(sites, rels, "C4")
     blocklist = {
         **dict(sorted(bl.items())),
-        "edges_drawn": 0,
+        # Edges drawn at a blocklisted name: only by a qualifying typed answer (issue 103).
+        "edges_drawn": sum(1 for r in blocked if r.get("band") in score.DRAWN
+                           and r.get("materialized", True)),
         "recall_c0": recall["recall"],
         "recall_c4": rec_c4["recall"],
         "relations_recovered_in_c4": rec_c4["drawn_correct"] - recall["drawn_correct"],

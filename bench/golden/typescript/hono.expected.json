@@ -2093,6 +2093,12 @@
       "band": "scoped"
     },
     {
+      "src_qn": "src.helper.css.index.test.toCSS",
+      "dst_qn": "src.helper.css.index.test.toString",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "src.helper.css.index.test.toString",
       "dst_qn": "src.jsx.base.isValidElement",
       "kind": "CALLS",
@@ -2437,6 +2443,12 @@
     {
       "src_qn": "src.helper.streaming.sse.SSEStreamingApi.writeSSE",
       "dst_qn": "src.utils.html.resolveCallback",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "src.helper.streaming.sse.SSEStreamingApi.writeSSE",
+      "dst_qn": "src.utils.stream.StreamingApi.write",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -9237,6 +9249,12 @@
       "dst_qn": "src.utils.stream.StreamingApi.abort",
       "kind": "CALLS",
       "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "src.utils.stream.StreamingApi.writeln",
+      "dst_qn": "src.utils.stream.StreamingApi.write",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "src.utils.url._decodeURI",

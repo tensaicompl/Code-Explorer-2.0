@@ -1,6 +1,7 @@
-//! Stage 3's resolution stages (P2-06): the generic blocklist, the engine's typed and
-//! external answers, the lexical facts that stop resolution by name, and the Rust
-//! stages that narrow each site's candidates.
+//! Stage 3's resolution stages (P2-06): the engine's qualifying typed answer, the
+//! generic blocklist after it (issue 103), the engine's external answers, the lexical
+//! facts that stop resolution by name, and the Rust stages that narrow each site's
+//! candidates.
 //!
 //! Every repository here is real: written to a checkout, discovered, extracted by the
 //! engine and registered. Where a test needs particular engine evidence it gives the
@@ -18,8 +19,8 @@ use pdx_core::index::extract::{ExtractLimits, ExtractReport, ExtractStage, FsCac
 use pdx_core::resolve::blocklist;
 use pdx_core::resolve::registry::{DefinitionRef, SymbolRegistry};
 use pdx_core::resolve::stages::{
-    InvalidResolution, Narrowed, NarrowingStage, Resolution, ResolutionError, ResolveReport,
-    Unconfirmed, narrow, resolve, resolve_with, typed_resolution,
+    EngineAnswer, InvalidResolution, Narrowed, NarrowingStage, Resolution, ResolutionError,
+    ResolveReport, Unconfirmed, narrow, resolve, resolve_with, typed_resolution,
 };
 use pdx_engine::{
     ProjectResolution, RunHealth, RunStatus, SiteRef, Strategy, TextRef, TypedResolution,
@@ -366,7 +367,9 @@ fn settled_rows() -> Vec<Row> {
             path: "main.py",
             callee: "get",
             candidates: 1,
-            engine: Some((Some("store.py"), "store.get", Strategy::LspTyped, 1, 1.0)),
+            // A hint naming the target: only a qualifying typed answer passes the
+            // blocklist (issue 103).
+            engine: Some((Some("store.py"), "store.get", Strategy::ImportMap, 1, 1.0)),
             imports: "main imports get, which import-guided would take",
             hierarchy: "none",
             scope: "none",
@@ -585,6 +588,8 @@ fn zero_narrowing_result_keeps_previous_candidates() {
 
 #[test]
 fn blocklist_precedes_all() {
+    // P2-06's named test. Since issue 103 (decision 65) "all" is all but a qualifying
+    // typed answer, which comes first.
     // Appendix B.4's base list, exactly, and Python's documented additions.
     assert_eq!(blocklist::BASE.len(), 57);
     let mut unique = blocklist::BASE.to_vec();
@@ -603,8 +608,8 @@ fn blocklist_precedes_all() {
     }
     assert!(blocklist::ADDITIONS.iter().all(|a| a.language == "python"));
 
-    // Before a qualifying typed answer, before an engine-proven external target, and
-    // before every stage that would otherwise draw it.
+    // After a qualifying typed answer (issue 103), before an engine-proven external
+    // target, and before every stage that would otherwise draw it.
     let checkout = Checkout::new(&[
         ("store.py", "def get():\n    return 1\n"),
         (
@@ -613,10 +618,14 @@ fn blocklist_precedes_all() {
         ),
     ]);
     let reg = checkout.registry();
-    for engine in [
-        Some((Some(("store.py", "store.get")), Strategy::LspTyped, 1, 1.0)),
-        Some((None, Strategy::LspTyped, 1, 1.0)),
-        None,
+    let store_get = def(&reg, "store.py", "get");
+    for (engine, band) in [
+        (
+            Some((Some(("store.py", "store.get")), Strategy::LspTyped, 1, 1.0)),
+            Band::Typed,
+        ),
+        (Some((None, Strategy::LspTyped, 1, 1.0)), Band::Blocked),
+        (None, Band::Blocked),
     ] {
         let answers = engine
             .map(|(target, strategy, candidates, score)| {
@@ -627,12 +636,288 @@ fn blocklist_precedes_all() {
             .unwrap_or_default();
         let report = with_answers(&reg, answers);
         let got = at(&reg, &report, "main.py", "get");
-        assert_eq!(got.band(), Band::Blocked, "{engine:?}");
-        assert_eq!(got.target(), None);
+        assert_eq!(got.band(), band, "{engine:?}");
+        let target = (band == Band::Typed).then_some(&store_get);
+        assert_eq!(got.target(), target);
         assert!(got.candidates().is_empty());
         // The engine's calibration data is kept all the same.
         assert_eq!(got.engine_score(), engine.map(|e| e.3));
     }
+}
+
+/// Python: `name` defined once in `store`, imported by `main` and called there.
+fn one_generic(name: &str) -> Checkout {
+    Checkout::new(&[
+        ("store.py", &format!("def {name}():\n    return 1\n")),
+        (
+            "main.py",
+            &format!("from store import {name}\n\n\ndef caller():\n    return {name}()\n"),
+        ),
+    ])
+}
+
+#[test]
+fn a_qualifying_typed_answer_passes_the_blocklist() {
+    // Issue 103 (decision 65): the blocklist stops guessing by a generic name; it does
+    // not override the engine's typed evidence. The resolution is exactly the one a
+    // name off the list gets from the same answer.
+    for name in ["get", "run", "create", "update", "parse", "tally"] {
+        let checkout = one_generic(name);
+        let reg = checkout.registry();
+        assert_eq!(blocklist::is_blocked("python", name), name != "tally");
+        let typed = answer(
+            &reg,
+            "main.py",
+            name,
+            Some(("store.py", &format!("store.{name}"))),
+            Strategy::LspTyped,
+            1,
+            TYPED_MIN_SCORE,
+        );
+        let report = with_answers(&reg, vec![typed.clone()]);
+        let got = at(&reg, &report, "main.py", name);
+        let expected = Resolution::new(
+            Band::Typed,
+            Some(def(&reg, "store.py", name)),
+            Vec::new(),
+            Some(EngineAnswer::from(&typed)),
+        )
+        .expect("a typed resolution");
+        assert_eq!(got, &expected, "{name}");
+        // Without the answer, the generic name is blocked and the other is not.
+        let got = at(&reg, &by_name(&reg), "main.py", name).band();
+        if name == "tally" {
+            assert_eq!(got, Band::ImportGuided);
+        } else {
+            assert_eq!(got, Band::Blocked, "{name}");
+        }
+    }
+}
+
+#[test]
+fn only_a_qualifying_typed_answer_passes_the_blocklist() {
+    // A low score, a candidate count other than one, an out-of-range score and every
+    // other strategy (a hint or a diagnostic) leave a blocklisted name blocked, whatever
+    // target the answer names.
+    let checkout = one_generic("get");
+    let reg = checkout.registry();
+    let below = TYPED_MIN_SCORE - 1e-9;
+    let mut answers: Vec<(Strategy, u32, f64)> = vec![
+        (Strategy::LspTyped, 1, below),
+        (Strategy::LspTyped, 1, 0.0),
+        (Strategy::LspTyped, 1, f64::NAN),
+        (Strategy::LspTyped, 1, 1.5),
+        (Strategy::LspTyped, 2, 1.0),
+        (Strategy::LspTyped, 0, 1.0),
+    ];
+    for strategy in Strategy::ALL {
+        if strategy != Strategy::LspTyped {
+            answers.push((strategy, 1, 1.0));
+        }
+    }
+    for (strategy, candidates, score) in answers {
+        assert_ne!(
+            from_engine(score, strategy.as_str(), candidates),
+            EngineVerdict::Typed
+        );
+        let a = answer(
+            &reg,
+            "main.py",
+            "get",
+            Some(("store.py", "store.get")),
+            strategy,
+            candidates,
+            score,
+        );
+        let report = with_answers(&reg, vec![a]);
+        let got = at(&reg, &report, "main.py", "get");
+        assert_eq!(
+            got.band(),
+            Band::Blocked,
+            "{strategy:?} {candidates} {score}"
+        );
+        assert_eq!(got.target(), None);
+        assert!(got.candidates().is_empty());
+        assert_eq!(got.engine_strategy(), Some(strategy.as_str()));
+    }
+}
+
+#[test]
+fn an_ambiguous_typed_target_does_not_pass_the_blocklist() {
+    // A qualifying answer whose file and qualified name are two definitions (a
+    // redefinition), or none, is no typed target: the generic name stays blocked.
+    let checkout = Checkout::new(&[
+        (
+            "store.py",
+            "def get():\n    return 1\n\n\ndef get():\n    return 2\n",
+        ),
+        (
+            "main.py",
+            "from store import get\n\n\ndef caller():\n    return get()\n",
+        ),
+    ]);
+    let reg = checkout.registry();
+    assert_eq!(reg.by_qualified_name("store.get").len(), 2);
+    for qn in ["store.get", "store.get_gone"] {
+        let a = answer(
+            &reg,
+            "main.py",
+            "get",
+            Some(("store.py", qn)),
+            Strategy::LspTyped,
+            1,
+            1.0,
+        );
+        let got = at(&reg, &with_answers(&reg, vec![a]), "main.py", "get").clone();
+        assert_eq!(got.band(), Band::Blocked, "{qn}");
+        assert_eq!(got.target(), None);
+    }
+}
+
+#[test]
+fn blocklisted_sites_that_are_no_call_need_a_qualifying_answer() {
+    // A callable passed as a value and a site typed resolution found itself, with a
+    // blocklisted name: a qualifying typed answer makes each a call; without one each
+    // stays unconfirmed, never blocked or resolved by name (issue 103).
+    let checkout = Checkout::new(&[
+        ("store.py", "def run():\n    return 1\n"),
+        ("main.py", "from store import run\n\nhandler = run\n"),
+    ]);
+    let reg = checkout.registry();
+    let main = reg.extract("main.py").unwrap();
+    let index = main
+        .calls
+        .iter()
+        .position(|c| c.is_reference && main.text(&c.callee_text) == "run")
+        .unwrap_or_else(|| panic!("a reference: {:?}", main.calls));
+    let reference = SiteRef {
+        rel_path: "main.py".into(),
+        call_index: u32::try_from(index).unwrap(),
+    };
+    let past = u32::try_from(main.calls.len()).unwrap();
+    let engine_site = SiteRef {
+        rel_path: "main.py".into(),
+        call_index: past,
+    };
+    let reply = |site_ref: &SiteRef, site: pdx_engine::Call, strategy: Strategy, score: f64| {
+        TypedResolution {
+            site_ref: site_ref.clone(),
+            site,
+            target_qn: "store.run".into(),
+            target_rel_path: Some("store.py".into()),
+            score,
+            strategy,
+            engine_strategy: Some(strategy.as_str().to_owned()),
+            candidates: 1,
+        }
+    };
+    let found = pdx_engine::Call {
+        callee_text: TextRef::Owned("run".into()),
+        receiver_text: None,
+        caller: None,
+        span: None,
+        is_reference: false,
+        typed_only: true,
+        lexical: pdx_engine::LexicalFacts::default(),
+        ast_path: Vec::new(),
+        args: Vec::new(),
+    };
+    let run = def(&reg, "store.py", "run");
+    let typed = with_answers(
+        &reg,
+        vec![
+            reply(
+                &reference,
+                main.calls[index].clone(),
+                Strategy::LspTyped,
+                1.0,
+            ),
+            reply(&engine_site, found.clone(), Strategy::LspTyped, 1.0),
+        ],
+    );
+    for site in [&reference, &engine_site] {
+        let resolved = typed
+            .resolutions
+            .iter()
+            .find(|s| &s.site_ref == site)
+            .expect("a call now");
+        assert_eq!(resolved.resolution.band(), Band::Typed, "{site:?}");
+        assert_eq!(resolved.resolution.target(), Some(&run));
+    }
+    for (strategy, score) in [(Strategy::LspTyped, 0.5), (Strategy::ImportMap, 1.0)] {
+        let hinted = with_answers(
+            &reg,
+            vec![
+                reply(&reference, main.calls[index].clone(), strategy, score),
+                reply(&engine_site, found.clone(), strategy, score),
+            ],
+        );
+        for (site, reason) in [
+            (&reference, Unconfirmed::Reference),
+            (&engine_site, Unconfirmed::EngineSite),
+        ] {
+            assert!(
+                hinted.resolutions.iter().all(|s| &s.site_ref != site),
+                "{strategy:?} {site:?}"
+            );
+            assert!(
+                hinted
+                    .unconfirmed
+                    .iter()
+                    .any(|u| &u.site_ref == site && u.reason == reason)
+            );
+        }
+    }
+}
+
+#[test]
+fn issue_103_leaves_exact_and_scoped_drawn() {
+    // Issue 103 moves the blocklist after a qualifying typed answer and nothing else:
+    // `exact` and `scoped` are drawn until issue 102 changes them.
+    assert!(Band::Exact.is_drawn());
+    assert!(Band::Scoped.is_drawn());
+    assert!(!Band::Blocked.is_drawn());
+}
+
+#[test]
+fn a_typed_answer_the_blocklist_hid_is_drawn_as_the_engine_gives_it() {
+    // Issue 103 exposes the typed answers the blocklist used to hide, the wrong ones
+    // with the right ones. A0 found one wrong one in the Rust golden: a trait-qualified
+    // call, `Handler::call(handler, req, state)` (axum/src/handler/service.rs:171),
+    // which the engine's short-name fallback (`lsp_short_name_unique`, reported as
+    // `lsp_typed`) answers with the crate's only free function named `call`. This is
+    // the smallest repository with the same answer, through typed resolution itself.
+    // The answer is wrong: the call names the trait's method. Issue 104 owns that; this
+    // test records what the engine says today and that Stage 3 now draws it.
+    let checkout = Checkout::new(&[
+        (
+            "Cargo.toml",
+            "[package]\nname = \"dispatch\"\nversion = \"0.1.0\"\nedition = \"2021\"\n",
+        ),
+        (
+            "src/lib.rs",
+            "pub mod handler;\npub mod routing;\npub mod service;\n",
+        ),
+        (
+            "src/handler.rs",
+            "pub trait Handler {\n    fn call(self, x: u32) -> u32;\n}\n\npub struct Doubler;\n\nimpl Handler for Doubler {\n    fn call(self, x: u32) -> u32 {\n        x * 2\n    }\n}\n\npub struct Tripler;\n\nimpl Handler for Tripler {\n    fn call(self, x: u32) -> u32 {\n        x * 3\n    }\n}\n",
+        ),
+        (
+            "src/routing.rs",
+            "pub fn call(n: u32) -> u32 {\n    n + 1\n}\n",
+        ),
+        (
+            "src/service.rs",
+            "use crate::handler::Handler;\n\npub fn serve<H: Handler>(h: H) -> u32 {\n    Handler::call(h, 1)\n}\n",
+        ),
+    ]);
+    let reg = checkout.registry();
+    assert!(blocklist::is_blocked("rust", "call"));
+    let report = resolve(checkout.root(), &reg).expect("resolution succeeds");
+    let got = at(&reg, &report, "src/service.rs", "Handler::call");
+    assert_eq!(got.band(), Band::Typed);
+    assert_eq!(got.target(), Some(&def(&reg, "src/routing.rs", "call")));
+    assert_eq!(got.engine_strategy(), Some("lsp_short_name_unique"));
 }
 
 // --- the engine's answer ------------------------------------------------------------

@@ -210,6 +210,12 @@
     },
     {
       "src_qn": "Any",
+      "dst_qn": "handle",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "Any",
       "dst_qn": "returnObj",
       "kind": "CALLS",
       "band": "typed"
@@ -839,8 +845,32 @@
       "band": "typed"
     },
     {
+      "src_qn": "CreateTestContext",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "CreateTestContext",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "CreateTestContextOnly",
       "dst_qn": "allocateContext",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "CreateTestContextOnly",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "CreateTestContextOnly",
+      "dst_qn": "reset",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -870,6 +900,30 @@
     },
     {
       "src_qn": "CustomRecoveryWithWriter",
+      "dst_qn": "handle",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "CustomRecoveryWithWriter",
+      "dst_qn": "reset",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "CustomRecoveryWithWriter",
+      "dst_qn": "reset",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "CustomRecoveryWithWriter",
+      "dst_qn": "reset",
+      "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "CustomRecoveryWithWriter",
       "dst_qn": "secureRequestDump",
       "kind": "CALLS",
       "band": "typed"
@@ -901,6 +955,12 @@
     {
       "src_qn": "CustomRecoveryWithWriter",
       "dst_qn": "timeFormat",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "DELETE",
+      "dst_qn": "handle",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -1085,6 +1145,12 @@
       "band": "exact"
     },
     {
+      "src_qn": "GET",
+      "dst_qn": "handle",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "GetDuration",
       "dst_qn": "getTyped",
       "kind": "CALLS",
@@ -1265,6 +1331,12 @@
       "band": "typed"
     },
     {
+      "src_qn": "HEAD",
+      "dst_qn": "handle",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "HTML",
       "dst_qn": "Render",
       "kind": "CALLS",
@@ -1283,8 +1355,20 @@
       "band": "typed"
     },
     {
+      "src_qn": "Handle",
+      "dst_qn": "handle",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "HandleContext",
       "dst_qn": "handleHTTPRequest",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "HandleContext",
+      "dst_qn": "reset",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -1459,6 +1543,12 @@
     {
       "src_qn": "MarshalJSON",
       "dst_qn": "JSON",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "Match",
+      "dst_qn": "handle",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -1655,8 +1745,32 @@
       "band": "typed"
     },
     {
+      "src_qn": "OPTIONS",
+      "dst_qn": "handle",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "PATCH",
+      "dst_qn": "handle",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "PDF",
       "dst_qn": "Render",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "POST",
+      "dst_qn": "handle",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "PUT",
+      "dst_qn": "handle",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -1693,6 +1807,12 @@
     {
       "src_qn": "PureJSON",
       "dst_qn": "Render",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "QUERY",
+      "dst_qn": "handle",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -2076,6 +2196,18 @@
     },
     {
       "src_qn": "ServeHTTP",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "ServeHTTP",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "ServeHTTP",
       "dst_qn": "updateRouteTrees",
       "kind": "CALLS",
       "band": "typed"
@@ -2339,6 +2471,54 @@
       "band": "typed"
     },
     {
+      "src_qn": "TestAddRoute",
+      "dst_qn": "get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestAddRoute",
+      "dst_qn": "get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestAddRoute",
+      "dst_qn": "get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestAddRoute",
+      "dst_qn": "get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestAddRoute",
+      "dst_qn": "get",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestAddRoute",
+      "dst_qn": "get",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestAddRoute",
+      "dst_qn": "get",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestAddRoute",
+      "dst_qn": "get",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "TestAddRouteFails",
       "dst_qn": "New",
       "kind": "CALLS",
@@ -3368,6 +3548,12 @@
       "src_qn": "TestColorForMethod",
       "dst_qn": "MethodColor",
       "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestColorForMethod",
+      "dst_qn": "reset",
+      "kind": "CALL_REFERENCE",
       "band": "typed"
     },
     {
@@ -9739,6 +9925,18 @@
     {
       "src_qn": "TestContextReset",
       "dst_qn": "allocateContext",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestContextReset",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestContextReset",
+      "dst_qn": "reset",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -18965,6 +19163,18 @@
       "band": "exact"
     },
     {
+      "src_qn": "TestResponseWriterFlush",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterFlush",
+      "dst_qn": "reset",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "TestResponseWriterFlushWithFlusher",
       "dst_qn": "Flush",
       "kind": "CALLS",
@@ -19013,6 +19223,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "TestResponseWriterHijack",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterHijack",
+      "dst_qn": "reset",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "TestResponseWriterHijackAfterWrite",
       "dst_qn": "ResponseWriter.Written",
       "kind": "CALLS",
@@ -19061,6 +19283,18 @@
       "band": "scoped"
     },
     {
+      "src_qn": "TestResponseWriterHijackAfterWrite",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterHijackAfterWrite",
+      "dst_qn": "reset",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "TestResponseWriterHijackAfterWriteHeaderNow",
       "dst_qn": "ResponseWriter.Written",
       "kind": "CALLS",
@@ -19095,6 +19329,18 @@
       "dst_qn": "Run",
       "kind": "TESTS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "TestResponseWriterHijackAfterWriteHeaderNow",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterHijackAfterWriteHeaderNow",
+      "dst_qn": "reset",
+      "kind": "TESTS",
+      "band": "typed"
     },
     {
       "src_qn": "TestResponseWriterReset",
@@ -19129,6 +19375,18 @@
     {
       "src_qn": "TestResponseWriterReset",
       "dst_qn": "ResponseWriter.Written",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterReset",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterReset",
+      "dst_qn": "reset",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -19177,6 +19435,18 @@
     {
       "src_qn": "TestResponseWriterStatusCode",
       "dst_qn": "ResponseWriter.Written",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterStatusCode",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterStatusCode",
+      "dst_qn": "reset",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -19229,6 +19499,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "TestResponseWriterWrite",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterWrite",
+      "dst_qn": "reset",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "TestResponseWriterWriteHeader",
       "dst_qn": "ResponseWriter.Status",
       "kind": "CALLS",
@@ -19261,6 +19543,18 @@
     {
       "src_qn": "TestResponseWriterWriteHeader",
       "dst_qn": "ResponseWriter.Written",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterWriteHeader",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterWriteHeader",
+      "dst_qn": "reset",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -19321,6 +19615,18 @@
     {
       "src_qn": "TestResponseWriterWriteHeadersNow",
       "dst_qn": "ResponseWriter.Written",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterWriteHeadersNow",
+      "dst_qn": "reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "TestResponseWriterWriteHeadersNow",
+      "dst_qn": "reset",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -25230,6 +25536,12 @@
     },
     {
       "src_qn": "addRoute",
+      "dst_qn": "get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "addRoute",
       "dst_qn": "incrementChildPrio",
       "kind": "CALLS",
       "band": "typed"
@@ -25379,6 +25691,36 @@
       "band": "typed"
     },
     {
+      "src_qn": "binding.Bind",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.Bind",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.Bind",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.Bind",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.Bind",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "binding.BindBody",
       "dst_qn": "binding.decodeJSON",
       "kind": "CALLS",
@@ -25417,6 +25759,12 @@
     {
       "src_qn": "binding.BindUri",
       "dst_qn": "binding.mapURI",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.BindUri",
+      "dst_qn": "binding.validate",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -28295,6 +28643,42 @@
       "band": "typed"
     },
     {
+      "src_qn": "binding.TestValidateAndModifyStruct",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateAndModifyStruct",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationPointers",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationPointers",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationPointers",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationPointers",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "binding.TestValidateNoValidationValues",
       "dst_qn": "binding.createNoValidationValues",
       "kind": "CALLS",
@@ -28315,6 +28699,150 @@
     {
       "src_qn": "binding.TestValidateNoValidationValues",
       "dst_qn": "binding.createNoValidationValues",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationValues",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationValues",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationValues",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationValues",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationValues",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationValues",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationValues",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidateNoValidationValues",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatePrimitives",
+      "dst_qn": "binding.validate",
       "kind": "TESTS",
       "band": "typed"
     },
@@ -28346,6 +28874,18 @@
       "src_qn": "binding.TestValidatorEngine",
       "dst_qn": "binding.notOne",
       "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatorEngine",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.TestValidatorEngine",
+      "dst_qn": "binding.validate",
+      "kind": "TESTS",
       "band": "typed"
     },
     {
@@ -28578,6 +29118,12 @@
     },
     {
       "src_qn": "binding.decodeJSON",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.decodeJSON",
       "dst_qn": "codec.json.Decoder.DisallowUnknownFields",
       "kind": "CALLS",
       "band": "exact"
@@ -28587,6 +29133,12 @@
       "dst_qn": "codec.json.Decoder.UseNumber",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "binding.decodeMsgPack",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "binding.decodePlain",
@@ -28601,10 +29153,28 @@
       "band": "scoped"
     },
     {
+      "src_qn": "binding.decodeToml",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "binding.decodeXML",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "binding.decodeYAML",
       "dst_qn": "binding.NewDecoder",
       "kind": "CALLS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "binding.decodeYAML",
+      "dst_qn": "binding.validate",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "binding.lazyinit",
@@ -31771,6 +32341,54 @@
     {
       "src_qn": "render.TestRenderJsonpJSONError",
       "dst_qn": "render.Render",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "render.TestRenderJsonpJSONError",
+      "dst_qn": "render.reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "render.TestRenderJsonpJSONError",
+      "dst_qn": "render.reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "render.TestRenderJsonpJSONError",
+      "dst_qn": "render.reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "render.TestRenderJsonpJSONError",
+      "dst_qn": "render.reset",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "render.TestRenderJsonpJSONError",
+      "dst_qn": "render.reset",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "render.TestRenderJsonpJSONError",
+      "dst_qn": "render.reset",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "render.TestRenderJsonpJSONError",
+      "dst_qn": "render.reset",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "render.TestRenderJsonpJSONError",
+      "dst_qn": "render.reset",
       "kind": "TESTS",
       "band": "typed"
     },

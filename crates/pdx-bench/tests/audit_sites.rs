@@ -76,20 +76,31 @@ fn a_site_carries_its_band_target_and_what_the_audit_reads() {
 }
 
 #[test]
-fn a_blocklisted_site_is_blocked_and_keeps_the_engines_answer() {
+fn a_blocklisted_name_is_typed_with_a_qualifying_answer_and_blocked_without() {
+    // Stage 3 takes a qualifying typed answer before the blocklist (issue 103); the
+    // dataset keeps the name's blocklisting and the engine's answer either way, which
+    // is what A0 counts blocked typed answers by.
     let rows = dataset(&[(
         "app/main.py",
-        "class Store:\n    def update(self):\n        return 1\n\n\ndef caller():\n    s = Store()\n    return s.update()\n",
+        "class Store:\n    def update(self):\n        return 1\n\n\ndef caller():\n    s = Store()\n    return s.update()\n\n\ndef untyped(t):\n    return t.update()\n",
     )]);
-    let [site] = sites(&rows, "update")[..] else {
-        panic!("one site");
+    let found = sites(&rows, "update");
+    let [typed, blocked] = found[..] else {
+        panic!("two sites: {found:?}");
     };
-    assert_eq!(site["band"], "blocked");
-    assert_eq!(site["blocklisted"], true);
-    assert_eq!(site["target"], Value::Null);
-    // Stage 3 settles the blocklist first; the engine's answer stays beside it.
-    if let Some(engine) = site["engine"].as_object() {
-        assert!(engine.contains_key("verdict"));
-        assert!(engine.contains_key("mapped"));
-    }
+    assert_eq!(typed["callee"], "s.update");
+    assert_eq!(typed["band"], "typed");
+    assert_eq!(typed["blocklisted"], true);
+    assert_eq!(typed["engine"]["verdict"], "typed");
+    assert_eq!(typed["engine"]["mapped"].as_array().map(Vec::len), Some(1));
+    let def = rows
+        .iter()
+        .find(|r| r["t"] == "def" && r["name"] == "update")
+        .expect("the method");
+    assert_eq!(typed["target"][1], def["i"]);
+    assert_eq!(blocked["callee"], "t.update");
+    assert_eq!(blocked["band"], "blocked");
+    assert_eq!(blocked["blocklisted"], true);
+    assert_eq!(blocked["target"], Value::Null);
+    assert_ne!(blocked["engine"]["verdict"], "typed");
 }

@@ -192,6 +192,59 @@ class Measures(unittest.TestCase):
         self.assertEqual([score.edge_under("C5", r)[0] for r in rows], [None, "scoped", "typed"])
 
 
+class SiteRows(unittest.TestCase):
+    def test_a_site_row_keeps_the_datasets_one_based_line(self):
+        """The dataset's line is the interface's span line, 1-based: a site on the
+        third line of its file is on line 3, not 4."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            src = b"a = 1\nb = 2\nrun_it()\n"
+            Path(d, "m.py").write_bytes(src)
+            start = src.index(b"run_it")
+            site = {"path": "m.py", "i": 0, "status": "resolved", "band": "unresolved",
+                    "span": [start, start + 8], "line": 3, "callee": "run_it",
+                    "callee_span": [start, start + 6], "name": "run_it", "caller": None,
+                    "engine": None, "target": None}
+            files = {"m.py": {"path": "m.py", "language": "python", "outcome": "extracted",
+                              "source_len": len(src)}}
+            ds = audit.Dataset({}, files, {}, {}, [site], None)
+            row = audit._site_row("c", "python", ds, audit.Oracle(), {}, audit.Sources(Path(d)),
+                                  site, (start, start + 6), set(), {})
+            self.assertEqual(row["line"], 3)
+
+
+class BlocklistAccounting(unittest.TestCase):
+    def test_only_a_blocked_site_counts_as_suppressed(self):
+        """A blocklisted name Stage 3 draws as typed (issue 103) is an accepted typed
+        answer, not a suppressed one."""
+        import report
+        base = {"status": "resolved", "blocklisted": True, "file": "a.py", "site": 0,
+                "oracle_status": "mapped", "oracle_target": ["a.py", 1], "is_reference": False,
+                "typed_target_verdict": "correct", "materialized": True}
+        rows = [dict(base, site=0, band="blocked", typed_target=["a.py", 1]),
+                dict(base, site=1, band="typed", typed_target=["a.py", 1], target=["a.py", 1],
+                     verdict="correct"),
+                dict(base, site=2, band="blocked", typed_target=None)]
+        defs = {("a.py", 1): {"kind": "Function", "name": "get", "qn": "a.get", "path": "a.py",
+                              "i": 1}}
+        meta = {"language": "python", "oracle_tools": [], "dataset_format": 1,
+                "engine_health": "", "language_files": 1, "language_files_indexed": 1,
+                "symbols": {}, "oracle_unconvertible_occurrences": 0,
+                "oracle_assumed_encoding": {}, "parse_failures": [], "macro_invocations": []}
+
+        class NoSources:
+            def get(self, _path):
+                return None
+        out, _ = report.build("c", rows, [], meta, defs, {}, NoSources())
+        bl = out["blocklist"]
+        self.assertEqual(bl["sites"], 3)
+        self.assertEqual(bl["typed_answer_suppressed_by_blocklist"], 1)
+        self.assertEqual(bl["typed_answer_accepted_before_blocklist"], 1)
+        self.assertEqual(bl["no_typed_answer_and_blocked"], 1)
+        self.assertEqual(bl["final_band:blocked"], 2)
+        self.assertEqual(bl["edges_drawn"], 1)
+
+
 class Verdicts(unittest.TestCase):
     def setUp(self):
         defs = {

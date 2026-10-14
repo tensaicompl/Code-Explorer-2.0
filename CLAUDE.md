@@ -61,6 +61,9 @@ Remediation order, **each step only when the driver authorises it**:
 | R9 | 96 | secrets |
 | R10 | 97 | SQL prose contracts |
 
+**R1 is done (issue 103 resolved, 2026-10-14).** A qualifying typed answer now comes
+before the blocklist. R2 (issue 104) is next, **only when the driver authorises it**.
+
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. A recall gain that draws
 low-confidence edges again is not accepted. Not drawing `exact` and `scoped` lowers
@@ -354,10 +357,11 @@ the buffer Stage 2 supplies is the whole input.
   82 and 93.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
-repository on every build, then settles each site in a fixed precedence: the B.4
-blocklist first, even over a typed answer; then the engine (`typed` only through
-`bands::from_engine` and a target that is exactly one definition; a target in no file
-of the project is `external`, issue 45); then local bindings (`unresolved`) and
+repository on every build, then settles each site in a fixed precedence: a qualifying
+typed answer first (`typed` only through `bands::from_engine` and a target that is
+exactly one definition, whatever the callee's name; issue 103); then the B.4
+blocklist, which no engine hint passes; then the engine's other answers (a target in
+no file of the project is `external`, issue 45); then local bindings (`unresolved`) and
 external-only bindings (`external`); then import-guided, inheritance-guided, exact and
 scoped through `narrow`, which never lets a stage add a candidate or an empty stage
 erase one; then `candidate` or `unresolved`. Engine hints seed candidates and never

@@ -10,6 +10,30 @@ This is not P5-06. No P5 task is started or done by it. The oracle is a
 compiler-grade indexer run locally beside the structural engine, and no part of it
 is in the product.
 
+## Runs
+
+The result files hold the latest run. Earlier runs stay in Git history:
+
+| Run | Resolver measured | Results committed at |
+|---|---|---|
+| A0.1 baseline | `e746b1e` | `71bec72` (`git show 71bec72:bench/results/a0/<file>`) |
+| post-R1, issue 103 (typed before the blocklist) | the commit "Issue 103: accept typed answers before blocklist", parent `2663ff5` | that commit (these files) |
+
+Every run uses the same golden pins, oracle versions and configuration,
+`a0-match-1` and `a0-metrics-1`. The PDX diagnostic corpus is `e746b1e` in both, so
+its change is the resolver's alone.
+
+The post-R1 run also corrects three harness outputs. None of the three changes a
+baseline number: run over the baseline's datasets, they reproduce the committed
+baseline documents and `mismatches.jsonl` exactly.
+
+- An intermediate per-site `line` was one too high. The interface's span lines are
+  already 1-based; result files recompute lines from bytes.
+- The blocklist section counted a blocklisted name with a typed answer as
+  suppressed even when Stage 3 draws it as typed.
+- The provenance names the resolver measured (`resolver`) apart from the PDX corpus
+  commit.
+
 ## Files
 
 | File | What it holds |
@@ -237,7 +261,7 @@ python3 scripts/a0/test_a0.py
 python3 scripts/a0/run.py --work DIR \
     --scip-python BIN --rust-analyzer BIN --rust-src DIR \
     --toolchain ~/.rustup/toolchains/1.98.1-x86_64-unknown-linux-gnu \
-    --self-sha <plan-control commit>
+    --self-sha <PDX corpus commit> --resolver "<the resolver measured>"
 ```
 
 `run.py` checks the sanity fixtures first. These are the cases in

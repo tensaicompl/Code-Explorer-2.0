@@ -365,6 +365,12 @@
       "band": "exact"
     },
     {
+      "src_qn": "buildSrc.src.main.kotlin.org.jetbrains.exposed.gradle.Detekt.configureDetekt",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "buildSrc.src.main.kotlin.org.jetbrains.exposed.gradle.TestDbDsl.TestDb.dependencies",
       "dst_qn": "buildSrc.src.main.kotlin.org.jetbrains.exposed.gradle.TestDbDsl.DependencyBlock",
       "kind": "CALLS",
@@ -7878,6 +7884,12 @@
     },
     {
       "src_qn": "documentation-website.Writerside.snippets.exposed-dsl.src.main.kotlin.org.example.App.runDeleteExamples",
+      "dst_qn": "documentation-website.Writerside.snippets.exposed-dsl.src.main.kotlin.org.example.examples.DeleteExamples.DeleteExamples.delete",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "documentation-website.Writerside.snippets.exposed-dsl.src.main.kotlin.org.example.App.runDeleteExamples",
       "dst_qn": "documentation-website.Writerside.snippets.exposed-dsl.src.main.kotlin.org.example.examples.DeleteExamples.DeleteExamples.deleteAll",
       "kind": "CALLS",
       "band": "typed"
@@ -7891,6 +7903,12 @@
     {
       "src_qn": "documentation-website.Writerside.snippets.exposed-dsl.src.main.kotlin.org.example.App.runQueryingExamples",
       "dst_qn": "documentation-website.Writerside.snippets.exposed-dsl.src.main.kotlin.org.example.examples.QueryingExamples.QueryingExamples.useWhereConditions",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "documentation-website.Writerside.snippets.exposed-dsl.src.main.kotlin.org.example.App.runReadExamples",
+      "dst_qn": "documentation-website.Writerside.snippets.exposed-dsl.src.main.kotlin.org.example.examples.ReadExamples.ReadExamples.read",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -9875,10 +9893,28 @@
       "band": "exact"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.adjustComments",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.adjustHaving",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.arguments",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.fetchSize",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.prepareSQL",
@@ -9900,9 +9936,33 @@
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.prepareSQL",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder.toString",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.prepareSQL",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.transactions.Transactions.currentTransaction",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.prepareSQL",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.withDistinct",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.withDistinctOn",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Alias.Alias.clone",
@@ -10177,6 +10237,12 @@
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Column.Column.dropStatement",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.transactions.Transactions.currentTransaction",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Column.Column.isOneColumnPK",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Column.Column.equals",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -11039,9 +11105,33 @@
       "band": "exact"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.Expression.toString",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder.toString",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder.append",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.Expression.toQueryBuilder",
       "kind": "CALL_REFERENCE",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder.append",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder.append",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder.append",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
       "band": "typed"
     },
     {
@@ -11071,6 +11161,12 @@
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder.registerArguments",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.IColumnType.parameterMarker",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.append",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -14621,6 +14717,12 @@
       "band": "import-guided"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Schema.appendIfNotNull",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.SchemaUtilityApi.SchemaUtilityApi.dbDefaultToString",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Column.Column.withColumnType",
       "kind": "CALLS",
@@ -15095,6 +15197,18 @@
       "band": "inheritance-guided"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.check",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.clientDefault",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.cloneWithAutoInc",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Column.Column.withColumnType",
       "kind": "CALLS",
@@ -15121,6 +15235,12 @@
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.cloneWithAutoInc",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.fallbackSequenceName",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.comment",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -15197,6 +15317,12 @@
       "band": "inheritance-guided"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.databaseGenerated",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.decimal",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ColumnType.DecimalColumnType",
       "kind": "CALLS",
@@ -15207,6 +15333,24 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.registerColumn",
       "kind": "CALLS",
       "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.default",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.default",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.defaultExpression",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.describe",
@@ -15365,6 +15509,12 @@
       "band": "scoped"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.index",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.innerJoin",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Join.Join",
       "kind": "CALLS",
@@ -15509,6 +15659,12 @@
       "band": "inheritance-guided"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.nullable",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.primaryKeyConstraint",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.api.IdentifierManagerApi.IdentifierManagerApi.cutIfNecessaryAndQuote",
       "kind": "CALLS",
@@ -15547,6 +15703,18 @@
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.references",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Constraints.ForeignKeyConstraint.ForeignKeyConstraint",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.references",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.references",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -15771,6 +15939,12 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.registerColumn",
       "kind": "CALLS",
       "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.withDefinition",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.TableOption.toString",
@@ -16175,6 +16349,30 @@
       "band": "exact"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.groups",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.groups",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.orderBy",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.partitionBy",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.range",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFrameClause",
       "kind": "CALLS",
@@ -16185,6 +16383,18 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFrameClause",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.range",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.range",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.rows",
@@ -16197,6 +16407,18 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFrameClause",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.rows",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.rows",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.WindowFunction.WindowFunctionDefinition.toQueryBuilder",
@@ -17159,6 +17381,12 @@
       "band": "exact"
     },
     {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.DeleteStatement.DeleteStatement.prepareSQL",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.vendors.H2.H2FunctionProvider.delete",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.InsertStatement.InsertStatement.arguments",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Expression.QueryBuilder",
       "kind": "CALLS",
@@ -17673,6 +17901,12 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Exceptions.throwUnsupportedException",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.UpdateStatement.UpdateStatement.prepareSQL",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.vendors.H2.H2FunctionProvider.update",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.statements.UpdateStatement.UpdateStatement.registerAdditionalArgs",
@@ -26699,6 +26933,12 @@
       "band": "exact"
     },
     {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityTests.ComparableLongEntity.hashCode",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Column.Column.hashCode",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityTests.EntityTests.preloadBackReferrenceOnASizedIterable",
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.transactions.Transactions.inTopLevelSuspendTransaction",
       "kind": "CALLS",
@@ -27093,6 +27333,12 @@
       "dst_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EntityCache.flushCache",
       "kind": "TESTS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityTests.Region.hashCode",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Column.Column.hashCode",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-dao-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.tests.shared.EntityWithBlobTests.EntityWithBlobTests.testBlobField",
@@ -30791,6 +31037,12 @@
       "band": "exact"
     },
     {
+      "src_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EagerLoading.load",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EagerLoading.preloadCompositeReference",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.dao.id.CompositeID.CompositeID",
       "kind": "CALLS",
@@ -31458,6 +31710,12 @@
     },
     {
       "src_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.Entity.Entity.writeCompositeIdColumnValue",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.dao.id.CompositeID.CompositeID.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.Entity.Entity.writeCompositeIdColumnValue",
       "dst_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.Entity.Entity.stageWrite",
       "kind": "CALLS",
       "band": "inheritance-guided"
@@ -31497,6 +31755,12 @@
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.statements.BatchUpdateSuspendExecutable.BatchUpdateSuspendExecutable",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EntityCache.EntityCache.adoptGeneratedValues",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ResultRow.ResultRow.get",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-dao-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.dao.r2dbc.EntityCache.EntityCache.adoptGeneratedValues",
@@ -33587,6 +33851,12 @@
       "band": "scoped"
     },
     {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.writeCompositeIdColumnValue",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.dao.id.CompositeID.CompositeID.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.writeIdColumnValue",
       "dst_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.Entity.Entity.writeCompositeIdColumnValue",
       "kind": "CALLS",
@@ -35033,6 +35303,12 @@
       "band": "scoped"
     },
     {
+      "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.load",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-dao.src.main.kotlin.org.jetbrains.exposed.v1.dao.References.preloadRelations",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.groupBy",
       "kind": "CALLS",
@@ -35640,9 +35916,21 @@
     },
     {
       "src_qn": "exposed-gradle-plugin.src.test.kotlin.org.jetbrains.exposed.v1.gradle.plugin.integrations.IntegrationTestBase.IntegrationTestBase.runBuild",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-gradle-plugin.src.test.kotlin.org.jetbrains.exposed.v1.gradle.plugin.integrations.IntegrationTestBase.IntegrationTestBase.runBuild",
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.R2dbcDatabaseConfig.Builder.build",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-gradle-plugin.src.test.kotlin.org.jetbrains.exposed.v1.gradle.plugin.integrations.IntegrationTestBase.IntegrationTestBase.runBuildAndFail",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-gradle-plugin.src.test.kotlin.org.jetbrains.exposed.v1.gradle.plugin.integrations.MigrationsIntegrationTest.MigrationsIntegrationTest.commandLineArgumentAppearsOnHelp",
@@ -40295,6 +40583,18 @@
       "band": "inheritance-guided"
     },
     {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.adjustSelect",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.adjustWhere",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.copy",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.AbstractQuery.AbstractQuery.copyTo",
       "kind": "CALLS",
@@ -40341,6 +40641,30 @@
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.iterator",
       "kind": "CALLS",
       "band": "inheritance-guided"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.limit",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.offset",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.orderBy",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.withDistinctOn",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.Query.Query.withDistinctOn",
@@ -40827,6 +41151,24 @@
       "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcResult.JdbcResult",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.SetOperations.SetOperation.limit",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.SetOperations.SetOperation.offset",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.SetOperations.SetOperation.orderBy",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.SetOperations.SetOperation.prepareSQL",
@@ -41778,6 +42120,12 @@
     },
     {
       "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcDatabaseMetadataImpl.JdbcDatabaseMetadataImpl.tableNamesByCurrentSchema",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.utils.CachableMapWithDefault.CacheWithDefault.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.jdbc.JdbcDatabaseMetadataImpl.JdbcDatabaseMetadataImpl.tableNamesByCurrentSchema",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.vendors.SchemaMetadata.SchemaMetadata",
       "kind": "CALLS",
       "band": "exact"
@@ -41925,6 +42273,12 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.transactions.suspend.TransactionContextHolder.TransactionContextHolderImpl",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager.ThreadLocalTransaction.close",
+      "dst_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.statements.api.ExposedConnection.ExposedConnection.close",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-jdbc.src.main.kotlin.org.jetbrains.exposed.v1.jdbc.transactions.TransactionManager.ThreadLocalTransaction.close",
@@ -112625,6 +112979,18 @@
       "band": "inheritance-guided"
     },
     {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.adjustSelect",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.adjustWhere",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.collect",
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.ExposedR2dbcException.ExposedR2dbcException.ExposedR2dbcException",
       "kind": "CALLS",
@@ -112695,6 +113061,30 @@
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.adjustWhere",
       "kind": "CALLS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.limit",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.offset",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.orderBy",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.withDistinctOn",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.Query.Query.withDistinctOn",
@@ -113349,6 +113739,24 @@
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.statements.api.R2dbcResult.rowsCount",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.SetOperations.SetOperation.limit",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.SetOperations.SetOperation.offset",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.SetOperations.SetOperation.orderBy",
+      "dst_qn": "exposed-gradle-plugin.src.main.kotlin.org.jetbrains.exposed.v1.gradle.plugin.ExposedGradlePlugin.ExposedGradlePlugin.apply",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.SetOperations.SetOperation.prepareSQL",
@@ -114750,6 +115158,12 @@
     },
     {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.statements.api.R2dbcDatabaseMetadataImpl.R2dbcDatabaseMetadataImpl.tableNamesByCurrentSchema",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.utils.CachableMapWithSuspendableDefault.CacheWithSuspendableDefault.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.statements.api.R2dbcDatabaseMetadataImpl.R2dbcDatabaseMetadataImpl.tableNamesByCurrentSchema",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.vendors.SchemaMetadata.SchemaMetadata",
       "kind": "CALLS",
       "band": "exact"
@@ -114885,6 +115299,12 @@
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.transactions.suspend.TransactionContextHolder.TransactionContextHolderImpl",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.transactions.TransactionManager.R2dbcLocalTransaction.close",
+      "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.statements.api.R2dbcExposedConnection.R2dbcExposedConnection.close",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.transactions.TransactionManager.R2dbcLocalTransaction.close",
@@ -155112,6 +155532,42 @@
     },
     {
       "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.types.ArrayColumnTypeTests.ArrayColumnTypeTests.testArrayColumnInsertAndSelect",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ResultRow.ResultRow.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.types.ArrayColumnTypeTests.ArrayColumnTypeTests.testArrayColumnInsertAndSelect",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ResultRow.ResultRow.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.types.ArrayColumnTypeTests.ArrayColumnTypeTests.testArrayColumnInsertAndSelect",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ResultRow.ResultRow.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.types.ArrayColumnTypeTests.ArrayColumnTypeTests.testArrayColumnInsertAndSelect",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ResultRow.ResultRow.get",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.types.ArrayColumnTypeTests.ArrayColumnTypeTests.testArrayColumnInsertAndSelect",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ResultRow.ResultRow.get",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.types.ArrayColumnTypeTests.ArrayColumnTypeTests.testArrayColumnInsertAndSelect",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ResultRow.ResultRow.get",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "exposed-tests.src.test.kotlin.org.jetbrains.exposed.v1.tests.shared.types.ArrayColumnTypeTests.ArrayColumnTypeTests.testArrayColumnInsertAndSelect",
       "dst_qn": "exposed-tests.src.main.kotlin.org.jetbrains.exposed.v1.tests.shared.Assert.assertTrue",
       "kind": "CALLS",
       "band": "import-guided"
@@ -160764,6 +161220,12 @@
     },
     {
       "src_qn": "samples.exposed-ktor-r2dbc.src.main.kotlin.domain.issue.IssuesTable.rowToIssue",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ResultRow.ResultRow.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "samples.exposed-ktor-r2dbc.src.main.kotlin.domain.issue.IssuesTable.rowToIssue",
       "dst_qn": "samples.exposed-ktor-r2dbc.src.main.kotlin.domain.issue.Issue.Issue",
       "kind": "CALLS",
       "band": "exact"
@@ -160785,6 +161247,12 @@
       "dst_qn": "samples.exposed-ktor-r2dbc.src.main.kotlin.domain.user.User.UserId",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "samples.exposed-ktor-r2dbc.src.main.kotlin.domain.issue.IssuesTable.rowToIssueSummarized",
+      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.ResultRow.ResultRow.get",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "samples.exposed-ktor-r2dbc.src.main.kotlin.domain.issue.IssuesTable.rowToIssueSummarized",
@@ -161061,6 +161529,12 @@
       "dst_qn": "samples.exposed-ktor.src.main.kotlin.plugins.UsersSchema.UserService",
       "kind": "CALLS",
       "band": "scoped"
+    },
+    {
+      "src_qn": "samples.exposed-ktor.src.main.kotlin.plugins.Databases.configureDatabases",
+      "dst_qn": "samples.exposed-ktor.src.main.kotlin.plugins.UsersSchema.UserService.read",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "samples.exposed-ktor.src.main.kotlin.plugins.Databases.configureDatabases",

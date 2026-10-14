@@ -5,22 +5,25 @@
 //! added in path order with the registry's metadata; nothing of an earlier build's
 //! answers is reused. Then every site is settled, in this order of precedence:
 //!
-//! 1. The generic-name blocklist (Appendix B.4, [`blocklist`]): `blocked`, whatever
-//!    else is known.
-//! 2. The engine's answer: `typed` when [`from_engine`] says so and its target is
-//!    exactly one definition of the repository; `external` when its target is in no
-//!    file of the project (issue 45). Any other answer is a hint, which adds its
-//!    target to the candidates and never removes one.
-//! 3. The lexical facts and bindings, which stop resolution by name: a name the
+//! 1. A qualifying typed answer: `typed` when [`from_engine`] says so and its target
+//!    is exactly one definition of the repository, whatever the callee's name (issue
+//!    103, decision 65).
+//! 2. The generic-name blocklist (Appendix B.4, [`blocklist`]): `blocked`, before the
+//!    engine's other answers and every stage that resolves by name. Only a qualifying
+//!    typed answer comes before it; an engine hint never does.
+//! 3. The engine's other answers: `external` when its target is in no file of the
+//!    project (issue 45). Any other answer is a hint, which adds its target to the
+//!    candidates and never removes one.
+//! 4. The lexical facts and bindings, which stop resolution by name: a name the
 //!    source binds locally (`BLOCKED`, `BLOCKED_LOCALLY`, `LOCALLY_BOUND`) is
 //!    `unresolved`; a name the file binds only through imports of external packages
 //!    is `external`; a member call on a receiver nothing ties to a type
 //!    (`UNRESOLVED_MEMBER`) is never resolved by its name alone: only the
 //!    inheritance-guided stage, and the import-guided stage when the receiver is a
 //!    name the file imports from the repository, may settle it.
-//! 4. The Rust stages, each narrowing one sorted set of candidates: import-guided,
+//! 5. The Rust stages, each narrowing one sorted set of candidates: import-guided,
 //!    inheritance-guided, exact, scoped ([`narrow`]).
-//! 5. What is left: `candidate` with the narrowest set reached, or `unresolved`.
+//! 6. What is left: `candidate` with the narrowest set reached, or `unresolved`.
 //!
 //! A site that is only a question for typed resolution (`typed_only`), a callable
 //! passed as a value (`is_reference`) and a site typed resolution found itself are
@@ -716,18 +719,20 @@ impl Resolver<'_> {
             )?))
         };
 
-        // 1. The blocklist, before anything else.
-        if blocklist::is_blocked(language.id, name) {
-            return made(Band::Blocked, None, Vec::new());
-        }
-        // 2. The engine's answer: a target in no file of the project, or a typed one.
-        if engine_external {
-            return made(Band::External, None, Vec::new());
-        }
+        // 1. A qualifying typed answer, whatever the callee's name (issue 103).
         if let Some(target) = typed_target {
             return made(Band::Typed, Some(target), Vec::new());
         }
-        // 3. to 5. By name.
+        // 2. The blocklist, before the engine's other answers and every stage by name.
+        if blocklist::is_blocked(language.id, name) {
+            return made(Band::Blocked, None, Vec::new());
+        }
+        // 3. The engine's other answer that settles a site: a target in no file of the
+        // project.
+        if engine_external {
+            return made(Band::External, None, Vec::new());
+        }
+        // 4. to 6. By name.
         let resolution = self.by_name(path, language, call, &callee, mapped)?;
         Ok(Outcome::Resolved(Resolution {
             engine,
@@ -749,7 +754,7 @@ impl Resolver<'_> {
     ) -> Result<Resolution, ResolutionError> {
         let (receiver, name) = split_callee(spelled);
         let made = |band, target, candidates| Resolution::new(band, target, candidates, None);
-        // 3. What stops resolution by name.
+        // 4. What stops resolution by name.
         if LOCALLY_BOUND.iter().any(|f| call.lexical.contains(*f)) {
             return Ok(made(Band::Unresolved, None, Vec::new())?);
         }
@@ -763,7 +768,7 @@ impl Resolver<'_> {
                 return Ok(made(Band::External, None, Vec::new())?);
             }
         }
-        // 4. The Rust stages.
+        // 5. The Rust stages.
         let caller = call.caller.map(|index| DefinitionRef {
             path: path.to_owned(),
             index,
@@ -823,7 +828,7 @@ impl Resolver<'_> {
                 evidence: Box::new(|current: &[DefinitionRef]| self.in_module(&context, current)),
             });
         }
-        // 5. What is left.
+        // 6. What is left.
         match narrow(universe.into_iter().collect(), stages) {
             Narrowed::Resolved { band, target } => Ok(made(band, Some(target), Vec::new())?),
             Narrowed::Remaining(candidates) if !candidates.is_empty() => {

@@ -7314,6 +7314,12 @@
     },
     {
       "src_qn": "support.docopt.parse_defaults",
+      "dst_qn": "support.docopt.Option.parse",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "support.docopt.parse_defaults",
       "dst_qn": "support.docopt.parse_section",
       "kind": "CALLS",
       "band": "typed"
@@ -7695,6 +7701,60 @@
       "dst_qn": "support.python.mkdocstrings_handlers.cxx.render_param",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "support.release.Git.add",
+      "dst_qn": "support.release.Git.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "support.release.Git.checkout",
+      "dst_qn": "support.release.Git.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "support.release.Git.clean",
+      "dst_qn": "support.release.Git.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "support.release.Git.clone",
+      "dst_qn": "support.release.Git.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "support.release.Git.commit",
+      "dst_qn": "support.release.Git.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "support.release.Git.fetch",
+      "dst_qn": "support.release.Git.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "support.release.Git.pull",
+      "dst_qn": "support.release.Git.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "support.release.Git.push",
+      "dst_qn": "support.release.Git.call",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "support.release.Git.reset",
+      "dst_qn": "support.release.Git.call",
+      "kind": "CALLS",
+      "band": "typed"
     },
     {
       "src_qn": "support.release.Git.update",
@@ -22164,6 +22224,18 @@
     },
     {
       "src_qn": "test.format-test.TEST_format_int_test_data",
+      "dst_qn": "include.fmt.format.format_int.size",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.format-test.TEST_format_int_test_data",
+      "dst_qn": "include.fmt.format.format_int.size",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.format-test.TEST_format_int_test_data",
       "dst_qn": "test.gtest.gtest.gtest.EXPECT_EQ",
       "kind": "CALLS",
       "band": "exact"
@@ -35213,6 +35285,18 @@
       "band": "typed"
     },
     {
+      "src_qn": "test.format-test.TEST_util_test_allocator_ref",
+      "dst_qn": "test.mock-allocator.allocator_ref.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.format-test.TEST_util_test_allocator_ref",
+      "dst_qn": "test.mock-allocator.allocator_ref.get",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
       "src_qn": "test.format-test.TEST_util_test_bit_cast",
       "dst_qn": "test.gtest.gtest.gtest.EXPECT_EQ",
       "kind": "CALLS",
@@ -41471,6 +41555,12 @@
       "band": "exact"
     },
     {
+      "src_qn": "test.gtest.gmock-gtest-all.TestPartResultArray.GetTestPartResult",
+      "dst_qn": "test.gtest.gmock-gtest-all.TestPartResultArray.size",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
       "src_qn": "test.gtest.gmock-gtest-all.TestResult.Failed",
       "dst_qn": "test.gtest.gmock-gtest-all.TestResult.GetTestPartResult",
       "kind": "CALLS",
@@ -46081,6 +46171,24 @@
     {
       "src_qn": "test.gtest.gmock-gtest-all.testing.internal.HasOneFailure",
       "dst_qn": "test.gtest.gmock-gtest-all.TestPartResultArray.GetTestPartResult",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.gtest.gmock-gtest-all.testing.internal.HasOneFailure",
+      "dst_qn": "test.gtest.gmock-gtest-all.TestPartResultArray.size",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.gtest.gmock-gtest-all.testing.internal.HasOneFailure",
+      "dst_qn": "test.gtest.gmock-gtest-all.TestPartResultArray.size",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.gtest.gmock-gtest-all.testing.internal.HasOneFailure",
+      "dst_qn": "test.gtest.gmock-gtest-all.TestPartResultArray.size",
       "kind": "CALLS",
       "band": "typed"
     },
@@ -52104,6 +52212,18 @@
     },
     {
       "src_qn": "test.module-test.TEST_module_test_buffered_file",
+      "dst_qn": "include.fmt.os.buffered_file.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.module-test.TEST_module_test_buffered_file",
+      "dst_qn": "include.fmt.os.buffered_file.get",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.module-test.TEST_module_test_buffered_file",
       "dst_qn": "test.gtest.gtest.gtest.EXPECT_TRUE",
       "kind": "CALLS",
       "band": "exact"
@@ -52488,6 +52608,30 @@
     },
     {
       "src_qn": "test.module-test.TEST_module_test_format_int",
+      "dst_qn": "include.fmt.format.format_int.size",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.module-test.TEST_module_test_format_int",
+      "dst_qn": "include.fmt.format.format_int.size",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.module-test.TEST_module_test_format_int",
+      "dst_qn": "include.fmt.format.format_int.size",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.module-test.TEST_module_test_format_int",
+      "dst_qn": "include.fmt.format.format_int.size",
+      "kind": "TESTS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.module-test.TEST_module_test_format_int",
       "dst_qn": "test.gtest.gtest.gtest.EXPECT_EQ",
       "kind": "CALLS",
       "band": "exact"
@@ -52929,6 +53073,18 @@
       "dst_qn": "test.gtest.gtest.gtest.ASSERT_TRUE",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "test.module-test.TEST_module_test_output_file",
+      "dst_qn": "include.fmt.os.ostream.close",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.module-test.TEST_module_test_output_file",
+      "dst_qn": "include.fmt.os.ostream.close",
+      "kind": "TESTS",
+      "band": "typed"
     },
     {
       "src_qn": "test.module-test.TEST_module_test_output_file",
@@ -65035,6 +65191,24 @@
     {
       "src_qn": "test.util.get_locale",
       "dst_qn": "test.util.do_get_locale",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.util.open_buffered_file",
+      "dst_qn": "include.fmt.os.buffered_file.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.util.open_buffered_file",
+      "dst_qn": "include.fmt.os.buffered_file.get",
+      "kind": "CALLS",
+      "band": "typed"
+    },
+    {
+      "src_qn": "test.util.open_buffered_file",
+      "dst_qn": "include.fmt.os.buffered_file.get",
       "kind": "CALLS",
       "band": "typed"
     },

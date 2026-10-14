@@ -1,223 +1,144 @@
 {
  "blocklist": {
-  "edges_drawn": 0,
-  "examples_correct_suppressed": [
-   {
-    "band": "blocked",
-    "callee": "self.push",
-    "file": "src/flask/ctx.py",
-    "line": 507,
-    "oracle_status": "mapped",
-    "oracle_target": "src.flask.ctx.AppContext.push",
-    "pdx_target": null,
-    "reason": null,
-    "receiver_proof": null,
-    "site": 46,
-    "span": [
-     17338,
-     17349
-    ],
-    "token": [
-     17343,
-     17347
-    ]
-   },
-   {
-    "band": "blocked",
-    "callee": "self.pop",
-    "file": "src/flask/ctx.py",
-    "line": 516,
-    "oracle_status": "mapped",
-    "oracle_target": "src.flask.ctx.AppContext.pop",
-    "pdx_target": null,
-    "reason": null,
-    "receiver_proof": null,
-    "site": 47,
-    "span": [
-     17547,
-     17566
-    ],
-    "token": [
-     17552,
-     17555
-    ]
-   },
-   {
-    "band": "blocked",
-    "callee": "self.to_json",
-    "file": "src/flask/json/tag.py",
-    "line": 90,
-    "oracle_status": "mapped",
-    "oracle_target": "src.flask.json.tag.JSONTag.to_json",
-    "pdx_target": null,
-    "reason": null,
-    "receiver_proof": null,
-    "site": 0,
-    "span": [
-     2780,
-     2799
-    ],
-    "token": [
-     2785,
-     2792
-    ]
-   },
-   {
-    "band": "blocked",
-    "callee": "to_json",
-    "file": "tests/test_json_tag.py",
-    "line": 69,
-    "oracle_status": "mapped",
-    "oracle_target": "src.flask.json.tag.JSONTag.to_json",
-    "pdx_target": null,
-    "reason": null,
-    "receiver_proof": null,
-    "site": 49,
-    "span": [
-     1630,
-     1639
-    ],
-    "token": [
-     1632,
-     1639
-    ]
-   }
-  ],
-  "final_band:blocked": 690,
+  "accepted_typed_answer_correct": 4,
+  "edges_drawn": 4,
+  "examples_correct_suppressed": [],
+  "final_band:blocked": 686,
+  "final_band:typed": 4,
   "no_typed_answer_and_blocked": 686,
   "no_typed_answer_and_blocked_with_oracle_relation": 33,
   "oracle_relation": 37,
   "oracle_verifiable": 333,
   "recall_c0": {
    "denominator": 1114,
-   "numerator": 603,
-   "value": 0.541293
+   "numerator": 606,
+   "value": 0.543986
   },
   "recall_c4": {
    "denominator": 1114,
    "numerator": 606,
    "value": 0.543986
   },
-  "relations_recovered_in_c4": 3,
+  "relations_recovered_in_c4": 0,
   "sites": 690,
-  "suppressed_typed_answer_correct": 4,
-  "typed_answer_suppressed_by_blocklist": 4
+  "typed_answer_accepted_before_blocklist": 4,
+  "typed_answer_suppressed_by_blocklist": 0
  },
  "corpus": "python-golden",
  "counterfactuals": {
   "C0": {
-   "drawn": 656,
+   "drawn": 660,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 653,
+   "oracle_verifiable": 657,
    "oracle_verifiable_fraction": {
-    "denominator": 656,
-    "numerator": 653,
-    "value": 0.995427
+    "denominator": 660,
+    "numerator": 657,
+    "value": 0.995455
    },
    "policy": "current behaviour",
    "precision": {
-    "denominator": 653,
-    "numerator": 620,
-    "value": 0.949464
+    "denominator": 657,
+    "numerator": 624,
+    "value": 0.949772
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 603,
-    "value": 0.541293
+    "numerator": 606,
+    "value": 0.543986
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 310,
-    "numerator": 310,
+    "denominator": 314,
+    "numerator": 314,
     "value": 1.0
    }
   },
   "C1": {
-   "drawn": 344,
+   "drawn": 348,
    "false_positives_added": 0,
    "false_positives_removed": 26,
-   "oracle_verifiable": 343,
+   "oracle_verifiable": 347,
    "oracle_verifiable_fraction": {
-    "denominator": 344,
-    "numerator": 343,
-    "value": 0.997093
+    "denominator": 348,
+    "numerator": 347,
+    "value": 0.997126
    },
    "policy": "`exact` not drawn",
    "precision": {
-    "denominator": 343,
-    "numerator": 336,
-    "value": 0.979592
+    "denominator": 347,
+    "numerator": 340,
+    "value": 0.979827
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 319,
-    "value": 0.286355
+    "numerator": 322,
+    "value": 0.289048
    },
    "true_positives_added": 0,
    "true_positives_lost": 284,
    "typed": {
-    "denominator": 310,
-    "numerator": 310,
+    "denominator": 314,
+    "numerator": 314,
     "value": 1.0
    }
   },
   "C2": {
-   "drawn": 648,
+   "drawn": 652,
    "false_positives_added": 0,
    "false_positives_removed": 7,
-   "oracle_verifiable": 645,
+   "oracle_verifiable": 649,
    "oracle_verifiable_fraction": {
-    "denominator": 648,
-    "numerator": 645,
-    "value": 0.99537
+    "denominator": 652,
+    "numerator": 649,
+    "value": 0.995399
    },
    "policy": "`scoped` not drawn",
    "precision": {
-    "denominator": 645,
-    "numerator": 619,
-    "value": 0.95969
+    "denominator": 649,
+    "numerator": 623,
+    "value": 0.959938
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 602,
-    "value": 0.540395
+    "numerator": 605,
+    "value": 0.543088
    },
    "true_positives_added": 0,
    "true_positives_lost": 1,
    "typed": {
-    "denominator": 310,
-    "numerator": 310,
+    "denominator": 314,
+    "numerator": 314,
     "value": 1.0
    }
   },
   "C3": {
-   "drawn": 336,
+   "drawn": 340,
    "false_positives_added": 0,
    "false_positives_removed": 33,
-   "oracle_verifiable": 335,
+   "oracle_verifiable": 339,
    "oracle_verifiable_fraction": {
-    "denominator": 336,
-    "numerator": 335,
-    "value": 0.997024
+    "denominator": 340,
+    "numerator": 339,
+    "value": 0.997059
    },
    "policy": "neither `exact` nor `scoped` drawn",
    "precision": {
-    "denominator": 335,
-    "numerator": 335,
+    "denominator": 339,
+    "numerator": 339,
     "value": 1.0
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 318,
-    "value": 0.285458
+    "numerator": 321,
+    "value": 0.288151
    },
    "true_positives_added": 0,
    "true_positives_lost": 285,
    "typed": {
-    "denominator": 310,
-    "numerator": 310,
+    "denominator": 314,
+    "numerator": 314,
     "value": 1.0
    }
   },
@@ -242,7 +163,7 @@
     "numerator": 606,
     "value": 0.543986
    },
-   "true_positives_added": 4,
+   "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
     "denominator": 314,
@@ -251,31 +172,31 @@
    }
   },
   "C5": {
-   "drawn": 656,
+   "drawn": 660,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 653,
+   "oracle_verifiable": 657,
    "oracle_verifiable_fraction": {
-    "denominator": 656,
-    "numerator": 653,
-    "value": 0.995427
+    "denominator": 660,
+    "numerator": 657,
+    "value": 0.995455
    },
    "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
    "precision": {
-    "denominator": 653,
-    "numerator": 620,
-    "value": 0.949464
+    "denominator": 657,
+    "numerator": 624,
+    "value": 0.949772
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 603,
-    "value": 0.541293
+    "numerator": 606,
+    "value": 0.543986
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 310,
-    "numerator": 310,
+    "denominator": 314,
+    "numerator": 314,
     "value": 1.0
    }
   },
@@ -300,7 +221,7 @@
     "numerator": 321,
     "value": 0.288151
    },
-   "true_positives_added": 4,
+   "true_positives_added": 0,
    "true_positives_lost": 285,
    "typed": {
     "denominator": 314,
@@ -311,8 +232,8 @@
  },
  "coverage": {
   "drawn_edges_by_kind": {
-   "CALLS": 639,
-   "CALL_REFERENCE": 17
+   "CALLS": 642,
+   "CALL_REFERENCE": 18
   },
   "engine_sites": 0,
   "language_files": 83,
@@ -344,14 +265,14 @@
   "parse_failures": [],
   "structural_call_sites": 3855,
   "structural_call_sites_by_band": {
-   "blocked": 690,
+   "blocked": 686,
    "candidate": 1031,
    "exact": 312,
    "external": 614,
    "import-guided": 12,
    "inheritance-guided": 14,
    "scoped": 8,
-   "typed": 310,
+   "typed": 314,
    "unresolved": 864
   },
   "structural_call_sites_not_materialized_by_band": {},
@@ -1234,35 +1155,35 @@
    }
   },
   "typed": {
-   "correct": 310,
-   "drawn": 310,
+   "correct": 314,
+   "drawn": 314,
    "false_positive": 0,
-   "oracle_verifiable": 310,
+   "oracle_verifiable": 314,
    "oracle_verifiable_fraction": {
-    "denominator": 310,
-    "numerator": 310,
+    "denominator": 314,
+    "numerator": 314,
     "value": 1.0
    },
    "precision": {
-    "denominator": 310,
-    "numerator": 310,
+    "denominator": 314,
+    "numerator": 314,
     "value": 1.0
    }
   },
   "union": {
-   "correct": 620,
-   "drawn": 656,
+   "correct": 624,
+   "drawn": 660,
    "false_positive": 33,
-   "oracle_verifiable": 653,
+   "oracle_verifiable": 657,
    "oracle_verifiable_fraction": {
-    "denominator": 656,
-    "numerator": 653,
-    "value": 0.995427
+    "denominator": 660,
+    "numerator": 657,
+    "value": 0.995455
    },
    "precision": {
-    "denominator": 653,
-    "numerator": 620,
-    "value": 0.949464
+    "denominator": 657,
+    "numerator": 624,
+    "value": 0.949772
    }
   }
  },
@@ -1332,35 +1253,35 @@
    }
   },
   "typed": {
-   "correct": 293,
-   "drawn": 293,
+   "correct": 296,
+   "drawn": 296,
    "false_positive": 0,
-   "oracle_verifiable": 293,
+   "oracle_verifiable": 296,
    "oracle_verifiable_fraction": {
-    "denominator": 293,
-    "numerator": 293,
+    "denominator": 296,
+    "numerator": 296,
     "value": 1.0
    },
    "precision": {
-    "denominator": 293,
-    "numerator": 293,
+    "denominator": 296,
+    "numerator": 296,
     "value": 1.0
    }
   },
   "union": {
-   "correct": 603,
-   "drawn": 639,
+   "correct": 606,
+   "drawn": 642,
    "false_positive": 33,
-   "oracle_verifiable": 636,
+   "oracle_verifiable": 639,
    "oracle_verifiable_fraction": {
-    "denominator": 639,
-    "numerator": 636,
-    "value": 0.995305
+    "denominator": 642,
+    "numerator": 639,
+    "value": 0.995327
    },
    "precision": {
-    "denominator": 636,
-    "numerator": 603,
-    "value": 0.948113
+    "denominator": 639,
+    "numerator": 606,
+    "value": 0.948357
    }
   }
  },
@@ -1430,34 +1351,34 @@
    }
   },
   "typed": {
-   "correct": 17,
-   "drawn": 17,
+   "correct": 18,
+   "drawn": 18,
    "false_positive": 0,
-   "oracle_verifiable": 17,
+   "oracle_verifiable": 18,
    "oracle_verifiable_fraction": {
-    "denominator": 17,
-    "numerator": 17,
+    "denominator": 18,
+    "numerator": 18,
     "value": 1.0
    },
    "precision": {
-    "denominator": 17,
-    "numerator": 17,
+    "denominator": 18,
+    "numerator": 18,
     "value": 1.0
    }
   },
   "union": {
-   "correct": 17,
-   "drawn": 17,
+   "correct": 18,
+   "drawn": 18,
    "false_positive": 0,
-   "oracle_verifiable": 17,
+   "oracle_verifiable": 18,
    "oracle_verifiable_fraction": {
-    "denominator": 17,
-    "numerator": 17,
+    "denominator": 18,
+    "numerator": 18,
     "value": 1.0
    },
    "precision": {
-    "denominator": 17,
-    "numerator": 17,
+    "denominator": 18,
+    "numerator": 18,
     "value": 1.0
    }
   }
@@ -1498,24 +1419,23 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "pdx_note": "A0.1 adds measurement tooling only; the resolver, extraction and bands measured are those of pdx_sha",
-  "pdx_sha": "e746b1e25d42552e5dc051698b476bcac9a9a6f4",
+  "resolver": "post-R1: issue 103, the commit 'Issue 103: accept typed answers before blocklist' (parent 2663ff5). Baseline: A0.1, resolver of e746b1e, results committed at 71bec72",
   "site_matching_version": "a0-match-1"
  },
  "recall": {
   "at_parsed_structural_sites": 1114,
   "breakdown": {
    "at_parsed_site": 1114,
-   "drawn_correct": 603,
+   "drawn_correct": 606,
    "drawn_wrong": 5,
-   "resolution_not_drawn:blocked": 36,
+   "resolution_not_drawn:blocked": 33,
    "resolution_not_drawn:candidate": 470
   },
-  "drawn_correct": 603,
+  "drawn_correct": 606,
   "end_to_end_recall": {
    "denominator": 1114,
-   "numerator": 603,
-   "value": 0.541293
+   "numerator": 606,
+   "value": 0.543986
   },
   "oracle_calls_outside_relations": {
    "not_a_relation:external": 1373,
@@ -1529,11 +1449,11 @@
   "oracle_relations": 1114,
   "recall": {
    "denominator": 1114,
-   "numerator": 603,
-   "value": 0.541293
+   "numerator": 606,
+   "value": 0.543986
   }
  },
- "resolution_loss": 511,
+ "resolution_loss": 508,
  "unverifiable_drawn": {
   "exact:none": 1,
   "exact:unresolved_local": 1,

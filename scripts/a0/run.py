@@ -3,7 +3,7 @@
 Python and Rust goldens, with the PDX repository as a diagnostic corpus.
 
     run.py --work DIR --scip-python BIN --rust-analyzer BIN --rust-src DIR
-           --toolchain DIR --self-sha SHA [--out bench/results/a0]
+           --toolchain DIR --self-sha SHA --resolver TEXT [--out bench/results/a0]
 
 The goldens are read from `bench/repos.lock` at run time (their language, URL and
 pinned commit) and their checkouts from `pdx-bench golden`'s cache
@@ -192,7 +192,11 @@ def main() -> int:
     ap.add_argument("--rust-analyzer", required=True, type=Path)
     ap.add_argument("--rust-src", required=True, type=Path)
     ap.add_argument("--toolchain", required=True, type=Path)
-    ap.add_argument("--self-sha", required=True)
+    ap.add_argument("--self-sha", required=True,
+                    help="the commit of the PDX repository indexed as the diagnostic corpus")
+    ap.add_argument("--resolver", required=True,
+                    help="the resolver measured: the commit whose pdx-bench runs Stages 1 to 3, "
+                         "as results should name it")
     ap.add_argument("--out", type=Path, default=ROOT / "bench/results/a0")
     args = ap.parse_args()
     tools = Tools(args)
@@ -221,9 +225,7 @@ def main() -> int:
              "--audit", tools.work / "out", "--corpus", corpus])
 
     provenance_common = {
-        "pdx_sha": args.self_sha,
-        "pdx_note": "A0.1 adds measurement tooling only; the resolver, extraction and "
-                    "bands measured are those of pdx_sha",
+        "resolver": args.resolver,
         "engine_version": 7,
         "oracle_versions": versions,
     }
