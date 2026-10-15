@@ -235,6 +235,9 @@ unsafe fn definition(
         route_method: _,
         routes,
         n_routes,
+        impl_trait,
+        impl_bounds,
+        n_impl_bounds,
     } = *d;
     // SAFETY: (all string reads below) the caller guarantees the strings are alive.
     let kind_name = unsafe { required(kind, "a definition's kind") }?;
@@ -295,6 +298,16 @@ unsafe fn definition(
             .iter()
             .map(|r| unsafe { route(r, len) })
             .collect::<Result<_, _>>()?,
+        // SAFETY (the two below): the string, and the array's `n_impl_bounds` strings,
+        // are NULL or alive for the call.
+        impl_trait: unsafe { optional(impl_trait) },
+        impl_bounds: unsafe {
+            strings(
+                impl_bounds.cast_const(),
+                n_impl_bounds,
+                "an impl header's entry",
+            )
+        }?,
     })
 }
 
@@ -580,12 +593,21 @@ unsafe fn impl_trait(t: &sys::pdxe_impl_trait) -> Result<ImplTrait, EngineError>
         trait_name,
         struct_name,
         struct_qn,
+        impl_bounds,
+        n_impl_bounds,
     } = *t;
     Ok(ImplTrait {
         // SAFETY: as the caller guarantees.
         trait_name: unsafe { required(trait_name, "an impl relation's trait") }?,
         struct_name: unsafe { required(struct_name, "an impl relation's type") }?,
         struct_qn: unsafe { required(struct_qn, "an impl relation's qualified name") }?,
+        impl_bounds: unsafe {
+            strings(
+                impl_bounds.cast_const(),
+                n_impl_bounds,
+                "an impl header's entry",
+            )
+        }?,
     })
 }
 

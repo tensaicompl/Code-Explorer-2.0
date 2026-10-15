@@ -4,6 +4,7 @@
 //! target from typed resolution and the registry.
 
 pub mod blocklist;
+pub mod impls;
 mod imports;
 mod metadata;
 mod modules;

@@ -952,6 +952,9 @@ fn c_definition(
         route_method: ptr::null(),
         routes: strings.routes(&d.routes)?,
         n_routes: count(d.routes.len())?,
+        impl_trait: strings.optional(d.impl_trait.as_deref())?,
+        impl_bounds: strings.array(&d.impl_bounds)?,
+        n_impl_bounds: count(d.impl_bounds.len())?,
     })
 }
 
@@ -1004,6 +1007,8 @@ fn c_impl_trait(t: &ImplTrait, strings: &mut Strings) -> Result<sys::pdxe_impl_t
         trait_name: strings.required(&t.trait_name)?,
         struct_name: strings.required(&t.struct_name)?,
         struct_qn: strings.required(&t.struct_qn)?,
+        impl_bounds: strings.array(&t.impl_bounds)?,
+        n_impl_bounds: count(t.impl_bounds.len())?,
     })
 }
 

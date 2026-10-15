@@ -730,8 +730,8 @@ fn cache_object_id_fixed_vector() {
     assert_eq!(key.engine_version, ENGINE_VERSION);
     assert_eq!(key.language_matrix_version, LANGUAGE_MATRIX_VERSION);
     assert_eq!(
-        EXTRACT_CACHE_FORMAT_VERSION, 8,
-        "the vector below is format 8's"
+        EXTRACT_CACHE_FORMAT_VERSION, 9,
+        "the vector below is format 9's"
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
@@ -742,10 +742,11 @@ fn cache_object_id_fixed_vector() {
         SECRET_DETECTOR_VERSION, 4,
         "the vector below is detector 4's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 8, 12 and 2, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 9, 12 and 2, the policy digest
     // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
-    // 3's to 11's are in cache_key_includes_engine_version. Format 7's (before issue 114)
+    // 3's to 11's are in cache_key_includes_engine_version. Format 8's (before issue 117)
+    // was d769d391…a28b at engine 12, format 7's (before issue 114)
     // was da5d96b4…0cb3 at engine 10, format 6's (before issue 110) b8e9117f…1d31 at
     // engine 9, and format 5's (texts copied, before issue 90) 59c9f740…550a: each format
     // moved every key. Detector 3's was c1c95f71…8e28 and
@@ -754,10 +755,10 @@ fn cache_object_id_fixed_vector() {
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "d769d391e450fa61d49d01c41a938ca4ade08b233eb61ebb3bbf194f6e07a28b"
+        "d58503f2e6dc219c729316347f144fc9197238ca3167ad190b06a6ebab976ffa"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v8").join("d7").join(&id));
+    assert_eq!(path, Path::new("cache").join("v9").join("d5").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -771,7 +772,9 @@ fn cache_key_includes_engine_version() {
     // An engine whose output can differ is another key: what engines 3 to 11 cached is
     // never found by engine 12 (issues 74 to 76, 83, 112, 111, 110, 114 and 109).
     // Independently computed, as the vector above, with each engine version, under
-    // format 8 (issue 114); format 7's were c21a4e24…a7c, 7d29db63…639f, 022aa61d…c299,
+    // format 9 (issue 117); format 8's were 0446dc3c…a3d6, d84b3204…90bb, 0061bed3…7cf4,
+    // 622d6caa…fb0e, 8cb1d243…5e5a, 17673fba…932a, d75ad477…735b, 7295ddd4…f6bd,
+    // 50829086…865a and d769d391…a28b, format 7's were c21a4e24…a7c, 7d29db63…639f, 022aa61d…c299,
     // f935e676…e0ec, 38141cd1…7c9c, cb2ebe0d…7c4d, fa0e0d93…7bd4 and da5d96b4…0cb3, format
     // 6's 3fa196f4…50cb, 23be5c37…785d, b7bbfafb…c8b0,
     // 37947f52…7ffd, 24ad54eb…5e31, 5d5e1d9a…0b68 and b8e9117f…1d31, and format 5's
@@ -787,43 +790,43 @@ fn cache_key_includes_engine_version() {
     for (engine, expected) in [
         (
             3,
-            "0446dc3c70d7bee37d50bded4ce81b426138620fee6c7d71ad28d54a1309a3d6",
+            "93f612d3f9b3b149b2326e463aac02470eb2a27471d46b13659935efc5ddfa3b",
         ),
         (
             4,
-            "d84b3204d907d46691aaff243daacf6118bc29765045b8998ec8b9854b2090bb",
+            "e0ad02205d00a327eb33ee0362baf4a37ff530936b5825770594d35ef95d9bc0",
         ),
         (
             5,
-            "0061bed3f8e9a7869ff070e0710a541bc4761d2dbb68767b582d60a8e41d7cf4",
+            "b9e43a4eaf53cafef02e65cede656c959bf0fcc80d9f506056426c9d99ef1a32",
         ),
         (
             6,
-            "622d6caa790b3def23ea017bac1ae6e7f2dca6ec34efac5fa8c02888e5d2fb0e",
+            "a882233e9e840b5a2408323444997f9a8693f594d5b302b90d8c027ab6a8607b",
         ),
         (
             7,
-            "8cb1d243ecbc928109abf1a166d7d7fccecf9659f40ecb4d6268c8b0eb0d5e5a",
+            "d49c2318810c3261a1f1803ae9497cda717cd0f8fd46ff69e0c0c1f8ea18caad",
         ),
         (
             8,
-            "17673fbaa7d30f95d80bf8e34d072d0f0f090cf0947fe5017acdd9403763932a",
+            "d1ff8375aa8f17d9e4affa2e03f1091938b260e831dbd0ce75be75593812d85b",
         ),
         (
             9,
-            "d75ad4770ec04b0e0a5694bbbd5902475f42fdd6c3108d2927e99d6c5865735b",
+            "adcf486f54729519bc36c3229cbbb31be3379e9f76f430c6ad11c38386fe88e1",
         ),
         (
             10,
-            "7295ddd4e632c6c896e0800c47aa3768d9e13dbea93c35bad2cd2ac4397ef6bd",
+            "271b3c8af15c5706ff13d71cdf4f732b78772042cadbb40b36cb66dff32df765",
         ),
         (
             11,
-            "50829086324c481622af6d82a5aedd79970b4bd7ac2170582c053fdc7c64865a",
+            "c74297c22f2cf3f54d0d3e54afb93c5463d7778b5e2c755b3bc5fedc544f7e46",
         ),
         (
             12,
-            "d769d391e450fa61d49d01c41a938ca4ade08b233eb61ebb3bbf194f6e07a28b",
+            "d58503f2e6dc219c729316347f144fc9197238ca3167ad190b06a6ebab976ffa",
         ),
     ] {
         let mut versioned = key.clone();
@@ -834,7 +837,7 @@ fn cache_key_includes_engine_version() {
             "engine {engine}"
         );
         let path = cache.object_path(&versioned);
-        assert!(path.starts_with(Path::new("cache").join("v8")), "{path:?}");
+        assert!(path.starts_with(Path::new("cache").join("v9")), "{path:?}");
         ids.push(versioned.object_id());
     }
     assert_eq!(key.object_id(), ids[9], "the current key is engine 12's");
@@ -1145,8 +1148,10 @@ fn cache_rejects_wrong_source_digest() {
 }
 
 #[test]
-fn cache_formats_before_8_are_a_miss() {
-    // Format 7 held extractions without Rust's `use` scopes and calls without the scope
+fn cache_formats_before_9_are_a_miss() {
+    // Format 8 held Rust definitions without their impl's trait and header, and impl
+    // relations without their header (issue 117); format 7 held extractions without
+    // Rust's `use` scopes and calls without the scope
     // they are in (issue 114); format 6 no members Rust's macro invocations may write
     // (issue 110); format 5 held every text copied and qualified names whole, with surface 4 (issue
     // 90); format 4 a definition's one route without its declaring node (issue 54);
@@ -1156,7 +1161,7 @@ fn cache_formats_before_8_are_a_miss() {
     // classes and extractions without a declared namespace. Their entries are never
     // decoded as the current format: not in the directory their format used, which is
     // never read, and not at the current path with their format written in them.
-    for old_format in [1, 2, 3, 4, 5, 6, 7] {
+    for old_format in [1, 2, 3, 4, 5, 6, 7, 8] {
         let checkout = Checkout::new();
         checkout.write("src/app.py", PYTHON);
         let config = checkout.config();
@@ -1174,7 +1179,7 @@ fn cache_formats_before_8_are_a_miss() {
         let cache = Cache::new();
         let current = cache.cache.object_path(&key);
         let current_text = current.to_string_lossy().replace('\\', "/");
-        assert!(current_text.contains("/v8/"), "{current_text}");
+        assert!(current_text.contains("/v9/"), "{current_text}");
         let old_dir = cache
             .cache
             .root()

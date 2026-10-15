@@ -2361,7 +2361,7 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "resolver": "post-109: issue 109, the commit 'Issue 109: validate Rust impl applicability before typed resolution' (parent: the commit 'Issue 114: scope Rust use bindings lexically'). Baseline: post-114, results committed at c8239ba",
+  "resolver": "post-117: issue 117, the commit 'Issue 117: validate trait impl applicability in import-guided resolution' (parent: the commit 'Issue 109: validate Rust impl applicability before typed resolution'). Baseline: post-109, results committed at 83fbb45",
   "site_matching_version": "a0-match-1"
  },
  "recall": {

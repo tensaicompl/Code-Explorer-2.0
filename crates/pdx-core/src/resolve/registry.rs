@@ -29,6 +29,7 @@ use crate::index::discover::{DiscoveredFile, Disposition};
 use crate::index::extract::{ExtractError, ExtractReport, FileOutcome};
 use crate::languages::Language;
 
+use super::impls::ImplHeader;
 use super::imports::{self, Lookup};
 use super::metadata::dir_of;
 use super::modules::{self, Layout, Membership};
@@ -268,6 +269,27 @@ pub struct ImplRelation {
     pub implemented_trait: BaseResolution,
 }
 
+/// One impl of a trait for a type, both of the repository: its file and its header,
+/// `None` when the engine recorded none (issue 117).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RelationHeader {
+    /// The file the impl is in.
+    pub path: String,
+    /// Its header.
+    pub header: Option<ImplHeader>,
+}
+
+/// Whether a definition is a Rust trait impl's method (issue 117).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraitImplOf<'r> {
+    /// No trait impl declares it: an inherent method, a trait's own, a function, ...
+    None,
+    /// A trait impl's method whose header the engine recorded none for: unknown.
+    Unrecorded,
+    /// A trait impl's method, with its impl's header.
+    Header(&'r ImplHeader),
+}
+
 /// Why the registry could not be built. Names files by path, never their content.
 #[derive(Debug, thiserror::Error)]
 pub enum RegistryError {
@@ -382,6 +404,11 @@ pub struct SymbolRegistry {
     macro_members: BTreeMap<String, MacroMembers>,
     /// Each Rust file's `use` scopes and the imports in each (issue 114).
     rust_use_scopes: BTreeMap<String, RustUseScopes>,
+    /// Each Rust trait impl's method's impl header, read once (issue 117).
+    rust_method_impls: BTreeMap<DefinitionRef, Option<ImplHeader>>,
+    /// The headers of a type's impls of a trait, both of the repository, in the
+    /// relations' order, each with the file its impl is in (issue 117).
+    relation_headers: BTreeMap<(DefinitionRef, DefinitionRef), Vec<RelationHeader>>,
     metadata: ResolutionMetadata,
 }
 
@@ -440,6 +467,8 @@ impl SymbolRegistry {
             rust_external_crates: BTreeMap::new(),
             macro_members: BTreeMap::new(),
             rust_use_scopes: BTreeMap::new(),
+            rust_method_impls: BTreeMap::new(),
+            relation_headers: BTreeMap::new(),
             metadata: ResolutionMetadata::default(),
         };
         registry.index_definitions(&sources);
@@ -451,6 +480,7 @@ impl SymbolRegistry {
         registry.resolve_impls(&sources);
         registry.rust_external_crates = rust_external_crates(&sources, &layout);
         registry.macro_members = macro_members(&sources);
+        registry.rust_method_impls = rust_method_impls(&sources);
         registry.metadata = registry.metadata_for_engine(&layout);
         registry.files = sources.files;
         Ok(registry)
@@ -693,6 +723,8 @@ impl SymbolRegistry {
         let mut impls = BTreeMap::new();
         let mut traits_of: BTreeMap<DefinitionRef, BTreeSet<DefinitionRef>> = BTreeMap::new();
         let mut implementors: BTreeMap<DefinitionRef, BTreeSet<DefinitionRef>> = BTreeMap::new();
+        let mut relation_headers: BTreeMap<(DefinitionRef, DefinitionRef), Vec<RelationHeader>> =
+            BTreeMap::new();
         for (path, state) in &sources.files {
             let FileOutcome::Extracted { extract, .. } = &state.outcome else {
                 continue;
@@ -735,6 +767,13 @@ impl SymbolRegistry {
                         .entry(tr.clone())
                         .or_default()
                         .insert(ty.clone());
+                    relation_headers
+                        .entry((ty.clone(), tr.clone()))
+                        .or_default()
+                        .push(RelationHeader {
+                            path: path.clone(),
+                            header: ImplHeader::read(&relation.impl_bounds),
+                        });
                 }
                 relations.push(ImplRelation {
                     path: path.clone(),
@@ -756,6 +795,7 @@ impl SymbolRegistry {
         };
         self.traits_of = flatten(traits_of);
         self.implementors = flatten(implementors);
+        self.relation_headers = relation_headers;
     }
 
     /// What one base names, for the definition naming it.
@@ -1338,6 +1378,24 @@ impl SymbolRegistry {
         self.implementors.get(r).map_or(&[], Vec::as_slice)
     }
 
+    /// Whether a definition is a Rust trait impl's method, and its impl's header
+    /// (issue 117).
+    pub fn trait_impl_of(&self, r: &DefinitionRef) -> TraitImplOf<'_> {
+        match self.rust_method_impls.get(r) {
+            None => TraitImplOf::None,
+            Some(None) => TraitImplOf::Unrecorded,
+            Some(Some(header)) => TraitImplOf::Header(header),
+        }
+    }
+
+    /// The headers of the impls of trait `tr` for type `ty`, both of the repository, in
+    /// the relations' order (issue 117).
+    pub fn relation_headers(&self, ty: &DefinitionRef, tr: &DefinitionRef) -> &[RelationHeader] {
+        self.relation_headers
+            .get(&(ty.clone(), tr.clone()))
+            .map_or(&[], Vec::as_slice)
+    }
+
     // --- engine metadata ------------------------------------------------------------
 
     /// The repository's module metadata as the engine's resolver takes it: Go
@@ -1409,6 +1467,33 @@ fn base_names(raw: &str) -> Vec<String> {
         })
         .filter(|p| !p.is_empty())
         .collect()
+}
+
+/// Every Rust trait impl's method, with its impl's header read once; `None` for one the
+/// engine recorded no header for (issue 117).
+fn rust_method_impls(sources: &Sources<'_>) -> BTreeMap<DefinitionRef, Option<ImplHeader>> {
+    let mut out = BTreeMap::new();
+    for (path, state) in &sources.files {
+        let FileOutcome::Extracted { extract, .. } = &state.outcome else {
+            continue;
+        };
+        for (index, definition) in extract.definitions.iter().enumerate() {
+            if definition.impl_trait.is_none() {
+                continue;
+            }
+            let Ok(index) = u32::try_from(index) else {
+                continue;
+            };
+            out.insert(
+                DefinitionRef {
+                    path: path.clone(),
+                    index,
+                },
+                ImplHeader::read(&definition.impl_bounds),
+            );
+        }
+    }
+    out
 }
 
 /// The members every Rust file's macro invocations may write, by type name (issue 110).

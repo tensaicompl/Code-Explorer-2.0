@@ -181,6 +181,38 @@ fn isolation_carries_macro_members() {
     );
 }
 
+/// Issue 117: a Rust trait impl with a bound, its method, and an inherent method.
+const IMPL_HEADERS: &str = "pub trait Tr {\n    fn f(&self);\n}\n\npub struct W<T>(T);\n\nimpl<T: Copy> Tr for W<T> {\n    fn f(&self) {}\n}\n\nimpl<T> W<T> {\n    pub fn g(&self) {}\n}\n";
+
+#[test]
+fn isolation_carries_impl_headers() {
+    // Protocol 10 carries a Rust trait impl's header on its relation and its methods,
+    // and a method its trait (issue 117): a worker's extraction has them exactly as this
+    // process's.
+    let files = vec![SourceFile {
+        language: "rust".to_owned(),
+        rel_path: "src/lib.rs".to_owned(),
+        source: IMPL_HEADERS.as_bytes().to_vec(),
+    }];
+    let expected = in_process(&files);
+    let mut isolated = IsolatedExtractor::new(worker());
+    let outcomes = isolated.extract_batch(&files).expect("a worker");
+    assert_eq!(outcomes, expected);
+    let ExtractOutcome::Extracted(e) = &outcomes[0] else {
+        panic!("not extracted: {:?}", outcomes[0]);
+    };
+    let header = ["s:plain", "p:T", "a:T", "w:T", "b:Copy"];
+    assert_eq!(e.impl_traits.len(), 1);
+    assert_eq!(e.impl_traits[0].impl_bounds, header);
+    let f = e
+        .definitions
+        .iter()
+        .find(|d| d.name == "f" && d.impl_trait.is_some())
+        .expect("the impl's method");
+    assert_eq!(f.impl_trait.as_deref(), Some("Tr"));
+    assert_eq!(f.impl_bounds, header);
+}
+
 /// Issue 114: a Rust file with a `use` in each kind of scope: the file's module, an
 /// inline module, a function's body and a block inside it.
 const SCOPED_USES: &str = "use crate::a::x;\n\nmod inner {\n    use super::helper;\n\n    pub fn f() -> u32 {\n        helper()\n    }\n}\n\npub fn helper() -> u32 {\n    use crate::a::y;\n    let a = {\n        use crate::b::z;\n        z()\n    };\n    a + y() + x()\n}\n";

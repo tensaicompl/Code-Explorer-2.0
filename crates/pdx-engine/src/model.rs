@@ -302,6 +302,14 @@ pub struct Definition {
     /// annotation listing two paths gives two, sharing their node. A binding whose path
     /// or method is not a literal is not reported.
     pub routes: Vec<RouteFact>,
+    /// Rust: the trait of the `impl Trait for Type` block that declares this method, as
+    /// the source spells it; `None` for every other definition, an inherent method's
+    /// included (issue 117).
+    pub impl_trait: Option<String>,
+    /// Rust: that block's header (issue 109), as [`ImplTrait::impl_bounds`] holds it;
+    /// empty for a definition no trait impl declares, and when the engine recorded none,
+    /// which proves nothing (issue 117).
+    pub impl_bounds: Vec<String>,
 }
 
 /// One HTTP route binding a decorator or annotation declares for a definition, and the
@@ -350,6 +358,14 @@ pub struct ImplTrait {
     pub struct_name: String,
     /// The implementing type's qualified name, as extraction builds it for the file.
     pub struct_qn: String,
+    /// The block's header, what must hold for the impl to apply to a type (issue 109),
+    /// as extraction writes it: entries of a one-letter kind, `:` and a text, in the
+    /// grammar `engine/src/pdxe_core.h` gives (`s:` the self type's form, `p:`
+    /// parameters, `a:` and `t:` the self type's and the trait's arguments, `w:` a
+    /// predicate's subject and its bounds `b:` with `g:` arguments, `r:`, `l:`, `o:`;
+    /// `x:header` when opaque). Empty when the engine could not record it, which proves
+    /// nothing (issue 117).
+    pub impl_bounds: Vec<String>,
 }
 
 /// A member a Rust `macro_rules!` invocation of the file may write, which no definition

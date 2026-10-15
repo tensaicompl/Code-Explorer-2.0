@@ -874,10 +874,40 @@ static void check_refusals(pdxe_ctx *ctx) {
     CHECK(pdxe_result_build(ctx, n_src, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 1,
                             &refused) == PDXE_E_INVALID && !refused,
           "impl relations counted with no array were rebuilt");
-    const pdxe_impl_trait null_qn = {"Shape", "Square", NULL};
+    const pdxe_impl_trait null_qn = {"Shape", "Square", NULL, NULL, 0};
     CHECK(pdxe_result_build(ctx, n_src, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, &null_qn, 1,
                             &refused) == PDXE_E_INVALID && !refused,
           "an impl relation with a NULL qualified name was rebuilt");
+    /* Issue 117: a relation's header counted with no array, or holding a NULL; the same
+     * for a definition's. */
+    const pdxe_impl_trait no_header = {"Shape", "Square", "Square", NULL, 1};
+    CHECK(pdxe_result_build(ctx, n_src, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            &no_header, 1, &refused) == PDXE_E_INVALID && !refused,
+          "an impl relation's header counted with no array was rebuilt");
+    const char *holed_entries[] = {"s:plain", NULL};
+    const pdxe_impl_trait holed = {"Shape", "Square", "Square", holed_entries, 2};
+    CHECK(pdxe_result_build(ctx, n_src, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0, &holed,
+                            1, &refused) == PDXE_E_INVALID && !refused,
+          "an impl relation's header holding a NULL was rebuilt");
+    pdxe_definition with_header = r->defs[0];
+    with_header.n_base_classes = 0;
+    with_header.base_classes = NULL;
+    with_header.n_decorators = 0;
+    with_header.decorators = NULL;
+    with_header.n_signature_param_types = 0;
+    with_header.signature_param_types = NULL;
+    with_header.n_routes = 0;
+    with_header.routes = NULL;
+    with_header.n_impl_bounds = 1;
+    with_header.impl_bounds = NULL;
+    CHECK(pdxe_result_build(ctx, n_src, &with_header, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
+          "a definition's impl header counted with no array was rebuilt");
+    with_header.n_impl_bounds = 2;
+    with_header.impl_bounds = holed_entries;
+    CHECK(pdxe_result_build(ctx, n_src, &with_header, 1, NULL, 0, NULL, 0, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, &refused) == PDXE_E_INVALID && !refused,
+          "a definition's impl header holding a NULL was rebuilt");
     /* Routes (issue 54): counted with no array; one without its method; one whose path is
      * counted with no array; one whose path holds a NULL. */
     pdxe_definition with_routes = r->defs[0];

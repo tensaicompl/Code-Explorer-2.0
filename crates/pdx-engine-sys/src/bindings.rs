@@ -133,7 +133,7 @@ pub const PDXE_QN_WHOLE: pdxe_qn_form = 0;
 pub const PDXE_QN_MEMBER: pdxe_qn_form = 1;
 pub const PDXE_QN_EXTENDED: pdxe_qn_form = 2;
 pub const PDXE_QN_PREFIX: pdxe_qn_form = 3;
-#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope.\n\n The qualified name is given by its relation to an earlier definition's, so that\n nested definitions do not each repeat the names of everything around them (issue\n 90, decision 61). By `qn_form`:\n\n   PDXE_QN_WHOLE     `qn_text` is the whole name; `qn_base` is PDXE_NO_PARENT.\n   PDXE_QN_MEMBER    the qualified name of definition `qn_base`, then `.`, then\n                     `name`; `qn_text` is NULL.\n   PDXE_QN_EXTENDED  the qualified name of definition `qn_base`, then `qn_text`,\n                     whose first byte is ASCII.\n   PDXE_QN_PREFIX    the first `qn_keep` bytes of definition `qn_base`'s qualified\n                     name, then `qn_text`, which is empty or begins with `.`: names\n                     the file's definitions share a prefix of without any of them\n                     being the prefix (a C++ function in nested namespaces, which are\n                     no definitions, beside one in an enclosing namespace). The byte\n                     at `qn_keep` in the base's name is a `.` the base itself adds,\n                     after its own base's name.\n\n `qn_keep` is 0 in every other form. `qn_base` is always smaller than the definition's\n own index, so every name is reached from a whole one, and the name is exactly the\n engine's, byte for byte: the form changes how it is held, never what it is.\n pdxe_qualified_name spells it out.\n\n `signature` is the parameter list as the source writes it: a range of the source, or\n owned text for a definition read after C-family macro expansion; PDXE_TEXT_NONE when\n the definition has none. Parameters can hold whole definitions (a JavaScript function\n as a parameter's default), so it is never copied when it is the source's own (issue\n 90, decision 61).\n\n `base_classes` are the classes, interfaces and traits the definition names as its\n bases, exactly as the engine recorded them: in its order, spelling and case,\n unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 40.\n\n `decorators` are the decorators, annotations or attributes the definition carries,\n as the engine recorded each, in its order; `signature_param_types` its parameters'\n types as the engine reads them, in order, `?` for one it cannot read; `route_path`\n and `route_method` the HTTP route a decorator binds it to, where the engine found\n one, else NULL. Each array is NULL with a count of 0 when empty. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 47.\n\n `routes` are every route binding the definition's decorators or annotations declare\n (pdxe_route), each with the node that declares it; NULL with a count of 0 for none.\n `route_path` and `route_method` keep the engine's single summary of them. Appended\n by a specification change; see docs/plan/ISSUES.md, issue 54."]
+#[doc = " A definition: anything the graph gives a node of its own.\n\n `kind` is one of the normalised strings of the kind mapping, never an engine\n kind: `class`, `interface`, `enum`, `struct`, `trait`, `type_alias`, `function`,\n `method`, `constructor`, `field`, `variable`, `macro`, `module`. An engine kind\n with no mapping becomes `variable`, and `engine_kind` keeps what it was so the\n information is not lost.\n\n `parent_index` indexes the definition array of the same result, or\n PDXE_NO_PARENT when the definition is at file scope.\n\n The qualified name is given by its relation to an earlier definition's, so that\n nested definitions do not each repeat the names of everything around them (issue\n 90, decision 61). By `qn_form`:\n\n   PDXE_QN_WHOLE     `qn_text` is the whole name; `qn_base` is PDXE_NO_PARENT.\n   PDXE_QN_MEMBER    the qualified name of definition `qn_base`, then `.`, then\n                     `name`; `qn_text` is NULL.\n   PDXE_QN_EXTENDED  the qualified name of definition `qn_base`, then `qn_text`,\n                     whose first byte is ASCII.\n   PDXE_QN_PREFIX    the first `qn_keep` bytes of definition `qn_base`'s qualified\n                     name, then `qn_text`, which is empty or begins with `.`: names\n                     the file's definitions share a prefix of without any of them\n                     being the prefix (a C++ function in nested namespaces, which are\n                     no definitions, beside one in an enclosing namespace). The byte\n                     at `qn_keep` in the base's name is a `.` the base itself adds,\n                     after its own base's name.\n\n `qn_keep` is 0 in every other form. `qn_base` is always smaller than the definition's\n own index, so every name is reached from a whole one, and the name is exactly the\n engine's, byte for byte: the form changes how it is held, never what it is.\n pdxe_qualified_name spells it out.\n\n `signature` is the parameter list as the source writes it: a range of the source, or\n owned text for a definition read after C-family macro expansion; PDXE_TEXT_NONE when\n the definition has none. Parameters can hold whole definitions (a JavaScript function\n as a parameter's default), so it is never copied when it is the source's own (issue\n 90, decision 61).\n\n `base_classes` are the classes, interfaces and traits the definition names as its\n bases, exactly as the engine recorded them: in its order, spelling and case,\n unresolved. `n_base_classes` counts them; with none, `base_classes` is NULL.\n Appended by a specification change; see docs/plan/ISSUES.md, issue 40.\n\n `decorators` are the decorators, annotations or attributes the definition carries,\n as the engine recorded each, in its order; `signature_param_types` its parameters'\n types as the engine reads them, in order, `?` for one it cannot read; `route_path`\n and `route_method` the HTTP route a decorator binds it to, where the engine found\n one, else NULL. Each array is NULL with a count of 0 when empty. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 47.\n\n `routes` are every route binding the definition's decorators or annotations declare\n (pdxe_route), each with the node that declares it; NULL with a count of 0 for none.\n `route_path` and `route_method` keep the engine's single summary of them. Appended\n by a specification change; see docs/plan/ISSUES.md, issue 54.\n\n Rust only: `impl_trait` is the trait of the `impl Trait for Type` block that declares\n a method, as the source spells it (pdxe_impl_trait's `trait_name`), and NULL for every\n other definition, an inherent method's included; `impl_bounds` that block's header\n (pdxe_impl_trait's), `n_impl_bounds` entries, NULL with 0 when the engine recorded\n none. Appended by a specification change; see docs/plan/ISSUES.md, issue 117."]
 pub type pdxe_qn_form = u32;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -166,10 +166,13 @@ pub struct pdxe_definition {
     pub route_method: *const ::std::os::raw::c_char,
     pub routes: *const pdxe_route,
     pub n_routes: u32,
+    pub impl_trait: *const ::std::os::raw::c_char,
+    pub impl_bounds: *mut *const ::std::os::raw::c_char,
+    pub n_impl_bounds: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 224usize];
+    ["Size of pdxe_definition"][::std::mem::size_of::<pdxe_definition>() - 248usize];
     ["Alignment of pdxe_definition"][::std::mem::align_of::<pdxe_definition>() - 8usize];
     ["Offset of field: pdxe_definition::name"]
         [::std::mem::offset_of!(pdxe_definition, name) - 0usize];
@@ -227,6 +230,12 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_definition, routes) - 208usize];
     ["Offset of field: pdxe_definition::n_routes"]
         [::std::mem::offset_of!(pdxe_definition, n_routes) - 216usize];
+    ["Offset of field: pdxe_definition::impl_trait"]
+        [::std::mem::offset_of!(pdxe_definition, impl_trait) - 224usize];
+    ["Offset of field: pdxe_definition::impl_bounds"]
+        [::std::mem::offset_of!(pdxe_definition, impl_bounds) - 232usize];
+    ["Offset of field: pdxe_definition::n_impl_bounds"]
+        [::std::mem::offset_of!(pdxe_definition, n_impl_bounds) - 240usize];
 };
 impl Default for pdxe_definition {
     fn default() -> Self {
@@ -582,17 +591,19 @@ impl Default for pdxe_throw {
         }
     }
 }
-#[doc = " An `impl Trait for Type` block, as the engine records it for Rust: the trait and\n the implementing type as the source spells them (any type arguments left off,\n `io::Write` kept qualified), and the type's qualified name as extraction builds it\n for the file. Recorded for every such block, an empty one included, so the relation\n does not depend on the block defining a method. A trait's own supertraits\n (`trait Child: Parent`) are not recorded. Resolving either name is resolution's\n work. Appended by a specification change; see docs/plan/ISSUES.md, issue 42."]
+#[doc = " An `impl Trait for Type` block, as the engine records it for Rust: the trait and\n the implementing type as the source spells them (any type arguments left off,\n `io::Write` kept qualified), and the type's qualified name as extraction builds it\n for the file. Recorded for every such block, an empty one included, so the relation\n does not depend on the block defining a method. A trait's own supertraits\n (`trait Child: Parent`) are not recorded. Resolving either name is resolution's\n work. Appended by a specification change; see docs/plan/ISSUES.md, issue 42.\n\n `impl_bounds` is the block's header, what must hold for the impl to apply to a type,\n as extraction writes it (issue 109): `n_impl_bounds` entries, each a one-letter kind,\n ':' and a text, in the order and grammar engine/src/pdxe_core.h gives above\n PDXEImplTrait (`s:` the self type's form first; `p:` parameters; `a:` the self type's\n and `t:` the trait's arguments; `w:` a predicate's subject, then its bounds `b:` with\n their arguments `g:`, `r:`, `l:` or `o:`; `x:header` last when opaque). NULL with 0\n when the engine could not record it, which proves nothing. Appended by a\n specification change; see docs/plan/ISSUES.md, issue 117."]
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct pdxe_impl_trait {
     pub trait_name: *const ::std::os::raw::c_char,
     pub struct_name: *const ::std::os::raw::c_char,
     pub struct_qn: *const ::std::os::raw::c_char,
+    pub impl_bounds: *mut *const ::std::os::raw::c_char,
+    pub n_impl_bounds: u32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of pdxe_impl_trait"][::std::mem::size_of::<pdxe_impl_trait>() - 24usize];
+    ["Size of pdxe_impl_trait"][::std::mem::size_of::<pdxe_impl_trait>() - 40usize];
     ["Alignment of pdxe_impl_trait"][::std::mem::align_of::<pdxe_impl_trait>() - 8usize];
     ["Offset of field: pdxe_impl_trait::trait_name"]
         [::std::mem::offset_of!(pdxe_impl_trait, trait_name) - 0usize];
@@ -600,6 +611,10 @@ const _: () = {
         [::std::mem::offset_of!(pdxe_impl_trait, struct_name) - 8usize];
     ["Offset of field: pdxe_impl_trait::struct_qn"]
         [::std::mem::offset_of!(pdxe_impl_trait, struct_qn) - 16usize];
+    ["Offset of field: pdxe_impl_trait::impl_bounds"]
+        [::std::mem::offset_of!(pdxe_impl_trait, impl_bounds) - 24usize];
+    ["Offset of field: pdxe_impl_trait::n_impl_bounds"]
+        [::std::mem::offset_of!(pdxe_impl_trait, n_impl_bounds) - 32usize];
 };
 impl Default for pdxe_impl_trait {
     fn default() -> Self {

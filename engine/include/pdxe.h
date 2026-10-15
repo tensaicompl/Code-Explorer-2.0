@@ -212,6 +212,12 @@ typedef struct {
  * (pdxe_route), each with the node that declares it; NULL with a count of 0 for none.
  * `route_path` and `route_method` keep the engine's single summary of them. Appended
  * by a specification change; see docs/plan/ISSUES.md, issue 54.
+ *
+ * Rust only: `impl_trait` is the trait of the `impl Trait for Type` block that declares
+ * a method, as the source spells it (pdxe_impl_trait's `trait_name`), and NULL for every
+ * other definition, an inherent method's included; `impl_bounds` that block's header
+ * (pdxe_impl_trait's), `n_impl_bounds` entries, NULL with 0 when the engine recorded
+ * none. Appended by a specification change; see docs/plan/ISSUES.md, issue 117.
  */
 enum pdxe_qn_form {
     PDXE_QN_WHOLE = 0,
@@ -249,6 +255,9 @@ typedef struct {
     const char *route_method;
     const pdxe_route *routes;
     uint32_t n_routes;
+    const char *impl_trait;
+    const char **impl_bounds;
+    uint32_t n_impl_bounds;
 } pdxe_definition;
 
 /*
@@ -462,11 +471,22 @@ typedef struct {
  * does not depend on the block defining a method. A trait's own supertraits
  * (`trait Child: Parent`) are not recorded. Resolving either name is resolution's
  * work. Appended by a specification change; see docs/plan/ISSUES.md, issue 42.
+ *
+ * `impl_bounds` is the block's header, what must hold for the impl to apply to a type,
+ * as extraction writes it (issue 109): `n_impl_bounds` entries, each a one-letter kind,
+ * ':' and a text, in the order and grammar engine/src/pdxe_core.h gives above
+ * PDXEImplTrait (`s:` the self type's form first; `p:` parameters; `a:` the self type's
+ * and `t:` the trait's arguments; `w:` a predicate's subject, then its bounds `b:` with
+ * their arguments `g:`, `r:`, `l:` or `o:`; `x:header` last when opaque). NULL with 0
+ * when the engine could not record it, which proves nothing. Appended by a
+ * specification change; see docs/plan/ISSUES.md, issue 117.
  */
 typedef struct {
     const char *trait_name;
     const char *struct_name;
     const char *struct_qn;
+    const char **impl_bounds;
+    uint32_t n_impl_bounds;
 } pdxe_impl_trait;
 
 /*

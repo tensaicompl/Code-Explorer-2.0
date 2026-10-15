@@ -52,9 +52,10 @@ use crate::index::extract::{ExtractError, FileOutcome, prepare_source};
 use crate::languages::Language;
 
 use super::blocklist;
+use super::impls::ImplHeader;
 use super::registry::{
     BaseResolution, DefinitionRef, ImportRecord, ImportTarget, InternalTarget, NameProvenance,
-    SymbolRegistry,
+    SymbolRegistry, TraitImplOf,
 };
 
 /// The engine's answer for a site, verbatim: kept beside the band for calibration
@@ -892,12 +893,113 @@ impl Resolver<'_> {
             {
                 Ok(made(Band::Candidate, None, vec![target])?)
             }
+            Narrowed::Resolved { band, target } if self.impl_unproven(context, band, &target) => {
+                Ok(made(Band::Candidate, None, vec![target])?)
+            }
             Narrowed::Resolved { band, target } => Ok(made(band, Some(target), Vec::new())?),
             Narrowed::Remaining(candidates) if !candidates.is_empty() => {
                 Ok(made(Band::Candidate, None, candidates)?)
             }
             Narrowed::Remaining(_) => Ok(made(Band::Unresolved, None, Vec::new())?),
         }
+    }
+
+    /// Whether a member a trusted name stage settled on, `import-guided` or
+    /// `inheritance-guided`, is unproven as the call's target because it is reached
+    /// through a Rust trait impl not proven to apply (issue 117): the impl's method, or a
+    /// trait's own method reached through the current type's impl of the trait. Typed
+    /// resolution answers with such a method only when its impl's header is proven for
+    /// the call's types (issue 109); a trusted stage, which reads no type arguments,
+    /// takes one only when the header requires nothing, or, for a call on `self` or
+    /// `Self` over the same type, when the impl the call is made from requires everything
+    /// it requires ([`ImplHeader::entailed_by`]). Unknown is never proven. Rust only:
+    /// the engine records headers for Rust alone.
+    fn impl_unproven(&self, context: &SiteContext<'_>, band: Band, target: &DefinitionRef) -> bool {
+        if context.language.id != "rust"
+            || !matches!(band, Band::ImportGuided | Band::InheritanceGuided)
+        {
+            return false;
+        }
+        let through_self = band == Band::InheritanceGuided;
+        match self.registry.trait_impl_of(target) {
+            TraitImplOf::Unrecorded => true,
+            TraitImplOf::Header(header) => {
+                let same_type = context.current_type.is_some()
+                    && self.registry.declaring_type(target) == context.current_type;
+                !(header.requires_nothing()
+                    || (through_self
+                        && same_type
+                        && (self.same_impl(context, target, header)
+                            || self.caller_entails(context, &target.path, header))))
+            }
+            TraitImplOf::None => {
+                // A trait's own method, reached through the current type's impls of it.
+                let (true, Some(ty), Some(tr)) = (
+                    through_self,
+                    context.current_type.as_ref(),
+                    self.registry.declaring_type(target),
+                ) else {
+                    return false;
+                };
+                // The engine kinds a Rust trait `Interface`.
+                if &tr == ty
+                    || !self.registry.definition(&tr).is_some_and(|d| {
+                        matches!(d.kind, DefinitionKind::Interface | DefinitionKind::Trait)
+                    })
+                {
+                    return false;
+                }
+                !self.registry.relation_headers(ty, &tr).iter().any(|r| {
+                    r.header.as_ref().is_some_and(|h| {
+                        h.requires_nothing() || self.caller_entails(context, &r.path, h)
+                    })
+                })
+            }
+        }
+    }
+
+    /// Whether the impl the call is made from, a trait impl in the same file as the impl
+    /// at `path` (so that a trait's path names one trait in both), requires everything
+    /// `header` requires.
+    fn caller_entails(&self, context: &SiteContext<'_>, path: &str, header: &ImplHeader) -> bool {
+        let Some(caller) = &context.caller else {
+            return false;
+        };
+        if caller.path != path {
+            return false;
+        }
+        matches!(self.registry.trait_impl_of(caller), TraitImplOf::Header(theirs) if header.entailed_by(theirs))
+    }
+
+    /// Whether the call is made from a method of the very impl that declares `target`:
+    /// that impl applies wherever its methods run. One file, one type, one trait spelled
+    /// alike and one header word for word, a header that writes the self type whole
+    /// ([`ImplHeader::writes_self_type`]): two such impls would conflict. Two impls for
+    /// `Cell<u8>` and `Cell<u16>` have one header, `s:other`, and are not one impl.
+    fn same_impl(
+        &self,
+        context: &SiteContext<'_>,
+        target: &DefinitionRef,
+        header: &ImplHeader,
+    ) -> bool {
+        let Some(caller) = &context.caller else {
+            return false;
+        };
+        if !header.writes_self_type() {
+            return false;
+        }
+        let (Some(ours), Some(theirs)) = (
+            self.registry.definition(target),
+            self.registry.definition(caller),
+        ) else {
+            return false;
+        };
+        caller.path == target.path
+            && self.registry.declaring_type(caller) == self.registry.declaring_type(target)
+            && ours.impl_trait.is_some()
+            && ours.impl_trait == theirs.impl_trait
+            && !ours.impl_bounds.is_empty()
+            && ours.impl_bounds == theirs.impl_bounds
     }
 
     /// Whether a member settled on, by typed resolution or by a stage, is unproven as

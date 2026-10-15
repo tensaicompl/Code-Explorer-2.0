@@ -509,6 +509,85 @@ static void check_type_parameter_head(void) {
     pdxe_result_free(ctx, x.r);
 }
 
+/* Issue 117: the header crosses the interface, on a trait impl's methods with their
+ * trait and on its relation, and a result rebuilt from those parts keeps them. An
+ * inherent method has neither. */
+static bool same_entries(const char *const *a, uint32_t n, const char *const *engine) {
+    uint32_t count = 0;
+    while (engine && engine[count]) {
+        count++;
+    }
+    if (n != count || (n && !a)) {
+        return false;
+    }
+    for (uint32_t i = 0; i < n; i++) {
+        if (strcmp(a[i], engine[i]) != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void check_interface(void) {
+    const char *source = "trait Tr { fn f(); }\nstruct W<T>(T);\n"
+                         "impl<T: Copy> Tr for W<T> { fn f() {} }\n"
+                         "impl<T> W<T> { fn g() {} }\n";
+    extraction_t x = extract("src/lib.rs", source);
+    const PDXEImplTrait *relation = &x.e->impl_traits.items[0];
+    CHECK(x.r->n_impl_traits == 1 &&
+              same_entries((const char *const *)x.r->impl_traits[0].impl_bounds,
+                           x.r->impl_traits[0].n_impl_bounds, relation->impl_bounds),
+          "the interface: the relation's header is not the engine's");
+    int methods = 0;
+    for (uint32_t i = 0; i < x.r->n_defs; i++) {
+        const pdxe_definition *d = &x.r->defs[i];
+        if (strcmp(d->name, "f") == 0 && d->parent_index != PDXE_NO_PARENT &&
+            strcmp(x.r->defs[d->parent_index].name, "W") == 0) {
+            methods++;
+            CHECK(d->impl_trait && strcmp(d->impl_trait, "Tr") == 0,
+                  "the interface: the trait impl's method has not its trait");
+            CHECK(same_entries((const char *const *)d->impl_bounds, d->n_impl_bounds,
+                               relation->impl_bounds),
+                  "the interface: the trait impl's method has not its impl's header");
+        } else if (strcmp(d->name, "g") == 0) {
+            methods++;
+            CHECK(!d->impl_trait && !d->impl_bounds && d->n_impl_bounds == 0,
+                  "the interface: an inherent method has a trait or a header");
+        } else {
+            CHECK(!d->impl_trait && d->n_impl_bounds == 0, "the interface: %s has a header",
+                  d->name);
+        }
+    }
+    CHECK(methods == 2, "the interface: the methods are missing (%d)", methods);
+
+    /* Rebuilt from the parts a cache keeps, every one of them is kept. */
+    pdxe_file_result *rebuilt = NULL;
+    CHECK(pdxe_result_build(ctx, strlen(source), x.r->defs, x.r->n_defs, NULL, 0, NULL, 0, NULL, 0,
+                            NULL, 0, NULL, 0, x.r->impl_traits, x.r->n_impl_traits,
+                            &rebuilt) == PDXE_OK &&
+              rebuilt,
+          "the interface: the parts are not rebuilt");
+    if (rebuilt) {
+        for (uint32_t i = 0; i < rebuilt->n_defs; i++) {
+            const pdxe_definition *a = &rebuilt->defs[i];
+            const pdxe_definition *b = &x.r->defs[i];
+            CHECK((a->impl_trait == NULL) == (b->impl_trait == NULL) &&
+                      (!a->impl_trait || strcmp(a->impl_trait, b->impl_trait) == 0) &&
+                      a->n_impl_bounds == b->n_impl_bounds,
+                  "the interface: a rebuilt definition lost its trait or header");
+            for (uint32_t k = 0; k < a->n_impl_bounds; k++) {
+                CHECK(strcmp(a->impl_bounds[k], b->impl_bounds[k]) == 0,
+                      "the interface: a rebuilt header entry differs");
+            }
+        }
+        CHECK(rebuilt->n_impl_traits == 1 &&
+                  rebuilt->impl_traits[0].n_impl_bounds == x.r->impl_traits[0].n_impl_bounds,
+              "the interface: the rebuilt relation lost its header");
+        pdxe_result_free(ctx, rebuilt);
+    }
+    pdxe_result_free(ctx, x.r);
+}
+
 int main(void) {
     if (pdxe_init(&ctx) != PDXE_OK) {
         printf("FAIL the engine did not start\n");
@@ -518,6 +597,7 @@ int main(void) {
     check_answers();
     check_issue();
     check_type_parameter_head();
+    check_interface();
     pdxe_shutdown(ctx);
     if (failures) {
         printf("%d failure(s)\n", failures);

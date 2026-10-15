@@ -15,7 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
-| 117 | 2026-10-15 | P2-06 | blocker | open | Found by issue 109: Stage 3's `import-guided` (a trusted band) narrows `Type::method` to the imported type's member of the name even when that member is a trait impl's method whose header (issue 109) is not proven: `WithRejection::from_request(1, &())` through `use crate::with_rejection::WithRejection;` is drawn to `WithRejection`'s own `from_request`, whose `E: FromRequest<S>` its type argument does not meet, and `Body::from(())` to `impl<T: Copy> From<()> for Body<T>`, its bound unproven. Identical at issue 109's base commit: the engine answers no `Type::method` through an imported type in another file (issue 113), so no typed answer moved to this band. No such false positive in the Rust golden (`import-guided` 109/109 after issue 109) | |
+| 117 | 2026-10-15 | P2-06 | blocker | resolved | Found by issue 109: Stage 3's `import-guided` (a trusted band) narrows `Type::method` to the imported type's member of the name even when that member is a trait impl's method whose header (issue 109) is not proven: `WithRejection::from_request(1, &())` through `use crate::with_rejection::WithRejection;` is drawn to `WithRejection`'s own `from_request`, whose `E: FromRequest<S>` its type argument does not meet, and `Body::from(())` to `impl<T: Copy> From<()> for Body<T>`, its bound unproven. Identical at issue 109's base commit: the engine answers no `Type::method` through an imported type in another file (issue 113), so no typed answer moved to this band. No such false positive in the Rust golden (`import-guided` 109/109 after issue 109) || Resolved 2026-10-15 (no patch, engine 12; cache format 9, protocol 10): the headers issue 109 records cross the interface on a trait impl's methods and relations, and `import-guided` and `inheritance-guided` take a trait impl's member only when its header requires nothing or, for a call on `self`, the calling impl is its own or entails it; unknown is never proven, an unproven member is `candidate`. The same class found in `inheritance-guided` (`Self::from_request`, `self.peek()` through a conditional impl; identical before issue 109) fixed with it. The goldens' trusted bands unchanged: Rust `typed` 860 / 860, `import-guided` 109 / 109, `inheritance-guided` 60 / 60; the engine differential unchanged |
 | 115 | 2026-10-14 | P2-06 | blocker | resolved | Found in issue 114's A0 run: `scripts/a0/run.py` measures with `target/debug/pdx-bench`, which it never builds, and took the `engine_version` it records from `consts.rs`, the source. Nothing tied a result to the executable that produced it: with `ENGINE_VERSION` moved to 10 in the working tree and the executable built before, at 9, the run measured engine 9 and labelled every document engine 10. That run was discarded and measured again after a rebuild; no committed result came from it | Resolved 2026-10-14 (hotfix): `pdx-bench versions` prints, as JSON, the version the linked engine reports at run time, the `pdx_core` constants compiled in (`ENGINE_VERSION`, `EXTRACT_CACHE_FORMAT_VERSION`, `LANGUAGE_MATRIX_VERSION`, `SECRET_DETECTOR_VERSION`, `SEGMENT_SCHEMA_VERSION`) and the worker protocol. Before anything runs, `run.py` compares each with the source and refuses, naming both values and writing nothing, on any difference, a missing executable or one that cannot report. The executable's bytes are held for the run (checked before each dataset and the results), the results are staged and promoted together, and a document's `engine_version` is the executed engine's. Tests A1 to A5 in `scripts/a0/test_a0.py`, now part of `make test`; 14 mutations killed. No resolution, extraction, version or A0 rule (`a0-match-1`, `a0-metrics-1`) changes |
 | 116 | 2026-10-14 | P2-06 | blocker | open | Found by issue 114: Stage 3 makes a Rust site `external` when its receiver's first name is an external import, whatever the site binds it to. With an inline test module's imports now in scope, ten correct `exact` edges of the Rust golden become `external`: `axum/src/response/sse.rs` `stream.chunk_text` ×9 (a local `let mut stream` shadows the module's `use futures_util::stream;`) and `axum/src/serve/mod.rs:1024` `TcpListener::bind(addr).await.unwrap().tap_io` (a repository trait's method called on a value the external path produced). Recall only; no wrong edge | Open. Read a receiver's first name as its binding at the site: a local binding shadows an import, and a method called on a value is not decided by the path that made the value. Not by restoring a file's imports to a module. |
 | 114 | 2026-10-14 | P2-06 | blocker | resolved | Found by issue 111: a Rust `use` has no lexical scope in PDX. The typed pass reads a file's top-level and inline-module `use` declarations as the whole file's, so a test module's `use crate::other::fetch;` makes the module's own call of its own `fetch` a typed answer to `other::fetch` (engine 8 with a plain `use`; engine 9 also with a list it now reads); neither pass reads a `use` in a function body, so 34 calls of PDX itself imported that way have no typed answer; and Stage 3 reads a file's top-level imports only, so an inline module's call is drawn `import-guided` to the module's import. The measured corpora hold no wrong trusted edge from it | Resolved 2026-10-14 (patch 0031, engine 11, on issue 110): every Rust `use` binds in its lexical scope (the file's module, an inline module, a block), in the typed pass and Stage 3 alike; a lookup goes out from the site's scope and stops at the first module, so an inline module sees its parent's names only through `use super::…`; a nearer glob shadows an outer `use`, an explicit `use` the globs of its own scope; one scope binding a name twice withholds it. The extraction records the scopes, the imports inside them and each call's scope (cache format 8, protocol 9, surface 5). A0: Rust `typed` 859 / 860 → 865 / 866, `import-guided` 24 / 24 → 109 / 109, union 63.02% → 64.04%, recall 1,409 → 1,400 / 4,056 (ten correct `exact` edges now `external`, issue 116; one `blocked` site now correct `typed`); every newly drawn site correct, no new wrong trusted edge; the five `Body::from` sites stay `candidate` (issue 110). PDX itself: the 34 calls through a function body's `use` are correct `typed`. Python unchanged. The differential holds a second ratified divergence (decision 66) |
@@ -190,7 +190,120 @@ impl's header without a new engine channel (the record's relation, a header reco
 Stage 3 as `macro_members` is for issue 110), or whether it needs a driver decision. Never
 by blocking a name, a trait or a type.
 
-State: open.
+**Resolution (2026-10-15, no patch, engine 12).** Stage 3's trusted name stages take a
+Rust trait impl's member for a call's target only when the impl is proven to apply, on
+the same header and the same meaning as the typed pass (issue 109). The facts cross the
+interface as extraction records them; nothing the engine extracts changes.
+
+*Traced before any change.* Both reproductions, in another file through a single-name
+`use` of the type, with no typed answer (issue 113):
+
+- **Where.** Stage 3's import stage (`stages.rs`, the import-visible evidence for a path
+  whose head an import binds): for `Type::method` it keeps the candidates declared in the
+  imported type with the call's name. One remains, so `narrow` settles it
+  `import-guided`, and `settled` checked only issue 110's `member_unproven`.
+- **Missing fact.** Nothing read the impl. The Rust record's `Definition` held neither its
+  impl's trait nor its header: patch 0032 records the header on the engine's own
+  `PDXEDefinition` and `PDXEImplTrait`, and only the typed pass read it; `pdxe.h` never
+  carried it.
+- **The same class, `inheritance-guided`.** A call on `self` or `Self` draws the current
+  type's member of the name, a trait impl's included, on the same missing fact. Inside
+  `impl<E: FromRequestParts<()>> WithRejection<E>`, `Self::from_request` reaches the
+  blanket impl through `FromRequestParts`, and `inheritance-guided` drew `WithRejection`'s
+  own `FromRequest` impl, `E: FromRequest<S>` unknown; `self.peek()` there drew `impl<E:
+  Copy> Peek for WithRejection<E>`, `E: Copy` unknown. The typed pass answers neither, at
+  engine 11 as at 12: identical before issue 109. Neither shape is in a golden.
+- **The goldens.** The Rust golden's 109 `import-guided` targets are 83 free functions and
+  26 inherent methods, no trait impl's. Its 60 `inheritance-guided` are 51 inherent, 5 of
+  unconditional trait impls and 4 of conditional ones, each made from an impl whose own
+  where clause holds the target's (`axum/src/boxed.rs:81`, `:116` and
+  `axum/src/handler/service.rs:198`, `self.clone()` in `impl<H, S> ErasedIntoRoute<S,
+  Infallible> for MakeErasedHandler<H, S> where H: Clone + …` for `impl<H, S> Clone for
+  MakeErasedHandler<H, S> where H: Clone`, and alike; `boxed.rs:89`, `self.into_route`
+  in the target's own impl). All correct.
+
+*Change.*
+
+- **Exposed (decided under the round's rule for a boundary not crossed before).** The
+  structures: `pdxe_definition` gains `impl_trait`, `impl_bounds`, `n_impl_bounds`, and
+  `pdxe_impl_trait` `impl_bounds`, `n_impl_bounds` (`engine/include/pdxe.h`, at the end;
+  `engine/api/pdxe.c` borrows the engine's arrays, `pdxe_result_build` refuses a header
+  counted and absent or holding NULL, and copies it); Rust's `Definition::impl_trait`,
+  `impl_bounds` and `ImplTrait::impl_bounds` (`pdx-engine`, bindings regenerated). The
+  serialisers: the record's serde form, in the extraction cache and the worker's answer.
+  The versions: cache format 8 → 9 and worker protocol 9 → 10 (an entry or an answer of
+  the old form, which held no header, is a miss or refused, never read as one that proves
+  nothing). A mechanical exposure of issue 109's facts: `ENGINE_VERSION` stays 12 and the
+  surface 6 (no fact extraction records changed, as issue 42 exposed relations), schema
+  3, matrix 2, detector 4; no vendored file and no patch changed.
+- **Read once.** `resolve::impls::ImplHeader` reads the entries in `pdxe_core.h`'s
+  grammar, never the source. The registry keeps every trait impl's method's header and
+  every relation's, read at build (`trait_impl_of`, `relation_headers`).
+- **Proof** (`stages::impl_unproven`, Rust only, `import-guided` and `inheritance-guided`
+  only; typed answers are issue 109's). A trait impl's member is a target when its header
+  requires nothing: a self type that is a path of distinct parameters (or none, or one
+  parameter) and only relaxed or lifetime bounds. For a call on `self` or `Self` over the
+  member's own type, also when it is made from the same impl (one file, one type, the
+  trait spelled alike, one header word for word, the header writing the self type: an
+  `s:other` header, `impl Tr for Cell<u8>` and `impl Tr for Cell<u16>` alike, does not)
+  or from a trait impl in the same file whose own predicates hold every trait bound of the
+  target's, its parameters renamed by the self types' positions (the calling impl's
+  predicates hold wherever its methods run). A trait's own method reached through the
+  current type's impls of it is a target when one of them is proven so. Unknown is never
+  proven: no header recorded, an opaque one, another kind of bound (`Fn(..)`,
+  higher-ranked), a subject no parameter maps (a projection), a concrete self type.
+- **Withheld.** An unproven member is a `candidate` holding it, as issue 110's are; no
+  other stage is tried and nothing is shown false. Inherent members are as before: an
+  inherent impl's header is not recorded. Never by a name, a trait or a type.
+
+*Tests.*
+
+| Test | What |
+|---|---|
+| `crates/pdx-core/tests/rust_trusted_impls.rs` | Through discovery, extraction, typed resolution and Stage 3: I1 an imported type's inherent method and I2 an unconditional trait impl's stay `import-guided`; I3/I4 a conditional impl's, I5 an impl for a concrete argument, I6/I7 two impls of the name (one or neither proven), I8 an inherent method beside a conditional impl's are `candidate`; the issue's two reproductions withheld, an unconditional `From` impl kept; calls on `self` drawn when the calling impl entails the target's, its trait's default through the type's impl, the same impl (an `Fn(..)` bound), and withheld from an impl that does not, from an inherent impl, between `Cell<u8>`'s and `Cell<u16>`'s impls and from another impl of the trait with other arguments; `Self::from_request`, which the typed pass does not answer, not drawn; the same repository with no header recorded draws no trait impl's member |
+| `resolve::impls` (unit) | Reading the entries; what requires nothing; a self type written whole; entailment renamed by position, and what no position or word maps unknown |
+| `engine/tests/rust_impl_bounds.c` (`check_interface`), `engine/tests/abi_result_build_roundtrip.c` | The header and trait exported on a trait impl's method and relation, none on an inherent method; a result rebuilt from them keeps them; a header counted and absent, or holding NULL, refused |
+| `crates/pdx-engine/tests/impl_traits.rs` | `a_trait_impls_methods_carry_its_trait_and_header` |
+| `crates/pdx/tests/engine_isolate.rs` | `isolation_carries_impl_headers`: a worker's answer holds them as in process (protocol 10) |
+| `crates/pdx-core/tests/extract.rs` | Format 9's key vectors, independently computed; `cache_formats_before_9_are_a_miss` |
+
+*Mutations* (each source restored byte for byte, checked by digest):
+
+| Mutation | Killed by |
+|---|---|
+| skip the impl-header applicability check | `rust_trusted_impls` |
+| unknown taken as proven: no header recorded | `rust_trusted_impls` |
+| unknown taken as proven: another kind of bound, an opaque header, in entailment another bound or an unmapped subject | `resolve::impls` |
+| a conditional impl treated as unconditional | `resolve::impls`, `rust_trusted_impls` |
+| the single represented impl taken as sufficient (the member; a trait's relation) | `rust_trusted_impls` |
+| the first impl wins | `rust_trusted_impls` |
+| `import-guided` ignores trait-vs-inherent origin | `rust_trusted_impls` |
+| issue 110's macro uncertainty bypassed | `rust_macro_members` |
+| issue 109's header ignored: the registry reads no method's, no relation's; the interface exports no method's, no relation's; the worker drops it | `rust_trusted_impls`; with the interface, `rust_impl_bounds.c` and `impl_traits`; the worker's, `isolation_carries_impl_headers` |
+| entailment: parameters not renamed; a bound's arguments ignored | `resolve::impls` |
+| the same impl ignored; its header need not write the self type; its headers need not be equal | `rust_trusted_impls` |
+| a trait read only from `Trait` (the engine kinds a Rust trait `Interface`) | `rust_trusted_impls` |
+
+Two guards survive as unreachable: entailment for an `import-guided` site (an import binds
+the head only in a file other than the type's, while entailment needs the calling impl in
+the type's file; a file's own type is `defined`, the site `candidate`), and the target's
+own type (`inheritance-guided` reaches a trait impl's member only through its own type).
+
+*Engine differential.* Unchanged: 32 corpora pass, 31 identical, `golden:rust/axum` with
+exactly its three ratified divergences (issues 111, 114 and 109); no record added.
+
+*A0* (guarded by issue 115; same pins, oracles and rules; baseline post-109, `83fbb45`):
+every band, precision and recall of the Python and Rust goldens and of PDX itself is
+identical, and no site changes. The goldens hold no trait impl's member a trusted stage
+could not prove.
+
+*Golden.* All ten match.
+
+*Not here.* An inherent impl's header (not recorded: a conditional inherent impl's member
+is taken as before); `Type::<A>::method` and brace-list imports stay `candidate` (issues
+107A and 113); a trait impl in another file than its type has no current type.
+
+State: resolved.
 
 ### 116 — Stage 3 calls a Rust receiver external by the import its first name shares
 
@@ -1328,7 +1441,7 @@ against the official A0 (guarded, engine 12) and this round's tests:
    since the A0.1 baseline, unchanged by every remediation: not new. Issue 117, an
    imported type's trait-impl member drawn `import-guided` without the impl's header,
    was found by reproduction, not by A0, exists identically before issue 109, and is
-   tracked there.
+   tracked there (resolved since, 2026-10-15).
 4. Typed coverage not materially degraded: **met.** The Rust golden's correct typed
    answers go 852 (R1) → 843 (R2) → 859 (111) → 865 (114) → 860 (109); every loss is
    recorded with its cause (R2's six, issue 111; 109's five, unknown bounds and macro
@@ -1896,7 +2009,22 @@ The differential holds a third ratified divergence.
 | Rust | 860/860 = 100.00% | 64.01% | 34.48% |
 
 PDX itself: unchanged (`typed` 100.00%, union 85.05%, recall 83.62%). Four of G1b's six
-floors still fail. Next, when the driver authorises it: R3 (issue 102).
+floors still fail.
+
+**Issue 117 (2026-10-15).** Resolved (no patch, engine 12; cache format 9, protocol 10):
+the headers issue 109 records cross the interface, and Stage 3's `import-guided` and
+`inheritance-guided` take a Rust trait impl's member only when its impl is proven to
+apply; unknown is a `candidate`. It also closes the same class in `inheritance-guided`
+(calls on `self` through a conditional impl). Every measure of the three corpora is
+identical and no site changes: the goldens hold no such false positive.
+
+| Golden | `typed` | Union | Recall |
+|---|---|---|---|
+| Python | 314/314 | 94.98% | 54.40% |
+| Rust | 860/860 = 100.00% | 64.01% | 34.48% |
+
+PDX itself: unchanged. Four of G1b's six floors still fail. Next, when the driver
+authorises it: R3 (issue 102).
 
 State: open.
 

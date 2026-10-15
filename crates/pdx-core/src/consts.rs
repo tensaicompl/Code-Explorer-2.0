@@ -97,8 +97,9 @@ pub const SECRET_DETECTOR_VERSION: u32 = 4;
 /// which only an engine of that version, the key's, reads), bound to the source being
 /// extracted on a hit (issue 90), 7 since an extraction carries the members Rust's `macro_rules!` invocations may
 /// write (issue 110), 8 since it carries Rust's `use` scopes and the imports declared in
-/// them, and a call the scope it is in (issue 114).
-pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 8;
+/// them, and a call the scope it is in (issue 114), 9 since a Rust trait impl's relation
+/// and its methods carry the impl's header, and a method its trait (issue 117).
+pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 9;
 
 // --- resolution ------------------------------------------------------------
 

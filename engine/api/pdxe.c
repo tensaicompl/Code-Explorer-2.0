@@ -1071,6 +1071,12 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
         o->n_signature_param_types = n_types;
         o->route_path = d->route_path;
         o->route_method = d->route_method;
+        /* Issue 117: a Rust trait impl's method, its trait and the impl's header
+         * (issue 109), borrowed as recorded; an inherent method, or any other
+         * definition, has neither. */
+        o->impl_trait = d->impl_trait;
+        o->n_impl_bounds = count_strings(d->impl_bounds);
+        o->impl_bounds = o->n_impl_bounds ? d->impl_bounds : NULL;
     }
     r->n_defs = kept;
 
@@ -1377,6 +1383,9 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
             o->trait_name = it->trait_name;
             o->struct_name = it->struct_name;
             o->struct_qn = strip_project(it->struct_qn);
+            /* Issue 117: the impl's header (issue 109), borrowed as recorded. */
+            o->n_impl_bounds = count_strings(it->impl_bounds);
+            o->impl_bounds = o->n_impl_bounds ? it->impl_bounds : NULL;
         }
         if (r->n_impl_traits == 0) {
             free(r->impl_traits);
@@ -1656,6 +1665,7 @@ int pdxe_result_build(pdxe_ctx *ctx, size_t source_len, const pdxe_definition *d
             !text_valid(&defs[i].signature, source_len, true) ||
             !strings_present(defs[i].decorators, defs[i].n_decorators) ||
             !strings_present(defs[i].signature_param_types, defs[i].n_signature_param_types) ||
+            !strings_present(defs[i].impl_bounds, defs[i].n_impl_bounds) ||
             (defs[i].n_routes && !defs[i].routes)) {
             return PDXE_E_INVALID;
         }
@@ -1689,10 +1699,11 @@ int pdxe_result_build(pdxe_ctx *ctx, size_t source_len, const pdxe_definition *d
             return PDXE_E_INVALID;
         }
     }
-    /* Every relation has its three strings. */
+    /* Every relation has its three strings, and the header it counts. */
     for (uint32_t i = 0; i < n_impl_traits; i++) {
         if (!impl_traits[i].trait_name || !impl_traits[i].struct_name ||
-            !impl_traits[i].struct_qn) {
+            !impl_traits[i].struct_qn ||
+            !strings_present(impl_traits[i].impl_bounds, impl_traits[i].n_impl_bounds)) {
             return PDXE_E_INVALID;
         }
     }
@@ -1765,6 +1776,10 @@ int pdxe_result_build(pdxe_ctx *ctx, size_t source_len, const pdxe_definition *d
             d->signature_param_types ? defs[i].n_signature_param_types : 0;
         d->route_path = own(h, defs[i].route_path, &failed);
         d->route_method = own(h, defs[i].route_method, &failed);
+        d->impl_trait = own(h, defs[i].impl_trait, &failed);
+        d->impl_bounds = own_strings(h, (const char *const *)defs[i].impl_bounds,
+                                     defs[i].n_impl_bounds, &failed);
+        d->n_impl_bounds = d->impl_bounds ? defs[i].n_impl_bounds : 0;
         d->routes = NULL;
         d->n_routes = 0;
         if (defs[i].n_routes && !failed) {
@@ -1838,6 +1853,11 @@ int pdxe_result_build(pdxe_ctx *ctx, size_t source_len, const pdxe_definition *d
         r->impl_traits[i].trait_name = own(h, impl_traits[i].trait_name, &failed);
         r->impl_traits[i].struct_name = own(h, impl_traits[i].struct_name, &failed);
         r->impl_traits[i].struct_qn = own(h, impl_traits[i].struct_qn, &failed);
+        r->impl_traits[i].impl_bounds =
+            own_strings(h, (const char *const *)impl_traits[i].impl_bounds,
+                        impl_traits[i].n_impl_bounds, &failed);
+        r->impl_traits[i].n_impl_bounds =
+            r->impl_traits[i].impl_bounds ? impl_traits[i].n_impl_bounds : 0;
     }
     if (failed) {
         holder_free(h);

@@ -95,8 +95,16 @@ and the typed pass proves every predicate for the path's types (patch 0032,
 site (`with_rejection.rs:196`) now falls to Stage 3's `scoped` guess, still the wrong
 impl: issue 109 removes the false trusted typed answer, and the weak `scoped` guess is
 issue 102's (R3) and known wrong until R3, an R3 acceptance case. The engine differential
-holds a third ratified divergence for 109 (decision 66). Next, **only when the driver
-authorises it**: R3 (issue 102); issue 113 waits for recall work.
+holds a third ratified divergence for 109 (decision 66).
+
+**Issue 117 is done (2026-10-15).** Stage 3's trusted name stages take a Rust trait
+impl's member only when its impl is proven to apply: `import-guided` when the impl's
+header requires nothing, `inheritance-guided` also when the impl the call on `self` is
+made from entails it (below). The headers issue 109 records now cross the interface
+(cache format 9, worker protocol 10); the engine's extraction is unchanged
+(`ENGINE_VERSION` 12, surface 6) and the engine differential with it. The goldens'
+trusted bands are unchanged. Next, **only when the driver authorises it**: R3 (issue
+102); issue 113 waits for recall work.
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. Build `pdx-bench` first
@@ -222,13 +230,14 @@ registry's own metadata, and applies a configuration's path aliases to TypeScrip
 JavaScript imports only, as the registry does (issue 43, patch 0009). Rust's `impl
 Trait for Type` relations cross the interface (`FileExtract::impl_traits`, issue 42)
 and the registry resolves them; supertraits are not recorded, so none is followed. The
-extraction cache is format 8 and the worker protocol 9 (issues 40 to 42, 46, 47, 54, 90,
-110 and 114): calls carry their node-type path (`ast_path`, computed by the engine since patch
+extraction cache is format 9 and the worker protocol 10 (issues 40 to 42, 46, 47, 54, 90,
+110, 114 and 117): calls carry their node-type path (`ast_path`, computed by the engine since patch
 0010) and arguments, and definitions their decorators, parameter types and every route
 binding with its declaring node's position and path (`routes`, patch 0011); both hold
 records whose text is ranges of the source (issue 90B, below), a Rust file the members
-its macro invocations may write (issue 110) and Rust calls their `use` scope (issue 114,
-both below); `ENGINE_VERSION` is 12 (issue 109). Issue 74 (decision 45, engine 4): the C and C++ expression
+its macro invocations may write (issue 110), Rust calls their `use` scope (issue 114)
+and a Rust trait impl's relation and methods its header, the methods their trait
+(issue 117, all below); `ENGINE_VERSION` is 12 (issue 109). Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -530,9 +539,9 @@ only when the impl is proven to apply.
   before (`PDXE_FUNC_FLAG_RUST_DERIVED`). A type argument naming a generic parameter in
   scope (`RustLSPContext::generic_names`) is never a type.
 - **Not here.** No Stage 3 channel for a withheld answer (driver decision): the issue's
-  site falls to `scoped`, issue 102's (R3). Stage 3's `import-guided` takes an imported
-  type's trait-impl member without its header (issue 117, open); cross-file
-  `Type::method` through an import gets no typed answer at all (issue 113). The
+  site falls to `scoped`, issue 102's (R3). Stage 3's trusted stages and an impl's
+  header are issue 117's (below); cross-file `Type::method` through an import gets no
+  typed answer at all (issue 113). The
   incremental cross-surface codec (`resolve/lsp_surface.c`) is not changed: the engine
   differential compares it key by key, and resolution here reads the definitions.
 - **Tests.** `engine/tests/rust_impl_bounds.c` (headers, T1 to T7, the issue's and the
@@ -540,6 +549,40 @@ only when the impl is proven to apply.
   alike, the header in the surface, surface 5 refused), `crates/pdx-core/tests/
   rust_impl_bounds.rs` (Stage 3, a warm cache), `rust_targets.rs`'s E6 (the R3 case) and
   E8, and the cache test above.
+
+Issue 117 (no patch, engine 12): Stage 3's trusted name stages take a Rust trait impl's
+member only when the impl is proven to apply.
+- **Exposed.** The facts issue 109 records cross the interface as they are:
+  `pdxe_definition` gains `impl_trait`, `impl_bounds`, `n_impl_bounds`, `pdxe_impl_trait`
+  `impl_bounds`, `n_impl_bounds` (`Definition::impl_trait`, `impl_bounds`,
+  `ImplTrait::impl_bounds`); `pdxe_result_build` validates and copies them. Cache format
+  9 and protocol 10 (records and answers carry them); `ENGINE_VERSION` 12 and surface 6
+  stay (nothing extraction records changed), schema 3.
+- **Read once.** `resolve::impls::ImplHeader` reads the entries in the grammar
+  `pdxe_core.h` gives, never source text. The registry keeps each trait impl's method's
+  header (`trait_impl_of`: `None` for no trait impl's member, `Unrecorded`, `Header`) and
+  each relation's (`relation_headers(type, trait)`).
+- **Proof** (`stages::impl_unproven`, Rust, `import-guided` and `inheritance-guided`
+  only). A trait impl's member is a target when its header requires nothing (a path of
+  distinct parameters, or one, and only relaxed or lifetime bounds); for a call on
+  `self` or `Self` over the target's own type (`inheritance-guided`), also when the call
+  is made from the same impl (one file, type, trait spelling and header, the header
+  writing the self type whole: `s:other` never does) or from a trait impl in the same
+  file whose own predicates hold every trait bound of the target's, its parameters
+  renamed by the self types' positions (`ImplHeader::entailed_by`). A trait's own
+  method reached through the type's impls of it is a target when one of those impls is
+  proven so. No header recorded, an opaque one, another kind of bound, a subject no
+  parameter maps: unknown, never proven. Unproven is a `candidate` holding the member,
+  as issue 110's are. Inherent members are as before (an inherent impl's header is not
+  recorded).
+- **Rule.** Never by blocking a name, a trait or a type, never by reading the source
+  again: a trusted stage takes a trait impl's member on no less evidence than the typed
+  pass would (issue 109).
+- **Tests.** `crates/pdx-core/tests/rust_trusted_impls.rs` (I1 to I8, the reproductions,
+  calls on `self`, the same impl, `Cell<u8>` against `Cell<u16>`, no header recorded),
+  `resolve::impls`' unit tests, `engine/tests/rust_impl_bounds.c`'s interface round trip,
+  `abi_result_build_roundtrip.c`, `pdx-engine`'s `impl_traits`, the worker's
+  `isolation_carries_impl_headers`, and the cache vectors of format 9.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: a qualifying
@@ -550,7 +593,8 @@ no file of the project is `external`, issue 45); then local bindings (`unresolve
 external-only bindings (`external`, and a Rust path starting with an extern-prelude
 crate, issue 104); then import-guided, inheritance-guided, exact and
 scoped through `narrow`, which never lets a stage add a candidate or an empty stage
-erase one; then `candidate` or `unresolved`. Engine hints seed candidates and never
+erase one (a Rust member a macro may write, issue 110, or a trait impl's not proven to
+apply, issue 117, is a `candidate`); then `candidate` or `unresolved`. Engine hints seed candidates and never
 restrict them; `exact` is the repository's one definition of the name, never a
 narrowing to several; `scoped` is the module, never a directory the matrix does not
 call a module. `typed_only` sites, references and engine-found sites are call sites
