@@ -694,6 +694,173 @@ static void rust_registered_type_add_embedded(PDXEArena *arena, PDXERegisteredTy
     type->embedded_types = items;
 }
 
+/* Issue 109: the index of `name` among the first `count` parameters, or -1. */
+static int rust_impl_param_index(const char *const *params, int count, const char *name) {
+    for (int i = 0; i < count; i++) {
+        if (strcmp(params[i], name) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* Issue 109: a trait impl's header (PDXEImplTrait's impl_bounds), read once at
+ * registration. `trait_qn` is the impl's own trait, already canonical; each bound's
+ * trait is made canonical as an impl's trait is, from the module declaring the impl,
+ * so a bound and an impl that name one trait name the same QN. NULL with no header,
+ * or when the reading cannot be made whole (counted where the allocation failed): an
+ * impl without facts is never proven to apply. */
+static const PDXERustImplFacts *rust_impl_facts_read(PDXEArena *arena, const PDXETypeRegistry *reg,
+                                                     const RustTraitNameIndex *traits,
+                                                     const char *const *entries,
+                                                     const char *module_qn, const char *trait_qn) {
+    if (!arena || !entries || !entries[0]) {
+        return NULL;
+    }
+    int n_params = 0, n_self = 0, n_trait = 0, n_bounds = 0, n_args = 0;
+    for (int i = 0; entries[i]; i++) {
+        switch (entries[i][0]) {
+        case 'p':
+            n_params++;
+            break;
+        case 'a':
+            n_self++;
+            break;
+        case 't':
+            n_trait++;
+            break;
+        case 'b':
+        case 'r':
+        case 'l':
+        case 'o':
+            n_bounds++;
+            break;
+        case 'g':
+            n_args++;
+            break;
+        default:
+            break;
+        }
+    }
+    PDXERustImplFacts *f = (PDXERustImplFacts *)pdxe_arena_alloc(arena, sizeof(*f));
+    if (!f) {
+        return NULL;
+    }
+    memset(f, 0, sizeof(*f));
+    f->params = (const char **)pdxe_arena_alloc(arena, (size_t)(n_params + 1) * sizeof(char *));
+    f->self_args = (int *)pdxe_arena_alloc(arena, (size_t)(n_self + 1) * sizeof(int));
+    f->trait_args = (const char **)pdxe_arena_alloc(arena, (size_t)(n_trait + 1) * sizeof(char *));
+    f->bounds = (PDXERustBound *)pdxe_arena_alloc(arena, (size_t)(n_bounds + 1) * sizeof(PDXERustBound));
+    const char **args = (const char **)pdxe_arena_alloc(arena, (size_t)(n_args + 1) * sizeof(char *));
+    if (!f->params || !f->self_args || !f->trait_args || !f->bounds || !args) {
+        return NULL;
+    }
+    f->trait_qn = trait_qn;
+    f->self_form = 'o';
+    int n_used_args = 0;
+    int subject = -1;
+    bool in_predicate = false;
+    PDXERustBound *last_trait = NULL;
+    for (int i = 0; entries[i]; i++) {
+        const char *e = entries[i];
+        if (!e[0] || e[1] != ':') {
+            f->opaque = true;
+            continue;
+        }
+        const char *text = e + 2;
+        PDXERustBound *bound = NULL;
+        switch (e[0]) {
+        case 's':
+            if (i != 0) {
+                f->opaque = true;
+            } else if (strcmp(text, "plain") == 0) {
+                f->self_form = 'p';
+            } else if (strcmp(text, "blanket") == 0) {
+                f->self_form = 'b';
+            } else if (strcmp(text, "other") != 0) {
+                f->opaque = true;
+            }
+            break;
+        case 'p':
+            f->params[f->param_count++] = text;
+            break;
+        case 'a': {
+            int index = rust_impl_param_index(f->params, f->param_count, text);
+            if (index < 0) {
+                f->opaque = true;
+            } else {
+                f->self_args[f->self_arg_count++] = index;
+            }
+            break;
+        }
+        case 't':
+            f->trait_args[f->trait_arg_count++] = text;
+            break;
+        case 'w':
+            subject = rust_impl_param_index(f->params, f->param_count, text);
+            in_predicate = true;
+            last_trait = NULL;
+            break;
+        case 'b':
+        case 'r':
+        case 'l':
+        case 'o':
+            if (!in_predicate) {
+                f->opaque = true;
+                break;
+            }
+            bound = &f->bounds[f->bound_count++];
+            memset(bound, 0, sizeof(*bound));
+            bound->subject = subject;
+            bound->kind = e[0] == 'b'   ? PDXE_RUST_BOUND_TRAIT
+                          : e[0] == 'r' ? PDXE_RUST_BOUND_RELAXED
+                          : e[0] == 'l' ? PDXE_RUST_BOUND_LIFETIME
+                                        : PDXE_RUST_BOUND_OTHER;
+            last_trait = NULL;
+            if (bound->kind == PDXE_RUST_BOUND_TRAIT) {
+                bound->trait_qn = rust_canonical_impl_trait(arena, reg, traits, text, module_qn);
+                bound->args = args + n_used_args;
+                last_trait = bound;
+            }
+            break;
+        case 'g':
+            if (!last_trait) {
+                f->opaque = true;
+                break;
+            }
+            args[n_used_args++] = text;
+            last_trait->arg_count++;
+            break;
+        default: /* x:, or a kind no grammar has */
+            f->opaque = true;
+            break;
+        }
+    }
+    return f;
+}
+
+/* Issue 109: one more `impl Trait for Type` relation of `type`, with its header. */
+static void rust_registered_type_add_impl(PDXEArena *arena, PDXERegisteredType *type,
+                                          const PDXERustImplFacts *facts) {
+    if (!arena || !type || !facts) {
+        return;
+    }
+    if (type->rust_impl_count == type->rust_impl_cap) {
+        int cap = type->rust_impl_cap ? type->rust_impl_cap * 2 : 4;
+        const PDXERustImplFacts **grown = (const PDXERustImplFacts **)pdxe_arena_alloc(
+            arena, (size_t)cap * sizeof(*grown));
+        if (!grown) {
+            return;
+        }
+        for (int i = 0; i < type->rust_impl_count; i++) {
+            grown[i] = type->rust_impls[i];
+        }
+        type->rust_impls = grown;
+        type->rust_impl_cap = cap;
+    }
+    type->rust_impls[type->rust_impl_count++] = facts;
+}
+
 /* Strip a leading `&` / `&mut` reference prefix from a textual type so we
  * can compare the inner head segment against builtins. */
 static const char *skip_ref_prefix(const char *text) {
@@ -4857,6 +5024,417 @@ static int rust_glob_evidence(RustLSPContext *ctx, const char *name, int upto,
     return *out ? rust_glob_qualifiers(ctx, name, globs, glob_n, *out) : 0;
 }
 
+/* ── Issue 109: a trait impl applies only when its header holds ───────────────
+ *
+ * `Type::method` reaches a trait's method through an impl of the trait for the type,
+ * and an impl applies to a type only when what its header requires holds for it. A
+ * typed answer names an impl's method only when the impl is proven to apply: every
+ * predicate's bounds hold for the site's types, from the registry's impls. Absence of
+ * another impl is no proof, since a blanket impl (registered under its parameter's
+ * name), a macro's impl (issue 110) or another crate's may be the one that applies.
+ *
+ * A bound is proven, or unknown. No bound is ever shown false from these facts, for
+ * the same reasons, so an unsatisfied bound is unknown too, and unknown never counts
+ * as proven. */
+
+static bool rust_word_char(char c) {
+    return isalnum((unsigned char)c) || c == '_';
+}
+
+/* A node's tokens as extraction writes a header's texts (extract_defs.c,
+ * rust_ib_text): comments left out, a space only between two word characters. */
+static char *rust_tokens_text(RustLSPContext *ctx, TSNode node) {
+    uint32_t start = ts_node_start_byte(node);
+    uint32_t end = ts_node_end_byte(node);
+    char *out = (char *)pdxe_arena_alloc(ctx->arena, (size_t)(end > start ? end - start : 0) + 1);
+    if (!out) {
+        return NULL;
+    }
+    size_t len = 0;
+    PDXE_TREE_WALK(w, node) {
+        const char *kind = ts_node_type(w.node);
+        if (strcmp(kind, "line_comment") == 0 || strcmp(kind, "block_comment") == 0) {
+            pdxe_tree_walk_skip_children(&w);
+            continue;
+        }
+        if (ts_node_child_count(w.node) != 0) {
+            continue;
+        }
+        uint32_t s = ts_node_start_byte(w.node);
+        uint32_t e = ts_node_end_byte(w.node);
+        if (e <= s || e > (uint32_t)ctx->source_len) {
+            continue;
+        }
+        if (len > 0 && rust_word_char(out[len - 1]) && rust_word_char(ctx->source[s])) {
+            out[len++] = ' ';
+        }
+        memcpy(out + len, ctx->source + s, e - s);
+        len += e - s;
+    }
+    out[len] = '\0';
+    return out;
+}
+
+/* The generic parameters of `item` (a function or an impl) come into scope. */
+static void rust_push_generic_names(RustLSPContext *ctx, TSNode item) {
+    TSNode params = ts_node_child_by_field_name(item, "type_parameters", 15);
+    if (ts_node_is_null(params)) {
+        return;
+    }
+    PDXE_FOR_EACH_NAMED_CHILD(it, params) {
+        const char *kind = ts_node_type(it.node);
+        if (strcmp(kind, "type_parameter") != 0 && strcmp(kind, "const_parameter") != 0) {
+            continue;
+        }
+        TSNode name_node = ts_node_child_by_field_name(it.node, "name", 4);
+        char *name = ts_node_is_null(name_node) ? NULL : rust_node_text(ctx, name_node);
+        if (!name) {
+            continue;
+        }
+        if (ctx->generic_name_count == ctx->generic_name_cap) {
+            int cap = ctx->generic_name_cap ? ctx->generic_name_cap * 2 : 8;
+            const char **grown =
+                (const char **)pdxe_arena_alloc(ctx->arena, (size_t)cap * sizeof(*grown));
+            if (!grown) {
+                return;
+            }
+            for (int i = 0; i < ctx->generic_name_count; i++) {
+                grown[i] = ctx->generic_names[i];
+            }
+            ctx->generic_names = grown;
+            ctx->generic_name_cap = cap;
+        }
+        ctx->generic_names[ctx->generic_name_count++] = name;
+    }
+}
+
+static bool rust_is_generic_name(const RustLSPContext *ctx, const char *name) {
+    for (int i = 0; i < ctx->generic_name_count; i++) {
+        if (strcmp(ctx->generic_names[i], name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/* A site's type argument: the node, and its text as a header's texts are written. */
+typedef struct {
+    TSNode node;
+    const char *text;
+} RustSiteTypeArg;
+
+/* The type arguments a call path gives its type (`Type::<A, B>::method`), lifetimes
+ * left out; 0 when it gives none. At most `cap`; more is none (never a prefix). */
+static int rust_site_type_args(RustLSPContext *ctx, TSNode func_path, RustSiteTypeArg *out,
+                               int cap) {
+    if (ts_node_is_null(func_path)) {
+        return 0;
+    }
+    const char *kind = ts_node_type(func_path);
+    if (strcmp(kind, "generic_type") != 0 && strcmp(kind, "generic_type_with_turbofish") != 0) {
+        return 0;
+    }
+    TSNode type_args = ts_node_child_by_field_name(func_path, "type_arguments", 14);
+    if (ts_node_is_null(type_args)) {
+        return 0;
+    }
+    int n = 0;
+    PDXE_FOR_EACH_NAMED_CHILD(it, type_args) {
+        const char *k = ts_node_type(it.node);
+        if (strcmp(k, "lifetime") == 0 || strcmp(k, "line_comment") == 0 ||
+            strcmp(k, "block_comment") == 0) {
+            continue;
+        }
+        if (n == cap) {
+            return 0;
+        }
+        out[n].node = it.node;
+        out[n].text = rust_tokens_text(ctx, it.node);
+        if (!out[n].text) {
+            return 0;
+        }
+        n++;
+    }
+    return n;
+}
+
+/* Whether `text` holds one of the impl's parameter names as a word. */
+static bool rust_text_names_param(const char *text, const PDXERustImplFacts *f) {
+    for (const char *p = text; *p;) {
+        if (!rust_word_char(*p) || (p > text && rust_word_char(p[-1]))) {
+            p++;
+            continue;
+        }
+        const char *q = p;
+        while (*q && rust_word_char(*q)) {
+            q++;
+        }
+        for (int i = 0; i < f->param_count; i++) {
+            size_t len = strlen(f->params[i]);
+            if ((size_t)(q - p) == len && strncmp(p, f->params[i], len) == 0) {
+                return true;
+            }
+        }
+        p = q;
+    }
+    return false;
+}
+
+/* A bound's generic argument with the site's types put in for the impl's parameters:
+ * the argument itself when it names none, the site's type when it is exactly one the
+ * site gives, NULL otherwise (unknown). */
+static const char *rust_bound_arg_at_site(const char *arg, const PDXERustImplFacts *f,
+                                          const RustSiteTypeArg *const *sigma) {
+    int index = rust_impl_param_index(f->params, f->param_count, arg);
+    if (index >= 0) {
+        return sigma[index] ? sigma[index]->text : NULL;
+    }
+    return rust_text_names_param(arg, f) ? NULL : arg;
+}
+
+/* Whether relation `r`, an impl of the bound's trait for the site's type, holds for it
+ * whatever the type's arguments: a plain self type, no requirement, and trait
+ * arguments that are its own free parameters or the bound's arguments exactly. */
+static bool rust_relation_proves(const PDXERustImplFacts *r, const PDXERustBound *bound,
+                                 const PDXERustImplFacts *f, const RustSiteTypeArg *const *sigma) {
+    if (r->opaque || r->derived || r->self_form != 'p' || r->trait_arg_count != bound->arg_count) {
+        return false;
+    }
+    for (int i = 0; i < r->bound_count; i++) {
+        if (r->bounds[i].kind != PDXE_RUST_BOUND_RELAXED &&
+            r->bounds[i].kind != PDXE_RUST_BOUND_LIFETIME) {
+            return false;
+        }
+    }
+    for (int i = 0; i < r->trait_arg_count; i++) {
+        const char *own = r->trait_args[i];
+        int param = rust_impl_param_index(r->params, r->param_count, own);
+        if (param >= 0) {
+            /* Free only when no other position of the header holds it. */
+            bool free_param = true;
+            for (int k = 0; k < r->self_arg_count && free_param; k++) {
+                free_param = r->self_args[k] != param;
+            }
+            for (int k = 0; k < r->trait_arg_count && free_param; k++) {
+                free_param = k == i || strcmp(r->trait_args[k], own) != 0;
+            }
+            if (!free_param) {
+                return false;
+            }
+            continue;
+        }
+        if (rust_text_names_param(own, r)) {
+            return false;
+        }
+        const char *wanted = rust_bound_arg_at_site(bound->args[i], f, sigma);
+        if (!wanted || strcmp(wanted, own) != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Whether the site's type `arg` is proven to implement `bound`'s trait: an impl the
+ * registry holds for exactly that type, which holds for it unconditionally. */
+static bool rust_type_proven_to_implement(RustLSPContext *ctx, const RustSiteTypeArg *arg,
+                                          const PDXERustBound *bound, const PDXERustImplFacts *f,
+                                          const RustSiteTypeArg *const *sigma) {
+    if (!bound->trait_qn || ts_node_is_null(arg->node)) {
+        return false;
+    }
+    const char *kind = ts_node_type(arg->node);
+    if (strcmp(kind, "type_identifier") != 0 && strcmp(kind, "scoped_type_identifier") != 0 &&
+        strcmp(kind, "generic_type") != 0) {
+        return false; /* `_`, a reference, a tuple, a primitive, ...: not a registered type */
+    }
+    TSNode base = arg->node;
+    if (strcmp(kind, "generic_type") == 0) {
+        base = ts_node_child_by_field_name(arg->node, "type", 4);
+        if (ts_node_is_null(base)) {
+            return false;
+        }
+    }
+    if (strcmp(ts_node_type(base), "type_identifier") == 0) {
+        char *name = rust_node_text(ctx, base);
+        if (!name || strcmp(name, "_") == 0 || rust_is_generic_name(ctx, name) ||
+            is_rust_primitive(name)) {
+            return false;
+        }
+    }
+    const PDXEType *type = rust_parse_type_node(ctx, arg->node);
+    const char *qn = NULL;
+    if (type && type->kind == PDXE_TYPE_NAMED) {
+        qn = type->data.named.qualified_name;
+    } else if (type && type->kind == PDXE_TYPE_TEMPLATE) {
+        qn = type->data.template_type.template_name;
+    }
+    if (!qn) {
+        return false;
+    }
+    for (const PDXETypeRegistry *reg = ctx->registry; reg; reg = reg->fallback) {
+        for (int ti = pdxe_registry_type_first_by_qn(reg, qn); ti >= 0;
+             ti = pdxe_registry_type_next_by_qn(reg, ti)) {
+            const PDXERegisteredType *t = &reg->types[ti];
+            for (int k = 0; k < t->rust_impl_count; k++) {
+                const PDXERustImplFacts *r = t->rust_impls[k];
+                if (r->trait_qn && strcmp(r->trait_qn, bound->trait_qn) == 0 &&
+                    rust_relation_proves(r, bound, f, sigma)) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+/* Whether the impl `f` is proven to apply at a call whose path gives `site` (n type
+ * arguments) to the impl's self type: every predicate's bounds hold. */
+static bool rust_impl_proven_to_apply(RustLSPContext *ctx, const PDXERustImplFacts *f,
+                                      const RustSiteTypeArg *site, int n) {
+    if (!f || f->opaque || f->self_form == 'o') {
+        return false;
+    }
+    const RustSiteTypeArg **sigma = NULL;
+    if (f->param_count > 0) {
+        sigma = (const RustSiteTypeArg **)pdxe_arena_alloc(
+            ctx->arena, (size_t)f->param_count * sizeof(*sigma));
+        if (!sigma) {
+            return false;
+        }
+        memset(sigma, 0, (size_t)f->param_count * sizeof(*sigma));
+    }
+    /* A plain self type's arguments are the site's, position for position, when it
+     * gives exactly as many. A blanket impl's parameter is the call's type, which the
+     * path does not name as a registered type: unknown. */
+    if (f->self_form == 'p' && n > 0 && n == f->self_arg_count) {
+        for (int i = 0; i < n; i++) {
+            sigma[f->self_args[i]] = &site[i];
+        }
+    }
+    for (int i = 0; i < f->bound_count; i++) {
+        const PDXERustBound *b = &f->bounds[i];
+        if (b->kind == PDXE_RUST_BOUND_RELAXED || b->kind == PDXE_RUST_BOUND_LIFETIME) {
+            continue;
+        }
+        if (b->kind != PDXE_RUST_BOUND_TRAIT || b->subject < 0 || !sigma[b->subject] ||
+            !rust_type_proven_to_implement(ctx, sigma[b->subject], b, f, sigma)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/* The one impl of `trait_qn` the registry holds for the type `type_qn`, or NULL when
+ * it holds none or several. */
+static const PDXERustImplFacts *rust_sole_impl_of(const RustLSPContext *ctx, const char *type_qn,
+                                                  const char *trait_qn) {
+    const PDXERustImplFacts *found = NULL;
+    for (const PDXETypeRegistry *reg = ctx->registry; reg; reg = reg->fallback) {
+        for (int ti = pdxe_registry_type_first_by_qn(reg, type_qn); ti >= 0;
+             ti = pdxe_registry_type_next_by_qn(reg, ti)) {
+            const PDXERegisteredType *t = &reg->types[ti];
+            for (int k = 0; k < t->rust_impl_count; k++) {
+                const PDXERustImplFacts *r = t->rust_impls[k];
+                if (!r->trait_qn || strcmp(r->trait_qn, trait_qn) != 0 || r == found) {
+                    continue;
+                }
+                if (found) {
+                    return NULL;
+                }
+                found = r;
+            }
+        }
+    }
+    return found;
+}
+
+/* The method a call `head_qn::name` reaches, given `m`, the one the registry found:
+ * NULL when no method is proven to be it.
+ *
+ * - An inherent method is the type's own associated item, the one the path names: `m`,
+ *   unless a trait impl's method of the name is beside it, since which of them applies
+ *   then depends on the inherent impl's header, which is not read.
+ *   A method the registry synthesises for a `#[derive]` names no definition of the
+ *   repository, so no typed edge is drawn to it either way: `m`, as before.
+ * - A trait impl's method, when the impl is proven to apply. The type may have several
+ *   impls with a method of the name; each is checked, and the one proven is the target
+ *   only when it is the only one and no other is an impl of its trait: an impl of
+ *   another trait that applied too would make the call ambiguous, so one of them not
+ *   proven does not apply; two impls of one trait may both apply, the call's arguments
+ *   choosing between them (issue 108). An inherent method of the name beside them is
+ *   no answer either, since it takes precedence when it applies.
+ * - A trait's own method (a default), when the type's one impl of the trait is proven
+ *   to apply.
+ *
+ * The path's type arguments are the self type's only when the method was found under
+ * the type the path names, never through an alias of it. */
+static const PDXERegisteredFunc *rust_ufcs_target(RustLSPContext *ctx, TSNode func_path,
+                                                  const char *head_qn,
+                                                  const PDXERegisteredFunc *m) {
+    if (m->flags & PDXE_FUNC_FLAG_RUST_DERIVED) {
+        return m;
+    }
+    RustSiteTypeArg site[16];
+    int n = 0;
+    if (!m->receiver_type || !head_qn || strcmp(m->receiver_type, head_qn) == 0) {
+        n = rust_site_type_args(ctx, func_path, site, 16);
+    }
+    if (m->flags & PDXE_FUNC_FLAG_RUST_TRAIT_IMPL) {
+        const PDXERegisteredFunc *proven = NULL;
+        int proven_count = 0;
+        PDXEMethodIter it;
+        pdxe_registry_methods_chain(ctx->registry, m->receiver_type, m->short_name, &it);
+        for (int index; (index = pdxe_method_iter_next(&it)) >= 0;) {
+            const PDXERegisteredFunc *candidate = &it.reg->funcs[index];
+            if ((candidate->flags & PDXE_FUNC_FLAG_RUST_TRAIT_IMPL) == 0) {
+                return NULL;
+            }
+            if ((candidate->flags & PDXE_FUNC_FLAG_RUST_DERIVED) == 0 &&
+                rust_impl_proven_to_apply(ctx, candidate->rust_impl, site, n)) {
+                proven = candidate;
+                proven_count++;
+            }
+        }
+        if (proven_count != 1) {
+            return NULL;
+        }
+        /* Another impl of the same trait (or of a trait not known) may apply as well:
+         * which of them a call reaches is then the trait's arguments' question, inferred
+         * from the call's own arguments, which is not asked here (issue 108). */
+        pdxe_registry_methods_chain(ctx->registry, m->receiver_type, m->short_name, &it);
+        for (int index; (index = pdxe_method_iter_next(&it)) >= 0;) {
+            const PDXERegisteredFunc *candidate = &it.reg->funcs[index];
+            if (candidate != proven &&
+                (!candidate->impl_trait_qn || !proven->impl_trait_qn ||
+                 strcmp(candidate->impl_trait_qn, proven->impl_trait_qn) == 0)) {
+                return NULL;
+            }
+        }
+        return proven;
+    }
+    const PDXERegisteredType *owner =
+        m->receiver_type ? pdxe_registry_lookup_type(ctx->registry, m->receiver_type) : NULL;
+    if (!owner || !owner->is_interface) {
+        /* The type's own item, unless a trait impl's method of the name is beside it:
+         * which applies is then the inherent impl's header's question, unasked. */
+        PDXEMethodIter it;
+        pdxe_registry_methods_chain(ctx->registry, m->receiver_type, m->short_name, &it);
+        for (int index; (index = pdxe_method_iter_next(&it)) >= 0;) {
+            if (it.reg->funcs[index].flags & PDXE_FUNC_FLAG_RUST_TRAIT_IMPL) {
+                return NULL;
+            }
+        }
+        return m;
+    }
+    const PDXERustImplFacts *impl = head_qn ? rust_sole_impl_of(ctx, head_qn, m->receiver_type)
+                                            : NULL;
+    if (impl && impl->derived) {
+        return m;
+    }
+    n = rust_site_type_args(ctx, func_path, site, 16);
+    return rust_impl_proven_to_apply(ctx, impl, site, n) ? m : NULL;
+}
+
 /* Entry hook implementation: classify a call_expression and emit the best
  * edge we can. The wrapper below establishes the exact original occurrence
  * for every return path through this function. */
@@ -5105,6 +5683,12 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
                 }
                 return;
             }
+            /* Issue 109: the type's arguments, if the path gives them, are what an
+             * impl's header is checked against: `Type::<A, B>::method`. */
+            TSNode func_path = strcmp(ts_node_type(actual_func), "scoped_identifier") == 0
+                                   ? ts_node_child_by_field_name(actual_func, "path", 4)
+                                   : (TSNode){0};
+            const char *m_head = head;
             const PDXERegisteredFunc *m =
                 pdxe_registry_lookup_method_aliased(ctx->registry, head, short_name);
             if (!m && ctx->module_qn) {
@@ -5113,8 +5697,15 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
                 const char *full_head =
                     pdxe_arena_sprintf(ctx->arena, "%s.%s", ctx->module_qn, head);
                 m = pdxe_registry_lookup_method_aliased(ctx->registry, full_head, short_name);
+                m_head = full_head;
             }
             if (m) {
+                /* A trait impl's method only when the impl is proven to apply; else
+                 * no answer, never another of the name's. */
+                m = rust_ufcs_target(ctx, func_path, m_head, m);
+                if (!m) {
+                    return;
+                }
                 rust_emit_resolved_call(ctx, m->qualified_name,
                                         strcmp(short_name, "new") == 0 ? "lsp_constructor"
                                                                        : "lsp_ufcs",
@@ -5123,14 +5714,20 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
             }
             /* Trait method through single-impl dispatch. */
             int impls = 0;
+            const char *tm_head = head;
             const PDXERegisteredFunc *tm =
                 rust_resolve_trait_method(ctx, head, short_name, &impls, NULL);
             if (!tm && ctx->module_qn) {
                 const char *full_head =
                     pdxe_arena_sprintf(ctx->arena, "%s.%s", ctx->module_qn, head);
                 tm = rust_resolve_trait_method(ctx, full_head, short_name, &impls, NULL);
+                tm_head = full_head;
             }
             if (tm && impls == 1) {
+                tm = rust_ufcs_target(ctx, func_path, tm_head, tm);
+                if (!tm) {
+                    return;
+                }
                 rust_emit_resolved_call(ctx, tm->qualified_name, "lsp_trait_ufcs",
                                         PDXE_RUST_CONF_TRAIT_SOLE);
                 return;
@@ -5667,13 +6264,19 @@ static void rust_resolve_calls_in_node(RustLSPContext *ctx, TSNode node) {
         }
     }
 
-    /* Recurse. */
+    /* Recurse. An item a block declares (a function, an impl) brings its own generic
+     * parameters into scope in its body (issue 109). */
+    int saved_generic_names = ctx->generic_name_count;
+    if (strcmp(kind, "function_item") == 0 || strcmp(kind, "impl_item") == 0) {
+        rust_push_generic_names(ctx, node);
+    }
     PDXE_FOR_EACH_CHILD(it, node) {
         TSNode c = it.node;
         if (!ts_node_is_null(c)) {
             rust_resolve_calls_in_node(ctx, c);
         }
     }
+    ctx->generic_name_count = saved_generic_names;
 
     if (push_scope) {
         ctx->current_scope = saved;
@@ -5698,6 +6301,10 @@ static void rust_process_function(RustLSPContext *ctx, TSNode func_node, const c
 
     PDXEScope *saved = ctx->current_scope;
     ctx->current_scope = pdxe_scope_push(ctx->arena, ctx->current_scope);
+
+    /* Issue 109: the function's generic parameters are in scope in its body. */
+    int saved_generic_names = ctx->generic_name_count;
+    rust_push_generic_names(ctx, func_node);
 
     /* Chalk-lite: capture the active function's type-parameter bounds
      * and where-clause bounds into ctx so dispatch through generic
@@ -5755,6 +6362,7 @@ static void rust_process_function(RustLSPContext *ctx, TSNode func_node, const c
     ctx->enclosing_func_qn = NULL;
     /* Restore bound-env count so the caller's bounds are unaffected. */
     ctx->type_param_bound_count = saved_bound_count;
+    ctx->generic_name_count = saved_generic_names;
 }
 
 /* Walk an `impl_item`, processing each `function_item` inside its body
@@ -5970,6 +6578,9 @@ static void rust_process_impl(RustLSPContext *ctx, TSNode impl_node) {
     const char *saved_trait = ctx->self_trait_qn;
     ctx->self_type_qn = effective_recv;
     ctx->self_trait_qn = NULL;
+    /* Issue 109: the impl's generic parameters are in scope in its methods. */
+    int saved_generic_names = ctx->generic_name_count;
+    rust_push_generic_names(ctx, impl_node);
 
     if (!ts_node_is_null(trait_node) && !is_blanket) {
         char *tt = rust_node_text(ctx, trait_node);
@@ -5992,6 +6603,7 @@ static void rust_process_impl(RustLSPContext *ctx, TSNode impl_node) {
 
     ctx->self_type_qn = saved_self;
     ctx->self_trait_qn = saved_trait;
+    ctx->generic_name_count = saved_generic_names;
 }
 
 void rust_lsp_process_file(RustLSPContext *ctx, TSNode root) {
@@ -7215,6 +7827,8 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
                 rf.flags |= PDXE_FUNC_FLAG_RUST_TRAIT_IMPL;
                 rf.impl_trait_qn =
                     rust_canonical_impl_trait(arena, reg, &trait_names, d->impl_trait, module_qn);
+                rf.rust_impl = rust_impl_facts_read(arena, reg, &trait_names, d->impl_bounds,
+                                                    module_qn, rf.impl_trait_qn);
             }
 
             /* Build FUNC sig from return_types / param_types. */
@@ -7606,6 +8220,16 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
                         new_arr[existing] = di_entry->trait_qn;
                         new_arr[existing + 1] = NULL;
                         rt->embedded_types = new_arr;
+                        /* Issue 109: the derive's relation; no header is known. */
+                        PDXERustImplFacts *derived =
+                            (PDXERustImplFacts *)pdxe_arena_alloc(arena, sizeof(*derived));
+                        if (derived) {
+                            memset(derived, 0, sizeof(*derived));
+                            derived->trait_qn = di_entry->trait_qn;
+                            derived->self_form = 'o';
+                            derived->derived = true;
+                            rust_registered_type_add_impl(arena, rt, derived);
+                        }
 
                         /* Synthesize methods. Bound `mi < 4` BEFORE dereferencing
                          * methods[mi] so we never read methods[4] (OOB). */
@@ -7621,7 +8245,7 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
                              * static path lookups via UFCS. */
                             rf.receiver_type = d->qualified_name;
                             rf.min_params = -1;
-                            rf.flags |= PDXE_FUNC_FLAG_RUST_TRAIT_IMPL;
+                            rf.flags |= PDXE_FUNC_FLAG_RUST_TRAIT_IMPL | PDXE_FUNC_FLAG_RUST_DERIVED;
                             rf.impl_trait_qn = di_entry->trait_qn;
                             const PDXEType *ret_t = pdxe_type_unknown();
                             if (dm->return_type) {
@@ -7748,6 +8372,9 @@ void pdxe_rust_build_local_registry(PDXEArena *arena, PDXETypeRegistry *reg, PDX
             pdxe_idxmemo_put_if_absent(&type_idx, arena, auto_t.qualified_name, reg->type_count - 1);
         }
         rust_registered_type_add_embedded(arena, rt, trait_qn);
+        rust_registered_type_add_impl(arena, rt,
+                                      rust_impl_facts_read(arena, reg, &trait_names,
+                                                           it->impl_bounds, module_qn, trait_qn));
     }
 }
 
@@ -7870,6 +8497,9 @@ static void rust_populate_cross_registry(PDXETypeRegistry *reg, PDXEArena *arena
             pdxe_idxmemo_put_if_absent(&type_idx, arena, auto_t.qualified_name, type_index);
         }
         rust_registered_type_add_embedded(arena, &reg->types[type_index], trait_qn);
+        rust_registered_type_add_impl(arena, &reg->types[type_index],
+                                      rust_impl_facts_read(arena, reg, &trait_names,
+                                                           d->impl_bounds, def_mod, trait_qn));
     }
 
     for (int i = 0; i < def_count; i++) {
@@ -7891,6 +8521,8 @@ static void rust_populate_cross_registry(PDXETypeRegistry *reg, PDXEArena *arena
                 rf.flags |= PDXE_FUNC_FLAG_RUST_TRAIT_IMPL;
                 rf.impl_trait_qn =
                     rust_canonical_impl_trait(arena, reg, &trait_names, d->trait_qn, def_mod);
+                rf.rust_impl = rust_impl_facts_read(arena, reg, &trait_names, d->impl_bounds,
+                                                    def_mod, rf.impl_trait_qn);
             }
 
             /* Build sig from return_types text. */
@@ -8016,6 +8648,7 @@ PDXETypeRegistry *pdxe_rust_build_cross_registry(PDXEArena *arena, PDXELSPDef *d
             rdefs[i].is_interface = defs[i].is_interface;
             rdefs[i].is_rust_impl_relation = defs[i].is_rust_impl_relation;
             rdefs[i].is_abstract = defs[i].is_abstract;
+            rdefs[i].impl_bounds = defs[i].impl_bounds;
         }
     }
     rust_populate_cross_registry(reg, arena, rdefs, def_count, /*module_qn=*/NULL);

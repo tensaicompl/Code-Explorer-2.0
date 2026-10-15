@@ -1388,7 +1388,7 @@
   "corpus_url": "github.com/pallets/flask",
   "dataset_format": 1,
   "engine_health": "RunHealth { status: Clean, files: 107, files_resolved: 80, files_untyped: 24, files_empty: 3, files_over_budget: 0, files_source_unavailable: 0, files_not_reached: 0, pass_failures: 0 }",
-  "engine_version": 11,
+  "engine_version": 12,
   "metrics_version": "a0-metrics-1",
   "oracle": "scip-python",
   "oracle_setup": {
@@ -1419,7 +1419,7 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "resolver": "post-114: issue 114, the commit 'Issue 114: scope Rust use bindings lexically' (parent: the commit 'Issue 110: prevent false targets from macro-generated impl gaps'). Baseline: post-110, results committed at 15feb3e",
+  "resolver": "post-109: issue 109, the commit 'Issue 109: validate Rust impl applicability before typed resolution' (parent: the commit 'Issue 114: scope Rust use bindings lexically'). Baseline: post-114, results committed at c8239ba",
   "site_matching_version": "a0-match-1"
  },
  "recall": {

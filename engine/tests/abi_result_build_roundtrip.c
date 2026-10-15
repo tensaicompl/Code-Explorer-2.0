@@ -796,7 +796,7 @@ static void check_refusals(pdxe_ctx *ctx) {
     free(truncated);
 
     char *m;
-    expect_refused("of another version", m = replace(good, "\"v\":5", "\"v\":4"));
+    expect_refused("of another version", m = replace(good, "\"v\":6", "\"v\":5"));
     free(m);
     expect_refused("without what extraction lost", m = replace(good, "\"lost\":0,", ""));
     free(m);
@@ -810,7 +810,7 @@ static void check_refusals(pdxe_ctx *ctx) {
     expect_refused("with a field of the wrong type",
                    m = replace(good, "\"lsp_skipped\":false", "\"lsp_skipped\":0"));
     free(m);
-    expect_refused("with an extra top-level key", m = replace(good, "\"v\":5", "\"v\":5,\"x\":0"));
+    expect_refused("with an extra top-level key", m = replace(good, "\"v\":6", "\"v\":6,\"x\":0"));
     free(m);
     /* A definition's bases: counted bases with no array, and a NULL base. */
     pdxe_definition with_bases = r->defs[0];

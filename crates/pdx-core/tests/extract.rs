@@ -735,17 +735,17 @@ fn cache_object_id_fixed_vector() {
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (11, 2),
-        "the vector below is engine 11's and matrix 2's"
+        (12, 2),
+        "the vector below is engine 12's and matrix 2's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 4,
         "the vector below is detector 4's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 8, 11 and 2, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 8, 12 and 2, the policy digest
     // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
-    // 3's to 10's are in cache_key_includes_engine_version. Format 7's (before issue 114)
+    // 3's to 11's are in cache_key_includes_engine_version. Format 7's (before issue 114)
     // was da5d96b4…0cb3 at engine 10, format 6's (before issue 110) b8e9117f…1d31 at
     // engine 9, and format 5's (texts copied, before issue 90) 59c9f740…550a: each format
     // moved every key. Detector 3's was c1c95f71…8e28 and
@@ -754,10 +754,10 @@ fn cache_object_id_fixed_vector() {
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "50829086324c481622af6d82a5aedd79970b4bd7ac2170582c053fdc7c64865a"
+        "d769d391e450fa61d49d01c41a938ca4ade08b233eb61ebb3bbf194f6e07a28b"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v8").join("50").join(&id));
+    assert_eq!(path, Path::new("cache").join("v8").join("d7").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -768,8 +768,8 @@ fn cache_object_id_fixed_vector() {
 
 #[test]
 fn cache_key_includes_engine_version() {
-    // An engine whose output can differ is another key: what engines 3 to 10 cached is
-    // never found by engine 11 (issues 74 to 76, 83, 112, 111, 110 and 114).
+    // An engine whose output can differ is another key: what engines 3 to 11 cached is
+    // never found by engine 12 (issues 74 to 76, 83, 112, 111, 110, 114 and 109).
     // Independently computed, as the vector above, with each engine version, under
     // format 8 (issue 114); format 7's were c21a4e24…a7c, 7d29db63…639f, 022aa61d…c299,
     // f935e676…e0ec, 38141cd1…7c9c, cb2ebe0d…7c4d, fa0e0d93…7bd4 and da5d96b4…0cb3, format
@@ -821,6 +821,10 @@ fn cache_key_includes_engine_version() {
             11,
             "50829086324c481622af6d82a5aedd79970b4bd7ac2170582c053fdc7c64865a",
         ),
+        (
+            12,
+            "d769d391e450fa61d49d01c41a938ca4ade08b233eb61ebb3bbf194f6e07a28b",
+        ),
     ] {
         let mut versioned = key.clone();
         versioned.engine_version = engine;
@@ -833,10 +837,10 @@ fn cache_key_includes_engine_version() {
         assert!(path.starts_with(Path::new("cache").join("v8")), "{path:?}");
         ids.push(versioned.object_id());
     }
-    assert_eq!(key.object_id(), ids[8], "the current key is engine 11's");
+    assert_eq!(key.object_id(), ids[9], "the current key is engine 12's");
     ids.sort();
     ids.dedup();
-    assert_eq!(ids.len(), 9, "each engine version is another key");
+    assert_eq!(ids.len(), 10, "each engine version is another key");
 }
 
 #[test]
@@ -2687,6 +2691,104 @@ fn cache_entries_of_engine_ten_are_never_served() {
         fs::read(&stale_path).unwrap(),
         stale_bytes,
         "the engine 10 entry changed"
+    );
+    let current = cache
+        .cache
+        .object_path(&key_for(&checkout, &config, PATH, "rust"));
+    assert_ne!(current, stale_path);
+    assert!(
+        current.is_file(),
+        "no entry of the current engine was written"
+    );
+
+    let probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &probe);
+    assert_eq!(
+        warm.stats.cache_hits, 1,
+        "the current engine's entry was not served"
+    );
+    assert_eq!(probe.files(), 0);
+    assert_eq!(extract_of(&warm, PATH), cold);
+}
+
+#[test]
+fn cache_entries_of_engine_eleven_are_never_served() {
+    // Engine 11 answered `Form::<u8>::from_request` inside `assert!` with `Form`'s own
+    // impl, whose header requires `S: Send`, which nothing proves, and added the call that
+    // answer found to the extraction. Engine 12 answers a trait impl's method only when
+    // its header is proven (issue 109): no answer, no call, and a surface (version 6)
+    // carrying the impl's header. The engine 11 entry is planted in the current cache
+    // format, so only the engine version in the key keeps it, the extraction with that
+    // call, from being served.
+    const PATH: &str = "src/lib.rs";
+    const SOURCE: &str = "pub trait FromRequest<S> {\n    fn from_request(req: u32, state: &S) -> Self;\n}\n\npub struct Form<T>(pub T);\n\npub fn check() {\n    assert!(Form::<u8>::from_request(1, &()).0 == 1);\n}\n\nimpl<T, S: Send> FromRequest<S> for Form<T> {\n    fn from_request(_req: u32, _state: &S) -> Self {\n        unimplemented!()\n    }\n}\n";
+    let checkout = Checkout::new();
+    checkout.write(PATH, SOURCE);
+    let config = checkout.config();
+    let from_request_calls = |extract: &FileExtract| -> Vec<usize> {
+        (0..extract.record().calls.len())
+            .filter(|&i| extract.text(&extract.record().calls[i].callee_text) == "from_request")
+            .collect()
+    };
+    let fresh = run(&checkout, None, &Probe::new(Twist::None));
+    let fresh = extract_of(&fresh, PATH);
+    assert!(
+        from_request_calls(fresh).is_empty(),
+        "the current engine answers the unproven call"
+    );
+    assert!(
+        fresh.record().surface.as_bytes().starts_with(b"{\"v\":6,"),
+        "the current engine's surface is version 6"
+    );
+
+    // The call engine 11 added is the one the current engine adds when the bound is
+    // gone: the same bytes but for the header's `S: Send`, spaces of its length in its
+    // place, so every range stays where it is.
+    let unbounded = SOURCE.replace("S: Send>", "S      >");
+    assert_eq!(unbounded.len(), SOURCE.len());
+    let variant = Checkout::new();
+    variant.write(PATH, &unbounded);
+    let variant = run(&variant, None, &Probe::new(Twist::None));
+    let variant = extract_of(&variant, PATH);
+    let [added] = from_request_calls(variant)[..] else {
+        panic!("the proven impl's call is added");
+    };
+    assert!(variant.record().calls[added].typed_only);
+
+    // What engine 11 cached for these bytes, in the current format: the extraction with
+    // that call.
+    let mut stale = fresh.record().clone();
+    stale
+        .calls
+        .insert(added, variant.record().calls[added].clone());
+    let mut key = key_for(&checkout, &config, PATH, "rust");
+    key.engine_version = 11;
+    let cache = Cache::new();
+    let stale_bytes = CacheEnvelope::encode(&key, &stale);
+    plant(&cache, &key, &stale_bytes);
+    let stale_path = cache.cache.object_path(&key);
+    assert!(
+        stale_path
+            .to_string_lossy()
+            .replace('\\', "/")
+            .contains(&format!("/v{EXTRACT_CACHE_FORMAT_VERSION}/")),
+        "the engine 11 entry is in the current format"
+    );
+
+    let probe = Probe::new(Twist::None);
+    let cold = run(&checkout, Some(&cache), &probe);
+    assert_eq!(cold.stats.cache_hits, 0, "an engine 11 entry was served");
+    assert_eq!(probe.files(), 1, "the file was not extracted again");
+    let cold = extract_of(&cold, PATH);
+    assert!(
+        from_request_calls(cold).is_empty(),
+        "the unproven call is back"
+    );
+    assert_eq!(cold, fresh);
+    assert_eq!(
+        fs::read(&stale_path).unwrap(),
+        stale_bytes,
+        "the engine 11 entry changed"
     );
     let current = cache
         .cache

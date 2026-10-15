@@ -5845,6 +5845,297 @@ static void extract_class_methods(PDXEExtractCtx *ctx, TSNode class_node, const 
 
 // --- Rust impl block extraction ---
 
+/* Issue 109: a trait impl's header (PDXEImplTrait's impl_bounds), built while the
+ * impl's syntax is on hand. Entries grow by doubling; an allocation that fails leaves
+ * no header at all (`failed`), and an impl with no header is never proven to apply. */
+typedef struct {
+    PDXEArena *a;
+    const char *source;
+    const char **items;
+    int count;
+    int cap;
+    bool failed;
+    bool opaque;
+    const char **params;
+    int param_count;
+    int param_cap;
+} RustImplBounds;
+
+static bool rust_ib_word(char c) {
+    return isalnum((unsigned char)c) || c == '_';
+}
+
+/* A node's tokens in order, comments left out, a space only between two word
+ * characters. Never longer than the node's own text. An error or missing node, or a
+ * macro invocation, makes the header opaque. */
+static char *rust_ib_text(RustImplBounds *ib, TSNode node) {
+    uint32_t start = ts_node_start_byte(node);
+    uint32_t end = ts_node_end_byte(node);
+    char *out = (char *)pdxe_arena_alloc(ib->a, (size_t)(end > start ? end - start : 0) + 1);
+    if (!out) {
+        ib->failed = true;
+        return NULL;
+    }
+    size_t len = 0;
+    PDXE_TREE_WALK(w, node) {
+        const char *kind = ts_node_type(w.node);
+        if (strcmp(kind, "line_comment") == 0 || strcmp(kind, "block_comment") == 0) {
+            pdxe_tree_walk_skip_children(&w);
+            continue;
+        }
+        if (ts_node_is_error(w.node) || ts_node_is_missing(w.node) ||
+            strcmp(kind, "macro_invocation") == 0) {
+            ib->opaque = true;
+        }
+        if (ts_node_child_count(w.node) != 0) {
+            continue;
+        }
+        uint32_t s = ts_node_start_byte(w.node);
+        uint32_t e = ts_node_end_byte(w.node);
+        if (e <= s) {
+            continue;
+        }
+        if (len > 0 && rust_ib_word(out[len - 1]) && rust_ib_word(ib->source[s])) {
+            out[len++] = ' ';
+        }
+        memcpy(out + len, ib->source + s, e - s);
+        len += e - s;
+    }
+    out[len] = '\0';
+    return out;
+}
+
+static void rust_ib_push(RustImplBounds *ib, char kind, const char *text) {
+    if (ib->failed || !text) {
+        ib->failed = true;
+        return;
+    }
+    if (ib->count + 1 >= ib->cap) {
+        int cap = ib->cap ? ib->cap * 2 : 16;
+        const char **grown = (const char **)pdxe_arena_alloc(ib->a, (size_t)cap * sizeof(*grown));
+        if (!grown) {
+            ib->failed = true;
+            return;
+        }
+        for (int i = 0; i < ib->count; i++) {
+            grown[i] = ib->items[i];
+        }
+        ib->items = grown;
+        ib->cap = cap;
+    }
+    const char *entry = pdxe_arena_sprintf(ib->a, "%c:%s", kind, text);
+    if (!entry) {
+        ib->failed = true;
+        return;
+    }
+    ib->items[ib->count++] = entry;
+    ib->items[ib->count] = NULL;
+}
+
+static void rust_ib_push_node(RustImplBounds *ib, char kind, TSNode node) {
+    rust_ib_push(ib, kind, rust_ib_text(ib, node));
+}
+
+static bool rust_ib_is_param(const RustImplBounds *ib, const char *name) {
+    for (int i = 0; i < ib->param_count; i++) {
+        if (strcmp(ib->params[i], name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void rust_ib_add_param(RustImplBounds *ib, const char *name) {
+    if (!name) {
+        ib->failed = true;
+        return;
+    }
+    if (ib->param_count == ib->param_cap) {
+        int cap = ib->param_cap ? ib->param_cap * 2 : 8;
+        const char **grown = (const char **)pdxe_arena_alloc(ib->a, (size_t)cap * sizeof(*grown));
+        if (!grown) {
+            ib->failed = true;
+            return;
+        }
+        for (int i = 0; i < ib->param_count; i++) {
+            grown[i] = ib->params[i];
+        }
+        ib->params = grown;
+        ib->param_cap = cap;
+    }
+    ib->params[ib->param_count++] = name;
+}
+
+/* A generic argument list's arguments, lifetimes left out, as `kind` entries. */
+static void rust_ib_push_args(RustImplBounds *ib, char kind, TSNode type_arguments) {
+    if (ts_node_is_null(type_arguments)) {
+        return;
+    }
+    PDXE_FOR_EACH_NAMED_CHILD(it, type_arguments) {
+        const char *k = ts_node_type(it.node);
+        if (strcmp(k, "lifetime") == 0 || strcmp(k, "line_comment") == 0 ||
+            strcmp(k, "block_comment") == 0) {
+            continue;
+        }
+        rust_ib_push_node(ib, kind, it.node);
+    }
+}
+
+/* One entry per bound of a `trait_bounds` node. */
+static void rust_ib_push_bounds(RustImplBounds *ib, TSNode bounds) {
+    PDXE_FOR_EACH_NAMED_CHILD(it, bounds) {
+        TSNode b = it.node;
+        const char *k = ts_node_type(b);
+        if (strcmp(k, "line_comment") == 0 || strcmp(k, "block_comment") == 0) {
+            continue;
+        }
+        if (strcmp(k, "type_identifier") == 0 || strcmp(k, "scoped_type_identifier") == 0) {
+            rust_ib_push_node(ib, 'b', b);
+        } else if (strcmp(k, "generic_type") == 0) {
+            TSNode base = ts_node_child_by_field_name(b, TS_FIELD("type"));
+            if (ts_node_is_null(base)) {
+                rust_ib_push_node(ib, 'o', b);
+                continue;
+            }
+            rust_ib_push_node(ib, 'b', base);
+            rust_ib_push_args(ib, 'g', ts_node_child_by_field_name(b, TS_FIELD("type_arguments")));
+        } else if (strcmp(k, "removed_trait_bound") == 0) {
+            rust_ib_push_node(ib, 'r', b);
+        } else if (strcmp(k, "lifetime") == 0) {
+            rust_ib_push_node(ib, 'l', b);
+        } else {
+            rust_ib_push_node(ib, 'o', b);
+        }
+    }
+}
+
+static const char **rust_impl_bounds(PDXEExtractCtx *ctx, TSNode impl) {
+    RustImplBounds ib;
+    memset(&ib, 0, sizeof(ib));
+    ib.a = ctx->arena;
+    ib.source = ctx->source;
+
+    TSNode tparams = ts_node_child_by_field_name(impl, TS_FIELD("type_parameters"));
+    TSNode self_type = ts_node_child_by_field_name(impl, TS_FIELD("type"));
+    TSNode trait = ts_node_child_by_field_name(impl, TS_FIELD("trait"));
+    TSNode where = {0};
+    bool has_where = false;
+    PDXE_FOR_EACH_NAMED_CHILD(it, impl) {
+        if (strcmp(ts_node_type(it.node), "where_clause") == 0) {
+            where = it.node;
+            has_where = true;
+        }
+    }
+
+    /* The parameters first: the self type's form depends on them. */
+    if (!ts_node_is_null(tparams)) {
+        PDXE_FOR_EACH_NAMED_CHILD(it, tparams) {
+            const char *k = ts_node_type(it.node);
+            if (strcmp(k, "type_parameter") == 0 || strcmp(k, "const_parameter") == 0) {
+                TSNode name = ts_node_child_by_field_name(it.node, TS_FIELD("name"));
+                if (ts_node_is_null(name)) {
+                    ib.opaque = true;
+                    continue;
+                }
+                rust_ib_add_param(&ib, rust_ib_text(&ib, name));
+            } else if (strcmp(k, "lifetime_parameter") != 0 && strcmp(k, "line_comment") != 0 &&
+                       strcmp(k, "block_comment") != 0) {
+                ib.opaque = true;
+            }
+        }
+    }
+
+    const char *form = "other";
+    TSNode self_args = {0};
+    bool has_self_args = false;
+    if (!ts_node_is_null(self_type)) {
+        const char *k = ts_node_type(self_type);
+        if (strcmp(k, "type_identifier") == 0) {
+            char *name = rust_ib_text(&ib, self_type);
+            form = name && rust_ib_is_param(&ib, name) ? "blanket" : "plain";
+        } else if (strcmp(k, "scoped_type_identifier") == 0) {
+            form = "plain";
+        } else if (strcmp(k, "generic_type") == 0) {
+            self_args = ts_node_child_by_field_name(self_type, TS_FIELD("type_arguments"));
+            has_self_args = !ts_node_is_null(self_args);
+            form = "plain";
+            /* Plain only when every type argument is a parameter, none twice: then the
+             * impl's self type is every instance of the type's path. */
+            if (has_self_args) {
+                const char *used[64];
+                int used_count = 0;
+                PDXE_FOR_EACH_NAMED_CHILD(it, self_args) {
+                    const char *ak = ts_node_type(it.node);
+                    if (strcmp(ak, "lifetime") == 0 || strcmp(ak, "line_comment") == 0 ||
+                        strcmp(ak, "block_comment") == 0) {
+                        continue;
+                    }
+                    char *arg = rust_ib_text(&ib, it.node);
+                    bool plain = arg && strcmp(ak, "type_identifier") == 0 &&
+                                 rust_ib_is_param(&ib, arg) && used_count < 64;
+                    for (int u = 0; plain && u < used_count; u++) {
+                        plain = strcmp(used[u], arg) != 0;
+                    }
+                    if (!plain) {
+                        form = "other";
+                        break;
+                    }
+                    used[used_count++] = arg;
+                }
+            }
+        }
+    }
+    rust_ib_push(&ib, 's', form);
+    for (int i = 0; i < ib.param_count; i++) {
+        rust_ib_push(&ib, 'p', ib.params[i]);
+    }
+    if (strcmp(form, "plain") == 0 && has_self_args) {
+        rust_ib_push_args(&ib, 'a', self_args);
+    }
+    if (!ts_node_is_null(trait) && strcmp(ts_node_type(trait), "generic_type") == 0) {
+        rust_ib_push_args(&ib, 't', ts_node_child_by_field_name(trait, TS_FIELD("type_arguments")));
+    }
+
+    /* Predicates: a parameter's own bounds, then the where clause's. */
+    if (!ts_node_is_null(tparams)) {
+        PDXE_FOR_EACH_NAMED_CHILD(it, tparams) {
+            if (strcmp(ts_node_type(it.node), "type_parameter") != 0) {
+                continue;
+            }
+            TSNode name = ts_node_child_by_field_name(it.node, TS_FIELD("name"));
+            TSNode bounds = ts_node_child_by_field_name(it.node, TS_FIELD("bounds"));
+            if (ts_node_is_null(name) || ts_node_is_null(bounds)) {
+                continue;
+            }
+            rust_ib_push_node(&ib, 'w', name);
+            rust_ib_push_bounds(&ib, bounds);
+        }
+    }
+    if (has_where) {
+        PDXE_FOR_EACH_NAMED_CHILD(it, where) {
+            const char *k = ts_node_type(it.node);
+            if (strcmp(k, "line_comment") == 0 || strcmp(k, "block_comment") == 0) {
+                continue;
+            }
+            TSNode left = ts_node_child_by_field_name(it.node, TS_FIELD("left"));
+            TSNode bounds = ts_node_child_by_field_name(it.node, TS_FIELD("bounds"));
+            if (strcmp(k, "where_predicate") != 0 || ts_node_is_null(left) ||
+                ts_node_is_null(bounds)) {
+                /* A predicate no entry represents: never proven. */
+                rust_ib_push_node(&ib, 'w', it.node);
+                rust_ib_push_node(&ib, 'o', it.node);
+                continue;
+            }
+            rust_ib_push_node(&ib, 'w', left);
+            rust_ib_push_bounds(&ib, bounds);
+        }
+    }
+    if (ib.opaque) {
+        rust_ib_push(&ib, 'x', "header");
+    }
+    return ib.failed ? NULL : ib.items;
+}
+
 static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec) {
     PDXEArena *a = ctx->arena;
 
@@ -5870,6 +6161,7 @@ static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSp
 
     // Check for "impl Trait for Struct" pattern
     const char *impl_trait = NULL;
+    const char **impl_bounds = NULL; /* issue 109 */
     TSNode trait_node = ts_node_child_by_field_name(node, TS_FIELD("trait"));
     if (!ts_node_is_null(trait_node)) {
         char *trait_name = pdxe_node_text(a, trait_node, ctx->source);
@@ -5883,10 +6175,12 @@ static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSp
             }
         }
         if (trait_name && trait_name[0]) {
+            impl_bounds = rust_impl_bounds(ctx, node);
             PDXEImplTrait it = {0};
             it.trait_name = trait_name;
             it.struct_name = type_name;
             it.struct_qn = type_qn;
+            it.impl_bounds = impl_bounds;
             pdxe_impltrait_push(&ctx->result->impl_traits, a, it);
             impl_trait = trait_name;
         }
@@ -5927,6 +6221,7 @@ static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSp
         def.file_path = ctx->rel_path;
         def.parent_class = type_qn;
         def.impl_trait = impl_trait;
+        def.impl_bounds = impl_bounds;
         def.start_line = ts_node_start_point(child).row + TS_LINE_OFFSET;
         def.end_line = ts_node_end_point(child).row + TS_LINE_OFFSET;
         pdxe_def_record_occurrence(ctx, &def, child); /* issue 76 */

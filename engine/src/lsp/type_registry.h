@@ -23,7 +23,14 @@ typedef enum {
      * Ordinary call resolution keeps its historical language-specific choice,
      * but a function value cannot name one materialized definition exactly. */
     PDXE_FUNC_FLAG_AMBIGUOUS_BINDING = 1 << 10,
+    /* Rust only (issue 109): a method the registry synthesises for a `#[derive]` of a
+     * standard or serde trait. No definition is its target, and no header is known. */
+    PDXE_FUNC_FLAG_RUST_DERIVED = 1 << 11,
 } PDXEFuncFlags;
+
+/* Rust only (issue 109): a trait impl's header, read once from PDXEImplTrait's
+ * impl_bounds at registration (rust_lsp.c). Opaque to every other language. */
+struct PDXERustImplFacts;
 
 // Registered function/method with full type signature.
 typedef struct {
@@ -40,6 +47,9 @@ typedef struct {
      * remain NULL when raw cross-file provenance is ambiguous; the Rust trait
      * flag still prevents that method from being mistaken for inherent. */
     const char *impl_trait_qn;
+    /* Rust only (issue 109): the header of the trait impl that declared this method;
+     * NULL for an inherent method, and for a trait-impl method with no header. */
+    const struct PDXERustImplFacts *rust_impl;
 } PDXERegisteredFunc;
 
 // Registered type with fields and method names.
@@ -64,6 +74,12 @@ typedef struct {
     const PDXEType *index_value_type; // V or NULL
     // Generic constraints, parallel to type_param_names. NULL or shorter array means "any".
     const PDXEType **type_param_constraints; // NULL-terminated, parallel to type_param_names
+
+    /* Rust only (issue 109): the type's `impl Trait for Type` relations with their
+     * headers, in registration order, grown by doubling. */
+    const struct PDXERustImplFacts **rust_impls;
+    int rust_impl_count;
+    int rust_impl_cap;
 } PDXERegisteredType;
 
 /* Issue 92: one exact key's entries, in ascending registration order: `head` is the

@@ -4,6 +4,16 @@
       "category": "typed",
       "corpus": "golden:rust/axum",
       "decision": 66,
+      "id": "issue-109-axum-core-generic-from-request-bound",
+      "issue": 109,
+      "reason": "The reference engine resolves T::from_request through a blanket trait impl by method/name matching without proving that the impl's predicates apply to the caller's type parameter. Issue 109 requires every impl predicate to be proven before a trait-impl UFCS answer may be Typed; the bound is unknown here, so the vendored engine correctly withholds the answer.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.extract.mod.T.from_request\",\"caller\":\"Result<T, T.Rejection>.from_request\",\"confidence\":\"0.930000007\",\"end\":4124,\"file\":\"axum-core/src/extract/mod.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":4097,\"strategy\":\"lsp_ufcs\"}",
+      "vendored_row": null
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
       "id": "issue-111-axum-core-body-unknown-new",
       "issue": 111,
       "reason": "Issue 111 replaces the reference engine's textual Rust-use parser with syntax-tree use-tree parsing. The reference incorrectly treats visibility and the whole use declaration as part of the imported path. The vendored engine records the actual Rust import path.",

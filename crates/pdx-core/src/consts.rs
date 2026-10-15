@@ -65,9 +65,12 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// Rust file's extraction records the members its `macro_rules!` invocations may write
 /// (patch 0030, issue 110); 11 since a Rust `use` binds only in its lexical scope (an
 /// inline module's, a block's), so what a file's per-file typed answers and the calls
-/// they add see changes (patch 0031, issue 114).
+/// they add see changes (patch 0031, issue 114); 12 since a Rust `Type::method` is a
+/// per-file typed answer naming a trait impl's method only when the impl is proven to
+/// apply, and a Rust file's surface carries its trait impls' headers (patch 0032, issue
+/// 109).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
-pub const ENGINE_VERSION: u32 = 11;
+pub const ENGINE_VERSION: u32 = 12;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the
@@ -90,8 +93,9 @@ pub const SECRET_DETECTOR_VERSION: u32 = 4;
 /// since a definition carries every route binding with its declaring node in place of
 /// one route (issue 54), 6 since an entry holds the extraction's record: its text as
 /// ranges of the source, never the source, its qualified names structurally, and its
-/// surface in surface version 5, bound to the source being extracted on a hit (issue
-/// 90), 7 since an extraction carries the members Rust's `macro_rules!` invocations may
+/// surface (the engine's own encoding, opaque here: version 5, and 6 since issue 109,
+/// which only an engine of that version, the key's, reads), bound to the source being
+/// extracted on a hit (issue 90), 7 since an extraction carries the members Rust's `macro_rules!` invocations may
 /// write (issue 110), 8 since it carries Rust's `use` scopes and the imports declared in
 /// them, and a call the scope it is in (issue 114).
 pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 8;

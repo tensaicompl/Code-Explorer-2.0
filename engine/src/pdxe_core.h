@@ -349,7 +349,12 @@ typedef struct {
      * its copy in `signature` and no range. Kept at the tail, as impl_trait is. */
     uint32_t signature_start;
     uint32_t signature_end;
+    /* Issue 109, Rust only: the header of the `impl Trait for Type` block that declared
+     * this method, written as PDXEImplTrait's impl_bounds; NULL for every other
+     * definition. Kept at the tail, as impl_trait is. */
+    const char **impl_bounds;
 } PDXEDefinition;
+
 
 /* Issue 90: the definition records a parameter list, as a range or a copy. */
 static inline bool pdxe_def_has_signature(const PDXEDefinition *d) {
@@ -540,6 +545,33 @@ typedef struct {
     PDXEChannelDirection direction;
 } PDXEChannel;
 
+/* Issue 109: a Rust trait impl's header, written by extraction from the impl's syntax
+ * and read by typed resolution: what must hold for the impl to apply to a type. A
+ * NULL-terminated array of entries, each a one-letter kind, ':' and a text; every text
+ * is the node's tokens without comments, a space only between two word characters
+ * (`Iterator<Item=u8>`, `&'a T`, `dyn Error`). In order:
+ *
+ *   s:plain | s:blanket | s:other  the self type: a path whose type arguments are
+ *                                  distinct parameters of the impl (none for a type
+ *                                  with no arguments), one parameter itself, or else
+ *   p:<name>                       a type or const parameter of the impl, in order
+ *   a:<name>                       s:plain only: the self type's type arguments, in
+ *                                  order, each a parameter's name
+ *   t:<arg>                        the trait's generic arguments, in order, lifetimes
+ *                                  left out
+ *   w:<subject>                    a predicate, from a parameter's bounds or the where
+ *                                  clause, followed by one entry per bound:
+ *     b:<path>                       a trait bound's path, then its generic arguments
+ *       g:<arg>                      as `t:` entries are written
+ *     r:<text>                       a relaxed bound (`?Sized`): no requirement
+ *     l:<text>                       a lifetime bound
+ *     o:<text>                       any other bound (higher-ranked, `Fn(..)` sugar,
+ *                                    parenthesised)
+ *   x:header                       last, when the header holds what no entry represents
+ *                                  (a macro, a syntax error): never proven to apply
+ *
+ * Lifetime parameters are left out. The array is never empty: its first entry is s:.
+ * NULL when it could not be made whole (lost work): never proven to apply either. */
 // Rust: impl Trait for Struct
 typedef struct {
     const char *trait_name;  // trait name (raw text)
@@ -548,6 +580,8 @@ typedef struct {
      * does not need a later leaf-name guess, and the relation exists even for
      * an empty `impl Trait for Type {}` block. */
     const char *struct_qn;
+    /* Issue 109: the impl's header, the evidence of which types it applies to. */
+    const char **impl_bounds;
 } PDXEImplTrait;
 
 typedef enum {

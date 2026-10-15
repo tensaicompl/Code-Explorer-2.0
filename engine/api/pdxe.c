@@ -65,8 +65,10 @@
  * its `macro_rules!` invocations may write, which no definition represents (issue 110,
  * patch 0030). 11: a Rust `use` binds only in its lexical scope (an inline module's, a
  * block's), so what a file's per-file typed answers and the calls they add see changes
- * (issue 114, patch 0031). */
-static const char ENGINE_VERSION_STRING[] = "11";
+ * (issue 114, patch 0031). 12: a Rust `Type::method` answers a trait impl's method only
+ * when the impl is proven to apply, and a Rust file's surface (version 6) carries its
+ * trait impls' headers (issue 109, patch 0032). */
+static const char ENGINE_VERSION_STRING[] = "12";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;

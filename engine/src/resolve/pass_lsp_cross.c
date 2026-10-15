@@ -407,6 +407,32 @@ static const char *pxc_qn_leaf(const char *name) {
 /* Convert one PDXEDefinition into a PDXELSPDef. Returns 0 on success, -1
  * to skip (unsupported label or missing required field). dst gets borrowed
  * pointers into src and into `arena` for synthesised composites. */
+
+/* Issue 109: a copy of a Rust trait impl's header, every string in `arena`. NULL when
+ * the copy cannot be made whole (counted where it failed): an impl with no header is
+ * never proven to apply, never one with half of it. */
+static const char **pxc_copy_impl_bounds(PDXEArena *arena, const char *const *src) {
+    if (!src) {
+        return NULL;
+    }
+    int n = 0;
+    while (src[n]) {
+        n++;
+    }
+    const char **out = (const char **)pdxe_arena_alloc(arena, (size_t)(n + 1) * sizeof(*out));
+    if (!out) {
+        return NULL;
+    }
+    for (int i = 0; i < n; i++) {
+        out[i] = pdxe_arena_strdup(arena, src[i]);
+        if (!out[i]) {
+            return NULL;
+        }
+    }
+    out[n] = NULL;
+    return out;
+}
+
 static int pxc_build_lsp_def(PDXEArena *arena, const PDXEDefinition *src, const char *module_qn,
                              const char *namespace_name, PDXELanguage lang, PDXELSPDef *dst,
                              const pdxe_registry_t *reg, const char **imp_keys,
@@ -484,6 +510,7 @@ static int pxc_build_lsp_def(PDXEArena *arena, const PDXEDefinition *src, const 
          * still on hand.  Do not reconstruct it later from leaf names. */
         dst->trait_qn = src->impl_trait ? pdxe_arena_strdup(arena, src->impl_trait) : NULL;
         dst->is_abstract = src->is_abstract;
+        dst->impl_bounds = pxc_copy_impl_bounds(arena, src->impl_bounds);
     }
     return 0;
 }
@@ -634,6 +661,7 @@ static int pxc_build_rust_impl_relation(PDXEArena *arena, const PDXEImplTrait *i
     dst->trait_qn = trait_qn; /* raw; canonicalized later */
     dst->lang = PDXE_LANG_RUST;
     dst->is_rust_impl_relation = true;
+    dst->impl_bounds = pxc_copy_impl_bounds(arena, impl->impl_bounds);
     return 0;
 }
 
@@ -1471,6 +1499,7 @@ static PDXERustLSPDef *pxc_lspdefs_to_rust(PDXEArena *arena, const PDXELSPDef *d
         out[i].is_interface = defs[i].is_interface;
         out[i].is_rust_impl_relation = defs[i].is_rust_impl_relation;
         out[i].is_abstract = defs[i].is_abstract;
+        out[i].impl_bounds = defs[i].impl_bounds;
     }
     return out;
 }

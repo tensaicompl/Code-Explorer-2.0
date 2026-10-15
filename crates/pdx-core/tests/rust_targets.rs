@@ -487,12 +487,18 @@ fn e5_a_trait_qualified_call_is_not_a_free_function_of_its_name() {
 
 #[test]
 fn e6_a_call_a_blanket_impl_answers_is_recorded_as_the_engine_gives_it() {
-    // `WithRejection::<TestExtractor, TestRejection>::from_request` reaches the blanket
+    // `WithRejection::<Extractor>::from_request` reaches the blanket
     // `impl<S, T> FromRequest<S, ViaParts> for T` (its type implements only
-    // `FromRequestParts`), not `WithRejection`'s own `FromRequest` impl, whose bound it
-    // does not meet. The engine checks no impl's bounds and answers with the type's own
-    // impl. Not corrected by issue 104: issue 109 owns it. This records today's answer,
-    // so its change is seen.
+    // `FromRequestParts`), not `WithRejection`'s own `FromRequest` impl, whose bound
+    // `E: FromRequest<S>` it does not meet. Issue 109: the engine answers a trait impl's
+    // method only when every predicate of the impl's header is proven for the type, and
+    // `Extractor: FromRequest<S>` is not, so it gives no answer.
+    //
+    // Issue 109 removes the false trusted typed answer. The site then falls to Stage 3's
+    // `scoped` guess, the one `from_request` of its module, which is still the wrong
+    // impl: a weak band issue 102 (R3) governs, known wrong until R3 stops drawing it.
+    // This records that state, an R3 acceptance case (axum-extra's
+    // `with_rejection.rs:196`): after R3, `scoped` draws no edge here.
     let checkout = Checkout::new(&[
         CRATE,
         ("src/lib.rs", "pub mod extract;\npub mod with_rejection;\n"),
@@ -512,11 +518,11 @@ fn e6_a_call_a_blanket_impl_answers_is_recorded_as_the_engine_gives_it() {
         "src/with_rejection.rs",
         "WithRejection::<Extractor>::from_request",
     );
-    assert_typed(
-        got,
-        &def(&reg, "src/with_rejection.rs", "from_request"),
-        "lsp_ufcs",
-    );
+    let own = def(&reg, "src/with_rejection.rs", "from_request");
+    assert!(got.engine().is_none(), "{got:?}");
+    assert_ne!(got.band(), Band::Typed, "{got:?}");
+    assert_eq!(got.band(), Band::Scoped, "{got:?}");
+    assert_eq!(got.target(), Some(&own), "{got:?}");
 }
 
 // --- E7: a pattern binding is not a call ---------------------------------------------
@@ -571,9 +577,10 @@ fn e7_a_name_a_match_arm_binds_is_not_a_function_of_that_name() {
 
 #[test]
 fn e8_an_answer_whose_name_two_definitions_share_is_withheld() {
-    // Two `From` impls of one type give two `from` methods one qualified name. The
-    // engine's answer names it; which definition the call reaches is not known from the
-    // name, so it is never drawn as typed and neither definition is chosen.
+    // Two `From` impls of one type give two `from` methods one qualified name. Which of
+    // them a call reaches is the trait's arguments' question, inferred from the call's
+    // own arguments: the engine gives no answer when two impls of one trait have the
+    // method (issue 109), and Stage 3 never draws it, nor chooses either definition.
     let checkout = Checkout::new(&[
         CRATE,
         (
@@ -583,11 +590,7 @@ fn e8_an_answer_whose_name_two_definitions_share_is_withheld() {
     ]);
     let (reg, report) = checkout.resolved();
     let got = at(&reg, &report, "src/lib.rs", "Wide::from");
-    assert_eq!(
-        got.engine().map(|e| e.strategy),
-        Some(Strategy::LspTyped),
-        "{got:?}"
-    );
+    assert!(got.engine().is_none(), "{got:?}");
     assert_eq!(got.band(), Band::Candidate, "{got:?}");
     assert_eq!(got.target(), None);
     let froms: Vec<&DefinitionRef> = reg

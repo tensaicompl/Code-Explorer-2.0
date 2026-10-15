@@ -548,6 +548,27 @@ Four of the six floors still fail. Every site newly drawn is correct; ten correc
 edges become `external` (issue 116), one `blocked` site becomes correct `typed`. The one
 trusted false positive left is issue 109's.
 
+A0 after issue 109, 2026-10-15 (a Rust trait impl's method answers `Type::method` only
+when the impl is proven to apply, engine 12; guarded by issue 115). Evidence, not an
+evaluation; the status stays `pending`. Same pins, oracles and rules; baseline post-114
+(`c8239ba`).
+
+| Golden | Floor | After issue 114 | After issue 109 | Floor met |
+|---|---|---|---|---|
+| Python | `typed` precision ≥ 97% | 314 / 314 = 100.00% | 314 / 314 = 100.00% | yes |
+| Python | union precision ≥ 95% | 624 / 657 = 94.98% | 624 / 657 = 94.98% | **no** |
+| Python | recall ≥ 85% | 606 / 1,114 = 54.40% | 606 / 1,114 = 54.40% | **no** |
+| Rust | `typed` precision ≥ 97% | 865 / 866 = 99.88% | 860 / 860 = 100.00% | yes |
+| Rust | union precision ≥ 95% | 1,603 / 2,503 = 64.04% | 1,601 / 2,501 = 64.01% | **no** |
+| Rust | recall ≥ 85% | 1,400 / 4,056 = 34.52% | 1,398 / 4,054 = 34.48% | **no** |
+
+Four of the six floors still fail. The Rust golden has no trusted false positive left
+(`typed` 860/860, `import-guided` 109/109, `inheritance-guided` 60/60). The issue's site
+is no typed answer, and falls to a wrong `scoped` guess, issue 102's (R3), where the union
+still counts it. Five correct typed answers are lost to unknown bounds: three become
+correct `scoped`, and two calls only typed resolution found in `assert_eq!` are no sites
+(issue 107B). Python and PDX itself are identical.
+
 ## G2 — after `P3-09`
 
 Status: **pending**

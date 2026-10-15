@@ -107,12 +107,14 @@ fn no_call_of_the_seventeen_is_drawn_to_its_wrong_definition() {
 }
 
 #[test]
-fn the_issue_104_leaf_left_open_is_still_drawn() {
-    // What R2 did not correct, recorded so that its correction is seen: a blanket impl
-    // the engine cannot tell from the type's own (issue 109). The other, an impl a
-    // macro writes, which no extraction represents, is withheld since issue 110: the
-    // macro may write another `from` for `Body`, so the one the registry holds is drawn
-    // no more.
+fn the_issue_104_leaves_are_no_trusted_edge() {
+    // What R2 left to its children. The blanket impl the engine could not tell from the
+    // type's own is no typed answer since issue 109: the type's own impl's header is not
+    // proven for `TestExtractor`. The edge is still drawn, by Stage 3's `scoped` guess
+    // and still wrong, which issue 102 (R3) owns and stops drawing: an R3 acceptance
+    // case, recorded so that its correction is seen. The impl a macro writes, which no
+    // extraction represents, is withheld since issue 110: the macro may write another
+    // `from` for `Body`, so the one the registry holds is drawn no more.
     let golden = axum();
     assert_eq!(
         bands(
@@ -121,7 +123,7 @@ fn the_issue_104_leaf_left_open_is_still_drawn() {
             "axum-extra.src.extract.with_rejection.WithRejection.from_request",
             "CALLS"
         ),
-        ["typed"]
+        ["scoped"]
     );
     assert_eq!(
         bands(

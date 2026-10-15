@@ -64,7 +64,7 @@ Remediation order, **each step only when the driver authorises it**:
 **R1 is done (issue 103 resolved, 2026-10-14).** A qualifying typed answer now comes
 before the blocklist.
 
-**R2 is done (2026-10-14); issue 104 stays open.** Rust typed answers need path
+**R2 is done (2026-10-14); issue 104 closed with issue 109 (2026-10-15).** Rust typed answers need path
 evidence (patch 0028, below). Of the Rust golden's 17 trusted false positives, 15 are
 no longer drawn wrong. The last typed one, a blanket impl, is issue 109, and the
 `import-guided` one, a `macro_rules!` impl, is issue 110.
@@ -86,8 +86,17 @@ refuses an executable whose versions are not the source's (115). A member a
 Rust `use` binds only in its lexical scope, in the typed pass and Stage 3 alike (114,
 patch 0031, `ENGINE_VERSION` 11, cache format 8, worker protocol 9): a test module's
 import no longer draws a module's own call wrong. The engine differential holds a second
-ratified divergence for 114 (decision 66). Next, each **only when the driver authorises
-it**: issue 109, then R3 (issue 102); issue 113 waits for recall work.
+ratified divergence for 114 (decision 66).
+
+**Issue 109 is done (2026-10-15).** A Rust `Type::method` is answered with a trait impl's
+method only when the impl is proven to apply: extraction records each trait impl's header
+and the typed pass proves every predicate for the path's types (patch 0032,
+`ENGINE_VERSION` 12, surface 6). The Rust golden's last typed false positive is gone. Its
+site (`with_rejection.rs:196`) now falls to Stage 3's `scoped` guess, still the wrong
+impl: issue 109 removes the false trusted typed answer, and the weak `scoped` guess is
+issue 102's (R3) and known wrong until R3, an R3 acceptance case. The engine differential
+holds a third ratified divergence for 109 (decision 66). Next, **only when the driver
+authorises it**: R3 (issue 102); issue 113 waits for recall work.
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. Build `pdx-bench` first
@@ -219,7 +228,7 @@ extraction cache is format 8 and the worker protocol 9 (issues 40 to 42, 46, 47,
 binding with its declaring node's position and path (`routes`, patch 0011); both hold
 records whose text is ranges of the source (issue 90B, below), a Rust file the members
 its macro invocations may write (issue 110) and Rust calls their `use` scope (issue 114,
-both below); `ENGINE_VERSION` is 11 (issue 114). Issue 74 (decision 45, engine 4): the C and C++ expression
+both below); `ENGINE_VERSION` is 12 (issue 109). Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -321,7 +330,8 @@ the buffer Stage 2 supplies is the whole input.
     refuses rather than clamps. Read text with `FileExtract::text` (borrowed); never
     convert a range to a `String` in a loop. Range coordinates are equality within one
     extraction only.
-  - Surface 5 (ranges, `source_len`, definition references, structural names), cache
+  - Surface 5 (ranges, `source_len`, definition references, structural names; 6 since a
+    trait impl's relation and methods carry its header, issue 109), cache
     format 6 (records bound to the verified current source; a misfit is a miss),
     protocol 7 (the parent binds the worker's records to the source it sent). Identities
     hash the bytes the whole text or name gives: segment schema stays 3.
@@ -402,15 +412,16 @@ need path evidence.
 - **External crates.** Stage 3 makes a Rust path `external` when its first name is a
   crate the extern prelude binds (the standard distribution, or a dependency with no
   repository path) and nothing in the file binds it (4.5, step 4).
-- **Open.** A blanket impl the engine cannot tell from a type's own (issue 109). Items a
-  `macro_rules!` invocation writes are issue 110's, resolved by withholding (below).
+- **Resolved since.** A blanket impl the engine could not tell from a type's own is issue
+  109's, and items a `macro_rules!` invocation writes issue 110's, both below.
 - **Rule (issue 112).** A patch that changes what extraction records, in a file's facts
   or in the per-file typed answers its surface holds, moves `ENGINE_VERSION`, delivered
   or not: the version in the cache key is all that keeps an older engine's entries from
   being served. `cache_entries_of_engine_seven_are_never_served` holds it for 0028,
   `cache_entries_of_engine_eight_are_never_served` for 0029,
-  `cache_entries_of_engine_nine_are_never_served` for 0030 and
-  `cache_entries_of_engine_ten_are_never_served` for 0031 (planted in the current cache
+  `cache_entries_of_engine_nine_are_never_served` for 0030,
+  `cache_entries_of_engine_ten_are_never_served` for 0031 and
+  `cache_entries_of_engine_eleven_are_never_served` for 0032 (planted in the current cache
   format, so that the engine version alone keeps it out).
 
 Issue 111 (patch 0029, engine 9): a Rust file's `use` declarations are read from its
@@ -481,7 +492,7 @@ Issue 114 (patch 0031, engine 11): a Rust `use` binds only in its lexical scope.
   whole is none (lost work), every call unplaced. The file's own `imports` are unchanged,
   so the surface, the engine's import edges and the cross-file pass are too. Interface
   (`pdxe_use_scope`, `pdxe_scoped_import`, `pdxe_call.use_scope`), cache format 8 and
-  protocol 9; the surface stays 5.
+  protocol 9; the surface stayed 5 (6 since issue 109).
 - **Stage 3** (`SymbolRegistry::rust_imports_at`, `rust_name_provenance`): for a Rust
   site, the imports in force in its scope, never `imports_of` the file; a site placed in
   no scope sees none. A scoped import's `self` and a `super` within the file are read
@@ -492,6 +503,43 @@ Issue 114 (patch 0031, engine 11): a Rust `use` binds only in its lexical scope.
   macros, the issue's two reproductions; typed and Stage 3 alone), `engine/tests/rust_use_scopes.c`,
   `typed_lookup` (scoped lookups linear), `pdx-engine`'s `use_scopes` and the worker's
   `isolation_carries_use_scopes`.
+
+Issue 109 (patch 0032, engine 12): a Rust trait impl's method answers `Type::method`
+only when the impl is proven to apply.
+- **Header.** Extraction records each trait impl's header (`PDXEImplTrait::impl_bounds`,
+  the same array on its methods' `PDXEDefinition::impl_bounds`; grammar in `pdxe_core.h`):
+  the self type's form (`s:plain`, a path of distinct parameters; `s:blanket`; `s:other`),
+  parameters, self and trait arguments, and every predicate's bounds (trait with its
+  arguments, relaxed, lifetime, other); a macro or syntax error makes it opaque. It
+  crosses the surface (version 6) and the cross-file definitions, and each registry reads
+  it once (`PDXERustImplFacts`: `PDXERegisteredFunc::rust_impl`,
+  `PDXERegisteredType::rust_impls`), a bound's trait made canonical as an impl's is.
+- **Proof.** The path's type arguments (`Type::<A, B>`) stand for the self type's
+  parameters. A relaxed or lifetime bound needs nothing (selection erases lifetimes); a
+  trait bound on a parameter the path gives holds when the registry holds an impl of the
+  trait for that type that requires nothing, its trait arguments the bound's or its own
+  free parameters. Everything else is unknown: a parameter the path does not give (the
+  trait's `S`), a projection, another bound, an opaque or missing header, a blanket
+  impl. Unknown is never proven, and nothing is ever shown false: a macro's, a blanket's
+  or another crate's impl may satisfy what looks unsatisfied.
+- **Choice.** Several impls of the name: the proven one only when it is the only one
+  proven and no other is an impl of its trait (two impls of one trait are chosen by the
+  call's arguments, issue 108); an inherent method of the name beside a trait impl's
+  leaves no answer. A trait's default reached through the type's one impl of it is proven
+  the same way. A derive's synthesised method names no definition and is answered as
+  before (`PDXE_FUNC_FLAG_RUST_DERIVED`). A type argument naming a generic parameter in
+  scope (`RustLSPContext::generic_names`) is never a type.
+- **Not here.** No Stage 3 channel for a withheld answer (driver decision): the issue's
+  site falls to `scoped`, issue 102's (R3). Stage 3's `import-guided` takes an imported
+  type's trait-impl member without its header (issue 117, open); cross-file
+  `Type::method` through an import gets no typed answer at all (issue 113). The
+  incremental cross-surface codec (`resolve/lsp_surface.c`) is not changed: the engine
+  differential compares it key by key, and resolution here reads the definitions.
+- **Tests.** `engine/tests/rust_impl_bounds.c` (headers, T1 to T7, the issue's and the
+  differential's shapes), `crates/pdx-engine/tests/impl_bounds.rs` (fresh and cached
+  alike, the header in the surface, surface 5 refused), `crates/pdx-core/tests/
+  rust_impl_bounds.rs` (Stage 3, a warm cache), `rust_targets.rs`'s E6 (the R3 case) and
+  E8, and the cache test above.
 
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: a qualifying
@@ -768,9 +816,9 @@ of `bench/engine-differential.toml`.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
   does. All 32 corpora were identical at P2-16 and are again at engines 7 and 8, each engine
-  run from an empty working directory (issue 83, decision 52). At engine 11, 31 are
-  identical and `golden:rust/axum` passes with two ratified divergences, issue 111's and
-  issue 114's.
+  run from an empty working directory (issue 83, decision 52). At engine 12, 31 are
+  identical and `golden:rust/axum` passes with three ratified divergences, issue 111's,
+  issue 114's and issue 109's.
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

@@ -95,6 +95,9 @@ typedef struct {
     const char *trait_qn;
     bool is_rust_impl_relation; // independent type-level impl record (empty impls survive)
     bool is_abstract;           // Rust required trait method; false for defaults
+    /* Issue 109, Rust only: the trait impl's header (PDXEImplTrait's impl_bounds), on
+     * its relation and its methods; NULL for anything else. */
+    const char **impl_bounds;
     /* Python-only raw decorator syntax, borrowed from PDXEDefinition.  The
      * resolver must retain it across fused/cross-file registry construction:
      * a decorator rebinds the function name, so the undecorated definition is

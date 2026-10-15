@@ -21,7 +21,8 @@ The result files hold the latest run. Earlier runs stay in Git history:
 | post-R2, issue 104 (Rust trusted targets) | the commit "Issue 104: correct Rust trusted target resolution", parent `d96bb2f` | `d14ccd4` |
 | post-111, issue 111 (Rust `use` trees) | the commit "Issue 111: parse Rust use trees structurally", parent `d6fbdd9` | `8c93aba` |
 | post-110, issue 110 (members macros may write) | the commit "Issue 110: prevent false targets from macro-generated impl gaps", parent `450e1e8` | `15feb3e` |
-| post-114, issue 114 (lexical `use` scope) | the commit "Issue 114: scope Rust use bindings lexically", parent `15feb3e` | that commit (these files) |
+| post-114, issue 114 (lexical `use` scope) | the commit "Issue 114: scope Rust use bindings lexically", parent `15feb3e` | `c8239ba` |
+| post-109, issue 109 (trait impl applicability) | the commit "Issue 109: validate Rust impl applicability before typed resolution", parent `c8239ba` | that commit (these files) |
 
 Every run uses the same golden pins, oracle versions and configuration,
 `a0-match-1` and `a0-metrics-1`. The PDX diagnostic corpus is `e746b1e` in all, so
@@ -34,7 +35,11 @@ Rerun at the hotfix, every document is identical but for `engine_version` (8, wh
 the executed engine reports, checked equal to the source) and the `resolver` label,
 and `mismatches.jsonl` and `counterfactuals.json` are byte-identical. The post-111
 files record engine 9, the post-110 files engine 10 (the first measured by an executable
-`run.py` checked against the source, issue 115), the post-114 files engine 11.
+`run.py` checked against the source, issue 115), the post-114 files engine 11, the
+post-109 files engine 12. The post-109 run's oracles were installed again from their
+recorded pins (the toolchain's channel manifest with its SHA-256, the npm integrity),
+after the earlier copies were lost with a restart; the versions and the integrity it
+records are the earlier runs'.
 
 The post-R1 run also corrects three harness outputs. None of the three changes a
 baseline number: run over the baseline's datasets, they reproduce the committed

@@ -56,8 +56,9 @@
 /* 2: the surface carries what the extraction lost (the "lost" count). 3: calls and
  * usages carry their node-type path (issue 46). 4: definitions carry their route
  * facts (issue 54). 5: text as source ranges, qualified names by definition, and the
- * source's length (issue 90). */
-enum { SURFACE_VERSION = 5 };
+ * source's length (issue 90). 6: a Rust trait impl's relation and methods carry the
+ * impl's header, what must hold for it to apply (issue 109). */
+enum { SURFACE_VERSION = 6 };
 
 /* The file's bytes, and the engine's numbers, as they are; see the comment above. */
 #define SURFACE_WRITE_FLAGS (YYJSON_WRITE_ALLOW_INVALID_UNICODE | YYJSON_WRITE_ALLOW_INF_AND_NAN)
@@ -161,6 +162,7 @@ static const field DEFINITION_FIELDS[] = {
     FIELD(PDXEDefinition, F_STR, impl_trait),
     COUNTED(PDXEDefinition, F_ROUTES, routes, route_count),
     FIELD(PDXEDefinition, F_INT, route_count),
+    FIELD(PDXEDefinition, F_STRV, impl_bounds),
 };
 
 static const field ROUTE_FIELDS[] = {
@@ -254,6 +256,7 @@ static const field IMPL_TRAIT_FIELDS[] = {
     FIELD(PDXEImplTrait, F_STR, trait_name),
     FIELD(PDXEImplTrait, F_STR, struct_name),
     FIELD(PDXEImplTrait, F_QNREF, struct_qn),
+    FIELD(PDXEImplTrait, F_STRV, impl_bounds),
 };
 
 static const field RESOLVED_CALL_FIELDS[] = {

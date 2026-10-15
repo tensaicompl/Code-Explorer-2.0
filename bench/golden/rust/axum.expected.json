@@ -794,25 +794,25 @@
       "src_qn": "axum-extra.src.extract.cached.works",
       "dst_qn": "axum-extra.src.extract.cached.Cached.from_request_parts",
       "kind": "CALLS",
-      "band": "typed"
+      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.extract.cached.works",
       "dst_qn": "axum-extra.src.extract.cached.Cached.from_request_parts",
       "kind": "CALLS",
-      "band": "typed"
+      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.extract.cached.works",
       "dst_qn": "axum-extra.src.extract.cached.Cached.from_request_parts",
       "kind": "TESTS",
-      "band": "typed"
+      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.extract.cached.works",
       "dst_qn": "axum-extra.src.extract.cached.Cached.from_request_parts",
       "kind": "TESTS",
-      "band": "typed"
+      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.extract.cookie.mod.CookieJar.from_headers",
@@ -2174,25 +2174,25 @@
       "src_qn": "axum-extra.src.extract.with_rejection.extractor_rejection_is_transformed",
       "dst_qn": "axum-extra.src.extract.with_rejection.WithRejection.from_request",
       "kind": "CALLS",
-      "band": "typed"
+      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.extract.with_rejection.extractor_rejection_is_transformed",
       "dst_qn": "axum-extra.src.extract.with_rejection.WithRejection.from_request",
       "kind": "TESTS",
-      "band": "typed"
+      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.extract.with_rejection.extractor_rejection_is_transformed",
       "dst_qn": "axum-extra.src.extract.with_rejection.WithRejection.from_request_parts",
       "kind": "CALLS",
-      "band": "typed"
+      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.extract.with_rejection.extractor_rejection_is_transformed",
       "dst_qn": "axum-extra.src.extract.with_rejection.WithRejection.from_request_parts",
       "kind": "TESTS",
-      "band": "typed"
+      "band": "scoped"
     },
     {
       "src_qn": "axum-extra.src.handler.mod.IntoHandler.clone",
@@ -8999,22 +8999,10 @@
       "band": "scoped"
     },
     {
-      "src_qn": "axum.src.form.check_body",
-      "dst_qn": "axum.src.form.Form.from_request",
-      "kind": "CALLS",
-      "band": "typed"
-    },
-    {
       "src_qn": "axum.src.form.check_query",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
       "band": "import-guided"
-    },
-    {
-      "src_qn": "axum.src.form.check_query",
-      "dst_qn": "axum.src.form.Form.from_request",
-      "kind": "CALLS",
-      "band": "typed"
     },
     {
       "src_qn": "axum.src.form.deserialize_error_status_codes",

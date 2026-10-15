@@ -366,6 +366,10 @@ if(PDXE_BUILD_TESTS)
   # invocation may write are recorded from the definition's tokens (issue 110,
   # patches/0030).
   add_test(NAME rust_macro_members COMMAND rust_macro_members)
+  # Nor can a trait impl's method pass for the target of `Type::method` while its impl's
+  # header is unproven for the type: extraction records the header, and typed resolution
+  # proves every predicate before answering (issue 109, patches/0032).
+  add_test(NAME rust_impl_bounds COMMAND rust_impl_bounds)
   # Nor a wide node's children by position, nor a parent or sibling by descending from the
   # root: the iterator's and the lookups' answers are tree-sitter's on every corpus and
   # smoke file, the work is linear in every language's wide shapes and the issue's own

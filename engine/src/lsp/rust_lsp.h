@@ -210,6 +210,14 @@ typedef struct {
     } *type_param_aliases;
     int type_param_alias_count;
 
+    /* Issue 109: the names of the generic parameters in scope, the enclosing impl's
+     * and function's, bounded or not, saved and restored as the walk enters and
+     * leaves them. A site's type argument that names one is a parameter, never the
+     * module's type of that name. */
+    const char **generic_names;
+    int generic_name_count;
+    int generic_name_cap;
+
     /* Output: resolved (and unresolved-with-reason) calls accumulate here. */
     PDXEResolvedCallArray *resolved_calls;
 
@@ -384,7 +392,45 @@ typedef struct {
     bool is_interface;            /* true for traits                          */
     bool is_rust_impl_relation;   /* independent type-level impl record       */
     bool is_abstract;             /* required trait declaration (no default)  */
+    const char **impl_bounds;     /* issue 109: the trait impl's header       */
 } PDXERustLSPDef;
+
+/* Issue 109: a Rust trait impl's header (PDXEImplTrait's impl_bounds), read once at
+ * registration, and what typed resolution proves an impl applies from. */
+typedef enum {
+    PDXE_RUST_BOUND_TRAIT,    /* a trait the subject must implement */
+    PDXE_RUST_BOUND_RELAXED,  /* `?Sized`: no requirement */
+    PDXE_RUST_BOUND_LIFETIME, /* an outlives requirement: selection erases lifetimes, so
+                                 it decides no impl (failing it is an error, never
+                                 another impl) */
+    PDXE_RUST_BOUND_OTHER,    /* higher-ranked, `Fn(..)` sugar, parenthesised: never
+                                 proven */
+} PDXERustBoundKind;
+
+typedef struct {
+    int subject;          /* the impl parameter it bounds (an index of params), or -1
+                             for any other subject: a projection, a path, a lifetime */
+    PDXERustBoundKind kind;
+    const char *trait_qn; /* TRAIT: the trait, canonical as an impl's is; NULL when it
+                             resolves to none */
+    const char **args;    /* TRAIT: its generic arguments, in order */
+    int arg_count;
+} PDXERustBound;
+
+typedef struct PDXERustImplFacts {
+    const char *trait_qn; /* the impl's trait, canonical; NULL when it resolves to none */
+    char self_form;       /* 'p' plain, 'b' blanket, 'o' other (s: entry) */
+    bool opaque;          /* x:, or an entry no grammar allows: never proven */
+    bool derived;         /* a `#[derive]` the registry synthesises: no header */
+    const char **params;
+    int param_count;
+    int *self_args;       /* 'p': the self type's type arguments, as indexes of params */
+    int self_arg_count;
+    const char **trait_args;
+    int trait_arg_count;
+    PDXERustBound *bounds;
+    int bound_count;
+} PDXERustImplFacts;
 
 /* Run cross-file resolution on a single file. */
 void pdxe_run_rust_lsp_cross(PDXEArena *arena, const char *source, int source_len,
