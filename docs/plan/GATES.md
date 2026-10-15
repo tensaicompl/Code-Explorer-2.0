@@ -589,6 +589,25 @@ cannot prove (`import-guided` 109/109, none a trait impl's; `inheritance-guided`
 its four conditional trait impls' members proven by the calling impls). The issue's
 reproductions are withheld by tests, not by A0.
 
+A0 after issue 118, 2026-10-16 (a name a Rust `use` brace group binds leads where its own
+path does; Stage 3 only, engine 12; guarded by issue 115). Evidence, not an evaluation;
+the status stays `pending`. Same pins, oracles and rules; baseline post-117 (`27f7d5b`).
+
+| Golden | Floor | After issue 117 | After issue 118 | Floor met |
+|---|---|---|---|---|
+| Python | `typed` precision ≥ 97% | 314 / 314 = 100.00% | 314 / 314 = 100.00% | yes |
+| Python | union precision ≥ 95% | 624 / 657 = 94.98% | 624 / 657 = 94.98% | **no** |
+| Python | recall ≥ 85% | 606 / 1,114 = 54.40% | 606 / 1,114 = 54.40% | **no** |
+| Rust | `typed` precision ≥ 97% | 860 / 860 = 100.00% | 860 / 860 = 100.00% | yes |
+| Rust | union precision ≥ 95% | 1,601 / 2,501 = 64.01% | 1,648 / 2,541 = 64.86% | **no** |
+| Rust | recall ≥ 85% | 1,398 / 4,054 = 34.48% | 1,445 / 4,054 = 35.64% | **no** |
+
+Four of the six floors still fail. Trusted bands, false edges: Rust golden `typed` 0
+(860/860), `import-guided` 0 (213/213, from 109/109), `inheritance-guided` 0 (60/60); PDX
+itself `typed` 0 (5,911/5,911), `import-guided` 0 (261/261, from 52/56),
+`inheritance-guided` 0 (76/76). The four sites PDX itself drew wrong are `exact` now, still
+wrong, R3 acceptance cases (issue 102). Python is identical.
+
 ## G2 — after `P3-09`
 
 Status: **pending**

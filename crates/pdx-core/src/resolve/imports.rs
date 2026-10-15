@@ -70,9 +70,38 @@ fn decide(mut found: Vec<InternalTarget>, otherwise: ImportTarget) -> ImportTarg
     }
 }
 
+/// What one import binds and where it leads.
+pub(crate) struct Interpreted {
+    /// The local names it binds.
+    pub(crate) bindings: Vec<String>,
+    /// Where it leads.
+    pub(crate) target: ImportTarget,
+    /// A Rust brace group's (issue 118): where each binding leads, in `bindings`' order,
+    /// as a `use` of its own path would; empty when `target` is every binding's.
+    pub(crate) binding_targets: Vec<ImportTarget>,
+}
+
 /// The local names `import` binds and where it leads, for a file of `language` at
 /// `path`.
 pub(crate) fn interpret(
+    lookup: &Lookup<'_>,
+    language: &'static Language,
+    path: &str,
+    import: &Import,
+) -> Interpreted {
+    if language.id == "rust" {
+        return rust(lookup, language, path, import.module_text.as_str());
+    }
+    let (bindings, target) = interpret_other(lookup, language, path, import);
+    Interpreted {
+        bindings,
+        target,
+        binding_targets: Vec::new(),
+    }
+}
+
+/// [`interpret`] for every language but Rust.
+fn interpret_other(
     lookup: &Lookup<'_>,
     language: &'static Language,
     path: &str,
@@ -133,7 +162,6 @@ pub(crate) fn interpret(
             }
         }
         "c" | "cpp" | "objc" | "protobuf" => (Vec::new(), include(lookup, path, text)),
-        "rust" => rust(lookup, language, path, text),
         // No evidence: Perl's packages are not recorded, nor are the module systems of
         // the other structural languages resolved.
         _ => (Vec::new(), ImportTarget::Unclassified),
@@ -513,44 +541,60 @@ fn include(lookup: &Lookup<'_>, path: &str, spec: &str) -> ImportTarget {
 const RUST_STANDARD: [&str; 5] = ["std", "core", "alloc", "proc_macro", "test"];
 
 /// A `use`: its bindings, from a brace group if it has one, and where its path
-/// leads.
-fn rust(
-    lookup: &Lookup<'_>,
-    language: &'static Language,
-    path: &str,
-    text: &str,
-) -> (Vec<String>, ImportTarget) {
+/// leads. A brace group's path is its prefix, a module; each of its bindings leads where
+/// its own item's path does (issue 118): `use a::{T, b::f}` binds `T` to `a::T` and `f`
+/// to `a::b::f`, as `use a::T;` and `use a::b::f;` would, and `self` to `a` itself.
+fn rust(lookup: &Lookup<'_>, language: &'static Language, path: &str, text: &str) -> Interpreted {
+    let segments = |p: &str| -> Vec<String> {
+        p.split("::")
+            .filter(|s| !s.is_empty())
+            .map(str::to_owned)
+            .collect()
+    };
+    let resolve = |p: &str| {
+        let owned = segments(p);
+        let parts: Vec<&str> = owned.iter().map(String::as_str).collect();
+        rust_path(lookup, language, path, &parts)
+    };
     let text = text.trim().trim_start_matches("::");
-    let (prefix, bindings) = if let Some(open) = text.find('{') {
+    if let Some(open) = text.find('{') {
         let prefix = text[..open].trim_end_matches("::").trim();
         let group = text[open + 1..]
             .trim_end()
             .strip_suffix('}')
             .unwrap_or(&text[open + 1..]);
-        let mut bindings = Vec::new();
-        group_bindings(prefix, group, &mut bindings);
-        (prefix, bindings)
-    } else {
-        let (p, alias) = match text.split_once(" as ") {
-            Some((p, a)) => (p.trim(), Some(a.trim())),
-            None => (text, None),
+        let mut items = Vec::new();
+        group_items(prefix, group, &mut items);
+        let (bindings, paths): (Vec<String>, Vec<String>) = items.into_iter().unzip();
+        return Interpreted {
+            bindings,
+            target: resolve(prefix),
+            binding_targets: paths.iter().map(|p| resolve(p)).collect(),
         };
-        let last = p.rsplit("::").next().unwrap_or(p);
-        let binding = alias.unwrap_or(last);
-        let bindings = if binding == "*" || binding == "_" || binding.is_empty() {
-            Vec::new()
-        } else {
-            vec![binding.to_owned()]
-        };
-        (p, bindings)
+    }
+    let (p, alias) = match text.split_once(" as ") {
+        Some((p, a)) => (p.trim(), Some(a.trim())),
+        None => (text, None),
     };
-    let segments: Vec<&str> = prefix.split("::").filter(|s| !s.is_empty()).collect();
-    (bindings, rust_path(lookup, language, path, &segments))
+    let last = p.rsplit("::").next().unwrap_or(p);
+    let binding = alias.unwrap_or(last);
+    let bindings = if binding == "*" || binding == "_" || binding.is_empty() {
+        Vec::new()
+    } else {
+        vec![binding.to_owned()]
+    };
+    Interpreted {
+        bindings,
+        target: resolve(p),
+        binding_targets: Vec::new(),
+    }
 }
 
-/// The names a brace group binds: each item's alias or last segment, `self` binding
-/// the group's own last segment, a glob binding none; nested groups too.
-fn group_bindings(prefix: &str, group: &str, out: &mut Vec<String>) {
+/// The names a brace group binds, each with the whole path its item names: each item's
+/// alias or last segment, `self` binding the group's own last segment (and naming the
+/// group's path), a glob binding none; nested groups too, their paths under the
+/// enclosing group's.
+fn group_items(prefix: &str, group: &str, out: &mut Vec<(String, String)>) {
     let mut depth = 0;
     let mut start = 0;
     let mut items = Vec::new();
@@ -566,13 +610,20 @@ fn group_bindings(prefix: &str, group: &str, out: &mut Vec<String>) {
         }
     }
     items.push(&group[start..]);
+    let under = |p: &str| -> String {
+        if prefix.is_empty() {
+            p.to_owned()
+        } else {
+            format!("{prefix}::{p}")
+        }
+    };
     for item in items.into_iter().map(str::trim).filter(|i| !i.is_empty()) {
         if let Some(open) = item.find('{') {
             let inner = item[open + 1..]
                 .trim_end()
                 .strip_suffix('}')
                 .unwrap_or(&item[open + 1..]);
-            group_bindings(item[..open].trim_end_matches("::"), inner, out);
+            group_items(&under(item[..open].trim_end_matches("::")), inner, out);
             continue;
         }
         let (p, alias) = match item.split_once(" as ") {
@@ -585,7 +636,12 @@ fn group_bindings(prefix: &str, group: &str, out: &mut Vec<String>) {
             (None, p) => p.rsplit("::").next().unwrap_or(p),
         };
         if !matches!(binding, "*" | "_" | "") {
-            out.push(binding.to_owned());
+            let named = if p == "self" {
+                prefix.to_owned()
+            } else {
+                under(p)
+            };
+            out.push((binding.to_owned(), named));
         }
     }
 }

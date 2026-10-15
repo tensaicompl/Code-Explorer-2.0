@@ -23,7 +23,8 @@ The result files hold the latest run. Earlier runs stay in Git history:
 | post-110, issue 110 (members macros may write) | the commit "Issue 110: prevent false targets from macro-generated impl gaps", parent `450e1e8` | `15feb3e` |
 | post-114, issue 114 (lexical `use` scope) | the commit "Issue 114: scope Rust use bindings lexically", parent `15feb3e` | `c8239ba` |
 | post-109, issue 109 (trait impl applicability) | the commit "Issue 109: validate Rust impl applicability before typed resolution", parent `c8239ba` | `83fbb45` |
-| post-117, issue 117 (trusted stages and impl headers) | the commit "Issue 117: validate trait impl applicability in import-guided resolution", parent `83fbb45` | that commit (these files) |
+| post-117, issue 117 (trusted stages and impl headers) | the commit "Issue 117: validate trait impl applicability in import-guided resolution", parent `83fbb45` | `27f7d5b` |
+| post-118, issue 118 (a `use` group's bindings) | the commit "Issue 118: read each Rust use-group binding as its own path", parent `27f7d5b` | that commit (these files) |
 
 Every run uses the same golden pins, oracle versions and configuration,
 `a0-match-1` and `a0-metrics-1`. The PDX diagnostic corpus is `e746b1e` in all, so
@@ -37,8 +38,9 @@ the executed engine reports, checked equal to the source) and the `resolver` lab
 and `mismatches.jsonl` and `counterfactuals.json` are byte-identical. The post-111
 files record engine 9, the post-110 files engine 10 (the first measured by an executable
 `run.py` checked against the source, issue 115), the post-114 files engine 11, the
-post-109 and post-117 files engine 12 (post-117 with cache format 9 and worker protocol
-10; every measure is post-109's, only the `resolver` label differs). The post-109 run's oracles were installed again from their
+post-109, post-117 and post-118 files engine 12 (post-117 and post-118 with cache format
+9 and worker protocol 10; every post-117 measure is post-109's, only the `resolver` label
+differs). The post-109 run's oracles were installed again from their
 recorded pins (the toolchain's channel manifest with its SHA-256, the npm integrity),
 after the earlier copies were lost with a restart; the versions and the integrity it
 records are the earlier runs'.

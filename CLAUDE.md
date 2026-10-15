@@ -103,8 +103,16 @@ header requires nothing, `inheritance-guided` also when the impl the call on `se
 made from entails it (below). The headers issue 109 records now cross the interface
 (cache format 9, worker protocol 10); the engine's extraction is unchanged
 (`ENGINE_VERSION` 12, surface 6) and the engine differential with it. The goldens'
-trusted bands are unchanged. Next, **only when the driver authorises it**: R3 (issue
-102); issue 113 waits for recall work.
+trusted bands are unchanged.
+
+**Issue 118 is done (2026-10-16).** PDX itself's four false `import-guided` edges
+(`Performance::OutOfMemory(..)` drawn to the struct `OutOfMemory`, and three alike) came
+from a Rust `use` brace group read as its prefix's module: every name the group binds was
+taken for that module, so `T::f` became `prefix::f`. Each binding of a group now leads
+where its own path does (below). The four fall to `exact`, still wrong, R3 acceptance
+cases; every trusted band of the goldens and PDX itself has no false edge (Rust golden
+`import-guided` 213/213, PDX 261/261). Stage 3 only: no version moves. Next, **only when
+the driver authorises it**: R3 (issue 102); issue 113 waits for recall work.
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. Build `pdx-bench` first
@@ -549,6 +557,22 @@ only when the impl is proven to apply.
   alike, the header in the surface, surface 5 refused), `crates/pdx-core/tests/
   rust_impl_bounds.rs` (Stage 3, a warm cache), `rust_targets.rs`'s E6 (the R3 case) and
   E8, and the cache test above.
+
+Issue 118 (Stage 3 only, no version moves): a name a Rust `use` brace group binds leads
+where its own path does.
+- **Record.** The engine records one import per `use`, a group's whole text. Stage 3's
+  record keeps the group's target, its prefix's module (import edges and provenance read
+  it), and holds each binding's own (`ImportRecord::binding_targets`, read through
+  `target_of`): `use a::{T, b::f, self as m}` binds `T` to `a::T`, `f` to `a::b::f`, `m`
+  to `a`; nested groups under their enclosing path; an alias to the path it renames. A
+  single-name `use` has none: its target is its binding's.
+- **Import stage.** `import_visible` reads the binding's own target, so `T::f` through a
+  group is a member of `T`, never the prefix module's `f`. An enum's variants are no
+  definitions: a call of one has no `import-guided` target (it falls to `exact`, R3's).
+- **Rule.** Never read a name an import binds as anything but what its own path names;
+  never draw a namesake for a target the registry does not represent.
+- **Tests.** `crates/pdx-core/tests/rust_import_bindings.rs` (E1 to E6, modules, aliases,
+  nested groups, `self`, a macro-written type, the record).
 
 Issue 117 (no patch, engine 12): Stage 3's trusted name stages take a Rust trait impl's
 member only when the impl is proven to apply.

@@ -123,8 +123,23 @@ pub struct ImportRecord {
     /// The local names it binds in the file, where its language's form makes them
     /// known; none for an import that brings in a namespace's names unlisted.
     pub bindings: Vec<String>,
-    /// Where it leads.
+    /// Where it leads: for a Rust brace group, its prefix's module.
     pub target: ImportTarget,
+    /// A Rust brace group's (issue 118): where each of `bindings` leads, in its order,
+    /// as a `use` of its own item's path would; empty when `target` is every binding's.
+    pub binding_targets: Vec<ImportTarget>,
+}
+
+impl ImportRecord {
+    /// Where the import leads for `binding`, one of the names it binds: a Rust brace
+    /// group's item's own path (issue 118), else the import's.
+    pub fn target_of(&self, binding: &str) -> &ImportTarget {
+        self.bindings
+            .iter()
+            .position(|b| b == binding)
+            .and_then(|i| self.binding_targets.get(i))
+            .unwrap_or(&self.target)
+    }
 }
 
 /// Issue 114: one of a Rust file's imports: one of its module's own (`imports_of`), or
@@ -604,7 +619,7 @@ impl SymbolRegistry {
                 .enumerate()
                 .filter_map(|(i, import)| Some((u32::try_from(i).ok()?, import)))
                 .map(|(index, import)| {
-                    let (bindings, target) = imports::interpret(&lookup, language, path, import);
+                    let read = imports::interpret(&lookup, language, path, import);
                     ImportRecord {
                         import: ImportRef {
                             path: path.clone(),
@@ -613,8 +628,9 @@ impl SymbolRegistry {
                         module_text: import.module_text.clone(),
                         imported_name: import.imported_name.clone(),
                         alias: import.alias.clone(),
-                        bindings,
-                        target,
+                        bindings: read.bindings,
+                        target: read.target,
+                        binding_targets: read.binding_targets,
                     }
                 })
                 .collect();
@@ -1676,7 +1692,7 @@ fn rust_use_scopes(
             module_text: from_inline_module(text, depth[s]),
             ..scoped.import.clone()
         };
-        let (bindings, target) = imports::interpret(lookup, language, path, &read);
+        let interpreted = imports::interpret(lookup, language, path, &read);
         let record = ImportRecord {
             import: ImportRef {
                 path: path.to_owned(),
@@ -1685,8 +1701,9 @@ fn rust_use_scopes(
             module_text: scoped.import.module_text.clone(),
             imported_name: scoped.import.imported_name.clone(),
             alias: scoped.import.alias.clone(),
-            bindings,
-            target,
+            bindings: interpreted.bindings,
+            target: interpreted.target,
+            binding_targets: interpreted.binding_targets,
         };
         match parent_binding {
             Some((name, bound)) => {

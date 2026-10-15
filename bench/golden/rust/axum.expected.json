@@ -524,7 +524,7 @@
       "src_qn": "axum-core.src.response.into_response.().into_response",
       "dst_qn": "axum-core.src.body.Body.unknown",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-core.src.response.into_response.(StatusCode, R).into_response",
@@ -576,6 +576,12 @@
     },
     {
       "src_qn": "axum-core.src.response.into_response.Chain.into_response",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum-core.src.response.into_response.Chain.into_response",
       "dst_qn": "axum-core.src.response.into_response_parts.ResponseParts.headers_mut",
       "kind": "CALLS",
       "band": "exact"
@@ -614,7 +620,7 @@
       "src_qn": "axum-core.src.response.into_response.http::response::Parts.into_response",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-core.src.response.into_response_parts.Extensions.into_response_parts",
@@ -740,7 +746,7 @@
       "src_qn": "axum-extra.src.body.async_read_body.AsyncReadBody.new",
       "dst_qn": "axum-core.src.body.Body.from_stream",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.body.async_read_body.AsyncReadBody.poll_frame",
@@ -2222,7 +2228,7 @@
       "src_qn": "axum-extra.src.json_lines.JsonLines.into_response",
       "dst_qn": "axum-core.src.body.Body.from_stream",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.json_lines.JsonLines.into_response",
@@ -2792,7 +2798,7 @@
       "src_qn": "axum-extra.src.response.file_stream.FileStream.into_range_response",
       "dst_qn": "axum-core.src.body.Body.from_stream",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.file_stream.FileStream.into_range_response",
@@ -2822,7 +2828,7 @@
       "src_qn": "axum-extra.src.response.file_stream.FileStream.into_response",
       "dst_qn": "axum-core.src.body.Body.from_stream",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.file_stream.FileStream.into_response",
@@ -3710,13 +3716,13 @@
       "src_qn": "axum-extra.src.response.multiple.generated_boundary_does_not_appear_in_part_contents",
       "dst_qn": "axum-extra.src.response.multiple.MultipartForm.from_iter",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.multiple.generated_boundary_does_not_appear_in_part_contents",
       "dst_qn": "axum-extra.src.response.multiple.MultipartForm.from_iter",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.multiple.generated_boundary_does_not_appear_in_part_contents",
@@ -3770,13 +3776,13 @@
       "src_qn": "axum-extra.src.response.multiple.multipart_form_rejects_newlines_in_field_metadata",
       "dst_qn": "axum-extra.src.response.multiple.MultipartForm.from_iter",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.multiple.multipart_form_rejects_newlines_in_field_metadata",
       "dst_qn": "axum-extra.src.response.multiple.MultipartForm.from_iter",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.multiple.multipart_form_rejects_newlines_in_field_metadata",
@@ -3794,13 +3800,13 @@
       "src_qn": "axum-extra.src.response.multiple.multipart_part_escapes_content_disposition_params",
       "dst_qn": "axum-extra.src.response.multiple.Part.file",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.multiple.multipart_part_escapes_content_disposition_params",
       "dst_qn": "axum-extra.src.response.multiple.Part.file",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.multiple.process_form",
@@ -3818,13 +3824,13 @@
       "src_qn": "axum-extra.src.response.multiple.process_form",
       "dst_qn": "axum-extra.src.response.multiple.MultipartForm.from_iter",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.multiple.process_form",
       "dst_qn": "axum-extra.src.response.multiple.MultipartForm.from_iter",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-extra.src.response.multiple.process_form",
@@ -4535,6 +4541,12 @@
       "band": "typed"
     },
     {
+      "src_qn": "axum-macros.src.debug_handler.check_input_order",
+      "dst_qn": "axum-macros.src.with_position.WithPosition.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
       "src_qn": "axum-macros.src.debug_handler.check_inputs_impls_from_request",
       "dst_qn": "axum-macros.src.debug_handler.is_self_pat_type",
       "kind": "CALLS",
@@ -4557,6 +4569,12 @@
       "dst_qn": "axum-macros.src.debug_handler.skip_next_arg",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "axum-macros.src.debug_handler.check_inputs_impls_from_request",
+      "dst_qn": "axum-macros.src.with_position.WithPosition.new",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-macros.src.debug_handler.check_inputs_impls_from_request",
@@ -4623,6 +4641,12 @@
       "dst_qn": "axum-macros.src.debug_handler.well_known_last_response_type",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "axum-macros.src.debug_handler.check_output_tuples",
+      "dst_qn": "axum-macros.src.with_position.WithPosition.new",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum-macros.src.debug_handler.check_path_extractor",
@@ -5945,6 +5969,12 @@
       "band": "exact"
     },
     {
+      "src_qn": "axum.src.boxed.BoxedIntoRoute.from_handler",
+      "dst_qn": "axum.src.handler.mod.Handler.with_state",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
       "src_qn": "axum.src.boxed.BoxedIntoRoute.map",
       "dst_qn": "axum.src.boxed.BoxedIntoRoute",
       "kind": "CALLS",
@@ -6929,6 +6959,18 @@
       "band": "scoped"
     },
     {
+      "src_qn": "axum.src.extract.path.de.KeyDeserializer.deserialize_any",
+      "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.custom",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.extract.path.de.MapDeserializer.next_value_seed",
+      "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.custom",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
       "src_qn": "axum.src.extract.path.de.MapDeserializer.next_value_seed",
       "dst_qn": "axum.src.test_helpers.tracing_helpers.Handle.take",
       "kind": "CALLS",
@@ -6950,7 +6992,7 @@
       "src_qn": "axum.src.extract.path.de.PathDeserializer.deserialize_enum",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.wrong_number_of_parameters",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.PathDeserializer.deserialize_enum",
@@ -6966,15 +7008,15 @@
     },
     {
       "src_qn": "axum.src.extract.path.de.PathDeserializer.deserialize_str",
-      "dst_qn": "axum.src.extract.path.de.PathDeserializer.new",
+      "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.new",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.PathDeserializer.deserialize_str",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.wrong_number_of_parameters",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.PathDeserializer.deserialize_str",
@@ -6998,7 +7040,7 @@
       "src_qn": "axum.src.extract.path.de.PathDeserializer.deserialize_tuple",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.wrong_number_of_parameters",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.PathDeserializer.deserialize_tuple",
@@ -7016,7 +7058,7 @@
       "src_qn": "axum.src.extract.path.de.PathDeserializer.deserialize_tuple_struct",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.wrong_number_of_parameters",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.PathDeserializer.deserialize_tuple_struct",
@@ -7034,19 +7076,19 @@
       "src_qn": "axum.src.extract.path.de.UnitVariant.newtype_variant_seed",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.unsupported_type",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.UnitVariant.struct_variant",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.unsupported_type",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.UnitVariant.tuple_variant",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.unsupported_type",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.ValueDeserializer.deserialize_any",
@@ -7058,7 +7100,7 @@
       "src_qn": "axum.src.extract.path.de.ValueDeserializer.deserialize_seq",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.unsupported_type",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.ValueDeserializer.deserialize_str",
@@ -7068,21 +7110,27 @@
     },
     {
       "src_qn": "axum.src.extract.path.de.ValueDeserializer.deserialize_str",
-      "dst_qn": "axum.src.extract.path.de.PathDeserializer.new",
+      "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.new",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.ValueDeserializer.deserialize_struct",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.unsupported_type",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.extract.path.de.ValueDeserializer.deserialize_tuple",
+      "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.custom",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.ValueDeserializer.deserialize_tuple",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.unsupported_type",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.ValueDeserializer.deserialize_tuple",
@@ -7100,7 +7148,7 @@
       "src_qn": "axum.src.extract.path.de.ValueDeserializer.deserialize_tuple_struct",
       "dst_qn": "axum.src.extract.path.mod.PathDeserializationError.unsupported_type",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.path.de.create_url_params",
@@ -8438,7 +8486,7 @@
       "src_qn": "axum.src.extract.query.check",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.extract.query.test_query",
@@ -10572,6 +10620,12 @@
     },
     {
       "src_qn": "axum.src.response.sse.Sse.into_response",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.response.sse.Sse.into_response",
       "dst_qn": "axum.src.response.sse.Sse.into_response",
       "kind": "CALLS",
       "band": "scoped"
@@ -11720,7 +11774,7 @@
       "src_qn": "axum.src.routing.method_routing.MethodRouter.fallback",
       "dst_qn": "axum.src.boxed.BoxedIntoRoute.from_handler",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.routing.method_routing.MethodRouter.fallback_service",
@@ -11802,15 +11856,15 @@
     },
     {
       "src_qn": "axum.src.routing.method_routing.MethodRouter.handle_error",
-      "dst_qn": "axum.src.routing.method_routing.MethodRouter.layer",
+      "dst_qn": "axum.src.error_handling.mod.HandleErrorLayer.new",
       "kind": "CALLS",
-      "band": "inheritance-guided"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.routing.method_routing.MethodRouter.handle_error",
-      "dst_qn": "axum.src.routing.method_routing.MethodRouter.new",
+      "dst_qn": "axum.src.routing.method_routing.MethodRouter.layer",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "inheritance-guided"
     },
     {
       "src_qn": "axum.src.routing.method_routing.MethodRouter.into_make_service",
@@ -11870,7 +11924,7 @@
       "src_qn": "axum.src.routing.method_routing.MethodRouter.on",
       "dst_qn": "axum.src.boxed.BoxedIntoRoute.from_handler",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.routing.method_routing.MethodRouter.on",
@@ -13428,6 +13482,12 @@
     },
     {
       "src_qn": "axum.src.routing.path_router.PathRouter.nest",
+      "dst_qn": "axum.src.extract.nested_path.SetNestedPath.layer",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.routing.path_router.PathRouter.nest",
       "dst_qn": "axum.src.extract.path.mod.&'a RawPathParams.into_iter",
       "kind": "CALLS",
       "band": "exact"
@@ -13437,18 +13497,6 @@
       "dst_qn": "axum.src.routing.mod.RouteId",
       "kind": "CALLS",
       "band": "import-guided"
-    },
-    {
-      "src_qn": "axum.src.routing.path_router.PathRouter.nest",
-      "dst_qn": "axum.src.routing.path_router.PathRouter.layer",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum.src.routing.path_router.PathRouter.nest",
-      "dst_qn": "axum.src.routing.path_router.PathRouter.layer",
-      "kind": "CALLS",
-      "band": "scoped"
     },
     {
       "src_qn": "axum.src.routing.path_router.PathRouter.nest",
@@ -13487,10 +13535,16 @@
       "band": "exact"
     },
     {
-      "src_qn": "axum.src.routing.path_router.PathRouter.nest_service",
-      "dst_qn": "axum.src.routing.path_router.PathRouter.clone",
+      "src_qn": "axum.src.routing.path_router.PathRouter.nest",
+      "dst_qn": "axum.src.routing.strip_prefix.StripPrefix.layer",
       "kind": "CALLS",
-      "band": "scoped"
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.routing.path_router.PathRouter.nest_service",
+      "dst_qn": "axum.src.extract.nested_path.SetNestedPath.layer",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.routing.path_router.PathRouter.nest_service",
@@ -13500,13 +13554,7 @@
     },
     {
       "src_qn": "axum.src.routing.path_router.PathRouter.nest_service",
-      "dst_qn": "axum.src.routing.path_router.PathRouter.layer",
-      "kind": "CALLS",
-      "band": "scoped"
-    },
-    {
-      "src_qn": "axum.src.routing.path_router.PathRouter.nest_service",
-      "dst_qn": "axum.src.routing.path_router.PathRouter.layer",
+      "dst_qn": "axum.src.routing.path_router.PathRouter.clone",
       "kind": "CALLS",
       "band": "scoped"
     },
@@ -13545,6 +13593,12 @@
       "dst_qn": "axum.src.routing.route.Route",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.routing.path_router.PathRouter.nest_service",
+      "dst_qn": "axum.src.routing.strip_prefix.StripPrefix.layer",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.routing.path_router.PathRouter.new_route",
@@ -13719,6 +13773,12 @@
       "dst_qn": "axum.src.routing.route.Route.new",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "axum.src.routing.route.Route.new",
+      "dst_qn": "axum.src.util.MapIntoResponse.new",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.routing.route.Route.oneshot_inner",
@@ -16220,13 +16280,25 @@
       "src_qn": "axum.src.serve.mod.graceful_shutdown_completes_inflight_request",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.graceful_shutdown_completes_inflight_request",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.graceful_shutdown_completes_inflight_request",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.graceful_shutdown_completes_inflight_request",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.graceful_shutdown_completes_inflight_request",
@@ -16368,6 +16440,12 @@
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.grace",
       "kind": "CALLS",
       "band": "exact"
@@ -16377,6 +16455,12 @@
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.jitter",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.if_it_compiles_it_works",
@@ -16724,13 +16808,25 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
@@ -16770,6 +16866,30 @@
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection",
       "dst_qn": "axum.src.serve.mod.ReadyListener",
       "kind": "CALLS",
       "band": "exact"
@@ -16808,13 +16928,25 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
@@ -16854,6 +16986,30 @@
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_closes_idle_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum.src.serve.mod.ReadyListener",
       "kind": "CALLS",
       "band": "exact"
@@ -16892,13 +17048,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
@@ -16914,6 +17070,18 @@
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.grace",
       "kind": "CALLS",
       "band": "exact"
@@ -16923,6 +17091,18 @@
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.grace",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection",
@@ -16964,13 +17144,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
@@ -16986,6 +17166,18 @@
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.grace",
       "kind": "CALLS",
       "band": "exact"
@@ -16995,6 +17187,18 @@
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.grace",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_force_closes_stuck_connection_http2#cfg(feature=http2)]",
@@ -17036,13 +17240,25 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
@@ -17070,6 +17286,18 @@
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.grace",
       "kind": "CALLS",
       "band": "exact"
@@ -17079,6 +17307,18 @@
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.grace",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_lets_request_finish_in_time",
@@ -17120,13 +17360,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
@@ -17154,6 +17394,18 @@
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.grace",
       "kind": "CALLS",
       "band": "exact"
@@ -17163,6 +17415,18 @@
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.grace",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_grace_unblocks_graceful_shutdown",
@@ -17238,6 +17502,18 @@
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_jitter_extends_deadline",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_jitter_extends_deadline",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_jitter_extends_deadline",
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.jitter",
       "kind": "CALLS",
       "band": "exact"
@@ -17247,6 +17523,18 @@
       "dst_qn": "axum.src.serve.mod.MaxConnectionAge.jitter",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_jitter_extends_deadline",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_jitter_extends_deadline",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_jitter_extends_deadline",
@@ -17276,13 +17564,13 @@
       "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
@@ -17295,6 +17583,30 @@
       "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.max_connection_age",
       "kind": "TESTS",
       "band": "exact"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
+      "dst_qn": "axum.src.serve.mod.ConnectionLifetimeLimits.new",
+      "kind": "TESTS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
+      "dst_qn": "axum.src.serve.mod.MaxConnectionAge.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.max_connection_age_without_grace_lets_inflight_request_finish",
@@ -17360,13 +17672,25 @@
       "src_qn": "axum.src.serve.mod.serving_on_custom_io_type",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_on_custom_io_type",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.serving_on_custom_io_type",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.serving_on_custom_io_type",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_on_custom_io_type",
@@ -17432,13 +17756,25 @@
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.serving_with_custom_executor",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.serving_with_custom_executor",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor",
@@ -17504,13 +17840,25 @@
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor_http2#cfg(feature=http2)]",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor_http2#cfg(feature=http2)]",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.serving_with_custom_executor_http2#cfg(feature=http2)]",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "axum.src.serve.mod.serving_with_custom_executor_http2#cfg(feature=http2)]",
+      "dst_qn": "axum-core.src.body.Body.new",
+      "kind": "TESTS",
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.serving_with_custom_executor_http2#cfg(feature=http2)]",
@@ -17576,13 +17924,13 @@
       "src_qn": "axum.src.serve.mod.tap_io_runs_on_each_accepted_connection",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.tap_io_runs_on_each_accepted_connection",
       "dst_qn": "axum-core.src.body.Body.empty",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "axum.src.serve.mod.tap_io_runs_on_each_accepted_connection",
@@ -18122,7 +18470,7 @@
       "src_qn": "examples.auto-reload.src.main.handler",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.auto-reload.src.main.main",
@@ -18134,7 +18482,7 @@
       "src_qn": "examples.chat.src.main.index",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.chat.src.main.main",
@@ -18150,9 +18498,15 @@
     },
     {
       "src_qn": "examples.chat.src.main.websocket",
+      "dst_qn": "axum.src.extract.ws.Message.text",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "examples.chat.src.main.websocket",
       "dst_qn": "axum.src.extract.ws.Utf8Bytes.from_static",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.chat.src.main.websocket",
@@ -18866,7 +19220,7 @@
       "src_qn": "examples.cors.src.main.html",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.cors.src.main.main",
@@ -19202,7 +19556,7 @@
       "src_qn": "examples.form.src.main.accept_form",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.form.src.main.app",
@@ -19232,7 +19586,7 @@
       "src_qn": "examples.form.src.main.show_form",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.form.src.main.test_get",
@@ -19346,7 +19700,7 @@
       "src_qn": "examples.global-404-handler.src.main.handler",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.global-404-handler.src.main.main",
@@ -19502,7 +19856,7 @@
       "src_qn": "examples.hello-world.src.main.handler",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.hello-world.src.main.main",
@@ -19569,6 +19923,12 @@
       "dst_qn": "axum-core.src.extract.default_body_limit.DefaultBodyLimit.disable",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "examples.key-value-store.src.main.main",
+      "dst_qn": "axum.src.error_handling.mod.HandleErrorLayer.new",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.key-value-store.src.main.main",
@@ -19712,7 +20072,7 @@
       "src_qn": "examples.multipart-form.src.main.show_form",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.oauth.src.main.AuthRedirect.into_response",
@@ -19910,7 +20270,7 @@
       "src_qn": "examples.request-id.src.main.handler",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.request-id.src.main.main",
@@ -20042,7 +20402,7 @@
       "src_qn": "examples.simple-router-wasm.src.main.index",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.simple-router-wasm.src.main.main",
@@ -20142,9 +20502,21 @@
     },
     {
       "src_qn": "examples.sse.src.main.sse_handler",
+      "dst_qn": "axum.src.response.sse.Event.default",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "examples.sse.src.main.sse_handler",
       "dst_qn": "axum.src.response.sse.KeepAlive.interval",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "examples.sse.src.main.sse_handler",
+      "dst_qn": "axum.src.response.sse.Sse.new",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.static-file-server.src.main.serve",
@@ -20258,7 +20630,7 @@
       "src_qn": "examples.stream-to-file.src.main.show_form",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.stream-to-file.src.main.stream_to_file",
@@ -20270,19 +20642,19 @@
       "src_qn": "examples.templates-minijinja.src.main.handler_about",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.templates-minijinja.src.main.handler_content",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.templates-minijinja.src.main.handler_home",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.templates-minijinja.src.main.main",
@@ -20306,7 +20678,7 @@
       "src_qn": "examples.templates.src.main.HtmlTemplate.into_response",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.templates.src.main.HtmlTemplate.into_response",
@@ -20774,13 +21146,13 @@
       "src_qn": "examples.testing.src.main.with_into_make_service_with_connect_info",
       "dst_qn": "axum.src.extract.connect_info.MockConnectInfo",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.with_into_make_service_with_connect_info",
       "dst_qn": "axum.src.extract.connect_info.MockConnectInfo",
       "kind": "TESTS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.testing.src.main.with_into_make_service_with_connect_info",
@@ -20865,6 +21237,12 @@
       "dst_qn": "axum.src.routing.method_routing.MethodEndpoint.is_none",
       "kind": "CALLS",
       "band": "exact"
+    },
+    {
+      "src_qn": "examples.todos.src.main.main",
+      "dst_qn": "axum.src.error_handling.mod.HandleErrorLayer.new",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.todos.src.main.main",
@@ -21014,7 +21392,7 @@
       "src_qn": "examples.tracing-aka-logging.src.main.handler",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.tracing-aka-logging.src.main.main",
@@ -21104,7 +21482,7 @@
       "src_qn": "examples.validator.src.main.handler",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.validator.src.main.main",
@@ -21314,7 +21692,7 @@
       "src_qn": "examples.versioning.src.main.handler",
       "dst_qn": "axum.src.response.mod.Html",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.versioning.src.main.main",
@@ -21476,7 +21854,7 @@
       "src_qn": "examples.websockets.src.main.handle_socket",
       "dst_qn": "axum.src.extract.ws.Utf8Bytes.from_static",
       "kind": "CALLS",
-      "band": "exact"
+      "band": "import-guided"
     },
     {
       "src_qn": "examples.websockets.src.main.handle_socket",

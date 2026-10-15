@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 118 | 2026-10-16 | P2-06 | blocker | resolved | PDX itself has four false `import-guided` Rust edges, all of one shape: `Enum::Variant(payload)` drawn to the module's struct of the variant's name (`crates/pdx-bench/src/bench/run.rs:918` `Performance::OutOfMemory`, `:929` `Performance::Completed`, `crates/pdx-bench/tests/bench_run.rs:213` `BuildOutcome::Stopped`, `:227` `BuildOutcome::Built`). `import-guided` is drawn and R3 does not change it, so they block R3. Since the A0.1 baseline; not made by issue 117 | Resolved 2026-10-16 (Stage 3 only, no version moves): the cause is not enum-specific. Stage 3 gave a Rust `use` brace group one target, its prefix's module, and read every name the group binds as that module, so `T::f` was taken for `prefix::f`. Each binding of a group now leads where its own path does. PDX itself: `import-guided` 52 / 56 → 261 / 261; the four fall to `exact`, still wrong, R3 acceptance cases (issue 102); one correct edge of a macro-written type is withheld (`candidate`). Rust golden: `import-guided` 109 / 109 → 213 / 213, every new edge correct; `typed` and `inheritance-guided` unchanged everywhere; Python unchanged |
 | 117 | 2026-10-15 | P2-06 | blocker | resolved | Found by issue 109: Stage 3's `import-guided` (a trusted band) narrows `Type::method` to the imported type's member of the name even when that member is a trait impl's method whose header (issue 109) is not proven: `WithRejection::from_request(1, &())` through `use crate::with_rejection::WithRejection;` is drawn to `WithRejection`'s own `from_request`, whose `E: FromRequest<S>` its type argument does not meet, and `Body::from(())` to `impl<T: Copy> From<()> for Body<T>`, its bound unproven. Identical at issue 109's base commit: the engine answers no `Type::method` through an imported type in another file (issue 113), so no typed answer moved to this band. No such false positive in the Rust golden (`import-guided` 109/109 after issue 109) || Resolved 2026-10-15 (no patch, engine 12; cache format 9, protocol 10): the headers issue 109 records cross the interface on a trait impl's methods and relations, and `import-guided` and `inheritance-guided` take a trait impl's member only when its header requires nothing or, for a call on `self`, the calling impl is its own or entails it; unknown is never proven, an unproven member is `candidate`. The same class found in `inheritance-guided` (`Self::from_request`, `self.peek()` through a conditional impl; identical before issue 109) fixed with it. The goldens' trusted bands unchanged: Rust `typed` 860 / 860, `import-guided` 109 / 109, `inheritance-guided` 60 / 60; the engine differential unchanged |
 | 115 | 2026-10-14 | P2-06 | blocker | resolved | Found in issue 114's A0 run: `scripts/a0/run.py` measures with `target/debug/pdx-bench`, which it never builds, and took the `engine_version` it records from `consts.rs`, the source. Nothing tied a result to the executable that produced it: with `ENGINE_VERSION` moved to 10 in the working tree and the executable built before, at 9, the run measured engine 9 and labelled every document engine 10. That run was discarded and measured again after a rebuild; no committed result came from it | Resolved 2026-10-14 (hotfix): `pdx-bench versions` prints, as JSON, the version the linked engine reports at run time, the `pdx_core` constants compiled in (`ENGINE_VERSION`, `EXTRACT_CACHE_FORMAT_VERSION`, `LANGUAGE_MATRIX_VERSION`, `SECRET_DETECTOR_VERSION`, `SEGMENT_SCHEMA_VERSION`) and the worker protocol. Before anything runs, `run.py` compares each with the source and refuses, naming both values and writing nothing, on any difference, a missing executable or one that cannot report. The executable's bytes are held for the run (checked before each dataset and the results), the results are staged and promoted together, and a document's `engine_version` is the executed engine's. Tests A1 to A5 in `scripts/a0/test_a0.py`, now part of `make test`; 14 mutations killed. No resolution, extraction, version or A0 rule (`a0-match-1`, `a0-metrics-1`) changes |
 | 116 | 2026-10-14 | P2-06 | blocker | open | Found by issue 114: Stage 3 makes a Rust site `external` when its receiver's first name is an external import, whatever the site binds it to. With an inline test module's imports now in scope, ten correct `exact` edges of the Rust golden become `external`: `axum/src/response/sse.rs` `stream.chunk_text` ×9 (a local `let mut stream` shadows the module's `use futures_util::stream;`) and `axum/src/serve/mod.rs:1024` `TcpListener::bind(addr).await.unwrap().tap_io` (a repository trait's method called on a value the external path produced). Recall only; no wrong edge | Open. Read a receiver's first name as its binding at the site: a local binding shadows an import, and a method called on a value is not decided by the path that made the value. Not by restoring a file's imports to a module. |
@@ -159,6 +160,151 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 118 — A Rust `use` brace group's names are read as the group's module
+
+PDX itself (A0, post-117) has four false `import-guided` edges, all Rust and all of one
+shape: a call that builds an enum's tuple variant whose payload is a struct of the
+variant's name, drawn to that struct. `import-guided` is drawn, and R3 (issue 102) changes
+only `exact` and `scoped`, so the four would stay trusted edges after R3: a blocker for
+R3. They are in A0's PDX diagnostic corpus at `e746b1e`, not in a golden, and have been
+there since the A0.1 baseline; issue 117 neither made nor changed them.
+
+*The four sites* (PDX at `e746b1e`; the oracle's occurrences read from its SCIP index):
+
+| Site | Call | Caller | Import | Drawn | Oracle |
+|---|---|---|---|---|---|
+| `crates/pdx-bench/src/bench/run.rs:918`, bytes 31221–31245 | `Performance::OutOfMemory(out_of_memory(…))` | `Run::performance` | `use super::results::{…, OutOfMemory, Performance, …};` | struct `results::OutOfMemory` | variant `results/Performance#OutOfMemory#` |
+| `crates/pdx-bench/src/bench/run.rs:929`, bytes 31554–31576 | `Performance::Completed(aggregate(…))` | `Run::performance` | the same | struct `results::Completed` | variant `results/Performance#Completed#` |
+| `crates/pdx-bench/tests/bench_run.rs:213`, bytes 6313–6334 | `BuildOutcome::Stopped(Stopped { … })` | `Synthetic::build` | `use pdx_bench::bench::run::{self, …, BuildOutcome, …, Stopped};` | struct `run::Stopped` | variant `run/BuildOutcome#Stopped#` |
+| `crates/pdx-bench/tests/bench_run.rs:227`, bytes 6861–6880 | `BuildOutcome::Built(Built { … })` | `Synthetic::build` | the same | struct `run::Built` | variant `run/BuildOutcome#Built#` |
+
+- **Source.** `pub enum Performance { Completed(Completed), OutOfMemory(OutOfMemory) }`
+  and `pub enum BuildOutcome { Built(Built), Stopped(Stopped) }`: newtype variants named
+  after the structs they hold. Each call builds the variant; the struct is its argument
+  (`Stopped { … }` and `Built { … }` are the struct literals, a separate reference).
+- **The oracle is right.** At each call's token the index holds the variant
+  (`Performance#OutOfMemory#`), a symbol other than the struct (`OutOfMemory#`, whose
+  definition and references the index also holds). A0 counts the edge false because PDX
+  drew a definition other than the oracle's target (`other_target_unmapped`); no PDX
+  definition is a variant, so none could be right. Not an oracle or harness defect.
+- **Representation.** The engine's Rust definitions are `Function`, `Method`, `Field`,
+  `Variable` (constants and statics among them), `Struct`, `Enum`, `TypeAlias`, `Module`
+  and a trait as `Interface`. **An enum's variants are no definitions**, and neither is a
+  constructor: a tuple struct's call targets the struct.
+
+*Traced* (`stages.rs`, `Resolver::import_visible`; `imports.rs`, `rust`):
+
+- The engine records one import per `use` declaration, a brace group's whole text
+  (`crate::results::{Completed, OutOfMemory, Performance, Ty}`). Stage 3 reads its
+  bindings (`Completed`, `OutOfMemory`, `Performance`, `Ty`) and resolves one target, the
+  group's prefix: the module `results`, no member.
+- For `Performance::OutOfMemory` the import binds the receiver's head, and the target is a
+  module with no member, so the `(None, [])` arm reads the receiver as that module and
+  accepts any definition of the name at its top: the struct `OutOfMemory`. `narrow` keeps
+  the one candidate and `settled` draws it `import-guided`.
+- **Classification.** None of A to F alone. The cause is an import read wrongly: a name a
+  brace group binds is taken for the group's module, not the item its own path names. D
+  (no variant identity) means no definition could be the target; E (a same-name
+  definition chosen) is what the misreading then selects. Not issue 108 (no shared
+  qualified name), not issue 107A (every site is extracted).
+- **Not enum-specific.** The same reading draws `Ty::assemble()` through
+  `use m::{assemble, Ty};` to the module's free `assemble`, not `Ty`'s own; and never
+  reaches a brace-grouped type's own members at all. A single-name `use m::Ty;` was read
+  right throughout: its target names `Ty`.
+
+**Resolution (2026-10-16; Stage 3 only).**
+
+- **Each binding its own path.** A brace group's record keeps its target (the prefix's
+  module: import edges, provenance and every other reader unchanged) and gains
+  `ImportRecord::binding_targets`: for each binding, where its own item's path leads, as
+  a `use` of that one path would (`use a::{T, b::f, self as m}` binds `T` to `a::T`, `f` to
+  `a::b::f`, `m` to `a`), nested groups under their enclosing path, an alias to the path
+  it renames. `ImportRecord::target_of(binding)` answers it; a single-name `use` has none
+  (its target is its binding's).
+- **The import stage** (`import_visible`) reads a binding's own target. `Performance` is
+  the member `Performance` of `results`, so `Performance::OutOfMemory` needs a definition
+  declared in `Performance`: none is (variants are no definitions), and the import gives
+  no evidence. Nothing is fabricated from a namesake.
+- **Not changed.** `Import` records, the engine, extraction, the cache, the worker, the
+  surface and the segment: every version stays (engine 12, surface 6, cache format 9,
+  protocol 10, schema 3, matrix 2, detector 4). No kind, name or blocklist rule. Other
+  readers of a group's record (aliases for bare calls, bases) read its prefix as before.
+
+*Outcome of the four.* No longer `import-guided`. With no evidence for any target they
+fall, as a single-name `use` of the enum already did, to `exact`: the repository's one
+definition of the name, still the wrong struct. `exact` is issue 102's (R3), drawn on
+uniqueness until R3 and known wrong there; these are R3 acceptance cases (issue 102).
+
+*Tests* (`crates/pdx-core/tests/rust_import_bindings.rs`, through discovery, extraction,
+typed resolution and Stage 3):
+
+| Test | Shape | Outcome |
+|---|---|---|
+| E1 | `use …::Outcome::Stopped;` then `Stopped(…)` | not `import-guided`; `exact` (R3 case) |
+| E2 | `use …::{Outcome, Stopped};` then `Outcome::Stopped(Stopped { … })` (the issue's) | not `import-guided`; `exact`, as the single-name form (R3 case) |
+| E3 | `use …::{assemble, Gauge};` then `Gauge::assemble(1)` | `import-guided`, `Gauge`'s own (was the free `assemble`) |
+| E4 | `Gauge::reading(g)` | `import-guided`, the inherent method |
+| E5 | `Outcome::Halted(1)` beside `fn Halted` | not `import-guided`; `Halted(1)` keeps the function |
+| E6 | `Point(1, 2)`, a tuple struct | `import-guided`, the struct, unchanged |
+| groups | `use crate::{kinds, kinds::Gauge as G};`, `use crate::outer::{inner::{Meter}, self as o};` | the module, the aliased type, a nested item, `self` each where their own path leads |
+| unrepresented type | `Level::rank` where a macro another file defines writes `Level` | not `import-guided` |
+| the record | `target_of` per binding; a group's own target its prefix; a single `use` none | |
+
+*Mutations, all killed* (`rust_import_bindings`; each source restored byte for byte):
+a group's binding read as its module again; binding targets never computed; a member of no
+type taken for the named type's (a variant's namesake); the member's type ignored; an
+unrepresented target not withheld (falling back to the group's module); the first
+binding's target returned for every binding; a nested group's items read without the
+enclosing path; `self` read as an item; an alias read as the path.
+
+*A0* (guarded by issue 115; same pins, oracles and rules; baseline post-117, `27f7d5b`).
+Every changed site was checked against the oracle, site by site:
+
+| Corpus | Change | Sites | Oracle |
+|---|---|---|---|
+| PDX itself | the four: `import-guided` → `exact` | 4 | wrong before, wrong after (R3 cases) |
+| PDX itself | `candidate` → `import-guided` | 136 | correct |
+| PDX itself | `scoped` (wrong) → `import-guided` | 53 | correct |
+| PDX itself | `exact` → `import-guided`, same target | 21 | correct |
+| PDX itself | `import-guided` → `candidate` | 1 | was correct, see below |
+| Rust golden | `exact` → `import-guided`, same target | 57 | correct |
+| Rust golden | `candidate` → `import-guided` | 40 | correct |
+| Rust golden | `scoped` (wrong) → `import-guided` | 7 | correct |
+| Python | none | 0 | |
+
+| Corpus | Band | Post-117 | Post-118 |
+|---|---|---|---|
+| PDX itself | `import-guided` | 52 / 56, 4 false | 261 / 261, 0 false |
+| PDX itself | `typed` | 5,911 / 5,911 | 5,911 / 5,911 |
+| PDX itself | `inheritance-guided` | 76 / 76 | 76 / 76 |
+| Rust golden | `typed` | 860 / 860 | 860 / 860 |
+| Rust golden | `import-guided` | 109 / 109 | 213 / 213 |
+| Rust golden | `inheritance-guided` | 60 / 60 | 60 / 60 |
+| Rust golden | union | 1,601 / 2,501 = 64.01% | 1,648 / 2,541 = 64.86% |
+| Rust golden | recall | 1,398 / 4,054 = 34.48% | 1,445 / 4,054 = 35.64% |
+| Python | every band, recall | | identical |
+
+- **The one withheld.** `crates/pdx-core/tests/bands.rs:108`, `CandidateBand::try_from`:
+  `CandidateBand` is written by `vocabulary!`, a macro another file defines, so no
+  definition holds it and its members are not all known (issue 110 follows no macro of
+  another file); its `try_from` was reached only by the misreading (taken for a function at
+  the top of the module `bands`). Read rightly, nothing proves it: `candidate`. The other
+  51 correct `import-guided` edges of PDX itself are kept, and all 109 of the Rust golden.
+- **New edges.** A brace-grouped type's own members are now reached as a single-name
+  `use`'s were: 210 in PDX itself, 104 in the Rust golden, every one correct by the oracle;
+  issue 117's and 110's checks apply to them as to any.
+
+*Golden.* `rust/axum` only (the other nine match): 3,561 → 3,624 drawn edges, nodes unchanged. 74 tuples change band only, `exact` → `import-guided`, the same edges (57 `CALLS`, 17 `TESTS`); 7 wrong `scoped` `CALLS` go (`PathDeserializer::new` twice, `MethodRouter::new`, `PathRouter::layer` four times, each the wrong namesake); 70 `import-guided` edges are new (47 `CALLS`, 23 `TESTS`). Every added tuple is `import-guided` and every one is a site the oracle confirms.
+
+*Engine differential.* Unchanged (no engine change): 32 passed, 31 identical,
+`golden:rust/axum` with exactly its three ratified divergences.
+
+*Not here.* Variants as definitions (a representation change: engine, cache and surface);
+a group's aliases for bare calls (`use a::{f as g}`) and bases, which read the group's
+prefix as before (no false edge: they find nothing rather than something wrong).
 
 State: resolved.
 
@@ -1602,6 +1748,15 @@ land first: correctness comes first.
 This is a correctness change, not a threshold. 4.2.2 records the approved change in
 a note; its table changes with the implementation.
 
+**R3 acceptance cases, issue 118's four sites (2026-10-16, for the driver's
+ratification).** PDX itself at `e746b1e`: `Performance::OutOfMemory` and
+`Performance::Completed` (`crates/pdx-bench/src/bench/run.rs:918`, `:929`),
+`BuildOutcome::Stopped` and `BuildOutcome::Built` (`crates/pdx-bench/tests/bench_run.rs:213`,
+`:227`). Each builds an enum's variant, no definition; issue 118 removes the false
+`import-guided` edge, and each falls to `exact`, the module's struct of the variant's name:
+wrong. After R3 none is drawn; `crates/pdx-core/tests/rust_import_bindings.rs`'s E1, E2
+and E5 record today's `exact` and change with R3.
+
 **R3 acceptance case, issue 109's site (driver decision, 2026-10-15).**
 `axum-extra/src/extract/with_rejection.rs:196`,
 `WithRejection::<TestExtractor, TestRejection>::from_request`. Its call reaches the blanket
@@ -2023,8 +2178,22 @@ identical and no site changes: the goldens hold no such false positive.
 | Python | 314/314 | 94.98% | 54.40% |
 | Rust | 860/860 = 100.00% | 64.01% | 34.48% |
 
-PDX itself: unchanged. Four of G1b's six floors still fail. Next, when the driver
-authorises it: R3 (issue 102).
+PDX itself: unchanged. Four of G1b's six floors still fail.
+
+**Issue 118 (2026-10-16).** Resolved (Stage 3 only): a Rust `use` brace group's names were
+read as its prefix's module, so `Enum::Variant(..)` was drawn `import-guided` to the
+module's struct of the variant's name (PDX itself's four false `import-guided` edges).
+Each binding now leads where its own path does; the four fall to `exact` (R3 cases), and a
+brace-grouped type's own members are reached as a single `use`'s were, every one correct.
+No trusted band has a false edge in any corpus.
+
+| Golden | `typed` | Union | Recall |
+|---|---|---|---|
+| Python | 314/314 | 94.98% | 54.40% |
+| Rust | 860/860 = 100.00% | 64.86% | 35.64% |
+
+PDX itself: `import-guided` 261/261 (from 52/56), union 85.97%, recall 86.02%. Four of
+G1b's six floors still fail. Next, when the driver authorises it: R3 (issue 102).
 
 State: open.
 

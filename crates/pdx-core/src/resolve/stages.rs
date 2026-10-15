@@ -1199,7 +1199,9 @@ impl Resolver<'_> {
             context.current_type.is_some() && IMPLICIT_RECEIVER.contains(&context.language.id);
         let key = context.receiver.map_or(context.name, head_of);
         for import in self.imports_for(context, key) {
-            let targets = Self::targets(&import.target);
+            // An import leads, for a name it binds, where that name's own path does: a
+            // Rust brace group's `T` is `T`, never the group's module (issue 118).
+            let targets = Self::targets(import.target_of(key));
             if targets.is_empty() {
                 continue;
             }
