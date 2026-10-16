@@ -221,7 +221,7 @@ impl Repo {
             .env("GIT_COMMITTER_EMAIL", "committer@git.example")
             .env("GIT_COMMITTER_DATE", "2026-01-01T00:00:00+00:00")
             .env("HOME", home)
-            .env("XDG_CACHE_HOME", self.cache())
+            .env("XDG_CACHE_HOME", home.join("cache"))
             .env("LOCALAPPDATA", home.join("local"))
             .env_remove("PDX_WORKERS")
             .env_remove("PDX_MEM_BUDGET_MB")
@@ -231,8 +231,17 @@ impl Repo {
             .env_remove("GIT_INDEX_FILE")
     }
 
+    /// Where the binary keeps its extraction cache under this home: XDG's on Linux,
+    /// `Library/Caches` on macOS, `LOCALAPPDATA` on Windows.
     fn cache(&self) -> PathBuf {
-        self.home.path().join("cache")
+        let home = self.home.path();
+        if cfg!(windows) {
+            home.join("local").join("pdx").join("cache")
+        } else if cfg!(target_os = "macos") {
+            home.join("Library").join("Caches").join("pdx")
+        } else {
+            home.join("cache").join("pdx")
+        }
     }
 
     /// `pdx index` into `out` (below the repository), ready; the segment's path.
