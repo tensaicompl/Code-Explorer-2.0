@@ -67,8 +67,10 @@
  * block's), so what a file's per-file typed answers and the calls they add see changes
  * (issue 114, patch 0031). 12: a Rust `Type::method` answers a trait impl's method only
  * when the impl is proven to apply, and a Rust file's surface (version 6) carries its
- * trait impls' headers (issue 109, patch 0032). */
-static const char ENGINE_VERSION_STRING[] = "12";
+ * trait impls' headers (issue 109, patch 0032). 13: a Rust call whose function is a
+ * turbofish path or method (`f::<T>()`, `x.m::<T>()`) is extracted as a call of that path
+ * or method, its type arguments no part of the callee (issue 107A, patch 0033). */
+static const char ENGINE_VERSION_STRING[] = "13";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;

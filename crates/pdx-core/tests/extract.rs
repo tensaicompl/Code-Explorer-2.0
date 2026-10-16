@@ -735,17 +735,17 @@ fn cache_object_id_fixed_vector() {
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (12, 2),
-        "the vector below is engine 12's and matrix 2's"
+        (13, 2),
+        "the vector below is engine 13's and matrix 2's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 4,
         "the vector below is detector 4's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 9, 12 and 2, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 9, 13 and 2, the policy digest
     // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
-    // 3's to 11's are in cache_key_includes_engine_version. Format 8's (before issue 117)
+    // 3's to 12's are in cache_key_includes_engine_version. Format 8's (before issue 117)
     // was d769d391…a28b at engine 12, format 7's (before issue 114)
     // was da5d96b4…0cb3 at engine 10, format 6's (before issue 110) b8e9117f…1d31 at
     // engine 9, and format 5's (texts copied, before issue 90) 59c9f740…550a: each format
@@ -755,10 +755,10 @@ fn cache_object_id_fixed_vector() {
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "d58503f2e6dc219c729316347f144fc9197238ca3167ad190b06a6ebab976ffa"
+        "8341f6acc3a6add512fd80a6f131d1fd7ad803333720ed3e5bb6d020e37dca7c"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v9").join("d5").join(&id));
+    assert_eq!(path, Path::new("cache").join("v9").join("83").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -769,8 +769,8 @@ fn cache_object_id_fixed_vector() {
 
 #[test]
 fn cache_key_includes_engine_version() {
-    // An engine whose output can differ is another key: what engines 3 to 11 cached is
-    // never found by engine 12 (issues 74 to 76, 83, 112, 111, 110, 114 and 109).
+    // An engine whose output can differ is another key: what engines 3 to 12 cached is
+    // never found by engine 13 (issues 74 to 76, 83, 112, 111, 110, 114, 109 and 107A).
     // Independently computed, as the vector above, with each engine version, under
     // format 9 (issue 117); format 8's were 0446dc3c…a3d6, d84b3204…90bb, 0061bed3…7cf4,
     // 622d6caa…fb0e, 8cb1d243…5e5a, 17673fba…932a, d75ad477…735b, 7295ddd4…f6bd,
@@ -828,6 +828,10 @@ fn cache_key_includes_engine_version() {
             12,
             "d58503f2e6dc219c729316347f144fc9197238ca3167ad190b06a6ebab976ffa",
         ),
+        (
+            13,
+            "8341f6acc3a6add512fd80a6f131d1fd7ad803333720ed3e5bb6d020e37dca7c",
+        ),
     ] {
         let mut versioned = key.clone();
         versioned.engine_version = engine;
@@ -840,10 +844,10 @@ fn cache_key_includes_engine_version() {
         assert!(path.starts_with(Path::new("cache").join("v9")), "{path:?}");
         ids.push(versioned.object_id());
     }
-    assert_eq!(key.object_id(), ids[9], "the current key is engine 12's");
+    assert_eq!(key.object_id(), ids[10], "the current key is engine 13's");
     ids.sort();
     ids.dedup();
-    assert_eq!(ids.len(), 10, "each engine version is another key");
+    assert_eq!(ids.len(), 11, "each engine version is another key");
 }
 
 #[test]
@@ -2794,6 +2798,80 @@ fn cache_entries_of_engine_eleven_are_never_served() {
         fs::read(&stale_path).unwrap(),
         stale_bytes,
         "the engine 11 entry changed"
+    );
+    let current = cache
+        .cache
+        .object_path(&key_for(&checkout, &config, PATH, "rust"));
+    assert_ne!(current, stale_path);
+    assert!(
+        current.is_file(),
+        "no entry of the current engine was written"
+    );
+
+    let probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &probe);
+    assert_eq!(
+        warm.stats.cache_hits, 1,
+        "the current engine's entry was not served"
+    );
+    assert_eq!(probe.files(), 0);
+    assert_eq!(extract_of(&warm, PATH), cold);
+}
+
+#[test]
+fn cache_entries_of_engine_twelve_are_never_served() {
+    // Engine 12 extracted no call whose function carries a turbofish: `decode::<u8>(raw)`
+    // had no callee and was dropped. Engine 13 extracts it as `decode`'s call (issue
+    // 107A). The engine 12 entry is planted in the current cache format, so only the
+    // engine version in the key keeps it, the extraction without that call, from being
+    // served.
+    const PATH: &str = "src/lib.rs";
+    let checkout = Checkout::new();
+    checkout.write(
+        PATH,
+        "pub fn decode<T>(raw: u8) -> u8 {\n    raw\n}\n\npub fn run(raw: u8) -> u8 {\n    decode::<u8>(raw)\n}\n",
+    );
+    let config = checkout.config();
+    let decode_calls = |extract: &FileExtract| -> Vec<usize> {
+        (0..extract.record().calls.len())
+            .filter(|&i| extract.text(&extract.record().calls[i].callee_text) == "decode")
+            .collect()
+    };
+    let fresh = run(&checkout, None, &Probe::new(Twist::None));
+    let fresh = extract_of(&fresh, PATH);
+    let [decode] = decode_calls(fresh)[..] else {
+        panic!("the current engine extracts the turbofish call once");
+    };
+
+    // What engine 12 cached for these bytes, in the current format: the extraction
+    // without that call.
+    let mut stale = fresh.record().clone();
+    stale.calls.remove(decode);
+    let mut key = key_for(&checkout, &config, PATH, "rust");
+    key.engine_version = 12;
+    let cache = Cache::new();
+    let stale_bytes = CacheEnvelope::encode(&key, &stale);
+    plant(&cache, &key, &stale_bytes);
+    let stale_path = cache.cache.object_path(&key);
+    assert!(
+        stale_path
+            .to_string_lossy()
+            .replace('\\', "/")
+            .contains(&format!("/v{EXTRACT_CACHE_FORMAT_VERSION}/")),
+        "the engine 12 entry is in the current format"
+    );
+
+    let probe = Probe::new(Twist::None);
+    let cold = run(&checkout, Some(&cache), &probe);
+    assert_eq!(cold.stats.cache_hits, 0, "an engine 12 entry was served");
+    assert_eq!(probe.files(), 1, "the file was not extracted again");
+    let cold = extract_of(&cold, PATH);
+    assert_eq!(decode_calls(cold).len(), 1, "the turbofish call is missing");
+    assert_eq!(cold, fresh);
+    assert_eq!(
+        fs::read(&stale_path).unwrap(),
+        stale_bytes,
+        "the engine 12 entry changed"
     );
     let current = cache
         .cache

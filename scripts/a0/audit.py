@@ -33,7 +33,9 @@ import scip  # noqa: E402
 import score  # noqa: E402
 import syntax  # noqa: E402
 
-ALGORITHM_VERSION = "a0-match-1"
+# a0-match-2 since a Rust comment in a callee's text is no generic syntax to M1 (issue
+# 120): matching only; the metrics (score.METRICS_VERSION) are unchanged.
+ALGORITHM_VERSION = "a0-match-2"
 
 CALLABLE_KINDS = {"Function", "Method", "Constructor", "Class", "Struct", "Macro"}
 CONSTRUCTOR_METHODS = {"python": {"__init__", "__new__"}}

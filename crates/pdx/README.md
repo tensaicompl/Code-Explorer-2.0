@@ -81,6 +81,14 @@ refusal, output placement, `.pdx` safety, no machine state in the report, `pdx v
 and `pdx coverage`. Unit tests cover the resource resolution (cgroup v1 and v2 on
 synthetic trees), the identity rule, the progress lines and the report shapes.
 
+`tests/rust_generic_calls.rs` is issue 107A end to end: a Rust crate whose calls carry
+turbofishes (paths, methods, a chain, a comment before a dot, a block's local function, a
+macro's tokens), indexed by the built binary cold into an empty cache and again warm (the
+same segment, byte for byte), read back through the segment's queries (a name searched,
+its edges, candidate rows and sites): every turbofish call a site, drawn where trusted
+evidence allows and weak or candidate otherwise, the call in the macro's tokens no site,
+no site twice; and the same crate with each call's turbofish blanked builds the same graph.
+
 `engine_isolate_recovers` runs extraction in this binary as a worker, makes the engine
 abort on one file through its test switch, and checks that only that file fails, with
 reason `engine_crash`, and every other file, before and after it, is extracted exactly

@@ -84,6 +84,32 @@ class NameTokens(unittest.TestCase):
             s, e = syntax.callee_name_token(text.encode(), 100, lang)
             self.assertEqual(text.encode()[s - 100:e - 100].decode(), name, text)
 
+    def test_rust_comments_and_literals_are_no_generic_syntax(self):
+        """Issue 120 (a0-match-2): a comment's `<` opened generic arguments, so M1 took
+        the name before it (`.layer` after `// <- Inner layer`). Comments, nested block
+        comments and literals are skipped; a `//` in a string is no comment; generic
+        arguments still hide their names."""
+        cases = {
+            "Router::new()\n    .route(\"/\", get(h))\n    // <- Inner layer\n    .layer": "layer",
+            "app\n    /* <- Inner layer */\n    .with_state": "with_state",
+            "app /* a /* <nested> */ < */ .with_state": "with_state",
+            "app // trailing note\n    .layer::<Vec<u8>>": "layer",
+            "client.get(\"a://b/<c>\").send": "send",
+            "client.get(r#\"<\"// \"#).send": "send",
+            "x.f('<').g": "g",
+            "Foo::<'a, T>::new": "new",
+            "x.go::<Vec<u8>>": "go",
+        }
+        for text, name in cases.items():
+            s, e = syntax.callee_name_token(text.encode(), 100, "rust")
+            self.assertEqual(text.encode()[s - 100:e - 100].decode(), name, text)
+
+    def test_matching_and_metrics_versions(self):
+        """Matching is a0-match-2 since issue 120; the metrics' definitions did not
+        change, so they stay a0-metrics-2. Both are every result's provenance."""
+        self.assertEqual(audit.ALGORITHM_VERSION, "a0-match-2")
+        self.assertEqual(score.METRICS_VERSION, "a0-metrics-2")
+
     def test_python_calls_are_named_by_their_last_name(self):
         src = b"import json\n\ndef f(x):\n    json.dumps(x)\n    g()(1)\n"
         calls = syntax.python_calls(src)
@@ -289,6 +315,51 @@ class CommittedResults(unittest.TestCase):
                      and r["kind"] != "missing"]
             self.assertEqual([(r["kind"], r["band"]) for r in found],
                              [("wrong_weak_evidence", band)], (corpus, file, line))
+
+
+class Issue107ASites(unittest.TestCase):
+    """The Rust golden's 56 relations with no structural site after R3
+    (`bench/a0/issue-107a-sites.json`): 30 path and 24 method turbofish calls the engine
+    did not extract (issue 107A), and 2 calls with a comment before their dot whose sites
+    exist, missed by M1 (issue 120)."""
+
+    ROOT = Path(__file__).resolve().parents[2]
+
+    def evidence(self):
+        return json.loads((self.ROOT / "bench/a0/issue-107a-sites.json").read_text())
+
+    def test_the_classes(self):
+        doc = self.evidence()
+        from collections import Counter
+        counts = Counter(r["class"] for r in doc["relations"])
+        self.assertEqual(counts, {"path_turbofish": 30, "method_turbofish": 24,
+                                  "comment_before_dot": 2})
+        self.assertEqual({c: v["count"] for c, v in doc["classes"].items()}, dict(counts))
+        keys = [(r["file"], tuple(r["token"])) for r in doc["relations"]]
+        self.assertEqual(len(set(keys)), 56)
+
+    def test_against_the_committed_results(self):
+        """Measured before R4 (engine 12, a0-match-1), the 56 are exactly the Rust
+        golden's `site_missing` relations; measured after it (engine 13 or later,
+        a0-match-2), none of them is missing a site."""
+        results = json.loads((self.ROOT / "bench/results/a0/rust.json").read_text())
+        provenance = results["provenance"]
+        rows = [json.loads(line) for line in
+                (self.ROOT / "bench/results/a0/mismatches.jsonl").read_text().splitlines()]
+        missing = {(r["file"], tuple(r["token"])): r for r in rows
+                   if r["corpus"] == "rust-golden" and r.get("bucket", "").startswith("site_")}
+        evidence = {(r["file"], tuple(r["token"])): r for r in self.evidence()["relations"]}
+        if provenance["engine_version"] < 13:
+            self.assertEqual(provenance["site_matching_version"], "a0-match-1")
+            site_missing = {k for k, r in missing.items() if r["bucket"] == "site_missing"}
+            self.assertEqual(site_missing, set(evidence))
+            for key, r in evidence.items():
+                self.assertEqual((missing[key]["line"], missing[key]["oracle_target"],
+                                  missing[key]["shape"]),
+                                 (r["line"], r["oracle_target"], r["shape"]), key)
+        else:
+            self.assertEqual(provenance["site_matching_version"], "a0-match-2")
+            self.assertEqual(set(evidence) & set(missing), set())
 
 
 class BlocklistAccounting(unittest.TestCase):

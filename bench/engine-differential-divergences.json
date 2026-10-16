@@ -1,6 +1,146 @@
 {
   "divergences": [
     {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-body-32-dyn-std-any-any-downcast-mut",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":1,\"args\":[{\"expr\":\"&mut k\",\"index\":0,\"keyword\":null,\"value\":null}],\"branch_depth\":1,\"c\":\"call\",\"callee\":\"<dyn std::any::Any>::downcast_mut\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.body.try_downcast\",\"end\":839,\"file\":\"axum-core/src/body.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":32,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":785}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-rejection-25-box-error-downcast",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the method the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":1,\"c\":\"call\",\"callee\":\"box_error.downcast\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.rejection.FailedToBufferBody.from_err\",\"end\":738,\"file\":\"axum-core/src/extract/rejection.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":25,\"loop_depth\":1,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":709}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-rejection-35-box-error-downcast",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the method the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":1,\"c\":\"call\",\"callee\":\"box_error.downcast\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.rejection.FailedToBufferBody.from_err\",\"end\":1056,\"file\":\"axum-core/src/extract/rejection.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":35,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":1000}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-request-parts-191-parts-extensions-get",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the method the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"parts.extensions.get\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.request_parts.handler\",\"end\":4852,\"file\":\"axum-core/src/extract/request_parts.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":191,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":4823}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-102-assert-from-request-parts",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request_parts\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.tuple_of_one\",\"end\":3075,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":102,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":3035}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-103-assert-from-request",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.tuple_of_one\",\"end\":3122,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":103,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":3085}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-104-assert-from-request",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.tuple_of_one\",\"end\":3168,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":104,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":3132}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-109-assert-from-request-parts",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request_parts\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.tuple_of_two\",\"end\":3260,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":109,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":3221}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-110-assert-from-request",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.tuple_of_two\",\"end\":3306,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":110,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":3270}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-111-assert-from-request",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.tuple_of_two\",\"end\":3359,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":111,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":3316}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-116-assert-from-request-parts",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request_parts\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.nested_tuple\",\"end\":3458,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":116,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":3412}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-117-assert-from-request",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.nested_tuple\",\"end\":3513,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":117,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":3468}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-96-assert-from-request-parts",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request_parts\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.unit\",\"end\":2942,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":96,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":2909}"
+    },
+    {
+      "category": "calls",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-107a-axum-core-extract-tuple-97-assert-from-request",
+      "issue": 107,
+      "reason": "The pinned reference engine does not extract Rust call expressions whose function is a generic_function. Issue 107A adds the structurally present turbofish call site from the pinned Rust grammar: the call of the path the generic_function holds, recorded as the same call without its type arguments.",
+      "reference_row": null,
+      "vendored_row": "{\"arg_count\":0,\"args\":[],\"branch_depth\":0,\"c\":\"call\",\"callee\":\"assert_from_request\",\"callee_is_locally_bound\":false,\"caller\":\"@.axum-core.src.extract.tuple.unit\",\"end\":2982,\"file\":\"axum-core/src/extract/tuple.rs\",\"first_string_arg\":null,\"is_method\":false,\"line\":97,\"loop_depth\":0,\"origin\":0,\"receiver_is_self_attribute\":false,\"requires_lsp_resolution\":false,\"second_arg_name\":null,\"start\":2952}"
+    },
+    {
       "category": "typed",
       "corpus": "golden:rust/axum",
       "decision": 66,

@@ -370,6 +370,10 @@ if(PDXE_BUILD_TESTS)
   # header is unproven for the type: extraction records the header, and typed resolution
   # proves every predicate before answering (issue 109, patches/0032).
   add_test(NAME rust_impl_bounds COMMAND rust_impl_bounds)
+  # Nor can a Rust call whose function carries a turbofish pass for no call: it is its
+  # function's call, recorded as the same call without the type arguments (issue 107A,
+  # patches/0033).
+  add_test(NAME rust_generic_calls COMMAND rust_generic_calls)
   # Nor a wide node's children by position, nor a parent or sibling by descending from the
   # root: the iterator's and the lookups' answers are tree-sitter's on every corpus and
   # smoke file, the work is linear in every language's wide shapes and the issue's own

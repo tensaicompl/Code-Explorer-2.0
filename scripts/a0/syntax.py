@@ -276,15 +276,71 @@ def rust_analyzer_parser(binary: str, env: dict[str, str]):
 _IDENT = re.compile(rb"[A-Za-z_][A-Za-z0-9_]*|r#[A-Za-z_][A-Za-z0-9_]*")
 
 
+_RAW_STRING = re.compile(rb'(?:br|cr|r)(#*)"')
+_STRING = re.compile(rb'(?:b|c)?"')
+_CHAR = re.compile(rb"b?'(?:[^'\\\n]|\\u\{[0-9A-Fa-f_]*\}|\\[^u])'")
+
+
+def _rust_trivia_end(text: bytes, i: int) -> int | None:
+    """Where the Rust comment or literal starting at `i` ends (past its last byte), or
+    None when none starts there. A line comment runs to its line's end; a block comment
+    to its matching `*/` (they nest); a string, byte or raw string or a character
+    literal to its closing quote, so a `//` or `/*` inside one opens no comment. An
+    unclosed one runs to the text's end."""
+    n = len(text)
+    if text.startswith(b"//", i):
+        end = text.find(b"\n", i)
+        return n if end < 0 else end
+    if text.startswith(b"/*", i):
+        depth = 0
+        while i < n:
+            if text.startswith(b"/*", i):
+                depth += 1
+                i += 2
+            elif text.startswith(b"*/", i):
+                depth -= 1
+                i += 2
+                if depth == 0:
+                    return i
+            else:
+                i += 1
+        return n
+    m = _RAW_STRING.match(text, i)
+    if m:
+        close = b'"' + m.group(1)
+        end = text.find(close, m.end())
+        return n if end < 0 else end + len(close)
+    m = _STRING.match(text, i)
+    if m:
+        j = m.end()
+        while j < n:
+            if text[j] == 0x5C:  # a backslash escapes the next byte
+                j += 2
+            elif text[j] == 0x22:
+                return j + 1
+            else:
+                j += 1
+        return n
+    m = _CHAR.match(text, i)
+    return m.end() if m else None
+
+
 def callee_name_token(callee: bytes, start: int, language: str) -> tuple[int, int] | None:
     """The name token of a structural site's callee text, which starts at byte `start`:
     its last identifier outside generic arguments (Rust's `::<…>` and `<…>` after a
-    path segment). None when the text names nothing."""
+    path segment). Rust comments and literals are no syntax: a `<` in one opens nothing
+    and its words are no names (issue 120, a0-match-2). None when the text names
+    nothing."""
     depth = 0
     last = None
     i = 0
     n = len(callee)
     while i < n:
+        if language == "rust":
+            end = _rust_trivia_end(callee, i)
+            if end is not None:
+                i = end
+                continue
         b = callee[i : i + 1]
         if language == "rust" and b == b"<":
             depth += 1

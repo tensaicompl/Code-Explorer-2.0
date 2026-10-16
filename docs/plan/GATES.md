@@ -630,6 +630,23 @@ relations), which recall work recovers with positive evidence (issues 105 to 108
 116), never by drawing weak evidence again. G1b stays pending: recall is a first-class
 blocker (decision 65), and a precision gain alone passes no gate.
 
+A0 after R4, issue 107A and issue 120, 2026-10-16 (Rust turbofish calls extracted, patch
+0033, engine 13; A0's matcher skips Rust comments and literals, `a0-match-2`). Measured on
+the Rust golden only, the corpus the change touches (the driver's method from R4: the
+three-corpus A0 runs at the next integration checkpoint). Evidence, not an evaluation;
+the status stays `pending`. Baseline post-R3 (`b3dd5d1`).
+
+| Golden | Floor | After R3 | After R4 | Floor met |
+|---|---|---|---|---|
+| Rust | `typed` precision ≥ 97% | 860 / 860 = 100.00% | 874 / 874 = 100.00% | yes |
+| Rust | union precision ≥ 95% | 1,133 / 1,133 = 100.00% | 1,162 / 1,162 = 100.00% | yes |
+| Rust | recall ≥ 85% | 930 / 4,054 = 22.94% | 959 / 4,110 = 23.33% | **no** |
+
+The Rust golden's 56 relations with no site are all at one now (`site_missing` 56 → 0);
+29 are drawn, all correct, and no drawn edge is wrong. The 345 inside macro token trees
+are issue 107B's. Python's floors are unchanged (no Python extraction changed). Two of
+the six floors still fail, both recall's.
+
 ## G2 — after `P3-09`
 
 Status: **pending**

@@ -118,11 +118,35 @@ ordered bands, measured and counted, that never draw an edge (below). The drawn
 structural resolution bands are `typed`, `import-guided` and `inheritance-guided`, and
 none has a known false edge in the goldens or PDX itself. Drawn recall falls, as decision
 65 accepted: correctness first. A declared route's `DEFINES_ROUTE` edge, labelled
-`exact`, stops drawing with it; its band is issue 119 (open). Next, **only when the
-driver authorises it**: R4 (issue 107A); issue 113 waits for recall work.
+`exact`, stops drawing with it; its band is issue 119 (open).
 
-Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
-each golden's typed precision, union precision and recall. Build `pdx-bench` first
+**R4 is done (2026-10-16): issue 107A resolved, with issue 120.** 54 of the Rust
+golden's 56 oracle relations with no structural site were turbofish calls
+(`f::<T>()`, `x.m::<T>()`) the engine dropped; they are extracted now (patch 0033,
+`ENGINE_VERSION` 13). The other 2 had sites all along: A0's matcher read a comment's `<`
+as generic syntax (issue 120, `a0-match-2`). All 56 are at a site; 29 are drawn, every
+one correct. Issue 107B (macro token trees) and issue 107 stay open. Next, **only when
+the driver authorises it**: a recall package beginning with R5 (issue 105); issue 113
+waits for recall work.
+
+**How work is validated (driver, 2026-10-16).** A change is proved by its targeted
+tests (the code it touches, a few focused cases, the dangerous invariants' mutations),
+one end-to-end product test (source → discovery → extraction → cache → resolution →
+segment → the segment's queries), and a measurement of the real corpus it changes.
+Build incrementally; never `cargo clean`. Full certification (`cargo test
+--workspace`, full clippy, `make check`, `make vet`, every golden, the full three-corpus
+A0, mutation campaigns, every differential corpus, Ubuntu/macOS/Windows CI) runs at
+integration checkpoints, gate evaluations and releases, and at once when a change
+touches the segment schema, a stored or non-backward-compatible cross-process
+contract, secret normalisation, cache correctness, graph trust semantics or shared
+multi-language infrastructure, or when targeted tests show cross-subsystem effects.
+Prefer a few strong tests across several components to many narrow ones; keep useful
+existing tests. One green exact-SHA CI run is enough; work packages group related
+fixes into one commit.
+
+Measure every change to resolution or extraction with A0 on the corpus it changes, and
+report its typed precision, union precision and recall; `scripts/a0/run.py` (all three
+corpora, the committed results) runs at integration checkpoints (above). Build `pdx-bench` first
 (`cargo build -p pdx-bench`): the runner never builds it, and refuses before measuring
 anything unless `pdx-bench versions` reports the source's engine version, `pdx_core`
 constants and worker protocol (issue 115, resolved). A result's `engine_version` is the
@@ -255,7 +279,7 @@ binding with its declaring node's position and path (`routes`, patch 0011); both
 records whose text is ranges of the source (issue 90B, below), a Rust file the members
 its macro invocations may write (issue 110), Rust calls their `use` scope (issue 114)
 and a Rust trait impl's relation and methods its header, the methods their trait
-(issue 117, all below); `ENGINE_VERSION` is 12 (issue 109). Issue 74 (decision 45, engine 4): the C and C++ expression
+(issue 117, all below); `ENGINE_VERSION` is 13 (issue 107A). Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -447,8 +471,9 @@ need path evidence.
   being served. `cache_entries_of_engine_seven_are_never_served` holds it for 0028,
   `cache_entries_of_engine_eight_are_never_served` for 0029,
   `cache_entries_of_engine_nine_are_never_served` for 0030,
-  `cache_entries_of_engine_ten_are_never_served` for 0031 and
-  `cache_entries_of_engine_eleven_are_never_served` for 0032 (planted in the current cache
+  `cache_entries_of_engine_ten_are_never_served` for 0031,
+  `cache_entries_of_engine_eleven_are_never_served` for 0032 and
+  `cache_entries_of_engine_twelve_are_never_served` for 0033 (planted in the current cache
   format, so that the engine version alone keeps it out).
 
 Issue 111 (patch 0029, engine 9): a Rust file's `use` declarations are read from its
@@ -611,6 +636,28 @@ where its own path does.
   never draw a namesake for a target the registry does not represent.
 - **Tests.** `crates/pdx-core/tests/rust_import_bindings.rs` (E1 to E6, modules, aliases,
   nested groups, `self`, a macro-written type, the record).
+
+Issue 107A (R4, patch 0033, engine 13): a Rust call whose function carries a turbofish
+is its function's call.
+- **Grammar.** In the pinned grammar the call's `function` is a `generic_function`, whose
+  own `function` field is the path (`call_expression` → `generic_function` →
+  `identifier`/`scoped_identifier`) or the method (→ `field_expression`). The callee lookup
+  knew no `generic_function`: no callee, no call (the reference engine drops it too).
+- **Fix.** `unwrap_rust_turbofish_callee` (`engine/src/extract_calls.c`, Rust only: Scala
+  has a `generic_function` too) in the callee lookup, the primary callee expression and
+  issue 104's local-binding check. The call is recorded exactly as without the type
+  arguments; its callee's range runs from the call's start to the function's name.
+- **Not here.** A generic path or method named without a call is no call; a call in a
+  macro's tokens (`wrap!(f::<u8>())`) is none: a token tree holds no call expression, and
+  macro token trees are issue 107B's. Never recover a call by reading source text.
+- **A0 (issue 120, `a0-match-2`).** M1 skips Rust comments and literals: a `<` in one is
+  no generic syntax, a `//` in a string no comment. Metrics stay `a0-metrics-2`.
+- **Tests.** `engine/tests/rust_generic_calls.c` (every call and usage against its twin
+  with the turbofish blanked, field by field), `crates/pdx-core/tests/rust_generic_calls.rs` (A1
+  to A14, the golden's shapes, callee ranges), `crates/pdx/tests/rust_generic_calls.rs`
+  (end to end through `pdx index`, cold and warm cache, the segment's queries, the
+  twin's graph), the cache test above, `scripts/a0/test_a0.py` (the matcher;
+  `bench/a0/issue-107a-sites.json`, the 56 relations by class).
 
 Issue 117 (no patch, engine 12): Stage 3's trusted name stages take a Rust trait impl's
 member only when the impl is proven to apply.
@@ -926,9 +973,10 @@ of `bench/engine-differential.toml`.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
   does. All 32 corpora were identical at P2-16 and are again at engines 7 and 8, each engine
-  run from an empty working directory (issue 83, decision 52). At engine 12, 31 are
-  identical and `golden:rust/axum` passes with three ratified divergences, issue 111's,
-  issue 114's and issue 109's.
+  run from an empty working directory (issue 83, decision 52). At engine 13, 31 are
+  identical and `golden:rust/axum` passes with 17 ratified divergences: 3 `typed` (issue
+  111's, 114's and 109's) and 14 `calls` (issue 107A's turbofish calls, which the
+  reference does not extract; `issue-107a-axum-core-…`, record `issue` 107).
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

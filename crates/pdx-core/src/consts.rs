@@ -68,9 +68,10 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// they add see changes (patch 0031, issue 114); 12 since a Rust `Type::method` is a
 /// per-file typed answer naming a trait impl's method only when the impl is proven to
 /// apply, and a Rust file's surface carries its trait impls' headers (patch 0032, issue
-/// 109).
+/// 109); 13 since a Rust call whose function is a turbofish path or method (`f::<T>()`,
+/// `x.m::<T>()`) is extracted as a call of that path or method (patch 0033, issue 107A).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
-pub const ENGINE_VERSION: u32 = 12;
+pub const ENGINE_VERSION: u32 = 13;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the

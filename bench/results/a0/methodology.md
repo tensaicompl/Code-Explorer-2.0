@@ -31,6 +31,14 @@ Every run uses the same golden pins, oracle versions and configuration,
 `a0-match-1` and `a0-metrics-1` (`a0-metrics-2` from post-R3, below). The PDX diagnostic corpus is `e746b1e` in all, so
 its change is the resolver's alone.
 
+**Post-R4 (issue 107A and issue 120, engine 13, `a0-match-2`) is not a committed run.**
+From R4 the driver measures a remediation on the corpus it changes and runs the three
+corpora at integration checkpoints (issue 95, 2026-10-16). R4 was measured on the Rust
+golden only: `site_missing` 56 → 0, drawn union 1,162 / 1,162, recall 959 / 4,110 =
+23.33% (issue 95's log and GATES.md's G1b). These files stay post-R3's until the next
+full run, which will be the first `a0-match-2` run committed; `test_a0.py`'s issue 107A
+evidence check reads whichever is committed.
+
 The post-R2 files record `engine_version` 7: at `d14ccd4` the engine called itself 7.
 Issue 112 renumbered that engine 8 without changing what it extracts or answers.
 Rerun at the hotfix, every document is identical but for `engine_version` (8, which
@@ -133,7 +141,12 @@ These have no verdict. They are never counted false:
 - a file the oracle did not index. In the Rust golden these are
   `axum-macros/tests/**`, the compile-test fixtures, which belong to no crate.
 
-## Matching rules (`a0-match-1`)
+## Matching rules (`a0-match-1`; `a0-match-2` since issue 120)
+
+`a0-match-2` changes M1 alone: a Rust comment or literal in a callee's text is no
+syntax (below). The metrics did not change, so they stay `a0-metrics-2`: a matching
+version moves when which oracle occurrence a site is joined to can change, a metrics
+version when what is counted or how does.
 
 **M1. Site to oracle occurrence.** A structural site and an oracle call are joined
 on one byte range: the name token. That is the identifier naming what is called,
@@ -146,6 +159,14 @@ the last name of the callee outside generic arguments, never a receiver.
   - else **M1d**: the site's last name, when it is the site's name (a callable
     passed as a value).
 - Two candidates under any rule give no token.
+
+- **Rust comments and literals** (`a0-match-2`, issue 120): M1's scan skips a line
+  comment to its line's end, a block comment to its matching `*/` (they nest), and a
+  string, byte or raw string or character literal to its closing quote: a `<` in one
+  opens no generic arguments and its words are no names, and a `//` in a string opens
+  no comment. Under `a0-match-1` a comment's `<` (`// <- Inner layer`) hid every name
+  after it, and two Rust golden relations whose sites exist were counted
+  `site_missing`.
 
 Line numbers, nearest occurrences and names alone are never used.
 

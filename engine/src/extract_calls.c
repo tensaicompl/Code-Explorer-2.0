@@ -265,10 +265,26 @@ static TSNode unwrap_await_callee(TSNode node) {
     return ts_node_named_child(node, 0);
 }
 
-static char *extract_callee_from_fields(PDXEArena *a, TSNode node, const char *source) {
+/* Issue 107A: a Rust turbofish call (`f::<T>()`, `x.m::<T>()`, `T::<A>::f::<B>()`)
+ * holds its callable in a generic_function, whose own `function` field is the callee
+ * (an identifier, a scoped_identifier or a field_expression) and whose type arguments
+ * name no callee. The call is that callable's, described exactly as without them.
+ * Rust only: Scala's grammar has a generic_function too. */
+static TSNode unwrap_rust_turbofish_callee(PDXELanguage lang, TSNode node) {
+    if (lang != PDXE_LANG_RUST || ts_node_is_null(node) ||
+        strcmp(ts_node_type(node), "generic_function") != 0) {
+        return node;
+    }
+    TSNode inner = ts_node_child_by_field_name(node, TS_FIELD("function"));
+    return ts_node_is_null(inner) ? node : inner;
+}
+
+static char *extract_callee_from_fields(PDXEArena *a, TSNode node, const char *source,
+                                        PDXELanguage lang) {
     // Try "function" field
     TSNode func_node = ts_node_child_by_field_name(node, TS_FIELD("function"));
     func_node = unwrap_await_callee(func_node);
+    func_node = unwrap_rust_turbofish_callee(lang, func_node);
     if (!ts_node_is_null(func_node)) {
         const char *fk = ts_node_type(func_node);
         if (strcmp(fk, "selector_expression") == 0) {
@@ -1931,7 +1947,7 @@ static char *extract_callee_name(PDXEArena *a, TSNode node, const char *source, 
     }
 
     // Try common field-based resolution first
-    char *name = extract_callee_from_fields(a, node, source);
+    char *name = extract_callee_from_fields(a, node, source, lang);
     if (name) {
         return name;
     }
@@ -3678,6 +3694,7 @@ static PDXEPrimaryCalleeSelection select_primary_callee(PDXEExtractCtx *ctx, TSN
 
     selection.expr = language_specific_callee_expr(ctx->language, node);
     selection.expr = unwrap_await_callee(selection.expr);
+    selection.expr = unwrap_rust_turbofish_callee(ctx->language, selection.expr);
     if (is_dynamic_callee_expr(ctx, selection.expr)) {
         selection.expr = (TSNode){0};
         return selection;
@@ -3865,6 +3882,7 @@ static PDXEInvocationDescriptor handle_calls_at_node(PDXEExtractCtx *ctx, TSNode
             if (ctx->language == PDXE_LANG_RUST &&
                 strcmp(ts_node_type(node), "call_expression") == 0) {
                 TSNode fn = ts_node_child_by_field_name(node, TS_FIELD("function"));
+                fn = unwrap_rust_turbofish_callee(ctx->language, fn); // issue 107A
                 if (!ts_node_is_null(fn) && strcmp(ts_node_type(fn), "identifier") == 0) {
                     call.callee_is_locally_bound = pdxe_walk_python_param_is_bound(
                         state, pdxe_node_text(ctx->arena, fn, ctx->source));

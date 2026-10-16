@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 120 | 2026-10-16 | P2-04 | blocker | resolved | A0's rule M1 takes a Rust site's name token as the last identifier of its callee text outside generic arguments, and read a `<` in a comment as one: after `// <- Inner layer` the callee text's later names were inside "generic arguments", so `.layer(` and `.with_state(` (`examples/error-handling/src/main.rs:66, 86`) were matched to `log_app_errors` and their two oracle relations counted `site_missing`, though both sites exist. Two of issue 107A's 56 | Resolved 2026-10-16 with issue 107A (`a0-match-2`, metrics unchanged at `a0-metrics-2`): M1 skips Rust comments (line, block, nested block) and literals (strings, byte and raw strings, characters), where a `//` or `/*` opens no comment; the relation range and exact byte-range matching are unchanged. On the post-R3 datasets it changes 3 of the Rust golden's 13,920 site tokens (the two, and a `b'<'` literal's external call) and 15 of PDX itself's 30,440 (literals `'<'` and `"<?php"`), each from another name to the site's own; nothing else |
 | 119 | 2026-10-16 | P2-07 | ambiguity | open | 4.2.2 gives `DEFINES_ROUTE` no band, and P2-07 labelled a route an annotation or decorator declares on its handler `exact`, with no recorded reason: a declaration is no name lookup. Since issue 102 (R3) `exact` is not drawn, so those edges stop drawing (63 in the goldens: Java 17, Kotlin 15, Python 31); routes, their nodes, sites and entry points are unchanged. The driver chose this over re-labelling them (2026-10-16) | |
 | 118 | 2026-10-16 | P2-06 | blocker | resolved | PDX itself has four false `import-guided` Rust edges, all of one shape: `Enum::Variant(payload)` drawn to the module's struct of the variant's name (`crates/pdx-bench/src/bench/run.rs:918` `Performance::OutOfMemory`, `:929` `Performance::Completed`, `crates/pdx-bench/tests/bench_run.rs:213` `BuildOutcome::Stopped`, `:227` `BuildOutcome::Built`). `import-guided` is drawn and R3 does not change it, so they block R3. Since the A0.1 baseline; not made by issue 117 | Resolved 2026-10-16 (Stage 3 only, no version moves): the cause is not enum-specific. Stage 3 gave a Rust `use` brace group one target, its prefix's module, and read every name the group binds as that module, so `T::f` was taken for `prefix::f`. Each binding of a group now leads where its own path does. PDX itself: `import-guided` 52 / 56 → 261 / 261; the four fall to `exact`, still wrong, R3 acceptance cases (issue 102); one correct edge of a macro-written type is withheld (`candidate`). Rust golden: `import-guided` 109 / 109 → 213 / 213, every new edge correct; `typed` and `inheritance-guided` unchanged everywhere; Python unchanged |
 | 117 | 2026-10-15 | P2-06 | blocker | resolved | Found by issue 109: Stage 3's `import-guided` (a trusted band) narrows `Type::method` to the imported type's member of the name even when that member is a trait impl's method whose header (issue 109) is not proven: `WithRejection::from_request(1, &())` through `use crate::with_rejection::WithRejection;` is drawn to `WithRejection`'s own `from_request`, whose `E: FromRequest<S>` its type argument does not meet, and `Body::from(())` to `impl<T: Copy> From<()> for Body<T>`, its bound unproven. Identical at issue 109's base commit: the engine answers no `Type::method` through an imported type in another file (issue 113), so no typed answer moved to this band. No such false positive in the Rust golden (`import-guided` 109/109 after issue 109) || Resolved 2026-10-15 (no patch, engine 12; cache format 9, protocol 10): the headers issue 109 records cross the interface on a trait impl's methods and relations, and `import-guided` and `inheritance-guided` take a trait impl's member only when its header requires nothing or, for a call on `self`, the calling impl is its own or entails it; unknown is never proven, an unproven member is `candidate`. The same class found in `inheritance-guided` (`Self::from_request`, `self.peek()` through a conditional impl; identical before issue 109) fixed with it. The goldens' trusted bands unchanged: Rust `typed` 860 / 860, `import-guided` 109 / 109, `inheritance-guided` 60 / 60; the engine differential unchanged |
@@ -27,7 +28,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 110 | 2026-10-14 | P2-04 | blocker | resolved | Found by issue 104 (R2): an item a `macro_rules!` invocation writes is no definition. `axum-core/src/body.rs` writes `impl From<&'static str> for Body` (and others) through `body_from_impl!`, so the only `Body::from` the registry has is the handwritten `From<()>` one, and `Body::from("…")` (`axum-core/src/ext_traits/request.rs:355`) is drawn `import-guided` to it: the Rust golden's one `import-guided` false positive | Resolved 2026-10-14 (option 110-B, patch 0030, engine 10): the generated definitions are not represented (no identity of their own; the expansion is a subset matcher), and the members a type's macro invocations may write are recorded instead. Each Rust extraction carries `macro_members`, read from the definition each invocation sees in its own file: every `impl` its transcribers hold, the type's last name and each function's name, a metavariable bound as expansion's matcher binds it or, unbound, any identifier of the invocation's arguments, a generated name any member. Stage 3 takes no member a macro may write another of its name for (the type the call's path names, or the member's declaring type) as a target, typed or by a stage: the site is a `candidate` with it. A0: Rust `import-guided` 24 / 25 → 24 / 24 (the issue's site withheld), `scoped` 155 / 476 → 155 / 475 (a false self-edge withheld by the over-approximation), `typed` 859 / 860 and recall 1,409 / 4,056 unchanged, union 62.97% → 63.02%; Python and PDX itself unchanged; no correct edge lost, no new wrong one. Cache format 7, protocol 8, surface 5. The differential is unchanged (issue 111's ratification only) |
 | 109 | 2026-10-14 | P2-06 | blocker | resolved | Found by issue 104 (R2): Rust typed resolution chooses a trait impl for `Type::method` without its bounds. `WithRejection::<TestExtractor, TestRejection>::from_request` (`axum-extra/src/extract/with_rejection.rs:196`) reaches the blanket `impl<S, T> FromRequest<S, ViaParts> for T` (its type implements only `FromRequestParts`), but is answered `typed` (`lsp_ufcs`) with `WithRejection`'s own `FromRequest` impl, whose bound `E: FromRequest<S>` it does not meet: the Rust golden's one remaining typed false positive | Resolved 2026-10-15 (patch 0032, engine 12, surface 6): extraction records each trait impl's header and the typed pass answers a trait impl's method for `Type::method` only when every predicate is proven for the path's types; unknown is never proven, a blanket impl never applies universally, several impls are answered only when one is proven and no other is of its trait. The Rust golden's `typed` is 860 / 860 (from 865 / 866), `import-guided` 109 / 109; five correct typed answers lost to unknown bounds (three correct `scoped`, two `assert_eq!` sites, issue 107B). The site falls to a wrong `scoped` guess, an R3 acceptance case (issue 102). Decision 66's third ratification, `issue-109-axum-core-generic-from-request-bound`. Found: issue 117 |
 | 108 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R7): target identity among definitions that share a qualified name. In the Rust golden, 89 oracle relations target such a definition; 83 have a structural site, 52 are drawn, 49 to the right definition and 3 to a wrong one, and 2 typed answers are withheld because their qualified name maps to several definitions. A0 cannot adjudicate Python's `@overload` stubs (28 calls without a verdict) | Open. Investigate whether the extraction's normalised signature, the definition's disambiguator, the call's argument count and types, or the engine's occurrence identity can select the definition a call reaches. Overloads are never collapsed because their qualified names are equal |
-| 107 | 2026-10-14 | P2-04 | blocker | open | Child of issue 95 (decision 65, R4 and R8): Rust call sites the oracle sees and Stage 3 does not. 107A (R4): 56 oracle relations at ordinary Rust syntax with no structural site: 54 turbofish calls, 30 of a path (`assert_from_request::<_, ()>()`) and 24 of a method (`parts.extract_with_state::<S, T>(&state)`), and 2 member calls in a chain with a line comment before the dot (`examples/error-handling/src/main.rs`): a grammar or extraction gap. 107B (R8): 338 oracle relations written inside macro invocations' token trees with no site, out of 1,696 call texts there, of which 90 are already extraction sites (all drawn correctly) and 9 are typed sites Stage 4 cannot persist | Open. 107A: find why these calls are no extraction sites and make them ordinary call sites. 107B: classify token-tree calls (known standard and assertion macros, expression-position arguments, format-like macros, arbitrary macro DSLs, `macro_rules!` bodies) and define a semantics-safe policy before recovering any; no call is invented from DSL tokens, and macros are not expanded |
+| 107 | 2026-10-14 | P2-04 | blocker | open | Child of issue 95 (decision 65, R4 and R8): Rust call sites the oracle sees and Stage 3 does not. 107A (R4): 56 oracle relations at ordinary Rust syntax with no structural site: 54 turbofish calls, 30 of a path (`assert_from_request::<_, ()>()`) and 24 of a method (`parts.extract_with_state::<S, T>(&state)`), and 2 member calls in a chain with a line comment before the dot (`examples/error-handling/src/main.rs`): a grammar or extraction gap. 107B (R8): 338 oracle relations written inside macro invocations' token trees with no site, out of 1,696 call texts there, of which 90 are already extraction sites (all drawn correctly) and 9 are typed sites Stage 4 cannot persist | 107A resolved 2026-10-16 (R4, patch 0033, engine 13): 54 of the 56 were turbofish calls the engine dropped (a call whose function is a `generic_function`, no callee), now extracted as their function's calls; the other 2 were A0 matcher errors, their sites existing (issue 120). All 56 now match one site each; 29 are drawn, every one correct. Open: 107B: classify token-tree calls (known standard and assertion macros, expression-position arguments, format-like macros, arbitrary macro DSLs, `macro_rules!` bodies) and define a semantics-safe policy before recovering any; no call is invented from DSL tokens, and macros are not expanded |
 | 106 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R6): Python recall. 470 of the Python golden's 1,114 oracle relations end as `candidate` (36 more are blocked and 5 drawn wrong), most of them member calls on a local value (`bp.route(…)` on a `Blueprint`) or package re-exports (`flask.make_response(…)`) | Open. Classify all 470 first, by the evidence that could resolve them: local-variable receiver, parameter receiver, factory or call-result receiver, attribute receiver, package re-export, import alias, inheritance or base method, decorator-produced binding, fixture or other untyped external value, other; and separate what is structurally recoverable from what needs a compiler or precise provider and from where the oracle itself is weak or untyped. Then design evidence fixes from the counts. 85% structural recall is not promised from information the structure does not hold |
 | 105 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R5), probably the largest recall workstream: 2,079 of the Rust golden's 4,061 oracle relations at structural call sites end as `candidate` (389 more are blocked, 190 drawn wrong and 17 external) | Open. Classify all 2,079 before any fix, by the evidence that could resolve them, with counts: receiver local-variable type, receiver field type, receiver call-result type, associated or static path type, import or `use` binding, trait bound, impl relation, generic type parameter, method through `Deref`, method of an external type, `crate`/`self`/`super` path, re-export, macro-generated type or item, other. Mark what no structural evidence can resolve, so the driver can judge what G4's structural recall floor assumes. Then design evidence-strengthening work from the counts; no fix is guessed before the classification |
 | 104 | 2026-10-14 | P2-06 | blocker | resolved | Child of issue 95 (decision 65, R2): the Rust golden's 15 typed false positives (16 since issue 103 draws `Handler::call`), each a typed answer naming the wrong definition: the module path ignored (`from_request::expand`, `debug_handler::expand`, `typed_path::expand` to `lib.rs`'s `expand`, 5); an external crate's function taken for an internal look-alike (`multer::parse_boundary`, `hyper::upgrade::on`, 4); another type's associated function (`PathDeserializationError::custom` to `connect_info`'s `custom`, 2); a same-named function of another crate (`find_first_not_double` in `axum-macros`, 2); a blanket trait impl (`WithRejection::<…>::from_request`, 1); and a pattern binding answered as a call (`Ok(Self(params))`, 1). Also the one import-guided false positive (`Body::from` to another `From` impl's `from`) and the one false typed answer the blocklist now hides (`Handler::call`, `axum/src/handler/service.rs:171`) | Open. R2 (2026-10-14, patch 0028; 4.5 amended): a Rust typed answer needs path evidence, never a name's uniqueness alone; a `match` arm's bindings and a block's functions are locals; a Rust path starting with an extern-prelude crate is `external`. 15 of the 17 are no longer drawn wrong; the Rust golden's `typed` is 843 / 844 = 99.88% (from 852 / 868), PDX's 5,870 / 5,870, Python unchanged. Left: the blanket impl (issue 109) and the macro-written impl (issue 110); the 6 typed edges lost to `candidate` are issue 111 Resolved 2026-10-15 with issue 109: the Rust golden's trusted bands hold no false positive (`typed` 860 / 860, `import-guided` 109 / 109, `inheritance-guided` 60 / 60); every closure condition met (the entry). The blanket impl's site falls to a wrong `scoped` guess, issue 102's R3 case |
@@ -161,6 +162,48 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 120 — A0's Rust callee matcher reads a comment's `<` as generic syntax
+
+Found while classifying issue 107A's 56 relations (R4). A0's rule M1 joins a structural
+site to an oracle occurrence on one name token: the last identifier of the callee's
+source text outside generic arguments (`scripts/a0/syntax.py`, `callee_name_token`). It
+counted every `<` in a Rust callee's text as opening generic arguments, a comment's too.
+
+- **The two relations.** `examples/error-handling/src/main.rs:66` (`.layer(`) and `:86`
+  (`.with_state(`) are calls in a chain whose text holds `// <- Inner layer` and
+  `// <- Outer layer` before their dot. After the comment's `<` every later name was
+  "inside generic arguments", so M1 took `log_app_errors` for both sites and neither
+  matched its oracle occurrence: the two relations were counted `site_missing`.
+- **Not an extraction loss.** Both calls were sites before issue 107A: their names
+  are right, and their callee ranges end exactly on the oracle's tokens. A harness
+  defect, not the engine's.
+
+**Resolution (2026-10-16, with issue 107A; `a0-match-2`).**
+
+- **Rule.** M1 skips Rust comments and literals: a line comment to its line's end, a
+  block comment to its matching `*/` (block comments nest), a string, byte or raw string
+  or a character literal to its closing quote. A `<` in one opens nothing and its words
+  are no names; a `//` or `/*` inside a string opens no comment, which is why literals
+  are read at all (a URL argument, `client.get("http://…").send`, would otherwise hide
+  `send`). Python's matching is unchanged.
+- **Not changed.** The oracle's relation ranges, exact byte-range matching, M1b to M1d's
+  order, and the metrics' definitions: `a0-metrics-2` stays, `ALGORITHM_VERSION` becomes
+  `a0-match-2` (`audit.py`), and every result records both (`site_matching_version`,
+  `metrics_version`). No name is special-cased.
+- **Measured** on the post-R3 datasets (engine 12), against `a0-match-1`'s tokens: the
+  Rust golden's 13,920 sites change 3 tokens, the two above and a call after a `b'<'`
+  byte literal (`axum-extra/src/lib.rs:85`, an external call: no relation), and PDX
+  itself's 30,440 change 15, all after a `'<'` or `"<…"` literal. Each changed token was
+  another name or none and is now the site's own; no other token, oracle status or
+  verdict moves. The two relations are at their sites (`candidate`, not drawn: issue
+  105's).
+- **Tests.** `scripts/a0/test_a0.py`: the line comment, its block equivalent, nested
+  block comments, a URL and a raw string holding `//`, a `'<'` literal, lifetimes and
+  ordinary generic arguments still hiding their names; the versions; issue 107A's
+  evidence set against the committed results.
 
 State: resolved.
 
@@ -1353,6 +1396,67 @@ arguments, format-like macros, arbitrary macro DSLs and `macro_rules!` bodies (4
 call texts, no oracle relation). A semantics-safe policy is then defined. No call is
 invented from DSL tokens, and macros are not expanded.
 
+**107A resolution (R4, 2026-10-16; patch 0033, `ENGINE_VERSION` 13).**
+
+- **Classified** in the pinned grammar (`bench/a0/issue-107a-sites.json`, every
+  relation with its class):
+
+  | Class | Relations | Pinned shape | Cause |
+  |---|---|---|---|
+  | path turbofish | 30 | `call_expression` → `function: generic_function` → `function: identifier` | engine |
+  | method turbofish | 24 | `call_expression` → `function: generic_function` → `function: field_expression` | engine |
+  | comment before the dot | 2 | `call_expression` → `function: field_expression` | A0's M1 (issue 120) |
+
+  No other class. One path turbofish is a tuple struct's constructor
+  (`ResponseAxumBody::<S>(inner)`).
+- **Cause (54).** The callee lookup (`extract_callee_from_fields`) knew the function
+  kinds `identifier`, `scoped_identifier` and `field_expression`, not
+  `generic_function`: the call had no callee and was dropped. The pinned reference
+  engine drops it too. C++'s `template_function` was already read through.
+- **Fix.** `unwrap_rust_turbofish_callee` reads a Rust `generic_function`'s own
+  `function` field, in the callee lookup, the primary callee expression and issue
+  104's local-binding check. The call is that function's, recorded exactly as the
+  same call without the type arguments (callee, caller, receiver, arguments, loop and
+  branch depth, buffer, local binding, `use` scope), its callee's range from the call's
+  start to the function's name, never the type arguments. Rust only (Scala's grammar
+  has a `generic_function` too). From the node the walk is on: no scan, no text.
+- **Not changed.** A generic path or method named without a call is no call;
+  `wrap!(f::<u8>())` is no call (a macro's token tree holds no call expression; issue
+  107B is untouched). The typed pass, Stage 3 and Stage 4 are unchanged.
+- **Versions.** `ENGINE_VERSION` 12 → 13 (issue 112's rule: an unchanged Rust source's
+  calls change), `cache_entries_of_engine_twelve_are_never_served`. Surface 6, cache
+  format 9, worker protocol 10, schema 3, matrix 2 and detector 4 are unchanged
+  (`pdx-bench versions`).
+- **Engine differential.** The reference does not extract these calls: 14 vendored-only
+  `calls` rows in `golden:rust/axum`, ratified one by one (decision 66,
+  `issue-107a-axum-core-…`; the driver approved them 2026-10-16), captured from the live
+  run. 32 corpora passed, 31 identical; `golden:rust/axum` with exactly its 3 typed and
+  14 calls ratifications; 0 unexpected, 0 stale.
+- **A0, Rust golden only** (scratch, engine 13 and `a0-match-2`; the three-corpus A0 runs
+  at the next integration checkpoint): `site_missing` 56 → 0 (2 by issue 120, 54 by the
+  engine); every one of the 56 at one site: 14 `typed` and 15 `import-guided`, all
+  oracle-correct, 1 `exact`, 24 method calls and the 2 comment cases `candidate` (issue
+  105's). `site_missing_macro_token_tree` stays 345. Structural call sites 11,233 →
+  11,400. Drawn union 1,133 / 1,133 → 1,162 / 1,162 = 100.00% (`typed` 860 → 874,
+  `import-guided` 213 → 228, `inheritance-guided` 60); recall 930 / 4,054 = 22.94% →
+  959 / 4,110 = 23.33%. No drawn edge is wrong.
+- **Golden.** `rust/axum` only (the other nine identical): 1,574 → 1,630 drawn edges,
+  56 in (29 `CALLS`, 27 `TESTS`; 14 + 12 `typed`, 15 + 15 `import-guided`), none out,
+  nodes unchanged: the 29 recovered sites above.
+- **Tests.** `engine/tests/rust_generic_calls.c` (every call and usage against its
+  blanked twin, field by field), `crates/pdx-core/tests/rust_generic_calls.rs` (A1 to A14, the
+  golden's shapes, callee ranges), `crates/pdx/tests/rust_generic_calls.rs` (end to end:
+  `pdx index` cold and warm, read back through the segment's queries, the twin's graph
+  the same), the cache test above, `scripts/a0/test_a0.py`'s evidence set.
+- **Mutations** (targeted, sources restored byte for byte), all killed: the unwrap
+  disabled, the method's receiver lost, the local-binding check not read through the
+  turbofish (each by all three tests above), the primary callee expression left on the
+  `generic_function` (by the engine twin's usages: the path stays a value use as
+  well), every macro's arguments read as expressions (pdx-core's and the end-to-end
+  test), M1 reading comments as syntax again (`test_a0.py`).
+
+107A is resolved; 107B is open, and so is this issue.
+
 State: open.
 
 ### 106 — Python candidate resolution
@@ -2215,6 +2319,7 @@ This issue stays the umbrella and is split into its children:
 | 113 | Rust paths through `crate::`, re-exports and `index.rs`, and an imported type's impls (found by 111) |
 | 114 | Rust `use` without lexical scope (found by 111) |
 | 117 | an imported type's trait-impl member drawn `import-guided` without its header (found by 109) |
+| 120 | A0's Rust matcher reading a comment's `<` as generic syntax (found by 107A) |
 
 The preferred order, each step authorised separately by the driver:
 
@@ -2364,6 +2469,34 @@ per band on its candidate; `union_with_evidence` the old union, for comparison).
 PDX itself: drawn union 6,248/6,248 = 100.00%, recall 79.12%. G1b's two union floors are
 met; its two recall floors fail further. Next, when the driver authorises it: R4 (issue
 107A).
+
+**Method (driver, 2026-10-16).** From R4 on, a remediation is proved by targeted tests, an
+end-to-end product test and a measurement of the corpus it changes; the full A0 (Python,
+Rust and PDX itself), every golden, the mutation campaigns and the full cross-platform
+matrix run at integration checkpoints, gate evaluations and releases, or at once when a
+change touches the segment schema, a stored or cross-process contract, secret
+normalisation, cache correctness, graph trust semantics or shared multi-language
+infrastructure. The committed results stay the last full run's until then.
+
+**R4, issue 107A, and issue 120 (2026-10-16).** Resolved. 54 of the Rust golden's 56
+relations with no site were turbofish calls the engine dropped, now extracted (patch 0033,
+engine 13); the other 2 were A0's matcher reading a comment's `<` as generic syntax
+(`a0-match-2`). Measured on the Rust golden only (engine 13, `a0-match-2`, not committed;
+the committed results are post-R3's until the next checkpoint's full run):
+
+| | Post-R3 (committed) | Post-R4 |
+|---|---|---|
+| `site_missing` | 56 | 0 |
+| `site_missing_macro_token_tree` | 345 | 345 |
+| `typed` | 860 / 860 | 874 / 874 |
+| `import-guided` | 213 / 213 | 228 / 228 |
+| Drawn union | 1,133 / 1,133 = 100.00% | 1,162 / 1,162 = 100.00% |
+| Recall | 930 / 4,054 = 22.94% | 959 / 4,110 = 23.33% |
+
+Every newly drawn edge is oracle-correct; no drawn edge is wrong. Python and PDX itself
+were not rerun (no Python extraction changed; PDX itself's matcher change is 15 tokens,
+all corrections). G1b's recall floors still fail. Next, when the driver authorises it:
+a recall package beginning with R5 (issue 105).
 
 State: open.
 
