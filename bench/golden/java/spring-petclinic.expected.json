@@ -162,30 +162,6 @@
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.isNew",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.isNew",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
       "kind": "CALLS",
       "band": "typed"
@@ -207,30 +183,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.addVisit",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.isNew",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.isNew",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPet",
@@ -270,12 +222,6 @@
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.findOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.findOwner",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
       "kind": "CALLS",
       "band": "typed"
@@ -285,48 +231,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initCreationForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initCreationForm\",\"method\":\"GET\",\"path\":\"/owners/new\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initFindForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initFindForm\",\"method\":\"GET\",\"path\":\"/owners/find\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initUpdateOwnerForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initUpdateOwnerForm\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}/edit\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processCreationForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processCreationForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processCreationForm\",\"method\":\"POST\",\"path\":\"/owners/new\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processFindForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processFindForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processFindForm",
@@ -341,40 +245,10 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processFindForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processFindForm\",\"method\":\"GET\",\"path\":\"/owners\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processUpdateOwnerForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processUpdateOwnerForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processUpdateOwnerForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processUpdateOwnerForm\",\"method\":\"POST\",\"path\":\"/owners/{ownerId}/edit\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.showOwner",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.showOwner",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.showOwner\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.addVisit",
@@ -395,64 +269,16 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.findPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.initCreationForm",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
       "kind": "CALLS",
       "band": "typed"
     },
     {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.initCreationForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.initCreationForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.PetController.initCreationForm\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}/pets/new\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.initPetBinder",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.initUpdateForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.PetController.initUpdateForm\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}/pets/{petId}/edit\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.populatePetTypes",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processCreationForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.isNew",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processCreationForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processCreationForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processCreationForm",
@@ -477,30 +303,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.isDuplicatePetNameViolation",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processCreationForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.PetController.processCreationForm\",\"method\":\"POST\",\"path\":\"/owners/{ownerId}/pets/new\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processUpdateForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processUpdateForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processUpdateForm",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processUpdateForm",
@@ -525,30 +327,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.updatePetDetails",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processUpdateForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.PetController.processUpdateForm\",\"method\":\"POST\",\"path\":\"/owners/{ownerId}/pets/{petId}/edit\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.updatePetDetails",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.updatePetDetails",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.updatePetDetails",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.updatePetDetails",
@@ -582,33 +360,9 @@
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeFormatter.parse",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeFormatter.parse",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeFormatter.print",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.isNew",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
@@ -621,12 +375,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getType",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.VisitController.initNewVisitForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.VisitController.initNewVisitForm\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}/pets/{petId}/visits/new\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.VisitController.loadPetWithVisit",
@@ -659,34 +407,16 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.VisitController.processNewVisitForm",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.VisitController.processNewVisitForm\",\"method\":\"POST\",\"path\":\"/owners/{ownerId}/pets/{petId}/visits/new\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.system.CacheConfiguration.petclinicCacheConfigurationCustomizer",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.system.CacheConfiguration.cacheConfiguration",
       "kind": "CALLS",
       "band": "typed"
     },
     {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.system.CrashController.triggerException",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.system.CrashController.triggerException\",\"method\":\"GET\",\"path\":\"/oups\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.system.WebConfiguration.addInterceptors",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.system.WebConfiguration.localeChangeInterceptor",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.system.WelcomeController.welcome",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.system.WelcomeController.welcome\",\"method\":\"GET\",\"path\":\"/\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet.addSpecialty",
@@ -708,21 +438,9 @@
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.showResourcesVetList",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.showResourcesVetList",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vets.getVetList",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.showResourcesVetList",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.vet.VetController.showResourcesVetList\",\"method\":\"GET\",\"path\":\"/vets\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.showVetList",
@@ -737,94 +455,10 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.showVetList",
-      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.vet.VetController.showVetList\",\"method\":\"GET\",\"path\":\"/vets.html\"}",
-      "kind": "DEFINES_ROUTE",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PetClinicConcurrencyTests.testDuplicatePetNameRaceConditionIsBlocked",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.PostgresIntegrationTests.PropertiesLogger.onApplicationEvent",
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.PostgresIntegrationTests.PropertiesLogger.printProperties",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PostgresIntegrationTests.PropertiesLogger.printProperties",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.PostgresIntegrationTests.PropertiesLogger.printProperties",
@@ -833,24 +467,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.PostgresIntegrationTests.main",
-      "dst_qn": "src.test.java.org.springframework.samples.petclinic.PostgresIntegrationTests.PropertiesLogger",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.model.ValidatorTests.shouldNotValidateWhenFirstNameEmpty",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.model.ValidatorTests.shouldNotValidateWhenFirstNameEmpty",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.model.ValidatorTests.shouldNotValidateWhenFirstNameEmpty",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
       "kind": "CALLS",
@@ -900,18 +516,6 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.model.ValidatorTests.shouldNotValidateWhenLastNameEmpty",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.model.ValidatorTests.shouldNotValidateWhenLastNameEmpty",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.model.ValidatorTests.shouldNotValidateWhenLastNameEmpty",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
       "kind": "CALLS",
       "band": "typed"
@@ -957,48 +561,6 @@
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.model.ValidatorTests.getOnlyViolation",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
@@ -1026,12 +588,6 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
       "kind": "CALLS",
       "band": "typed"
@@ -1043,12 +599,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormByLastName",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
       "kind": "CALLS",
@@ -1076,19 +626,7 @@
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormIgnoresSurroundingWhitespace",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
       "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormIgnoresSurroundingWhitespace",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormIgnoresSurroundingWhitespace",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormIgnoresSurroundingWhitespace",
@@ -1122,18 +660,6 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormSuccess",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormSuccess",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormSuccess",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
       "kind": "CALLS",
       "band": "typed"
@@ -1158,33 +684,9 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners",
@@ -1203,54 +705,6 @@
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.george",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processUpdateOwnerFormWithIdMismatch",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processUpdateOwnerFormWithIdMismatch",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processUpdateOwnerFormWithIdMismatch",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processUpdateOwnerFormWithIdMismatch",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processUpdateOwnerFormWithIdMismatch",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processUpdateOwnerFormWithIdMismatch",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processUpdateOwnerFormWithIdMismatch",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processUpdateOwnerFormWithIdMismatch",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.processUpdateOwnerFormWithIdMismatch",
@@ -1311,12 +765,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getVisits",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerControllerTests.setup",
@@ -1332,42 +780,6 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetAddsPersistedPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetAddsPersistedPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetAddsPersistedPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetAddsPersistedPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetAddsPersistedPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetAddsPersistedPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetAddsPersistedPet",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
       "kind": "CALLS",
       "band": "typed"
@@ -1401,54 +813,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetAddsPersistedPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetAddsPersistedPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetDoesNotAddDuplicatePet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetDoesNotAddDuplicatePet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetDoesNotAddDuplicatePet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetDoesNotAddDuplicatePet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetDoesNotAddDuplicatePet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetDoesNotAddDuplicatePet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetDoesNotAddDuplicatePet",
@@ -1485,60 +849,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetDoesNotAddDuplicatePet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.OwnerTests.addPetDoesNotAddDuplicatePet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
@@ -1560,63 +870,9 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetControllerTests.setup",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.makePetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.makePetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.makePetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.makePetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.shouldParse",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.shouldParse",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.shouldParse",
@@ -1689,30 +945,6 @@
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.makePetTypes",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.testPrint",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.testPrint",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.testPrint",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.testPrint",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetType",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetTypeFormatterTests.testPrint",
@@ -1728,30 +960,6 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidBirthDate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidBirthDate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidBirthDate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidBirthDate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidBirthDate",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
       "kind": "CALLS",
       "band": "typed"
@@ -1785,30 +993,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetName",
@@ -1848,18 +1032,6 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetType",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetType",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithInvalidPetType",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
       "kind": "CALLS",
       "band": "typed"
@@ -1893,30 +1065,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.validate",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithLongPetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithLongPetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithLongPetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithLongPetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.ValidateHasErrors.validateWithLongPetName",
@@ -1967,24 +1115,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.setUp",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.setUp",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.setUp",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.supportsPetClass",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.supports",
       "kind": "CALLS",
@@ -1995,30 +1125,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetValidator.supports",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.validate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.validate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.validate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.validate",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.PetValidatorTests.validate",
@@ -2058,18 +1164,6 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.VisitControllerTests.init",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.VisitControllerTests.init",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.VisitControllerTests.init",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
       "kind": "CALLS",
       "band": "typed"
@@ -2079,72 +1173,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.owner.VisitControllerTests.init",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getVisits",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getVisits",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getVisits",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getVisits",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
@@ -2159,90 +1187,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Visit.setDescription",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAddNewVisitForPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Visit.setDescription",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
       "kind": "CALLS",
@@ -2265,66 +1209,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
       "kind": "TESTS",
       "band": "import-guided"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldAllowSamePetNameForDifferentOwners",
@@ -2337,66 +1221,6 @@
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.service.EntityUtils.getById",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
@@ -2424,66 +1248,6 @@
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFailToInsertDuplicatePetNameForSameOwner",
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.service.EntityUtils.getById",
       "kind": "CALLS",
       "band": "typed"
@@ -2505,42 +1269,6 @@
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.service.EntityUtils.getById",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindAllPetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindAllPetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindAllPetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindAllPetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindAllPetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindAllPetTypes",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindAllPetTypes",
@@ -2567,198 +1295,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindOwnersByLastName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindOwnersByLastName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindOwnersByLastName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindOwnersByLastName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getType",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindSingleOwnerWithPet",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getType",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet.getNrOfSpecialties",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet.getNrOfSpecialties",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet.getSpecialties",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet.getSpecialties",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet.getSpecialties",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet.getSpecialties",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVets",
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.service.EntityUtils.getById",
       "kind": "CALLS",
@@ -2769,66 +1305,6 @@
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.service.EntityUtils.getById",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVisitsByPetId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVisitsByPetId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVisitsByPetId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getVisits",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldFindVisitsByPetId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getVisits",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
@@ -2843,162 +1319,6 @@
       "band": "import-guided"
     },
     {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.setAddress",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.setAddress",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.setCity",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.setCity",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.setTelephone",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.setTelephone",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findByLastNameStartingWith",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.getPets",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
       "kind": "CALLS",
@@ -3009,42 +1329,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet",
       "kind": "TESTS",
       "band": "import-guided"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setBirthDate",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.setType",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetTypeRepository.findPetTypes",
-      "kind": "TESTS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldInsertPetIntoDatabaseAndGenerateId",
@@ -3059,138 +1343,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdateOwner",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.getName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.ClinicServiceTests.shouldUpdatePetName",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.EntityUtils.getById",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.service.EntityUtils.getById",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.system.CrashControllerTests.triggerException",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.system.CrashController.triggerException",
       "kind": "CALLS",
@@ -3201,48 +1353,6 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.system.CrashController.triggerException",
       "kind": "TESTS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.helen",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.helen",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.helen",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.NamedEntity.setName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.helen",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.helen",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.helen",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Specialty",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.helen",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet",
-      "kind": "CALLS",
-      "band": "exact"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.helen",
@@ -3251,30 +1361,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.james",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.james",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.james",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.james",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.setup",
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.helen",
       "kind": "CALLS",
@@ -3297,132 +1383,6 @@
       "dst_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetControllerTests.james",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.getId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.BaseEntity.setId",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getFirstName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getFirstName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getFirstName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getFirstName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.getLastName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setFirstName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.model.Person.setLastName",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet",
-      "kind": "CALLS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src.test.java.org.springframework.samples.petclinic.vet.VetTests.serialization",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet",
-      "kind": "TESTS",
-      "band": "exact"
-    },
-    {
-      "src_qn": "src/test/java/org/springframework/samples/petclinic/system/CrashControllerTests.java",
-      "dst_qn": "src.main.java.org.springframework.samples.petclinic.system.CrashController",
-      "kind": "CALLS",
-      "band": "exact"
     }
   ]
 }

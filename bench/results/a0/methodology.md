@@ -24,10 +24,11 @@ The result files hold the latest run. Earlier runs stay in Git history:
 | post-114, issue 114 (lexical `use` scope) | the commit "Issue 114: scope Rust use bindings lexically", parent `15feb3e` | `c8239ba` |
 | post-109, issue 109 (trait impl applicability) | the commit "Issue 109: validate Rust impl applicability before typed resolution", parent `c8239ba` | `83fbb45` |
 | post-117, issue 117 (trusted stages and impl headers) | the commit "Issue 117: validate trait impl applicability in import-guided resolution", parent `83fbb45` | `27f7d5b` |
-| post-118, issue 118 (a `use` group's bindings) | the commit "Issue 118: read each Rust use-group binding as its own path", parent `27f7d5b` | that commit (these files) |
+| post-118, issue 118 (a `use` group's bindings) | the commit "Issue 118: read each Rust use-group binding as its own path", parent `27f7d5b` | `1feb3d7` |
+| post-R3, issue 102 (`exact` and `scoped` not drawn; `a0-metrics-2`) | the commit "Issue 102: stop Exact and Scoped from drawing graph edges", parent `1feb3d7` | that commit (these files) |
 
 Every run uses the same golden pins, oracle versions and configuration,
-`a0-match-1` and `a0-metrics-1`. The PDX diagnostic corpus is `e746b1e` in all, so
+`a0-match-1` and `a0-metrics-1` (`a0-metrics-2` from post-R3, below). The PDX diagnostic corpus is `e746b1e` in all, so
 its change is the resolver's alone.
 
 The post-R2 files record `engine_version` 7: at `d14ccd4` the engine called itself 7.
@@ -62,8 +63,8 @@ baseline documents and `mismatches.jsonl` exactly.
 |---|---|
 | `python.json`, `rust.json` | One golden each: provenance, coverage, 4.13.1's measures band by band, the recall breakdown, `exact` and `scoped` false positives by category, overloads, the blocklist, counterfactuals and examples. `rust.json` also has macro token trees and receivers |
 | `pdx-self.json` | The same for the PDX repository's Rust code. Diagnostic only: it can neither pass nor fail G1b |
-| `counterfactuals.json` | A0.2's policies C0 to C6 for each corpus |
-| `mismatches.jsonl` | Every drawn false positive and every oracle relation no drawn edge reproduces, for all three corpora: file, line, byte span, callee, band, structural target, oracle target, category |
+| `counterfactuals.json` | A0.2's policies C0 to C7 for each corpus |
+| `mismatches.jsonl` | Every drawn false positive, every piece of wrong weak evidence (`wrong_weak_evidence`, issue 102) and every oracle relation no drawn edge reproduces, for all three corpora (PDX itself: the first two only): file, line, byte span, callee, band, structural target, oracle target, category |
 
 The full site datasets are not committed. `scripts/a0/run.py` regenerates them, and
 the result documents with them, from the pins and tool versions recorded here.
@@ -183,7 +184,8 @@ never the reverse.
 definition. In Python, a class and its own `__init__` or `__new__` are also the
 same target.
 
-**M6. Verdict of a drawn edge.**
+**M6. Verdict of a drawn edge**, and since issue 102 of weak evidence (`exact`,
+`scoped`) for the one candidate it keeps.
 
 - **correct**: the oracle's mapped target is the edge's target (M5).
 - **false_positive** when:
@@ -193,9 +195,22 @@ same target.
     maps to a different symbol (M4 read backwards).
 - **unverifiable** otherwise.
 
-## Measures (`a0-metrics-1`)
+## Measures (`a0-metrics-2`)
 
-These are 4.13.1's, exactly:
+These are 4.13.1's, exactly. Since issue 102 (R3, `a0-metrics-2`) the drawn bands are
+`typed`, `import-guided` and `inheritance-guided`: the union and recall count only
+them. The formulas are unchanged; the drawn set is 4.2.2's, which changed.
+
+- `exact` and `scoped` are **weak evidence**: never drawn, each site keeping one
+  candidate. Their own rows in the precision table are measured as before, on that
+  candidate (M6), so their precision keeps its meaning and stays comparable.
+- `union_with_evidence` is the union over the drawn bands and weak evidence: the union
+  as `a0-metrics-1` defined it, for comparison only. It is not 4.13.1's union.
+- Recall's `weak_evidence` counts the relations at parsed sites that end as weak
+  evidence, by band and verdict; the breakdown has them as
+  `resolution_not_drawn:exact` and `resolution_not_drawn:scoped`.
+- Wrong weak evidence is `wrong_weak_evidence` in `mismatches.jsonl`, never a false
+  positive, which is a drawn edge's.
 
 - **precision** = drawn edges whose site has an oracle verdict and whose target the
   oracle confirms ÷ drawn edges whose site has an oracle verdict;
@@ -246,6 +261,10 @@ change; only which edge a site would draw does.
 | C4 | A blocklisted site with a valid typed answer draws it as `typed`. Valid means the engine's verdict is typed (`from_engine`) and its target maps to exactly one definition, as Stage 3 maps one |
 | C5 | A Rust site in `exact` or `scoped` whose receiver is unproven is not drawn. See below |
 | C6 | C3, C4 and C5 together |
+| C7 | `exact` and `scoped` drawn, as before issue 102 |
+
+Since issue 102 the current behaviour (C0) draws neither `exact` nor `scoped`, so C1,
+C2, C3 and C5 equal C0 and C6 equals C4; C7 shows what drawing them again would do.
 
 **Unproven receiver (C5).** This mirrors the protection Python's extraction gives:
 a receiver rooted in `self` or an imported name is trusted.

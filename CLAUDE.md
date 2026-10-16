@@ -38,8 +38,8 @@ floors failed.**
 
 - `typed`, `import-guided` and `inheritance-guided` stay drawn.
 - `exact` and `scoped` short-name uniqueness is no longer trusted graph truth
-  (issue 102, a specification change to 4.2.2). The approved change is noted in
-  4.2.2; the table changes with the implementation.
+  (issue 102, a specification change to 4.2.2, implemented as R3: they are weak
+  evidence, never drawn).
 - A valid typed answer comes before the blocklist (issue 103, a specification change
   to 4.5 Stage 3, amended with the implementation).
 - Recall is a first-class blocker (issues 104 to 108).
@@ -111,8 +111,15 @@ from a Rust `use` brace group read as its prefix's module: every name the group 
 taken for that module, so `T::f` became `prefix::f`. Each binding of a group now leads
 where its own path does (below). The four fall to `exact`, still wrong, R3 acceptance
 cases; every trusted band of the goldens and PDX itself has no false edge (Rust golden
-`import-guided` 213/213, PDX 261/261). Stage 3 only: no version moves. Next, **only when
-the driver authorises it**: R3 (issue 102); issue 113 waits for recall work.
+`import-guided` 213/213, PDX 261/261). Stage 3 only: no version moves.
+
+**R3 is done (2026-10-16): issue 102 resolved.** `exact` and `scoped` are weak evidence:
+ordered bands, measured and counted, that never draw an edge (below). The drawn
+structural resolution bands are `typed`, `import-guided` and `inheritance-guided`, and
+none has a known false edge in the goldens or PDX itself. Drawn recall falls, as decision
+65 accepted: correctness first. A declared route's `DEFINES_ROUTE` edge, labelled
+`exact`, stops drawing with it; its band is issue 119 (open). Next, **only when the
+driver authorises it**: R4 (issue 107A); issue 113 waits for recall work.
 
 Rerun `scripts/a0/run.py` after every change to resolution or extraction, and report
 each golden's typed precision, union precision and recall. Build `pdx-bench` first
@@ -121,7 +128,10 @@ anything unless `pdx-bench versions` reports the source's engine version, `pdx_c
 constants and worker protocol (issue 115, resolved). A result's `engine_version` is the
 executed engine's. A recall gain that draws low-confidence edges again is not accepted.
 Not drawing `exact` and `scoped` lowers recall first; that is accepted, correctness
-first.
+first. Since R3 (`a0-metrics-2`) the union and recall are the drawn bands' (`typed`,
+`import-guided`, `inheritance-guided`); `exact` and `scoped` keep their own precision,
+measured on the one candidate each keeps, and `union_with_evidence` is the union as it
+was before R3, for comparison only.
 
 ## State: P2 in progress
 
@@ -558,6 +568,34 @@ only when the impl is proven to apply.
   rust_impl_bounds.rs` (Stage 3, a warm cache), `rust_targets.rs`'s E6 (the R3 case) and
   E8, and the cache test above.
 
+Issue 102 (R3, decision 65; Stage 3 and 4 only, no version moves): `exact` and `scoped`
+are weak evidence, never drawn.
+- **Bands.** `Band::is_drawn` is `precise`, `typed`, `import-guided`,
+  `inheritance-guided`; `Band::is_weak_evidence` is `exact`, `scoped`. Names, order,
+  `confidence_rank`, coverage and A0 are unchanged; nothing is renumbered.
+- **Shape.** A `Resolution` of a weak band has no target and exactly one candidate
+  (`InvalidResolution::Weak` otherwise); `target()` is for drawn bands only,
+  `weak_candidate()` for weak ones. `narrow` returns `Narrowed::Weak` when a non-drawn
+  stage leaves one candidate (the zero-result rule is unchanged); issue 110's check
+  still turns a weak one into `candidate`.
+- **Rows.** No `CALLS`, `CALL_REFERENCE` or `TESTS` edge; a `candidates` row, band
+  `candidate`, the one candidate, a reason beginning `exact:` or `scoped:` (4.3; no
+  schema change, decision 65 (4)). Coverage counts the band.
+- **Elsewhere.** Contracts take only drawn resolutions as internal or as proof of a stub
+  call; an Express handler keeps its weak evidence and band (`scoped` for the name in
+  the file), so its edge is not drawn; a declared route's edge is `exact`, not drawn
+  (issue 119). Goldens hold drawn edges only, so every `exact` and `scoped` tuple left.
+- **A0.** `a0-metrics-2`: `DRAWN` is the three, `EVIDENCE` the two, measured on the
+  candidate kept; the union and recall are the drawn ones; `union_with_evidence` and
+  policy C7 are the pre-R3 view; wrong weak evidence is `wrong_weak_evidence` in
+  `mismatches.jsonl`, never a false positive.
+- **Rule.** Never draw an edge from a name's uniqueness, in the repository or a module;
+  a stronger band needs its own measurement and specification change.
+- **Tests.** `crates/pdx-core/tests/weak_evidence.rs` (R3-1 to R3-10 through a built
+  segment), `bands.rs`, `stages.rs`, `rust_targets.rs`'s E6 (`with_rejection.rs:196`),
+  `rust_import_bindings.rs` (issue 118's shapes), `issue_104_sites.rs` (no tuple in the
+  axum golden), `golden_expected.rs`, `audit_sites.rs`, `scripts/a0/test_a0.py`.
+
 Issue 118 (Stage 3 only, no version moves): a name a Rust `use` brace group binds leads
 where its own path does.
 - **Record.** The engine records one import per `use`, a group's whole text. Stage 3's
@@ -618,7 +656,11 @@ external-only bindings (`external`, and a Rust path starting with an extern-prel
 crate, issue 104); then import-guided, inheritance-guided, exact and
 scoped through `narrow`, which never lets a stage add a candidate or an empty stage
 erase one (a Rust member a macro may write, issue 110, or a trait impl's not proven to
-apply, issue 117, is a `candidate`); then `candidate` or `unresolved`. Engine hints seed candidates and never
+apply, issue 117, is a `candidate`); then `candidate` or `unresolved`. `exact` and
+`scoped` are weak evidence (issue 102): `narrow` gives `Narrowed::Weak`, the site keeps
+its band and its one candidate (`Resolution::weak_candidate`), never a target, and Stage
+4 writes a `candidate` row whose reason begins `exact:` or `scoped:` (4.3's
+`candidates.band` names neither), never an edge. Engine hints seed candidates and never
 restrict them; `exact` is the repository's one definition of the name, never a
 narrowing to several; `scoped` is the module, never a directory the matrix does not
 call a module. `typed_only` sites, references and engine-found sites are call sites

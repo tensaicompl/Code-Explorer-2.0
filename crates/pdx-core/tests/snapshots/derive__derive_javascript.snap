@@ -4,8 +4,8 @@ expression: projection(&run.graph)
 ---
 nodes: {"File": 2, "Folder": 1, "Function": 2, "Module": 1, "Repo": 1, "Variable": 1}
 entry points: 0
-edges: {("CALLS", "exact"): 2}
-candidates: {}
+edges: {}
+candidates: {"candidate": 2}
 files: src/app.js=parsed src/lib.js=parsed
   Function src.app.run4 run4 parent=File:app.js module=javascript:src id=WS44Z6K9JFBVWB9R0S5CYMW1W5
   Function src.lib.twice twice parent=File:lib.js module=javascript:src id=JJVB48B8BM8AYA720AE8ETH01X

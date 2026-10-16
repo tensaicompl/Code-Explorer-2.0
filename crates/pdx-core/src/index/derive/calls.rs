@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 
 use pdx_engine::{Call, SiteRef};
 
-use crate::bands::CandidateBand;
+use crate::bands::{Band, CandidateBand};
 use crate::ids::{NodeId, SiteKey, ast_fingerprint};
 use crate::kinds::{EdgeKind, SiteKind};
 use crate::model::{CandidateSite, Edge, Site, Span};
@@ -148,16 +148,39 @@ pub(crate) fn call_site(
     Ok(Ok((site, caller)))
 }
 
-/// Why a site draws no edge, in words.
-fn reason(band: CandidateBand, candidates: usize) -> &'static str {
-    match band {
-        CandidateBand::Candidate if candidates > 1 => "several definitions survive every stage",
-        CandidateBand::Candidate => "a candidate no stage validates",
-        CandidateBand::External => "the target is outside the repository",
-        CandidateBand::Blocked => "the callee's name is on the generic-name blocklist",
-        CandidateBand::Unresolved => "no definition the name can reach",
-        CandidateBand::Contradicted => "a precise index contradicts the edge",
+/// A non-drawn site's row: its band, and why it draws no edge, in words. `exact` and
+/// `scoped` are weak evidence (issue 102): 4.3's `candidates.band` does not name them,
+/// so their row is a `candidate` one with their one candidate, and its reason names the
+/// band. `None` for a drawn band, which has an edge instead.
+fn candidate_row(band: Band, candidates: usize) -> Option<(CandidateBand, &'static str)> {
+    if band.is_drawn() {
+        return None;
     }
+    let row = match band {
+        Band::Exact => (
+            CandidateBand::Candidate,
+            "exact: the name's only definition in the repository, weak evidence that draws no edge",
+        ),
+        Band::Scoped => (
+            CandidateBand::Candidate,
+            "scoped: the name's only definition in the caller's module, weak evidence that draws no edge",
+        ),
+        _ => {
+            let band = CandidateBand::try_from(band).ok()?;
+            let reason = match band {
+                CandidateBand::Candidate if candidates > 1 => {
+                    "several definitions survive every stage"
+                }
+                CandidateBand::Candidate => "a candidate no stage validates",
+                CandidateBand::External => "the target is outside the repository",
+                CandidateBand::Blocked => "the callee's name is on the generic-name blocklist",
+                CandidateBand::Unresolved => "no definition the name can reach",
+                CandidateBand::Contradicted => "a precise index contradicts the edge",
+            };
+            (band, reason)
+        }
+    };
+    Some(row)
 }
 
 /// Persists every resolved site: drawn edges and candidate rows. Returns the drawn
@@ -233,11 +256,6 @@ pub(crate) fn materialise(
                 drawn.push(DrawnCall { caller, edge });
             }
         } else {
-            let candidate_band =
-                CandidateBand::try_from(band).map_err(|_| DeriveError::Missing {
-                    path: path.to_owned(),
-                    detail: "a band that is neither drawn nor a candidate band",
-                })?;
             let mut candidate_ids: Vec<NodeId> = resolution
                 .candidates()
                 .iter()
@@ -245,7 +263,11 @@ pub(crate) fn materialise(
                 .collect::<Result<_, _>>()?;
             candidate_ids.sort();
             candidate_ids.dedup();
-            let reason = reason(candidate_band, candidate_ids.len());
+            let (candidate_band, reason) =
+                candidate_row(band, candidate_ids.len()).ok_or(DeriveError::Missing {
+                    path: path.to_owned(),
+                    detail: "a band that is neither drawn nor a candidate band",
+                })?;
             graph.add_candidate(CandidateSite {
                 site_id,
                 src,

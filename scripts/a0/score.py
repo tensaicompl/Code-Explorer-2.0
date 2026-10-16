@@ -11,16 +11,25 @@
 Every ratio is reported with its numerator and denominator. A counterfactual changes
 only which edge a site draws; the oracle's verdicts and the relations are A0.1's,
 fixed.
+
+Since issue 102 (R3) `exact` and `scoped` are weak evidence: never drawn, their one
+candidate kept. They are measured as before, with the same formula, on that candidate
+(`EVIDENCE`), and kept out of everything 4.13.1 counts as drawn: the union and recall
+(METRICS_VERSION 2). `union_with_evidence` is the union as it was defined before issue
+102, for comparison only.
 """
 
 from __future__ import annotations
 
 from collections import Counter
 
-METRICS_VERSION = "a0-metrics-1"
+METRICS_VERSION = "a0-metrics-2"
 
-DRAWN = ("typed", "import-guided", "inheritance-guided", "exact", "scoped")
-POLICIES = ("C0", "C1", "C2", "C3", "C4", "C5", "C6")
+# The structural bands 4.2.2 draws (`precise` comes from no structural stage).
+DRAWN = ("typed", "import-guided", "inheritance-guided")
+# Weak evidence: measured, never drawn (issue 102).
+EVIDENCE = ("exact", "scoped")
+POLICIES = ("C0", "C1", "C2", "C3", "C4", "C5", "C6", "C7")
 POLICY_TEXT = {
     "C0": "current behaviour",
     "C1": "`exact` not drawn",
@@ -30,6 +39,7 @@ POLICY_TEXT = {
     "C5": "a Rust call on an unproven member or static receiver does not fall through "
           "to `exact` or `scoped`",
     "C6": "C3, C4 and C5 together",
+    "C7": "`exact` and `scoped` drawn, as before issue 102",
 }
 
 # A Rust receiver C5 treats as unproven (audit.receiver_proof).
@@ -52,26 +62,39 @@ def edge_under(policy: str, row: dict) -> tuple[str | None, list | None, str | N
         return None, None, None
     if policy in ("C4", "C6") and band == "blocked" and row.get("typed_target"):
         return "typed", row["typed_target"], row.get("typed_target_verdict")
+    if band in EVIDENCE:
+        # Weak evidence draws only under C7, the policy before issue 102. C1, C2, C3 and
+        # C5, which stopped drawing some of it, are C0 since; C6 is C4.
+        if policy != "C7":
+            return None, None, None
+        return band, row["target"], row.get("verdict")
     if band not in DRAWN:
-        return None, None, None
-    if policy in ("C1", "C3", "C6") and band == "exact":
-        return None, None, None
-    if policy in ("C2", "C3", "C6") and band == "scoped":
-        return None, None, None
-    if policy in ("C5", "C6") and band in ("exact", "scoped") and \
-            row.get("receiver_proof") in UNPROVEN:
         return None, None, None
     return band, row["target"], row.get("verdict")
 
 
+def evidence_under(row: dict) -> tuple[str | None, list | None, str | None]:
+    """(band, candidate, verdict) of a site's weak evidence (`exact`, `scoped`), the
+    one candidate Stage 3 kept for it, or (None, None, None); never drawn."""
+    if row.get("status") != "resolved" or not row.get("materialized", True):
+        return None, None, None
+    if row.get("band") not in EVIDENCE:
+        return None, None, None
+    return row["band"], row["target"], row.get("verdict")
+
+
 def precision_table(rows: list[dict], policy: str = "C0", kinds=("call", "reference")) -> dict:
-    """Per band and for the union: drawn, verifiable, correct, false positives."""
-    per: dict[str, Counter] = {b: Counter() for b in DRAWN}
+    """Per band, for the union of drawn bands and, for comparison, of drawn bands and
+    weak evidence: drawn (or, for weak evidence, kept), verifiable, correct, false
+    positives."""
+    per: dict[str, Counter] = {b: Counter() for b in DRAWN + EVIDENCE}
     for r in rows:
         kind = "reference" if r.get("is_reference") else "call"
         if kind not in kinds:
             continue
         band, _target, verdict = edge_under(policy, r)
+        if band is None and policy != "C7":
+            band, _target, verdict = evidence_under(r)
         if band is None:
             continue
         c = per[band]
@@ -81,11 +104,15 @@ def precision_table(rows: list[dict], policy: str = "C0", kinds=("call", "refere
             c[verdict] += 1
     out = {}
     union = Counter()
-    for b in DRAWN:
+    with_evidence = Counter()
+    for b in DRAWN + EVIDENCE:
         c = per[b]
-        union.update(c)
+        with_evidence.update(c)
+        if b in DRAWN or policy == "C7":
+            union.update(c)
         out[b] = _band_entry(c)
     out["union"] = _band_entry(union)
+    out["union_with_evidence"] = _band_entry(with_evidence)
     return out
 
 
@@ -112,6 +139,7 @@ def recall_table(site_rows: list[dict], rel_rows: list[dict], policy: str = "C0"
     relations went (never mixing a missing site with a missing resolution)."""
     by_site = {(r["file"], r["site"]): r for r in site_rows}
     buckets = Counter()
+    evidence = Counter()
     for rel in relations(rel_rows):
         sites = rel.get("pdx_sites") or []
         resolved = [s for s in sites if s["status"] == "resolved"]
@@ -135,6 +163,10 @@ def recall_table(site_rows: list[dict], rel_rows: list[dict], policy: str = "C0"
             buckets["resolution_not_materialized:" + (row.get("band") or "none")] += 1
         elif band is None:
             buckets["resolution_not_drawn:" + (row.get("band") or "none")] += 1
+            weak, _candidate, weak_verdict = evidence_under(row)
+            if weak:
+                evidence[weak] += 1
+                evidence[weak + ":" + (weak_verdict or "unverifiable")] += 1
         elif verdict == "correct":
             buckets["drawn_correct"] += 1
         else:
@@ -157,6 +189,9 @@ def recall_table(site_rows: list[dict], rel_rows: list[dict], policy: str = "C0"
         "recall": ratio(buckets["drawn_correct"], buckets["at_parsed_site"]),
         "end_to_end_recall": ratio(buckets["drawn_correct"], total),
         "breakdown": dict(sorted(buckets.items())),
+        # Relations at parsed sites that end as weak evidence (issue 102): not drawn,
+        # by band and by whether the candidate kept is the oracle's.
+        "weak_evidence": dict(sorted(evidence.items())),
         "oracle_calls_outside_relations": dict(sorted(unmapped.items())),
     }
 

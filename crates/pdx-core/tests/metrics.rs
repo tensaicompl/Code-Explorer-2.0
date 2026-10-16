@@ -717,9 +717,11 @@ fn fan_counts_edge_weight() {
 
 #[test]
 fn self_call_counts_both_fans() {
+    // The recursion through `self`, so that it is a drawn edge (`inheritance-guided`):
+    // a bare self-call is only `exact` evidence, which draws none (issue 102).
     let g = graph(&[(
         "pkg/fact.py",
-        "def fact(n):\n    return n * fact(n - 1) if n else 1\n\n\ndef plain(n):\n    return n\n",
+        "class Math:\n    def fact(self, n):\n        return n * self.fact(n - 1) if n else 1\n\n    def plain(self, n):\n        return n\n",
     )]);
     assert_eq!(metric(&g, "pkg/fact.py", "fact", FAN_IN), Some(1.0));
     assert_eq!(metric(&g, "pkg/fact.py", "fact", FAN_OUT), Some(1.0));
@@ -809,8 +811,9 @@ def sink(n):
             print(i, j)
 
 
-def fact(n):
-    return n * fact(n - 1) if n else 1
+class Factorial:
+    def fact(self, n):
+        return n * self.fact(n - 1) if n else 1
 
 
 def outer(n):
@@ -991,9 +994,12 @@ fn metrics_exclude_file_level_module() {
     let g = graph(&[
         (
             "pkg/main.py",
-            // A top-level call: its caller is the file, which is no symbol.
-            "def compute_total():\n    return 1\n\n\ncompute_total()\n",
+            // A top-level call: its caller is the file, which is no symbol. Through an
+            // import, so that it is drawn (a name's uniqueness alone draws nothing,
+            // issue 102).
+            "from pkg.total import compute_total\n\n\ncompute_total()\n",
         ),
+        ("pkg/total.py", "def compute_total():\n    return 1\n"),
         ("pkg/__init__.py", ""),
         // An inline module definition: a TypeScript namespace.
         (
@@ -1045,7 +1051,7 @@ fn metrics_exclude_file_level_module() {
     assert!(metrics(&g, file).is_empty());
     // The file's call still counts in its callee's fan_in.
     assert_eq!(
-        metric(&g, "pkg/main.py", "compute_total", FAN_IN),
+        metric(&g, "pkg/total.py", "compute_total", FAN_IN),
         Some(1.0)
     );
 }

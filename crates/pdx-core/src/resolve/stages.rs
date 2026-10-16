@@ -98,6 +98,10 @@ pub enum InvalidResolution {
     /// A drawn band has exactly one target and no candidates.
     #[error("a `{0}` resolution has one target and no candidates")]
     Drawn(Band),
+    /// Weak evidence (`exact`, `scoped`) has no target and exactly the one candidate it
+    /// names (issue 102).
+    #[error("a `{0}` resolution has no target and exactly one candidate")]
+    Weak(Band),
     /// `candidate` has candidates and no target.
     #[error("a `candidate` resolution has candidates and no target")]
     Candidate,
@@ -111,9 +115,12 @@ pub enum InvalidResolution {
 
 /// What a site resolves to.
 ///
-/// Only a shape its band means can be made: a drawn band has its one target and no
-/// candidates; `candidate` has one or more candidates, sorted and distinct, and no
-/// target; `external`, `blocked` and `unresolved` have neither.
+/// Only a shape its band means can be made: a drawn band (`typed`, `import-guided`,
+/// `inheritance-guided`) has its one target and no candidates; weak evidence (`exact`,
+/// `scoped`) has no target and the one candidate it names, never drawn (issue 102);
+/// `candidate` has one or more candidates, sorted and distinct, and no target;
+/// `external`, `blocked` and `unresolved` have neither. So no consumer can read a
+/// target from a band that is not drawn.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Resolution {
     band: Band,
@@ -135,13 +142,14 @@ impl Resolution {
         engine: Option<EngineAnswer>,
     ) -> Result<Self, InvalidResolution> {
         match band {
-            Band::Typed
-            | Band::ImportGuided
-            | Band::InheritanceGuided
-            | Band::Exact
-            | Band::Scoped => {
+            Band::Typed | Band::ImportGuided | Band::InheritanceGuided => {
                 if target.is_none() || !candidates.is_empty() {
                     return Err(InvalidResolution::Drawn(band));
+                }
+            }
+            Band::Exact | Band::Scoped => {
+                if target.is_some() || candidates.len() != 1 {
+                    return Err(InvalidResolution::Weak(band));
                 }
             }
             Band::Candidate => {
@@ -172,14 +180,26 @@ impl Resolution {
         self.band
     }
 
-    /// The target, for a drawn band.
+    /// The target, for a drawn band; never for `exact` or `scoped`, which are not drawn
+    /// (issue 102).
     pub fn target(&self) -> Option<&DefinitionRef> {
         self.target.as_ref()
     }
 
-    /// The candidates, for `candidate`: sorted, each once.
+    /// The candidates: for `candidate`, sorted, each once; for `exact` and `scoped`, the
+    /// one their weak evidence names.
     pub fn candidates(&self) -> &[DefinitionRef] {
         &self.candidates
+    }
+
+    /// The one candidate weak evidence names, for `exact` and `scoped`: evidence and a
+    /// ranking, never a target (issue 102).
+    pub fn weak_candidate(&self) -> Option<&DefinitionRef> {
+        if self.band.is_weak_evidence() {
+            self.candidates.first()
+        } else {
+            None
+        }
     }
 
     /// The engine's answer, where it gave one.
@@ -475,22 +495,32 @@ pub struct NarrowingStage<'a> {
 /// What narrowing reached.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Narrowed {
-    /// A stage left exactly one candidate: the site has its band.
+    /// A stage whose band is drawn left exactly one candidate: the site has its band
+    /// and the candidate is its target.
     Resolved {
         /// The stage's band.
         band: Band,
         /// The candidate.
         target: DefinitionRef,
     },
+    /// A stage of weak evidence (`exact`, `scoped`) left exactly one candidate: the site
+    /// has its band, and the candidate is kept as evidence, never as a target (issue
+    /// 102).
+    Weak {
+        /// The stage's band.
+        band: Band,
+        /// The candidate.
+        candidate: DefinitionRef,
+    },
     /// No stage left exactly one: the narrowest set reached, sorted, perhaps empty.
     Remaining(Vec<DefinitionRef>),
 }
 
 /// Narrows `initial` through `stages`, in order (4.5 Stage 3): the first stage whose
-/// evidence leaves exactly one candidate resolves the site; one that leaves several
-/// makes them the set every later stage sees; one with no evidence leaves the set as
-/// it was, so a stage that does not apply never erases candidates another source
-/// established.
+/// evidence leaves exactly one candidate settles the site, resolved when its band is
+/// drawn and weak evidence when not (issue 102); one that leaves several makes them the
+/// set every later stage sees; one with no evidence leaves the set as it was, so a
+/// stage that does not apply never erases candidates another source established.
 pub fn narrow(initial: Vec<DefinitionRef>, stages: Vec<NarrowingStage<'_>>) -> Narrowed {
     let mut current = initial;
     current.sort();
@@ -504,10 +534,16 @@ pub fn narrow(initial: Vec<DefinitionRef>, stages: Vec<NarrowingStage<'_>>) -> N
         subset.dedup();
         match subset.len() {
             0 => {}
-            1 => {
+            1 if stage.band.is_drawn() => {
                 return Narrowed::Resolved {
                     band: stage.band,
                     target: subset.remove(0),
+                };
+            }
+            1 => {
+                return Narrowed::Weak {
+                    band: stage.band,
+                    candidate: subset.remove(0),
                 };
             }
             _ => current = subset,
@@ -875,7 +911,9 @@ impl Resolver<'_> {
     }
 
     /// What the stages left settles a site: their one target, unless a macro may write
-    /// another member of its name for its type (issue 110), then the candidates.
+    /// another member of its name for its type (issue 110) or a trait impl's is not
+    /// proven to apply (issue 117), then the candidates; weak evidence its one candidate,
+    /// never a target (issue 102).
     fn settled(
         &self,
         context: &SiteContext<'_>,
@@ -897,6 +935,20 @@ impl Resolver<'_> {
                 Ok(made(Band::Candidate, None, vec![target])?)
             }
             Narrowed::Resolved { band, target } => Ok(made(band, Some(target), Vec::new())?),
+            // Weak evidence keeps its band and its one candidate, never a target (issue
+            // 102); a member a macro may write another of is no evidence at all (issue
+            // 110).
+            Narrowed::Weak { candidate, .. }
+                if self.member_unproven(
+                    context.language,
+                    context.receiver,
+                    context.name,
+                    &candidate,
+                ) =>
+            {
+                Ok(made(Band::Candidate, None, vec![candidate])?)
+            }
+            Narrowed::Weak { band, candidate } => Ok(made(band, None, vec![candidate])?),
             Narrowed::Remaining(candidates) if !candidates.is_empty() => {
                 Ok(made(Band::Candidate, None, candidates)?)
             }

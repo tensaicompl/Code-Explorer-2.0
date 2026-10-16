@@ -608,6 +608,28 @@ itself `typed` 0 (5,911/5,911), `import-guided` 0 (261/261, from 52/56),
 `inheritance-guided` 0 (76/76). The four sites PDX itself drew wrong are `exact` now, still
 wrong, R3 acceptance cases (issue 102). Python is identical.
 
+A0 after R3, issue 102, 2026-10-16 (`exact` and `scoped` are weak evidence, never drawn;
+Stage 3 and 4 only, engine 12; guarded by issue 115; `a0-metrics-2`: the union and
+recall count drawn bands only). Evidence, not an evaluation; the status stays `pending`.
+Same pins, oracles and rules; baseline post-118 (`1feb3d7`).
+
+| Golden | Floor | After issue 118 | After R3 | Floor met |
+|---|---|---|---|---|
+| Python | `typed` precision ≥ 97% | 314 / 314 = 100.00% | 314 / 314 = 100.00% | yes |
+| Python | union precision ≥ 95% | 624 / 657 = 94.98% | 339 / 339 = 100.00% | yes |
+| Python | recall ≥ 85% | 606 / 1,114 = 54.40% | 321 / 1,114 = 28.82% | **no** |
+| Rust | `typed` precision ≥ 97% | 860 / 860 = 100.00% | 860 / 860 = 100.00% | yes |
+| Rust | union precision ≥ 95% | 1,648 / 2,541 = 64.86% | 1,133 / 1,133 = 100.00% | yes |
+| Rust | recall ≥ 85% | 1,445 / 4,054 = 35.64% | 930 / 4,054 = 22.94% | **no** |
+
+Two of the six floors still fail, both recall's. The union is now the drawn bands'
+(`typed`, `import-guided`, `inheritance-guided`) and has no false edge in either golden or
+in PDX itself (6,248 / 6,248); before R3 it held `exact` and `scoped`, which carried every
+remaining false edge. Recall falls by exactly the correct weak evidence (285 and 515
+relations), which recall work recovers with positive evidence (issues 105 to 108, 113,
+116), never by drawing weak evidence again. G1b stays pending: recall is a first-class
+blocker (decision 65), and a precision gain alone passes no gate.
+
 ## G2 — after `P3-09`
 
 Status: **pending**

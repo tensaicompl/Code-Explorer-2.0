@@ -163,19 +163,38 @@ class Measures(unittest.TestCase):
         rels = [rel(0), rel(1), rel(3), rel(4), rel(5),
                 {"file": "a.py", "shape": "macro_tt", "oracle_status": "mapped",
                  "oracle_target_callable": True, "pdx_sites": []}]
-        p = score.precision_table(sites)["union"]
+        table = score.precision_table(sites)
+        # The formula, over every band that resolved to one definition, weak evidence
+        # included: the union as it was before issue 102.
+        p = table["union_with_evidence"]
         self.assertEqual((p["drawn"], p["oracle_verifiable"], p["correct"]), (4, 3, 2))
         self.assertEqual(p["precision"]["value"], round(2 / 3, 6))
         self.assertEqual(p["oracle_verifiable_fraction"]["value"], 0.75)
+        # Drawn edges only since issue 102: `typed`. Weak evidence is measured per band.
+        p = table["union"]
+        self.assertEqual((p["drawn"], p["oracle_verifiable"], p["correct"]), (1, 1, 1))
+        self.assertEqual(p["oracle_verifiable_fraction"]["value"], 1.0)
+        self.assertEqual((table["exact"]["drawn"], table["exact"]["false_positive"]), (2, 1))
+        self.assertEqual((table["scoped"]["drawn"], table["scoped"]["correct"]), (1, 1))
         r = score.recall_table(sites, rels)
-        self.assertEqual((r["recall"]["numerator"], r["recall"]["denominator"]), (2, 5))
+        self.assertEqual((r["recall"]["numerator"], r["recall"]["denominator"]), (1, 5))
+        self.assertEqual(r["breakdown"]["resolution_not_drawn:exact"], 1)
+        self.assertEqual(r["breakdown"]["resolution_not_drawn:scoped"], 1)
+        self.assertEqual(r["weak_evidence"], {"exact": 1, "exact:false_positive": 1,
+                                              "scoped": 1, "scoped:correct": 1})
         self.assertEqual(r["breakdown"]["site_missing_macro_token_tree"], 1)
         self.assertEqual(r["end_to_end_recall"]["denominator"], 6)
         c = score.counterfactuals(sites, rels)
-        self.assertEqual(c["C1"]["false_positives_removed"], 1)
-        self.assertEqual(c["C3"]["true_positives_lost"], 1)
+        # C7, the policy before issue 102, draws weak evidence again.
+        self.assertEqual(c["C7"]["recall"]["numerator"], 2)
+        self.assertEqual(c["C7"]["true_positives_added"], 1)
+        self.assertEqual(c["C7"]["false_positives_added"], 1)
+        self.assertEqual(c["C7"]["drawn"], 4)
+        for same in ("C1", "C2", "C3", "C5"):
+            self.assertEqual(c[same]["false_positives_removed"], 0, same)
+            self.assertEqual(c[same]["recall"], c["C0"]["recall"], same)
         self.assertEqual(c["C4"]["true_positives_added"], 1)
-        self.assertEqual(c["C4"]["recall"]["numerator"], 3)
+        self.assertEqual(c["C4"]["recall"]["numerator"], 2)
 
     def test_a_site_stage_4_cannot_persist_draws_nothing(self):
         row = site(band="typed", materialized=False)
@@ -187,11 +206,19 @@ class Measures(unittest.TestCase):
         self.assertEqual(r["breakdown"]["resolution_not_materialized:typed"], 1)
         self.assertEqual(score.precision_table([row])["union"]["drawn"], 0)
 
-    def test_c5_only_drops_unproven_receivers_from_exact_and_scoped(self):
+    def test_weak_evidence_draws_only_under_c7(self):
+        # Issue 102: `exact` and `scoped` draw nothing, whatever the receiver; C7 is the
+        # policy before it, which drew them.
         rows = [site(band="exact", receiver_proof="value_unproven"),
                 site(band="scoped", receiver_proof="path_bound"),
                 site(band="typed", receiver_proof="value_unproven")]
-        self.assertEqual([score.edge_under("C5", r)[0] for r in rows], [None, "scoped", "typed"])
+        for policy in ("C0", "C1", "C2", "C3", "C4", "C5", "C6"):
+            self.assertEqual([score.edge_under(policy, r)[0] for r in rows],
+                             [None, None, "typed"], policy)
+        self.assertEqual([score.edge_under("C7", r)[0] for r in rows],
+                         ["exact", "scoped", "typed"])
+        # Measured all the same, on the candidate each keeps.
+        self.assertEqual([score.evidence_under(r)[0] for r in rows], ["exact", "scoped", None])
 
 
 class SiteRows(unittest.TestCase):
@@ -213,6 +240,55 @@ class SiteRows(unittest.TestCase):
             row = audit._site_row("c", "python", ds, audit.Oracle(), {}, audit.Sources(Path(d)),
                                   site, (start, start + 6), set(), {})
             self.assertEqual(row["line"], 3)
+
+    def test_weak_evidence_is_measured_on_its_one_candidate(self):
+        """Issue 102: an `exact` or `scoped` site has no target and keeps one
+        candidate; the row measures that candidate and is not drawn."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            src = b"def run_it():\n    pass\n\nrun_it()\n"
+            Path(d, "m.py").write_bytes(src)
+            start = src.rindex(b"run_it")
+            defs = {("m.py", 1): {"path": "m.py", "i": 1, "qn": "m.run_it", "name": "run_it",
+                                  "kind": "Function"}}
+            files = {"m.py": {"path": "m.py", "language": "python", "outcome": "extracted",
+                              "source_len": len(src)}}
+            for band, drawn in (("exact", False), ("scoped", False)):
+                site = {"path": "m.py", "i": 0, "status": "resolved", "band": band,
+                        "span": [start, start + 8], "line": 4, "callee": "run_it",
+                        "callee_span": [start, start + 6], "name": "run_it", "caller": None,
+                        "engine": None, "target": None, "candidates": [["m.py", 1]]}
+                ds = audit.Dataset({}, files, defs, {}, [site], None)
+                row = audit._site_row("c", "python", ds, audit.Oracle(), {},
+                                      audit.Sources(Path(d)), site, (start, start + 6),
+                                      set(), {})
+                self.assertEqual(row["target"], ["m.py", 1], band)
+                self.assertEqual(row["drawn"], drawn, band)
+            site["band"], site["target"], site["candidates"] = "typed", ["m.py", 1], []
+            row = audit._site_row("c", "python", ds, audit.Oracle(), {},
+                                  audit.Sources(Path(d)), site, (start, start + 6), set(), {})
+            self.assertEqual((row["target"], row["drawn"]), (["m.py", 1], True))
+
+
+class CommittedResults(unittest.TestCase):
+    def test_r3_acceptance_sites_are_weak_evidence_not_drawn(self):
+        """Issue 102 (R3): the committed results hold the issue-109 site and issue 118's
+        four as wrong weak evidence, and no corpus has a drawn false positive."""
+        path = Path(__file__).resolve().parents[2] / "bench/results/a0/mismatches.jsonl"
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        self.assertFalse([r for r in rows if r["kind"] == "false_positive"])
+        cases = [
+            ("rust-golden", "axum-extra/src/extract/with_rejection.rs", 196, "scoped"),
+            ("pdx-self", "crates/pdx-bench/src/bench/run.rs", 918, "exact"),
+            ("pdx-self", "crates/pdx-bench/src/bench/run.rs", 929, "exact"),
+            ("pdx-self", "crates/pdx-bench/tests/bench_run.rs", 213, "exact"),
+            ("pdx-self", "crates/pdx-bench/tests/bench_run.rs", 227, "exact"),
+        ]
+        for corpus, file, line, band in cases:
+            found = [r for r in rows if (r["corpus"], r["file"], r["line"]) == (corpus, file, line)
+                     and r["kind"] != "missing"]
+            self.assertEqual([(r["kind"], r["band"]) for r in found],
+                             [("wrong_weak_evidence", band)], (corpus, file, line))
 
 
 class BlocklistAccounting(unittest.TestCase):

@@ -15,6 +15,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 119 | 2026-10-16 | P2-07 | ambiguity | open | 4.2.2 gives `DEFINES_ROUTE` no band, and P2-07 labelled a route an annotation or decorator declares on its handler `exact`, with no recorded reason: a declaration is no name lookup. Since issue 102 (R3) `exact` is not drawn, so those edges stop drawing (63 in the goldens: Java 17, Kotlin 15, Python 31); routes, their nodes, sites and entry points are unchanged. The driver chose this over re-labelling them (2026-10-16) | |
 | 118 | 2026-10-16 | P2-06 | blocker | resolved | PDX itself has four false `import-guided` Rust edges, all of one shape: `Enum::Variant(payload)` drawn to the module's struct of the variant's name (`crates/pdx-bench/src/bench/run.rs:918` `Performance::OutOfMemory`, `:929` `Performance::Completed`, `crates/pdx-bench/tests/bench_run.rs:213` `BuildOutcome::Stopped`, `:227` `BuildOutcome::Built`). `import-guided` is drawn and R3 does not change it, so they block R3. Since the A0.1 baseline; not made by issue 117 | Resolved 2026-10-16 (Stage 3 only, no version moves): the cause is not enum-specific. Stage 3 gave a Rust `use` brace group one target, its prefix's module, and read every name the group binds as that module, so `T::f` was taken for `prefix::f`. Each binding of a group now leads where its own path does. PDX itself: `import-guided` 52 / 56 → 261 / 261; the four fall to `exact`, still wrong, R3 acceptance cases (issue 102); one correct edge of a macro-written type is withheld (`candidate`). Rust golden: `import-guided` 109 / 109 → 213 / 213, every new edge correct; `typed` and `inheritance-guided` unchanged everywhere; Python unchanged |
 | 117 | 2026-10-15 | P2-06 | blocker | resolved | Found by issue 109: Stage 3's `import-guided` (a trusted band) narrows `Type::method` to the imported type's member of the name even when that member is a trait impl's method whose header (issue 109) is not proven: `WithRejection::from_request(1, &())` through `use crate::with_rejection::WithRejection;` is drawn to `WithRejection`'s own `from_request`, whose `E: FromRequest<S>` its type argument does not meet, and `Body::from(())` to `impl<T: Copy> From<()> for Body<T>`, its bound unproven. Identical at issue 109's base commit: the engine answers no `Type::method` through an imported type in another file (issue 113), so no typed answer moved to this band. No such false positive in the Rust golden (`import-guided` 109/109 after issue 109) || Resolved 2026-10-15 (no patch, engine 12; cache format 9, protocol 10): the headers issue 109 records cross the interface on a trait impl's methods and relations, and `import-guided` and `inheritance-guided` take a trait impl's member only when its header requires nothing or, for a call on `self`, the calling impl is its own or entails it; unknown is never proven, an unproven member is `candidate`. The same class found in `inheritance-guided` (`Self::from_request`, `self.peek()` through a conditional impl; identical before issue 109) fixed with it. The goldens' trusted bands unchanged: Rust `typed` 860 / 860, `import-guided` 109 / 109, `inheritance-guided` 60 / 60; the engine differential unchanged |
 | 115 | 2026-10-14 | P2-06 | blocker | resolved | Found in issue 114's A0 run: `scripts/a0/run.py` measures with `target/debug/pdx-bench`, which it never builds, and took the `engine_version` it records from `consts.rs`, the source. Nothing tied a result to the executable that produced it: with `ENGINE_VERSION` moved to 10 in the working tree and the executable built before, at 9, the run measured engine 9 and labelled every document engine 10. That run was discarded and measured again after a rebuild; no committed result came from it | Resolved 2026-10-14 (hotfix): `pdx-bench versions` prints, as JSON, the version the linked engine reports at run time, the `pdx_core` constants compiled in (`ENGINE_VERSION`, `EXTRACT_CACHE_FORMAT_VERSION`, `LANGUAGE_MATRIX_VERSION`, `SECRET_DETECTOR_VERSION`, `SEGMENT_SCHEMA_VERSION`) and the worker protocol. Before anything runs, `run.py` compares each with the source and refuses, naming both values and writing nothing, on any difference, a missing executable or one that cannot report. The executable's bytes are held for the run (checked before each dataset and the results), the results are staged and promoted together, and a document's `engine_version` is the executed engine's. Tests A1 to A5 in `scripts/a0/test_a0.py`, now part of `make test`; 14 mutations killed. No resolution, extraction, version or A0 rule (`a0-match-1`, `a0-metrics-1`) changes |
@@ -31,7 +32,7 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 105 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R5), probably the largest recall workstream: 2,079 of the Rust golden's 4,061 oracle relations at structural call sites end as `candidate` (389 more are blocked, 190 drawn wrong and 17 external) | Open. Classify all 2,079 before any fix, by the evidence that could resolve them, with counts: receiver local-variable type, receiver field type, receiver call-result type, associated or static path type, import or `use` binding, trait bound, impl relation, generic type parameter, method through `Deref`, method of an external type, `crate`/`self`/`super` path, re-export, macro-generated type or item, other. Mark what no structural evidence can resolve, so the driver can judge what G4's structural recall floor assumes. Then design evidence-strengthening work from the counts; no fix is guessed before the classification |
 | 104 | 2026-10-14 | P2-06 | blocker | resolved | Child of issue 95 (decision 65, R2): the Rust golden's 15 typed false positives (16 since issue 103 draws `Handler::call`), each a typed answer naming the wrong definition: the module path ignored (`from_request::expand`, `debug_handler::expand`, `typed_path::expand` to `lib.rs`'s `expand`, 5); an external crate's function taken for an internal look-alike (`multer::parse_boundary`, `hyper::upgrade::on`, 4); another type's associated function (`PathDeserializationError::custom` to `connect_info`'s `custom`, 2); a same-named function of another crate (`find_first_not_double` in `axum-macros`, 2); a blanket trait impl (`WithRejection::<…>::from_request`, 1); and a pattern binding answered as a call (`Ok(Self(params))`, 1). Also the one import-guided false positive (`Body::from` to another `From` impl's `from`) and the one false typed answer the blocklist now hides (`Handler::call`, `axum/src/handler/service.rs:171`) | Open. R2 (2026-10-14, patch 0028; 4.5 amended): a Rust typed answer needs path evidence, never a name's uniqueness alone; a `match` arm's bindings and a block's functions are locals; a Rust path starting with an extern-prelude crate is `external`. 15 of the 17 are no longer drawn wrong; the Rust golden's `typed` is 843 / 844 = 99.88% (from 852 / 868), PDX's 5,870 / 5,870, Python unchanged. Left: the blanket impl (issue 109) and the macro-written impl (issue 110); the 6 typed edges lost to `candidate` are issue 111 Resolved 2026-10-15 with issue 109: the Rust golden's trusted bands hold no false positive (`typed` 860 / 860, `import-guided` 109 / 109, `inheritance-guided` 60 / 60); every closure condition met (the entry). The blanket impl's site falls to a wrong `scoped` guess, issue 102's R3 case |
 | 103 | 2026-10-14 | P2-06 | scr | resolved | Child of issue 95 (decision 65, R1): the generic-name blocklist settles a site before a valid typed answer is considered (4.5 Stage 3, "`blocked`, even with a qualifying typed answer", and "Names on the blocklist are `blocked` before any stage runs"), so stronger semantic evidence is discarded for names such as `get`, `run`, `parse` or `update`. A0 measured the typed answers it suppresses: 4 in the Python golden (all correct), 32 in the Rust golden (31 correct, 1 false) and 412 in PDX (409 correct); accepting them (A0.2's C4) recovers 3, 31 and 409 relations | Resolved 2026-10-14 (R1). A qualifying unique typed answer (`from_engine` says typed and its target is exactly one definition of the repository: Stage 3's existing `typed_target`) is `typed` first, whatever the callee's name; otherwise a blocklisted name is `blocked`, before the engine's external answer and every name-based stage. An engine hint, a low-score or multi-candidate `lsp_typed` answer, an out-of-range score and an ambiguous mapping never pass the blocklist; a typed-only site, a reference or an engine site without a qualifying answer stays unconfirmed. No other precedence changed. 4.5 Stage 3 amended (both statements, steps renumbered). Tests in `crates/pdx-core/tests/stages.rs`; four mutations killed. A0 rerun (same pins, tools and rules): typed answers suppressed by the blocklist 4, 32 and 412 → 0; Python golden union 624/657 = 94.98%, recall 54.40%; Rust golden typed 852/868 = 98.16%, union 61.39%, recall 34.67%. The one false typed answer it exposes (`Handler::call`) is issue 104's. Nine goldens gain 303 typed tuples, none removed. No version change |
-| 102 | 2026-10-14 | P2-06 | scr | open | Child of issue 95 (decision 65, R3): 4.2.2 draws `exact` (the callee's short name has one definition in the repository) and `scoped` (one definition in the same module or package), but A0 measured them at 284/310 = 91.61% and 1/8 = 12.50% (Python golden), 509/1,168 = 43.58% and 155/492 = 31.50% (Rust golden), and 37.7% and 13.2% (PDX itself), against G4's 95% union floor: uniqueness of a short name does not establish which definition a call reaches | Open; approved by decision 65, implementation R3. Specification change to 4.2.2: `exact` and `scoped` remain ordered bands, numbered and named as now, but under their current semantics neither can by itself produce a drawn edge; a stronger variant may be drawn only once the harness (4.13) measures it at G4's floor. Implementation keeps their evidence for candidate ranking, explanation, coverage, trust diagnostics and calibration, keeps candidate ordering deterministic, avoids a schema or version change unless one is truly required, updates the affected tests and goldens deliberately, amends 4.2.2's table, and reruns A0. A correctness change, not a threshold |
+| 102 | 2026-10-14 | P2-06 | scr | resolved | Child of issue 95 (decision 65, R3): 4.2.2 draws `exact` (the callee's short name has one definition in the repository) and `scoped` (one definition in the same module or package), but A0 measured them at 284/310 = 91.61% and 1/8 = 12.50% (Python golden), 509/1,168 = 43.58% and 155/492 = 31.50% (Rust golden), and 37.7% and 13.2% (PDX itself), against G4's 95% union floor: uniqueness of a short name does not establish which definition a call reaches | Resolved 2026-10-16 (R3; Stage 3 and 4 only, no version moves): `exact` and `scoped` are weak evidence, ordered and measured, never drawn; a site keeps its band and its one candidate (no target), and its row is a `candidate` one whose reason names the band (no schema change); 4.2.2's table amended. Drawn union precision Python 94.98% → 100.00%, Rust 64.86% → 100.00%, PDX 85.97% → 100.00%, no drawn false positive anywhere; recall Python 54.40% → 28.82%, Rust 35.64% → 22.94%, PDX 86.02% → 79.12%; per-band evidence unchanged. Goldens: drawn `CALLS` 45,465 → 21,052, exactly the 19,108 `exact` and 5,305 `scoped`. Declared routes' `DEFINES_ROUTE` edges (`exact`) stop drawing too: issue 119 |
 | 101 | 2026-10-13 | P0-02 | ambiguity | open | Raised by an independent review before the oracle work: the provenance records disagree about the engine reference's part in the Rust resolver. `bench/references.lock` gives the engine reference (`engine-ref`) the mode "vendor+refactor, and reference for the Rust ports" and lands it in `engine/` and `crates/pdx-core/src/resolve/`, while `THIRD_PARTY_NOTICES.md`'s section of algorithms and designs consulted ("Re-implementations written from scratch in this repository, with the reference whose algorithm or design was consulted") says "No entries yet" | Open. To be settled from the actual derivation history of `crates/pdx-core/src/resolve/`, never by removing an attribution to make the records agree. No legal conclusion is drawn here |
 | 100 | 2026-10-13 | P0-04 | third-party | open | Raised by an independent review: supply-chain hardening has gaps. The cargo-vet store holds 142 exemptions and 0 audits (`supply-chain/config.toml`, `supply-chain/audits.toml`): every crate is accepted by exemption, none by a recorded audit, and `make vet` passing means no more than that. `cargo deny` runs its licence check alone (`scripts/licence-scan.sh`: `check licenses`); the advisory policy `deny.toml` configures (`[advisories]`) is not run as a check by any workflow. Every workflow step uses a mutable major tag (`actions/checkout@v4`, `actions/cache@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`) rather than an immutable commit | Open; not fixed in this round |
 | 99 | 2026-10-13 | P2-11 | blocker | open | Raised by an independent review: the local output's lifecycle can block the next run. `pdx index` refuses a tree `git status` does not report clean, `.pdx/` included (decision 38); it writes its segment to `.pdx/segment.db` by default and never overwrites a segment; and it does not make `.pdx/` ignored. In a repository whose ignore files do not already cover `.pdx/`, one successful index leaves the tree dirty, and the next run is refused | Open; not fixed in this round |
@@ -162,6 +163,33 @@ file is superseded rather than overlooked.
 Nothing needs revisiting: the split as built matches the confirmed intent.
 
 State: resolved.
+
+### 119 — A declared route's `DEFINES_ROUTE` edge has no band of its own
+
+4.2.2 lists the edge kinds that carry a confidence band, and `DEFINES_ROUTE` is not one
+of them; the `edges.band` column is required all the same. P2-07 gave a route an
+annotation or decorator declares on its handler (Spring, JAX-RS, FastAPI, Flask, Django
+REST framework) the band `exact`, with no recorded reason: the declaration is part of
+the handler's own syntax, so no name is looked up, and `exact` ("the name has exactly one
+definition in the repository") does not describe it. An Express handler is the
+definition its argument resolves to, with that resolution's band, or the one callable of
+its name in the file, `scoped`.
+
+Issue 102 (R3) stops `exact` and `scoped` drawing. A declared route's edge therefore
+stops drawing with them: 63 `DEFINES_ROUTE` tuples leave the goldens (Java 17, Kotlin 15,
+Python 31). The `Route` node, its site, the handler's `props.handler` reference, its
+entry point and the contracts read from `Route` nodes are unchanged; only the drawn
+handler-to-route edge is gone. An Express handler found by its name in the file keeps
+`scoped`, weak evidence like any other.
+
+The driver chose this, 2026-10-16, over re-labelling declared routes `typed` (a stretch
+of `typed`'s meaning) or holding R3: the edges stay as they were labelled, not drawn,
+and their band is this issue's. To decide by a specification change: the band a route
+declared on its handler carries (a declaration is positive structural evidence, and
+none of the eleven bands names it), and whether `DEFINES_ROUTE` joins 4.2.2's banded
+kinds. `derive.rs`'s `spring_route_has_real_site` and `routes_express` pin today's bands.
+
+State: open.
 
 ### 118 — A Rust `use` brace group's names are read as the group's module
 
@@ -1780,7 +1808,133 @@ golden became correct `scoped` with issue 109 (`with_rejection.rs:201`,
 `cached.rs:137`, `143`): R3 stops drawing them too, a recall loss to report, not to
 avoid.
 
-State: open.
+**Resolution (2026-10-16, R3; Stage 3 and Stage 4 only, no version moves).** `exact` and
+`scoped` are weak evidence: ordered bands, measured and counted, that never draw an
+edge. The change is the approved specification change, exactly: their names, order,
+`confidence_rank`, meaning, measurement and coverage are unchanged, and only their
+`Drawn` entries in 4.2.2's table are now "no".
+
+*Trust model.*
+
+- **Bands.** `Band::is_drawn` is `precise`, `typed`, `import-guided` and
+  `inheritance-guided`. `Band::is_weak_evidence` is `exact` and `scoped`. Nothing is
+  renumbered and nothing becomes `candidate`.
+- **Shape.** Before: a drawn shape, one target and no candidates. Now: no target and
+  exactly the one candidate the stage narrowed to (`InvalidResolution::Weak`
+  otherwise). `Resolution::target()` answers for drawn bands only; `weak_candidate()`
+  gives the evidence. No reader can take a weak band's candidate for a target.
+- **Narrowing.** `narrow` returns `Narrowed::Weak { band, candidate }` when a stage of a
+  band that is not drawn leaves one candidate, `Resolved` only for a drawn one. The
+  rule that a stage finding nothing erases nothing is unchanged, and so is the order:
+  candidate ordering and the blocklist's place are untouched. Issue 110's check still
+  turns a weak candidate a macro may shadow into `candidate`.
+- **Materialisation.** Stage 4 writes no `CALLS`, `CALL_REFERENCE` or `TESTS` edge for a
+  weak band. The site keeps its row in `sites` and gains one in `candidates`, with band
+  `candidate` (4.3's `CHECK` names no evidence band), its one candidate, and a reason
+  beginning `exact:` or `scoped:`. Decision 65 (4) asked for no schema change unless the
+  rows could not express it: they can, so `SEGMENT_SCHEMA_VERSION` stays 3. Coverage
+  counts the site under its own band.
+- **Other readers.** Contracts count a call as internal, or a stub call as proven, only
+  when it is drawn. An Express handler keeps its resolution's weak evidence and band, so
+  its edge is not drawn. A declared route's edge, labelled `exact`, is not drawn either:
+  issue 119, opened with the driver's choice. Golden files hold drawn edges only. The
+  `pdx` coverage report's drawn count follows `is_drawn`. No other reader of a target,
+  of `is_drawn` or of the two bands exists (audited: `derive`, `contracts`, `routes`,
+  `metrics`, `report`, `golden`, `audit`).
+- **Versions.** Engine 12, surface 6, cache format 9, protocol 10, schema 3, matrix 2,
+  detector 4: unchanged. The engine and the vendored tree are untouched.
+
+*Acceptance cases.*
+
+| Site | Before | After |
+|---|---|---|
+| `axum-extra/src/extract/with_rejection.rs:196` | `scoped`, drawn, wrong (`CALLS` and `TESTS`) | `scoped` evidence, the wrong impl as its one candidate, no edge |
+| PDX `crates/pdx-bench/src/bench/run.rs:918` `Performance::OutOfMemory` | `exact`, drawn, wrong | `exact` evidence, no edge |
+| PDX `run.rs:929` `Performance::Completed` | `exact`, drawn, wrong | `exact` evidence, no edge |
+| PDX `crates/pdx-bench/tests/bench_run.rs:213` `BuildOutcome::Stopped` | `exact`, drawn, wrong | `exact` evidence, no edge |
+| PDX `bench_run.rs:227` `BuildOutcome::Built` | `exact`, drawn, wrong | `exact` evidence, no edge |
+
+Each is `wrong_weak_evidence` in `mismatches.jsonl`, never a false positive.
+
+*Graph* (goldens, drawn tuples; every tuple removed was `exact` or `scoped`, none added,
+every other tuple identical, node counts identical):
+
+| Golden | Drawn `CALLS` before | After | `exact` | `scoped` | Other tuples removed |
+|---|---|---|---|---|---|
+| ada/Ada_Drivers_Library | 911 | 76 | 671 | 164 | |
+| c/jq | 5,900 | 4,246 | 1,654 | 0 | |
+| cpp/fmt | 7,773 | 2,421 | 4,851 | 501 | `TESTS` 2,553 `exact`, 227 `scoped` |
+| csharp/eShop | 1,014 | 383 | 573 | 58 | `TESTS` 54, 3 |
+| go/gin | 3,255 | 2,332 | 716 | 207 | `TESTS` 582, 154 |
+| java/spring-petclinic | 339 | 139 | 200 | 0 | `TESTS` 123; `DEFINES_ROUTE` 17 (issue 119) |
+| kotlin/Exposed | 18,310 | 7,140 | 7,480 | 3,690 | `TESTS` 3,364, 2,231; `DEFINES_ROUTE` 15 |
+| python/flask | 642 | 322 | 312 | 8 | `TESTS` 227; `DEFINES_ROUTE` 31 |
+| rust/axum | 2,374 | 950 | 1,030 | 394 | `TESTS` 473, 153 |
+| typescript/hono | 4,947 | 3,043 | 1,621 | 283 | |
+| **Total** | **45,465** | **21,052** | **19,108** | **5,305** | |
+
+The removed `CALLS` are exactly the previously drawn `exact` and `scoped` ones (45,465 −
+19,108 − 5,305 = 21,052); every `TESTS` tuple removed mirrors one of them; the 63
+`DEFINES_ROUTE` tuples are issue 119's. In the two goldens with an oracle the removed
+`CALLS` are A0's sites one for one (Python 312 and 8, Rust 1,030 and 394).
+
+*A0* (guarded by issue 115; same pins, oracles and site rules, `a0-metrics-2`; baseline
+post-118, `1feb3d7`):
+
+| Corpus | Band | Post-118 | Post-R3 |
+|---|---|---|---|
+| Python | `typed` / `import-guided` / `inheritance-guided` | 314/314, 11/11, 14/14 | unchanged |
+| Python | `exact` evidence | 284/310 = 91.61% (drawn) | 284/310 = 91.61% (not drawn) |
+| Python | `scoped` evidence | 1/8 = 12.50% (drawn) | 1/8 = 12.50% (not drawn) |
+| Python | drawn union | 624/657 = 94.98%, 33 false | 339/339 = 100.00%, 0 false |
+| Python | recall | 606/1,114 = 54.40% | 321/1,114 = 28.82% |
+| Rust | `typed` / `import-guided` / `inheritance-guided` | 860/860, 213/213, 60/60 | unchanged |
+| Rust | `exact` evidence | 426/1,014 = 42.01% | 426/1,014 = 42.01% |
+| Rust | `scoped` evidence | 89/394 = 22.59% | 89/394 = 22.59% |
+| Rust | drawn union | 1,648/2,541 = 64.86%, 893 false | 1,133/1,133 = 100.00%, 0 false |
+| Rust | recall | 1,445/4,054 = 35.64% | 930/4,054 = 22.94% |
+| PDX itself | `typed` / `import-guided` / `inheritance-guided` | 5,911/5,911, 261/261, 76/76 | unchanged |
+| PDX itself | `exact` / `scoped` evidence | 497/1,350 = 36.81%, 46/301 = 15.28% | unchanged |
+| PDX itself | drawn union | 6,791/7,899 = 85.97% | 6,248/6,248 = 100.00% |
+| PDX itself | recall | 6,760/7,859 = 86.02% | 6,218/7,859 = 79.12% |
+
+- **Reconciled.** The drawn union loses exactly the `exact` and `scoped` sites (Python
+  660 → 340, Rust 2,589 → 1,165, PDX 7,912 → 6,254 drawn), and recall exactly their
+  correct ones (285, 515, 542). Every per-band number, weak evidence's included, is
+  post-118's.
+- **Oracle-verifiable fraction** of the drawn union: Python 339/340, Rust 1,133/1,165 =
+  97.25% (32 `typed` answers the oracle cannot verify), PDX 6,248/6,254.
+- **False edges.** No drawn false positive in any corpus: `typed`, `import-guided` and
+  `inheritance-guided` have none, and `exact` and `scoped` draw none. Their wrong
+  evidence (Python 26 and 7, Rust 588 and 305, PDX 853 and 255) stays measured, as
+  `wrong_weak_evidence`.
+- **Recall.** Falls, as decision 65 (6) foresaw: correctness first. The correct weak
+  evidence (Python 285, Rust 515, PDX 542 relations) is what issues 105, 106, 107, 108,
+  113 and 116 recover with positive evidence, never by drawing weak evidence again.
+
+*Tests.* `crates/pdx-core/tests/weak_evidence.rs` (R3-1 to R3-10 through a crate built
+to a segment and read back), `bands.rs` (`drawn_bands_are_exactly_the_four`, weak
+evidence's place), `stages.rs` (shapes, `narrowing_keeps_narrowest_set` giving
+`Narrowed::Weak`, `issue_102_stops_exact_and_scoped_drawing`, scoped as evidence),
+`rust_targets.rs` (E4, E6: `with_rejection.rs:196`), `rust_import_bindings.rs` (issue
+118's shapes), `metrics.rs`, `derive.rs` and `contracts.rs` (fixtures moved to drawn
+evidence, routes pinned), the derive snapshots (each `exact` `CALLS` a candidate row),
+`pdx-bench`'s `issue_104_sites.rs` (no tuple for the site), `golden_expected.rs`,
+`audit_sites.rs` (weak evidence serialised with no target), `scripts/a0/test_a0.py`
+(the drawn union and recall, weak evidence measured on its candidate, the committed
+acceptance sites).
+
+*Mutations, all 16 killed* (each source restored byte for byte): `exact` drawn again;
+`scoped` drawn again; a target kept for `exact`; for `scoped`; the weak candidate
+discarded (in `settled`; in the API); `exact` made `candidate`; `scoped` made
+`candidate`; Stage 4 drawing weak evidence; the API exposing an `exact` target; a
+`scoped` one; the golden export drawing weak evidence; the row's reason not naming the
+band; issue 110's check skipped for weak evidence; A0 counting weak evidence as drawn; A0
+measuring weak evidence on no candidate.
+
+*Engine differential.* Unchanged: 32 corpora passed, 31 identical, `golden:rust/axum` with exactly its three ratified divergences, none unexpected, none stale.
+
+State: resolved.
 
 ### 101 — Provenance records disagree about the Rust resolver's derivation
 
@@ -2193,7 +2347,23 @@ No trusted band has a false edge in any corpus.
 | Rust | 860/860 = 100.00% | 64.86% | 35.64% |
 
 PDX itself: `import-guided` 261/261 (from 52/56), union 85.97%, recall 86.02%. Four of
-G1b's six floors still fail. Next, when the driver authorises it: R3 (issue 102).
+G1b's six floors still fail.
+
+**R3, issue 102 (2026-10-16).** Resolved: `exact` and `scoped` are weak evidence, measured
+and never drawn; a site keeps its band and its one candidate. The drawn union is now
+`typed`, `import-guided` and `inheritance-guided`, and has no false edge in any corpus;
+recall falls by exactly the correct weak evidence, as decision 65 (6) foresaw. A0's
+metrics are `a0-metrics-2` (the union and recall over drawn bands; weak evidence measured
+per band on its candidate; `union_with_evidence` the old union, for comparison).
+
+| Golden | `typed` | Drawn union | Recall | `exact` / `scoped` evidence |
+|---|---|---|---|---|
+| Python | 314/314 | 339/339 = 100.00% | 321/1,114 = 28.82% | 91.61% / 12.50% |
+| Rust | 860/860 | 1,133/1,133 = 100.00% | 930/4,054 = 22.94% | 42.01% / 22.59% |
+
+PDX itself: drawn union 6,248/6,248 = 100.00%, recall 79.12%. G1b's two union floors are
+met; its two recall floors fail further. Next, when the driver authorises it: R4 (issue
+107A).
 
 State: open.
 

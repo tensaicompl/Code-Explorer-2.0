@@ -3,14 +3,15 @@
 use pdx_core::bands::{self, Band, CandidateBand, EngineVerdict, ResolverStage};
 use pdx_core::consts::TYPED_MIN_SCORE;
 
-/// The bands, as 4.2.2 lists them, in descending confidence.
+/// The bands, as 4.2.2 lists them, in descending confidence, and whether each is drawn:
+/// `exact` and `scoped` are ordered bands that are not drawn (issue 102).
 const DESCENDING: [(&str, bool); 11] = [
     ("precise", true),
     ("typed", true),
     ("import-guided", true),
     ("inheritance-guided", true),
-    ("exact", true),
-    ("scoped", true),
+    ("exact", false),
+    ("scoped", false),
     ("candidate", false),
     ("external", false),
     ("blocked", false),
@@ -54,11 +55,29 @@ fn band_order_total() {
 }
 
 #[test]
-fn drawn_bands_are_exactly_the_six() {
+fn drawn_bands_are_exactly_the_four() {
     for (name, drawn) in DESCENDING {
         assert_eq!(band(name).is_drawn(), drawn, "{name}");
     }
-    assert_eq!(Band::ALL.iter().filter(|b| b.is_drawn()).count(), 6);
+    assert_eq!(Band::ALL.iter().filter(|b| b.is_drawn()).count(), 4);
+}
+
+#[test]
+fn exact_and_scoped_are_weak_evidence_between_the_drawn_and_candidate() {
+    // Issue 102: they keep their names and places, and are neither drawn nor a
+    // candidate row's band.
+    let weak: Vec<Band> = Band::ALL
+        .iter()
+        .copied()
+        .filter(|b| b.is_weak_evidence())
+        .collect();
+    assert_eq!(weak, [Band::Exact, Band::Scoped]);
+    assert!(Band::InheritanceGuided > Band::Exact && Band::Exact > Band::Scoped);
+    assert!(Band::Scoped > Band::Candidate);
+    for b in weak {
+        assert!(!b.is_drawn(), "{b}");
+        assert_eq!(CandidateBand::try_from(b), Err(b));
+    }
 }
 
 #[test]
@@ -92,7 +111,7 @@ fn bands_serialise_as_their_names() {
 }
 
 #[test]
-fn candidate_bands_are_the_non_drawn_five() {
+fn candidate_bands_are_the_non_drawn_five_and_not_weak_evidence() {
     let names: Vec<&str> = CandidateBand::ALL.iter().map(|b| b.as_str()).collect();
     assert_eq!(
         names,
@@ -106,7 +125,11 @@ fn candidate_bands_are_the_non_drawn_five() {
     );
     for b in Band::ALL {
         let candidate = CandidateBand::try_from(*b);
-        assert_eq!(candidate.is_ok(), !b.is_drawn(), "{b}");
+        assert_eq!(
+            candidate.is_ok(),
+            !b.is_drawn() && !b.is_weak_evidence(),
+            "{b}"
+        );
         if let Ok(c) = candidate {
             assert_eq!(Band::from(c), *b);
             assert_eq!(

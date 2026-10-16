@@ -8,8 +8,8 @@
 //! An enum's variants are no definitions: a call of one has no target among the
 //! repository's definitions, and is never `import-guided` to a namesake. What it falls
 //! to instead is the same as for a single-name `use` of the enum: the repository's one
-//! definition of the name, `exact`, a weak band issue 102 (R3) governs, known wrong until
-//! R3 stops drawing it. Those calls are recorded here as R3 acceptance cases.
+//! definition of the name as `exact` weak evidence, which since issue 102 (R3) draws no
+//! edge. Those calls are R3's acceptance cases.
 //!
 //! Every repository here is real: written to a checkout, discovered, extracted by the
 //! engine, registered and resolved with typed resolution itself, so each band is Stage
@@ -180,14 +180,22 @@ fn assert_drawn(got: &Resolution, band: Band, target: &DefinitionRef) {
     assert_eq!(got.target(), Some(target), "{got:?}");
 }
 
+/// Weak evidence (issue 102): `band` with `candidate` its one candidate, no target.
+fn assert_weak(got: &Resolution, band: Band, candidate: &DefinitionRef) {
+    assert_eq!(got.band(), band, "{got:?}");
+    assert!(!band.is_drawn());
+    assert_eq!(got.target(), None, "{got:?}");
+    assert_eq!(got.weak_candidate(), Some(candidate), "{got:?}");
+}
+
 #[test]
 fn e1_a_variant_imported_by_its_path_is_not_import_guided() {
     // `use crate::kinds::Outcome::Stopped;` binds the variant, which is no definition:
     // the import leads to no module's member. The struct `Stopped` is the variant's
-    // payload, not its constructor. R3 acceptance case: `exact` draws it until R3.
+    // payload, not its constructor. R3 acceptance case: `exact` evidence, no edge.
     let got = at("src/e1.rs", "Stopped");
     assert_ne!(got.band(), Band::ImportGuided, "{got:?}");
-    assert_drawn(got, Band::Exact, &def(None, "Stopped"));
+    assert_weak(got, Band::Exact, &def(None, "Stopped"));
 }
 
 #[test]
@@ -198,9 +206,9 @@ fn e2_a_variant_through_a_brace_group_is_not_the_modules_namesake() {
     let got = at("src/e2.rs", "Outcome::Stopped");
     assert_ne!(got.band(), Band::ImportGuided, "{got:?}");
     // R3 acceptance case: as with a single-name `use` of the enum, the repository's one
-    // `Stopped` is drawn `exact` until R3.
-    assert_drawn(got, Band::Exact, &def(None, "Stopped"));
-    assert_drawn(
+    // `Stopped` is `exact` evidence and draws no edge.
+    assert_weak(got, Band::Exact, &def(None, "Stopped"));
+    assert_weak(
         at("src/e2_single.rs", "Outcome::Stopped"),
         Band::Exact,
         &def(None, "Stopped"),
@@ -227,11 +235,12 @@ fn e4_an_inherent_method_through_a_brace_group_is_its_own() {
         Band::ImportGuided,
         &def(Some("Gauge"), "reading"),
     );
-    let by_value = at("src/e4.rs", "g.reading");
-    assert_eq!(
-        by_value.target(),
-        Some(&def(Some("Gauge"), "reading")),
-        "{by_value:?}"
+    // A method called on a value: only the name's uniqueness, `exact` evidence, no edge
+    // (issue 102).
+    assert_weak(
+        at("src/e4.rs", "g.reading"),
+        Band::Exact,
+        &def(Some("Gauge"), "reading"),
     );
 }
 
@@ -241,8 +250,8 @@ fn e5_a_variant_beside_a_function_of_its_name_is_not_the_function() {
     // bare call only.
     let variant = at("src/e5.rs", "Outcome::Halted");
     assert_ne!(variant.band(), Band::ImportGuided, "{variant:?}");
-    // R3 acceptance case: the repository's one `Halted` is drawn `exact` until R3.
-    assert_drawn(variant, Band::Exact, &def(None, "Halted"));
+    // R3 acceptance case: the repository's one `Halted` is `exact` evidence, no edge.
+    assert_weak(variant, Band::Exact, &def(None, "Halted"));
     let function = at("src/e5.rs", "Halted");
     assert_eq!(
         function.target(),

@@ -4,8 +4,8 @@ expression: projection(&run.graph)
 ---
 nodes: {"Class": 2, "File": 2, "Folder": 2, "Method": 3, "Module": 2, "Repo": 1, "Test": 1}
 entry points: 1
-edges: {("CALLS", "exact"): 1, ("CALLS", "import-guided"): 2, ("CALLS", "typed"): 1, ("TESTS", "exact"): 1, ("TESTS", "import-guided"): 1}
-candidates: {}
+edges: {("CALLS", "import-guided"): 2, ("CALLS", "typed"): 1, ("TESTS", "import-guided"): 1}
+candidates: {"candidate": 1}
 files: src/Cart.php=parsed tests/CartTest.php=parsed
   Class src.Cart.Cart Cart parent=File:Cart.php module=php:App id=3JB9E4X72SGAERST85157PZ9TN
   Class tests.CartTest.CartTest CartTest parent=File:CartTest.php module=php:App\Tests id=9BXWQQ1SDRRG7965TB85MC22YC

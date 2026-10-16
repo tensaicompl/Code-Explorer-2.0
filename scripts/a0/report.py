@@ -120,6 +120,8 @@ def build(corpus: str, sites: list[dict], rels: list[dict], meta: dict, defs: di
     by_site = {(r["file"], r["site"]): r for r in sites}
     resolved = [r for r in sites if r["status"] == "resolved"]
     drawn = [r for r in resolved if r.get("band") in score.DRAWN and r.get("materialized", True)]
+    # Weak evidence (issue 102): measured on its one candidate, never drawn.
+    weak = [r for r in resolved if r.get("band") in score.EVIDENCE and r.get("materialized", True)]
 
     # 4.13.1, all drawn edges, and calls alone.
     precision_all = score.precision_table(sites)
@@ -144,16 +146,19 @@ def build(corpus: str, sites: list[dict], rels: list[dict], meta: dict, defs: di
                                                          or x[0]["node"])[0]))[:EXAMPLES]
         fn_examples[k] = [relation_example(rel, k, row) for rel, row in chosen]
 
-    # False positives, band by band; exact and scoped by category.
+    # False positives, band by band; wrong weak evidence (exact and scoped, never drawn
+    # since issue 102) by category.
     fps = [r for r in drawn if r.get("verdict") == "false_positive"]
-    fp_examples = {b: [site_example(r) for r in first([x for x in fps if x["band"] == b])]
-                   for b in score.DRAWN}
+    weak_fps = [r for r in weak if r.get("verdict") == "false_positive"]
+    fp_examples = {b: [site_example(r) for r in first([x for x in fps + weak_fps
+                                                       if x["band"] == b])]
+                   for b in score.DRAWN + score.EVIDENCE}
     categories = {}
-    for band in ("exact", "scoped"):
+    for band in score.EVIDENCE:
         primary = Counter()
         tags = Counter()
         examples = defaultdict(list)
-        for r in fps:
+        for r in weak_fps:
             if r["band"] != band:
                 continue
             t = score.fp_tags(r, defs)
@@ -291,6 +296,10 @@ def build(corpus: str, sites: list[dict], rels: list[dict], meta: dict, defs: di
     for r in fps:
         mismatches.append({"corpus": corpus, "kind": "false_positive", **site_example(r),
                            "category": r.get("fp_category"), "tags": r.get("fp_tags")})
+    # Weak evidence the oracle refutes: no edge (issue 102), so no false positive.
+    for r in weak_fps:
+        mismatches.append({"corpus": corpus, "kind": "wrong_weak_evidence", **site_example(r),
+                           "category": r.get("fp_category"), "tags": r.get("fp_tags")})
     for b, items in sorted(buckets.items()):
         if b == "drawn_correct":
             continue
@@ -347,11 +356,11 @@ def receiver_stats(resolved: list[dict]) -> dict:
     for proof in ("none", "self", "path_bound", "path_unproven", "value_unproven"):
         rows = [r for r in resolved if r.get("receiver_proof") == proof]
         bands = Counter(r.get("band") for r in rows)
-        es = [r for r in rows if r.get("band") in ("exact", "scoped")]
+        es = [r for r in rows if r.get("band") in score.EVIDENCE]
         verif = [r for r in es if r.get("verdict") in ("correct", "false_positive")]
         ok = sum(1 for r in verif if r["verdict"] == "correct")
         out[proof] = {"call_sites": len(rows), "by_band": dict(sorted(bands.items(), key=str)),
-                      "exact_or_scoped_drawn": len(es),
+                      "exact_or_scoped_weak_evidence": len(es),
                       "exact_or_scoped_precision": score.ratio(ok, len(verif))}
     return out
 
@@ -367,7 +376,8 @@ def main() -> None:
     ap.add_argument("--dataset", type=Path)
     ap.add_argument("--mismatches", type=Path)
     ap.add_argument("--false-positives-only", action="store_true",
-                    help="append only the false positives to --mismatches")
+                    help="append only the false positives and the wrong weak evidence "
+                         "to --mismatches")
     args = ap.parse_args()
     sites, rels, meta = load(args.audit, args.corpus)
     ds = audit.Dataset.load(args.sites)
@@ -377,7 +387,8 @@ def main() -> None:
     if args.mismatches:
         with args.mismatches.open("a") as f:
             for m in mismatches:
-                if args.false_positives_only and m["kind"] != "false_positive":
+                if args.false_positives_only and \
+                        m["kind"] not in ("false_positive", "wrong_weak_evidence"):
                     continue
                 compact = {k: v for k, v in m.items() if v is not None}
                 if compact.get("token"):
@@ -396,14 +407,16 @@ def main() -> None:
 def dataset_row(r: dict, kind: str) -> dict:
     """Section 10's fields: no source text beyond the callee's own name and path."""
     if kind == "site":
-        verdict = r.get("verdict") if r.get("band") in score.DRAWN else None
+        verdict = r.get("verdict") if r.get("band") in score.DRAWN + score.EVIDENCE else None
         return {
             "corpus": r["corpus"], "language": r["language"], "file": r["file"],
             "span": r.get("span"), "token": r.get("token"), "line": r.get("line"),
             "line_sha256_16": r.get("line_sha256_16"), "site": f"{r['file']}#{r['site']}",
             "status": r["status"], "callee": callee_text(r.get("callee")),
             "receiver": callee_text(r.get("receiver")),
-            "band": r.get("band"), "pdx_target": r.get("target_qn"),
+            "band": r.get("band"), "drawn": r.get("band") in score.DRAWN,
+            # A drawn edge's target, or the one candidate weak evidence keeps.
+            "pdx_target": r.get("target_qn"),
             "pdx_target_path": r["target"][0] if r.get("target") else None,
             "oracle_verifiable": verdict in ("correct", "false_positive"),
             "oracle_status": r.get("oracle_status"),

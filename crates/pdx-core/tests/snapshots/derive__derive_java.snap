@@ -4,8 +4,8 @@ expression: projection(&run.graph)
 ---
 nodes: {"Class": 4, "File": 4, "Folder": 9, "Method": 6, "Module": 1, "Repo": 1, "Test": 1}
 entry points: 2
-edges: {("CALLS", "exact"): 2, ("CALLS", "typed"): 4, ("TESTS", "exact"): 1, ("TESTS", "typed"): 2}
-candidates: {"candidate": 1}
+edges: {("CALLS", "typed"): 4, ("TESTS", "typed"): 2}
+candidates: {"candidate": 3}
 files: src/main/java/com/acme/App.java=parsed src/main/java/com/acme/Shop.java=parsed src/main/java/com/acme/Util.java=parsed src/test/java/com/acme/ShopTest.java=parsed
   Class src.main.java.com.acme.App App parent=File:App.java module=java:com.acme id=8066TA6W1PJHYW7X0SMM3M19X4
   Class src.main.java.com.acme.Shop Shop parent=File:Shop.java module=java:com.acme id=77E0SZ9YFC0ZYRK1JEYN8KG1Y1

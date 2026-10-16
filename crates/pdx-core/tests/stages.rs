@@ -497,11 +497,13 @@ fn narrowing_keeps_narrowest_set() {
             stage(Band::Scoped, vec![beta.clone()]),
         ],
     );
+    // `scoped` is weak evidence: it settles the site with its one candidate, never a
+    // target (issue 102).
     assert_eq!(
         narrowed,
-        Narrowed::Resolved {
+        Narrowed::Weak {
             band: Band::Scoped,
-            target: beta.clone()
+            candidate: beta.clone()
         }
     );
     // Each stage saw the narrowest set before it; exact's empty answer erased nothing.
@@ -872,11 +874,12 @@ fn blocklisted_sites_that_are_no_call_need_a_qualifying_answer() {
 }
 
 #[test]
-fn issue_103_leaves_exact_and_scoped_drawn() {
-    // Issue 103 moves the blocklist after a qualifying typed answer and nothing else:
-    // `exact` and `scoped` are drawn until issue 102 changes them.
-    assert!(Band::Exact.is_drawn());
-    assert!(Band::Scoped.is_drawn());
+fn issue_102_stops_exact_and_scoped_drawing() {
+    // Issue 103 moved the blocklist after a qualifying typed answer and nothing else;
+    // issue 102 (R3) then stopped `exact` and `scoped` drawing, keeping them as bands.
+    assert!(!Band::Exact.is_drawn());
+    assert!(!Band::Scoped.is_drawn());
+    assert!(Band::Exact.is_weak_evidence() && Band::Scoped.is_weak_evidence());
     assert!(!Band::Blocked.is_drawn());
 }
 
@@ -1187,13 +1190,7 @@ fn resolution_shapes_are_enforced() {
         path: "b.py".into(),
         index: 1,
     };
-    for drawn in [
-        Band::Typed,
-        Band::ImportGuided,
-        Band::InheritanceGuided,
-        Band::Exact,
-        Band::Scoped,
-    ] {
+    for drawn in [Band::Typed, Band::ImportGuided, Band::InheritanceGuided] {
         assert!(Resolution::new(drawn, Some(r.clone()), vec![], None).is_ok());
         assert_eq!(
             Resolution::new(drawn, None, vec![], None),
@@ -1204,6 +1201,26 @@ fn resolution_shapes_are_enforced() {
             Err(InvalidResolution::Drawn(drawn))
         );
     }
+    // Weak evidence (issue 102): no target, exactly the one candidate it names.
+    for weak in [Band::Exact, Band::Scoped] {
+        let made = Resolution::new(weak, None, vec![r.clone()], None).expect("weak evidence");
+        assert_eq!(made.target(), None);
+        assert_eq!(made.weak_candidate(), Some(&r));
+        assert_eq!(made.candidates(), std::slice::from_ref(&r));
+        for (target, candidates) in [
+            (Some(r.clone()), vec![]),
+            (Some(r.clone()), vec![r.clone()]),
+            (None, vec![]),
+            (None, vec![r.clone(), s.clone()]),
+        ] {
+            assert_eq!(
+                Resolution::new(weak, target, candidates, None),
+                Err(InvalidResolution::Weak(weak))
+            );
+        }
+    }
+    let drawn = Resolution::new(Band::Typed, Some(r.clone()), vec![], None).expect("typed");
+    assert_eq!(drawn.weak_candidate(), None);
     assert!(Resolution::new(Band::Candidate, None, vec![r.clone(), s.clone()], None).is_ok());
     assert_eq!(
         Resolution::new(Band::Candidate, Some(r.clone()), vec![s.clone()], None),
@@ -1420,7 +1437,12 @@ fn scoped_means_module_not_directory() {
     let reg = checkout.registry();
     let got = at(&reg, &by_name(&reg), "src/a/Caller.java", "helper").clone();
     assert_eq!(got.band(), Band::Scoped);
-    assert_eq!(got.target(), Some(&def(&reg, "src/b/Kin.java", "helper")));
+    // Weak evidence, never a target (issue 102).
+    assert_eq!(got.target(), None);
+    assert_eq!(
+        got.weak_candidate(),
+        Some(&def(&reg, "src/b/Kin.java", "helper"))
+    );
 }
 
 #[test]

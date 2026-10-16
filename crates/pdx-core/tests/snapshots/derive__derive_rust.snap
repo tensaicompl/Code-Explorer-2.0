@@ -4,8 +4,8 @@ expression: projection(&run.graph)
 ---
 nodes: {"Class": 1, "File": 3, "Folder": 1, "Function": 1, "Interface": 1, "Method": 3, "Module": 2, "Repo": 1, "Struct": 1, "Test": 1, "Variable": 2}
 entry points: 1
-edges: {("CALLS", "exact"): 1}
-candidates: {"candidate": 1}
+edges: {}
+candidates: {"candidate": 2}
 files: Cargo.toml=parsed src/cart.rs=parsed src/lib.rs=parsed
   Class Cargo.package package parent=File:Cargo.toml id=W651ZJJMKTCXADXA8XX75TW5A1
   Function src.lib.total total parent=File:lib.rs module=rust:crate id=75XJEXFEZE998MW6H3KDNQH6HG

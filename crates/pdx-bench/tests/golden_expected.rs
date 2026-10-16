@@ -60,20 +60,21 @@ fn golden_builder_emits_only_drawn_edges() {
         .collect();
     assert_eq!(edges.len(), 11);
     let golden = GoldenExpected::from_rows(&[a.clone(), b.clone()], &edges).expect("a golden");
-    // The drawn bands of 4.2.2, written out: exactly these six, sorted by spelling.
+    // The drawn bands of 4.2.2, written out: exactly these four, sorted by spelling.
     assert_eq!(
         golden.drawn_edges,
         vec![
-            tuple("m.a", "m.b", "CALLS", "exact"),
             tuple("m.a", "m.b", "CALLS", "import-guided"),
             tuple("m.a", "m.b", "CALLS", "inheritance-guided"),
             tuple("m.a", "m.b", "CALLS", "precise"),
-            tuple("m.a", "m.b", "CALLS", "scoped"),
             tuple("m.a", "m.b", "CALLS", "typed"),
         ]
     );
-    // And nothing at all from the five that are not drawn.
+    // And nothing at all from the seven that are not drawn, weak evidence (`exact`,
+    // `scoped`; issue 102) among them.
     let none = [
+        "exact",
+        "scoped",
         "candidate",
         "external",
         "blocked",
@@ -103,15 +104,15 @@ fn golden_builder_keeps_duplicate_tuples() {
     let a = node(NodeKind::Function, "m.a");
     let b = node(NodeKind::Function, "m.b");
     // Two rows, two sites, two edge ids, one tuple: both are kept.
-    let first = edge(&a, &b, EdgeKind::Calls, Band::Exact, 1);
-    let second = edge(&a, &b, EdgeKind::Calls, Band::Exact, 2);
+    let first = edge(&a, &b, EdgeKind::Calls, Band::ImportGuided, 1);
+    let second = edge(&a, &b, EdgeKind::Calls, Band::ImportGuided, 2);
     assert_ne!(first.edge_id, second.edge_id);
     let golden = GoldenExpected::from_rows(&[a, b], &[first, second]).expect("a golden");
     assert_eq!(
         golden.drawn_edges,
         vec![
-            tuple("m.a", "m.b", "CALLS", "exact"),
-            tuple("m.a", "m.b", "CALLS", "exact"),
+            tuple("m.a", "m.b", "CALLS", "import-guided"),
+            tuple("m.a", "m.b", "CALLS", "import-guided"),
         ]
     );
 }
@@ -162,23 +163,23 @@ fn golden_edges_are_sorted_by_the_tuple() {
     let c = node(NodeKind::Class, "m.C");
     // Given out of order: src, then dst, then kind, then band decide, in that order.
     let edges = [
-        edge(&b, &a, EdgeKind::Calls, Band::Exact, 1),
+        edge(&b, &a, EdgeKind::Calls, Band::ImportGuided, 1),
         edge(&a, &b, EdgeKind::Calls, Band::Typed, 2),
-        edge(&a, &b, EdgeKind::Calls, Band::Exact, 3),
-        edge(&a, &c, EdgeKind::Calls, Band::Scoped, 4),
-        edge(&a, &b, EdgeKind::UsesType, Band::Exact, 5),
-        edge(&a, &a, EdgeKind::Calls, Band::Scoped, 6),
+        edge(&a, &b, EdgeKind::Calls, Band::ImportGuided, 3),
+        edge(&a, &c, EdgeKind::Calls, Band::InheritanceGuided, 4),
+        edge(&a, &b, EdgeKind::UsesType, Band::ImportGuided, 5),
+        edge(&a, &a, EdgeKind::Calls, Band::InheritanceGuided, 6),
     ];
     let golden = GoldenExpected::from_rows(&[a, b, c], &edges).expect("a golden");
     assert_eq!(
         golden.drawn_edges,
         vec![
-            tuple("m.a", "m.C", "CALLS", "scoped"),
-            tuple("m.a", "m.a", "CALLS", "scoped"),
-            tuple("m.a", "m.b", "CALLS", "exact"),
+            tuple("m.a", "m.C", "CALLS", "inheritance-guided"),
+            tuple("m.a", "m.a", "CALLS", "inheritance-guided"),
+            tuple("m.a", "m.b", "CALLS", "import-guided"),
             tuple("m.a", "m.b", "CALLS", "typed"),
-            tuple("m.a", "m.b", "USES_TYPE", "exact"),
-            tuple("m.b", "m.a", "CALLS", "exact"),
+            tuple("m.a", "m.b", "USES_TYPE", "import-guided"),
+            tuple("m.b", "m.a", "CALLS", "import-guided"),
         ]
     );
 }
@@ -187,7 +188,7 @@ fn golden_edges_are_sorted_by_the_tuple() {
 fn golden_builder_refuses_an_unknown_endpoint() {
     let a = node(NodeKind::Function, "m.a");
     let b = node(NodeKind::Function, "m.b");
-    let dangling = edge(&a, &b, EdgeKind::Calls, Band::Exact, 1);
+    let dangling = edge(&a, &b, EdgeKind::Calls, Band::Typed, 1);
     assert!(GoldenExpected::from_rows(std::slice::from_ref(&a), &[dangling]).is_err());
     assert!(GoldenExpected::from_rows(&[a.clone(), a], &[]).is_err());
 }
@@ -300,15 +301,9 @@ fn golden_from_a_built_segment_holds_its_drawn_edges_only() {
             .iter()
             .all(|e| e.dst_qn != "unknown_helper_xyz")
     );
-    // The drawn edges, by the drawn spellings of 4.2.2 written out here.
-    let drawn = [
-        "precise",
-        "typed",
-        "import-guided",
-        "inheritance-guided",
-        "exact",
-        "scoped",
-    ];
+    // The drawn edges, by the drawn spellings of 4.2.2 written out here (`exact` and
+    // `scoped` are not drawn, issue 102).
+    let drawn = ["precise", "typed", "import-guided", "inheritance-guided"];
     let qn = |id: &pdx_core::ids::NodeId| {
         nodes
             .iter()

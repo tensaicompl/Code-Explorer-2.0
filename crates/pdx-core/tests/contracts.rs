@@ -236,8 +236,33 @@ fn contracts_proto() {
 
 #[test]
 fn proto_stub_calls_are_consumed_when_resolution_proves_them() {
-    // A checked-in generated stub, called through a typed receiver.
+    // A checked-in generated stub, called through a typed receiver: the engine's typed
+    // answer proves the call.
     let files = [
+        ("proto/users.proto", PROTO),
+        ("go.mod", "module example.com/acme\n\ngo 1.21\n"),
+        (
+            "users/users.go",
+            "package users\n\ntype UserServiceClient struct{}\n\nfunc (c *UserServiceClient) GetUser(req string) string { return req }\n",
+        ),
+        (
+            "app/client.go",
+            "package app\n\nimport \"example.com/acme/users\"\n\nfunc Run(c *users.UserServiceClient) string {\n\treturn c.GetUser(\"x\")\n}\n",
+        ),
+    ];
+    let g = graph(&files);
+    let get = one(
+        &g,
+        ContractKind::RpcMethod,
+        "acme.users.UserService/GetUser",
+    );
+    assert_eq!(get.direction, ContractDirection::Both, "{get:#?}");
+    assert!(strings(get, "raw_forms").contains(&"UserServiceClient.GetUser".to_owned()));
+    assert_eq!(strings(get, "site_ids").len(), 1);
+    // A stub call only a name's uniqueness ties to the stub's method (a Java nested stub,
+    // no typed answer: `exact` evidence) proves nothing, so it is no consumer (issue
+    // 102).
+    let unproven = [
         ("proto/users.proto", PROTO),
         (
             "src/main/java/com/acme/users/UserServiceGrpc.java",
@@ -248,15 +273,16 @@ fn proto_stub_calls_are_consumed_when_resolution_proves_them() {
             "package com.acme.app;\n\nimport com.acme.users.UserServiceGrpc.UserServiceBlockingStub;\n\npublic class Client {\n  private final UserServiceBlockingStub stub;\n  public Client(UserServiceBlockingStub stub) { this.stub = stub; }\n  public Object run() { return stub.getUser(null); }\n}\n",
         ),
     ];
-    let g = graph(&files);
-    let get = one(
-        &g,
-        ContractKind::RpcMethod,
-        "acme.users.UserService/GetUser",
+    let g = graph(&unproven);
+    assert_eq!(
+        one(
+            &g,
+            ContractKind::RpcMethod,
+            "acme.users.UserService/GetUser"
+        )
+        .direction,
+        ContractDirection::Provides
     );
-    assert_eq!(get.direction, ContractDirection::Both, "{get:#?}");
-    assert!(strings(get, "raw_forms").contains(&"UserServiceBlockingStub.getUser".to_owned()));
-    assert_eq!(strings(get, "site_ids").len(), 1);
     // A method of the same name on an unrelated class is no stub call.
     let unrelated = [
         ("proto/users.proto", PROTO),

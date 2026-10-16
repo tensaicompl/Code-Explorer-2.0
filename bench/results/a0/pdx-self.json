@@ -12,13 +12,13 @@
   "oracle_verifiable": 2593,
   "recall_c0": {
    "denominator": 7859,
-   "numerator": 6760,
-   "value": 0.86016
+   "numerator": 6218,
+   "value": 0.791195
   },
   "recall_c4": {
    "denominator": 7859,
-   "numerator": 6760,
-   "value": 0.86016
+   "numerator": 6218,
+   "value": 0.791195
   },
   "relations_recovered_in_c4": 0,
   "sites": 2619,
@@ -28,25 +28,25 @@
  "corpus": "pdx-self",
  "counterfactuals": {
   "C0": {
-   "drawn": 7912,
+   "drawn": 6254,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 7899,
+   "oracle_verifiable": 6248,
    "oracle_verifiable_fraction": {
-    "denominator": 7912,
-    "numerator": 7899,
-    "value": 0.998357
+    "denominator": 6254,
+    "numerator": 6248,
+    "value": 0.999041
    },
    "policy": "current behaviour",
    "precision": {
-    "denominator": 7899,
-    "numerator": 6791,
-    "value": 0.859729
+    "denominator": 6248,
+    "numerator": 6248,
+    "value": 1.0
    },
    "recall": {
     "denominator": 7859,
-    "numerator": 6760,
-    "value": 0.86016
+    "numerator": 6218,
+    "value": 0.791195
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
@@ -57,28 +57,28 @@
    }
   },
   "C1": {
-   "drawn": 6555,
+   "drawn": 6254,
    "false_positives_added": 0,
-   "false_positives_removed": 853,
-   "oracle_verifiable": 6549,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 6248,
    "oracle_verifiable_fraction": {
-    "denominator": 6555,
-    "numerator": 6549,
-    "value": 0.999085
+    "denominator": 6254,
+    "numerator": 6248,
+    "value": 0.999041
    },
    "policy": "`exact` not drawn",
    "precision": {
-    "denominator": 6549,
-    "numerator": 6294,
-    "value": 0.961063
+    "denominator": 6248,
+    "numerator": 6248,
+    "value": 1.0
    },
    "recall": {
     "denominator": 7859,
-    "numerator": 6264,
-    "value": 0.797048
+    "numerator": 6218,
+    "value": 0.791195
    },
    "true_positives_added": 0,
-   "true_positives_lost": 497,
+   "true_positives_lost": 0,
    "typed": {
     "denominator": 5911,
     "numerator": 5911,
@@ -86,28 +86,28 @@
    }
   },
   "C2": {
-   "drawn": 7611,
+   "drawn": 6254,
    "false_positives_added": 0,
-   "false_positives_removed": 255,
-   "oracle_verifiable": 7598,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 6248,
    "oracle_verifiable_fraction": {
-    "denominator": 7611,
-    "numerator": 7598,
-    "value": 0.998292
+    "denominator": 6254,
+    "numerator": 6248,
+    "value": 0.999041
    },
    "policy": "`scoped` not drawn",
    "precision": {
-    "denominator": 7598,
-    "numerator": 6745,
-    "value": 0.887734
+    "denominator": 6248,
+    "numerator": 6248,
+    "value": 1.0
    },
    "recall": {
     "denominator": 7859,
-    "numerator": 6714,
-    "value": 0.854307
+    "numerator": 6218,
+    "value": 0.791195
    },
    "true_positives_added": 0,
-   "true_positives_lost": 46,
+   "true_positives_lost": 0,
    "typed": {
     "denominator": 5911,
     "numerator": 5911,
@@ -117,7 +117,7 @@
   "C3": {
    "drawn": 6254,
    "false_positives_added": 0,
-   "false_positives_removed": 1108,
+   "false_positives_removed": 0,
    "oracle_verifiable": 6248,
    "oracle_verifiable_fraction": {
     "denominator": 6254,
@@ -136,7 +136,7 @@
     "value": 0.791195
    },
    "true_positives_added": 0,
-   "true_positives_lost": 543,
+   "true_positives_lost": 0,
    "typed": {
     "denominator": 5911,
     "numerator": 5911,
@@ -144,25 +144,25 @@
    }
   },
   "C4": {
-   "drawn": 7912,
+   "drawn": 6254,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 7899,
+   "oracle_verifiable": 6248,
    "oracle_verifiable_fraction": {
-    "denominator": 7912,
-    "numerator": 7899,
-    "value": 0.998357
+    "denominator": 6254,
+    "numerator": 6248,
+    "value": 0.999041
    },
    "policy": "a valid typed answer is accepted before the generic-name blocklist",
    "precision": {
-    "denominator": 7899,
-    "numerator": 6791,
-    "value": 0.859729
+    "denominator": 6248,
+    "numerator": 6248,
+    "value": 1.0
    },
    "recall": {
     "denominator": 7859,
-    "numerator": 6760,
-    "value": 0.86016
+    "numerator": 6218,
+    "value": 0.791195
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
@@ -173,28 +173,28 @@
    }
   },
   "C5": {
-   "drawn": 6568,
+   "drawn": 6254,
    "false_positives_added": 0,
-   "false_positives_removed": 893,
-   "oracle_verifiable": 6561,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 6248,
    "oracle_verifiable_fraction": {
-    "denominator": 6568,
-    "numerator": 6561,
-    "value": 0.998934
+    "denominator": 6254,
+    "numerator": 6248,
+    "value": 0.999041
    },
    "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
    "precision": {
-    "denominator": 6561,
-    "numerator": 6346,
-    "value": 0.967231
+    "denominator": 6248,
+    "numerator": 6248,
+    "value": 1.0
    },
    "recall": {
     "denominator": 7859,
-    "numerator": 6315,
-    "value": 0.803537
+    "numerator": 6218,
+    "value": 0.791195
    },
    "true_positives_added": 0,
-   "true_positives_lost": 445,
+   "true_positives_lost": 0,
    "typed": {
     "denominator": 5911,
     "numerator": 5911,
@@ -204,7 +204,7 @@
   "C6": {
    "drawn": 6254,
    "false_positives_added": 0,
-   "false_positives_removed": 1108,
+   "false_positives_removed": 0,
    "oracle_verifiable": 6248,
    "oracle_verifiable_fraction": {
     "denominator": 6254,
@@ -223,7 +223,36 @@
     "value": 0.791195
    },
    "true_positives_added": 0,
-   "true_positives_lost": 543,
+   "true_positives_lost": 0,
+   "typed": {
+    "denominator": 5911,
+    "numerator": 5911,
+    "value": 1.0
+   }
+  },
+  "C7": {
+   "drawn": 7912,
+   "false_positives_added": 1108,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 7899,
+   "oracle_verifiable_fraction": {
+    "denominator": 7912,
+    "numerator": 7899,
+    "value": 0.998357
+   },
+   "policy": "`exact` and `scoped` drawn, as before issue 102",
+   "precision": {
+    "denominator": 7899,
+    "numerator": 6791,
+    "value": 0.859729
+   },
+   "recall": {
+    "denominator": 7859,
+    "numerator": 6760,
+    "value": 0.86016
+   },
+   "true_positives_added": 543,
+   "true_positives_lost": 0,
    "typed": {
     "denominator": 5911,
     "numerator": 5911,
@@ -233,7 +262,7 @@
  },
  "coverage": {
   "drawn_edges_by_kind": {
-   "CALLS": 7884,
+   "CALLS": 6226,
    "CALL_REFERENCE": 28
   },
   "engine_sites": 152,
@@ -895,108 +924,6 @@
  },
  "extraction_loss": 1012,
  "false_negative_examples": {
-  "drawn_wrong": [
-   {
-    "bucket": "drawn_wrong",
-    "callee": "run.plan.determinism",
-    "file": "crates/pdx-bench/src/bench/run.rs",
-    "line": 1009,
-    "macro": null,
-    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchPlan.determinism",
-    "pdx_band": "scoped",
-    "pdx_site": 304,
-    "pdx_target": "crates.pdx-bench.src.bench.run.Run.determinism",
-    "shape": "method",
-    "span": [
-     34979,
-     35001
-    ],
-    "token": [
-     34988,
-     34999
-    ]
-   },
-   {
-    "bucket": "drawn_wrong",
-    "callee": "run.plan.performance",
-    "file": "crates/pdx-bench/src/bench/run.rs",
-    "line": 1040,
-    "macro": null,
-    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchPlan.performance",
-    "pdx_band": "scoped",
-    "pdx_site": 314,
-    "pdx_target": "crates.pdx-bench.src.bench.run.Run.performance",
-    "shape": "method",
-    "span": [
-     36106,
-     36128
-    ],
-    "token": [
-     36115,
-     36126
-    ]
-   },
-   {
-    "bucket": "drawn_wrong",
-    "callee": "found.observe",
-    "file": "crates/pdx-core/src/contracts/artifacts.rs",
-    "line": 136,
-    "macro": null,
-    "oracle_target": "crates.pdx-core.src.contracts.mod.Found.observe",
-    "pdx_band": "scoped",
-    "pdx_site": 30,
-    "pdx_target": "crates.pdx-core.src.contracts.artifacts.observe",
-    "shape": "method",
-    "span": [
-     5560,
-     5732
-    ],
-    "token": [
-     5566,
-     5573
-    ]
-   },
-   {
-    "bucket": "drawn_wrong",
-    "callee": "found.observe",
-    "file": "crates/pdx-core/src/contracts/channels.rs",
-    "line": 238,
-    "macro": null,
-    "oracle_target": "crates.pdx-core.src.contracts.mod.Found.observe",
-    "pdx_band": "scoped",
-    "pdx_site": 67,
-    "pdx_target": "crates.pdx-core.src.contracts.channels.observe",
-    "shape": "method",
-    "span": [
-     9571,
-     9597
-    ],
-    "token": [
-     9577,
-     9584
-    ]
-   },
-   {
-    "bucket": "drawn_wrong",
-    "callee": "found.observe",
-    "file": "crates/pdx-core/src/contracts/channels.rs",
-    "line": 283,
-    "macro": null,
-    "oracle_target": "crates.pdx-core.src.contracts.mod.Found.observe",
-    "pdx_band": "scoped",
-    "pdx_site": 88,
-    "pdx_target": "crates.pdx-core.src.contracts.channels.observe",
-    "shape": "method",
-    "span": [
-     11465,
-     11530
-    ],
-    "token": [
-     11471,
-     11478
-    ]
-   }
-  ],
   "resolution_not_drawn:blocked": [
    {
     "bucket": "resolution_not_drawn:blocked",
@@ -1198,6 +1125,210 @@
     "token": [
      21609,
      21612
+    ]
+   }
+  ],
+  "resolution_not_drawn:exact": [
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "entry.cache_components",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 67,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.cache_components",
+    "pdx_band": "exact",
+    "pdx_site": 5,
+    "pdx_target": "crates.pdx-bench.src.bench.plan.BenchEntry.cache_components",
+    "shape": "method",
+    "span": [
+     2173,
+     2197
+    ],
+    "token": [
+     2179,
+     2195
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "entry.cache_components",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 79,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.cache_components",
+    "pdx_band": "exact",
+    "pdx_site": 8,
+    "pdx_target": "crates.pdx-bench.src.bench.plan.BenchEntry.cache_components",
+    "shape": "method",
+    "span": [
+     2617,
+     2641
+    ],
+    "token": [
+     2623,
+     2639
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "remove_owned",
+    "file": "crates/pdx-bench/src/bench/area.rs",
+    "line": 147,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.area.remove_owned",
+    "pdx_band": "exact",
+    "pdx_site": 47,
+    "pdx_target": "crates.pdx-bench.src.bench.area.remove_owned",
+    "shape": "call",
+    "span": [
+     4898,
+     4929
+    ],
+    "token": [
+     4898,
+     4910
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "entry.result_file",
+    "file": "crates/pdx-bench/src/bench/plan.rs",
+    "line": 215,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.result_file",
+    "pdx_band": "exact",
+    "pdx_site": 43,
+    "pdx_target": "crates.pdx-bench.src.bench.plan.BenchEntry.result_file",
+    "shape": "method",
+    "span": [
+     7196,
+     7215
+    ],
+    "token": [
+     7202,
+     7213
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "entry.kind_name",
+    "file": "crates/pdx-bench/src/bench/results.rs",
+    "line": 83,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.kind_name",
+    "pdx_band": "exact",
+    "pdx_site": 4,
+    "pdx_target": "crates.pdx-bench.src.bench.plan.BenchEntry.kind_name",
+    "shape": "method",
+    "span": [
+     3470,
+     3487
+    ],
+    "token": [
+     3476,
+     3485
+    ]
+   }
+  ],
+  "resolution_not_drawn:scoped": [
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "entry.key",
+    "file": "crates/pdx-bench/src/bench/plan.rs",
+    "line": 215,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.key",
+    "pdx_band": "scoped",
+    "pdx_site": 44,
+    "pdx_target": "crates.pdx-bench.src.bench.plan.BenchEntry.key",
+    "shape": "method",
+    "span": [
+     7238,
+     7249
+    ],
+    "token": [
+     7244,
+     7247
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "entry.key",
+    "file": "crates/pdx-bench/src/bench/plan.rs",
+    "line": 216,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchEntry.key",
+    "pdx_band": "scoped",
+    "pdx_site": 46,
+    "pdx_target": "crates.pdx-bench.src.bench.plan.BenchEntry.key",
+    "shape": "method",
+    "span": [
+     7309,
+     7320
+    ],
+    "token": [
+     7315,
+     7318
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "sorted",
+    "file": "crates/pdx-bench/src/bench/results.rs",
+    "line": 372,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.results.sorted",
+    "pdx_band": "scoped",
+    "pdx_site": 19,
+    "pdx_target": "crates.pdx-bench.src.bench.results.sorted",
+    "shape": "call",
+    "span": [
+     12676,
+     12689
+    ],
+    "token": [
+     12676,
+     12682
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "run.plan.determinism",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 1009,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchPlan.determinism",
+    "pdx_band": "scoped",
+    "pdx_site": 304,
+    "pdx_target": "crates.pdx-bench.src.bench.run.Run.determinism",
+    "shape": "method",
+    "span": [
+     34979,
+     35001
+    ],
+    "token": [
+     34988,
+     34999
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "run.plan.performance",
+    "file": "crates/pdx-bench/src/bench/run.rs",
+    "line": 1040,
+    "macro": null,
+    "oracle_target": "crates.pdx-bench.src.bench.plan.BenchPlan.performance",
+    "pdx_band": "scoped",
+    "pdx_site": 314,
+    "pdx_target": "crates.pdx-bench.src.bench.run.Run.performance",
+    "shape": "method",
+    "span": [
+     36106,
+     36128
+    ],
+    "token": [
+     36115,
+     36126
     ]
    }
   ],
@@ -1851,13 +1982,12 @@
   "note": "an overloaded call is an oracle relation whose target shares its qualified name with another definition of its file; a call whose oracle symbol denotes several such definitions has no verdict",
   "oracle_calls_whose_target_is_ambiguous": 0,
   "oracle_verifiable_overloaded_calls": {
-   "correct_overload_selected": 37,
-   "drawn": 46,
+   "correct_overload_selected": 6,
+   "drawn": 6,
    "structural_site_exists": 125,
    "total": 291,
    "typed_answer_supplied": 6,
-   "withheld_qn_maps_to_several_definitions": 6,
-   "wrong_overload_selected": 9
+   "withheld_qn_maps_to_several_definitions": 6
   }
  },
  "precision": {
@@ -1942,6 +2072,22 @@
    }
   },
   "union": {
+   "correct": 6248,
+   "drawn": 6254,
+   "false_positive": 0,
+   "oracle_verifiable": 6248,
+   "oracle_verifiable_fraction": {
+    "denominator": 6254,
+    "numerator": 6248,
+    "value": 0.999041
+   },
+   "precision": {
+    "denominator": 6248,
+    "numerator": 6248,
+    "value": 1.0
+   }
+  },
+  "union_with_evidence": {
    "correct": 6791,
    "drawn": 7912,
    "false_positive": 1108,
@@ -2040,6 +2186,22 @@
    }
   },
   "union": {
+   "correct": 6220,
+   "drawn": 6226,
+   "false_positive": 0,
+   "oracle_verifiable": 6220,
+   "oracle_verifiable_fraction": {
+    "denominator": 6226,
+    "numerator": 6220,
+    "value": 0.999036
+   },
+   "precision": {
+    "denominator": 6220,
+    "numerator": 6220,
+    "value": 1.0
+   }
+  },
+  "union_with_evidence": {
    "correct": 6763,
    "drawn": 7884,
    "false_positive": 1108,
@@ -2152,6 +2314,22 @@
     "numerator": 28,
     "value": 1.0
    }
+  },
+  "union_with_evidence": {
+   "correct": 28,
+   "drawn": 28,
+   "false_positive": 0,
+   "oracle_verifiable": 28,
+   "oracle_verifiable_fraction": {
+    "denominator": 28,
+    "numerator": 28,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 28,
+    "numerator": 28,
+    "value": 1.0
+   }
   }
  },
  "provenance": {
@@ -2160,7 +2338,7 @@
   "diagnostic_only": "cannot pass or fail G1b",
   "engine_health": "RunHealth { status: Degraded, files: 1100, files_resolved: 903, files_untyped: 195, files_empty: 2, files_over_budget: 0, files_source_unavailable: 0, files_not_reached: 0, pass_failures: 1 }",
   "engine_version": 12,
-  "metrics_version": "a0-metrics-1",
+  "metrics_version": "a0-metrics-2",
   "oracle": "rust-analyzer scip",
   "oracle_setup": {
    "cargo_lock_sha256": "9a413a5994a556412046a3fdd96e2f1717be16798dc3b263b12b9f7e5b1f26bb",
@@ -2180,27 +2358,28 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "resolver": "post-118: issue 118, the commit 'Issue 118: read each Rust use-group binding as its own path' (parent: the commit 'Issue 117: validate trait impl applicability in import-guided resolution'). Baseline: post-117, results committed at 27f7d5b",
+  "resolver": "post-R3: issue 102, the commit 'Issue 102: stop Exact and Scoped from drawing graph edges' (parent: the commit 'Issue 118: read each Rust use-group binding as its own path'). Baseline: post-118, results committed at 1feb3d7",
   "site_matching_version": "a0-match-1"
  },
  "recall": {
   "at_parsed_structural_sites": 7859,
   "breakdown": {
    "at_parsed_site": 7859,
-   "drawn_correct": 6760,
-   "drawn_wrong": 85,
+   "drawn_correct": 6218,
    "resolution_not_drawn:blocked": 298,
    "resolution_not_drawn:candidate": 564,
+   "resolution_not_drawn:exact": 496,
+   "resolution_not_drawn:scoped": 131,
    "resolution_not_materialized:typed": 152,
    "site_missing": 51,
    "site_missing_macro_token_tree": 890,
    "site_not_a_call_site": 71
   },
-  "drawn_correct": 6760,
+  "drawn_correct": 6218,
   "end_to_end_recall": {
    "denominator": 8871,
-   "numerator": 6760,
-   "value": 0.762034
+   "numerator": 6218,
+   "value": 0.700936
   },
   "oracle_calls_outside_relations": {
    "not_a_relation:external": 18255,
@@ -2213,8 +2392,15 @@
   "oracle_relations": 8871,
   "recall": {
    "denominator": 7859,
-   "numerator": 6760,
-   "value": 0.86016
+   "numerator": 6218,
+   "value": 0.791195
+  },
+  "weak_evidence": {
+   "exact": 496,
+   "exact:correct": 496,
+   "scoped": 131,
+   "scoped:correct": 46,
+   "scoped:false_positive": 85
   }
  },
  "receivers": {
@@ -2230,12 +2416,12 @@
     "unresolved": 606
    },
    "call_sites": 5342,
-   "exact_or_scoped_drawn": 203,
    "exact_or_scoped_precision": {
     "denominator": 202,
     "numerator": 82,
     "value": 0.405941
-   }
+   },
+   "exact_or_scoped_weak_evidence": 203
   },
   "path_bound": {
    "by_band": {
@@ -2249,12 +2435,12 @@
     "unresolved": 309
    },
    "call_sites": 2359,
-   "exact_or_scoped_drawn": 109,
    "exact_or_scoped_precision": {
     "denominator": 109,
     "numerator": 14,
     "value": 0.12844
-   }
+   },
+   "exact_or_scoped_weak_evidence": 109
   },
   "path_unproven": {
    "by_band": {
@@ -2268,12 +2454,12 @@
     "unresolved": 227
    },
    "call_sites": 1170,
-   "exact_or_scoped_drawn": 116,
    "exact_or_scoped_precision": {
     "denominator": 116,
     "numerator": 1,
     "value": 0.008621
-   }
+   },
+   "exact_or_scoped_weak_evidence": 116
   },
   "self": {
    "by_band": {
@@ -2285,12 +2471,12 @@
     "unresolved": 4
    },
    "call_sites": 244,
-   "exact_or_scoped_drawn": 2,
    "exact_or_scoped_precision": {
     "denominator": 2,
     "numerator": 2,
     "value": 1.0
-   }
+   },
+   "exact_or_scoped_weak_evidence": 2
   },
   "value_unproven": {
    "by_band": {
@@ -2303,17 +2489,16 @@
     "unresolved": 7861
    },
    "call_sites": 14300,
-   "exact_or_scoped_drawn": 1228,
    "exact_or_scoped_precision": {
     "denominator": 1222,
     "numerator": 444,
     "value": 0.363339
-   }
+   },
+   "exact_or_scoped_weak_evidence": 1228
   }
  },
- "resolution_loss": 1099,
+ "resolution_loss": 1641,
  "unverifiable_drawn": {
-  "exact:file_not_indexed": 7,
   "inheritance-guided:file_not_indexed": 1,
   "typed:file_not_indexed": 2,
   "typed:none": 3

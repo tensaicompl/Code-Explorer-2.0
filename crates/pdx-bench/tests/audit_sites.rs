@@ -52,11 +52,20 @@ fn a_site_carries_its_band_target_and_what_the_audit_reads() {
         panic!("one site");
     };
     assert_eq!(site["status"], "resolved");
-    assert!(
-        ["typed", "exact", "import-guided", "scoped"].contains(&site["band"].as_str().unwrap())
-    );
-    assert_eq!(site["target"][0], "app/main.py");
-    assert_eq!(site["target"][1], def["i"]);
+    let band = site["band"].as_str().unwrap();
+    let named = if ["exact", "scoped"].contains(&band) {
+        // Weak evidence (issue 102): never a target, its one candidate kept.
+        assert!(site["target"].is_null(), "{site}");
+        let [one] = &site["candidates"].as_array().expect("candidates")[..] else {
+            panic!("one candidate: {site}");
+        };
+        one
+    } else {
+        assert!(["typed", "import-guided"].contains(&band), "{band}");
+        &site["target"]
+    };
+    assert_eq!(named[0], "app/main.py");
+    assert_eq!(named[1], def["i"]);
     assert_eq!(site["materialized"], true);
     assert_eq!(site["callee"], "compute_total");
     let callee = site["callee_span"].as_array().expect("source bytes");

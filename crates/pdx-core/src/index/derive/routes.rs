@@ -283,8 +283,9 @@ fn express(
 }
 
 /// The definition an Express handler argument names, and how sure that is: what its
-/// reference site resolved to, when that is drawn; else the one callable of that name
-/// the file itself defines.
+/// reference site resolved to, drawn or weak evidence; else the one callable of that
+/// name the file itself defines, weak evidence (`scoped`). A weak band's edge is not
+/// drawn (issue 102).
 fn express_handler(
     registry: &SymbolRegistry,
     resolved: &BTreeMap<&SiteRef, &ResolvedSite>,
@@ -305,9 +306,13 @@ fn express_handler(
             rel_path: path.to_owned(),
             call_index: u32::try_from(i).ok()?,
         };
+        // Its target when drawn, or the one candidate weak evidence names (issue 102):
+        // the binding keeps the resolution's band, so a weak one's edge is not drawn.
         if let Some(found) = resolved.get(&site_ref)
-            && found.resolution.band().is_drawn()
-            && let Some(target) = found.resolution.target()
+            && let Some(target) = found
+                .resolution
+                .target()
+                .or_else(|| found.resolution.weak_candidate())
         {
             return Some((target.clone(), found.resolution.band()));
         }

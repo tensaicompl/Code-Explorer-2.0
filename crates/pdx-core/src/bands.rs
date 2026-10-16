@@ -24,9 +24,11 @@ vocabulary! {
         ImportGuided => "import-guided",
         /// Resolved through the receiver's class hierarchy to exactly one target.
         InheritanceGuided => "inheritance-guided",
-        /// The name has exactly one definition in the repository.
+        /// The name has exactly one definition in the repository: weak evidence, never
+        /// drawn (issue 102).
         Exact => "exact",
-        /// Exactly one definition in the same module or package.
+        /// Exactly one definition in the same module or package: weak evidence, never
+        /// drawn (issue 102).
         Scoped => "scoped",
         /// More than one candidate survives, or the engine's score is too low.
         Candidate => "candidate",
@@ -63,16 +65,21 @@ impl Band {
 
     /// Whether edges of this band are drawn: in the graph, tiles, traversals and blast
     /// radius. The rest are reachable through coverage and candidates only.
+    ///
+    /// `exact` and `scoped` are not (issue 102, decision 65): a short name's uniqueness,
+    /// in the repository or in a module, is never by itself evidence enough for an edge.
+    /// They stay ordered bands and evidence ([`Self::is_weak_evidence`]).
     pub const fn is_drawn(self) -> bool {
         matches!(
             self,
-            Self::Precise
-                | Self::Typed
-                | Self::ImportGuided
-                | Self::InheritanceGuided
-                | Self::Exact
-                | Self::Scoped
+            Self::Precise | Self::Typed | Self::ImportGuided | Self::InheritanceGuided
         )
+    }
+
+    /// Whether the band is weak evidence: one candidate a stage narrowed to, kept and
+    /// measured but never drawn (`exact`, `scoped`; issue 102).
+    pub const fn is_weak_evidence(self) -> bool {
+        matches!(self, Self::Exact | Self::Scoped)
     }
 }
 
@@ -89,8 +96,10 @@ impl PartialOrd for Band {
 }
 
 vocabulary! {
-    /// The bands a non-drawn call site can have, which are the only ones the
-    /// `candidates` table accepts (4.3). A drawn band cannot be one.
+    /// The bands a non-drawn call site's row can have, which are the only ones the
+    /// `candidates` table accepts (4.3). A drawn band cannot be one; a site whose weak
+    /// evidence is `exact` or `scoped` is stored as a `candidate` row whose reason names
+    /// its band (issue 102).
     pub enum CandidateBand {
         /// `candidate`.
         Candidate => "candidate",

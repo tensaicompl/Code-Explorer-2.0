@@ -431,9 +431,11 @@ fn e4_a_bare_name_unique_by_name_alone_has_no_typed_answer() {
     let (reg, report) = checkout.resolved();
     let got = at(&reg, &report, "crates/one/src/lib.rs", "unique_helper");
     assert!(got.engine().is_none(), "{got:?}");
+    // `exact` is weak evidence: the one candidate is kept, no edge drawn (issue 102).
     assert_eq!(got.band(), Band::Exact, "{got:?}");
+    assert_eq!(got.target(), None, "{got:?}");
     assert_eq!(
-        got.target(),
+        got.weak_candidate(),
         Some(&def(&reg, "crates/two/src/lib.rs", "unique_helper"))
     );
 }
@@ -496,9 +498,8 @@ fn e6_a_call_a_blanket_impl_answers_is_recorded_as_the_engine_gives_it() {
     //
     // Issue 109 removes the false trusted typed answer. The site then falls to Stage 3's
     // `scoped` guess, the one `from_request` of its module, which is still the wrong
-    // impl: a weak band issue 102 (R3) governs, known wrong until R3 stops drawing it.
-    // This records that state, an R3 acceptance case (axum-extra's
-    // `with_rejection.rs:196`): after R3, `scoped` draws no edge here.
+    // impl. This is the R3 acceptance case (axum-extra's `with_rejection.rs:196`):
+    // since issue 102, `scoped` keeps the wrong impl as weak evidence and draws no edge.
     let checkout = Checkout::new(&[
         CRATE,
         ("src/lib.rs", "pub mod extract;\npub mod with_rejection;\n"),
@@ -521,8 +522,12 @@ fn e6_a_call_a_blanket_impl_answers_is_recorded_as_the_engine_gives_it() {
     let own = def(&reg, "src/with_rejection.rs", "from_request");
     assert!(got.engine().is_none(), "{got:?}");
     assert_ne!(got.band(), Band::Typed, "{got:?}");
+    // R3 (issue 102): `scoped` is weak evidence. The wrong impl stays its one candidate
+    // and is never a target: no edge is drawn.
     assert_eq!(got.band(), Band::Scoped, "{got:?}");
-    assert_eq!(got.target(), Some(&own), "{got:?}");
+    assert!(!got.band().is_drawn());
+    assert_eq!(got.target(), None, "{got:?}");
+    assert_eq!(got.weak_candidate(), Some(&own), "{got:?}");
 }
 
 // --- E7: a pattern binding is not a call ---------------------------------------------

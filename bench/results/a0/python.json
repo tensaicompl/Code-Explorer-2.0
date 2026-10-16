@@ -11,13 +11,13 @@
   "oracle_verifiable": 333,
   "recall_c0": {
    "denominator": 1114,
-   "numerator": 606,
-   "value": 0.543986
+   "numerator": 321,
+   "value": 0.288151
   },
   "recall_c4": {
    "denominator": 1114,
-   "numerator": 606,
-   "value": 0.543986
+   "numerator": 321,
+   "value": 0.288151
   },
   "relations_recovered_in_c4": 0,
   "sites": 690,
@@ -27,25 +27,25 @@
  "corpus": "python-golden",
  "counterfactuals": {
   "C0": {
-   "drawn": 660,
+   "drawn": 340,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 657,
+   "oracle_verifiable": 339,
    "oracle_verifiable_fraction": {
-    "denominator": 660,
-    "numerator": 657,
-    "value": 0.995455
+    "denominator": 340,
+    "numerator": 339,
+    "value": 0.997059
    },
    "policy": "current behaviour",
    "precision": {
-    "denominator": 657,
-    "numerator": 624,
-    "value": 0.949772
+    "denominator": 339,
+    "numerator": 339,
+    "value": 1.0
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 606,
-    "value": 0.543986
+    "numerator": 321,
+    "value": 0.288151
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
@@ -56,28 +56,28 @@
    }
   },
   "C1": {
-   "drawn": 348,
+   "drawn": 340,
    "false_positives_added": 0,
-   "false_positives_removed": 26,
-   "oracle_verifiable": 347,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 339,
    "oracle_verifiable_fraction": {
-    "denominator": 348,
-    "numerator": 347,
-    "value": 0.997126
+    "denominator": 340,
+    "numerator": 339,
+    "value": 0.997059
    },
    "policy": "`exact` not drawn",
    "precision": {
-    "denominator": 347,
-    "numerator": 340,
-    "value": 0.979827
+    "denominator": 339,
+    "numerator": 339,
+    "value": 1.0
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 322,
-    "value": 0.289048
+    "numerator": 321,
+    "value": 0.288151
    },
    "true_positives_added": 0,
-   "true_positives_lost": 284,
+   "true_positives_lost": 0,
    "typed": {
     "denominator": 314,
     "numerator": 314,
@@ -85,28 +85,28 @@
    }
   },
   "C2": {
-   "drawn": 652,
+   "drawn": 340,
    "false_positives_added": 0,
-   "false_positives_removed": 7,
-   "oracle_verifiable": 649,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 339,
    "oracle_verifiable_fraction": {
-    "denominator": 652,
-    "numerator": 649,
-    "value": 0.995399
+    "denominator": 340,
+    "numerator": 339,
+    "value": 0.997059
    },
    "policy": "`scoped` not drawn",
    "precision": {
-    "denominator": 649,
-    "numerator": 623,
-    "value": 0.959938
+    "denominator": 339,
+    "numerator": 339,
+    "value": 1.0
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 605,
-    "value": 0.543088
+    "numerator": 321,
+    "value": 0.288151
    },
    "true_positives_added": 0,
-   "true_positives_lost": 1,
+   "true_positives_lost": 0,
    "typed": {
     "denominator": 314,
     "numerator": 314,
@@ -116,7 +116,7 @@
   "C3": {
    "drawn": 340,
    "false_positives_added": 0,
-   "false_positives_removed": 33,
+   "false_positives_removed": 0,
    "oracle_verifiable": 339,
    "oracle_verifiable_fraction": {
     "denominator": 340,
@@ -135,7 +135,7 @@
     "value": 0.288151
    },
    "true_positives_added": 0,
-   "true_positives_lost": 285,
+   "true_positives_lost": 0,
    "typed": {
     "denominator": 314,
     "numerator": 314,
@@ -143,25 +143,25 @@
    }
   },
   "C4": {
-   "drawn": 660,
+   "drawn": 340,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 657,
+   "oracle_verifiable": 339,
    "oracle_verifiable_fraction": {
-    "denominator": 660,
-    "numerator": 657,
-    "value": 0.995455
+    "denominator": 340,
+    "numerator": 339,
+    "value": 0.997059
    },
    "policy": "a valid typed answer is accepted before the generic-name blocklist",
    "precision": {
-    "denominator": 657,
-    "numerator": 624,
-    "value": 0.949772
+    "denominator": 339,
+    "numerator": 339,
+    "value": 1.0
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 606,
-    "value": 0.543986
+    "numerator": 321,
+    "value": 0.288151
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
@@ -172,25 +172,25 @@
    }
   },
   "C5": {
-   "drawn": 660,
+   "drawn": 340,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 657,
+   "oracle_verifiable": 339,
    "oracle_verifiable_fraction": {
-    "denominator": 660,
-    "numerator": 657,
-    "value": 0.995455
+    "denominator": 340,
+    "numerator": 339,
+    "value": 0.997059
    },
    "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
    "precision": {
-    "denominator": 657,
-    "numerator": 624,
-    "value": 0.949772
+    "denominator": 339,
+    "numerator": 339,
+    "value": 1.0
    },
    "recall": {
     "denominator": 1114,
-    "numerator": 606,
-    "value": 0.543986
+    "numerator": 321,
+    "value": 0.288151
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
@@ -203,7 +203,7 @@
   "C6": {
    "drawn": 340,
    "false_positives_added": 0,
-   "false_positives_removed": 33,
+   "false_positives_removed": 0,
    "oracle_verifiable": 339,
    "oracle_verifiable_fraction": {
     "denominator": 340,
@@ -222,7 +222,36 @@
     "value": 0.288151
    },
    "true_positives_added": 0,
-   "true_positives_lost": 285,
+   "true_positives_lost": 0,
+   "typed": {
+    "denominator": 314,
+    "numerator": 314,
+    "value": 1.0
+   }
+  },
+  "C7": {
+   "drawn": 660,
+   "false_positives_added": 33,
+   "false_positives_removed": 0,
+   "oracle_verifiable": 657,
+   "oracle_verifiable_fraction": {
+    "denominator": 660,
+    "numerator": 657,
+    "value": 0.995455
+   },
+   "policy": "`exact` and `scoped` drawn, as before issue 102",
+   "precision": {
+    "denominator": 657,
+    "numerator": 624,
+    "value": 0.949772
+   },
+   "recall": {
+    "denominator": 1114,
+    "numerator": 606,
+    "value": 0.543986
+   },
+   "true_positives_added": 285,
+   "true_positives_lost": 0,
    "typed": {
     "denominator": 314,
     "numerator": 314,
@@ -232,7 +261,7 @@
  },
  "coverage": {
   "drawn_edges_by_kind": {
-   "CALLS": 642,
+   "CALLS": 322,
    "CALL_REFERENCE": 18
   },
   "engine_sites": 0,
@@ -565,108 +594,6 @@
  },
  "extraction_loss": 0,
  "false_negative_examples": {
-  "drawn_wrong": [
-   {
-    "bucket": "drawn_wrong",
-    "callee": "current_app.make_response",
-    "file": "src/flask/helpers.py",
-    "line": 197,
-    "macro": null,
-    "oracle_target": "src.flask.app.Flask.make_response",
-    "pdx_band": "scoped",
-    "pdx_site": 16,
-    "pdx_target": "src.flask.helpers.make_response",
-    "shape": "method",
-    "span": [
-     6598,
-     6629
-    ],
-    "token": [
-     6610,
-     6623
-    ]
-   },
-   {
-    "bucket": "drawn_wrong",
-    "callee": "current_app.url_for",
-    "file": "src/flask/helpers.py",
-    "line": 244,
-    "macro": null,
-    "oracle_target": "src.flask.app.Flask.url_for",
-    "pdx_band": "scoped",
-    "pdx_site": 17,
-    "pdx_target": "src.flask.helpers.url_for",
-    "shape": "method",
-    "span": [
-     8291,
-     8457
-    ],
-    "token": [
-     8303,
-     8310
-    ]
-   },
-   {
-    "bucket": "drawn_wrong",
-    "callee": "current_app.json.dumps",
-    "file": "src/flask/json/__init__.py",
-    "line": 41,
-    "macro": null,
-    "oracle_target": "src.flask.json.provider.JSONProvider.dumps",
-    "pdx_band": "scoped",
-    "pdx_site": 0,
-    "pdx_target": "src.flask.json.dumps",
-    "shape": "method",
-    "span": [
-     1152,
-     1189
-    ],
-    "token": [
-     1169,
-     1174
-    ]
-   },
-   {
-    "bucket": "drawn_wrong",
-    "callee": "current_app.json.dump",
-    "file": "src/flask/json/__init__.py",
-    "line": 71,
-    "macro": null,
-    "oracle_target": "src.flask.json.provider.JSONProvider.dump",
-    "pdx_band": "scoped",
-    "pdx_site": 3,
-    "pdx_target": "src.flask.json.dump",
-    "shape": "method",
-    "span": [
-     2144,
-     2184
-    ],
-    "token": [
-     2161,
-     2165
-    ]
-   },
-   {
-    "bucket": "drawn_wrong",
-    "callee": "current_app.json.loads",
-    "file": "src/flask/json/__init__.py",
-    "line": 103,
-    "macro": null,
-    "oracle_target": "src.flask.json.provider.JSONProvider.loads",
-    "pdx_band": "scoped",
-    "pdx_site": 6,
-    "pdx_target": "src.flask.json.loads",
-    "shape": "method",
-    "span": [
-     3163,
-     3198
-    ],
-    "token": [
-     3180,
-     3185
-    ]
-   }
-  ],
   "resolution_not_drawn:blocked": [
    {
     "bucket": "resolution_not_drawn:blocked",
@@ -868,6 +795,210 @@
     "token": [
      756,
      767
+    ]
+   }
+  ],
+  "resolution_not_drawn:exact": [
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "Flask",
+    "file": "examples/celery/src/task_app/__init__.py",
+    "line": 8,
+    "macro": null,
+    "oracle_target": "src.flask.app.Flask",
+    "pdx_band": "exact",
+    "pdx_site": 0,
+    "pdx_target": "src.flask.app.Flask",
+    "shape": "call",
+    "span": [
+     147,
+     162
+    ],
+    "token": [
+     147,
+     152
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "celery_init_app",
+    "file": "examples/celery/src/task_app/__init__.py",
+    "line": 17,
+    "macro": null,
+    "oracle_target": "examples.celery.src.task_app.celery_init_app",
+    "pdx_band": "exact",
+    "pdx_site": 3,
+    "pdx_target": "examples.celery.src.task_app.celery_init_app",
+    "shape": "call",
+    "span": [
+     403,
+     423
+    ],
+    "token": [
+     403,
+     418
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "render_template",
+    "file": "examples/celery/src/task_app/__init__.py",
+    "line": 21,
+    "macro": null,
+    "oracle_target": "src.flask.templating.render_template",
+    "pdx_band": "exact",
+    "pdx_site": 5,
+    "pdx_target": "src.flask.templating.render_template",
+    "shape": "call",
+    "span": [
+     484,
+     513
+    ],
+    "token": [
+     484,
+     499
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "Flask",
+    "file": "examples/javascript/js_example/__init__.py",
+    "line": 3,
+    "macro": null,
+    "oracle_target": "src.flask.app.Flask",
+    "pdx_band": "exact",
+    "pdx_site": 0,
+    "pdx_target": "src.flask.app.Flask",
+    "shape": "call",
+    "span": [
+     31,
+     46
+    ],
+    "token": [
+     31,
+     36
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "app.route",
+    "file": "examples/javascript/js_example/views.py",
+    "line": 8,
+    "macro": null,
+    "oracle_target": "src.flask.sansio.scaffold.Scaffold.route",
+    "pdx_band": "exact",
+    "pdx_site": 0,
+    "pdx_target": "src.flask.sansio.scaffold.Scaffold.route",
+    "shape": "method",
+    "span": [
+     108,
+     148
+    ],
+    "token": [
+     112,
+     117
+    ]
+   }
+  ],
+  "resolution_not_drawn:scoped": [
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "current_app.make_response",
+    "file": "src/flask/helpers.py",
+    "line": 197,
+    "macro": null,
+    "oracle_target": "src.flask.app.Flask.make_response",
+    "pdx_band": "scoped",
+    "pdx_site": 16,
+    "pdx_target": "src.flask.helpers.make_response",
+    "shape": "method",
+    "span": [
+     6598,
+     6629
+    ],
+    "token": [
+     6610,
+     6623
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "current_app.url_for",
+    "file": "src/flask/helpers.py",
+    "line": 244,
+    "macro": null,
+    "oracle_target": "src.flask.app.Flask.url_for",
+    "pdx_band": "scoped",
+    "pdx_site": 17,
+    "pdx_target": "src.flask.helpers.url_for",
+    "shape": "method",
+    "span": [
+     8291,
+     8457
+    ],
+    "token": [
+     8303,
+     8310
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "current_app.json.dumps",
+    "file": "src/flask/json/__init__.py",
+    "line": 41,
+    "macro": null,
+    "oracle_target": "src.flask.json.provider.JSONProvider.dumps",
+    "pdx_band": "scoped",
+    "pdx_site": 0,
+    "pdx_target": "src.flask.json.dumps",
+    "shape": "method",
+    "span": [
+     1152,
+     1189
+    ],
+    "token": [
+     1169,
+     1174
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "current_app.json.dump",
+    "file": "src/flask/json/__init__.py",
+    "line": 71,
+    "macro": null,
+    "oracle_target": "src.flask.json.provider.JSONProvider.dump",
+    "pdx_band": "scoped",
+    "pdx_site": 3,
+    "pdx_target": "src.flask.json.dump",
+    "shape": "method",
+    "span": [
+     2144,
+     2184
+    ],
+    "token": [
+     2161,
+     2165
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "current_app.json.loads",
+    "file": "src/flask/json/__init__.py",
+    "line": 103,
+    "macro": null,
+    "oracle_target": "src.flask.json.provider.JSONProvider.loads",
+    "pdx_band": "scoped",
+    "pdx_site": 6,
+    "pdx_target": "src.flask.json.loads",
+    "shape": "method",
+    "span": [
+     3163,
+     3198
+    ],
+    "token": [
+     3180,
+     3185
     ]
    }
   ]
@@ -1171,6 +1302,22 @@
    }
   },
   "union": {
+   "correct": 339,
+   "drawn": 340,
+   "false_positive": 0,
+   "oracle_verifiable": 339,
+   "oracle_verifiable_fraction": {
+    "denominator": 340,
+    "numerator": 339,
+    "value": 0.997059
+   },
+   "precision": {
+    "denominator": 339,
+    "numerator": 339,
+    "value": 1.0
+   }
+  },
+  "union_with_evidence": {
    "correct": 624,
    "drawn": 660,
    "false_positive": 33,
@@ -1269,6 +1416,22 @@
    }
   },
   "union": {
+   "correct": 321,
+   "drawn": 322,
+   "false_positive": 0,
+   "oracle_verifiable": 321,
+   "oracle_verifiable_fraction": {
+    "denominator": 322,
+    "numerator": 321,
+    "value": 0.996894
+   },
+   "precision": {
+    "denominator": 321,
+    "numerator": 321,
+    "value": 1.0
+   }
+  },
+  "union_with_evidence": {
    "correct": 606,
    "drawn": 642,
    "false_positive": 33,
@@ -1381,6 +1544,22 @@
     "numerator": 18,
     "value": 1.0
    }
+  },
+  "union_with_evidence": {
+   "correct": 18,
+   "drawn": 18,
+   "false_positive": 0,
+   "oracle_verifiable": 18,
+   "oracle_verifiable_fraction": {
+    "denominator": 18,
+    "numerator": 18,
+    "value": 1.0
+   },
+   "precision": {
+    "denominator": 18,
+    "numerator": 18,
+    "value": 1.0
+   }
   }
  },
  "provenance": {
@@ -1389,7 +1568,7 @@
   "dataset_format": 1,
   "engine_health": "RunHealth { status: Clean, files: 107, files_resolved: 80, files_untyped: 24, files_empty: 3, files_over_budget: 0, files_source_unavailable: 0, files_not_reached: 0, pass_failures: 0 }",
   "engine_version": 12,
-  "metrics_version": "a0-metrics-1",
+  "metrics_version": "a0-metrics-2",
   "oracle": "scip-python",
   "oracle_setup": {
    "lock_sha256": "22b1a704f1757d0796549ab5ed747f5f6eec1aa41b90c1804ee0c635c00381c1",
@@ -1419,23 +1598,24 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "resolver": "post-118: issue 118, the commit 'Issue 118: read each Rust use-group binding as its own path' (parent: the commit 'Issue 117: validate trait impl applicability in import-guided resolution'). Baseline: post-117, results committed at 27f7d5b",
+  "resolver": "post-R3: issue 102, the commit 'Issue 102: stop Exact and Scoped from drawing graph edges' (parent: the commit 'Issue 118: read each Rust use-group binding as its own path'). Baseline: post-118, results committed at 1feb3d7",
   "site_matching_version": "a0-match-1"
  },
  "recall": {
   "at_parsed_structural_sites": 1114,
   "breakdown": {
    "at_parsed_site": 1114,
-   "drawn_correct": 606,
-   "drawn_wrong": 5,
+   "drawn_correct": 321,
    "resolution_not_drawn:blocked": 33,
-   "resolution_not_drawn:candidate": 470
+   "resolution_not_drawn:candidate": 470,
+   "resolution_not_drawn:exact": 284,
+   "resolution_not_drawn:scoped": 6
   },
-  "drawn_correct": 606,
+  "drawn_correct": 321,
   "end_to_end_recall": {
    "denominator": 1114,
-   "numerator": 606,
-   "value": 0.543986
+   "numerator": 321,
+   "value": 0.288151
   },
   "oracle_calls_outside_relations": {
    "not_a_relation:external": 1373,
@@ -1449,14 +1629,19 @@
   "oracle_relations": 1114,
   "recall": {
    "denominator": 1114,
-   "numerator": 606,
-   "value": 0.543986
+   "numerator": 321,
+   "value": 0.288151
+  },
+  "weak_evidence": {
+   "exact": 284,
+   "exact:correct": 284,
+   "scoped": 6,
+   "scoped:correct": 1,
+   "scoped:false_positive": 5
   }
  },
- "resolution_loss": 508,
+ "resolution_loss": 793,
  "unverifiable_drawn": {
-  "exact:none": 1,
-  "exact:unresolved_local": 1,
   "import-guided:unresolved_local": 1
  }
 }

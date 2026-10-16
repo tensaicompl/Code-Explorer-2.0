@@ -723,6 +723,10 @@ fn routes_express() {
     let list = node(g, NodeKind::Function, "listUsers");
     let edge = defines(g, found["GET /users"]);
     assert_eq!(edge.src, list.node_id);
+    // The handler is the one callable of its name in the file: `scoped` evidence, so the
+    // edge is kept and not drawn (issue 102); the route and its entry point stay.
+    assert_eq!(edge.band, pdx_core::bands::Band::Scoped, "{edge:?}");
+    assert!(!edge.band.is_drawn());
     let site_id = edge.site_id.expect("the registration is the site");
     let site = g
         .sites
@@ -2062,7 +2066,11 @@ fn spring_route_has_real_site() {
         fingerprint,
     );
     assert_eq!(site.site_id, key.site_id().unwrap());
+    // A declared route's edge is labelled `exact`, which draws nothing since issue 102:
+    // the route, its node and its site are kept; which band a declaration deserves is
+    // issue 119's.
     assert_eq!(edge.band, pdx_core::bands::Band::Exact);
+    assert!(!edge.band.is_drawn());
 }
 
 #[test]
@@ -2408,10 +2416,15 @@ const NESTED_PATH: &str = "app/nested.py";
 /// `inner` is nested in `outer` and is not extracted; `helper` and `outer` are.
 /// `pad` goes before `inner`, to move it without changing any structure.
 fn nested_checkout(pad: &str) -> Checkout {
+    // `helper` is imported, so that its calls are drawn (`import-guided`): a name's
+    // uniqueness alone draws no edge (issue 102).
     let source = format!(
-        "def helper():\n    return 1\n\n\ndef outer():\n{pad}    def inner():\n        helper()\n        mystery()\n    return inner\n\n\nhelper()\n"
+        "from helpers import helper\n\n\ndef outer():\n{pad}    def inner():\n        helper()\n        mystery()\n    return inner\n\n\nhelper()\n"
     );
-    Checkout::new(&[(NESTED_PATH, source.as_str())])
+    Checkout::new(&[
+        (NESTED_PATH, source.as_str()),
+        ("helpers.py", "def helper():\n    return 1\n"),
+    ])
 }
 
 /// The one site of `kind` in the nested file whose callee is `callee`.

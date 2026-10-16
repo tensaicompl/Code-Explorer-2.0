@@ -491,6 +491,11 @@ def _site_row(corpus, language, dataset, oracle, symbols, sources, site, token, 
     else:
         oracle_view = oracle_target(oracle, symbols, path, token, packages, language)
     target = tuple(site["target"]) if site.get("target") else None
+    # Weak evidence (issue 102) has no target and keeps its one candidate: it is
+    # measured on that candidate, and never drawn.
+    candidates = site.get("candidates") or []
+    if target is None and site.get("band") in score.EVIDENCE and len(candidates) == 1:
+        target = tuple(candidates[0])
     caller = (path, site["caller"]) if site.get("caller") is not None else None
     line_hash = None
     if data is not None and site.get("span"):
@@ -518,6 +523,7 @@ def _site_row(corpus, language, dataset, oracle, symbols, sources, site, token, 
         "name": site.get("name"),
         "is_reference": site.get("is_reference"),
         "band": site.get("band"),
+        "drawn": site.get("band") in score.DRAWN,
         "target": list(target) if target else None,
         "target_qn": dataset.defs[target]["qn"] if target else None,
         "caller": list(caller) if caller else None,
@@ -570,7 +576,8 @@ def _relation_row(corpus, language, dataset, oracle, symbols, path, call, indexe
 
 def site_verdict(language: str, dataset: Dataset, row: dict, target,
                  target_symbols) -> tuple[str, str]:
-    """Rule M6: a drawn edge's verdict, for the target `target` at the row's site. The
+    """Rule M6: a drawn edge's verdict, for the target `target` at the row's site, and
+    weak evidence's for the one candidate it keeps (issue 102). The
     oracle confirms the edge when the name at the site names the target's definition.
     It refutes it when it names something else: a definition of the repository other
     than the target, one outside the repository, or a local binding; and when it names
@@ -617,7 +624,7 @@ def main() -> None:
         parse = syntax.rust_analyzer_parser(args.rust_analyzer, env)
     rows = build_rows(args.corpus, args.language, dataset, oracle, symbols, sources, parse)
     for r in rows["sites"]:
-        if r["band"] in score.DRAWN:
+        if r["band"] in score.DRAWN + score.EVIDENCE and r["target"]:
             v, why = site_verdict(args.language, dataset, r, r["target"], r["target_symbols"])
             r["verdict"], r["verdict_reason"] = v, why
         if r.get("typed_target"):
