@@ -50,6 +50,47 @@ fn value(n: u32) -> String {
     format!("pdxsynth-value-{n:04}")
 }
 
+/// `bytes` in base64url without padding, as a JSON Web Token's segments are written.
+fn base64url(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let mut out = String::new();
+    for chunk in bytes.chunks(3) {
+        let n = chunk
+            .iter()
+            .enumerate()
+            .fold(0u32, |n, (i, b)| n | u32::from(*b) << (16 - 8 * i));
+        for i in 0..=chunk.len() {
+            out.push(char::from(ALPHABET[(n >> (18 - 6 * i) & 63) as usize]));
+        }
+    }
+    out
+}
+
+/// A synthetic JSON Web Token: a JSON header, JSON claims and a signature, each tagged.
+fn json_web_token() -> String {
+    [
+        base64url(br#"{"alg":"HS256","typ":"PDXSYNTH"}"#),
+        base64url(br#"{"sub":"pdxsynth-0001"}"#),
+        base64url(b"pdxsynth-signature-0001"),
+    ]
+    .join(".")
+}
+
+/// A synthetic GitHub token of `kind` (`p`, `o`, `u`, `s` or `r`): its prefix and its
+/// body of 36 letters and digits.
+fn github_token(kind: char) -> (String, String) {
+    (format!("gh{kind}_"), format!("PDXSYNTH{}", "0".repeat(28)))
+}
+
+/// A synthetic fine-grained GitHub token: its prefix and its body, 22 letters and
+/// digits, `_` and 59 more.
+fn fine_grained_github_token() -> (String, String) {
+    (
+        ["github", "_pat_"].concat(),
+        format!("PDXSYNTH{}_{}", "1".repeat(14), "2".repeat(59)),
+    )
+}
+
 /// `source` normalised as `language`.
 fn normalised(source: &str, language: &str) -> String {
     let mut bytes = source.as_bytes().to_vec();
@@ -91,22 +132,23 @@ fn digest_of(config: &str) -> SecretPolicyDigest {
 #[test]
 fn secret_policy_digest_fixed_vector() {
     // sha256 of the canonical form, computed independently (Python `hashlib`, which
-    // first reproduced detectors 1, 2 and 3's values):
-    //   {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
-    assert_eq!(SECRET_DETECTOR_VERSION, 4);
+    // first reproduced detectors 1 to 4's values):
+    //   {"detector_version":5,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
+    assert_eq!(SECRET_DETECTOR_VERSION, 5);
     let default = SecretPolicyDigest::of(&PdxConfig::default().secrets);
     assert_eq!(
         default.to_string(),
-        "05f97f160819d54c5aba9054efa8af77190d043feb6f03baec871b2b0c9d6904"
+        "6aa1dd655b7d45a69c1cecc0e83ca105fd01c098f79ede4e0fa43eb2d83f3b99"
     );
     // A repository adding patterns: the effective set is the default and its own,
-    //   {"detector_version":4,"patterns":["*.key","*.p12","*.pem","*id_rsa*",".env*",
+    //   {"detector_version":5,"patterns":["*.key","*.p12","*.pem","*id_rsa*",".env*",
     //    "config/credentials.yml"]}
-    // Detector 3's was e4eeb594…75d0, detector 2's 76c75e1c…6bf3.
+    // Detector 4's was 92d35bc7…3be7, detector 3's e4eeb594…75d0, detector 2's
+    // 76c75e1c…6bf3.
     let custom = digest_of("[secrets]\npatterns = [\"config/credentials.yml\", \"*.p12\"]\n");
     assert_eq!(
         custom.to_string(),
-        "92d35bc773d88ab8790b11010792d9dd37db41389e16c435360a3fd6d2f43be7"
+        "79ad82419b2bb1d6b67721a4c578aa4cc6b65909d2f65b88245e14ec59d0eba7"
     );
     // Order and repetition mean nothing, and a default restated changes nothing.
     assert_eq!(
@@ -122,16 +164,21 @@ fn secret_policy_digest_fixed_vector() {
 fn detector_version_enters_secret_policy_digest() {
     // The same patterns under every earlier detector version, each a policy builds
     // were made under, computed independently: version 1, before issue 44; 2, before
-    // issue 72; 3, before issue 73.
+    // issue 72; 3, before issue 73; 4, before issue 96.
     //   {"detector_version":1,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
-    //   {"detector_version":2,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
-    //   {"detector_version":3,"patterns":["*.key","*.pem","*id_rsa*",".env*"]}
+    //   … and so on to 4.
     let patterns = PdxConfig::default().secrets.patterns;
-    let versions: Vec<SecretPolicyDigest> = (1..=4)
+    let versions: Vec<SecretPolicyDigest> = (1..=5)
         .map(|v| SecretPolicyDigest::for_policy(v, &patterns))
         .collect();
-    let (v1, v2, v3, v4) = (versions[0], versions[1], versions[2], versions[3]);
-    assert_eq!(v4, SecretPolicyDigest::of(&PdxConfig::default().secrets));
+    let (v1, v2, v3, v4, v5) = (
+        versions[0],
+        versions[1],
+        versions[2],
+        versions[3],
+        versions[4],
+    );
+    assert_eq!(v5, SecretPolicyDigest::of(&PdxConfig::default().secrets));
     assert_eq!(
         v1.to_string(),
         "b9e1601f738d0ef897c6d316535f86fb31ecae8f6ab50676678a91209dd21b0c"
@@ -143,6 +190,10 @@ fn detector_version_enters_secret_policy_digest() {
     assert_eq!(
         v3.to_string(),
         "de4ad6db03d6d5ed4acb6db7119afc5cc7f54db7e434df08f0ab5f26fe487776"
+    );
+    assert_eq!(
+        v4.to_string(),
+        "05f97f160819d54c5aba9054efa8af77190d043feb6f03baec871b2b0c9d6904"
     );
     // Every version its own policy: an extraction cached under any earlier detector
     // is a miss.
@@ -677,6 +728,64 @@ fn meetings() -> Vec<Meeting> {
             &[&id, &password],
         ),
     ]
+    .into_iter()
+    .chain(issue_96_meetings())
+    .collect()
+}
+
+/// Sources that put issue 96's detectors' secrets against the others'.
+fn issue_96_meetings() -> Vec<Meeting> {
+    use Detector::{BearerToken, CredentialAssignment, GitHubToken, JsonWebToken, UriPassword};
+    let password = value(50);
+    let (jwt, (gh_prefix, gh_body)) = (json_web_token(), github_token('p'));
+    let meet = |source: String, language, detectors, planted: &[&str]| Meeting {
+        source,
+        language,
+        detectors,
+        planted: planted.iter().map(|s| (*s).to_owned()).collect(),
+    };
+    vec![
+        // A bare value whose URI password holds a delimiter: the value runs on over the
+        // password, as it would over its mask (issue 96).
+        meet(
+            format!("{}: s://u:{password};x@h\n", CREDENTIAL_KEYS[0]),
+            "yaml",
+            [CredentialAssignment, UriPassword],
+            &[&password, "s://u:", ";x@h"],
+        ),
+        // A JSON Web Token as a bearer token, as a value and after a GitHub prefix.
+        meet(
+            format!("Authorization: Bearer {jwt}\n"),
+            "yaml",
+            [JsonWebToken, BearerToken],
+            &[&jwt],
+        ),
+        meet(
+            format!("{} = \"{jwt}\"\n", CREDENTIAL_KEYS[4]),
+            "python",
+            [JsonWebToken, CredentialAssignment],
+            &[&jwt],
+        ),
+        meet(
+            format!("{gh_prefix}{jwt}\n"),
+            "markdown",
+            [GitHubToken, JsonWebToken],
+            &[&jwt],
+        ),
+        // A GitHub token as a value and as a URI's password.
+        meet(
+            format!("{}: {gh_prefix}{gh_body}\n", CREDENTIAL_KEYS[4]),
+            "yaml",
+            [GitHubToken, CredentialAssignment],
+            &[&gh_body],
+        ),
+        meet(
+            format!("remote: s://x:{gh_prefix}{gh_body}@git.example/r\n"),
+            "yaml",
+            [GitHubToken, UriPassword],
+            &[&gh_body],
+        ),
+    ]
 }
 
 #[test]
@@ -698,7 +807,7 @@ fn cross_detector_boundaries_are_idempotent() {
                 "{detector:?} finds nothing in {source:?}"
             );
         }
-        // The merged ranges are the same in every order of the five detectors.
+        // The merged ranges are the same in every order of the seven detectors.
         let expected = secrets::secret_ranges(bytes, language);
         let mut order = Detector::ALL.to_vec();
         permute(&mut order, 0, &mut |order| {
@@ -848,7 +957,7 @@ fn secret_detector_overlap_is_order_independent() {
     let expected = secrets::secret_ranges(&source, "python");
     let mut expected_bytes = source.clone();
     secrets::normalise_in_place(&mut expected_bytes, "python");
-    // Every order of the five detectors.
+    // Every order of the seven detectors.
     let mut order = Detector::ALL.to_vec();
     let mut orders = 0;
     permute(&mut order, 0, &mut |order| {
@@ -859,7 +968,7 @@ fn secret_detector_overlap_is_order_independent() {
             "{order:?}"
         );
     });
-    assert_eq!(orders, 120);
+    assert_eq!(orders, 5040);
     // The merged ranges are disjoint, sorted, and cover every single detector's.
     assert!(expected.windows(2).all(|w| w[0].end < w[1].start));
     for ranges in &single {
@@ -904,6 +1013,17 @@ fn pieces() -> impl Strategy<Value = Vec<u8>> {
         Just(access_key_id("ASIA").into_bytes()),
         Just(key_block(PRIVATE_KEY_LABELS[4], &KEY_BODY, "\r\n").into_bytes()),
         Just(format!("{}://u:{}@h", "mysql", value(22)).into_bytes()),
+        Just(json_web_token().into_bytes()),
+        Just(github_token('s').0.into_bytes()),
+        Just(github_token('s').1.into_bytes()),
+        Just(format!("\"Server=db;{}={};\"", CREDENTIAL_KEYS[2], value(24)).into_bytes()),
+        Just(format!("\"{}=\" + f(p) + \"&x\"", CREDENTIAL_KEYS[0]).into_bytes()),
+        Just(format!("'{{\"{}\": \"{}\"}}'", CREDENTIAL_KEYS[4], value(25)).into_bytes()),
+        Just(format!("{}=", CREDENTIAL_KEYS[0]).into_bytes()),
+        Just(b"don't".to_vec()),
+        // Quotes, escapes, delimiters and apostrophes' neighbours, so that literals open,
+        // close and fail to close around every other piece.
+        proptest::collection::vec(prop::sample::select(QUOTING_BYTES.to_vec()), 1..6),
         Just(b"\r\n".to_vec()),
         Just(b"\n".to_vec()),
         Just(b"\r".to_vec()),
@@ -911,11 +1031,18 @@ fn pieces() -> impl Strategy<Value = Vec<u8>> {
     proptest::collection::vec(piece, 0..12).prop_map(|p| p.concat())
 }
 
+/// Bytes that decide how literals read: every quote, a backslash, the delimiters a
+/// value inside a literal ends at, a separator, and lower-case letters for apostrophes.
+const QUOTING_BYTES: &[u8] = b"'\"`\\;&, =:{$atX";
+
 proptest! {
     #[test]
     fn secret_normalisation_preserves_offsets(
         source in pieces(),
-        language in prop::sample::select(vec!["yaml", "python", "json", "properties"]),
+        language in prop::sample::select(vec![
+            "yaml", "python", "json", "properties", "markdown", "bash", "javascript",
+            "go", "java", "csharp", "rust", "c",
+        ]),
     ) {
         let mut bytes = source.clone();
         let masked = secrets::normalise_in_place(&mut bytes, language);
@@ -1006,4 +1133,506 @@ fn secret_normalisation_preserves_offsets_in_a_mixed_file() {
     ] {
         assert!(!text.contains(planted), "{planted} survived");
     }
+}
+
+// --- issue 96 ------------------------------------------------------------------------
+
+/// Asserts that `source`, as `language`, normalises to itself with exactly `secrets`
+/// masked, keeps its length and line endings, and normalises no further.
+fn assert_masks(source: &str, language: &str, secrets: &[&str]) {
+    let once = normalised(source, language);
+    assert_eq!(once, with_masked(source, secrets), "{language}: {source:?}");
+    assert_lengths_and_line_endings_kept(source.as_bytes(), once.as_bytes());
+    assert_eq!(
+        normalised(&once, language),
+        once,
+        "{language}: {source:?} twice"
+    );
+}
+
+#[test]
+fn json_web_tokens_are_masked_wherever_they_stand() {
+    let jwt = json_web_token();
+    assert!(jwt.starts_with("eyJ") && jwt.matches('.').count() == 2);
+    for (source, language) in [
+        (format!("session = decode(\"{jwt}\")\n"), "python"),
+        (format!("// sample: {jwt}\r\n"), "java"),
+        (format!("{jwt}\n"), "markdown"),
+        (
+            format!("headers = {{ Authorization: 'Bearer {jwt}' }};\n"),
+            "javascript",
+        ),
+        (format!("seen={jwt}.\n"), "properties"),
+    ] {
+        assert_masks(&source, language, &[&jwt]);
+    }
+    // An unsigned token keeps its empty third segment, and is still masked.
+    let unsigned = jwt.rsplit_once('.').expect("three segments").0.to_owned() + ".";
+    assert_masks(&format!("t({unsigned})\n"), "python", &[&unsigned]);
+    // Not a token: one segment, segments shorter than 8 bytes, `eyJ` inside a word.
+    let short = ["eyJabcd", "eyJefgh", "ij"].join(".");
+    for source in [
+        format!("{}\n", jwt.split('.').next().expect("a header")),
+        format!("{short}\n"),
+        format!("x{jwt}\n"),
+    ] {
+        assert_eq!(normalised(&source, "python"), source, "{source:?}");
+    }
+}
+
+#[test]
+fn github_tokens_are_masked_after_their_prefix() {
+    for kind in ['p', 'o', 'u', 's', 'r'] {
+        let (prefix, body) = github_token(kind);
+        let token = format!("{prefix}{body}");
+        for (source, language) in [
+            (format!("client = Client(\"{token}\")\n"), "python"),
+            (format!("# {token}\r\n"), "yaml"),
+            (format!("run: echo {token}|login\n"), "yaml"),
+            (format!("BUILD_{token}\n"), "properties"),
+        ] {
+            assert_masks(&source, language, &[&body]);
+            assert!(normalised(&source, language).contains(&prefix));
+        }
+    }
+    let (prefix, body) = fine_grained_github_token();
+    assert_masks(
+        &format!("const t = \"{prefix}{body}\";\n"),
+        "javascript",
+        &[&body],
+    );
+    // Wrong shape: a body too short, an unknown kind, a prefix inside a word.
+    let (prefix, body) = github_token('p');
+    for source in [
+        format!("{prefix}{}\n", &body[..35]),
+        format!("ghx_{body}\n"),
+        format!("x{prefix}{body}\n"),
+    ] {
+        assert_eq!(normalised(&source, "python"), source, "{source:?}");
+    }
+}
+
+#[test]
+fn encrypted_and_pgp_private_keys_are_masked() {
+    assert_eq!(
+        PRIVATE_KEY_LABELS[5..],
+        ["ENCRYPTED PRIVATE KEY", "PGP PRIVATE KEY BLOCK"]
+    );
+    // PGP armour carries headers and a checksum line: all of it between the markers goes,
+    // but for the punctuation and blanks.
+    let block = key_block(
+        PRIVATE_KEY_LABELS[6],
+        &["Version: PDXSYNTH 1", "", KEY_BODY[0], "=PDXS"],
+        "\n",
+    );
+    let out = normalised(&block, "markdown");
+    assert_lengths_and_line_endings_kept(block.as_bytes(), out.as_bytes());
+    assert!(out.contains("XXXXXXX: XXXXXXXX X\n\n"), "{out}");
+    // The checksum line's `=` is a base64 byte too.
+    assert!(out.contains("\nXXXXX\n-----END"), "{out}");
+    assert!(!out.contains(KEY_BODY[0]));
+    assert!(out.starts_with(&format!("-----BEGIN {}-----\n", PRIVATE_KEY_LABELS[6])));
+    assert!(out.ends_with(&format!("-----END {}-----\n", PRIVATE_KEY_LABELS[6])));
+}
+
+#[test]
+fn connection_string_passwords_are_masked() {
+    let v = value(80);
+    let (password, pwd) = (CREDENTIAL_KEYS[0], CREDENTIAL_KEYS[2]);
+    let cased = "Password";
+    for (source, language) in [
+        // Issue 96's class 3: a C# connection string ending CRLF.
+        (
+            format!("var cs = \"Server=db;User Id=sa;{cased}={v};\";\r\n"),
+            "csharp",
+        ),
+        (
+            format!("String url = \"jdbc:sqlserver://db;user=sa;{password}={v}\";\n"),
+            "java",
+        ),
+        (
+            format!("{{\"Db\": \"Data Source=x; {cased} = {v}; Timeout=3\"}}\n"),
+            "json",
+        ),
+        (
+            format!("dsn = 'host=db user=app {password}={v} sslmode=require'\n"),
+            "python",
+        ),
+        (
+            format!("auto c = \"Driver={{X}};Uid=app;{pwd}={v};\";\n"),
+            "cpp",
+        ),
+        (format!("cs = \"Server=db;{cased}='{v}';\"\n"), "csharp"),
+        (format!("q = \"?user=a&{password}={v}&mode=x\"\n"), "python"),
+    ] {
+        assert_masks(&source, language, &[&v]);
+    }
+    // References, formats, parameters and interpolations inside a literal are code.
+    for (source, language) in [
+        (
+            format!("cs = \"Server=db;{cased}=${{DB_PW}};\";\n"),
+            "csharp",
+        ),
+        (format!("cs = \"Server=db;{cased}=%s;\" % pw\n"), "python"),
+        (format!("cs = f\"Server=db;{cased}={{pw}};\"\n"), "python"),
+        (format!("cs = $\"Server=db;{cased}={{pw}};\";\n"), "csharp"),
+        (
+            format!("q = \"SELECT 1 WHERE {password}=? AND id=:id\"\n"),
+            "python",
+        ),
+        (
+            format!("q = \"UPDATE u SET {password}=crypt($1) WHERE id=1\"\n"),
+            "python",
+        ),
+        (format!("s = \"{password}=#{{pw}};\"\n"), "ruby"),
+    ] {
+        assert_eq!(
+            normalised(&source, language),
+            source,
+            "{language}: {source:?}"
+        );
+    }
+}
+
+#[test]
+fn a_literal_ending_at_its_separator_keeps_the_code_after_it() {
+    // Issue 96's class 4, the destructive mask: the quote after the separator closes
+    // the key's own literal, so what follows it is code, never a value. Detector 4 read
+    // that quote as a value's opening one and masked ` + decrypt(pw) + `.
+    let (password, token) = (CREDENTIAL_KEYS[0], CREDENTIAL_KEYS[4]);
+    for (source, language) in [
+        (
+            format!("url = \"{password}=\" + decrypt(pw) + \"&mode=x\"\n"),
+            "python",
+        ),
+        (
+            format!("const q = '?user=a&{password}=' + encode(p) + '&x=1';\n"),
+            "javascript",
+        ),
+        (format!("$q = \"{token}: \" . $p . \"!\";\n"), "php"),
+        (
+            format!("String s = \"{password}=\" + read(p) + \";\";\r\n"),
+            "java",
+        ),
+        (
+            format!("cs = \"Server=db;{password}=\" + pw + \";\";\n"),
+            "csharp",
+        ),
+        (
+            format!("curl -d \"{password}=\"$(read_pw)\" -X\"\n"),
+            "bash",
+        ),
+    ] {
+        assert_eq!(
+            normalised(&source, language),
+            source,
+            "{language}: {source:?}"
+        );
+    }
+    // A value in the literal before the code is still masked, and one in a literal of
+    // its own after the code too.
+    let (v, w) = (value(81), value(82));
+    assert_masks(
+        &format!("url = \"{password}={v}&mode=\" + m + \"&{token}={w}\"\n"),
+        "python",
+        &[&v, &w],
+    );
+}
+
+#[test]
+fn values_stay_inside_their_literal() {
+    let (password, v) = (CREDENTIAL_KEYS[0], value(83));
+    for (source, language) in [
+        (format!("body = '{{\"{password}\": \"{v}\"}}'\n"), "python"),
+        (format!("body = \"{{'{password}': '{v}'}}\"\n"), "python"),
+        (
+            format!("db.exec(\"UPDATE u SET {password}='{v}' WHERE id=1\");\n"),
+            "java",
+        ),
+        (
+            format!("args = [\"--{password}={v}\", \"--verbose\"]\n"),
+            "python",
+        ),
+        (format!("cmd: \"login {password}={v}\"\n"), "yaml"),
+    ] {
+        assert_masks(&source, language, &[&v]);
+    }
+    // A literal of the other quote that would close past this literal's end is none.
+    let source = format!("s = '{password}: \"' + v + '\"'\n");
+    assert_eq!(normalised(&source, "python"), source);
+    // After `:`, a literal's bytes in code are a name a contract may read (a channel, a
+    // key) or prose, never a value.
+    let token = CREDENTIAL_KEYS[4];
+    for (source, language) in [
+        (
+            format!("bus.publish(\"auth:{token}:refresh\", e);\n"),
+            "java",
+        ),
+        (
+            format!("redis.get(`session:{token}:${{id}}`);\n"),
+            "typescript",
+        ),
+        (format!("print(\"{password}: wrong\")\n"), "python"),
+    ] {
+        assert_eq!(
+            normalised(&source, language),
+            source,
+            "{language}: {source:?}"
+        );
+    }
+}
+
+#[test]
+fn apostrophes_are_no_quotes() {
+    let (password, token, v) = (CREDENTIAL_KEYS[0], CREDENTIAL_KEYS[4], value(84));
+    // An apostrophe in a comment or in prose opens no literal the value would be in.
+    assert_masks(
+        &format!("# don't commit this: {password} = '{v}'\n"),
+        "python",
+        &[&v],
+    );
+    assert_masks(
+        &format!("Don't use {password}: {v} in production.\n"),
+        "markdown",
+        &[&v],
+    );
+    // A bare value runs on over an apostrophe, and a quoted one closes past it.
+    let bare = format!("don't-{v}");
+    assert_masks(&format!("{password}: {bare}\n"), "yaml", &[&bare]);
+    let quoted = format!("it's-{v}");
+    assert_masks(&format!("{token} = '{quoted}'\n"), "python", &[&quoted]);
+    // A lifetime is no quote either.
+    assert_masks(
+        &format!("fn f<'a>(x: &'a str) {{ let {token} = \"{v}\"; }}\n"),
+        "rust",
+        &[&v],
+    );
+}
+
+#[test]
+fn character_literals_are_no_strings() {
+    let (token, v) = (CREDENTIAL_KEYS[4], value(85));
+    // A quote in a character literal opens no string, so what follows is read as code:
+    // were `'"'`'s quote a string's, `c;` would be a value inside it.
+    let source = format!("if (c == '\"') {{ {token} = c; }} log(\"x\");\n");
+    assert_eq!(normalised(&source, "java"), source);
+    let source = format!("if (c == '\\\"') {{ {token} = c; }} log(\"x\");\n");
+    assert_eq!(normalised(&source, "c"), source);
+    assert_masks(
+        &format!("let q = '\"'; let {token} = \"{v}\";\n"),
+        "rust",
+        &[&v],
+    );
+    // A character is no value: in a language whose single quotes delimit characters,
+    // `'x'` is never masked.
+    let source = format!("char {token} = 'x';\n");
+    assert_eq!(normalised(&source, "c"), source);
+}
+
+#[test]
+fn backquoted_values_where_backquotes_delimit_strings() {
+    let (password, v) = (CREDENTIAL_KEYS[0], value(86));
+    assert_masks(&format!("{password} := `{v}`\n"), "go", &[&v]);
+    assert_masks(&format!("const {password} = `{v}`;\n"), "javascript", &[&v]);
+    // A template with an interpolation is code; a backquote elsewhere quotes a name or
+    // a command.
+    for (source, language) in [
+        (
+            format!("const {password} = `${{prefix}}{v}`;\n"),
+            "javascript",
+        ),
+        (format!("val {password} = `{v}`\n"), "kotlin"),
+        (format!("{password}=`{v}`\n"), "bash"),
+    ] {
+        assert_eq!(
+            normalised(&source, language),
+            source,
+            "{language}: {source:?}"
+        );
+    }
+}
+
+#[test]
+fn a_password_after_a_masked_token_is_found_at_once() {
+    // The offsets property's shrunk case: a JSON Web Token running on over `ghs_` into
+    // `://`. Before `://` stands `_`, so there is no scheme and no password; masked, the
+    // token is a run of `X`, a scheme, and a second pass found the password. The
+    // password is read over the token's mask as well, so the first pass finds it.
+    let (jwt, password) = (json_web_token(), value(89));
+    let (gh_prefix, gh_body) = github_token('s');
+    let fine = fine_grained_github_token();
+    for (source, secrets) in [
+        (
+            format!("{jwt}ghs_://u:{password}@h\n"),
+            vec![format!("{jwt}ghs_"), password.clone()],
+        ),
+        // Scheme bytes after the token's run are the scheme's too, though none of them
+        // starts one.
+        (
+            format!("{jwt}_+9://u:{password}@h\n"),
+            vec![format!("{jwt}_"), password.clone()],
+        ),
+        // A token whose body opens with a digit is no scheme until it is masked.
+        (
+            format!("{gh_prefix}9{gh_body}://u:{password}@h\n"),
+            vec![format!("9{gh_body}"), password.clone()],
+        ),
+        (
+            format!("{}2{}://u:{password}@h\n", fine.0, &fine.1[1..]),
+            vec![format!("2{}", &fine.1[1..]), password.clone()],
+        ),
+    ] {
+        let refs: Vec<&str> = secrets.iter().map(String::as_str).collect();
+        assert_masks(&source, "yaml", &refs);
+        // The URI detector alone finds no password: only the token's mask makes one.
+        assert!(
+            secrets::secret_ranges_with(&[Detector::UriPassword], source.as_bytes(), "yaml")
+                .is_empty(),
+            "{source:?}"
+        );
+    }
+}
+
+#[test]
+fn a_value_runs_on_over_what_another_detector_found() {
+    // Detector 4 was not idempotent here: the bare value ended at the `;` inside the
+    // URI's password, the URI detector masked the password, and a second pass read a
+    // value running on over that mask to `@h`.
+    let password = CREDENTIAL_KEYS[0];
+    let uri = format!("s://u:{};x@h", value(87));
+    assert_masks(&format!("{password}: {uri}\n"), "yaml", &[&uri]);
+    assert_masks(&format!("{password}={uri} next\n"), "properties", &[&uri]);
+}
+
+/// Detector 4's credential assignment, kept only as an oracle: what it masked, which
+/// the detector must still mask, but for the reads issue 96 removed. It is never used
+/// to work out what the detector itself finds.
+fn detector_four_assignment_values(bytes: &[u8], language: &str) -> Vec<std::ops::Range<usize>> {
+    use regex::bytes::Regex;
+    use std::sync::LazyLock;
+    fn prefix() -> String {
+        let keys: Vec<String> = CREDENTIAL_KEYS
+            .iter()
+            .map(|k| {
+                k.split(['_', '-'])
+                    .map(regex::escape)
+                    .collect::<Vec<_>>()
+                    .join("[_-]?")
+            })
+            .collect();
+        format!(
+            r#"(?-u)(?i)[A-Za-z0-9_.\-]*(?:{})["']?[ \t]*(?::=|=>|[:=])[ \t]*"#,
+            keys.join("|")
+        )
+    }
+    const QUOTED: &str = r#""((?:[^"\\\r\n]|\\[^\r\n])*)"|'([^'\r\n]*)'"#;
+    const BARE: &str = r#"([^\s"'`#,;(){}\[\]<>|&*$\\][^\s"'`#,;(){}\[\]<>\\]*)"#;
+    static QUOTED_ONLY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&format!("{}(?:{QUOTED})", prefix())).expect("quoted"));
+    static ANY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(&format!("{}(?:{QUOTED}|{BARE})", prefix())).expect("any"));
+    static PLACEHOLDER: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?-u)\A(?:\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\{\{[^}]*\}\})\z")
+            .expect("placeholder")
+    });
+    let pattern = if secrets::BARE_VALUE_LANGUAGES.contains(&language) {
+        &ANY
+    } else {
+        &QUOTED_ONLY
+    };
+    pattern
+        .captures_iter(bytes)
+        .filter_map(|c| c.iter().skip(1).flatten().next())
+        .filter(|m| !PLACEHOLDER.is_match(m.as_bytes()))
+        .map(|m| m.range())
+        .collect()
+}
+
+/// The ranges of `old` that no range of `new`, sorted and merged, covers whole.
+fn uncovered(
+    old: &[std::ops::Range<usize>],
+    new: &[std::ops::Range<usize>],
+) -> Vec<std::ops::Range<usize>> {
+    old.iter()
+        .filter(|r| !new.iter().any(|n| n.start <= r.start && r.end <= n.end))
+        .cloned()
+        .collect()
+}
+
+#[test]
+fn assignment_detector_covers_detector_four_but_for_issue_96() {
+    // Everything detector 4 masked, detector 5 masks: it may mask more, never less,
+    // but for what issue 96 removed: a value read past the literal its key is in (the
+    // destructive mask) and a character read as a string.
+    let (k, v) = (CREDENTIAL_KEYS[0], value(88));
+    let ordinary = [
+        (format!("{k} = \"{v}\"\n"), "python"),
+        (format!("{k}: '{v}'\r\n"), "yaml"),
+        (format!("{k}: {v}\n"), "yaml"),
+        (format!("{{\"{k}\": \"{v}\", \"n\": 1}}\n"), "json"),
+        (format!("db.{k}={v}\n"), "properties"),
+        (format!("ENV {k}={v}\n"), "dockerfile"),
+        (format!("export {k}=\"{v}\"\n"), "bash"),
+        (format!("$c = ['{k}' => '{v}'];\n"), "php"),
+        (format!("cfg.{k} := \"{v}\"\n"), "go"),
+        (format!("var {k} = \"a\\\"{v}\\\"b\";\n"), "csharp"),
+        (format!("body = '{{\"{k}\": \"{v}\"}}'\n"), "python"),
+        (format!("q = \"SET {k}='{v}'\"\n"), "java"),
+        (format!("{k}: it's {v}\n"), "yaml"),
+        (format!("{k} = 'it''s'\n"), "sql"),
+    ];
+    for (source, language) in &ordinary {
+        let old = detector_four_assignment_values(source.as_bytes(), language);
+        assert!(!old.is_empty(), "{source:?}");
+        let new = secrets::secret_ranges(source.as_bytes(), language);
+        assert!(
+            uncovered(&old, &new).is_empty(),
+            "{language}: {source:?} lost {:?}",
+            uncovered(&old, &new)
+        );
+    }
+    // What it no longer masks is exactly what issue 96 removed.
+    for (source, language) in [
+        (
+            format!("url = \"{k}=\" + decrypt(pw) + \"&mode=x\"\n"),
+            "python",
+        ),
+        (format!("char {k} = 'x';\n"), "c"),
+    ] {
+        let old = detector_four_assignment_values(source.as_bytes(), language);
+        let new = secrets::secret_ranges(source.as_bytes(), language);
+        assert!(!uncovered(&old, &new).is_empty(), "{source:?}");
+    }
+    // And on the sanitizer corpus, nothing.
+    let corpus = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../bench/corpus");
+    let (mut files, mut old_ranges, mut lost_ranges) = (0, 0, Vec::new());
+    for language in std::fs::read_dir(&corpus).expect("the corpus") {
+        let language = language.expect("an entry").path();
+        let id = language
+            .file_name()
+            .and_then(|n| n.to_str())
+            .expect("a language")
+            .to_owned();
+        for file in std::fs::read_dir(&language).expect("a language") {
+            let path = file.expect("an entry").path();
+            let bytes = std::fs::read(&path).expect("a file");
+            let old = detector_four_assignment_values(&bytes, &id);
+            let new = secrets::secret_ranges(&bytes, &id);
+            for r in uncovered(&old, &new) {
+                lost_ranges.push(format!(
+                    "{}:{}",
+                    path.display(),
+                    String::from_utf8_lossy(&bytes[r])
+                ));
+            }
+            old_ranges += old.len();
+            files += 1;
+        }
+    }
+    eprintln!(
+        "bench/corpus: {files} files, detector 4 {old_ranges} assignment values, lost {}",
+        lost_ranges.len()
+    );
+    assert!(files > 50, "{files} corpus files");
+    assert!(lost_ranges.is_empty(), "{lost_ranges:#?}");
 }

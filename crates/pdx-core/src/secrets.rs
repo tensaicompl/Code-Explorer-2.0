@@ -15,28 +15,77 @@
 //! the parser's input.
 //!
 //! Detection works on bytes, never requiring a file to be UTF-8, with `regex::bytes`,
-//! whose matching is linear in the input: no detector backtracks over source. What
-//! the detectors match is versioned by [`SECRET_DETECTOR_VERSION`]; a change to any of
-//! them bumps it.
+//! whose matching is linear in the input, and loops that read each byte a bounded
+//! number of times: no detector backtracks over source. What the detectors match is
+//! versioned by [`SECRET_DETECTOR_VERSION`]; a change to any of them bumps it.
 //!
 //! | Detector | Matches | Masks |
 //! |---|---|---|
-//! | [`Detector::PrivateKey`] | A PEM `BEGIN` marker of a `PRIVATE KEY`, `RSA PRIVATE KEY`, `EC PRIVATE KEY`, `DSA PRIVATE KEY` or `OPENSSH PRIVATE KEY`, to the `END` marker with the same label, or to the end of the input if there is none | Every base64 byte between the markers (`A-Z a-z 0-9 + / =`), except the `n`, `r` or `t` of an escape after a backslash |
+//! | [`Detector::PrivateKey`] | A PEM `BEGIN` marker of one of [`PRIVATE_KEY_LABELS`] (`PRIVATE KEY`, `RSA PRIVATE KEY`, `EC PRIVATE KEY`, `DSA PRIVATE KEY`, `OPENSSH PRIVATE KEY`, `ENCRYPTED PRIVATE KEY`, `PGP PRIVATE KEY BLOCK`), to the `END` marker with the same label, or to the end of the input if there is none | Every base64 byte between the markers (`A-Z a-z 0-9 + / =`), except the `n`, `r` or `t` of an escape after a backslash |
 //! | [`Detector::BearerToken`] | `Bearer`, any case, at a word boundary, then spaces or tabs and a token of at least 16 of `A-Z a-z 0-9 - . _ ~ + /`, running on over those and `=` (its padding, and anything after it in the same run) | The token |
-//! | [`Detector::CredentialAssignment`] | A key ending, in any case, with one of [`CREDENTIAL_KEYS`] (its words joined by `_`, `-` or nothing), an optional closing quote, then `=`, `:`, `:=` or `=>`, then a value | The value: inside its quotes when quoted; a bare value only in a language whose bare values are literals ([`BARE_VALUE_LANGUAGES`]) |
-//! | [`Detector::UriPassword`] | `scheme://user:password@`: the scheme a letter, then letters, digits, `+`, `-` and `.`, recognised at the start of the input or after any byte that is not an ASCII letter or digit (punctuation and `_` included); or, before `://`, a bearer token as [`Detector::BearerToken`] finds one, which masking makes a scheme | The password |
+//! | [`Detector::CredentialAssignment`] | A key ending, in any case, with one of [`CREDENTIAL_KEYS`] (its words joined by `_`, `-` or nothing), an optional closing quote, then `=`, `:`, `:=` or `=>`, then a value, read as [below](#credential-assignment-values) | The value |
+//! | [`Detector::UriPassword`] | `scheme://user:password@`: the scheme a letter, then letters, digits, `+`, `-` and `.`, recognised at the start of the input or after any byte that is not an ASCII letter or digit (punctuation and `_` included); or, before `://`, a bearer token as [`Detector::BearerToken`] finds one, which masking makes a scheme; read from the source and again with the other shapes masked, where any masked token before `://` is a scheme | The password |
 //! | [`Detector::CloudAccessKeyId`] | `AKIA` or `ASIA` and 16 of `A-Z 0-9`, at word boundaries | All 20 bytes |
+//! | [`Detector::JsonWebToken`] | Three base64url segments (`A-Z a-z 0-9 - _`) joined by `.`, the first two opening with `eyJ` (a JSON object's `{"`) and at least 8 bytes long, the third possibly empty, at the start of the input or after a byte that is not an ASCII letter or digit | The whole token |
+//! | [`Detector::GitHubToken`] | `gh`, one of `o p s u r` and `_`, then at least 36 ASCII letters and digits; or `github_pat_`, 22 of them, `_` and at least 59 more; at the start of the input or after a byte that is not an ASCII letter or digit | Every byte after the prefix |
 //!
 //! A value that is wholly a placeholder (`${NAME}`, `$NAME`, `{{ … }}`) is a reference
 //! to a secret, not one, and is left as it is: configuration resolution reads it.
 //! Ranges found by different detectors may overlap; they are merged before masking,
 //! so the result does not depend on the order the detectors run in.
 //!
-//! Every detector reads the original bytes, once; masking happens once, after. Masked
-//! output is never read again: normalising it changes nothing because no detector can
+//! # Credential assignment values
+//!
+//! A value is read where its key is written, and never across the bounds of the string
+//! literal the key is in (issue 96).
+//!
+//! - **Literals.** Each line's string literals are read in order, each closing on its
+//!   line or being none: a `"` literal honours backslash escapes; `'` delimits one only
+//!   in a language whose single quotes delimit strings
+//!   ([`SINGLE_QUOTED_STRING_LANGUAGES`]; elsewhere `'x'` and `'\…'` are characters and
+//!   any other `'` a lifetime or a label); a backquote only in Go, JavaScript and
+//!   TypeScript ([`BACKQUOTED_STRING_LANGUAGES`]). A `'` between two lower-case ASCII
+//!   letters is an apostrophe (`don't`), never a quote.
+//! - **Outside a literal**, the value is the literal opening right after the separator
+//!   (a backquoted one only without a `${` interpolation), or, in a language whose bare
+//!   values are literals ([`BARE_VALUE_LANGUAGES`]), the bare value there: one that does
+//!   not open with a quote, a bracket, a reference or a block indicator, up to
+//!   whitespace or a delimiter, apostrophes included.
+//! - **Inside a literal**, there is none when the literal ends at the separator: in
+//!   `"token=" + decrypt(t) + "…"` the code between the literals stays (the destructive
+//!   mask of issue 96). Otherwise it is a literal of the other quote closing within this
+//!   one (`'{"token": "…"}'`), else this literal's own bytes: in a language whose bare
+//!   values are literals, the bare value; elsewhere, after `=` only, a run ending at the
+//!   literal's end or at `;`, `&`, `,`, a space or a tab (a connection string's
+//!   `…;Password=…;`, a query's, an argument's), which neither opens with a reference, a
+//!   format or a parameter (`$ { % ? : @ * =`) nor runs into code (`( ) [ ] { } < > | $
+//!   # \`). After `:` a literal's bytes are a name (`"auth:token:refresh"`, a channel's or
+//!   a key's), which contracts read, or prose; neither is masked.
+//!
+//! Keys are found in one pass: after a value, the search resumes past what its reading
+//! read, so a key inside a value is part of it.
+//!
+//! # One reading
+//!
+//! Every detector reads the original bytes once (and a view of them, below); masking
+//! happens once, after. Masked output is never read again: normalising it changes nothing because no detector can
 //! find in it what it did not find in the source (issue 72), never because it is
-//! rescanned until it stops changing. A detector whose match one byte of another's
-//! mask could complete must find that match in the source itself.
+//! rescanned until it stops changing. A detector whose match one byte of another's mask
+//! could complete must find that match in the source itself. So detection has three
+//! tiers, each reading a view of the source in which every byte the tiers before it
+//! found is already the mask, as a second reading would see it:
+//!
+//! 1. The shapes that no mask completes: private keys, bearer tokens, cloud access key
+//!    ids, JSON Web Tokens and GitHub tokens, from the source.
+//! 2. URI passwords, from the source and from the view of tier 1: a masked token before
+//!    `://` is a scheme (`<JSON Web Token>://u:p@h`, issues 72 and 96).
+//! 3. Credential assignment values, from the view of tiers 1 and 2: a bare value runs on
+//!    over a URI password found inside it, as it would run over that password's mask
+//!    (issue 96).
+//!
+//! Literals are read from tier 3's view, and nothing a detector masks changes how they
+//! read: no mask holds a quote a literal is delimited by, a backslash before one, or a
+//! byte beside an apostrophe that a value does not also hold.
 
 use std::collections::BTreeSet;
 use std::ops::Range;
@@ -74,12 +123,14 @@ pub const CREDENTIAL_KEYS: [&str; 16] = [
 ];
 
 /// The labels a PEM private-key block may carry.
-pub const PRIVATE_KEY_LABELS: [&str; 5] = [
+pub const PRIVATE_KEY_LABELS: [&str; 7] = [
     "PRIVATE KEY",
     "RSA PRIVATE KEY",
     "EC PRIVATE KEY",
     "DSA PRIVATE KEY",
     "OPENSSH PRIVATE KEY",
+    "ENCRYPTED PRIVATE KEY",
+    "PGP PRIVATE KEY BLOCK",
 ];
 
 /// Languages in which an unquoted assignment value is a literal string, and so is
@@ -88,6 +139,33 @@ pub const PRIVATE_KEY_LABELS: [&str; 5] = [
 /// not hide a secret.
 pub const BARE_VALUE_LANGUAGES: [&str; 5] =
     ["bash", "dockerfile", "markdown", "properties", "yaml"];
+
+/// Languages whose single quotes delimit strings. Elsewhere `'` opens a character, a
+/// lifetime or a label, and no value is single-quoted.
+pub const SINGLE_QUOTED_STRING_LANGUAGES: [&str; 17] = [
+    "bash",
+    "dockerfile",
+    "groovy",
+    "javascript",
+    "lua",
+    "markdown",
+    "perl",
+    "php",
+    "properties",
+    "protobuf",
+    "python",
+    "ruby",
+    "sql",
+    "toml",
+    "typescript",
+    "xml",
+    "yaml",
+];
+
+/// Languages whose backquotes delimit strings: Go's raw strings, JavaScript's and
+/// TypeScript's templates. Elsewhere a backquote quotes a name or a command, and no
+/// value is backquoted.
+pub const BACKQUOTED_STRING_LANGUAGES: [&str; 3] = ["go", "javascript", "typescript"];
 
 /// A content detector.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -102,34 +180,37 @@ pub enum Detector {
     UriPassword,
     /// Cloud access key identifiers.
     CloudAccessKeyId,
+    /// JSON Web Tokens, wherever they stand.
+    JsonWebToken,
+    /// GitHub access tokens, wherever they stand.
+    GitHubToken,
 }
 
 impl Detector {
     /// Every detector, in the order normalisation runs them; the order changes
     /// nothing.
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 7] = [
         Self::PrivateKey,
         Self::BearerToken,
         Self::CredentialAssignment,
         Self::UriPassword,
         Self::CloudAccessKeyId,
+        Self::JsonWebToken,
+        Self::GitHubToken,
     ];
 
-    /// The ranges of `bytes`, a file of `language`, this detector finds secret.
-    fn find(self, bytes: &[u8], language: &str, out: &mut Vec<Range<usize>>) {
+    /// The ranges of `bytes` this detector finds by their shape alone. A URI password
+    /// is read after them, over them, and a credential assignment's value after every
+    /// shape ([`secret_ranges_with`]).
+    fn shapes(self, bytes: &[u8], out: &mut Vec<Range<usize>>) {
         match self {
             Self::PrivateKey => private_keys(bytes, out),
             Self::BearerToken => groups(&BEARER, bytes, out),
-            Self::CredentialAssignment => {
-                let pattern = if BARE_VALUE_LANGUAGES.contains(&language) {
-                    &ASSIGNMENT_ANY_VALUE
-                } else {
-                    &ASSIGNMENT_QUOTED_VALUE
-                };
-                values(pattern, bytes, out);
-            }
-            Self::UriPassword => uri_passwords(bytes, out),
+            // Read over the other shapes ([`secret_ranges_with`]).
+            Self::CredentialAssignment | Self::UriPassword => {}
             Self::CloudAccessKeyId => groups(&ACCESS_KEY_ID, bytes, out),
+            Self::JsonWebToken => after_boundary(&JSON_WEB_TOKEN, bytes, out),
+            Self::GitHubToken => after_boundary(&GITHUB_TOKEN, bytes, out),
         }
     }
 }
@@ -147,10 +228,35 @@ pub fn secret_ranges_with(
     bytes: &[u8],
     language: &str,
 ) -> Vec<Range<usize>> {
-    let mut found = Vec::new();
+    let mut shapes = Vec::new();
     for detector in detectors {
-        detector.find(bytes, language, &mut found);
+        detector.shapes(bytes, &mut shapes);
     }
+    let mut shapes = merge(shapes);
+    if detectors.contains(&Detector::UriPassword) {
+        // A password is read from the source, and from the source as a second reading
+        // would see it: a masked token before `://` is a scheme there.
+        let mut found = shapes.clone();
+        uri_passwords(bytes, &mut found);
+        if !shapes.is_empty() {
+            let mut view = bytes.to_vec();
+            mask(&mut view, &shapes);
+            uri_passwords(&view, &mut found);
+        }
+        shapes = merge(found);
+    }
+    if !detectors.contains(&Detector::CredentialAssignment) {
+        return shapes;
+    }
+    let mut found = shapes.clone();
+    assignment_values(
+        &View {
+            bytes,
+            masked: &shapes,
+        },
+        language,
+        &mut found,
+    );
     merge(found)
 }
 
@@ -242,6 +348,24 @@ static BEARER: LazyLock<Regex> =
 static ACCESS_KEY_ID: LazyLock<Regex> =
     LazyLock::new(|| regex(r"(?-u)\b((?:AKIA|ASIA)[A-Z0-9]{16})\b"));
 
+/// A JSON Web Token, group 1, after the byte before it. Each segment runs to the end of
+/// its base64url run, so a mask beside one never lengthens it: no mask starts right
+/// after a base64url byte or a `.`.
+static JSON_WEB_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
+    regex(
+        r"(?-u)(?:\A|[^A-Za-z0-9])(eyJ[A-Za-z0-9_\-]{5,}\.eyJ[A-Za-z0-9_\-]{5,}\.[A-Za-z0-9_\-]*)",
+    )
+});
+
+/// A GitHub token's bytes after its prefix (group 1, or 2 for a fine-grained token),
+/// after the byte before it. The prefix stays: a token's kind is no secret, and a mask
+/// that ran over it would let a second reading find another token after it.
+static GITHUB_TOKEN: LazyLock<Regex> = LazyLock::new(|| {
+    regex(
+        r"(?-u)(?:\A|[^A-Za-z0-9])(?:gh[opsur]_([A-Za-z0-9]{36,})|github_pat_([A-Za-z0-9]{22}_[A-Za-z0-9]{59,}))",
+    )
+});
+
 /// A password in a URI's user information, group 1 (issues 72 and 73). What stands
 /// before `://` is either
 ///
@@ -281,22 +405,8 @@ fn assignment_prefix() -> String {
     )
 }
 
-/// A double-quoted value (group 1) or a single-quoted one (group 2).
-const QUOTED_VALUE: &str = r#""((?:[^"\\\r\n]|\\[^\r\n])*)"|'([^'\r\n]*)'"#;
-
-/// A bare value (group 3): one that does not open with a quote, a bracket, a
-/// reference or a block indicator, up to whitespace or a delimiter.
-const BARE_VALUE: &str = r#"([^\s"'`#,;(){}\[\]<>|&*$\\][^\s"'`#,;(){}\[\]<>\\]*)"#;
-
-static ASSIGNMENT_QUOTED_VALUE: LazyLock<Regex> =
-    LazyLock::new(|| regex(&format!("{}(?:{QUOTED_VALUE})", assignment_prefix())));
-
-static ASSIGNMENT_ANY_VALUE: LazyLock<Regex> = LazyLock::new(|| {
-    regex(&format!(
-        "{}(?:{QUOTED_VALUE}|{BARE_VALUE})",
-        assignment_prefix()
-    ))
-});
+/// A credential key, its separator and the blanks after it: where a value starts.
+static ASSIGNMENT: LazyLock<Regex> = LazyLock::new(|| regex(&assignment_prefix()));
 
 /// A value that is wholly a reference to a secret rather than one.
 static PLACEHOLDER: LazyLock<Regex> =
@@ -311,15 +421,16 @@ fn groups(pattern: &Regex, bytes: &[u8], out: &mut Vec<Range<usize>>) {
     }
 }
 
-/// The value group of every match, whichever of them matched, unless the value is a
-/// placeholder.
-fn values(pattern: &Regex, bytes: &[u8], out: &mut Vec<Range<usize>>) {
-    for caps in pattern.captures_iter(bytes) {
-        if let Some(m) = caps.iter().skip(1).flatten().next()
-            && !PLACEHOLDER.is_match(m.as_bytes())
-        {
-            out.push(m.range());
+/// The secret group of every match of a pattern that opens with the byte before its
+/// secret, or the input's start, matched but never captured. The next search starts at
+/// a match's end, where that byte may be the next match's.
+fn after_boundary(pattern: &Regex, bytes: &[u8], out: &mut Vec<Range<usize>>) {
+    let mut from = 0;
+    while let Some(caps) = pattern.captures_at(bytes, from) {
+        if let Some(secret) = caps.iter().skip(1).flatten().next() {
+            out.push(secret.range());
         }
+        from = caps.get(0).expect("the whole match").end();
     }
 }
 
@@ -387,6 +498,288 @@ fn base64_runs(bytes: &[u8], range: Range<usize>, out: &mut Vec<Range<usize>>) {
 /// The first position of `needle` in `haystack`.
 fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     haystack.windows(needle.len()).position(|w| w == needle)
+}
+
+// --- credential assignment values -----------------------------------------------
+
+/// The source as a second reading would see it: every byte a shape found is already
+/// the mask. Line endings are never masked, so they read as themselves.
+struct View<'a> {
+    bytes: &'a [u8],
+    /// The shapes' ranges, sorted, disjoint.
+    masked: &'a [Range<usize>],
+}
+
+impl View<'_> {
+    fn len(&self) -> usize {
+        self.bytes.len()
+    }
+
+    /// The byte at `i`, which is in the source.
+    fn at(&self, i: usize) -> u8 {
+        let b = self.bytes[i];
+        let k = self.masked.partition_point(|r| r.start <= i);
+        if k > 0 && i < self.masked[k - 1].end && b != b'\r' && b != b'\n' {
+            MASK
+        } else {
+            b
+        }
+    }
+
+    /// The byte at `i`, if the source has one.
+    fn get(&self, i: usize) -> Option<u8> {
+        (i < self.len()).then(|| self.at(i))
+    }
+
+    /// Whether the `'` at `i` stands between two lower-case ASCII letters: an
+    /// apostrophe, never a quote. The mask is upper case, so masking never makes one.
+    fn is_apostrophe(&self, i: usize) -> bool {
+        self.at(i) == b'\''
+            && i > 0
+            && self.at(i - 1).is_ascii_lowercase()
+            && self.get(i + 1).is_some_and(|b| b.is_ascii_lowercase())
+    }
+}
+
+/// A string literal on one line: the positions of its opening and its closing quote.
+#[derive(Clone, Copy, Debug)]
+struct Literal {
+    open: usize,
+    close: usize,
+}
+
+/// Every string literal of the source, in order, as [the module](self) reads them.
+fn literals(view: &View, language: &str) -> Vec<Literal> {
+    let single = SINGLE_QUOTED_STRING_LANGUAGES.contains(&language);
+    let back = BACKQUOTED_STRING_LANGUAGES.contains(&language);
+    let mut out = Vec::new();
+    // For each quote, the end of a line on which one of its kind closed no literal: no
+    // later one on that line closes one either, so none is searched for twice.
+    let mut unclosed_until = [0; 3];
+    let mut i = 0;
+    while i < view.len() {
+        let b = view.at(i);
+        let kind = match b {
+            b'"' => Some(0),
+            b'\'' if single => Some(1),
+            b'`' if back => Some(2),
+            _ => None,
+        };
+        match kind {
+            Some(k) if i >= unclosed_until[k] && !view.is_apostrophe(i) => {
+                match closing_quote(view, i) {
+                    Ok(close) => {
+                        out.push(Literal { open: i, close });
+                        i = close + 1;
+                        continue;
+                    }
+                    Err(line_end) => unclosed_until[k] = line_end,
+                }
+            }
+            None if b == b'\'' => {
+                if let Some(end) = character(view, i) {
+                    i = end;
+                    continue;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    out
+}
+
+/// The closing quote of the literal opening at `open`, or the end of its line if it
+/// has none. A `"` literal's backslash escapes the byte after it; an apostrophe closes
+/// nothing.
+fn closing_quote(view: &View, open: usize) -> Result<usize, usize> {
+    let quote = view.at(open);
+    let mut j = open + 1;
+    while j < view.len() {
+        match view.at(j) {
+            b'\r' | b'\n' => return Err(j),
+            b'\\' if quote == b'"' => match view.get(j + 1) {
+                Some(b'\r' | b'\n') | None => return Err(j + 1),
+                Some(_) => j += 2,
+            },
+            b if b == quote && !view.is_apostrophe(j) => return Ok(j),
+            _ => j += 1,
+        }
+    }
+    Err(view.len())
+}
+
+/// The end of the character literal opening at `open` in a language whose single
+/// quotes delimit characters: `'x'`, or an escape `'\…'` of at most a dozen bytes.
+fn character(view: &View, open: usize) -> Option<usize> {
+    match view.get(open + 1)? {
+        b'\'' | b'\r' | b'\n' => None,
+        b'\\' => {
+            if matches!(view.get(open + 2)?, b'\r' | b'\n') {
+                return None;
+            }
+            for j in open + 3..view.len().min(open + 14) {
+                match view.at(j) {
+                    b'\'' => return Some(j + 1),
+                    b'\r' | b'\n' => return None,
+                    _ => {}
+                }
+            }
+            None
+        }
+        _ => (view.get(open + 2)? == b'\'').then_some(open + 3),
+    }
+}
+
+/// The literal `at` is inside of, between its quotes.
+fn literal_around(literals: &[Literal], at: usize) -> Option<Literal> {
+    let k = literals.partition_point(|l| l.open < at);
+    let literal = *literals.get(k.checked_sub(1)?)?;
+    (at < literal.close).then_some(literal)
+}
+
+/// The literal opening at `at`.
+fn literal_opening(literals: &[Literal], at: usize) -> Option<Literal> {
+    let k = literals.partition_point(|l| l.open < at);
+    literals.get(k).filter(|l| l.open == at).copied()
+}
+
+/// What reading a value found: the value, if there is one to mask, and where the
+/// reading ended, past which the next key is searched for.
+struct Read {
+    value: Option<Range<usize>>,
+    end: usize,
+}
+
+impl Read {
+    const fn none(at: usize) -> Self {
+        Self {
+            value: None,
+            end: at,
+        }
+    }
+}
+
+/// Every credential assignment's value, read as
+/// [the module](self#credential-assignment-values) describes.
+fn assignment_values(view: &View, language: &str, out: &mut Vec<Range<usize>>) {
+    let bare = BARE_VALUE_LANGUAGES.contains(&language);
+    let mut literals = None;
+    let mut from = 0;
+    while let Some(m) = ASSIGNMENT.find_at(view.bytes, from) {
+        let literals = literals.get_or_insert_with(|| self::literals(view, language));
+        let at = m.end();
+        let separator = (m.start()..at)
+            .rev()
+            .find(|&i| !matches!(view.bytes[i], b' ' | b'\t'))
+            .expect("a match ends with its separator and blanks");
+        let read = match literal_around(literals, separator) {
+            // `"token=" + decrypt(t) + "…"`: the literal ends; what follows is code.
+            Some(literal) if at == literal.close => Read::none(at),
+            Some(literal) => match inner_literal(view, at, literal) {
+                Some(read) => read,
+                None if bare => bare_value(view, at),
+                None if view.bytes[separator] == b'=' => literal_value(view, at, literal),
+                None => Read::none(at),
+            },
+            None => match literal_opening(literals, at) {
+                Some(literal) => quoted_value(view, literal),
+                None if bare => bare_value(view, at),
+                None => Read::none(at),
+            },
+        };
+        if let Some(value) = read.value
+            && !value.is_empty()
+            && !PLACEHOLDER.is_match(&view.bytes[value.clone()])
+        {
+            out.push(value);
+        }
+        from = m.end().max(read.end);
+    }
+}
+
+/// A literal's contents, unless it is a template with an interpolation, which is code.
+fn quoted_value(view: &View, literal: Literal) -> Read {
+    let contents = literal.open + 1..literal.close;
+    let interpolated = view.at(literal.open) == b'`'
+        && contents
+            .clone()
+            .any(|i| view.at(i) == b'$' && view.get(i + 1) == Some(b'{'));
+    Read {
+        value: (!interpolated).then_some(contents),
+        end: literal.close + 1,
+    }
+}
+
+/// The contents of a literal of the other quote opening at `at` and closing within
+/// `outer`: `'{"token": "…"}'`.
+fn inner_literal(view: &View, at: usize, outer: Literal) -> Option<Read> {
+    let quote = view.at(at);
+    if !matches!(quote, b'"' | b'\'') || quote == view.at(outer.open) {
+        return None;
+    }
+    let mut j = at + 1;
+    while j < outer.close {
+        match view.at(j) {
+            b'\\' if quote == b'"' => j += 2,
+            b if b == quote && !view.is_apostrophe(j) => {
+                return Some(Read {
+                    value: Some(at + 1..j),
+                    end: j + 1,
+                });
+            }
+            _ => j += 1,
+        }
+    }
+    None
+}
+
+/// Whether `b` may continue a bare value.
+fn in_bare_value(b: u8) -> bool {
+    !b" \t\r\n\x0b\x0c\"'`#,;(){}[]<>\\".contains(&b)
+}
+
+/// A bare value at `at`: one that does not open with a quote, a bracket, a reference or
+/// a block indicator, up to whitespace or a delimiter. An apostrophe is part of it.
+fn bare_value(view: &View, at: usize) -> Read {
+    match view.get(at) {
+        Some(b) if in_bare_value(b) && !b"|&*$".contains(&b) => {}
+        _ => return Read::none(at),
+    }
+    let mut end = at + 1;
+    while end < view.len() && (in_bare_value(view.at(end)) || view.is_apostrophe(end)) {
+        end += 1;
+    }
+    Read {
+        value: Some(at..end),
+        end,
+    }
+}
+
+/// Whether `b` may continue a value inside a literal.
+fn in_literal_value(b: u8) -> bool {
+    !b" \t\r\n\x0b\x0c\"'`\\;&,(){}[]<>|$#".contains(&b)
+}
+
+/// A value inside `literal` at `at`, after `=`, in a language whose bare values are
+/// code: a run ending at the literal's end or at `;`, `&`, `,`, a space or a tab, which
+/// opens with no reference, format or parameter and runs into no code. An apostrophe is
+/// part of it.
+fn literal_value(view: &View, at: usize, literal: Literal) -> Read {
+    let first = view.at(at);
+    if !in_literal_value(first) || b"%?:@*={".contains(&first) {
+        return Read::none(at);
+    }
+    let mut end = at + 1;
+    while end < literal.close && (in_literal_value(view.at(end)) || view.is_apostrophe(end)) {
+        end += 1;
+    }
+    let delimited =
+        end == literal.close || matches!(view.at(end), b';' | b'&' | b',' | b' ' | b'\t');
+    Read {
+        value: delimited.then_some(at..end),
+        end,
+    }
 }
 
 /// The identity of the effective secret policy: a SHA-256 over its canonical form,

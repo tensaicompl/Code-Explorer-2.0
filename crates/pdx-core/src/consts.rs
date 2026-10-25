@@ -85,8 +85,20 @@ pub const ENGINE_VERSION: u32 = 14;
 /// starts where URI grammar says, not at a regex word boundary, and a bearer token
 /// before `://` counts as one (issue 72); 4 since a scheme is recognised after any byte
 /// that is not an ASCII letter or digit, so no password detector 2 masked is left
-/// unmasked (issue 73).
-pub const SECRET_DETECTOR_VERSION: u32 = 4;
+/// unmasked (issue 73); 5 since JSON Web Tokens, GitHub tokens and encrypted and PGP
+/// private keys are found wherever they stand, and an assignment's value is read within
+/// the string literal its key is in: a connection string's password is masked, the code
+/// after a literal ending at the separator never is, and a value runs on over what the
+/// other detectors found in it (issue 96).
+pub const SECRET_DETECTOR_VERSION: u32 = 5;
+
+/// The most candidates a `candidate` call site keeps (issue 122, decision 68): the first,
+/// by path and position, of those that survive every Stage 3 stage. How many survived is
+/// kept beside them (`Resolution::candidates_total`) and the segment's row says so. A
+/// name defined thousands of times, called on receivers no stage can place, would
+/// otherwise hold every definition at every site: quadratic in time, memory and the
+/// segment. It bounds how many are kept, never which band a site gets.
+pub const MAX_STORED_CANDIDATES: usize = 32;
 
 /// Layout of an entry of the extraction cache: the envelope that holds a cached
 /// extraction and the key it was stored under. An entry of another version is never

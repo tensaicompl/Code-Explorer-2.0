@@ -739,26 +739,26 @@ fn cache_object_id_fixed_vector() {
         "the vector below is engine 14's and matrix 2's"
     );
     assert_eq!(
-        SECRET_DETECTOR_VERSION, 4,
-        "the vector below is detector 4's, through the policy digest"
+        SECRET_DETECTOR_VERSION, 5,
+        "the vector below is detector 5's, through the policy digest"
     );
     // Over "pdx-extract-cache" 0x00, u32 BE 9, 14 and 2, the policy digest
-    // 05f97f16…6904 of {"detector_version":4,"patterns":["*.key","*.pem","*id_rsa*",
+    // 6aa1dd65…3b99 of {"detector_version":5,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
     // 3's to 13's are in cache_key_includes_engine_version. Format 8's (before issue 117)
     // was d769d391…a28b at engine 12, format 7's (before issue 114)
     // was da5d96b4…0cb3 at engine 10, format 6's (before issue 110) b8e9117f…1d31 at
     // engine 9, and format 5's (texts copied, before issue 90) 59c9f740…550a: each format
-    // moved every key. Detector 3's was c1c95f71…8e28 and
-    // detector 2's 6ff3be1c…d177: each policy moved every key, and the format did not
-    // move.
+    // moved every key. Detector 4's was 88e79c01…c826 (issue 96), detector 3's
+    // c1c95f71…8e28 and detector 2's 6ff3be1c…d177: each policy moved every key, and
+    // the format did not move.
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "88e79c01a508e04cc0791dbb0e9b538c3f13b212fd253935a3b7fdcc3e5bc826"
+        "26d5d2bc63f1b10976321d38bb2cd35a127d20af10267536e45144bc6d199f3a"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v9").join("88").join(&id));
+    assert_eq!(path, Path::new("cache").join("v9").join("26").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -773,7 +773,9 @@ fn cache_key_includes_engine_version() {
     // never found by engine 14 (issues 74 to 76, 83, 112, 111, 110, 114, 109, 107A and
     // 105).
     // Independently computed, as the vector above, with each engine version, under
-    // format 9 (issue 117); format 8's were 0446dc3c…a3d6, d84b3204…90bb, 0061bed3…7cf4,
+    // format 9 (issue 117) and detector 5 (issue 96); detector 4's were
+    // 93f612d3…fa3b, e0ad0220…9bc0, b9e43a4e…1a32, a882233e…607b, d49c2318…caad, d1ff8375…d85b,
+    // adcf486f…88e1, 271b3c8a…f765, c74297c2…7e46, d58503f2…6ffa, 8341f6ac…ca7c, 88e79c01…c826; format 8's were 0446dc3c…a3d6, d84b3204…90bb, 0061bed3…7cf4,
     // 622d6caa…fb0e, 8cb1d243…5e5a, 17673fba…932a, d75ad477…735b, 7295ddd4…f6bd,
     // 50829086…865a and d769d391…a28b, format 7's were c21a4e24…a7c, 7d29db63…639f, 022aa61d…c299,
     // f935e676…e0ec, 38141cd1…7c9c, cb2ebe0d…7c4d, fa0e0d93…7bd4 and da5d96b4…0cb3, format
@@ -791,51 +793,51 @@ fn cache_key_includes_engine_version() {
     for (engine, expected) in [
         (
             3,
-            "93f612d3f9b3b149b2326e463aac02470eb2a27471d46b13659935efc5ddfa3b",
+            "b963f2521b8c64b6cb54122a1adacf4bc13dcced9e5f5e5781501e3353cd89ef",
         ),
         (
             4,
-            "e0ad02205d00a327eb33ee0362baf4a37ff530936b5825770594d35ef95d9bc0",
+            "491bbf847491f58bf477fdf5797071efa485fc449f48cf3347b639d3b590e9dc",
         ),
         (
             5,
-            "b9e43a4eaf53cafef02e65cede656c959bf0fcc80d9f506056426c9d99ef1a32",
+            "536f85e77f1e29e9b9e954f13cc8f60b34f2592de8a152a4f44f13484d21b809",
         ),
         (
             6,
-            "a882233e9e840b5a2408323444997f9a8693f594d5b302b90d8c027ab6a8607b",
+            "7ee801e251b1b4067973a7cad62554bd8fa883c6a44007cf13f494abfd0d54d7",
         ),
         (
             7,
-            "d49c2318810c3261a1f1803ae9497cda717cd0f8fd46ff69e0c0c1f8ea18caad",
+            "2131036f21346af32e011de3c9374f47b9a6ce86ff421914e4f19cd6043830f6",
         ),
         (
             8,
-            "d1ff8375aa8f17d9e4affa2e03f1091938b260e831dbd0ce75be75593812d85b",
+            "810eca8bcf0dfd82d42963fa7fa9ebea975ea2c20c46ef6a8e78e3605dca938d",
         ),
         (
             9,
-            "adcf486f54729519bc36c3229cbbb31be3379e9f76f430c6ad11c38386fe88e1",
+            "362c9e58af3c68c019254e7d3c3f7304faf33b07d6aa95cc4053cc4fd5aecb28",
         ),
         (
             10,
-            "271b3c8af15c5706ff13d71cdf4f732b78772042cadbb40b36cb66dff32df765",
+            "64cf65000d1d4dcfe95cd224b1ccbdb2cd1a973cadccade13c430896eabcc278",
         ),
         (
             11,
-            "c74297c22f2cf3f54d0d3e54afb93c5463d7778b5e2c755b3bc5fedc544f7e46",
+            "0b6ee8704ca57dfcc2d2d004eb8b33048befc55c8000ab468a95bcb44935717a",
         ),
         (
             12,
-            "d58503f2e6dc219c729316347f144fc9197238ca3167ad190b06a6ebab976ffa",
+            "8ffbc45bcd01cb3fd4479be1fcb063902ab339f275f251624097b15fc8375e44",
         ),
         (
             13,
-            "8341f6acc3a6add512fd80a6f131d1fd7ad803333720ed3e5bb6d020e37dca7c",
+            "8d75bfa006a6bf844418032971dd9e411e5f9740838a702641e3b66609bb1858",
         ),
         (
             14,
-            "88e79c01a508e04cc0791dbb0e9b538c3f13b212fd253935a3b7fdcc3e5bc826",
+            "26d5d2bc63f1b10976321d38bb2cd35a127d20af10267536e45144bc6d199f3a",
         ),
     ] {
         let mut versioned = key.clone();
