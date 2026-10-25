@@ -66,11 +66,16 @@ that cannot work yet because a prerequisite is not built is recorded, not forced
   99 and 121 to 129 fixed (122 scale, 123 module-index bounds, 124 CLI, 125 input
   robustness, 126 trust, 127 engine interface, 128 segment writer, 129 tooling);
   issue 130 records the recall the trust fixes leave (C# global usings, a file's own
-  definitions). Four goldens changed, each change read (issue 126's table).
+  definitions). Four goldens changed, each change read (issue 126's table). Its
+  end-to-end run over ten real repositories (nine `ready`, all cold = warm) opened
+  131 (JSON keys as nodes: a data repository's 1.06M nodes, 5.9 GB peak), 132 (PDX's
+  own index is `degraded` by one generated grammar table; discovery ignores
+  `linguist-generated`) and 133 (the local extraction cache has no retention), all
+  owner decisions; Kubernetes still passes 6 GiB in Stage 2 (issue 82).
 - **Remaining remediation steps:** R6 (106, Python candidates), R7 (108, overload
   identity), R8 (107B, macro token trees); R9 (96) and R10 (97) are done; also issues
-  93 (Phase B), 82 (Kubernetes performance, G1), 119 (route band) and 130, and P3
-  onwards.
+  93 (Phase B), 82 (Kubernetes performance, G1), 119 (route band), 130 and 131 to
+  133, and P3 onwards.
 
 ## State: P2 in progress
 
