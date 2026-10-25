@@ -15,6 +15,15 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 
 | # | Date | Task | Type | State | Summary | Resolution |
 |---|---|---|---|---|---|---|
+| 130 | 2026-10-25 | P2-06 | blocker | open | Found validating issue 126 against the goldens: two bindings Stage 3 does not model, so a correct target stays undrawn. (A) C# `global using` directives apply to every file of their project, but extraction records them as the declaring file's own imports, unmarked: since R1 a base type only a global using makes visible is unresolved (csharp/eShop: 3 correct `inheritance-guided` edges, `Order : Entity` through `global using eShop.Ordering.Domain.Seedwork;`). (B) A file's own top-level definition is a closer binding than a binding-less import (R8), but it is not itself drawn: the site falls to weak evidence (cpp/fmt 5, c/jq 8, kotlin/Exposed 32 sites, each now with no edge where the file's own definition is the target) | Open. (A) needs extraction to mark a global using (an engine change: version, cache and protocol move) and the registry to apply it to the project's files. (B) is a specification change to the import-guided stage (a bare name's visible candidates: the file's own top-level free definitions first, then its imports), to be measured by A0 before it draws anything |
+| 129 | 2026-10-25 | P0-04 | blocker | resolved | Found by the stabilisation review of the tooling: CI never ran on the stabilisation, hotfix or gate branches; the nightly build ran its suites as one `make` chain, so a failing golden hid the sanitizers, determinism and the engine differential, and a red night skipped the cache save and `cargo vet`; the interface's licence check passed when `pnpm` failed; the grammars' licences were never checked (the check read no table row) and its grep was unanchored; `cargo deny` ran its licence check alone, unpinned; the bundle budget never ran (`make check` did not build the interface first) and ignored assets; `make vendor-refresh` could never succeed (`copy-engine.sh` without `--force`); the provenance scan's locale dropped non-UTF-8 lines; `release.yml` held write permissions it never used | Fixed 2026-10-25 on `pdx-goal-approach`: CI runs on `main`, `task/**`, `review/**`, `pdx-goal-approach`, `hotfix/**` and `gate/**`, with time limits; the nightly runs each suite as a step of its own (`if: always()`) and saves its caches whatever happened; `scripts/cargo-deny.sh` pins cargo-deny 0.20.2 and `make deny` runs the whole `deny.toml` policy (advisories, bans, licences, sources) in CI, nightly and release, which needed versions on three optional path dependencies; the licence scan fails loudly when `pnpm` does and reads the grammar table's licence column; the bundle budget builds the interface first, counts every file and fails on a missing build; `vendor-refresh` passes `--force`; the provenance scan greps under `LC_ALL=C`; `release.yml` reads only. The vendoring scripts stop on every error (`set -euo pipefail`; a `die` inside a command substitution had only left its subshell, so a missing map entry left a directory empty and the copy went on), and the typed-reference re-record runs both engines from empty working directories with absolute paths (decision 52), reproducing all 23 fixtures' `expected.tsv` exactly |
+| 128 | 2026-10-25 | P2-02 | blocker | resolved | Found by the stabilisation review of the segment layer: `SegmentWriter::write` checked that nothing was at the destination and then wrote it with `VACUUM INTO`. A segment another run published in between made the `VACUUM INTO` fail, and the cleanup then removed the other run's segment; a crash during or after the write could leave a partial or unsynced file under the final name; the build database lived in the system's temporary directory, memory on many systems | Resolved 2026-10-25: the build happens in a temporary directory inside the destination's (or `build_in`'s), `VACUUM INTO` writes a staged file of the write's own beside the destination, which is synced and hashed, given the destination's name by a hard link (which never replaces a file; a rename after one more look where the file system has none), made read-only, and its directory synced. A destination that appears meanwhile is `DestinationExists` and is never touched; a failure removes only what the write created. Unit tests `publishing_never_replaces_a_file_that_appeared_meanwhile` and `publishing_gives_the_staged_bytes_the_destination_name_only`; the segment and build suites unchanged |
+| 127 | 2026-10-25 | P1-03 | blocker | resolved | Found by the stabilisation review of the engine interface: a project's translation found files and surfaces by scanning every one per question (`project_source`, the duplicate checks of `pdxe_project_add_file` and `pdxe_surface_import`, `materialise_results`): quadratic in a repository's files; the surface encoder ignored the JSON library's allocation failures, so a refused allocation could encode a short surface; `pdxe_init` let a second context run while the first was still initialising the engine, and `pdxe_shutdown` left the thread's parser alive | Resolved 2026-10-25: the project keeps hash indexes of its files by path and relative path and of its surfaces by path, built with the project and freed with it; the encoder counts its allocator's failures and returns `PDXE_E_NOMEM`; `pdxe_init` waits for the first context's initialisation and fails if it failed; `pdxe_shutdown` always destroys the thread's parser. Engine suite (61 tests) and the bindings' tests unchanged |
+| 126 | 2026-10-25 | P2-06 | blocker | resolved | Found by the stabilisation review of resolution, both trust defects (drawn edges without positive evidence): (R1) a base type no import or module placed was resolved by the repository's one type of the name, and the hierarchy it built drew `inheritance-guided` edges; (R8) `import-guided` took a name a binding-less import (a C include, Python's `from m import *`, a Java or C# package import) makes visible even where the caller's own file defines the name at its top or declares the receiver's type itself: a C file's `static usage()` was drawn to a header's `usage` | Resolved 2026-10-25: (R1) step 4 of `resolve_type_name` is no longer repository-wide uniqueness: an import that binds no name of its own makes its targets' types visible, and those decide (`a_namesake_elsewhere_is_no_base`; two registry tests' `Ambiguous` became `Unresolved`). (R8) a binding-less import's candidate is no target when the caller's file defines the name at its top as a free definition (never a method or constructor: C++'s out-of-line `file::file` is a member) or a type of the receiver's name is declared in the file or its module (never a global namespace or default package, which spans projects); `tests/import_shadowing.rs`. Goldens (accepted): c/jq −8 wrong edges (`lexer.c`'s own `yyalloc`, drawn to `parser.c`'s `union yyalloc`) and +65 (64 `CFUNC` calls to `builtin.c`'s own macro, 1 `BINOP` to the first of its two); cpp/fmt −7 (2 wrong: the test's own `format_facet`; 5 to declarations of the file's own definitions); kotlin/Exposed −32 wrong (files' own top-level copies shadow a wildcard import, `JsonConditions.kt`'s own `Exists`); csharp/eShop −3 correct (R1: a base a C# `global using` makes visible, not modelled). Recall follow-ups in issue 130 |
+| 125 | 2026-10-25 | P2-05 | blocker | resolved | Found by the stabilisation review of `pdx-core`: input the repository supplies could abort or stall a build: `max_file_bytes` had no ceiling; a malformed or unreadable nested `.gitignore` stopped discovery; malformed or BOM-prefixed metadata (`go.mod`, `package.json`, `Cargo.toml`, `tsconfig.json`) stopped the registry, and a `tsconfig` `extends` chain was unbounded; a NUL or control character in a contract key stopped Stage 4; an unterminated SQL dollar quote was quadratic; a backend answering for fewer files than asked panicked; every SQLite failure of a search was reported as an invalid search. And contracts were wrong: an OpenAPI level whose servers are all templated inherited the outer level's, and an HTTP consumer of the repository's own route was counted as external | Resolved 2026-10-25: `max_file_bytes` above 64 MiB is a configuration error; a nested ignore file that is a symlink, unreadable or not UTF-8 adds no rule, and a bad line is skipped; malformed metadata is as if absent (recorded in `Layout::skipped`), a BOM stripped, an `extends` chain ends at a parse error or 32 links, a `baseUrl` leaving the repository is ignored; a contract key with control characters is a `ContractProblem::InvalidKey` diagnostic; the dollar quote's closing tag is searched in place; a wrong outcome count is `ExtractError::WrongAnswer`; only `ErrorCode::Unknown` is `InvalidSearch`; all-templated servers give the bare path; consumers of internal routes are skipped. Tests in `config`, `discover`, `registry`, `contracts`, `tables`' units and the extraction suite |
+| 124 | 2026-10-25 | P2-11 | blocker | resolved | Found by the stabilisation review of the CLI with the end-to-end runs (with issue 99): the clean check (`git status`) disagreed with what discovery reads (`.git/info/exclude`, a global excludes file, skip-worktree and assume-unchanged entries could hide a changed file discovery then read); the identity was read through `insteadOf` rewrites and `GIT_CONFIG_*` was not cleared; a large dirty status was an unexpected error and `safe.directory` refusal "not a Git repository"; control characters in paths reached the terminal report; an error writing stdout (a full disk) still exited 0; `pdx coverage` read only `.pdx/segment.db`, and `--out .pdx/x.db` failed when `.pdx/` was absent | Resolved 2026-10-25: the clean check runs `git status --untracked-files=no` (truncated output is dirty), `ls-files --others --exclude-per-directory=.gitignore` (only the repository's own ignore files, as discovery reads) and `ls-files -v` (skip-worktree and assume-unchanged entries are dirty), all excluding the top `.pdx`; the routing variables cleared are ten, `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT` and `GIT_CONFIG` added, and the identity is `git config --get remote.origin.url` as configured; unsafe ownership is `RepositoryError::NotSafe`; reports escape control characters; stdout errors are errors (a closed pipe excepted); `pdx coverage --segment PATH`; `--out .pdx/<name>` creates `.pdx/`. CLI tests for each, the help snapshot updated |
+| 123 | 2026-10-25 | P2-06 | blocker | resolved | Found by the end-to-end runs of the stabilisation (a 401-file crate killed at 7.9 GB after 7 minutes) and the engine review: R5's Rust module index (patch 0034) followed glob imports recursively with no visited set, so a cycle of globs was exponential (a crate of five files: 6 GB in 8 s); it parsed files the extractor had skipped and files past the depth ceiling, which the ceiling exists to keep out of every semantic pass; a lookup cut short was remembered as an answer; its allocations were unchecked; and the glob closure allocated and cleared arrays of every module of the repository for each name it looked up | Resolved 2026-10-25 (0034 re-cut, no version moves: the cross-file pass is not cached): a module's globs are read breadth first, each module once and only for a module with globs, through buffers kept a nesting depth for the pass; a lookup that meets one in progress is a cycle and no answer; a lookup cut short is not remembered; the names worked out (a remembered one is not counted) are held to 4,000,000 a pass, past which the index answers nothing more, lost work once; a file the extractor skipped or the depth ceiling rejects is no module; allocations are checked. The crate of five files indexes in 0.1 s; the 401-file crate in 8 s at 918 MB. `rust_receiver_evidence`'s E10 to E12 (the `Self::` proof, a glob cycle, a 1,000-deep file) |
+| 122 | 2026-10-25 | P2-06 | blocker | resolved | Found by the stabilisation's scale measurement (generated Python repositories, a method name defined in every module and called on values nothing types; Go linear): Stage 3 and the engine's typed pass were quadratic in the repository. (R3) import resolution scanned every module or file for each import (Python module names, Go package directories, C includes by suffix); (R4) a `candidate` site held every surviving definition, so 8,000 sites of an 8,000-times-defined name stored 64 million candidates; (R5) every stage filtered every namesake per site, and each copied them; the engine's Python walk asked three questions of its module (its classes in other files, its functions on a wildcard import, whether `mod.attr` is a module) by scanning every type or function of the project. 8,000 modules: 222 s, 8.5 GB, a 1.95 GB segment | Resolved 2026-10-25: import lookups read indexes built once (Python modules by name and package, Go files by directory, files by name); a `candidate` site holds the first 32 candidates by path and position (`stages::MAX_CANDIDATES`) and its row's reason says how many survived (`Resolution::candidates_total`); each name's invocable definitions are read once a language family and narrowed borrowed, and the import, hierarchy and module stages read only the files and definitions their evidence can reach; the engine's Python registries index dotted prefixes (patch 0035, no answer changes, engine 14 stays). 8,000 modules: 3.9 s, 0.9 GB, 96 MB; 16,000: 8.1 s; every stage linear. Bands and goldens unchanged by the indexes; `tests/resolution_scale.rs`, the engine's `typed_lookup` (a package of modules, linear work, the scans' answers) |
 | 120 | 2026-10-16 | P2-04 | blocker | resolved | A0's rule M1 takes a Rust site's name token as the last identifier of its callee text outside generic arguments, and read a `<` in a comment as one: after `// <- Inner layer` the callee text's later names were inside "generic arguments", so `.layer(` and `.with_state(` (`examples/error-handling/src/main.rs:66, 86`) were matched to `log_app_errors` and their two oracle relations counted `site_missing`, though both sites exist. Two of issue 107A's 56 | Resolved 2026-10-16 with issue 107A (`a0-match-2`, metrics unchanged at `a0-metrics-2`): M1 skips Rust comments (line, block, nested block) and literals (strings, byte and raw strings, characters), where a `//` or `/*` opens no comment; the relation range and exact byte-range matching are unchanged. On the post-R3 datasets it changes 3 of the Rust golden's 13,920 site tokens (the two, and a `b'<'` literal's external call) and 15 of PDX itself's 30,440 (literals `'<'` and `"<?php"`), each from another name to the site's own; nothing else |
 | 119 | 2026-10-16 | P2-07 | ambiguity | open | 4.2.2 gives `DEFINES_ROUTE` no band, and P2-07 labelled a route an annotation or decorator declares on its handler `exact`, with no recorded reason: a declaration is no name lookup. Since issue 102 (R3) `exact` is not drawn, so those edges stop drawing (63 in the goldens: Java 17, Kotlin 15, Python 31); routes, their nodes, sites and entry points are unchanged. The driver chose this over re-labelling them (2026-10-16) | |
 | 118 | 2026-10-16 | P2-06 | blocker | resolved | PDX itself has four false `import-guided` Rust edges, all of one shape: `Enum::Variant(payload)` drawn to the module's struct of the variant's name (`crates/pdx-bench/src/bench/run.rs:918` `Performance::OutOfMemory`, `:929` `Performance::Completed`, `crates/pdx-bench/tests/bench_run.rs:213` `BuildOutcome::Stopped`, `:227` `BuildOutcome::Built`). `import-guided` is drawn and R3 does not change it, so they block R3. Since the A0.1 baseline; not made by issue 117 | Resolved 2026-10-16 (Stage 3 only, no version moves): the cause is not enum-specific. Stage 3 gave a Rust `use` brace group one target, its prefix's module, and read every name the group binds as that module, so `T::f` was taken for `prefix::f`. Each binding of a group now leads where its own path does. PDX itself: `import-guided` 52 / 56 → 261 / 261; the four fall to `exact`, still wrong, R3 acceptance cases (issue 102); one correct edge of a macro-written type is withheld (`candidate`). Rust golden: `import-guided` 109 / 109 → 213 / 213, every new edge correct; `typed` and `inheritance-guided` unchanged everywhere; Python unchanged |
@@ -30,16 +39,16 @@ Types: `blocker`, `ambiguity`, `scr` (specification change request),
 | 108 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R7): target identity among definitions that share a qualified name. In the Rust golden, 89 oracle relations target such a definition; 83 have a structural site, 52 are drawn, 49 to the right definition and 3 to a wrong one, and 2 typed answers are withheld because their qualified name maps to several definitions. A0 cannot adjudicate Python's `@overload` stubs (28 calls without a verdict) | Open. Investigate whether the extraction's normalised signature, the definition's disambiguator, the call's argument count and types, or the engine's occurrence identity can select the definition a call reaches. Overloads are never collapsed because their qualified names are equal |
 | 107 | 2026-10-14 | P2-04 | blocker | open | Child of issue 95 (decision 65, R4 and R8): Rust call sites the oracle sees and Stage 3 does not. 107A (R4): 56 oracle relations at ordinary Rust syntax with no structural site: 54 turbofish calls, 30 of a path (`assert_from_request::<_, ()>()`) and 24 of a method (`parts.extract_with_state::<S, T>(&state)`), and 2 member calls in a chain with a line comment before the dot (`examples/error-handling/src/main.rs`): a grammar or extraction gap. 107B (R8): 338 oracle relations written inside macro invocations' token trees with no site, out of 1,696 call texts there, of which 90 are already extraction sites (all drawn correctly) and 9 are typed sites Stage 4 cannot persist | 107A resolved 2026-10-16 (R4, patch 0033, engine 13): 54 of the 56 were turbofish calls the engine dropped (a call whose function is a `generic_function`, no callee), now extracted as their function's calls; the other 2 were A0 matcher errors, their sites existing (issue 120). All 56 now match one site each; 29 are drawn, every one correct. Open: 107B: classify token-tree calls (known standard and assertion macros, expression-position arguments, format-like macros, arbitrary macro DSLs, `macro_rules!` bodies) and define a semantics-safe policy before recovering any; no call is invented from DSL tokens, and macros are not expanded |
 | 106 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R6): Python recall. 470 of the Python golden's 1,114 oracle relations end as `candidate` (36 more are blocked and 5 drawn wrong), most of them member calls on a local value (`bp.route(…)` on a `Blueprint`) or package re-exports (`flask.make_response(…)`) | Open. Classify all 470 first, by the evidence that could resolve them: local-variable receiver, parameter receiver, factory or call-result receiver, attribute receiver, package re-export, import alias, inheritance or base method, decorator-produced binding, fixture or other untyped external value, other; and separate what is structurally recoverable from what needs a compiler or precise provider and from where the oracle itself is weak or untyped. Then design evidence fixes from the counts. 85% structural recall is not promised from information the structure does not hold |
-| 105 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R5), probably the largest recall workstream: 2,079 of the Rust golden's 4,061 oracle relations at structural call sites end as `candidate` (389 more are blocked, 190 drawn wrong and 17 external) | R5 (2026-10-17, patch 0034, engine 14): classified (`scripts/a0/rust_candidates.py`; `bench/results/a0/rust-candidate-classification.json` and `rust-candidate-relations.jsonl`, engines 13 and 14): 3,151 relations at structural sites with no drawn edge at engine 13, 2,846 recoverable by structure or propagation. Remediated by evidence only (paths read as Rust reads them, declared parameter, field and return types, constructors, `async`/`?` as they are, impl proofs on every dispatch path; issues 113A, 113B and 116 within it): Rust golden recall 959/4,110 = 23.33% → 3,371/4,159 = 81.05%, drawn union 3,581/3,581, no wrong drawn edge; 788 left, each classified (273 structural, 217 propagation, 84 proof, 214 unknown), and 296 in macro token trees (107B). Open: the residual classes |
+| 105 | 2026-10-14 | P2-06 | blocker | open | Child of issue 95 (decision 65, R5), probably the largest recall workstream: 2,079 of the Rust golden's 4,061 oracle relations at structural call sites end as `candidate` (389 more are blocked, 190 drawn wrong and 17 external) | R5 (2026-10-17, patch 0034, engine 14): classified (`scripts/a0/rust_candidates.py`; `bench/results/a0/rust-candidate-classification.json` and `rust-candidate-relations.jsonl`, engines 13 and 14): 3,151 relations at structural sites with no drawn edge at engine 13, 2,846 recoverable by structure or propagation. Remediated by evidence only (paths read as Rust reads them, declared parameter, field and return types, constructors, `async`/`?` as they are, impl proofs on every dispatch path; issues 113A, 113B and 116 within it): Rust golden recall 959/4,110 = 23.33% → 3,371/4,159 = 81.05%, drawn union 3,581/3,581, no wrong drawn edge; 788 left, each classified (273 structural, 217 propagation, 84 proof, 214 unknown), and 296 in macro token trees (107B). Loose ends closed 2026-10-25 (stabilisation): the engine differential's 81 new `typed` rows, 47 records captured from the live run and identical to R5's (33 issue-113B caller names, 7 unresolved rows under the path's identity, 3 unknown-receiver rows no longer written, 2 new answers, 2 `Meter.read`), each verified and ratified (decision 66, `bench/engine-differential-divergences.json`, 64 records); the `rust_workspace_*` fixtures' `Meter.read` ratified in their `ratified.tsv` (decision 70); A0's matching of `peak.peak()` fixed (issue 121). The module index R5 added is bounded (issue 123). Open: the residual classes |
 | 104 | 2026-10-14 | P2-06 | blocker | resolved | Child of issue 95 (decision 65, R2): the Rust golden's 15 typed false positives (16 since issue 103 draws `Handler::call`), each a typed answer naming the wrong definition: the module path ignored (`from_request::expand`, `debug_handler::expand`, `typed_path::expand` to `lib.rs`'s `expand`, 5); an external crate's function taken for an internal look-alike (`multer::parse_boundary`, `hyper::upgrade::on`, 4); another type's associated function (`PathDeserializationError::custom` to `connect_info`'s `custom`, 2); a same-named function of another crate (`find_first_not_double` in `axum-macros`, 2); a blanket trait impl (`WithRejection::<…>::from_request`, 1); and a pattern binding answered as a call (`Ok(Self(params))`, 1). Also the one import-guided false positive (`Body::from` to another `From` impl's `from`) and the one false typed answer the blocklist now hides (`Handler::call`, `axum/src/handler/service.rs:171`) | Open. R2 (2026-10-14, patch 0028; 4.5 amended): a Rust typed answer needs path evidence, never a name's uniqueness alone; a `match` arm's bindings and a block's functions are locals; a Rust path starting with an extern-prelude crate is `external`. 15 of the 17 are no longer drawn wrong; the Rust golden's `typed` is 843 / 844 = 99.88% (from 852 / 868), PDX's 5,870 / 5,870, Python unchanged. Left: the blanket impl (issue 109) and the macro-written impl (issue 110); the 6 typed edges lost to `candidate` are issue 111 Resolved 2026-10-15 with issue 109: the Rust golden's trusted bands hold no false positive (`typed` 860 / 860, `import-guided` 109 / 109, `inheritance-guided` 60 / 60); every closure condition met (the entry). The blanket impl's site falls to a wrong `scoped` guess, issue 102's R3 case |
 | 103 | 2026-10-14 | P2-06 | scr | resolved | Child of issue 95 (decision 65, R1): the generic-name blocklist settles a site before a valid typed answer is considered (4.5 Stage 3, "`blocked`, even with a qualifying typed answer", and "Names on the blocklist are `blocked` before any stage runs"), so stronger semantic evidence is discarded for names such as `get`, `run`, `parse` or `update`. A0 measured the typed answers it suppresses: 4 in the Python golden (all correct), 32 in the Rust golden (31 correct, 1 false) and 412 in PDX (409 correct); accepting them (A0.2's C4) recovers 3, 31 and 409 relations | Resolved 2026-10-14 (R1). A qualifying unique typed answer (`from_engine` says typed and its target is exactly one definition of the repository: Stage 3's existing `typed_target`) is `typed` first, whatever the callee's name; otherwise a blocklisted name is `blocked`, before the engine's external answer and every name-based stage. An engine hint, a low-score or multi-candidate `lsp_typed` answer, an out-of-range score and an ambiguous mapping never pass the blocklist; a typed-only site, a reference or an engine site without a qualifying answer stays unconfirmed. No other precedence changed. 4.5 Stage 3 amended (both statements, steps renumbered). Tests in `crates/pdx-core/tests/stages.rs`; four mutations killed. A0 rerun (same pins, tools and rules): typed answers suppressed by the blocklist 4, 32 and 412 → 0; Python golden union 624/657 = 94.98%, recall 54.40%; Rust golden typed 852/868 = 98.16%, union 61.39%, recall 34.67%. The one false typed answer it exposes (`Handler::call`) is issue 104's. Nine goldens gain 303 typed tuples, none removed. No version change |
 | 102 | 2026-10-14 | P2-06 | scr | resolved | Child of issue 95 (decision 65, R3): 4.2.2 draws `exact` (the callee's short name has one definition in the repository) and `scoped` (one definition in the same module or package), but A0 measured them at 284/310 = 91.61% and 1/8 = 12.50% (Python golden), 509/1,168 = 43.58% and 155/492 = 31.50% (Rust golden), and 37.7% and 13.2% (PDX itself), against G4's 95% union floor: uniqueness of a short name does not establish which definition a call reaches | Resolved 2026-10-16 (R3; Stage 3 and 4 only, no version moves): `exact` and `scoped` are weak evidence, ordered and measured, never drawn; a site keeps its band and its one candidate (no target), and its row is a `candidate` one whose reason names the band (no schema change); 4.2.2's table amended. Drawn union precision Python 94.98% → 100.00%, Rust 64.86% → 100.00%, PDX 85.97% → 100.00%, no drawn false positive anywhere; recall Python 54.40% → 28.82%, Rust 35.64% → 22.94%, PDX 86.02% → 79.12%; per-band evidence unchanged. Goldens: drawn `CALLS` 45,465 → 21,052, exactly the 19,108 `exact` and 5,305 `scoped`. Declared routes' `DEFINES_ROUTE` edges (`exact`) stop drawing too: issue 119 |
 | 101 | 2026-10-13 | P0-02 | ambiguity | open | Raised by an independent review before the oracle work: the provenance records disagree about the engine reference's part in the Rust resolver. `bench/references.lock` gives the engine reference (`engine-ref`) the mode "vendor+refactor, and reference for the Rust ports" and lands it in `engine/` and `crates/pdx-core/src/resolve/`, while `THIRD_PARTY_NOTICES.md`'s section of algorithms and designs consulted ("Re-implementations written from scratch in this repository, with the reference whose algorithm or design was consulted") says "No entries yet" | Open. To be settled from the actual derivation history of `crates/pdx-core/src/resolve/`, never by removing an attribution to make the records agree. No legal conclusion is drawn here |
 | 100 | 2026-10-13 | P0-04 | third-party | open | Raised by an independent review: supply-chain hardening has gaps. The cargo-vet store holds 142 exemptions and 0 audits (`supply-chain/config.toml`, `supply-chain/audits.toml`): every crate is accepted by exemption, none by a recorded audit, and `make vet` passing means no more than that. `cargo deny` runs its licence check alone (`scripts/licence-scan.sh`: `check licenses`); the advisory policy `deny.toml` configures (`[advisories]`) is not run as a check by any workflow. Every workflow step uses a mutable major tag (`actions/checkout@v4`, `actions/cache@v4`, `actions/setup-node@v4`, `actions/upload-artifact@v4`) rather than an immutable commit | Open; not fixed in this round |
-| 99 | 2026-10-13 | P2-11 | blocker | open | Raised by an independent review: the local output's lifecycle can block the next run. `pdx index` refuses a tree `git status` does not report clean, `.pdx/` included (decision 38); it writes its segment to `.pdx/segment.db` by default and never overwrites a segment; and it does not make `.pdx/` ignored. In a repository whose ignore files do not already cover `.pdx/`, one successful index leaves the tree dirty, and the next run is refused | Open; not fixed in this round |
+| 99 | 2026-10-13 | P2-11 | blocker | resolved | Raised by an independent review: the local output's lifecycle can block the next run. `pdx index` refuses a tree `git status` does not report clean, `.pdx/` included (decision 38); it writes its segment to `.pdx/segment.db` by default and never overwrites a segment; and it does not make `.pdx/` ignored. In a repository whose ignore files do not already cover `.pdx/`, one successful index leaves the tree dirty, and the next run is refused | Resolved 2026-10-25 (with issue 124): the clean check leaves out the top `.pdx` (`:(exclude,top).pdx`), and `pdx index` makes `.pdx/` ignored by writing `.pdx/.gitignore` (`*`); the default segment is staged as `segment.db.<pid>.partial` and published over the previous default, which is the run's to replace, while a segment `--out` names is never overwritten; stale partials are removed only when they are regular files a day old. `cli_index_runs_again_after_every_commit` and the overwrite tests |
 | 98 | 2026-10-13 | P2-03 | scr | open | Raised by an independent review: discovery excludes every directory named `build`, `target`, `dist` or `vendor` at any depth (`index::discover::HARD_EXCLUDES`, as 4.5 specifies; `vendor` unless `[discover] include_vendor`), whatever is under it. Legitimate source below such a component is not discovered, not indexed and not represented in coverage: no coverage row records that it was left out | Open. The rule is 4.5's, so a change is a specification change; not fixed in this round |
-| 97 | 2026-10-13 | P2-08 | blocker | open | Raised by an independent review: the SQL consumer reader (`contracts::tables::sql_access`) reads a call's string argument as SQL when its first word is `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `WITH` or `MERGE` in any case, so natural-language text can mint a false table contract. `t("Select an item from the list")` begins with `Select`, its `from the` reads as a `FROM` clause, and the call consumes `Table("the")` | Open; not fixed in this round. Reproduced by A0 (2026-10-14); decision 65 makes it remediation R10, an early trust fix after A0.3, not release-time work |
-| 96 | 2026-10-13 | P2-04 | blocker | open | Raised by an independent review: content secret normalisation (detector 4) has credible false negatives and one destructive mask. A standalone JWT-shaped credential and a standalone GitHub personal-access-token-shaped credential match no detector (the detectors are a PEM private key, a bearer token, a credential assignment, a URI password and a cloud access-key id); a password in a semicolon-separated key-value connection string is not masked; and the credential-assignment detector masks across `"password=" + decrypt(pw) + "..."`, destroying code that is not a secret | Open; not fixed in this round. A fix must prove secrets masked, non-secret executable syntax preserved, byte length preserved and CR and LF preserved, with fixtures whose synthetic values are built at run time; a change to what a detector matches bumps `SECRET_DETECTOR_VERSION`. Reproduced by A0 (2026-10-14); decision 65 makes it remediation R9, an early trust fix after A0.3, not release-time work |
+| 97 | 2026-10-13 | P2-08 | blocker | resolved | Raised by an independent review: the SQL consumer reader (`contracts::tables::sql_access`) reads a call's string argument as SQL when its first word is `SELECT`, `INSERT`, `UPDATE`, `DELETE`, `WITH` or `MERGE` in any case, so natural-language text can mint a false table contract. `t("Select an item from the list")` begins with `Select`, its `from the` reads as a `FROM` clause, and the call consumes `Table("the")` | Resolved 2026-10-25 (R10): a text that begins with a statement's keyword is a statement only when it shows SQL beyond it: that keyword in capitals, SQL punctuation (`* = ? ( ) ; < >`), a value or quoted name, a qualified or placeholder token, or a second keyword that begins a clause (`WHERE`, `JOIN`, `INTO`, `VALUES`, `SET`, ...); an English determiner is never a table's name. "Select an item from the list" mints nothing; a lower-case statement that shows nothing else (`select id from users`) is missed, a table missed, never one invented. `tables`' `prose_is_no_statement` |
+| 96 | 2026-10-13 | P2-04 | blocker | resolved | Raised by an independent review: content secret normalisation (detector 4) has credible false negatives and one destructive mask. A standalone JWT-shaped credential and a standalone GitHub personal-access-token-shaped credential match no detector (the detectors are a PEM private key, a bearer token, a credential assignment, a URI password and a cloud access-key id); a password in a semicolon-separated key-value connection string is not masked; and the credential-assignment detector masks across `"password=" + decrypt(pw) + "..."`, destroying code that is not a secret | Resolved 2026-10-25 (R9, detector 5): JSON Web Tokens and GitHub tokens are found wherever they stand, and encrypted and PGP private keys; a credential assignment's value is read within the string literal its key is in (literals read a line at a time; apostrophes, character literals and lifetimes are no quotes), so a connection string's password is masked and the code after a literal ending at its separator never is; detection has three tiers, each over the masks of the ones before it, which closed two non-idempotence defects found on the way (a bare value ending inside a URI password; a masked token before `://`). `SECRET_DETECTOR_VERSION` 4 → 5; coverage stays monotonic but for the destructive mask and character literals (detector 4 as oracle over 4,795 real files: nothing else lost, none non-idempotent); the property passes 200,000 cases |
 | 95 | 2026-10-13 | P2-06 | blocker | open | Structural accuracy and trust. An independent adversarial review raised low precision and recall of the drawn structural bands before P5 and P6's oracle work; its percentages are not accepted as authoritative. The driver's inspection of `1eb801d` confirmed six mechanisms: the generic-name blocklist settles a site before a valid typed answer is accepted; `exact` draws from repository-wide short-name uniqueness; `scoped` from module or package short-name uniqueness; a Rust call on an unknown receiver has none of the unresolved-member protection Python, JavaScript, TypeScript and Perl have, so it falls through to `exact` and `scoped`; overloads sharing a qualified name cannot be told apart by signature; and a call written only inside a Rust macro's token tree is not a parsed `call_expression` site | Open. A0.1's measurement and A0.2's counterfactuals (decision 64, gate G1b) are required before any architectural change; what follows is A0.3, the driver's decision. A0.1 and A0.2 done 2026-10-14 (`bench/results/a0/`), against `scip-python` 0.6.6 and `rust-analyzer` 1.98.1: Python golden `typed` 310/310, union 620/653 = 94.95%, recall 603/1,114 = 54.13%; Rust golden `typed` 821/836 = 98.21%, union 1,580/2,592 = 60.96%, recall 1,377/4,061 = 33.91%. Four of G1b's six floors are not met. A0.3 (decision 65, 2026-10-14): `typed`, `import-guided` and `inheritance-guided` stay drawn; `exact` and `scoped` short-name uniqueness is not evidence to draw (issue 102, specification change); a valid typed answer precedes the blocklist (issue 103, specification change); recall is a first-class blocker. Split into issues 102 to 108, remediation order R1 to R10 (103, 104, 102, 107A, 105, 106, 108, 107B, 96, 97), each authorised separately; stays open as the umbrella until G1b's floors hold. R1 done 2026-10-14 (issue 103 resolved): Python union 94.98%, recall 54.40%; Rust typed 98.16%, union 61.39%, recall 34.67% |
 | 94 | 2026-10-13 | P2-16 | blocker | resolved | Found by issue 93's battery: Python's per-file resolver replays each import statement by scanning every import of the file for its local name (`py_replay_import_local`), a lookup by key that issue 92's indexes do not reach, so a file's typed resolution is quadratic in its imports: a file of `from m import a` lines takes 0.14, 0.47, 1.8 and 6.7 s of per-file typed resolution at 0.25 to 2 MiB, and the project's run as long again (16 s at 2 MiB in all). Navigation stays linear. As long at `5915669` | Fixed by indexing, nothing limited (patch 0027, decision 63, engine 7): replay, an imported reference's exact candidate and a call's alias check read the file's registered imports through one index by exact local name (`imports_by_local`, issue 92's `PDXENameIndex`), each name's chain in registration order, so the import each statement takes, the conflicts and the imports consumed are the scans'; an index that cannot get memory finds nothing, never scans. The 2 MiB file's per-file typed resolution now takes 0.15 s (6.7 s) and the project's run 0.31 s (7.7 s); the imports examined double with the file at 1,000 to 16,000 imports; the 104,730-file census resolves and extracts identically; four mutations killed |
 | 93 | 2026-10-13 | P2-16 | blocker | open | Found by issue 92's resource audit, the final engine-7 audit: when a parse fails early, the parser's recovery can leave one error node holding the rest of the file as a flat run of children, and every pass that steps through it by position, or asks for a sibling or parent inside it, costs the position: the parser's own recovery, extraction's docstring, decorator and ancestor lookups, channel extraction and the Kotlin resolver's top-level walks. A Kotlin file of one-line nested classes takes 195 s at 1 MiB and 764 s at 2 MiB; JavaScript after an unclosed parenthesis 40 s and 160 s. As long at `8b3ed42` | Extraction fixed (patch 0026, engine 7), nothing limited: children are visited by cursor through one iterator, in reverse or by position from a collection made once, and parents and siblings are found from the walk's own path or the loop in progress, never by descending from the root; the answers are tree-sitter's on every node of the 104,730-file census and it extracts and resolves identically; the navigation work is linear in 75 wide shapes in 32 languages; nine mutations killed. The Kotlin file now extracts in 1.75 s at 2 MiB (764 s), 8,000 decorated TypeScript methods in one class in 0.55 s (68 s). Open: the vendored parser's recovery is quadratic in an error node's width (`ts_parser__recover` rebuilds the node for each token it takes): the JavaScript file parses in 1.5, 5.8, 22.9 and 88.7 s at 0.25 to 2 MiB, the rest of its extraction in 1.0 s. Changing the parser is the driver's decision; the battery also found issue 94 |
@@ -162,6 +171,220 @@ public packaging at the release phase is deliberate. The directive in the replac
 file is superseded rather than overlooked.
 
 Nothing needs revisiting: the split as built matches the confirmed intent.
+
+State: resolved.
+
+### 129 — The tooling hid failures and skipped checks
+
+Found by the stabilisation review of `.github/`, `Makefile` and `scripts/` (findings T1
+to T10).
+
+| Finding | Fix |
+|---|---|
+| CI ran on `main`, `task/**` and `review/**` only | Also `pdx-goal-approach`, `hotfix/**`, `gate/**`; pull requests to `main` and `pdx-goal-approach`; every job has a time limit |
+| The nightly's one `make` chain: a failing golden hid the later suites; the cache save and `cargo vet` were skipped on failure | One step a suite, each `if: always()`; cache restored, then saved whatever happened |
+| The interface's licence check passed when `pnpm` failed | It fails loudly |
+| Grammar licences never checked; an unanchored grep | Read from the table rows' licence column; presence checked as a fixed string |
+| `cargo deny`: licences only, unpinned | `scripts/cargo-deny.sh` pins 0.20.2 (`check`, `version`, `install`, `CARGO_DENY_LOG_LEVEL`); `make deny` runs the whole policy in CI's supply-chain job, nightly and release. Bans needed versions on the optional path dependencies `pdx-arch`, `pdx-analytics`, `pdx-server` |
+| The bundle budget never ran (no build before it), and ignored assets | `bundle-budget: ui-build`; every file counted; a missing build fails |
+| `make vendor-refresh` could never succeed | `copy-engine.sh --force` |
+| The provenance scan's locale dropped non-UTF-8 lines | Its greps run under `LC_ALL=C` |
+| `release.yml` held `contents: write` | `contents: read`; `make deny` added |
+
+| The vendoring scripts swallowed failures (T7): `set -uo pipefail` without `-e`, so an unchecked `cp`, `mkdir` or inline program failed silently, and a `die` inside a command substitution (`CORE_DIR="$(upstream core_dir)"`) left only its subshell | `set -euo pipefail` in every script; `upstream` reads its map line with `grep -m1`, never a pipeline a closed reader could fail |
+| The typed-reference re-record ran the reference from the fixture's directory (T9), so a file it read by a relative path was an input | Both engines run from an empty working directory of their own, the fixture by absolute path (decision 52); the re-record reproduces all 23 fixtures' `expected.tsv` exactly |
+
+State: resolved.
+
+### 128 — The segment writer could remove another run's segment
+
+Found by the stabilisation review of `pdx_core::segment`. `SegmentWriter::write`
+checked that nothing was at the destination, built the segment in the system's
+temporary directory and wrote it with `VACUUM INTO` straight to the destination. A
+segment another run published between the check and the write made `VACUUM INTO` fail,
+and the cleanup then removed that run's segment; a crash during the write left a
+partial file under the final name, and nothing synced the bytes or the name; and the
+build database lived where the system's temporary directory is, memory on many systems.
+
+The build now happens in a temporary directory inside the destination's directory (or
+`build_in`'s). `VACUUM INTO` writes a staged file of the write's own beside the
+destination; it is synced, hashed, given the destination's name by a hard link, which
+never replaces a file (a rename after one more look where the file system has no hard
+links), made read-only, and its directory synced. A destination that appears
+meanwhile is `DestinationExists` and is left as it is; a failure removes only what the
+write created. The CLI's own staging (issue 99) sits above it unchanged.
+
+Tests: `publishing_never_replaces_a_file_that_appeared_meanwhile`,
+`publishing_gives_the_staged_bytes_the_destination_name_only` (writer units); the
+segment, build and CLI suites unchanged.
+
+State: resolved.
+
+### 127 — The engine interface scanned, ignored allocation failures and raced
+
+Found by the stabilisation review of `engine/api` (C-M1, C-L1, C-L2 with B8).
+
+- **Scans.** `project_source`, the duplicate checks of `pdxe_project_add_file` and
+  `pdxe_surface_import`, and `materialise_results` each scanned every file or surface of
+  the project per question: quadratic in a repository's files. The project now keeps
+  hash indexes (`file_by_path`, `file_by_rel`, `surface_by_path`), built with it and
+  freed with it.
+- **Allocation.** The surface encoder ignored the JSON library's allocation failures;
+  it now counts them (`counting_alc_ctx`) and returns `PDXE_E_NOMEM`.
+- **Init and shutdown.** `pdxe_init` let a second context use the engine while the
+  first was still initialising it (`engine_up`: a later context waits, and fails if the
+  first failed); `pdxe_shutdown` now always destroys the thread's parser.
+
+The engine's 61 tests and the bindings' tests pass unchanged.
+
+State: resolved.
+
+### 126 — Two drawn bands drew without positive evidence
+
+Found by the stabilisation review of `pdx_core::resolve` (R1, R8). Both drew edges the
+trust contract forbids.
+
+- **R1, bases by uniqueness.** `resolve_type_name`'s step 4 resolved a base no import
+  or module placed to the repository's one type of that name; the hierarchy built from
+  it drew `inheritance-guided` edges. The step is now "an import that binds no name of
+  its own makes its targets' types visible": the types of the files such imports lead
+  to, decided as the other steps decide. A namesake elsewhere is no base
+  (`a_namesake_elsewhere_is_no_base`); two registry tests that expected `Ambiguous`
+  from uniqueness now get `Unresolved`, as the rule says.
+- **R8, import shadowing.** `import-guided` took the name a binding-less import (a C
+  include, Python's `from m import *`, a Java or C# package import) makes visible even
+  where the caller's file itself defines the name at its top, or declares a type of
+  the receiver's name in the file or its module. A C file's `static usage()` call was
+  drawn to the header's `usage`. Such a candidate is now no target
+  (`Resolver::defined_in_file`, `type_declared_near`). `tests/import_shadowing.rs`
+  reproduces the C case through Stage 3 alone and fails without the fix; the Python and
+  Java shapes did not reproduce and are kept as guards.
+
+Validated against the goldens, two refinements were needed: a method or constructor is
+never the file's own binding of a bare name (fmt's `os.cc` holds the out-of-line
+`file::file(...)`, a member of the header's class, which `file(fd)` still constructs),
+and a global namespace or default package is no module for the receiver's type (C#'s
+global namespace held one `Extensions` class a project, so `Extensions.IsFoundryEnabled`
+in `Program.cs` lost its import). The goldens then changed, every change read and
+accepted:
+
+| Golden | Drawn edges | What changed |
+|---|---|---|
+| c/jq | −8, +65 | −8 wrong: `lexer.c` defines its own `yyalloc`, the edges went to `parser.c`'s `union yyalloc`. +64: `CFUNC(...)` in `builtin.c` reaches `builtin.c`'s own macro, no longer ambiguous with `bytecode.h`'s; +1 `BINOP`, the first of `builtin.c`'s two (the registry does not model `#undef`) |
+| cpp/fmt | −7 | 2 wrong: the test's own `class format_facet` is what it constructs; 5 reached declarations (`gtest.h`'s forward declarations, `os.h`'s `system_category`) of definitions the caller's own file holds |
+| kotlin/Exposed | −32 | All wrong: the r2dbc tests' own top-level copies of the time helpers, and `JsonConditions.kt`'s own `class Exists`, shadow a wildcard import |
+| csharp/eShop | −3 | Correct edges lost to R1: `Order : Entity` resolves `Entity` only through a C# `global using`, which is not modelled |
+
+The file's own definitions the exclusions leave undrawn, and C#'s global usings, are
+issue 130.
+
+State: resolved.
+
+### 125 — Repository input could stop a build, and two contract readings were wrong
+
+Found by the stabilisation review of `pdx-core` (I2, I6, I8, I9, R2, R6, R7, R9, R10,
+R11). Input a repository supplies is untrusted, and none of it may stop or stall a
+build.
+
+| Finding | Now |
+|---|---|
+| `max_file_bytes` had no ceiling | Above `MAX_CONFIGURABLE_FILE_BYTES` (64 MiB) is a configuration error |
+| A malformed nested `.gitignore` stopped discovery | One that is a symlink, unreadable or not UTF-8 adds no rule; a bad line is skipped |
+| Malformed or BOM-prefixed `go.mod`, `package.json`, `Cargo.toml`, `tsconfig.json` stopped the registry; `extends` unbounded | As if absent, recorded in `Layout::skipped`; a BOM stripped; a chain ends at a parse error or 32 links; a `baseUrl` leaving the repository ignored |
+| A NUL or control character in a contract key stopped Stage 4 | `ContractProblem::InvalidKey`, a diagnostic; the observation skipped |
+| An unterminated SQL dollar quote was quadratic | The closing tag is searched in place |
+| A backend answering for fewer files panicked | `ExtractError::WrongAnswer` |
+| Every SQLite failure of a search was `InvalidSearch` | Only `ErrorCode::Unknown` |
+| An OpenAPI level whose servers are all templated inherited the outer level's | It gives the bare path |
+| An HTTP consumer of the repository's own route was external | Consumers of internal routes are skipped |
+
+Tests in `config`, `discover`, `registry` (`bad_metadata_is_as_if_absent`),
+`contracts` (`a_contract_name_no_identity_can_be_made_of_is_diagnosed`,
+`templated_servers_do_not_inherit_the_outer_levels`) and the extraction suite.
+
+State: resolved.
+
+### 124 — The CLI's clean check, identity and output disagreed with discovery
+
+Found by the stabilisation review of `crates/pdx` and the end-to-end runs (B1 to B10,
+E3, E4; with issue 99).
+
+- **Clean check.** `git status` read `.git/info/exclude`, the user's global excludes
+  file and the index's skip-worktree and assume-unchanged entries, none of which
+  discovery reads: a changed file could be hidden from the check and read by
+  discovery. The check now runs `status --untracked-files=no` (output past the bound is
+  dirty), `ls-files --others --exclude-per-directory=.gitignore` (only the repository's
+  own ignore files) and `ls-files -v` (a skip-worktree or assume-unchanged entry is
+  dirty), each excluding the top `.pdx`.
+- **Identity.** `remote get-url` applied `insteadOf` rewrites; it is now `config --get
+  remote.origin.url`, as configured. `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT` and
+  `GIT_CONFIG` join the cleared routing variables (ten).
+- **Errors.** A large dirty status is dirty, never "unexpected status"; refused
+  ownership (`safe.directory`) is `RepositoryError::NotSafe`; reports escape control
+  characters; an error writing stdout is an error (a closed pipe excepted).
+- **Output.** `pdx coverage --segment PATH` reads a segment `--out` wrote, and
+  `--out .pdx/<name>` creates `.pdx/`.
+
+Tests: `cli_index_refuses_what_discovery_would_read_but_git_hides`,
+`cli_identity_is_origin_as_configured_never_rewritten`, `cli_coverage_reads_a_named_segment`
+and the help snapshot.
+
+State: resolved.
+
+### 123 — The Rust module index was unbounded
+
+Found by the stabilisation's end-to-end runs and the engine review (E1, C-H1, C-H2,
+C-L3, C-L4). R5's module index (patch 0034) followed glob imports recursively with no
+visited set: a cycle of globs was exponential. A crate of five files took 6 GB in 8 s;
+a 401-file crate was killed at 7.9 GB after 7 minutes. The index also parsed files the
+extractor had skipped and files past the depth ceiling (issue 93's protection for
+every semantic pass), remembered lookups cut short as answers, left allocations
+unchecked, and allocated and cleared arrays of every module for each name a glob
+closure looked up.
+
+Patch 0034, re-cut (no version moves: the cross-file pass is never cached): a module's
+globs are read breadth first, each module once and only for a module with globs,
+through buffers kept a nesting depth for the pass; a lookup that meets one in progress
+is a cycle and no answer; a lookup cut short is never remembered; the names worked out
+(a remembered one is not counted) are held to 4,000,000 a pass (`RMI_WORK_BUDGET`),
+past which the index answers nothing more, lost work once; a file the extractor
+skipped (`lsp_skipped`) or the depth ceiling rejects is no module of it; allocations are
+checked. The five-file crate indexes at once; the 401-file crate in seconds under 1 GB.
+
+A cycle is no truncation. The first cut of this fix discarded every answer whose walk
+met a cycle, and Rust's `use super::*` and `pub use child::*` make cycles ordinary: the
+axum golden lost 127 correct `typed` answers (233 drawn edges with their `TESTS`). A
+cycle adds nothing, as Rust's globs read it, so it is no answer for the lookup that
+closes it, and a lookup that met one is not remembered (it saw only part of its own
+answer); only the depth, the budget and a refused allocation cut a walk. The axum
+golden's edges are then identical to the uncut index's.
+
+Tests: `rust_receiver_evidence`'s E10 (the `Self::` proof), E11 (a glob cycle) and E12 (a
+1,000-deep file).
+
+State: resolved.
+
+### 122 — Stage 3 and the engine's Python pass were quadratic in the repository
+
+Found by the stabilisation's scale measurement: generated Python repositories in which
+a method name is defined in every module and called on values nothing types (the shape
+of generated code), indexed at doubling sizes. Go was linear. At 8,000 modules: 222 s,
+8.5 GB and a 1.95 GB segment.
+
+| Where | What was quadratic | Now |
+|---|---|---|
+| Import resolution (R3) | Every module scanned per Python import, every Go file per package import, every file per C include by suffix | Indexes built once in `imports::Lookup` (Python modules by name, packages, Go files by directory, files by name), in the scan's order |
+| `candidate` sites (R4) | A site held every surviving definition: 8,000 sites of an 8,000-times-defined name, 64 million candidates | The first `stages::MAX_CANDIDATES` (32) by path and position, and `Resolution::candidates_total`; the row's reason says how many survived |
+| The stages (R5) | Every stage filtered every namesake, and copied them, per site | Each name's invocable definitions read once a language family, narrowed borrowed (`narrow_from`); the import, hierarchy and module stages read only the files or definitions their evidence reaches (`in_file`, `definitions_in_module`); per-site facts computed once (`Near`) |
+| The engine's Python walk | A file's module's classes in other files, its functions on a wildcard import, and whether `mod.attr` is a module, each by scanning every type or function | Patch 0035: the registries index dotted prefixes (`pdxe_registry_build_prefix_indexes`) and the questions read them, the scans' answers in their order |
+
+At 8,000 modules: 3.9 s, 0.9 GB, 96 MB; 16,000: 8.1 s; every stage linear (resolve
+1.45 s to 2.8 s, the engine's walk 0.4 s to 0.8 s). No band changes: the indexes give
+the scans' answers, and the bound changes only how many candidates a site keeps.
+
+Tests: `tests/resolution_scale.rs` (the bound through Stage 3 and a segment), the
+engine's `typed_lookup` (a package of modules: the scans' answers, linear work, the
+scans quadratic), every existing suite unchanged.
 
 State: resolved.
 
@@ -2192,9 +2415,15 @@ does not make `.pdx/` ignored (its refusal suggests adding `.pdx/` to `.gitignor
 a repository whose ignore files do not already cover `.pdx/`, a first successful index
 leaves the tree dirty, and the next run is refused.
 
-Not fixed in this round.
+**Resolved 2026-10-25** (with issue 124). The clean check leaves out the top `.pdx`
+(the pathspec `:(exclude,top).pdx`), and `pdx index` makes `.pdx/` ignored itself by
+writing `.pdx/.gitignore` (`*`). The default segment is staged as
+`segment.db.<pid>.partial` and published over the previous default, the run's own to
+replace; a segment `--out` names is never overwritten. Stale partials are removed only
+when they are regular files at least a day old, never another run's in progress.
+Discovery never reads the top `.pdx` or a nested repository.
 
-State: open.
+State: resolved.
 
 ### 98 — Source below a build-named directory is hidden from coverage
 
@@ -2233,11 +2462,18 @@ in a local test that was never committed:
 | `"SELECT id FROM users"` (control) | `("users", Read)` |
 
 Decision 65 sequences this as remediation R10, an early trust fix after A0.3 rather
-than release-time work. It is authorised separately.
+than release-time work.
 
-Not fixed in this round.
+**Resolved 2026-10-25 (R10).** A text that begins with a statement's keyword is read as
+a statement only when it shows SQL beyond that word (`shows_sql`): the keyword written
+in capitals, SQL punctuation (`* = ? ( ) ; < >`), a value or a quoted name, a qualified
+(`a.b`) or placeholder (`$1`, `:id`, `@p`) token, or a second keyword that begins a
+clause or names a target (`WHERE`, `JOIN`, `INTO`, `VALUES`, `SET`, `GROUP`, `ORDER`,
+...). An English determiner is never a table's name (`is_determiner`). The cost is
+recall: a lower-case statement showing nothing else (`select id from users`) is
+missed, a table missed, never one invented. Test `prose_is_no_statement`.
 
-State: open.
+State: resolved.
 
 ### 96 — Secret masking has false negatives and one destructive mask
 
@@ -2278,11 +2514,42 @@ In class 4, ` + decrypt(pw) + ` became 17 `X` bytes: the code between the two
 literals is masked.
 
 Decision 65 sequences this as remediation R9, an early trust fix after A0.3 rather
-than release-time work. It is authorised separately.
+than release-time work.
 
-Not fixed in this round.
+**Resolved 2026-10-25 (R9, detector 5, `SECRET_DETECTOR_VERSION` 4 → 5).**
 
-State: open.
+| Class | Detector 5 |
+|---|---|
+| 1. A standalone JSON Web Token | `Detector::JsonWebToken`: three base64url segments, the first two opening `eyJ` and at least 8 bytes, after the input's start or a byte that is no ASCII letter or digit; the whole token masked |
+| 2. A standalone GitHub token | `Detector::GitHubToken`: `gh` with `o p s u r` and `_`, then at least 36 letters and digits, or `github_pat_`, 22, `_` and at least 59; the bytes after the prefix masked |
+| 3. A connection string's password | A credential assignment's value is read within the string literal its key is in: after `=`, a run ending at the literal's end or at `;`, `&`, `,`, a space or a tab (`…;Password=…;`, a query, an argument), never one opening with a reference, a format or a parameter or running into code |
+| 4. The destructive mask | When the literal ends at the separator, there is no value: `"password=" + decrypt(pw) + "…"` keeps its code |
+
+Literals are read a line at a time: `"` with backslash escapes; `'` only in languages
+whose single quotes delimit strings (elsewhere `'x'` is a character and any other `'` a
+lifetime or a label); backquotes only in Go, JavaScript and TypeScript (a template with
+`${` is code); a `'` between two lower-case letters is an apostrophe. A literal of the
+other quote inside one is its value (`'{"password": "…"}'`). `ENCRYPTED PRIVATE KEY` and
+`PGP PRIVATE KEY BLOCK` join the private keys (I7).
+
+Two defects of idempotence were found on the way and closed by reading in tiers, each
+over the masks of the tiers before it (shapes; URI passwords; assignment values):
+
+- **Detector 4's**: in `password: s://u:p;q@h` (YAML) the bare value ended at the `;`
+  inside the URI's password, and a second pass ran on over the password's mask to `@h`.
+- **Found by the offsets property at 20,000 cases**: a masked JSON Web Token (or a
+  GitHub token whose body opens with a digit) before `://` became a URI scheme on a
+  second pass, which then masked the password.
+
+Coverage stays monotonic but for class 4 and character literals: with detector 4's
+assignment patterns as oracle, over 4,795 files of the ten goldens and this repository,
+nothing else is lost and no file normalises differently twice; 52 JSON Web Tokens in
+test fixtures are newly masked. The offsets property passes 200,000 cases. Tests in
+`crates/pdx-core/tests/secrets.rs` for each class, the tiers, apostrophes, characters,
+backquotes and channel names (after `:`, a literal's bytes are a name contracts read,
+never a value).
+
+State: resolved.
 
 ### 95 — Structural accuracy and trust
 

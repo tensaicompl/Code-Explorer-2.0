@@ -56,20 +56,21 @@ that cannot work yet because a prerequisite is not built is recorded, not forced
   117 and 118, R3 (102), R4 (107A, with 120). R5 (105, with 113A, 113B and 116) is
   committed as a progress save (`6d1eb18`): Rust golden recall 23.33% → 81.05%, every
   drawn band 100% precise.
-- **R5's loose ends, now this branch's to close:** the engine differential's 81 new
-  `typed` rows (47 candidate records: 33 issue-113B caller renames, 7 unresolved rows
-  under the path's identity, 3 rows an unknown receiver no longer writes, 2 new
-  answers, 2 `Meter.read`), unratified, so `make engine-differential` fails; the
-  `rust_workspace_*` resolve fixtures' extra correct `main → alpha.Meter.read` edge
-  (`expected.tsv` is the reference's output and its comparator has no ratification), so
-  `make engine-test` fails; A0 matching of PDX itself's `peak.peak()` sites inside
-  `assert_eq!` (2 correct drawn edges A0 calls false), which keeps the official
-  three-corpus results (Python 28.82%, Rust 81.05%, PDX itself 88.02%) out of
-  `bench/results/a0/`; issue 105's 788 classified residual relations.
+- **R5's loose ends, closed on this branch (2026-10-25):** the engine differential's 81
+  new `typed` rows ratified (47 records, decision 66: 33 issue-113B caller names, 7
+  unresolved rows under the path's identity, 3 unknown-receiver rows no longer written,
+  2 new answers, 2 `Meter.read`); the `rust_workspace_*` fixtures' correct `main →
+  alpha.Meter.read` ratified in their `ratified.tsv` (decision 70); A0's `peak.peak()`
+  matching fixed (`a0-match-3`, issue 121). Issue 105's residual classes stay open.
+- **Stabilisation round (2026-10-25):** issues 96 (R9, secret detector 5), 97 (R10),
+  99 and 121 to 129 fixed (122 scale, 123 module-index bounds, 124 CLI, 125 input
+  robustness, 126 trust, 127 engine interface, 128 segment writer, 129 tooling);
+  issue 130 records the recall the trust fixes leave (C# global usings, a file's own
+  definitions). Four goldens changed, each change read (issue 126's table).
 - **Remaining remediation steps:** R6 (106, Python candidates), R7 (108, overload
-  identity), R8 (107B, macro token trees), R9 (96, secrets), R10 (97, SQL prose
-  contracts); also issues 93 (Phase B), 82 (Kubernetes performance, G1) and 119 (route
-  band), and P3 onwards.
+  identity), R8 (107B, macro token trees); R9 (96) and R10 (97) are done; also issues
+  93 (Phase B), 82 (Kubernetes performance, G1), 119 (route band) and 130, and P3
+  onwards.
 
 ## State: P2 in progress
 
@@ -144,15 +145,24 @@ the fields 4.2.1 names and never of a line or offset, and the fixed vectors in
 encoding renames every stored node, so it is a change of stored format: 4.2.1 states
 the byte-level rules and reference vectors (approved in issue 33).
 
-Segments are written only by `SegmentWriter` and read only by `SegmentReader`. The
+Segments are written only by `SegmentWriter` and read only by `SegmentReader`. A write
+builds in a temporary directory beside the destination (never the system's, which may
+be memory), `VACUUM INTO`s a staged file of its own, syncs and hashes it, and gives it
+the destination's name by a hard link, which never replaces a file; a failure removes
+only what the write created, never a segment another run published (issue 128). The
 schema is `crates/pdx-core/src/segment/schema.sql`, which must stay 4.3's DDL byte for
 byte; every other statement lives, named, in `segment/queries.rs`, and no value is ever
 spliced into SQL. A segment must be byte-identical whenever its rows are: nothing
 time-, path- or order-dependent may reach it.
 
 Repository content and `pdx.toml` are untrusted. Discovery never follows a symlink,
-never reads a secret-pattern or oversized file, reads nothing larger than the limit,
-and depends on nothing but the checkout and its root `pdx.toml`: not the environment,
+never reads a secret-pattern or oversized file, reads nothing larger than the limit
+(`max_file_bytes`, at most `MAX_CONFIGURABLE_FILE_BYTES`, 64 MiB), never enters the top
+`.pdx` (`PDX_OUTPUT_DIR`) or a directory holding a `.git` (another repository), takes no
+rule from a nested ignore file it cannot read as UTF-8 text and skips a line it cannot
+parse; malformed or BOM-prefixed metadata is as if absent (`Layout::skipped`); a contract
+key with control characters is a diagnostic (issue 125). Discovery depends on nothing
+but the checkout and its root `pdx.toml`: not the environment,
 the user's Git settings or the filesystem's listing order. Nothing a repository
 configures (precise commands included) is executed outside the precise sandbox.
 
@@ -163,10 +173,21 @@ file is never opened. Masking preserves length and never touches CR or LF (issue
 a change to what the detectors match bumps `SECRET_DETECTOR_VERSION` (2 since a
 bearer token runs on over its `=` padding, issue 44; 3 since a bearer token before
 `://` counts as a URI scheme, issue 72; 4 since a URI scheme is recognised after any
-byte that is not an ASCII letter or digit, issue 73). Detectors read the original
-bytes once and their ranges are masked once: idempotence must come from detection,
-never from rescanning masked output. Coverage is monotonic: a detector change may
-mask more, never less than detector 2 did (`uri_detector_never_loses_a_detector_two_password`). The extraction cache key is
+byte that is not an ASCII letter or digit, issue 73; 5 since issue 96, decision 69:
+JSON Web Tokens and GitHub tokens wherever they stand, encrypted and PGP private keys,
+and an assignment's value read within the string literal its key is in). Detectors read
+the original bytes once and their ranges are masked once: idempotence must come from
+detection, never from rescanning masked output. Detection has three tiers, each over
+the masks of the tiers before it (shapes; URI passwords; assignment values): a detector
+whose match another's mask could complete reads that mask. Literals are read a line at
+a time (`'` only where single quotes delimit strings, never an apostrophe between
+lower-case letters, a character or a lifetime; backquotes in Go, JavaScript and
+TypeScript); a literal that ends at the separator has no value (`"password=" + f(x)`
+keeps its code); inside a code literal a value follows `=` only, never `:` (a channel or
+key name contracts read). Coverage is monotonic: a detector change may mask more, never
+less than detector 2 did (`uri_detector_never_loses_a_detector_two_password`), and
+detector 5 loses nothing detector 4 masked but the destructive mask and character
+literals (`assignment_detector_covers_detector_four_but_for_issue_96`). The extraction cache key is
 `(engine_version, language_matrix_version, secret_policy_digest, language_id,
 rel_path, blob_sha)`; only clean extractions (not truncated, no
 `extraction_lost`) are cached; with any `pdx_engine::EXTRACTION_SWITCHES` variable set
@@ -617,7 +638,18 @@ drawn only on positive evidence, and that evidence is read as Rust reads it.
   method, 113C's naming, macro token trees (107B), same-name identity (108), the route
   band (119). Never type a receiver by a method's name, a naming convention or the only
   definition left.
-- **Tests.** `crates/pdx-core/tests/rust_receiver_evidence.rs` (E1 to E9),
+- **Bounded (issue 123, 0034 re-cut).** A module's globs are read breadth first, each
+  module once and only for a module with globs, through buffers kept a nesting depth
+  for the pass; a lookup that meets one in progress is a cycle and no answer; a lookup
+  cut short is never remembered; the names worked out (a remembered one is not counted)
+  are held to `RMI_WORK_BUDGET` (4,000,000) a pass, then lost work once; a file the
+  extractor skipped or the depth ceiling rejects is no module. Never recurse through
+  globs without a visited set: a five-file cycle took 6 GB in 8 s. A cycle is no
+  truncation: it adds nothing, so it is no answer for the lookup that closes it and that
+  lookup is not remembered, but an answer found elsewhere stands (treating it as a cut
+  lost axum 127 correct typed answers).
+- **Tests.** `crates/pdx-core/tests/rust_receiver_evidence.rs` (E1 to E12: E10 the
+  `Self::` proof, E11 a glob cycle, E12 a 1,000-deep file),
   `crates/pdx/tests/rust_recall.rs` (end to end, cold and warm), `rust_trusted_impls`'s
   check that typed resolution draws nothing Stage 3 withholds, `weak_evidence` (sites
   typed resolution cannot answer), `cache_entries_of_engine_thirteen_are_never_served`,
@@ -657,6 +689,17 @@ member only when the impl is proven to apply.
   `abi_result_build_roundtrip.c`, `pdx-engine`'s `impl_traits`, the worker's
   `isolation_carries_impl_headers`, and the cache vectors of format 9.
 
+Issue 122 (patch 0035, engine 14 stays: no answer changes): the engine's Python walk
+asks about a module, never about every type or function of the project. A file's
+module's classes in other files, its top-level functions (unbound on a wildcard
+import) and whether `mod.attr` is a module are answered from dotted-prefix indexes
+(`pdxe_registry_build_prefix_indexes` over the shared registry and each file's own;
+`pdxe_registry_types_under_chain`, `_module_funcs_chain`, `_any_func_under_chain`), the
+scans' answers in their order. A registry without them (a file's overlay, a
+reference-scan test build) is scanned and counted; refused memory finds nothing. An
+extraction's index lives in an arena of the walk's own, never the result's (100 KB a
+file otherwise). `typed_lookup`'s python modules: the scans' answers, linear work.
+
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: a qualifying
 typed answer first (`typed` only through `bands::from_engine` and a target that is
@@ -678,6 +721,27 @@ narrowing to several; `scoped` is the module, never a directory the matrix does 
 call a module. `typed_only` sites, references and engine-found sites are call sites
 only when typed resolution settles them. A `Resolution` can only be made in a shape
 its band means. Nothing here makes a graph id: targets are `DefinitionRef`s.
+
+Stage 3 is linear in the repository (issue 122, decision 68): never scan every module,
+file or namesake to answer one site or one import.
+- **Imports** (`imports::Lookup`) read indexes built once: Python modules by name and
+  packages, Go files by directory, files by last segment (C includes), each in the
+  scan's order.
+- **Names.** Each name's invocable definitions are read once a language family
+  (`Resolver::named`, sorted) and narrowed borrowed (`narrow_from`); a site copies them
+  only when it adds candidates of its own. The import, hierarchy and module stages read
+  only the files or definitions their evidence reaches (`in_file` ranges of the sorted
+  set, `definitions_in_module`), and a site's facts about its own file once (`Near`).
+- **Bound.** A `candidate` site keeps the first `MAX_STORED_CANDIDATES` (32) by path
+  and position and `Resolution::candidates_total`; the row's reason says how many
+  survived. Never bound which band a site gets.
+- **Trust (issue 126, decision 71).** A base type is never resolved by the
+  repository's one type of its name; a binding-less import is no evidence for a name
+  the caller's file defines at its top as a free definition (never a method or
+  constructor: C++'s out-of-line `file::file` is a member) or a receiver type its file
+  or module declares (never a global namespace or default package, which spans
+  projects). The file's own definition is not thereby drawn, and C# `global using` is
+  not modelled (issue 130).
 
 Stage 4 (`index::derive`) is where facts get persistent identities, from 4.2.1's
 fields only: never a line, offset, call index, insertion order or checkout location,
@@ -797,22 +861,36 @@ paths), `report` (JSON and text reports, progress).
 - **Exit codes** are 0 ready, 2 degraded, 1 for every error. Usage errors are caught
   so they never leak clap's own 2. Results go to stdout; errors (`pdx: …`, one line)
   and progress (only when stderr is a terminal) go to stderr.
-- **Clean HEAD only.** `pdx index` indexes HEAD and refuses a dirty tree (untracked,
-  not ignored files included; decision 38); `.pdx/` belongs in `.gitignore`.
-- **Identity** comes from origin's HTTPS URL via `canonical_clone_url` and
+- **Clean HEAD only.** `pdx index` indexes HEAD and refuses a tree that is not exactly
+  its commit as discovery reads it (decision 38, issue 124): `status
+  --untracked-files=no` (output past its bound is dirty), untracked files the
+  repository's own `.gitignore` files do not ignore (`ls-files --others
+  --exclude-per-directory=.gitignore`: never `.git/info/exclude` or a global excludes
+  file, which discovery does not read) and skip-worktree or assume-unchanged entries
+  (`ls-files -v`), the top `.pdx` left out of all three. `pdx index` writes
+  `.pdx/.gitignore` (`*`) itself (issue 99).
+- **Identity** comes from origin's HTTPS URL as configured (`git config --get
+  remote.origin.url`, never rewritten by `insteadOf`) via `canonical_clone_url` and
   `repo_id_from_url` (decision 36). SSH and other remotes are refused, never guessed
   or echoed. `pdx.toml [server]` refuses (P4-06 owns registered ids). The name comes
   from the URL, never the checkout directory. The segment records
   `repo_id_source = url` (`IndexRequest::repo_id_source`, decision 40), and both JSON
   reports carry it; `registered` is P4-06's, and there is no switch for it.
-- **Git** is run as `git -C <path> …`: no shell, GIT_DIR and the other routing
-  variables cleared, no prompt, bounded stdout, stderr never shown.
+- **Git** is run as `git -C <path> …`: no shell, the ten routing variables cleared
+  (`GIT_DIR`, `GIT_CONFIG_PARAMETERS`, `GIT_CONFIG_COUNT`, `GIT_CONFIG` among them), no
+  prompt, bounded stdout, stderr read bounded only to recognise refused ownership
+  (`RepositoryError::NotSafe`) and never shown.
 - **Limits** (decision 37): workers are the min of `available_parallelism`, the
   cgroup quota (floor, at least 1) and `PDX_WORKERS`. Memory is `PDX_MEM_BUDGET_MB`,
   else 60% of the cgroup limit, else `DEFAULT_MEMORY_BUDGET_BYTES` (512 MiB). Bad
   settings are errors.
-- **Output.** The default is `<root>/.pdx/segment.db`; a relative `--out` is below the
-  root. A `.pdx` symlink or file is refused, and a segment is never overwritten.
+- **Output.** The default is `<root>/.pdx/segment.db`, staged as
+  `segment.db.<pid>.partial` and published over the previous default, the run's own to
+  replace (issue 99); a relative `--out` is below the root, `--out .pdx/<name>` creates
+  `.pdx/`, and a segment `--out` names is never overwritten. Stale partials are removed
+  only when regular files a day old. A `.pdx` symlink or file is refused. `pdx coverage
+  --segment PATH` reads any segment. Reports escape control characters; an error writing
+  stdout is an error (a closed pipe excepted).
 - **Reports.** The JSON report carries no machine state (workers, budget, cache,
   paths, time); it is snapshotted in `tests/cli.rs`.
 - **The hidden worker** is served before parsing, unchanged.
@@ -936,6 +1014,12 @@ of `bench/engine-differential.toml`.
   divergence is never reported identical. A new difference is investigated first and
   ratified only once verified as correct behaviour, with its reason; never to make a run
   pass.
+- **Fixtures (decision 70).** The typed-resolution fixtures' comparator
+  (`scripts/engine/typed-differential.py`) ratifies exact rows the same way: a fixture's
+  `ratified.tsv` (side, relation, caller, callee, strategy, reason), a fixture record
+  (`FIXTURE_RECORDS`) never staged for an engine; an unratified difference fails, and so
+  does a ratified row that no longer differs. The two `rust_workspace_*` fixtures ratify
+  issue 105's `main → alpha.Meter.read`.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
   does. All 32 corpora were identical at P2-16 and are again at engines 7 and 8, each engine
@@ -943,9 +1027,9 @@ of `bench/engine-differential.toml`.
   identical and `golden:rust/axum` passes with 17 ratified divergences: 3 `typed` (issue
   111's, 114's and 109's) and 14 `calls` (issue 107A's turbofish calls, which the
   reference does not extract; `issue-107a-axum-core-…`, record `issue` 107). At engine
-  14 (R5) those 17 still occur, 29 corpora are identical, and 81 new `typed` rows in
-  `golden:rust/axum` and the two `rust_workspace_*` fixtures await the driver's
-  ratification (above).
+  14 (R5) those 17 still occur, 29 corpora are identical, and the 81 new `typed` rows in
+  `golden:rust/axum` and the two `rust_workspace_*` fixtures are ratified, 47 records
+  (64 in all), each verified (issue 105).
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file
@@ -956,6 +1040,15 @@ The engine's fault-injection switches (crash on, hang on or skip a named file) e
 only in test builds: CMake option `PDXE_TEST_SEAMS`, Cargo feature `test-seams` of
 `pdx-engine-sys`, enabled from `[dev-dependencies]` only, never from
 `[dependencies]`. `scripts/no-test-switches.sh <binary>` checks a binary has none.
+
+`make deny` runs cargo-deny 0.20.2, pinned in `scripts/cargo-deny.sh` (`install`,
+`version`, `check [parts]`), over `deny.toml`'s whole policy: advisories, bans, licences
+and sources (issue 129). It fetches the advisory database, so CI's supply-chain job, the
+nightly and the release run it, not `make check`; the licence scan runs its licence
+part. Bans need a version on every path dependency (`pdx-arch`, `pdx-analytics` and
+`pdx-server` carry `0.1.0`). CI runs on `main`, `task/**`, `review/**`,
+`pdx-goal-approach`, `hotfix/**` and `gate/**`; the nightly runs each suite as a step of
+its own (`if: always()`), so one red suite never hides the next.
 
 `make vet` runs `cargo vet --locked` against `supply-chain/` with the cargo-vet version
 pinned in `scripts/cargo-vet.sh` (install it with `scripts/cargo-vet.sh install`); CI,
