@@ -1776,24 +1776,11 @@ static const PDXEType *py_eval_expr_type_uncached(PyLSPContext *ctx, TSNode node
             const PDXERegisteredType *rt = pdxe_registry_lookup_type(ctx->registry, qn);
             if (rt)
                 return pdxe_type_named(ctx->arena, qn);
-            // Submodule: if any registered function/type has qn starting
+            // Submodule: if any registered function has qn starting
             // with "<mod>.<attr>." then mod.attr is itself a module.
-            // Linear scan over registry funcs is O(R) per access; we
-            // skip it for the common case where mod.attr is already
-            // matched as a function/type above. With ~900 stdlib funcs
-            // and many module-attr accesses per file, this can dominate
-            // — keeping the loop tight and bailing early on first match.
-            const char *prefix = pdxe_arena_sprintf(ctx->arena, "%s.", qn);
-            size_t prefix_len = strlen(prefix);
-            bool is_submodule = false;
-            PDXEFreeFuncIter all_funcs;
-            pdxe_registry_all_funcs_chain(ctx->registry, &all_funcs);
-            for (int i = -1; !is_submodule && (i = pdxe_free_func_iter_next(&all_funcs)) >= 0;) {
-                const char *fqn = all_funcs.reg->funcs[i].qualified_name;
-                if (fqn && strncmp(fqn, prefix, prefix_len) == 0) {
-                    is_submodule = true;
-                }
-            }
+            // Issue 122: answered by prefix, never by every function of
+            // the project once an access.
+            bool is_submodule = qn && pdxe_registry_any_func_under_chain(ctx->registry, qn);
             if (is_submodule)
                 return pdxe_type_module(ctx->arena, qn);
             return pdxe_type_unknown();
@@ -4502,39 +4489,49 @@ static bool py_root_class_names_contain(const PyLSPContext *ctx, const PyRootCla
  * Python module. Keep those cross-file globals available, but do not prebind
  * classes declared by this source: their binding epoch belongs in the ordered
  * replay below. */
+/* What binding another file's class of this module needs. */
+typedef struct {
+    PyLSPContext *ctx;
+    TSNode root;
+    PyRootClassNames *root_classes;
+    bool scan;
+} PyExternalClasses;
+
+static void py_bind_external_class(const PDXETypeRegistry *reg, int i, void *data) {
+    PyExternalClasses *x = (PyExternalClasses *)data;
+    const PDXERegisteredType *type = &reg->types[i];
+    const char *qn = type->qualified_name;
+    const char *name = type->short_name;
+    if (!qn || !name)
+        return;
+    bool defined_here;
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (x->scan)
+        defined_here = py_root_defines_class_named(x->ctx, x->root, name);
+    else
+#endif
+        defined_here = py_root_class_names_contain(x->ctx, x->root_classes, name);
+    if (!defined_here)
+        py_scope_bind(x->ctx, name, pdxe_type_named(x->ctx->arena, qn));
+}
+
 static void py_bind_external_module_classes(PyLSPContext *ctx, TSNode root) {
     if (!ctx || !ctx->registry || !ctx->module_qn)
         return;
-    size_t prefix_len = strlen(ctx->module_qn);
     /* Issue 92: the module's own class names, collected once. When they cannot be
      * held, no external class is bound: the work they would have saved is lost
      * (the failed allocation is counted), never done by rescanning the module. */
     PyRootClassNames root_classes;
     if (!py_root_class_names_build(ctx, root, &root_classes))
         return;
+    PyExternalClasses x = {.ctx = ctx, .root = root, .root_classes = &root_classes};
 #if defined(PDXE_ENABLE_TEST_SEAMS)
     const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
-    bool scan = reference && reference[0];
+    x.scan = reference && reference[0];
 #endif
-    PDXETypeShortIter all_types;
-    pdxe_registry_all_types_chain(ctx->registry, &all_types);
-    for (int i = -1; (i = pdxe_type_short_iter_next(&all_types)) >= 0;) {
-        const PDXERegisteredType *type = &all_types.reg->types[i];
-        const char *qn = type->qualified_name;
-        const char *name = type->short_name;
-        if (!qn || !name || strncmp(qn, ctx->module_qn, prefix_len) != 0 || qn[prefix_len] != '.')
-            continue;
-        bool defined_here;
-#if defined(PDXE_ENABLE_TEST_SEAMS)
-        if (scan)
-            defined_here = py_root_defines_class_named(ctx, root, name);
-        else
-#endif
-            defined_here = py_root_class_names_contain(ctx, &root_classes, name);
-        if (defined_here)
-            continue;
-        py_scope_bind(ctx, name, pdxe_type_named(ctx->arena, qn));
-    }
+    /* Issue 122: the module's types by its name, never every type of the project, once
+     * a file. */
+    pdxe_registry_types_under_chain(ctx->registry, ctx->module_qn, py_bind_external_class, &x);
 }
 
 static void py_bind_module_class(PyLSPContext *ctx, TSNode class_node) {
@@ -4595,24 +4592,20 @@ static bool py_import_statement_is_wildcard(TSNode stmt) {
     return false;
 }
 
+static void py_unbind_module_function(const PDXETypeRegistry *reg, int i, void *data) {
+    PyLSPContext *ctx = (PyLSPContext *)data;
+    const PDXERegisteredFunc *func = &reg->funcs[i];
+    const char *suffix = func->qualified_name + strlen(ctx->module_qn) + 1;
+    py_scope_bind(ctx, func->short_name ? func->short_name : suffix, pdxe_type_unknown());
+}
+
+/* Issue 122: the module's top-level functions by its name, never every function of the
+ * project, once a wildcard import resets a frame. */
 static void py_invalidate_registry_module_functions(PyLSPContext *ctx,
                                                     const PDXETypeRegistry *registry) {
     if (!ctx || !registry || !ctx->module_qn)
         return;
-    size_t prefix_len = strlen(ctx->module_qn);
-    for (int i = 0; i < registry->func_count; i++) {
-        const PDXERegisteredFunc *func = &registry->funcs[i];
-        const char *qn = func->qualified_name;
-        if (!qn || func->receiver_type || strncmp(qn, ctx->module_qn, prefix_len) != 0 ||
-            qn[prefix_len] != '.') {
-            continue;
-        }
-        const char *suffix = qn + prefix_len + 1;
-        if (!suffix[0] || strchr(suffix, '.'))
-            continue;
-        py_scope_bind(ctx, func->short_name ? func->short_name : suffix, pdxe_type_unknown());
-    }
-    py_invalidate_registry_module_functions(ctx, registry->fallback);
+    pdxe_registry_module_funcs_chain(registry, ctx->module_qn, py_unbind_module_function, ctx);
 }
 
 /* `from module import *` may overwrite any module global through `__all__`.
@@ -5280,6 +5273,11 @@ void pdxe_run_py_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sourc
         py_register_def(arena, &reg, &result->defs.items[i], module_qn);
     }
     py_mark_ambiguous_callable_bindings(&reg);
+    /* Issue 122: a module's types and functions by its name, in an arena of the walk's
+     * own: the extraction keeps its result's arena, never this index. */
+    PDXEArena idx_arena;
+    pdxe_arena_init(&idx_arena);
+    pdxe_registry_build_prefix_indexes(&reg, &idx_arena);
 
     PyLSPContext ctx;
     py_lsp_init(&ctx, arena, source, source_len, &reg, module_qn, &result->resolved_calls);
@@ -5295,6 +5293,7 @@ void pdxe_run_py_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sourc
     }
 
     py_lsp_process_file(&ctx, root);
+    pdxe_arena_destroy(&idx_arena);
 }
 
 /* ── Cross-file + batch ───────────────────────────────────────── */
@@ -5458,6 +5457,8 @@ void pdxe_run_py_lsp_cross(PDXEArena *arena, const char *source, int source_len,
     /* Finalize registry — O(1) lookups. See go_lsp.c "3c. Finalize"
      * comment for the rationale. */
     pdxe_registry_finalize_into(&reg, &idx_arena);
+    /* Issue 122: a module's types and functions by its name. */
+    pdxe_registry_build_prefix_indexes(&reg, &idx_arena);
 
     PyLSPContext ctx;
     py_lsp_init(&ctx, arena, source, source_len, &reg, module_qn, out);
@@ -5497,6 +5498,8 @@ PDXETypeRegistry *pdxe_py_build_cross_registry(PDXEArena *arena, PDXELSPDef *def
 
     py_mark_ambiguous_callable_bindings(reg);
     pdxe_registry_finalize(reg);
+    /* Issue 122: a module's types and functions by its name, for every file's walk. */
+    pdxe_registry_build_prefix_indexes(reg, reg->arena);
     reg->read_only = true; /* seal: shared Tier-2 registry is read-only during resolve */
     return reg;
 }

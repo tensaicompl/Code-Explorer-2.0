@@ -7444,6 +7444,9 @@ static int rust_use_scope_of(RustLSPContext *ctx, TSNode node) {
  * names nothing registered, so every answer the pass gave before stands. */
 
 #define RMI_MAX_DEPTH 24
+/* Every lookup is bounded below (each module once per glob closure, RMI_MAX_DEPTH
+ * nesting, cycles cut); this is the backstop for a repository no bound anticipated. */
+#define RMI_WORK_BUDGET 4000000L
 
 typedef struct {
     const char *rel_path;
@@ -7479,6 +7482,25 @@ struct PDXERustModuleIndex {
     PDXEIdxMemo crate_dups;
     /* What a name means in a module, once worked out (rmi_encode). */
     PDXEIdxMemo memo;
+    /* The (module, name) lookups in progress, innermost last: a lookup that reaches one
+     * of them again is a cycle (two modules' globs or `use`s of each other). A cycle adds
+     * nothing, as Rust's globs read it, so it is no answer and no truncation either; but
+     * a lookup that met one saw only part of its own answer, so it is not memoised
+     * (`cycles` counts them). At most RMI_MAX_DEPTH + 1 deep. */
+    int active_m[RMI_MAX_DEPTH + 2];
+    const char *active_name[RMI_MAX_DEPTH + 2];
+    int active_n;
+    unsigned long cycles;
+    /* Names worked out in this pass (a remembered one is not counted); past
+     * RMI_WORK_BUDGET the index answers nothing more, counted as lost work once. */
+    long work;
+    bool exhausted;
+    /* The glob closure's queue and visit stamps, one a nesting depth (reading a glob may
+     * read another module's globs, always deeper), from the index's arena once a pass:
+     * a closure costs the modules it visits, never every module of the repository. */
+    int *glob_queue[RMI_MAX_DEPTH + 1];
+    uint32_t *glob_seen[RMI_MAX_DEPTH + 1];
+    uint32_t glob_stamp[RMI_MAX_DEPTH + 1];
     bool finished;
 };
 
@@ -7639,6 +7661,10 @@ void pdxe_rust_modules_add_file(PDXERustModuleIndex *x, const char *rel_path,
     memset(m, 0, sizeof(*m));
     m->rel_path = pdxe_arena_strdup(x->arena, rel_path);
     m->module_qn = pdxe_arena_strdup(x->arena, module_qn);
+    if (!m->rel_path || !m->module_qn) {
+        pdxe_lost_allocation();
+        return;
+    }
     m->item_qn = m->module_qn;
     size_t qn_len = m->module_qn ? strlen(m->module_qn) : 0;
     const char *slash = strrchr(rel_path, '/');
@@ -7653,7 +7679,12 @@ void pdxe_rust_modules_add_file(PDXERustModuleIndex *x, const char *rel_path,
         if (parser) {
             ts_parser_set_language(parser, tree_sitter_rust());
             TSTree *tree = ts_parser_parse_string(parser, NULL, source, (uint32_t)source_len);
-            if (tree) {
+            /* The tree is held to extraction's depth ceiling (issue 89) before its `use`
+             * trees are walked: a file extraction refused is no module's bindings. */
+            bool too_deep =
+                tree && pdxe_syntax_depth_scan(ts_tree_root_node(tree), PDXE_MAX_SYNTAX_DEPTH, 0)
+                            .rejected;
+            if (tree && !too_deep) {
                 RustLSPContext ctx;
                 rust_lsp_init(&ctx, x->arena, source, source_len, NULL, m->module_qn, NULL);
                 RustUseScope *file = rust_file_scope(&ctx);
@@ -7665,6 +7696,8 @@ void pdxe_rust_modules_add_file(PDXERustModuleIndex *x, const char *rel_path,
                     bool withheld = false;
                     (void)rust_scope_binding(&ctx, m->uses, "", &withheld);
                 }
+            }
+            if (tree) {
                 ts_tree_delete(tree);
             }
             ts_parser_delete(parser);
@@ -7847,65 +7880,159 @@ static bool rmi_same(RustRid a, RustRid b) {
 /* What `name` is in module `m`, as another module sees it through a path: a child
  * module's file, an item the module defines, a name its own `use` binds (followed
  * where it is declared), or one exactly one of its globs brings in. */
+/* What module `m` itself makes of `name`, before its globs: a child module file, an item
+ * it defines, or where its own `use` binding of the name leads. RMI_EXPLICIT_NONE when
+ * none of these says anything (its globs are consulted), RMI_EXPLICIT_BLOCKED when the
+ * name is two items or a `use` binds it to two paths (no answer, globs not consulted). */
+enum { RMI_EXPLICIT_FOUND, RMI_EXPLICIT_NONE, RMI_EXPLICIT_BLOCKED };
+
+static int rmi_explicit(RustLSPContext *ctx, const PDXERustModuleIndex *x, int m,
+                        const char *name, int depth, bool *cut, RustRid *out) {
+    *out = RMI_NONE;
+    int child = rmi_child(ctx->arena, x, m, name);
+    if (child >= 0) {
+        out->module = child;
+        return RMI_EXPLICIT_FOUND;
+    }
+    int item = rmi_item(ctx->arena, x, m, name);
+    if (item >= 0) {
+        out->item = item;
+        return RMI_EXPLICIT_FOUND;
+    }
+    if (item == -2) {
+        return RMI_EXPLICIT_BLOCKED;
+    }
+    RustUseScope *uses = x->modules[m].uses;
+    bool withheld = false;
+    const char *path = uses ? rust_scope_binding(ctx, uses, name, &withheld) : NULL;
+    if (withheld) {
+        return RMI_EXPLICIT_BLOCKED;
+    }
+    if (path) {
+        *out = rmi_path_in_module(ctx, x, m, path, 0, depth + 1, cut);
+        return rmi_found(*out) ? RMI_EXPLICIT_FOUND : RMI_EXPLICIT_BLOCKED;
+    }
+    return RMI_EXPLICIT_NONE;
+}
+
+/* What `m`'s globs bring in as `name`, read as Rust's glob imports are: the modules
+ * reachable through glob edges from `m`, each visited once (a cycle of globs adds
+ * nothing), each contributing what it says of the name itself, or else its own globs'.
+ * One answer only when every contribution is the same; two different ones are none. */
+static RustRid rmi_glob_closure(RustLSPContext *ctx, const PDXERustModuleIndex *x, int m,
+                                const char *name, int depth, bool *cut) {
+    const RustUseScope *own = x->modules[m].uses;
+    if (!own || own->glob_count == 0) {
+        return RMI_NONE; /* no glob, nothing it brings in */
+    }
+    if (depth < 0 || depth > RMI_MAX_DEPTH) {
+        *cut = true;
+        return RMI_NONE;
+    }
+    PDXERustModuleIndex *mx = (PDXERustModuleIndex *)x; /* one pass, one thread */
+    int cap = x->count + 1;
+    if (!mx->glob_queue[depth]) {
+        mx->glob_queue[depth] = (int *)pdxe_arena_alloc(mx->arena, (size_t)cap * sizeof(int));
+        mx->glob_seen[depth] =
+            (uint32_t *)pdxe_arena_alloc(mx->arena, (size_t)cap * sizeof(uint32_t));
+        if (!mx->glob_queue[depth] || !mx->glob_seen[depth]) {
+            mx->glob_queue[depth] = NULL;
+            pdxe_lost_allocation();
+            *cut = true;
+            return RMI_NONE;
+        }
+        memset(mx->glob_seen[depth], 0, (size_t)cap * sizeof(uint32_t));
+    }
+    int *queue = mx->glob_queue[depth];
+    uint32_t *seen = mx->glob_seen[depth];
+    uint32_t stamp = ++mx->glob_stamp[depth];
+    if (stamp == 0) { /* the stamps wrapped: none of them is this closure's */
+        memset(seen, 0, (size_t)cap * sizeof(uint32_t));
+        stamp = mx->glob_stamp[depth] = 1;
+    }
+    int head = 0, tail = 0;
+    seen[m] = stamp;
+    queue[tail++] = m;
+    RustRid only = RMI_NONE;
+    while (head < tail) {
+        int at = queue[head++];
+        RustUseScope *uses = x->modules[at].uses;
+        for (int g = 0; uses && g < uses->glob_count; g++) {
+            const char *glob = rust_qn_to_path(ctx->arena, uses->globs[g]);
+            RustRid module = rmi_path_in_module(ctx, x, at, glob, 0, depth + 1, cut);
+            if (module.module < 0 || seen[module.module] == stamp) {
+                continue;
+            }
+            seen[module.module] = stamp;
+            RustRid r = RMI_NONE;
+            int said = rmi_explicit(ctx, x, module.module, name, depth + 1, cut, &r);
+            if (said == RMI_EXPLICIT_FOUND) {
+                if (rmi_found(only) && !rmi_same(only, r)) {
+                    return RMI_NONE;
+                }
+                only = r;
+            } else if (said == RMI_EXPLICIT_NONE && tail < cap) {
+                queue[tail++] = module.module;
+            }
+        }
+    }
+    return only;
+}
+
 static RustRid rmi_in_module(RustLSPContext *ctx, const PDXERustModuleIndex *x, int m,
                              const char *name, int depth, bool *cut) {
     if (m < 0 || !name || !name[0]) {
         return RMI_NONE;
     }
-    if (depth > RMI_MAX_DEPTH) {
+    PDXERustModuleIndex *mx = (PDXERustModuleIndex *)x; /* one pass, one thread */
+    if (depth > RMI_MAX_DEPTH || mx->exhausted) {
         *cut = true;
         return RMI_NONE;
     }
-    /* The memo is the index's, filled as names are worked out: one pass, one thread. */
-    PDXEIdxMemo *memo = (PDXEIdxMemo *)&x->memo;
+    /* The memo is the index's, filled as names are worked out. */
+    PDXEIdxMemo *memo = &mx->memo;
     const char *probe = pdxe_arena_sprintf(ctx->arena, "%d\x1f%s", m, name);
     int32_t cached = probe ? pdxe_idxmemo_get(memo, probe) : -1;
     if (cached >= 0) {
         return rmi_decode(cached);
     }
-    RustRid found = RMI_NONE;
-    bool here_cut = false;
-    int child = rmi_child(ctx->arena, x, m, name);
-    if (child >= 0) {
-        found.module = child;
-    } else {
-        int item = rmi_item(ctx->arena, x, m, name);
-        if (item >= 0) {
-            found.item = item;
-        } else if (item == -1) {
-            RustUseScope *uses = x->modules[m].uses;
-            bool withheld = false;
-            const char *path = uses ? rust_scope_binding(ctx, uses, name, &withheld) : NULL;
-            if (path && !withheld) {
-                found = rmi_path_in_module(ctx, x, m, path, 0, depth + 1, &here_cut);
-            } else if (!withheld && uses) {
-                RustRid only = RMI_NONE;
-                bool several = false;
-                for (int g = 0; g < uses->glob_count && !several; g++) {
-                    const char *glob = rust_qn_to_path(ctx->arena, uses->globs[g]);
-                    RustRid module = rmi_path_in_module(ctx, x, m, glob, 0, depth + 1, &here_cut);
-                    if (module.module < 0) {
-                        continue;
-                    }
-                    RustRid r = rmi_in_module(ctx, x, module.module, name, depth + 1, &here_cut);
-                    if (!rmi_found(r)) {
-                        continue;
-                    }
-                    if (rmi_found(only) && !rmi_same(only, r)) {
-                        several = true;
-                    } else {
-                        only = r;
-                    }
-                }
-                found = several ? RMI_NONE : only;
-            }
+    /* Only a name worked out counts: a remembered one costs a probe, so a large
+     * repository's many sites never spend the budget the cycles and chains of globs
+     * it bounds would. */
+    if (++mx->work > RMI_WORK_BUDGET) {
+        mx->exhausted = true;
+        pdxe_lost_work();
+        *cut = true;
+        return RMI_NONE;
+    }
+    for (int k = 0; k < mx->active_n; k++) {
+        if (mx->active_m[k] == m && strcmp(mx->active_name[k], name) == 0) {
+            mx->cycles++; /* a cycle: adds nothing, and nothing on its way is memoised */
+            return RMI_NONE;
         }
     }
+    if (mx->active_n >= RMI_MAX_DEPTH + 2) {
+        *cut = true;
+        return RMI_NONE;
+    }
+    mx->active_m[mx->active_n] = m;
+    mx->active_name[mx->active_n] = name;
+    mx->active_n++;
+    unsigned long cycles_before = mx->cycles;
+    bool here_cut = false;
+    RustRid found = RMI_NONE;
+    int said = rmi_explicit(ctx, x, m, name, depth, &here_cut, &found);
+    if (said == RMI_EXPLICIT_NONE) {
+        found = rmi_glob_closure(ctx, x, m, name, depth, &here_cut);
+    }
+    mx->active_n--;
     if (here_cut) {
         *cut = true; /* a bound was met below: what was found is not the whole answer */
-    } else if (probe) {
-        pdxe_idxmemo_put_if_absent(memo, x->arena, pdxe_arena_strdup(x->arena, probe),
-                                   rmi_encode(found));
+    } else if (probe && mx->cycles == cycles_before) {
+        const char *key = pdxe_arena_strdup(x->arena, probe);
+        if (key) {
+            pdxe_idxmemo_put_if_absent(memo, x->arena, key, rmi_encode(found));
+        }
     }
     return found;
 }
@@ -8028,7 +8155,18 @@ static RustRid rmi_through_globs(RustLSPContext *ctx, const PDXERustModuleIndex 
     return *several ? RMI_NONE : only;
 }
 
+static RustRid rmi_path_at_site_cut(RustLSPContext *ctx, const char *path, bool *cut_out);
+
+/* What a path at the site names; none when any lookup met a bound (the depth, the work
+ * budget, a refused allocation): a walk cut short is no answer, whatever it found. A
+ * cycle is no bound: it adds nothing to what the walk finds. */
 static RustRid rmi_path_at_site(RustLSPContext *ctx, const char *path) {
+    bool cut = false;
+    RustRid r = rmi_path_at_site_cut(ctx, path, &cut);
+    return cut ? RMI_NONE : r;
+}
+
+static RustRid rmi_path_at_site_cut(RustLSPContext *ctx, const char *path, bool *cut_out) {
     const PDXERustModuleIndex *x = g_rust_modules;
     if (!x || !x->finished || !ctx->module_qn || !path) {
         return RMI_NONE;
@@ -8046,10 +8184,9 @@ static RustRid rmi_path_at_site(RustLSPContext *ctx, const char *path) {
     if (ctx->use_scope >= 0 && ctx->use_scope < ctx->use_scope_count) {
         inline_depth = ctx->use_scopes[ctx->use_scope].module_depth;
     }
-    bool cut = false;
     const char *head = segs[0];
     if (strcmp(head, "crate") == 0 || strcmp(head, "self") == 0 || strcmp(head, "super") == 0) {
-        return rmi_path_in_module(ctx, x, m, path, inline_depth, 0, &cut);
+        return rmi_path_in_module(ctx, x, m, path, inline_depth, 0, cut_out);
     }
     if (strcmp(head, "Self") == 0) {
         return RMI_NONE;
@@ -8061,13 +8198,13 @@ static RustRid rmi_path_at_site(RustLSPContext *ctx, const char *path) {
     if (imported && rank > 0) {
         /* A glob of a nearer scope that brings the name in shadows the `use` of an outer
          * one (issue 114). */
-        start = rmi_through_globs(ctx, x, m, head, rank, inline_depth, &cut, &several);
+        start = rmi_through_globs(ctx, x, m, head, rank, inline_depth, cut_out, &several);
         if (several) {
             return RMI_NONE;
         }
     }
     if (imported && !rmi_found(start)) {
-        start = rmi_path_in_module(ctx, x, m, imported, inline_depth, 1, &cut);
+        start = rmi_path_in_module(ctx, x, m, imported, inline_depth, 1, cut_out);
     } else if (!imported && rank < 0) {
         /* Not bound by a `use` in force (a name bound to two paths is withheld). */
         if (inline_depth == 0) {
@@ -8081,7 +8218,7 @@ static RustRid rmi_path_at_site(RustLSPContext *ctx, const char *path) {
             if (item >= 0) {
                 start.item = item;
             } else if (item == -1) {
-                start = rmi_through_globs(ctx, x, m, head, -1, inline_depth, &cut, &several);
+                start = rmi_through_globs(ctx, x, m, head, -1, inline_depth, cut_out, &several);
                 if (!rmi_found(start) && !several) {
                     int crate = rmi_crate(x, head);
                     if (crate >= 0) {
@@ -8094,7 +8231,7 @@ static RustRid rmi_path_at_site(RustLSPContext *ctx, const char *path) {
     if (!rmi_found(start)) {
         return RMI_NONE;
     }
-    return rmi_walk(ctx, x, start, segs + 1, n - 1, 1, &cut);
+    return rmi_walk(ctx, x, start, segs + 1, n - 1, 1, cut_out);
 }
 
 /* The qualified name a result names: an item's, with what follows it in the path. */
@@ -8122,7 +8259,7 @@ static const char *rmi_type_in_module(PDXEArena *arena, const char *module_qn, c
     rust_lsp_init(&scratch, arena, "", 0, NULL, module_qn, NULL);
     bool cut = false;
     RustRid r = rmi_path_in_module(&scratch, x, m, text, 0, 0, &cut);
-    if (r.item < 0 || r.rest || !x->item_is_type[r.item]) {
+    if (cut || r.item < 0 || r.rest || !x->item_is_type[r.item]) {
         return NULL;
     }
     return x->item_qns[r.item];

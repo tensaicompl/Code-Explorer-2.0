@@ -208,6 +208,32 @@ typedef struct PDXETypeRegistry {
      * was initialised): every lookup scans as before issue 92, for tests to compare the
      * answers with. Always false in release builds. */
     bool reference_scan;
+
+    /* Issue 122: Python's questions about a module, answered by dotted prefix rather
+     * than by every function or type of the project, once a file. Built for the shared
+     * Python registry alone (pdxe_registry_build_prefix_indexes); a chain's entries
+     * ascend, so they come in registration order. `prefix_state` is 0 when not built
+     * (the questions scan this registry, which is then a file's own and small), 1 when
+     * built over the first `prefix_types` types and `prefix_funcs` functions (any added
+     * since are scanned), 2 when its memory was refused (the failure is counted as lost
+     * work, and the questions find nothing in what it would have held, never scanning).
+     * - type_prefix: each dotted prefix of a type's qualified name ("a" and "a.b" of
+     *   "a.b.C": what stands before each '.') to the types it begins;
+     * - func_prefix: the same for every function;
+     * - func_parent: a receiver-less function's qualified name less its last segment to
+     *   the functions it holds. */
+    int prefix_state;
+    int prefix_types;
+    int prefix_funcs;
+    int *type_prefix_buckets;
+    PDXERegistryHashEntry *type_prefix_entries;
+    int type_prefix_bucket_count;
+    int *func_prefix_buckets;
+    PDXERegistryHashEntry *func_prefix_entries;
+    int func_prefix_bucket_count;
+    int *func_parent_buckets;
+    PDXERegistryHashEntry *func_parent_entries;
+    int func_parent_bucket_count;
 } PDXETypeRegistry;
 
 // Initialize a registry.
@@ -435,6 +461,27 @@ void pdxe_registry_methods_chain(const PDXETypeRegistry *head, const char *recei
  * base entries skipped). Same iterator types, same it->reg contract. */
 void pdxe_registry_all_funcs_chain(const PDXETypeRegistry *head, PDXEFreeFuncIter *out);
 void pdxe_registry_all_types_chain(const PDXETypeRegistry *head, PDXETypeShortIter *out);
+
+/* Issue 122: a module's members, for Python, by the indexes above where a registry has
+ * them and by a scan where it does not (a file's own registry, or every registry in a
+ * reference-scan test build). Each answers what the scan over every entry answered,
+ * in its order. */
+typedef void (*PDXERegistryEntryFn)(const PDXETypeRegistry *reg, int index, void *data);
+/* Builds the prefix indexes of a finalized registry, over its entries so far. */
+void pdxe_registry_build_prefix_indexes(PDXETypeRegistry *reg, PDXEArena *idx_arena);
+/* Every type of the chain from `head` whose qualified name is `prefix` and a '.', and
+ * perhaps more, to `fn`, in the order pdxe_registry_all_types_chain gives them: a fallback's types the
+ * head shadows left out. */
+void pdxe_registry_types_under_chain(const PDXETypeRegistry *head, const char *prefix,
+                                     PDXERegistryEntryFn fn, void *data);
+/* Every receiver-less function of every registry of the chain from `head`, shadowed or
+ * not, whose qualified name is `module_qn`, a '.' and a last segment holding no '.', to
+ * `fn`: each registry's in order, the head's first. */
+void pdxe_registry_module_funcs_chain(const PDXETypeRegistry *head, const char *module_qn,
+                                      PDXERegistryEntryFn fn, void *data);
+/* Whether a function of the chain from `head` has a qualified name that is `prefix` and
+ * a '.', and perhaps more. */
+bool pdxe_registry_any_func_under_chain(const PDXETypeRegistry *head, const char *prefix);
 
 /* The writable entry for qualified_name: the head's own entry if it has one,
  * else a copy of the first fallback entry added to the head (copy-on-write),

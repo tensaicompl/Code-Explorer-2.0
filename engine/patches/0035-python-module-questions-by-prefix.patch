@@ -1,0 +1,514 @@
+--- a/engine/src/lsp/py_lsp.c
++++ b/engine/src/lsp/py_lsp.c
+@@ -1776,24 +1776,11 @@ static const PDXEType *py_eval_expr_type_uncached(PyLSPContext *ctx, TSNode node
+             const PDXERegisteredType *rt = pdxe_registry_lookup_type(ctx->registry, qn);
+             if (rt)
+                 return pdxe_type_named(ctx->arena, qn);
+-            // Submodule: if any registered function/type has qn starting
++            // Submodule: if any registered function has qn starting
+             // with "<mod>.<attr>." then mod.attr is itself a module.
+-            // Linear scan over registry funcs is O(R) per access; we
+-            // skip it for the common case where mod.attr is already
+-            // matched as a function/type above. With ~900 stdlib funcs
+-            // and many module-attr accesses per file, this can dominate
+-            // — keeping the loop tight and bailing early on first match.
+-            const char *prefix = pdxe_arena_sprintf(ctx->arena, "%s.", qn);
+-            size_t prefix_len = strlen(prefix);
+-            bool is_submodule = false;
+-            PDXEFreeFuncIter all_funcs;
+-            pdxe_registry_all_funcs_chain(ctx->registry, &all_funcs);
+-            for (int i = -1; !is_submodule && (i = pdxe_free_func_iter_next(&all_funcs)) >= 0;) {
+-                const char *fqn = all_funcs.reg->funcs[i].qualified_name;
+-                if (fqn && strncmp(fqn, prefix, prefix_len) == 0) {
+-                    is_submodule = true;
+-                }
+-            }
++            // Issue 122: answered by prefix, never by every function of
++            // the project once an access.
++            bool is_submodule = qn && pdxe_registry_any_func_under_chain(ctx->registry, qn);
+             if (is_submodule)
+                 return pdxe_type_module(ctx->arena, qn);
+             return pdxe_type_unknown();
+@@ -4502,39 +4489,49 @@ static bool py_root_class_names_contain(const PyLSPContext *ctx, const PyRootCla
+  * Python module. Keep those cross-file globals available, but do not prebind
+  * classes declared by this source: their binding epoch belongs in the ordered
+  * replay below. */
++/* What binding another file's class of this module needs. */
++typedef struct {
++    PyLSPContext *ctx;
++    TSNode root;
++    PyRootClassNames *root_classes;
++    bool scan;
++} PyExternalClasses;
++
++static void py_bind_external_class(const PDXETypeRegistry *reg, int i, void *data) {
++    PyExternalClasses *x = (PyExternalClasses *)data;
++    const PDXERegisteredType *type = &reg->types[i];
++    const char *qn = type->qualified_name;
++    const char *name = type->short_name;
++    if (!qn || !name)
++        return;
++    bool defined_here;
++#if defined(PDXE_ENABLE_TEST_SEAMS)
++    if (x->scan)
++        defined_here = py_root_defines_class_named(x->ctx, x->root, name);
++    else
++#endif
++        defined_here = py_root_class_names_contain(x->ctx, x->root_classes, name);
++    if (!defined_here)
++        py_scope_bind(x->ctx, name, pdxe_type_named(x->ctx->arena, qn));
++}
++
+ static void py_bind_external_module_classes(PyLSPContext *ctx, TSNode root) {
+     if (!ctx || !ctx->registry || !ctx->module_qn)
+         return;
+-    size_t prefix_len = strlen(ctx->module_qn);
+     /* Issue 92: the module's own class names, collected once. When they cannot be
+      * held, no external class is bound: the work they would have saved is lost
+      * (the failed allocation is counted), never done by rescanning the module. */
+     PyRootClassNames root_classes;
+     if (!py_root_class_names_build(ctx, root, &root_classes))
+         return;
++    PyExternalClasses x = {.ctx = ctx, .root = root, .root_classes = &root_classes};
+ #if defined(PDXE_ENABLE_TEST_SEAMS)
+     const char *reference = getenv("PDX_ENGINE_TEST_LINEAR_LOOKUP_REFERENCE");
+-    bool scan = reference && reference[0];
+-#endif
+-    PDXETypeShortIter all_types;
+-    pdxe_registry_all_types_chain(ctx->registry, &all_types);
+-    for (int i = -1; (i = pdxe_type_short_iter_next(&all_types)) >= 0;) {
+-        const PDXERegisteredType *type = &all_types.reg->types[i];
+-        const char *qn = type->qualified_name;
+-        const char *name = type->short_name;
+-        if (!qn || !name || strncmp(qn, ctx->module_qn, prefix_len) != 0 || qn[prefix_len] != '.')
+-            continue;
+-        bool defined_here;
+-#if defined(PDXE_ENABLE_TEST_SEAMS)
+-        if (scan)
+-            defined_here = py_root_defines_class_named(ctx, root, name);
+-        else
++    x.scan = reference && reference[0];
+ #endif
+-            defined_here = py_root_class_names_contain(ctx, &root_classes, name);
+-        if (defined_here)
+-            continue;
+-        py_scope_bind(ctx, name, pdxe_type_named(ctx->arena, qn));
+-    }
++    /* Issue 122: the module's types by its name, never every type of the project, once
++     * a file. */
++    pdxe_registry_types_under_chain(ctx->registry, ctx->module_qn, py_bind_external_class, &x);
+ }
+ 
+ static void py_bind_module_class(PyLSPContext *ctx, TSNode class_node) {
+@@ -4595,24 +4592,20 @@ static bool py_import_statement_is_wildcard(TSNode stmt) {
+     return false;
+ }
+ 
++static void py_unbind_module_function(const PDXETypeRegistry *reg, int i, void *data) {
++    PyLSPContext *ctx = (PyLSPContext *)data;
++    const PDXERegisteredFunc *func = &reg->funcs[i];
++    const char *suffix = func->qualified_name + strlen(ctx->module_qn) + 1;
++    py_scope_bind(ctx, func->short_name ? func->short_name : suffix, pdxe_type_unknown());
++}
++
++/* Issue 122: the module's top-level functions by its name, never every function of the
++ * project, once a wildcard import resets a frame. */
+ static void py_invalidate_registry_module_functions(PyLSPContext *ctx,
+                                                     const PDXETypeRegistry *registry) {
+     if (!ctx || !registry || !ctx->module_qn)
+         return;
+-    size_t prefix_len = strlen(ctx->module_qn);
+-    for (int i = 0; i < registry->func_count; i++) {
+-        const PDXERegisteredFunc *func = &registry->funcs[i];
+-        const char *qn = func->qualified_name;
+-        if (!qn || func->receiver_type || strncmp(qn, ctx->module_qn, prefix_len) != 0 ||
+-            qn[prefix_len] != '.') {
+-            continue;
+-        }
+-        const char *suffix = qn + prefix_len + 1;
+-        if (!suffix[0] || strchr(suffix, '.'))
+-            continue;
+-        py_scope_bind(ctx, func->short_name ? func->short_name : suffix, pdxe_type_unknown());
+-    }
+-    py_invalidate_registry_module_functions(ctx, registry->fallback);
++    pdxe_registry_module_funcs_chain(registry, ctx->module_qn, py_unbind_module_function, ctx);
+ }
+ 
+ /* `from module import *` may overwrite any module global through `__all__`.
+@@ -5280,6 +5273,11 @@ void pdxe_run_py_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sourc
+         py_register_def(arena, &reg, &result->defs.items[i], module_qn);
+     }
+     py_mark_ambiguous_callable_bindings(&reg);
++    /* Issue 122: a module's types and functions by its name, in an arena of the walk's
++     * own: the extraction keeps its result's arena, never this index. */
++    PDXEArena idx_arena;
++    pdxe_arena_init(&idx_arena);
++    pdxe_registry_build_prefix_indexes(&reg, &idx_arena);
+ 
+     PyLSPContext ctx;
+     py_lsp_init(&ctx, arena, source, source_len, &reg, module_qn, &result->resolved_calls);
+@@ -5295,6 +5293,7 @@ void pdxe_run_py_lsp(PDXEArena *arena, PDXEFileResult *result, const char *sourc
+     }
+ 
+     py_lsp_process_file(&ctx, root);
++    pdxe_arena_destroy(&idx_arena);
+ }
+ 
+ /* ── Cross-file + batch ───────────────────────────────────────── */
+@@ -5458,6 +5457,8 @@ void pdxe_run_py_lsp_cross(PDXEArena *arena, const char *source, int source_len,
+     /* Finalize registry — O(1) lookups. See go_lsp.c "3c. Finalize"
+      * comment for the rationale. */
+     pdxe_registry_finalize_into(&reg, &idx_arena);
++    /* Issue 122: a module's types and functions by its name. */
++    pdxe_registry_build_prefix_indexes(&reg, &idx_arena);
+ 
+     PyLSPContext ctx;
+     py_lsp_init(&ctx, arena, source, source_len, &reg, module_qn, out);
+@@ -5497,6 +5498,8 @@ PDXETypeRegistry *pdxe_py_build_cross_registry(PDXEArena *arena, PDXELSPDef *def
+ 
+     py_mark_ambiguous_callable_bindings(reg);
+     pdxe_registry_finalize(reg);
++    /* Issue 122: a module's types and functions by its name, for every file's walk. */
++    pdxe_registry_build_prefix_indexes(reg, reg->arena);
+     reg->read_only = true; /* seal: shared Tier-2 registry is read-only during resolve */
+     return reg;
+ }
+--- a/engine/src/lsp/type_registry.c
++++ b/engine/src/lsp/type_registry.c
+@@ -1961,3 +1961,273 @@ const PDXEType *pdxe_registry_lookup_index_signature(const PDXETypeRegistry *reg
+     }
+     return NULL;
+ }
++
++/* --- issue 122: a module's members, by dotted prefix ------------------------------ */
++
++/* FNV-1a over the first `n` bytes of `s`: fnv1a's value for a string of those bytes. */
++static uint64_t fnv1a_n(const char *s, size_t n) {
++    uint64_t h = 0xcbf29ce484222325ULL;
++    for (size_t i = 0; i < n; i++) {
++        h ^= (unsigned char)s[i];
++        h *= 0x100000001b3ULL;
++    }
++    return h;
++}
++
++/* A chain index's arrays for `entries` entries; false when refused. */
++static bool prefix_alloc(PDXEArena *arena, int entries, int **buckets, PDXERegistryHashEntry **out,
++                         int *bucket_count) {
++    *buckets = NULL;
++    *out = NULL;
++    *bucket_count = 0;
++    if (entries <= 0) {
++        return true;
++    }
++    if (entries > (1 << 28) || PDXE_LOOKUP_INDEX_REFUSED("registry")) {
++        return false;
++    }
++    int count = next_pow2(entries * 2);
++    if (count < 16) {
++        count = 16;
++    }
++    int *b = (int *)pdxe_arena_alloc(arena, (size_t)count * sizeof(int));
++    PDXERegistryHashEntry *e = (PDXERegistryHashEntry *)pdxe_arena_alloc(
++        arena, (size_t)entries * sizeof(PDXERegistryHashEntry));
++    if (!b || !e) {
++        return false;
++    }
++    for (int i = 0; i < count; i++) {
++        b[i] = -1;
++    }
++    *buckets = b;
++    *out = e;
++    *bucket_count = count;
++    return true;
++}
++
++/* Chains `index` under the key of `qn`'s first `n` bytes. Entries are added from the
++ * last index to the first, each at its chain's head, so every chain ascends. */
++static void prefix_push(int *buckets, PDXERegistryHashEntry *entries, int bucket_count,
++                        int *used, const char *qn, size_t n, int index) {
++    uint64_t h = fnv1a_n(qn, n);
++    int slot = (int)(h & (uint64_t)(bucket_count - 1));
++    PDXERegistryHashEntry *e = &entries[(*used)];
++    e->hash = h;
++    e->payload_index = index;
++    e->next_index = buckets[slot];
++    e->slot = slot;
++    buckets[slot] = (*used)++;
++}
++
++/* How many dotted prefixes `qn` has: one before each of its '.'s, wherever it stands,
++ * so that a question's answers are the scan's for any name. */
++static int prefix_count(const char *qn) {
++    int n = 0;
++    for (const char *p = qn; p && *p; p++) {
++        if (*p == '.') {
++            n++;
++        }
++    }
++    return n;
++}
++
++/* Every dotted prefix of `qn`, chained to `index`. */
++static void prefix_push_all(int *buckets, PDXERegistryHashEntry *entries, int bucket_count,
++                            int *used, const char *qn, int index) {
++    for (const char *p = qn; p && *p; p++) {
++        if (*p == '.') {
++            prefix_push(buckets, entries, bucket_count, used, qn, (size_t)(p - qn), index);
++        }
++    }
++}
++
++/* `qn`'s last '.', when a segment follows it, or NULL. */
++static const char *last_dot(const char *qn) {
++    const char *dot = qn ? strrchr(qn, '.') : NULL;
++    return dot && dot[1] ? dot : NULL;
++}
++
++void pdxe_registry_build_prefix_indexes(PDXETypeRegistry *reg, PDXEArena *idx_arena) {
++    if (!reg || !idx_arena || reg->prefix_state != 0) {
++        return;
++    }
++    int type_entries = 0, func_entries = 0, parent_entries = 0;
++    for (int i = 0; i < reg->type_count; i++) {
++        type_entries += prefix_count(reg->types[i].qualified_name);
++    }
++    for (int i = 0; i < reg->func_count; i++) {
++        const PDXERegisteredFunc *f = &reg->funcs[i];
++        func_entries += prefix_count(f->qualified_name);
++        if (!f->receiver_type && last_dot(f->qualified_name)) {
++            parent_entries++;
++        }
++    }
++    if (!prefix_alloc(idx_arena, type_entries, &reg->type_prefix_buckets,
++                      &reg->type_prefix_entries, &reg->type_prefix_bucket_count) ||
++        !prefix_alloc(idx_arena, func_entries, &reg->func_prefix_buckets,
++                      &reg->func_prefix_entries, &reg->func_prefix_bucket_count) ||
++        !prefix_alloc(idx_arena, parent_entries, &reg->func_parent_buckets,
++                      &reg->func_parent_entries, &reg->func_parent_bucket_count)) {
++        reg->prefix_state = 2;
++        reg->prefix_types = reg->type_count;
++        reg->prefix_funcs = reg->func_count;
++        return;
++    }
++    int used = 0;
++    for (int i = reg->type_count - 1; i >= 0; i--) {
++        prefix_push_all(reg->type_prefix_buckets, reg->type_prefix_entries,
++                        reg->type_prefix_bucket_count, &used, reg->types[i].qualified_name, i);
++    }
++    used = 0;
++    int parents = 0;
++    for (int i = reg->func_count - 1; i >= 0; i--) {
++        const PDXERegisteredFunc *f = &reg->funcs[i];
++        prefix_push_all(reg->func_prefix_buckets, reg->func_prefix_entries,
++                        reg->func_prefix_bucket_count, &used, f->qualified_name, i);
++        const char *dot = f->receiver_type ? NULL : last_dot(f->qualified_name);
++        if (dot) {
++            prefix_push(reg->func_parent_buckets, reg->func_parent_entries,
++                        reg->func_parent_bucket_count, &parents, f->qualified_name,
++                        (size_t)(dot - f->qualified_name), i);
++        }
++    }
++    reg->prefix_state = 1;
++    reg->prefix_types = reg->type_count;
++    reg->prefix_funcs = reg->func_count;
++}
++
++/* Whether `qn` is `prefix` (of `n` bytes) and a '.', and perhaps more. */
++static bool under_prefix(const char *qn, const char *prefix, size_t n) {
++    PDXE_LOOKUP_COUNT(PDXE_LC_QN_COMPARES);
++    return qn && strncmp(qn, prefix, n) == 0 && qn[n] == '.';
++}
++
++/* Whether the receiver-less function `f` is in module `module_qn` (of `n` bytes) at its
++ * top: its name that, a '.' and a segment holding no '.'. */
++static bool module_func(const PDXERegisteredFunc *f, const char *module_qn, size_t n) {
++    PDXE_LOOKUP_COUNT(PDXE_LC_QN_COMPARES);
++    const char *qn = f->qualified_name;
++    return qn && !f->receiver_type && strncmp(qn, module_qn, n) == 0 && qn[n] == '.' &&
++           qn[n + 1] && !strchr(qn + n + 1, '.');
++}
++
++/* Whether `reg`'s questions read its prefix indexes: built, and not a test build's
++ * reference scan. */
++static bool prefix_indexed(const PDXETypeRegistry *reg) {
++#if defined(PDXE_ENABLE_TEST_SEAMS)
++    if (reg->reference_scan) {
++        return false;
++    }
++#endif
++    return reg->prefix_state != 0;
++}
++
++/* The chain of `buckets` for the key `key` of `n` bytes: its first entry, or -1 (and -1
++ * when the index holds nothing, or its memory was refused). */
++static int prefix_chain(const int *buckets, int bucket_count, const char *key, size_t n,
++                        uint64_t *hash) {
++    *hash = fnv1a_n(key, n);
++    if (!buckets || bucket_count <= 0) {
++        return -1;
++    }
++    return buckets[(int)(*hash & (uint64_t)(bucket_count - 1))];
++}
++
++void pdxe_registry_types_under_chain(const PDXETypeRegistry *head, const char *prefix,
++                                     PDXERegistryEntryFn fn, void *data) {
++    if (!head || !prefix || !fn) {
++        return;
++    }
++    size_t n = strlen(prefix);
++    for (const PDXETypeRegistry *reg = head; reg; reg = reg->fallback) {
++        int scan_from = 0;
++        if (prefix_indexed(reg)) {
++            uint64_t h;
++            int prev = -1;
++            for (int at = prefix_chain(reg->type_prefix_buckets, reg->type_prefix_bucket_count,
++                                       prefix, n, &h);
++                 at >= 0; at = reg->type_prefix_entries[at].next_index) {
++                PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
++                const PDXERegistryHashEntry *e = &reg->type_prefix_entries[at];
++                int i = e->payload_index;
++                if (e->hash != h || i == prev ||
++                    !under_prefix(reg->types[i].qualified_name, prefix, n)) {
++                    continue;
++                }
++                prev = i;
++                if (!type_shadowed(head, reg, i)) {
++                    fn(reg, i, data);
++                }
++            }
++            scan_from = reg->prefix_types;
++        }
++        for (int i = scan_from; i < reg->type_count; i++) {
++            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_ENTRIES);
++            if (under_prefix(reg->types[i].qualified_name, prefix, n) &&
++                !type_shadowed(head, reg, i)) {
++                fn(reg, i, data);
++            }
++        }
++    }
++}
++
++void pdxe_registry_module_funcs_chain(const PDXETypeRegistry *head, const char *module_qn,
++                                      PDXERegistryEntryFn fn, void *data) {
++    if (!head || !module_qn || !fn) {
++        return;
++    }
++    size_t n = strlen(module_qn);
++    for (const PDXETypeRegistry *reg = head; reg; reg = reg->fallback) {
++        int scan_from = 0;
++        if (prefix_indexed(reg)) {
++            uint64_t h;
++            for (int at = prefix_chain(reg->func_parent_buckets, reg->func_parent_bucket_count,
++                                       module_qn, n, &h);
++                 at >= 0; at = reg->func_parent_entries[at].next_index) {
++                PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
++                const PDXERegistryHashEntry *e = &reg->func_parent_entries[at];
++                if (e->hash == h && module_func(&reg->funcs[e->payload_index], module_qn, n)) {
++                    fn(reg, e->payload_index, data);
++                }
++            }
++            scan_from = reg->prefix_funcs;
++        }
++        for (int i = scan_from; i < reg->func_count; i++) {
++            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_ENTRIES);
++            if (module_func(&reg->funcs[i], module_qn, n)) {
++                fn(reg, i, data);
++            }
++        }
++    }
++}
++
++bool pdxe_registry_any_func_under_chain(const PDXETypeRegistry *head, const char *prefix) {
++    if (!head || !prefix) {
++        return false;
++    }
++    size_t n = strlen(prefix);
++    for (const PDXETypeRegistry *reg = head; reg; reg = reg->fallback) {
++        int scan_from = 0;
++        if (prefix_indexed(reg)) {
++            uint64_t h;
++            for (int at = prefix_chain(reg->func_prefix_buckets, reg->func_prefix_bucket_count,
++                                       prefix, n, &h);
++                 at >= 0; at = reg->func_prefix_entries[at].next_index) {
++                PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
++                const PDXERegistryHashEntry *e = &reg->func_prefix_entries[at];
++                if (e->hash == h &&
++                    under_prefix(reg->funcs[e->payload_index].qualified_name, prefix, n)) {
++                    return true;
++                }
++            }
++            scan_from = reg->prefix_funcs;
++        }
++        for (int i = scan_from; i < reg->func_count; i++) {
++            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_ENTRIES);
++            if (under_prefix(reg->funcs[i].qualified_name, prefix, n)) {
++                return true;
++            }
++        }
++    }
++    return false;
++}
+--- a/engine/src/lsp/type_registry.h
++++ b/engine/src/lsp/type_registry.h
+@@ -208,6 +208,32 @@ typedef struct PDXETypeRegistry {
+      * was initialised): every lookup scans as before issue 92, for tests to compare the
+      * answers with. Always false in release builds. */
+     bool reference_scan;
++
++    /* Issue 122: Python's questions about a module, answered by dotted prefix rather
++     * than by every function or type of the project, once a file. Built for the shared
++     * Python registry alone (pdxe_registry_build_prefix_indexes); a chain's entries
++     * ascend, so they come in registration order. `prefix_state` is 0 when not built
++     * (the questions scan this registry, which is then a file's own and small), 1 when
++     * built over the first `prefix_types` types and `prefix_funcs` functions (any added
++     * since are scanned), 2 when its memory was refused (the failure is counted as lost
++     * work, and the questions find nothing in what it would have held, never scanning).
++     * - type_prefix: each dotted prefix of a type's qualified name ("a" and "a.b" of
++     *   "a.b.C": what stands before each '.') to the types it begins;
++     * - func_prefix: the same for every function;
++     * - func_parent: a receiver-less function's qualified name less its last segment to
++     *   the functions it holds. */
++    int prefix_state;
++    int prefix_types;
++    int prefix_funcs;
++    int *type_prefix_buckets;
++    PDXERegistryHashEntry *type_prefix_entries;
++    int type_prefix_bucket_count;
++    int *func_prefix_buckets;
++    PDXERegistryHashEntry *func_prefix_entries;
++    int func_prefix_bucket_count;
++    int *func_parent_buckets;
++    PDXERegistryHashEntry *func_parent_entries;
++    int func_parent_bucket_count;
+ } PDXETypeRegistry;
+ 
+ // Initialize a registry.
+@@ -436,6 +462,27 @@ void pdxe_registry_methods_chain(const PDXETypeRegistry *head, const char *recei
+ void pdxe_registry_all_funcs_chain(const PDXETypeRegistry *head, PDXEFreeFuncIter *out);
+ void pdxe_registry_all_types_chain(const PDXETypeRegistry *head, PDXETypeShortIter *out);
+ 
++/* Issue 122: a module's members, for Python, by the indexes above where a registry has
++ * them and by a scan where it does not (a file's own registry, or every registry in a
++ * reference-scan test build). Each answers what the scan over every entry answered,
++ * in its order. */
++typedef void (*PDXERegistryEntryFn)(const PDXETypeRegistry *reg, int index, void *data);
++/* Builds the prefix indexes of a finalized registry, over its entries so far. */
++void pdxe_registry_build_prefix_indexes(PDXETypeRegistry *reg, PDXEArena *idx_arena);
++/* Every type of the chain from `head` whose qualified name is `prefix` and a '.', and
++ * perhaps more, to `fn`, in the order pdxe_registry_all_types_chain gives them: a fallback's types the
++ * head shadows left out. */
++void pdxe_registry_types_under_chain(const PDXETypeRegistry *head, const char *prefix,
++                                     PDXERegistryEntryFn fn, void *data);
++/* Every receiver-less function of every registry of the chain from `head`, shadowed or
++ * not, whose qualified name is `module_qn`, a '.' and a last segment holding no '.', to
++ * `fn`: each registry's in order, the head's first. */
++void pdxe_registry_module_funcs_chain(const PDXETypeRegistry *head, const char *module_qn,
++                                      PDXERegistryEntryFn fn, void *data);
++/* Whether a function of the chain from `head` has a qualified name that is `prefix` and
++ * a '.', and perhaps more. */
++bool pdxe_registry_any_func_under_chain(const PDXETypeRegistry *head, const char *prefix);
++
+ /* The writable entry for qualified_name: the head's own entry if it has one,
+  * else a copy of the first fallback entry added to the head (copy-on-write),
+  * else NULL. NULL also when the head is sealed (read_only) -- a walk must never

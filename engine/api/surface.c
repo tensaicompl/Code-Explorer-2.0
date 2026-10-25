@@ -654,6 +654,35 @@ static yyjson_mut_val *text_value(encoder *e, const void *item, const field *f,
     return string_value(e->doc, s);
 }
 
+/* The encoder's allocator: libc's, recording whether any allocation failed. A
+ * `yyjson_mut_*` call whose allocation fails drops its key or element and says nothing,
+ * so the document is checked whole: a surface missing a part is never cached as one. */
+typedef struct {
+    bool failed;
+} counting_alc_ctx;
+
+static void *counting_malloc(void *ctx, size_t size) {
+    void *p = malloc(size);
+    if (!p) {
+        ((counting_alc_ctx *)ctx)->failed = true;
+    }
+    return p;
+}
+
+static void *counting_realloc(void *ctx, void *ptr, size_t old_size, size_t size) {
+    (void)old_size;
+    void *p = realloc(ptr, size);
+    if (!p && size) {
+        ((counting_alc_ctx *)ctx)->failed = true;
+    }
+    return p;
+}
+
+static void counting_free(void *ctx, void *ptr) {
+    (void)ctx;
+    free(ptr);
+}
+
 /* A definition's own qualified name, by its relation to an earlier definition's
  * (pdxe_qn_choose), else whole: `[base]`, `[base, "rest"]`, `[base, "rest", keep]`. */
 static yyjson_mut_val *qualified_name_value(encoder *e, const PDXEDefinition *d) {
@@ -815,7 +844,9 @@ int pdxe_surface_encode(const PDXEFileResult *r, const char *rel_path, int abi_l
         free(e.qns);
         return PDXE_E_NOMEM;
     }
-    e.doc = yyjson_mut_doc_new(NULL);
+    counting_alc_ctx alc_ctx = {false};
+    yyjson_alc alc = {counting_malloc, counting_realloc, counting_free, &alc_ctx};
+    e.doc = yyjson_mut_doc_new(&alc);
     if (!e.doc) {
         pdxe_qn_index_free(&e.names);
         free(e.qns);
@@ -842,7 +873,7 @@ int pdxe_surface_encode(const PDXEFileResult *r, const char *rel_path, int abi_l
         yyjson_mut_obj_add_val(doc, root, ARRAYS[a].key, list);
     }
     size_t len = 0;
-    char *json = yyjson_mut_write(doc, SURFACE_WRITE_FLAGS, &len);
+    char *json = alc_ctx.failed ? NULL : yyjson_mut_write(doc, SURFACE_WRITE_FLAGS, &len);
     yyjson_mut_doc_free(doc);
     pdxe_qn_index_free(&e.names);
     free(e.qns);

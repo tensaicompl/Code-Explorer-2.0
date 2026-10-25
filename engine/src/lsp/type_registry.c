@@ -1961,3 +1961,273 @@ const PDXEType *pdxe_registry_lookup_index_signature(const PDXETypeRegistry *reg
     }
     return NULL;
 }
+
+/* --- issue 122: a module's members, by dotted prefix ------------------------------ */
+
+/* FNV-1a over the first `n` bytes of `s`: fnv1a's value for a string of those bytes. */
+static uint64_t fnv1a_n(const char *s, size_t n) {
+    uint64_t h = 0xcbf29ce484222325ULL;
+    for (size_t i = 0; i < n; i++) {
+        h ^= (unsigned char)s[i];
+        h *= 0x100000001b3ULL;
+    }
+    return h;
+}
+
+/* A chain index's arrays for `entries` entries; false when refused. */
+static bool prefix_alloc(PDXEArena *arena, int entries, int **buckets, PDXERegistryHashEntry **out,
+                         int *bucket_count) {
+    *buckets = NULL;
+    *out = NULL;
+    *bucket_count = 0;
+    if (entries <= 0) {
+        return true;
+    }
+    if (entries > (1 << 28) || PDXE_LOOKUP_INDEX_REFUSED("registry")) {
+        return false;
+    }
+    int count = next_pow2(entries * 2);
+    if (count < 16) {
+        count = 16;
+    }
+    int *b = (int *)pdxe_arena_alloc(arena, (size_t)count * sizeof(int));
+    PDXERegistryHashEntry *e = (PDXERegistryHashEntry *)pdxe_arena_alloc(
+        arena, (size_t)entries * sizeof(PDXERegistryHashEntry));
+    if (!b || !e) {
+        return false;
+    }
+    for (int i = 0; i < count; i++) {
+        b[i] = -1;
+    }
+    *buckets = b;
+    *out = e;
+    *bucket_count = count;
+    return true;
+}
+
+/* Chains `index` under the key of `qn`'s first `n` bytes. Entries are added from the
+ * last index to the first, each at its chain's head, so every chain ascends. */
+static void prefix_push(int *buckets, PDXERegistryHashEntry *entries, int bucket_count,
+                        int *used, const char *qn, size_t n, int index) {
+    uint64_t h = fnv1a_n(qn, n);
+    int slot = (int)(h & (uint64_t)(bucket_count - 1));
+    PDXERegistryHashEntry *e = &entries[(*used)];
+    e->hash = h;
+    e->payload_index = index;
+    e->next_index = buckets[slot];
+    e->slot = slot;
+    buckets[slot] = (*used)++;
+}
+
+/* How many dotted prefixes `qn` has: one before each of its '.'s, wherever it stands,
+ * so that a question's answers are the scan's for any name. */
+static int prefix_count(const char *qn) {
+    int n = 0;
+    for (const char *p = qn; p && *p; p++) {
+        if (*p == '.') {
+            n++;
+        }
+    }
+    return n;
+}
+
+/* Every dotted prefix of `qn`, chained to `index`. */
+static void prefix_push_all(int *buckets, PDXERegistryHashEntry *entries, int bucket_count,
+                            int *used, const char *qn, int index) {
+    for (const char *p = qn; p && *p; p++) {
+        if (*p == '.') {
+            prefix_push(buckets, entries, bucket_count, used, qn, (size_t)(p - qn), index);
+        }
+    }
+}
+
+/* `qn`'s last '.', when a segment follows it, or NULL. */
+static const char *last_dot(const char *qn) {
+    const char *dot = qn ? strrchr(qn, '.') : NULL;
+    return dot && dot[1] ? dot : NULL;
+}
+
+void pdxe_registry_build_prefix_indexes(PDXETypeRegistry *reg, PDXEArena *idx_arena) {
+    if (!reg || !idx_arena || reg->prefix_state != 0) {
+        return;
+    }
+    int type_entries = 0, func_entries = 0, parent_entries = 0;
+    for (int i = 0; i < reg->type_count; i++) {
+        type_entries += prefix_count(reg->types[i].qualified_name);
+    }
+    for (int i = 0; i < reg->func_count; i++) {
+        const PDXERegisteredFunc *f = &reg->funcs[i];
+        func_entries += prefix_count(f->qualified_name);
+        if (!f->receiver_type && last_dot(f->qualified_name)) {
+            parent_entries++;
+        }
+    }
+    if (!prefix_alloc(idx_arena, type_entries, &reg->type_prefix_buckets,
+                      &reg->type_prefix_entries, &reg->type_prefix_bucket_count) ||
+        !prefix_alloc(idx_arena, func_entries, &reg->func_prefix_buckets,
+                      &reg->func_prefix_entries, &reg->func_prefix_bucket_count) ||
+        !prefix_alloc(idx_arena, parent_entries, &reg->func_parent_buckets,
+                      &reg->func_parent_entries, &reg->func_parent_bucket_count)) {
+        reg->prefix_state = 2;
+        reg->prefix_types = reg->type_count;
+        reg->prefix_funcs = reg->func_count;
+        return;
+    }
+    int used = 0;
+    for (int i = reg->type_count - 1; i >= 0; i--) {
+        prefix_push_all(reg->type_prefix_buckets, reg->type_prefix_entries,
+                        reg->type_prefix_bucket_count, &used, reg->types[i].qualified_name, i);
+    }
+    used = 0;
+    int parents = 0;
+    for (int i = reg->func_count - 1; i >= 0; i--) {
+        const PDXERegisteredFunc *f = &reg->funcs[i];
+        prefix_push_all(reg->func_prefix_buckets, reg->func_prefix_entries,
+                        reg->func_prefix_bucket_count, &used, f->qualified_name, i);
+        const char *dot = f->receiver_type ? NULL : last_dot(f->qualified_name);
+        if (dot) {
+            prefix_push(reg->func_parent_buckets, reg->func_parent_entries,
+                        reg->func_parent_bucket_count, &parents, f->qualified_name,
+                        (size_t)(dot - f->qualified_name), i);
+        }
+    }
+    reg->prefix_state = 1;
+    reg->prefix_types = reg->type_count;
+    reg->prefix_funcs = reg->func_count;
+}
+
+/* Whether `qn` is `prefix` (of `n` bytes) and a '.', and perhaps more. */
+static bool under_prefix(const char *qn, const char *prefix, size_t n) {
+    PDXE_LOOKUP_COUNT(PDXE_LC_QN_COMPARES);
+    return qn && strncmp(qn, prefix, n) == 0 && qn[n] == '.';
+}
+
+/* Whether the receiver-less function `f` is in module `module_qn` (of `n` bytes) at its
+ * top: its name that, a '.' and a segment holding no '.'. */
+static bool module_func(const PDXERegisteredFunc *f, const char *module_qn, size_t n) {
+    PDXE_LOOKUP_COUNT(PDXE_LC_QN_COMPARES);
+    const char *qn = f->qualified_name;
+    return qn && !f->receiver_type && strncmp(qn, module_qn, n) == 0 && qn[n] == '.' &&
+           qn[n + 1] && !strchr(qn + n + 1, '.');
+}
+
+/* Whether `reg`'s questions read its prefix indexes: built, and not a test build's
+ * reference scan. */
+static bool prefix_indexed(const PDXETypeRegistry *reg) {
+#if defined(PDXE_ENABLE_TEST_SEAMS)
+    if (reg->reference_scan) {
+        return false;
+    }
+#endif
+    return reg->prefix_state != 0;
+}
+
+/* The chain of `buckets` for the key `key` of `n` bytes: its first entry, or -1 (and -1
+ * when the index holds nothing, or its memory was refused). */
+static int prefix_chain(const int *buckets, int bucket_count, const char *key, size_t n,
+                        uint64_t *hash) {
+    *hash = fnv1a_n(key, n);
+    if (!buckets || bucket_count <= 0) {
+        return -1;
+    }
+    return buckets[(int)(*hash & (uint64_t)(bucket_count - 1))];
+}
+
+void pdxe_registry_types_under_chain(const PDXETypeRegistry *head, const char *prefix,
+                                     PDXERegistryEntryFn fn, void *data) {
+    if (!head || !prefix || !fn) {
+        return;
+    }
+    size_t n = strlen(prefix);
+    for (const PDXETypeRegistry *reg = head; reg; reg = reg->fallback) {
+        int scan_from = 0;
+        if (prefix_indexed(reg)) {
+            uint64_t h;
+            int prev = -1;
+            for (int at = prefix_chain(reg->type_prefix_buckets, reg->type_prefix_bucket_count,
+                                       prefix, n, &h);
+                 at >= 0; at = reg->type_prefix_entries[at].next_index) {
+                PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
+                const PDXERegistryHashEntry *e = &reg->type_prefix_entries[at];
+                int i = e->payload_index;
+                if (e->hash != h || i == prev ||
+                    !under_prefix(reg->types[i].qualified_name, prefix, n)) {
+                    continue;
+                }
+                prev = i;
+                if (!type_shadowed(head, reg, i)) {
+                    fn(reg, i, data);
+                }
+            }
+            scan_from = reg->prefix_types;
+        }
+        for (int i = scan_from; i < reg->type_count; i++) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_ENTRIES);
+            if (under_prefix(reg->types[i].qualified_name, prefix, n) &&
+                !type_shadowed(head, reg, i)) {
+                fn(reg, i, data);
+            }
+        }
+    }
+}
+
+void pdxe_registry_module_funcs_chain(const PDXETypeRegistry *head, const char *module_qn,
+                                      PDXERegistryEntryFn fn, void *data) {
+    if (!head || !module_qn || !fn) {
+        return;
+    }
+    size_t n = strlen(module_qn);
+    for (const PDXETypeRegistry *reg = head; reg; reg = reg->fallback) {
+        int scan_from = 0;
+        if (prefix_indexed(reg)) {
+            uint64_t h;
+            for (int at = prefix_chain(reg->func_parent_buckets, reg->func_parent_bucket_count,
+                                       module_qn, n, &h);
+                 at >= 0; at = reg->func_parent_entries[at].next_index) {
+                PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
+                const PDXERegistryHashEntry *e = &reg->func_parent_entries[at];
+                if (e->hash == h && module_func(&reg->funcs[e->payload_index], module_qn, n)) {
+                    fn(reg, e->payload_index, data);
+                }
+            }
+            scan_from = reg->prefix_funcs;
+        }
+        for (int i = scan_from; i < reg->func_count; i++) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_ENTRIES);
+            if (module_func(&reg->funcs[i], module_qn, n)) {
+                fn(reg, i, data);
+            }
+        }
+    }
+}
+
+bool pdxe_registry_any_func_under_chain(const PDXETypeRegistry *head, const char *prefix) {
+    if (!head || !prefix) {
+        return false;
+    }
+    size_t n = strlen(prefix);
+    for (const PDXETypeRegistry *reg = head; reg; reg = reg->fallback) {
+        int scan_from = 0;
+        if (prefix_indexed(reg)) {
+            uint64_t h;
+            for (int at = prefix_chain(reg->func_prefix_buckets, reg->func_prefix_bucket_count,
+                                       prefix, n, &h);
+                 at >= 0; at = reg->func_prefix_entries[at].next_index) {
+                PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_PROBES);
+                const PDXERegistryHashEntry *e = &reg->func_prefix_entries[at];
+                if (e->hash == h &&
+                    under_prefix(reg->funcs[e->payload_index].qualified_name, prefix, n)) {
+                    return true;
+                }
+            }
+            scan_from = reg->prefix_funcs;
+        }
+        for (int i = scan_from; i < reg->func_count; i++) {
+            PDXE_LOOKUP_COUNT(PDXE_LC_REGISTRY_ENTRIES);
+            if (under_prefix(reg->funcs[i].qualified_name, prefix, n)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}

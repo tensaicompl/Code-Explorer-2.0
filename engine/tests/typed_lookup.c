@@ -1151,6 +1151,46 @@ static void python_imports_shape(project_t *p, int n, const void *arg) {
     add_file(p, "main.py", "python", &main_py);
 }
 
+/* Issue 122: a package of `n` modules in directories of twenty. Each file's walk binds
+ * the other files' classes of its module, a wildcard import resets its frame, and a
+ * package read as a module's attribute (`app.pN`) asks whether a module lies below it:
+ * every question about one module, never about every type or function of the project. */
+static void python_modules_shape(project_t *p, int n, const void *arg) {
+    (void)arg;
+    int dirs = (n + 19) / 20;
+    for (int i = 0; i < n; i++) {
+        buf_t b = {0};
+        putf(&b, "import app\nfrom app.p%d.m%d import *\n\n\n", ((i / 20) + 1) % dirs, (i + 20) % n);
+        putf(&b, "class C%d:\n    def go(self):\n        return %d\n\n\n", i, i);
+        putf(&b, "def f%d():\n    m = app.p%d\n    return C%d().go()\n", i, i / 20, i);
+        char path[64];
+        snprintf(path, sizeof path, "app/p%d/m%d.py", i / 20, i);
+        add_file(p, path, "python", &b);
+    }
+}
+
+/* The modules' questions as the scans answered them: their work grows with the square of
+ * the project. At these sizes each file's own registry, the standard library's entries
+ * scanned once a question, is most of it and grows linearly, so a quadrupled project
+ * shows more than 4.5-fold work rather than the sixfold of a scan alone (at 100 and 400
+ * files: about 20,000 entries a file and 18 a pair of files). */
+static void python_module_scans_are_quadratic(void) {
+    uint64_t entries[2] = {0, 0};
+    const int sizes[2] = {100, 400};
+    for (int s = 0; s < 2; s++) {
+        project_t p = {.name = "python module scans"};
+        python_modules_shape(&p, sizes[s], NULL);
+        outcome_t o = run(&p, REFERENCE, NULL, 1);
+        entries[s] = o.work[PDXE_LC_REGISTRY_ENTRIES];
+        release(&o);
+        project_free(&p);
+    }
+    printf("python module scans: %llu at 100, %llu at 400\n", (unsigned long long)entries[0],
+           (unsigned long long)entries[1]);
+    CHECK(entries[1] * 2 >= 9 * entries[0], "python module scans grew from %llu to only %llu",
+          (unsigned long long)entries[0], (unsigned long long)entries[1]);
+}
+
 /* The issue's own file: `from mN import aN` lines and nothing else. */
 static void python_import_lines_shape(project_t *p, int n, const void *arg) {
     (void)arg;
@@ -1472,6 +1512,16 @@ int main(int argc, char **argv) {
                 NULL, 1);
     import_scans_are_quadratic();
     import_index_refused();
+
+    project_t modules = {.name = "python modules"};
+    python_modules_shape(&modules, 200, NULL);
+    uint32_t module_answers = same_answers(&modules, 1);
+    CHECK(module_answers >= 200, "python modules: %u answers for 200 modules", module_answers);
+    project_free(&modules);
+    /* Every file a description of its own here, so the sizes stay small. */
+    static const int MODULES[] = {100, 200, 400, 800};
+    linear_work("python modules", python_modules_shape, NULL, MODULES, 4, 1, INDEXED, NULL, 1);
+    python_module_scans_are_quadratic();
 
     rust_use_duplicates();
     project_t uses = {.name = "rust uses"};

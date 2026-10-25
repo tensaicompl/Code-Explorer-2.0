@@ -122,6 +122,10 @@ struct pdxe_ctx {
  * the last one stops it, and a thread finishing early never stops it under another.
  */
 static atomic_int live_contexts = 0;
+/* Whether the engine is started: 0 not yet (or being started), 1 up, -1 its start
+ * failed. A context is handed out only once the first one's start is complete, sink
+ * installed: the engine writes nothing to either stream from the first context on. */
+static atomic_int engine_up = 0;
 
 /*
  * Where the engine's log lines go: nowhere. The engine is a library inside a program
@@ -145,7 +149,9 @@ int pdxe_init(pdxe_ctx **out) {
         return PDXE_E_NOMEM;
     }
     if (atomic_fetch_add(&live_contexts, 1) == 0) {
+        atomic_store(&engine_up, 0);
         if (pdxe_engine_init() != 0) {
+            atomic_store(&engine_up, -1);
             atomic_fetch_sub(&live_contexts, 1);
             free(ctx);
             return PDXE_E_INTERNAL;
@@ -154,6 +160,18 @@ int pdxe_init(pdxe_ctx **out) {
          * that this is the last word on where its output goes. */
         pdxe_log_set_sink_ex(discard_log_line, PDXE_LOG_SINK_REPLACE);
         pdxe_log_set_level(PDXE_LOG_NONE);
+        atomic_store(&engine_up, 1);
+    } else {
+        /* Another thread is starting the engine: wait for it, a matter of
+         * microseconds, rather than hand out a context before its sink is set. */
+        int up;
+        while ((up = atomic_load(&engine_up)) == 0) {
+        }
+        if (up < 0) {
+            atomic_fetch_sub(&live_contexts, 1);
+            free(ctx);
+            return PDXE_E_INTERNAL;
+        }
     }
     *out = ctx;
     return PDXE_OK;
@@ -164,7 +182,12 @@ void pdxe_shutdown(pdxe_ctx *ctx) {
         return;
     }
     free(ctx);
+    /* This thread's parser and caches, whichever context ends last: thread-local state
+     * has no destructor, so a worker thread's would otherwise outlive every context it
+     * served. The next use on this thread makes them again. */
+    pdxe_destroy_thread_parser();
     if (atomic_fetch_sub(&live_contexts, 1) == 1) {
+        atomic_store(&engine_up, 0);
         pdxe_engine_shutdown();
     }
 }
@@ -2000,8 +2023,20 @@ struct pdxe_project {
     int n_surfaces;
     int cap_surfaces;
 
+    /* Files by the path the source provider answers by and by repository path, and
+     * surfaces by path: each value its index + 1. Every question by path is a lookup,
+     * never a scan of every file (issue 92's rule): at a large repository's scale, a scan
+     * per file is quadratic. */
+    PDXEHashTable *file_by_path;
+    PDXEHashTable *file_by_rel;
+    PDXEHashTable *surface_by_path;
+
     string_list owned;
 };
+
+/* The index stored for `i`, and back. */
+#define INDEX_VALUE(i) ((void *)(intptr_t)((i) + 1))
+#define VALUE_INDEX(v) ((int)(intptr_t)(v) - 1)
 
 /*
  * The resolver asks for each file's source by the path it was added under. This
@@ -2013,10 +2048,9 @@ static char *project_source(const char *path, int *out_len, void *userdata) {
     if (!p || !path || !out_len) {
         return NULL;
     }
-    for (int i = 0; i < p->n_files; i++) {
-        if (strcmp(p->files[i].path, path) != 0) {
-            continue;
-        }
+    void *found = p->file_by_path ? pdxe_ht_get(p->file_by_path, path) : NULL;
+    if (found) {
+        int i = VALUE_INDEX(found);
         p->state[i].source_asked = true;
         int len = p->source_lens[i];
         char *buf = (char *)malloc((size_t)len + SOURCE_PAD);
@@ -2047,7 +2081,11 @@ int pdxe_resolve_project_begin(pdxe_ctx *ctx, pdxe_project **out) {
     p->ctx = ctx;
     p->gbuf = pdxe_gbuf_new();
     p->registry = pdxe_registry_new();
-    if (!p->gbuf || !p->registry) {
+    p->file_by_path = pdxe_ht_create(0);
+    p->file_by_rel = pdxe_ht_create(0);
+    p->surface_by_path = pdxe_ht_create(0);
+    if (!p->gbuf || !p->registry || !p->file_by_path || !p->file_by_rel ||
+        !p->surface_by_path) {
         pdxe_resolve_project_end(p);
         return PDXE_E_NOMEM;
     }
@@ -2117,10 +2155,8 @@ int pdxe_resolve_project_add_file(pdxe_project *p, int lang, const char *rel_pat
     if (len > (size_t)INT_MAX) {
         return PDXE_E_TOOLARGE;
     }
-    for (int i = 0; i < p->n_files; i++) {
-        if (strcmp(p->files[i].rel_path, rel_path) == 0) {
-            return PDXE_E_INVALID; /* a path names one file */
-        }
+    if (pdxe_ht_get(p->file_by_rel, rel_path)) {
+        return PDXE_E_INVALID; /* a path names one file */
     }
     result_holder *holder = (result_holder *)r;
     if (holder && holder->in_project) {
@@ -2168,6 +2204,9 @@ int pdxe_resolve_project_add_file(pdxe_project *p, int lang, const char *rel_pat
     p->sources[i] = source;
     p->source_lens[i] = (int)len;
     p->state[i] = st;
+    /* Keys are the file's own copies, which live as long as the project. */
+    pdxe_ht_set(p->file_by_path, p->files[i].path, INDEX_VALUE(i));
+    pdxe_ht_set(p->file_by_rel, p->files[i].rel_path, INDEX_VALUE(i));
     return PDXE_OK;
 }
 
@@ -2208,13 +2247,11 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
     if (rc != PDXE_OK) {
         return rc;
     }
-    for (int i = 0; i < p->n_surfaces; i++) {
-        if (strcmp(p->surface_paths[i], path) == 0) {
-            pdxe_free_result(r);
-            free(path);
-            pdxe_surface_texts_free(texts);
-            return PDXE_E_INVALID; /* one surface per path */
-        }
+    if (pdxe_ht_get(p->surface_by_path, path)) {
+        pdxe_free_result(r);
+        free(path);
+        pdxe_surface_texts_free(texts);
+        return PDXE_E_INVALID; /* one surface per path */
     }
     if (p->n_surfaces == p->cap_surfaces) {
         int cap = p->cap_surfaces ? p->cap_surfaces * 2 : 16;
@@ -2252,6 +2289,7 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
     p->surface_langs[p->n_surfaces] = lang;
     p->surface_lost[p->n_surfaces] = lost;
     p->surface_texts[p->n_surfaces] = texts;
+    pdxe_ht_set(p->surface_by_path, path, INDEX_VALUE(p->n_surfaces));
     p->n_surfaces++;
     return PDXE_OK;
 }
@@ -2268,12 +2306,10 @@ static int materialise_results(pdxe_project *p) {
     for (int i = 0; i < p->n_files; i++) {
         file_state *st = &p->state[i];
         if (st->source != FROM_CALLER) {
-            int found = -1;
-            for (int k = 0; k < p->n_surfaces; k++) {
-                if (p->surfaces[k] && strcmp(p->surface_paths[k], p->files[i].rel_path) == 0) {
-                    found = k;
-                    break;
-                }
+            void *at = pdxe_ht_get(p->surface_by_path, p->files[i].rel_path);
+            int found = at ? VALUE_INDEX(at) : -1;
+            if (found >= 0 && !p->surfaces[found]) {
+                found = -1; /* already matched to an earlier file */
             }
             if (found >= 0) {
                 if (p->surface_langs[found] != st->abi_lang) {
@@ -3314,6 +3350,15 @@ void pdxe_resolve_project_end(pdxe_project *p) {
     }
     free(p->surfaces);
     free(p->surface_paths);
+    if (p->file_by_path) {
+        pdxe_ht_free(p->file_by_path);
+    }
+    if (p->file_by_rel) {
+        pdxe_ht_free(p->file_by_rel);
+    }
+    if (p->surface_by_path) {
+        pdxe_ht_free(p->surface_by_path);
+    }
     free(p->surface_langs);
     free(p->surface_lost);
     free(p->surface_texts);

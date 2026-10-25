@@ -1866,7 +1866,9 @@ static PDXERustModuleIndex *pxc_build_rust_modules(pdxe_pipeline_ctx_t *ctx,
         }
     }
     for (int i = 0; i < file_count; i++) {
-        if (!cache[i] || files[i].language != PDXE_LANG_RUST) {
+        /* A file extraction refused (lsp_skipped: past the syntax-depth ceiling, issue
+         * 89) is read no further here either. */
+        if (!cache[i] || files[i].language != PDXE_LANG_RUST || cache[i]->lsp_skipped) {
             continue;
         }
         if (!def_modules[i]) {

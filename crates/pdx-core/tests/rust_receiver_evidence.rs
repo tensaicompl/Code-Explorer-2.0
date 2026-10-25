@@ -43,7 +43,7 @@ const FILES: &[(&str, &str)] = &[
     ),
     (
         "src/lib.rs",
-        "pub mod calls;\npub mod direct;\npub mod model;\npub mod net;\npub mod parts;\npub mod pool;\n",
+        "pub mod calls;\npub mod cyc;\npub mod deep;\npub mod direct;\npub mod model;\npub mod net;\npub mod parts;\npub mod pool;\n",
     ),
     (
         "src/model.rs",
@@ -242,6 +242,58 @@ impl Plain {
 }
 ",
     ),
+    // Three modules whose globs reach one another through their parent's re-exports: a
+    // cycle the module index must close once, not walk again per name.
+    (
+        "src/cyc/mod.rs",
+        "pub mod a;\npub mod b;\npub mod c;\npub use a::*;\npub use b::*;\npub use c::*;\n",
+    ),
+    (
+        "src/cyc/a.rs",
+        r"use super::*;
+
+pub struct Alpha(pub Vec<u8>);
+
+impl Alpha {
+    pub fn make(seed: Option<String>) -> Alpha {
+        let _ = seed;
+        Alpha(Vec::new())
+    }
+}
+
+pub fn uses_beta(v: Vec<Option<String>>) -> u32 {
+    let _ = v;
+    Beta::count()
+}
+",
+    ),
+    (
+        "src/cyc/b.rs",
+        r"use super::*;
+
+pub struct Beta(pub Option<Vec<String>>);
+
+impl Beta {
+    pub fn count() -> u32 {
+        1
+    }
+}
+
+pub fn uses_gamma(x: Result<String, String>) -> Alpha {
+    let _ = x;
+    gamma()
+}
+",
+    ),
+    (
+        "src/cyc/c.rs",
+        r"use super::*;
+
+pub fn gamma() -> Alpha {
+    Alpha::make(None)
+}
+",
+    ),
     // Issue 116's two shapes, and the import itself.
     (
         "src/net.rs",
@@ -294,6 +346,14 @@ fn resolved() -> &'static Resolved {
             fs::create_dir_all(path.parent().expect("a parent")).expect("directories");
             fs::write(&path, content).expect("a file");
         }
+        // A `use` nested past the syntax-depth ceiling (issue 89): extraction refuses the
+        // file, and the module index reads it no further.
+        let deep = format!(
+            "use {}x{};\n\npub fn shallow() -> u32 {{\n    1\n}}\n",
+            "a::{".repeat(1000),
+            "}".repeat(1000)
+        );
+        fs::write(dir.path().join("src/deep.rs"), deep).expect("a file");
         let root: &Path = dir.path();
         let config = PdxConfig::load(root).expect("the configuration loads");
         let files = discover(root, &config).expect("discovery succeeds");
@@ -465,6 +525,40 @@ fn e10_a_method_a_whole_path_names_is_proven_like_any_other() {
     assert_typed(
         at(DIRECT, "Self::make"),
         &one(DIRECT, Some("Plain"), "make"),
+    );
+}
+
+#[test]
+fn e11_globs_that_reach_one_another_are_closed_once() {
+    // `a` reaches `Beta` and `c` reaches `Alpha` through `super::*`, whose module
+    // re-exports all three by globs: Rust resolves both, and so does the index, without
+    // walking the cycle again for every name (it took gigabytes before).
+    const CYC_A: &str = "src/cyc/a.rs";
+    assert_typed(
+        at(CYC_A, "Beta::count"),
+        &one("src/cyc/b.rs", Some("Beta"), "count"),
+    );
+    assert_typed(
+        at("src/cyc/c.rs", "Alpha::make"),
+        &one(CYC_A, Some("Alpha"), "make"),
+    );
+    assert_typed(
+        at("src/cyc/b.rs", "gamma"),
+        &one("src/cyc/c.rs", None, "gamma"),
+    );
+}
+
+#[test]
+fn e12_a_file_past_the_depth_ceiling_breaks_nothing() {
+    // The deep file is extracted to no facts; every other answer stands (above), and
+    // nothing in it is a site.
+    let r = resolved();
+    assert!(
+        r.report
+            .resolutions
+            .iter()
+            .all(|s| s.site_ref.rel_path != "src/deep.rs"),
+        "a site in the refused file"
     );
 }
 
