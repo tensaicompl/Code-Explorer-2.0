@@ -8,179 +8,68 @@ to AI agents over MCP and to a GPU-rendered architecture map.
 **Remote:** `tensaicompl/Code-Explorer-2.0` (public, `origin`). The predecessor
 repo `tensaicompl/praxevia-explorer` is kept as the remote `praxevia-explorer`.
 
-## CURRENT DRIVER HOLD
+## Working mode: stabilisation (branch `pdx-goal-approach`, from 2026-10-25)
 
-After issue 94, **A0 / gate G1b is next** (decision 64, issue 95): A0.1, a
-measurement-only structural-accuracy audit of the Python and Rust goldens against a
-semantic oracle; A0.2, counterfactual re-scoring of that one dataset; A0.3, the
-driver's decision. A0 changes no resolver behaviour, band, blocklist order, extraction,
-secret detector, contract reader, discovery or output policy, and is not P5-06.
+The driver holds, per-step authorisations and driver-only rules of the earlier sessions
+are lifted on this branch. The work is goal-driven: validate the product end to end as
+it exists today, fix what is broken, close loose ends, then review the plan. Something
+that cannot work yet because a prerequisite is not built is recorded, not forced.
 
-**Do not start issue 93's Phase B, issue 82 or P3 until the driver releases this
-hold.** Do not merge `main`. The plan's projection is unchanged (98 tasks, 28 done):
-never hand-edit `docs/plan/tasks.json`, `TASKS.md` or `PROGRESS.md` for A0.
+- **Scope.** Make what exists work end to end. Issues of any workstream (R6 to R10,
+  93B, 82, 106, 107B, 108, 113C, 119, ...) may be taken up when they stand in the way;
+  what is missing goes in `docs/plan/ISSUES.md`.
+- **Records.** The agent edits `STATUS.md`, `ISSUES.md`, `DECISIONS.md`, `GATES.md`, the
+  shared constants, the schema and the docs as the work needs, justifying each change
+  in the record it touches. Derived files (`tasks.json`, `TASKS.md`, `PROGRESS.md`) are
+  still regenerated, never hand-edited, because regeneration overwrites them.
+- **Engine differential.** A divergence is still recorded one exact row pair at a time
+  (no pattern, prefix or category rule), and is investigated before it is ratified. The
+  agent may ratify one it has verified as correct behaviour, with its reason; never to
+  make a run pass.
+- **Kept, because they are product, legal or correctness invariants:** the trust
+  contract (draw an edge only from positive target evidence; `exact` and `scoped` are
+  weak evidence, never drawn); provenance (no upstream names in the tree, enforced by
+  the scanner; the plan stays uncommitted); secret handling; identities, segments, cache
+  keys and version bumps as described below.
+- **Validation.** Prove a change by its targeted tests, an end-to-end product test
+  (source → discovery → extraction → cache → resolution → segment → queries) and, for
+  resolution or extraction, an A0 measurement of the corpus it changes. Run the full
+  suite (`make check`, every golden, the three-corpus A0, the engine differential) at
+  milestones. Build incrementally; never `cargo clean`. Group related fixes per commit.
 
-A0.1 and A0.2's results are in `bench/results/a0/`; `methodology.md` there explains
-them. They are produced by:
+### Where the earlier work stands (2026-10-25)
 
-- `pdx-bench audit-sites`, which writes the product's own Stage 1 to 3 decisions as a
-  site dataset;
-- `scripts/a0/`, the stdlib-only audit: a SCIP reader, the language parsers' call
-  sites, rules M1 to M6, 4.13.1's measures, the counterfactuals, and `run.py`, which
-  reruns everything (`test_a0.py` runs in `make test`);
-- `bench/a0/sanity/`, the oracle sanity fixtures.
-
-The oracles (`scip-python`, `rust-analyzer`) run from an isolated work directory
-and are never project dependencies. A0 itself never edits resolver behaviour.
-
-**A0.3 is decided (decision 65, 2026-10-14); G1b stays pending, with four of six
-floors failed.**
-
-- `typed`, `import-guided` and `inheritance-guided` stay drawn.
-- `exact` and `scoped` short-name uniqueness is no longer trusted graph truth
-  (issue 102, a specification change to 4.2.2, implemented as R3: they are weak
-  evidence, never drawn).
-- A valid typed answer comes before the blocklist (issue 103, a specification change
-  to 4.5 Stage 3, amended with the implementation).
-- Recall is a first-class blocker (issues 104 to 108).
-- Rule: draw a `CALLS` edge only from positive target evidence, never because every
-  other same-name target disappeared.
-
-Remediation order, **each step only when the driver authorises it**:
-
-| Step | Issue | Work |
-|---|---|---|
-| R1 | 103 | typed before the blocklist |
-| R2 | 104 | Rust typed false positives |
-| R3 | 102 | `exact` and `scoped` not drawn |
-| R4 | 107A | Rust turbofish and other ordinary site holes |
-| R5 | 105 | Rust candidate classification, then fixes |
-| R6 | 106 | Python candidate classification, then fixes |
-| R7 | 108 | overload identity |
-| R8 | 107B | macro token-tree policy |
-| R9 | 96 | secrets |
-| R10 | 97 | SQL prose contracts |
-
-**R1 is done (issue 103 resolved, 2026-10-14).** A qualifying typed answer now comes
-before the blocklist.
-
-**R2 is done (2026-10-14); issue 104 closed with issue 109 (2026-10-15).** Rust typed answers need path
-evidence (patch 0028, below). Of the Rust golden's 17 trusted false positives, 15 are
-no longer drawn wrong. The last typed one, a blanket impl, is issue 109, and the
-`import-guided` one, a `macro_rules!` impl, is issue 110.
-
-**Hotfix 112 is done (2026-10-14).** Patch 0028 changed what Rust extraction records
-while `ENGINE_VERSION` stayed 7, so a cache filled by engine 7 before it was served
-after it under the same key. `ENGINE_VERSION` became 8: what engine 7 cached is a miss.
-
-**Issue 111 is done (2026-10-14).** Rust `use` declarations are read from the syntax
-tree (patch 0029, `ENGINE_VERSION` 9), restoring the typed answers R2 lost to `use`
-lists the resolver misread. It found issues 113 (paths through `crate::` and
-re-exports; an imported type's impls) and 114 (`use` has no lexical scope). The engine
-differential holds one ratified divergence for it (decision 66).
-
-**Hotfix 115 and issues 110 and 114 are done (2026-10-14).** `scripts/a0/run.py`
-refuses an executable whose versions are not the source's (115). A member a
-`macro_rules!` invocation may write another of its name for is no target (110, patch
-0030, `ENGINE_VERSION` 10): the Rust golden's `import-guided` false positive is gone. A
-Rust `use` binds only in its lexical scope, in the typed pass and Stage 3 alike (114,
-patch 0031, `ENGINE_VERSION` 11, cache format 8, worker protocol 9): a test module's
-import no longer draws a module's own call wrong. The engine differential holds a second
-ratified divergence for 114 (decision 66).
-
-**Issue 109 is done (2026-10-15).** A Rust `Type::method` is answered with a trait impl's
-method only when the impl is proven to apply: extraction records each trait impl's header
-and the typed pass proves every predicate for the path's types (patch 0032,
-`ENGINE_VERSION` 12, surface 6). The Rust golden's last typed false positive is gone. Its
-site (`with_rejection.rs:196`) now falls to Stage 3's `scoped` guess, still the wrong
-impl: issue 109 removes the false trusted typed answer, and the weak `scoped` guess is
-issue 102's (R3) and known wrong until R3, an R3 acceptance case. The engine differential
-holds a third ratified divergence for 109 (decision 66).
-
-**Issue 117 is done (2026-10-15).** Stage 3's trusted name stages take a Rust trait
-impl's member only when its impl is proven to apply: `import-guided` when the impl's
-header requires nothing, `inheritance-guided` also when the impl the call on `self` is
-made from entails it (below). The headers issue 109 records now cross the interface
-(cache format 9, worker protocol 10); the engine's extraction is unchanged
-(`ENGINE_VERSION` 12, surface 6) and the engine differential with it. The goldens'
-trusted bands are unchanged.
-
-**Issue 118 is done (2026-10-16).** PDX itself's four false `import-guided` edges
-(`Performance::OutOfMemory(..)` drawn to the struct `OutOfMemory`, and three alike) came
-from a Rust `use` brace group read as its prefix's module: every name the group binds was
-taken for that module, so `T::f` became `prefix::f`. Each binding of a group now leads
-where its own path does (below). The four fall to `exact`, still wrong, R3 acceptance
-cases; every trusted band of the goldens and PDX itself has no false edge (Rust golden
-`import-guided` 213/213, PDX 261/261). Stage 3 only: no version moves.
-
-**R3 is done (2026-10-16): issue 102 resolved.** `exact` and `scoped` are weak evidence:
-ordered bands, measured and counted, that never draw an edge (below). The drawn
-structural resolution bands are `typed`, `import-guided` and `inheritance-guided`, and
-none has a known false edge in the goldens or PDX itself. Drawn recall falls, as decision
-65 accepted: correctness first. A declared route's `DEFINES_ROUTE` edge, labelled
-`exact`, stops drawing with it; its band is issue 119 (open).
-
-**R4 is done (2026-10-16): issue 107A resolved, with issue 120.** 54 of the Rust
-golden's 56 oracle relations with no structural site were turbofish calls
-(`f::<T>()`, `x.m::<T>()`) the engine dropped; they are extracted now (patch 0033,
-`ENGINE_VERSION` 13). The other 2 had sites all along: A0's matcher read a comment's `<`
-as generic syntax (issue 120, `a0-match-2`). All 56 are at a site; 29 are drawn, every
-one correct. Issue 107B (macro token trees) and issue 107 stay open.
-
-**R5, the Rust recall package (2026-10-17): issue 105 remediated, 113A, 113B and 116
-resolved.** The Rust golden's 3,151 relations at a structural site with no drawn edge
-were classified first (`scripts/a0/rust_candidates.py`, committed as
-`bench/results/a0/rust-candidate-classification.json`), then recovered by evidence only:
-paths read as Rust reads them, declared parameter, field and return types,
-constructors, `async` and `?` as they are, impl proofs on every dispatch path (patch
-0034, `ENGINE_VERSION` 14, below). Rust golden recall 23.33% → 81.05% with every drawn
-band 100% precise; 788 relations left, each classified (issue 105 stays open for them).
-113C's calls are answered and its naming left open. Do not start issues 106, 108, 107B,
-119, 96, 97, 93B, 82 or P3 until the driver authorises them.
-
-**R5 is saved, not closed (2026-10-25).** Committed as a progress save at the driver's
-request, with four driver decisions still open, so `make engine-test` and
-`make engine-differential` fail by design until they are made (decision 66: never add
-a record to make a run pass):
-1. the engine differential's 81 new `typed` rows (47 exact candidate records: 33 issue
-   113B caller renames, 7 unresolved rows under the path's identity, 3 rows an unknown
-   receiver no longer writes, 2 new answers, 2 `Meter.read`), not ratified;
-2. the `rust_workspace_*` resolve fixtures' one extra typed edge, `main →
-   alpha.Meter.read` (correct; `expected.tsv` is the reference's output and its
-   comparator has no ratification);
-3. A0 matching for PDX itself's `peak.peak()` sites in `assert_eq!` (2 drawn edges A0
-   calls false, both to the method the oracle names at the method's token), which keeps
-   the official three-corpus results (Python 28.82%, Rust 81.05%, PDX itself 88.02%) out
-   of `bench/results/a0/`;
-4. whether issue 105 stays open for its 788 classified residual relations.
-
-**How work is validated (driver, 2026-10-16).** A change is proved by its targeted
-tests (the code it touches, a few focused cases, the dangerous invariants' mutations),
-one end-to-end product test (source → discovery → extraction → cache → resolution →
-segment → the segment's queries), and a measurement of the real corpus it changes.
-Build incrementally; never `cargo clean`. Full certification (`cargo test
---workspace`, full clippy, `make check`, `make vet`, every golden, the full three-corpus
-A0, mutation campaigns, every differential corpus, Ubuntu/macOS/Windows CI) runs at
-integration checkpoints, gate evaluations and releases, and at once when a change
-touches the segment schema, a stored or non-backward-compatible cross-process
-contract, secret normalisation, cache correctness, graph trust semantics or shared
-multi-language infrastructure, or when targeted tests show cross-subsystem effects.
-Prefer a few strong tests across several components to many narrow ones; keep useful
-existing tests. One green exact-SHA CI run is enough; work packages group related
-fixes into one commit.
-
-Measure every change to resolution or extraction with A0 on the corpus it changes, and
-report its typed precision, union precision and recall; `scripts/a0/run.py` (all three
-corpora, the committed results) runs at integration checkpoints (above). Build `pdx-bench` first
-(`cargo build -p pdx-bench`): the runner never builds it, and refuses before measuring
-anything unless `pdx-bench versions` reports the source's engine version, `pdx_core`
-constants and worker protocol (issue 115, resolved). A result's `engine_version` is the
-executed engine's. A recall gain that draws low-confidence edges again is not accepted.
-Not drawing `exact` and `scoped` lowers recall first; that is accepted, correctness
-first. Since R3 (`a0-metrics-2`) the union and recall are the drawn bands' (`typed`,
-`import-guided`, `inheritance-guided`); `exact` and `scoped` keep their own precision,
-measured on the one candidate each keeps, and `union_with_evidence` is the union as it
-was before R3, for comparison only.
+- **A0 (decision 64, issue 95).** A measurement of the Python and Rust goldens and PDX
+  itself against a semantic oracle: `pdx-bench audit-sites` writes the product's Stage 1
+  to 3 decisions; `scripts/a0/` (a SCIP reader, the parsers' call sites, rules M1 to M6,
+  4.13.1's measures, counterfactuals, `run.py`) audits them; `bench/a0/sanity/` holds the
+  oracle sanity fixtures; results and `methodology.md` are in `bench/results/a0/`. The
+  oracles (`scip-python`, `rust-analyzer`) run from an isolated work directory and are
+  never project dependencies. Build `pdx-bench` first: `run.py` refuses an executable
+  whose versions are not the source's (issue 115). Since R3 (`a0-metrics-2`) the union
+  and recall are the drawn bands'.
+- **Decision 65 (A0.3).** `typed`, `import-guided` and `inheritance-guided` are drawn;
+  `exact` and `scoped` are weak evidence (issue 102); a valid typed answer comes before
+  the blocklist (issue 103); recall is a first-class blocker (issues 104 to 108). G1b is
+  pending: its recall floors fail.
+- **Done:** R1 (103), R2 (104, with 109), hotfixes 112 and 115, issues 110, 111, 114,
+  117 and 118, R3 (102), R4 (107A, with 120). R5 (105, with 113A, 113B and 116) is
+  committed as a progress save (`6d1eb18`): Rust golden recall 23.33% → 81.05%, every
+  drawn band 100% precise.
+- **R5's loose ends, now this branch's to close:** the engine differential's 81 new
+  `typed` rows (47 candidate records: 33 issue-113B caller renames, 7 unresolved rows
+  under the path's identity, 3 rows an unknown receiver no longer writes, 2 new
+  answers, 2 `Meter.read`), unratified, so `make engine-differential` fails; the
+  `rust_workspace_*` resolve fixtures' extra correct `main → alpha.Meter.read` edge
+  (`expected.tsv` is the reference's output and its comparator has no ratification), so
+  `make engine-test` fails; A0 matching of PDX itself's `peak.peak()` sites inside
+  `assert_eq!` (2 correct drawn edges A0 calls false), which keeps the official
+  three-corpus results (Python 28.82%, Rust 81.05%, PDX itself 88.02%) out of
+  `bench/results/a0/`; issue 105's 788 classified residual relations.
+- **Remaining remediation steps:** R6 (106, Python candidates), R7 (108, overload
+  identity), R8 (107B, macro token trees), R9 (96, secrets), R10 (97, SQL prose
+  contracts); also issues 93 (Phase B), 82 (Kubernetes performance, G1) and 119 (route
+  band), and P3 onwards.
 
 ## State: P2 in progress
 
@@ -472,7 +361,7 @@ the buffer Stage 2 supplies is the whole input.
   and their closure stays held: issue 93 is open. Its extraction side is fixed (patch
   0026), but the vendored parser's own error recovery is quadratic: JavaScript after an
   unclosed parenthesis parses in about 94 s at 2 MiB (`ts_parser__recover` rebuilding
-  the error node). Changing the parser is the driver's decision. Engine blockers: issues
+  the error node). Changing the parser is a decision to record. Engine blockers: issues
   82 and 93.
 
 Issue 104 (decision 65's R2, patch 0028; engine 8 since issue 112): Rust typed answers
@@ -1044,8 +933,9 @@ of `bench/engine-differential.toml`.
   that no longer occurs fails, multiplicity counts. The file's `reference_commit` must be
   the lock's pin: a pin change fails the run until every record is revalidated. Nothing
   matches by pattern, prefix, field, category or corpus, and a corpus with a ratified
-  divergence is never reported identical. A new difference is a finding for the driver,
-  never a record added to make a run pass.
+  divergence is never reported identical. A new difference is investigated first and
+  ratified only once verified as correct behaviour, with its reason; never to make a run
+  pass.
 - **Tests.** `engine_differential_identical` (crates/pdx-bench) and
   `scripts/engine/test_differential.py` run in `make check`; the live comparison never
   does. All 32 corpora were identical at P2-16 and are again at engines 7 and 8, each engine
@@ -1126,8 +1016,8 @@ python3 scripts/plan/plan-progress.py                                          #
 
 The second script also validates: a task missing from `STATUS.md`, an unknown
 status, a task done with no commit, a task done before its dependencies or gate,
-or a blocked task with no issue entry all fail it. Run it at every phase boundary
-and at the start of every session.
+or a blocked task with no issue entry all fail it. Run it after changing a task's
+status.
 
 Statuses are lower case (`todo`, `in-progress`, `done`, `blocked`) — the
 upper-case marker words are on the provenance deny-list.
@@ -1136,15 +1026,15 @@ upper-case marker words are on the provenance deny-list.
 
 - Execution order is not phase order: P7-01…P7-06 → P8-01…P8-10 → P7-07…P7-12 →
   P7-14 → P8-11 → P9. There is no P7-13 and no P2-15.
-- One task per branch `task/<task-id>-<slug>`; acceptance tests first; `make check`
-  green; update `STATUS.md`; commit as `<task-id>: <task title>`; fast-forward.
+- Stabilisation work happens on `pdx-goal-approach`; a plan task still names its commit
+  `<task-id>: <task title>`, writes its acceptance tests first and updates `STATUS.md`.
 - Unfinished work goes in `docs/plan/ISSUES.md` with a task reference, never as a
   marker comment in code.
 - A blocked task does not stall the plan: record the issue, continue with the next
   task that does not depend on it.
-- Only the driver session evaluates gates, and only the driver edits `STATUS.md`,
-  `ISSUES.md`, `DECISIONS.md`, `GATES.md`, the shared constants, the segment
-  schema, the migrations, the MCP tool schemas and the notices file.
+- Gates are evaluated against `GATES.md`'s criteria with the command output pasted
+  verbatim; a change to the shared constants, the segment schema, the migrations, the
+  MCP tool schemas or the notices file is recorded in `DECISIONS.md`.
 - The plan's one human artefact is the reviewed precise sample truth set
   (`bench/precise-sample/<lang>/truth.jsonl`). The agent generates the samples and
   opens an issue requesting review; only G7 requires the truth sets.

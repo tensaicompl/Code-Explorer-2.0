@@ -15,10 +15,10 @@ The plan document itself is never edited to record progress. Progress lives here
 | `tasks.json` | derived | `scripts/plan/extract-plan.py` — regenerate, never edit |
 | `TASKS.md` | derived | same; the readable task index |
 | `amendments.json` | live | corrections the extractor applies to a task's projected text where a later record (a specification change, a decision, the specification itself) supersedes it; each names its record, and the extractor fails if the text it corrects is gone |
-| `STATUS.md` | live | the driver, at the end of every task |
-| `GATES.md` | live | the driver, when a gate is evaluated |
+| `STATUS.md` | live | whoever finishes a task, at its end |
+| `GATES.md` | live | whoever evaluates a gate |
 | `ISSUES.md` | live | anyone who hits a blocker, ambiguity, SCR or third-party problem |
-| `DECISIONS.md` | live | the driver, whenever a decision rule is applied |
+| `DECISIONS.md` | live | whoever applies a decision rule, with its justification |
 | `PROGRESS.md` | derived | `scripts/plan/plan-progress.py` — the roll-up |
 | `../lint-exceptions.md` | live | whoever adds an inline lint suppression |
 
@@ -51,8 +51,8 @@ The validator fails on: a task missing from `STATUS.md`, an unknown status, a
 task marked done with no commit, a task done before its dependencies or its
 gate, and a blocked task with no entry in `ISSUES.md`.
 
-At a gate, the driver — and only the driver — evaluates every criterion in
-`GATES.md`, pastes the command output verbatim, and records the verdict. A
+At a gate, every criterion in `GATES.md` is evaluated, the command output pasted
+verbatim, and the verdict recorded. A
 failing gate halts progression to the next phase.
 
 A new session starts by reading `STATUS.md`, `ISSUES.md`, `DECISIONS.md` and
