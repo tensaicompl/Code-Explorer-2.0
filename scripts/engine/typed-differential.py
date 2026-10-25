@@ -42,6 +42,11 @@ Two further checks run on our side alone, reference or not:
   assert.tsv      what the fixture exists to prove, written by hand: '+' rows must
                   be present and '-' rows absent ('*' matches any field), so a
                   fixture's point survives even if both engines changed together
+  ratified.tsv    the fixture's ratified divergences from the reference, the engine
+                  differential's rule (decision 66) for fixtures: each line one exact
+                  row, `+` ours only or `-` the reference's only, then kind, source,
+                  target, strategy and the reason. Nothing matches by pattern; a
+                  ratified row that no longer differs fails, as an unratified one does
   file order      adding the files in reverse gives the same answers
   cache           resolving every file from its surface, as a build does for a file
                   its cache holds, gives the same answers as extracting it
@@ -76,10 +81,12 @@ def run_field(key):
 
 
 def ours(dump, fixture, reverse=False, cached=False):
-    """Our rows: {(kind, source, target): set of strategies}."""
-    args = ([str(dump)] + (["--reverse"] if reverse else []) + (["--cached"] if cached else [])
-            + [str(fixture)])
-    out = subprocess.run(args, capture_output=True, text=True)
+    """Our rows: {(kind, source, target): set of strategies}. Run from an empty working
+    directory of its own, the fixture given by absolute path (decision 52)."""
+    args = ([str(pathlib.Path(dump).resolve())] + (["--reverse"] if reverse else [])
+            + (["--cached"] if cached else []) + [str(pathlib.Path(fixture).resolve())])
+    with tempfile.TemporaryDirectory(prefix="pdx-typed-ours-cwd-") as cwd:
+        out = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
     if out.returncode != 0:
         sys.exit(f"error: resolve_dump failed on {fixture}:\n{out.stderr}")
     rows = {}
@@ -93,13 +100,17 @@ def ours(dump, fixture, reverse=False, cached=False):
 
 
 def reference(binary, fixture):
-    """The reference's rows, in the same form, from the graph it builds."""
-    with tempfile.TemporaryDirectory() as cache:
+    """The reference's rows, in the same form, from the graph it builds. Run from an
+    empty working directory of its own, never the fixture, the fixture given by absolute
+    path: nothing around the engine is an input (decision 52, issue 129's T9)."""
+    fixture = pathlib.Path(fixture).resolve()
+    with tempfile.TemporaryDirectory() as cache, \
+            tempfile.TemporaryDirectory(prefix="pdx-typed-reference-cwd-") as cwd:
         os.chmod(cache, 0o700)
         env = dict(os.environ, **{run_field("cache_variable"): cache})
-        args = [str(binary)] + run_field("index_arguments").split() + [
+        args = [str(pathlib.Path(binary).resolve())] + run_field("index_arguments").split() + [
             '{"repo_path":"%s"}' % fixture]
-        done = subprocess.run(args, cwd=fixture, env=env, capture_output=True, text=True)
+        done = subprocess.run(args, cwd=cwd, env=env, capture_output=True, text=True)
         if done.returncode != 0:
             sys.exit(f"error: the reference failed on {fixture}:\n{done.stderr}")
         dbs = [p for p in pathlib.Path(cache).glob("*.db") if not p.name.startswith("_")]
@@ -153,15 +164,47 @@ def from_lines(text):
 ONE_SIDED = ("TEXTUAL", "SITE")
 
 
-def compare(label, expected, actual):
-    """Differences between an expected and an actual row set, as readable lines."""
+def ratified(fixture):
+    """The fixture's ratified divergences: {(sign, kind, source, target, strategy)}, or
+    problems with the file."""
+    path = fixture / "ratified.tsv"
+    rows, problems = set(), []
+    if not path.exists():
+        return rows, problems
+    for line in path.read_text().splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        fields = line.split("\t")
+        if len(fields) != 6 or fields[0] not in "+-" or not fields[5].strip():
+            problems.append(f"  ratified.tsv: malformed line (sign, kind, source, target, "
+                            f"strategy, reason): {line!r}")
+            continue
+        rows.add(tuple(fields[:5]))
+    return rows, problems
+
+
+def compare(label, expected, actual, accepted=frozenset()):
+    """Differences between an expected and an actual row set, as readable lines; a
+    one-sided row `accepted` names exactly (ratified.tsv) is no difference, and an
+    accepted one that does not occur is."""
     expected = {k: v for k, v in expected.items() if k[0] not in ONE_SIDED}
     actual = {k: v for k, v in actual.items() if k[0] not in ONE_SIDED}
     problems = []
+    occurred = set()
     for key in sorted(expected.keys() - actual.keys()):
+        hit = {("-", *key, s) for s in expected[key]} & accepted
+        if hit:
+            occurred |= hit
+            continue
         problems.append(f"  missing  {' '.join(key)}  ({label} has it, we do not)")
     for key in sorted(actual.keys() - expected.keys()):
+        hit = {("+", *key, s) for s in actual[key]} & accepted
+        if hit:
+            occurred |= hit
+            continue
         problems.append(f"  extra    {' '.join(key)}  (we have it, {label} does not)")
+    for row in sorted(accepted - occurred):
+        problems.append(f"  ratified divergence no longer occurs: {' '.join(row)}")
     for key in sorted(expected.keys() & actual.keys()):
         if key[0] == "CALL_REFERENCE":
             continue
@@ -225,7 +268,7 @@ def main():
         expected_file = fixture / "expected.tsv"
         mine = ours(a.dump, fixture)
         recorded = from_lines(expected_file.read_text()) if expected_file.exists() else {}
-        problems = []
+        accepted, problems = ratified(fixture)
         if ours(a.dump, fixture, reverse=True) != mine:
             problems.append("  the answers change when the files are added in reverse order")
         if ours(a.dump, fixture, cached=True) != mine:
@@ -237,13 +280,13 @@ def main():
                 recorded = theirs
             elif expected_file.exists() and recorded != theirs:
                 problems.append("  expected.tsv is stale: the reference now answers differently")
-            problems += compare("the reference", theirs, mine)
+            problems += compare("the reference", theirs, mine, accepted)
             recorded = theirs
         else:
             if not expected_file.exists():
                 problems.append("  no expected.tsv: generate it with --reference --update")
             else:
-                problems += compare("expected.tsv", recorded, mine)
+                problems += compare("expected.tsv", recorded, mine, accepted)
         # The assertions read our rows and the reference's recorded textual edges.
         problems += check_asserts(fixture, {**mine, **{k: v for k, v in recorded.items()
                                                         if k[0] == "TEXTUAL"}})

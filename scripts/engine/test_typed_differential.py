@@ -81,6 +81,30 @@ class TypedDifferential(unittest.TestCase):
         self.assertEqual(done.returncode, 1)
         self.assertIn("missing", done.stdout)
 
+    def test_a_ratified_divergence_is_accepted_exactly(self):
+        # Ours has `lib.helper`; the recorded reference has `lib.x`. Ratifying exactly the
+        # two one-sided rows passes; leaving one out, or naming one that no longer
+        # differs, fails; a malformed line fails.
+        (self.fixture / "expected.tsv").write_text(EXPECTED.replace("lib.helper\tlsp", "lib.x\tlsp"))
+        both = ("+\tCALLS\tapp.run\tlib.helper\tlsp_direct\twhy ours\n"
+                "-\tCALLS\tapp.run\tlib.x\tlsp_direct\twhy theirs\n")
+        (self.fixture / "ratified.tsv").write_text(both)
+        done = self.run_check()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        (self.fixture / "ratified.tsv").write_text(both.splitlines(keepends=True)[0])
+        done = self.run_check()
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("missing", done.stdout)
+        (self.fixture / "expected.tsv").write_text(EXPECTED)
+        (self.fixture / "ratified.tsv").write_text(both)
+        done = self.run_check()
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("no longer occurs", done.stdout)
+        (self.fixture / "ratified.tsv").write_text("+\tCALLS\tapp.run\n")
+        done = self.run_check()
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("malformed", done.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

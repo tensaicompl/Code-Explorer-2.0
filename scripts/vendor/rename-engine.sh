@@ -10,7 +10,7 @@
 #
 # The patterns below are written as character classes rather than literals so that
 # this script does not itself contain the strings it exists to remove.
-set -uo pipefail
+set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 ENGINE="$REPO_ROOT/engine"

@@ -22,6 +22,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
@@ -34,8 +35,11 @@ import score  # noqa: E402
 import syntax  # noqa: E402
 
 # a0-match-2 since a Rust comment in a callee's text is no generic syntax to M1 (issue
-# 120): matching only; the metrics (score.METRICS_VERSION) are unchanged.
-ALGORITHM_VERSION = "a0-match-2"
+# 120); a0-match-3 since a callee range that is only a receiver of the call's own name
+# (`peak.peak()` inside a macro's arguments) leads M1 to the call's name, not the
+# receiver's (issue 121). Matching only; the metrics (score.METRICS_VERSION) are
+# unchanged.
+ALGORITHM_VERSION = "a0-match-3"
 
 CALLABLE_KINDS = {"Function", "Method", "Constructor", "Class", "Struct", "Macro"}
 CONSTRUCTOR_METHODS = {"python": {"__init__", "__new__"}}
@@ -365,7 +369,7 @@ def site_token(site: dict, sources: Sources, language: str, by_node: dict,
     if span:
         token = syntax.callee_name_token(data[span[0]:span[1]], span[0], language)
         if token:
-            return token, "M1"
+            return receiver_named_like_its_call(data, site, token), "M1"
     whole = site.get("span")
     if not whole:
         return None, None
@@ -384,6 +388,27 @@ def site_token(site: dict, sources: Sources, language: str, by_node: dict,
     if token and data[token[0]:token[1]] == name:
         return token, "M1d"
     return None, None
+
+
+def receiver_named_like_its_call(data: bytes, site: dict,
+                                 token: tuple[int, int]) -> tuple[int, int]:
+    """Issue 121 (a0-match-3): the engine gives a call inside a macro's arguments its
+    method's name alone as callee text, as a range wherever those bytes first stand in
+    the site. In `peak.peak()` that is the receiver, a local: when the callee is the
+    bare name and the bytes after it continue a path or member access (`.` or `::`),
+    the call's own name is the later occurrence its argument list (or turbofish)
+    follows. Any other callee range is the name's, as before."""
+    whole = site.get("span")
+    name = (site.get("name") or "").encode()
+    if not whole or not name or data[token[0]:token[1]] != name:
+        return token
+    after = data[token[1]:token[1] + 2]
+    if not (after[:1] == b"." or after == b"::"):
+        return token
+    pattern = re.compile(rb"(?<![A-Za-z0-9_])" + re.escape(name) +
+                         rb"\s*(?:::\s*<[^()]*>\s*)?\(")
+    m = pattern.search(data, token[1], whole[1])
+    return (m.start(), m.start() + len(name)) if m else token
 
 
 def receiver_proof(site: dict, data: bytes | None) -> str:

@@ -1,6 +1,146 @@
 {
   "divergences": [
     {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-body-5351-size-hint",
+      "issue": 105,
+      "reason": "Issue 105: the vendored engine types the receiver by its field's declared type, so the row recording an unknown receiver type is not written; the row both engines write for the method's lookup remains. No answer is given either way.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"self.inner.size_hint\",\"caller\":\"@.axum-core.src.body.BodyDataStream.size_hint\",\"confidence\":0,\"end\":5373,\"file\":\"axum-core/src/body.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":5351,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": null
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-body-5927-is-end-stream",
+      "issue": 105,
+      "reason": "Issue 105: the vendored engine types the receiver by its field's declared type, so the row recording an unknown receiver type is not written; the row both engines write for the method's lookup remains. No answer is given either way.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"self.inner.is_end_stream\",\"caller\":\"@.axum-core.src.body.BodyDataStream.is_end_stream\",\"confidence\":0,\"end\":5953,\"file\":\"axum-core/src/body.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":5927,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": null
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-body-6032-size-hint",
+      "issue": 105,
+      "reason": "Issue 105: the vendored engine types the receiver by its field's declared type, so the row recording an unknown receiver type is not written; the row both engines write for the method's lookup remains. No answer is given either way.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"self.inner.size_hint\",\"caller\":\"@.axum-core.src.body.BodyDataStream.size_hint\",\"confidence\":0,\"end\":6054,\"file\":\"axum-core/src/body.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":6032,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": null
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-body-6714-new",
+      "issue": 105,
+      "reason": "Issue 105: `Error::new(e)` in `axum-core/src/body.rs` names the `Error` that `use crate::{BoxError, Error};` binds; the cross-file pass reads `crate` as the crate's root module (the module index), so the call is typed to axum-core's `Error::new` (`lsp_constructor`). The reference engine keeps `crate.Error.new` as written and has no answer; its unresolved row is the same in both engines.",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.error.Error.new\",\"caller\":\"@.axum-core.src.body.StreamBody<S>.poll_frame\",\"confidence\":\"0.930000007\",\"end\":6729,\"file\":\"axum-core/src/body.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":6714,\"strategy\":\"lsp_constructor\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-default-body-limit-5194-limit",
+      "issue": 105,
+      "reason": "Issue 105: the cross-file typed pass reads the call's path as Rust's name resolution reads it (the module index) and records the call, still unresolved, under that identity beside the per-file pass's row. No answer is given either way.",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.extract.default_body_limit.DefaultBodyLimitKind.Limit\",\"caller\":\"@.axum-core.src.extract.default_body_limit.DefaultBodyLimit.max\",\"confidence\":0,\"end\":5228,\"file\":\"axum-core/src/extract/default_body_limit.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":5194,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-default-body-limit-7104-poll-ready",
+      "issue": 105,
+      "reason": "Issue 105: the cross-file typed pass reads the call's path as Rust's name resolution reads it (the module index) and records the call, still unresolved, under that identity beside the per-file pass's row. No answer is given either way.",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.extract.default_body_limit.S.poll_ready\",\"caller\":\"@.axum-core.src.extract.default_body_limit.DefaultBodyLimitService<S>.poll_ready\",\"confidence\":0,\"end\":7129,\"file\":\"axum-core/src/extract/default_body_limit.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":7104,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-default-body-limit-7289-call",
+      "issue": 105,
+      "reason": "Issue 105: the cross-file typed pass reads the call's path as Rust's name resolution reads it (the module index) and records the call, still unresolved, under that identity beside the per-file pass's row. No answer is given either way.",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.extract.default_body_limit.S.call\",\"caller\":\"@.axum-core.src.extract.default_body_limit.DefaultBodyLimitService<S>.call\",\"confidence\":0,\"end\":7309,\"file\":\"axum-core/src/extract/default_body_limit.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":7289,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-error-609-fmt",
+      "issue": 105,
+      "reason": "Issue 105: in `impl fmt::Display for Error`, `self.inner` is typed by the field's declared type, `BoxError` (`inner: BoxError`), so `self.inner.fmt(f)` gets the prelude trait's best-effort answer on that type (`lsp_prelude_trait`), whose target is no definition of the repository (Stage 3: external). The reference engine did not type the field and recorded an unknown receiver type.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"self.inner.fmt\",\"caller\":\"@.axum-core.src.error.Error.fmt\",\"confidence\":0,\"end\":626,\"file\":\"axum-core/src/error.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":609,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.lib.BoxError.fmt\",\"caller\":\"@.axum-core.src.error.Error.fmt\",\"confidence\":\"0.850000024\",\"end\":626,\"file\":\"axum-core/src/error.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":609,\"strategy\":\"lsp_prelude_trait\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-request-parts-1882-into-limited-body",
+      "issue": 105,
+      "reason": "Issue 105: the cross-file typed pass reads the call's path as Rust's name resolution reads it (the module index) and records the call, still unresolved, under that identity beside the per-file pass's row. No answer is given either way.",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.extract.mod.Request.into_limited_body\",\"caller\":\"@.axum-core.src.extract.request_parts.BytesMut.from_request\",\"confidence\":0,\"end\":1905,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":1882,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-request-parts-2193-frame",
+      "issue": 105,
+      "reason": "Issue 105: the cross-file typed pass reads the call's path as Rust's name resolution reads it (the module index) and records the call, still unresolved, under that identity beside the per-file pass's row. No answer is given either way.",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.body.Body.frame\",\"caller\":\"@.axum-core.src.extract.request_parts.body_to_bytes_mut\",\"confidence\":0,\"end\":2214,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":2193,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-request-parts-2711-into-limited-body",
+      "issue": 105,
+      "reason": "Issue 105: the cross-file typed pass reads the call's path as Rust's name resolution reads it (the module index) and records the call, still unresolved, under that identity beside the per-file pass's row. No answer is given either way.",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.extract.mod.Request.into_limited_body\",\"caller\":\"@.axum-core.src.extract.request_parts.Bytes.from_request\",\"confidence\":0,\"end\":2747,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":2711,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-105-axum-request-parts-4279-into-body",
+      "issue": 105,
+      "reason": "Issue 105: the cross-file typed pass reads the call's path as Rust's name resolution reads it (the module index) and records the call, still unresolved, under that identity beside the per-file pass's row. No answer is given either way.",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.extract.mod.Request.into_body\",\"caller\":\"@.axum-core.src.extract.request_parts.Body.from_request\",\"confidence\":0,\"end\":4294,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":4279,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "rust_workspace_with_supplied_manifest",
+      "decision": 66,
+      "id": "issue-105-rust-workspace-with-supplied-manifest-main-78-read",
+      "issue": 105,
+      "reason": "Issue 105: `alpha::Meter { v: 3 }` names the crate `alpha`'s `Meter` (the module index reads a crate's name as Rust does), so `m.read()` is typed to that type's method; the reference engine answers the call by its name's uniqueness only (a textual stage).",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.crates.alpha.src.lib.Meter.read\",\"caller\":\"@.crates.beta.src.main.main\",\"confidence\":\"0.949999988\",\"end\":86,\"file\":\"crates/beta/src/main.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":78,\"strategy\":\"lsp_method_dispatch\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "rust_workspace_without_manifest",
+      "decision": 66,
+      "id": "issue-105-rust-workspace-without-manifest-main-78-read",
+      "issue": 105,
+      "reason": "Issue 105: `alpha::Meter { v: 3 }` names the crate `alpha`'s `Meter` (the module index reads a crate's name as Rust does), so `m.read()` is typed to that type's method; the reference engine answers the call by its name's uniqueness only (a textual stage).",
+      "reference_row": null,
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.crates.alpha.src.lib.Meter.read\",\"caller\":\"@.crates.beta.src.main.main\",\"confidence\":\"0.949999988\",\"end\":86,\"file\":\"crates/beta/src/main.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":78,\"strategy\":\"lsp_method_dispatch\"}"
+    },
+    {
       "category": "calls",
       "corpus": "golden:rust/axum",
       "decision": 66,
@@ -159,6 +299,336 @@
       "reason": "Issue 111 replaces the reference engine's textual Rust-use parser with syntax-tree use-tree parsing. The reference incorrectly treats visibility and the whole use declaration as part of the imported path. The vendored engine records the actual Rust import path.",
       "reference_row": "{\"c\":\"typed\",\"callee\":\"pub(crate) use unknown.Unknown.new\",\"caller\":\"@.axum-core.src.body.Body.unknown\",\"confidence\":0,\"end\":2615,\"file\":\"axum-core/src/body.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":2601,\"strategy\":\"lsp_unresolved\"}",
       "vendored_row": "{\"c\":\"typed\",\"callee\":\"unknown.Unknown.new\",\"caller\":\"@.axum-core.src.body.Body.unknown\",\"confidence\":0,\"end\":2615,\"file\":\"axum-core/src/body.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":2601,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-mod-3806-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"Result<T, T.Rejection>.from_request_parts\",\"confidence\":0,\"end\":3851,\"file\":\"axum-core/src/extract/mod.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3806,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.mod.Result<T, T::Rejection>.from_request_parts\",\"confidence\":0,\"end\":3851,\"file\":\"axum-core/src/extract/mod.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3806,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-mod-3809-from-request-parts",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"T.from_request_parts\",\"caller\":\"Result<T, T.Rejection>.from_request_parts\",\"confidence\":0,\"end\":3844,\"file\":\"axum-core/src/extract/mod.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3809,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"T.from_request_parts\",\"caller\":\"@.axum-core.src.extract.mod.Result<T, T::Rejection>.from_request_parts\",\"confidence\":0,\"end\":3844,\"file\":\"axum-core/src/extract/mod.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3809,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-mod-4094-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"Result<T, T.Rejection>.from_request\",\"confidence\":0,\"end\":4131,\"file\":\"axum-core/src/extract/mod.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":4094,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.mod.Result<T, T::Rejection>.from_request\",\"confidence\":0,\"end\":4131,\"file\":\"axum-core/src/extract/mod.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":4094,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-1148-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"http.Version.from_request_parts\",\"confidence\":0,\"end\":1165,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":1148,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.Version.from_request_parts\",\"confidence\":0,\"end\":1165,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":1148,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-1587-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"http.HeaderMap.from_request_parts\",\"confidence\":0,\"end\":1612,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":1587,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.HeaderMap.from_request_parts\",\"confidence\":0,\"end\":1612,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":1587,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-1590-clone",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"parts.headers.clone\",\"caller\":\"http.HeaderMap.from_request_parts\",\"confidence\":0,\"end\":1611,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":1590,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"parts.headers.clone\",\"caller\":\"@.axum-core.src.extract.request_parts.HeaderMap.from_request_parts\",\"confidence\":0,\"end\":1611,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":1590,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-1882-into-limited-body",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"super.Request.into_limited_body\",\"caller\":\"bytes.BytesMut.from_request\",\"confidence\":0,\"end\":1905,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":1882,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"super.Request.into_limited_body\",\"caller\":\"@.axum-core.src.extract.request_parts.BytesMut.from_request\",\"confidence\":0,\"end\":1905,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":1882,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-1966-new",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"bytes.BytesMut.new\",\"caller\":\"bytes.BytesMut.from_request\",\"confidence\":0,\"end\":1981,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":1966,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"bytes.BytesMut.new\",\"caller\":\"@.axum-core.src.extract.request_parts.BytesMut.from_request\",\"confidence\":0,\"end\":1981,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":1966,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-1991-body-to-bytes-mut",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.extract.request_parts.body_to_bytes_mut\",\"caller\":\"bytes.BytesMut.from_request\",\"confidence\":\"0.949999988\",\"end\":2031,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":1991,\"strategy\":\"lsp_direct\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"@.axum-core.src.extract.request_parts.body_to_bytes_mut\",\"caller\":\"@.axum-core.src.extract.request_parts.BytesMut.from_request\",\"confidence\":\"0.949999988\",\"end\":2031,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":1991,\"strategy\":\"lsp_direct\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-2048-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"bytes.BytesMut.from_request\",\"confidence\":0,\"end\":2057,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":2048,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.BytesMut.from_request\",\"confidence\":0,\"end\":2057,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":2048,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-2711-collect",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"req\\n            .into_limited_body().collect\",\"caller\":\"bytes.Bytes.from_request\",\"confidence\":0,\"end\":2770,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":2711,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"req\\n            .into_limited_body().collect\",\"caller\":\"@.axum-core.src.extract.request_parts.Bytes.from_request\",\"confidence\":0,\"end\":2770,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":2711,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-2711-into-limited-body",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"super.Request.into_limited_body\",\"caller\":\"bytes.Bytes.from_request\",\"confidence\":0,\"end\":2747,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":2711,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"super.Request.into_limited_body\",\"caller\":\"@.axum-core.src.extract.request_parts.Bytes.from_request\",\"confidence\":0,\"end\":2747,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":2711,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-2711-map-err",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"req\\n            .into_limited_body()\\n            .collect()\\n            .await.map_err\",\"caller\":\"bytes.Bytes.from_request\",\"confidence\":0,\"end\":2840,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":2711,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"req\\n            .into_limited_body()\\n            .collect()\\n            .await.map_err\",\"caller\":\"@.axum-core.src.extract.request_parts.Bytes.from_request\",\"confidence\":0,\"end\":2840,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":2711,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-2711-to-bytes",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"req\\n            .into_limited_body()\\n            .collect()\\n            .await\\n            .map_err(FailedToBufferBody::from_err)?.to_bytes\",\"caller\":\"bytes.Bytes.from_request\",\"confidence\":0,\"end\":2865,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":2711,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"req\\n            .into_limited_body()\\n            .collect()\\n            .await\\n            .map_err(FailedToBufferBody::from_err)?.to_bytes\",\"caller\":\"@.axum-core.src.extract.request_parts.Bytes.from_request\",\"confidence\":0,\"end\":2865,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":2711,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-2876-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"bytes.Bytes.from_request\",\"confidence\":0,\"end\":2885,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":2876,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.Bytes.from_request\",\"confidence\":0,\"end\":2885,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":2876,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-3102-from-request",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"bytes.Bytes.from_request\",\"caller\":\"alloc.string.String.from_request\",\"confidence\":0,\"end\":3133,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3102,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"bytes.Bytes.from_request\",\"caller\":\"@.axum-core.src.extract.request_parts.String.from_request\",\"confidence\":0,\"end\":3133,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3102,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-3102-map-err",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"Bytes::from_request(req, state)\\n            .await.map_err\",\"caller\":\"alloc.string.String.from_request\",\"confidence\":0,\"end\":3350,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":3102,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"Bytes::from_request(req, state)\\n            .await.map_err\",\"caller\":\"@.axum-core.src.extract.request_parts.String.from_request\",\"confidence\":0,\"end\":3350,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":3102,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-3275-failedtobufferbody",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"StringRejection.FailedToBufferBody\",\"caller\":\"alloc.string.String.from_request\",\"confidence\":0,\"end\":3317,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3275,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"StringRejection.FailedToBufferBody\",\"caller\":\"@.axum-core.src.extract.request_parts.String.from_request\",\"confidence\":0,\"end\":3317,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3275,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-3410-from-utf8",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"alloc.string.String.from_utf8\",\"caller\":\"alloc.string.String.from_request\",\"confidence\":\"0.949999988\",\"end\":3441,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":3410,\"strategy\":\"lsp_direct\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"alloc.string.String.from_utf8\",\"caller\":\"@.axum-core.src.extract.request_parts.String.from_request\",\"confidence\":\"0.949999988\",\"end\":3441,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":3410,\"strategy\":\"lsp_direct\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-3410-map-err",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"alloc.string.String.map_err\",\"caller\":\"alloc.string.String.from_request\",\"confidence\":0,\"end\":3472,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":3410,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"alloc.string.String.map_err\",\"caller\":\"@.axum-core.src.extract.request_parts.String.from_request\",\"confidence\":0,\"end\":3472,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":3410,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-3428-into",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"bytes.into\",\"caller\":\"alloc.string.String.from_request\",\"confidence\":0,\"end\":3440,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":3428,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"bytes.into\",\"caller\":\"@.axum-core.src.extract.request_parts.String.from_request\",\"confidence\":0,\"end\":3440,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":3428,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-3484-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"alloc.string.String.from_request\",\"confidence\":0,\"end\":3494,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3484,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.String.from_request\",\"confidence\":0,\"end\":3494,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3484,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-3763-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"http.request.Parts.from_request_parts\",\"confidence\":0,\"end\":3780,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3763,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.Parts.from_request_parts\",\"confidence\":0,\"end\":3780,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":3763,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-3766-clone",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"http.request.Parts.clone\",\"caller\":\"http.request.Parts.from_request_parts\",\"confidence\":\"0.850000024\",\"end\":3779,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":3766,\"strategy\":\"lsp_prelude_trait\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"http.request.Parts.clone\",\"caller\":\"@.axum-core.src.extract.request_parts.Parts.from_request_parts\",\"confidence\":\"0.850000024\",\"end\":3779,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":null,\"start\":3766,\"strategy\":\"lsp_prelude_trait\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-4054-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"http.Extensions.from_request_parts\",\"confidence\":0,\"end\":4082,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":4054,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.Extensions.from_request_parts\",\"confidence\":0,\"end\":4082,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":4054,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-4057-clone",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"parts.extensions.clone\",\"caller\":\"http.Extensions.from_request_parts\",\"confidence\":0,\"end\":4081,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":4057,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"parts.extensions.clone\",\"caller\":\"@.axum-core.src.extract.request_parts.Extensions.from_request_parts\",\"confidence\":0,\"end\":4081,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":4057,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-4276-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"crate.body.Body.from_request\",\"confidence\":0,\"end\":4295,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":4276,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.Body.from_request\",\"confidence\":0,\"end\":4295,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":4276,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-4279-into-body",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"super.Request.into_body\",\"caller\":\"crate.body.Body.from_request\",\"confidence\":0,\"end\":4294,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":4279,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"super.Request.into_body\",\"caller\":\"@.axum-core.src.extract.request_parts.Body.from_request\",\"confidence\":0,\"end\":4294,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"method_not_found\",\"start\":4279,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-462-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"super.Request.from_request\",\"confidence\":0,\"end\":469,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":462,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.Request.from_request\",\"confidence\":0,\"end\":469,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":462,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-681-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"http.Method.from_request_parts\",\"confidence\":0,\"end\":705,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":681,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.Method.from_request_parts\",\"confidence\":0,\"end\":705,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":681,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-684-clone",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"parts.method.clone\",\"caller\":\"http.Method.from_request_parts\",\"confidence\":0,\"end\":704,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":684,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"parts.method.clone\",\"caller\":\"@.axum-core.src.extract.request_parts.Method.from_request_parts\",\"confidence\":0,\"end\":704,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":684,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-914-ok",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"http.Uri.from_request_parts\",\"confidence\":0,\"end\":935,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":914,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"core.result.Result.Ok\",\"caller\":\"@.axum-core.src.extract.request_parts.Uri.from_request_parts\",\"confidence\":0,\"end\":935,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"function_not_in_registry\",\"start\":914,\"strategy\":\"lsp_unresolved\"}"
+    },
+    {
+      "category": "typed",
+      "corpus": "golden:rust/axum",
+      "decision": 66,
+      "id": "issue-113b-axum-request-parts-917-clone",
+      "issue": 113,
+      "reason": "Issue 113B: the vendored engine names the caller of a call made in an impl's method as extraction names that method's owner, the file's module and the impl's type as written; the reference names it by the type read through its import. The same call and the same outcome; only the caller differs.",
+      "reference_row": "{\"c\":\"typed\",\"callee\":\"parts.uri.clone\",\"caller\":\"http.Uri.from_request_parts\",\"confidence\":0,\"end\":934,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":917,\"strategy\":\"lsp_unresolved\"}",
+      "vendored_row": "{\"c\":\"typed\",\"callee\":\"parts.uri.clone\",\"caller\":\"@.axum-core.src.extract.request_parts.Uri.from_request_parts\",\"confidence\":0,\"end\":934,\"file\":\"axum-core/src/extract/request_parts.rs\",\"kind\":0,\"origin\":0,\"reason\":\"unknown_receiver_type\",\"start\":917,\"strategy\":\"lsp_unresolved\"}"
     },
     {
       "category": "typed",

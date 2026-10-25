@@ -117,7 +117,7 @@ report() { echo "provenance scan: $*" >&2; status=1; }
 
 # 1. Upstream names, URLs, product names, handles and symbol prefixes.
 while IFS= read -r pattern; do
-  hits="$(grep -rniHE -- "$pattern" "${TEXT[@]}" 2>/dev/null | head -20)"
+  hits="$(LC_ALL=C grep -rniHE -- "$pattern" "${TEXT[@]}" 2>/dev/null | head -20)"
   if [ -n "$hits" ]; then
     report "denied string /$pattern/ found:"
     sed 's/^/    /' <<<"$hits" >&2
@@ -126,7 +126,7 @@ done < <(denied_patterns "$DENYLIST")
 
 # 2. Marker words, in non-test files we author.
 while IFS= read -r word; do
-  hits="$(grep -rnHE -- "\\b${word}\\b" "${TEXT[@]}" 2>/dev/null \
+  hits="$(LC_ALL=C grep -rnHE -- "\\b${word}\\b" "${TEXT[@]}" 2>/dev/null \
           | grep -vE '(^|/)(tests?|__tests__)/|_test\.|\.test\.|\.spec\.' \
           | grep -vE '^\.?/?engine/' | head -20)"
   if [ -n "$hits" ]; then
@@ -166,7 +166,7 @@ while IFS= read -r line; do
     case "$url" in "$prefix"*) ok=1; break ;; esac
   done
   [ "$ok" -eq 1 ] || report "URL not on the allow list: $url ($file)"
-done < <(grep -roHE 'https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%-]+' "${TEXT[@]}" 2>/dev/null)
+done < <(LC_ALL=C grep -roHE 'https?://[A-Za-z0-9._~:/?#@!$&()*+,;=%-]+' "${TEXT[@]}" 2>/dev/null)
 
 if [ "$status" -eq 0 ]; then
   echo "provenance scan: clean ($text_count files)"

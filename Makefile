@@ -1,11 +1,9 @@
 # Build and verification entry points.
 #
-# check      runs on every push and must be green before any task is merged.
-# check-full runs nightly and on release tags.
-#
-# The licence, provenance and bundle-budget steps are added by the task that
-# creates the scanners; the targets below already call them so that task only
-# has to supply the scripts.
+# check      runs on every push of a CI branch and must be green before any merge.
+# check-full runs nightly (each suite a step of its own) and on release tags.
+# deny       the whole dependency policy (advisories, bans, licences, sources); it
+#            fetches the advisory database, so it runs in CI, not in check.
 
 SHELL := /bin/bash
 CARGO ?= cargo
@@ -17,7 +15,7 @@ UI    := ui
         ui-install ui-lint ui-test ui-build bundle-budget \
         licence-scan provenance-scan open-binary-check \
         golden oracle e2e check-asan asan determinism engine-differential perf \
-        vet bindgen vendor-refresh vendor-verify clean
+        vet deny bindgen vendor-refresh vendor-verify clean
 
 all: check
 
@@ -87,6 +85,10 @@ test: engine
 vet:
 	@scripts/cargo-vet.sh
 
+# The pinned cargo-deny, over deny.toml's whole policy.
+deny:
+	@scripts/cargo-deny.sh check
+
 # The two constant definitions must agree.
 consts-sync:
 	@python3 scripts/consts-sync.py --root .
@@ -111,7 +113,7 @@ ui-test:
 ui-build:
 	cd $(UI) && $(PNPM) run build
 
-bundle-budget:
+bundle-budget: ui-build
 	@scripts/bundle-budget.sh
 
 # --- scanners (scripts arrive with the scanner task) -----------------------
@@ -188,7 +190,7 @@ vendor-verify:
 
 vendor-refresh:
 	@scripts/vendor/fetch-engine.sh
-	@scripts/vendor/copy-engine.sh
+	@scripts/vendor/copy-engine.sh --force
 	@scripts/vendor/rename-engine.sh
 	@scripts/vendor/strip-engine.sh
 	@scripts/vendor/apply-patches.sh

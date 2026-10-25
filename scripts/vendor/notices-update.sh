@@ -8,7 +8,7 @@
 #
 # The notices file is a legal document and is the one place permitted to name an
 # upstream, which is why it is excluded from the provenance scan.
-set -uo pipefail
+set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 NOTICES="$REPO_ROOT/THIRD_PARTY_NOTICES.md"

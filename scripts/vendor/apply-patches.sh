@@ -13,7 +13,7 @@
 # found as a prefix of the series: the longest one that reverses cleanly, last patch
 # first, on a scratch copy of the files the series touches. The rest is then applied
 # in order.
-set -uo pipefail
+set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 ENGINE="$REPO_ROOT/engine"

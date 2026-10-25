@@ -8,7 +8,7 @@
 #
 # This step copies only. The upstream names are still present afterwards; the rename
 # step removes them and the provenance scan is the check.
-set -uo pipefail
+set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 assert_pinned "$ENGINE_REF_NAME"
@@ -21,7 +21,8 @@ MAP="$REPO_ROOT/scripts/vendor/copy-map.txt"
 # this script is scanned for exactly that.
 upstream() {
   local key="$1" value
-  value="$(grep -E "^${key}\b" "$MAP" | head -1 | cut -f2)"
+  # The first line of the key, read without a pipeline a closed reader could fail.
+  value="$(grep -m1 -E "^${key}\b" "$MAP" | cut -f2)" || value=""
   [ -n "$value" ] || die "the path map has no entry for $key"
   echo "$SRC/$value"
 }

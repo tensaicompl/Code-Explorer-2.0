@@ -1,0 +1,3 @@
+# Ratified divergences from the reference (decision 66 for fixtures; see
+# scripts/engine/typed-differential.py): one exact row each, then the reason.
++	CALLS	crates.beta.src.main.main	crates.alpha.src.lib.Meter.read	lsp_method_dispatch	Issue 105: `alpha::Meter { v: 3 }` names the crate alpha's Meter (a crate's name read as Rust reads it), so `m.read()` is typed to that type's method; the reference answers the call by its name's uniqueness only (a textual stage, its expected.tsv TEXTUAL row).

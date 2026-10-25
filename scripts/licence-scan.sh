@@ -18,9 +18,9 @@ allowed() {
   return 1
 }
 
-# 1. Rust dependencies.
+# 1. Rust dependencies, by the pinned cargo-deny (the whole policy is `make deny`).
 if command -v cargo-deny >/dev/null 2>&1; then
-  if ! cargo deny --log-level error check licenses 2>&1 | sed 's/^/    /'; then
+  if ! CARGO_DENY_LOG_LEVEL=error scripts/cargo-deny.sh check licenses 2>&1 | sed 's/^/    /'; then
     report "cargo deny rejected a dependency licence"
   else
     echo "licence scan: rust dependencies clean"
@@ -34,27 +34,36 @@ if [ -d ui/node_modules ]; then
   # The allow list governs what we distribute. The bundle contains production
   # dependencies only, so those are enforced; build tooling that never reaches a
   # user is listed instead, so an outlier is visible without failing the build.
+  # One line per licence, "<id>\t<packages>". A pnpm that cannot be run, fails or
+  # answers with something that is not its JSON is a failure: nothing was checked.
   licences_of() {
-    (cd ui && pnpm licenses list "$@" --json 2>/dev/null) | python3 -c 'import json,sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-if isinstance(d, dict):
-    for licence, pkgs in sorted(d.items()):
-        names = ",".join(sorted({p.get("name", "?") for p in pkgs}))
-        print(f"{licence}\t{names}")'
+    local raw
+    raw="$(cd ui && pnpm licenses list "$@" --json 2>/dev/null)" || return 1
+    printf '%s' "$raw" | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+if not isinstance(d, dict):
+    sys.exit(1)
+for licence, pkgs in sorted(d.items()):
+    names = ",".join(sorted({p.get("name", "?") for p in pkgs}))
+    print(f"{licence}\t{names}")'
   }
 
-  while IFS=$'\t' read -r id names; do
-    [ -n "$id" ] || continue
-    allowed "$id" || report "shipped interface dependency licence not allowed: $id ($names)"
-  done < <(licences_of --prod)
-
-  while IFS=$'\t' read -r id names; do
-    [ -n "$id" ] || continue
-    allowed "$id" || echo "licence scan: note, build-only dependency outside the allow list: $id ($names)"
-  done < <(licences_of)
+  if ! shipped="$(licences_of --prod)"; then
+    report "pnpm could not list the shipped interface dependencies' licences"
+  else
+    while IFS=$'\t' read -r id names; do
+      [ -n "$id" ] || continue
+      allowed "$id" || report "shipped interface dependency licence not allowed: $id ($names)"
+    done <<< "$shipped"
+  fi
+  if ! everything="$(licences_of)"; then
+    report "pnpm could not list the interface dependencies' licences"
+  else
+    while IFS=$'\t' read -r id names; do
+      [ -n "$id" ] || continue
+      allowed "$id" || echo "licence scan: note, build-only dependency outside the allow list: $id ($names)"
+    done <<< "$everything"
+  fi
 
   echo "licence scan: interface dependencies checked"
 else
@@ -78,13 +87,25 @@ for dir in "${vendored[@]}"; do
     report "vendored directory without a licence file: $dir"
     continue
   fi
-  if ! grep -q "$dir" THIRD_PARTY_NOTICES.md 2>/dev/null; then
+  # Named exactly: `engine/grammars/c/` is not satisfied by `c_sharp` or `cpp`.
+  if ! grep -qF "\`${dir}/" THIRD_PARTY_NOTICES.md 2>/dev/null; then
     report "vendored directory absent from the notices file: $dir"
   fi
   # The licence recorded for it in the notices must be one we allow. Vendored code
-  # under anything else may not be in the tree at all, whatever the notices say.
-  recorded="$(grep -A6 -F "\`${dir}/\`" THIRD_PARTY_NOTICES.md 2>/dev/null \
-              | grep -m1 -oE '\*\*Licence\*\*: .*' | sed 's/^\*\*Licence\*\*: //')"
+  # under anything else may not be in the tree at all, whatever the notices say. A
+  # grammar is a table row whose last cell is its licence file and whose second cell is
+  # the licence; any other component has a heading and a **Licence** line.
+  case "$dir" in
+    engine/grammars/*)
+      recorded="$(grep -F "\`${dir}/" THIRD_PARTY_NOTICES.md 2>/dev/null | head -1 \
+                  | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $3); print $3}')"
+      [ -n "$recorded" ] || report "vendored grammar without a recorded licence: $dir"
+      ;;
+    *)
+      recorded="$(grep -A6 -F "\`${dir}/\`" THIRD_PARTY_NOTICES.md 2>/dev/null \
+                  | grep -m1 -oE '\*\*Licence\*\*: .*' | sed 's/^\*\*Licence\*\*: //')"
+      ;;
+  esac
   if [ -n "$recorded" ]; then
     allowed "$recorded" || report "vendored directory under a licence we do not allow: $dir ($recorded)"
   fi

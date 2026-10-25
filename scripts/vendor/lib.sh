@@ -7,7 +7,9 @@
 # Hard-coding any of it would fail the scan and, worse, would let the tree drift
 # from the pinned commit.
 
-set -uo pipefail
+# Errors stop every vendoring script (issue 129, T7): a command that fails, a pipeline
+# with a failing part, a command substitution whose `die` only left its subshell.
+set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LOCK_FILE="$REPO_ROOT/bench/references.lock"

@@ -5,7 +5,7 @@
 #
 # Needs the pinned checkout (scripts/vendor/fetch-engine.sh) and a clean engine/: it
 # rewrites the vendored parts in place, and a change it makes is the finding.
-set -uo pipefail
+set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 cd "$REPO_ROOT"

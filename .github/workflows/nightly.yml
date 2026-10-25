@@ -25,7 +25,9 @@ jobs:
       - name: Show toolchain
         run: rustup show
 
-      - uses: actions/cache@v4
+      # Restored here and saved at the end whatever happened, so a red night does not
+      # fetch every golden and scale repository again the next.
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cargo/registry
@@ -37,8 +39,8 @@ jobs:
           key: nightly-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'bench/repos.lock') }}
           restore-keys: nightly-
 
-      - name: Install the dependency policy checker
-        run: command -v cargo-deny >/dev/null || cargo install --locked cargo-deny
+      - name: Install the pinned dependency policy checker
+        run: scripts/cargo-deny.sh install
 
       - uses: actions/setup-node@v4
         with:
@@ -53,15 +55,51 @@ jobs:
       - name: Install interface dependencies
         run: make ui-install
 
-      - name: check-full
-        run: make check-full
+      # check-full, one suite a step, each run whatever the one before it did: a failing
+      # golden never hides the sanitizers, determinism or the engine differential.
+      - name: check
+        run: make check
+      - name: golden
+        if: always()
+        run: make golden
+      - name: sanitizers
+        if: always()
+        run: make check-asan
+      - name: determinism
+        if: always()
+        run: make determinism
+      - name: engine differential
+        if: always()
+        run: make engine-differential
+      - name: performance
+        if: always()
+        run: make perf
 
-      # The same supply-chain check as every push (ci.yml), on what is built tonight.
+      # The same supply-chain checks as every push (ci.yml), on what is built tonight.
       - name: Install the pinned cargo-vet
+        if: always()
         run: scripts/cargo-vet.sh install
 
       - name: cargo vet
+        if: always()
         run: make vet
+
+      - name: cargo deny
+        if: always()
+        run: make deny
+
+      - name: Save the caches
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-deny
+            ~/.cargo/bin/cargo-vet
+            target
+            bench/.cache
+          key: nightly-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'bench/repos.lock') }}-${{ github.run_id }}
 
       - name: Publish the results
         if: always()

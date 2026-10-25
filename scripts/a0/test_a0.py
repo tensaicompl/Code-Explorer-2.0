@@ -106,10 +106,25 @@ class NameTokens(unittest.TestCase):
             self.assertEqual(text.encode()[s - 100:e - 100].decode(), name, text)
 
     def test_matching_and_metrics_versions(self):
-        """Matching is a0-match-2 since issue 120; the metrics' definitions did not
+        """Matching is a0-match-3 since issue 121; the metrics' definitions did not
         change, so they stay a0-metrics-2. Both are every result's provenance."""
-        self.assertEqual(audit.ALGORITHM_VERSION, "a0-match-2")
+        self.assertEqual(audit.ALGORITHM_VERSION, "a0-match-3")
         self.assertEqual(score.METRICS_VERSION, "a0-metrics-2")
+
+    def test_a_receiver_named_like_its_call_is_not_its_name(self):
+        """Issue 121: `assert_eq!(peak.peak(), None)`'s site carries callee text `peak`
+        ranged on the receiver; M1 takes the call's own name. A callee range followed by
+        its argument list is unchanged (`servers(doc.get("servers"))`)."""
+        data = b"x(peak.peak(), None); servers(doc.get(\"servers\")); a::b::<u8>::b::<T>(1)"
+        site = {"span": [2, 13], "name": "peak"}
+        self.assertEqual(audit.receiver_named_like_its_call(data, site, (2, 6)), (7, 11))
+        s = data.index(b"servers(")
+        site = {"span": [s, s + 28], "name": "servers"}
+        self.assertEqual(audit.receiver_named_like_its_call(data, site, (s, s + 7)), (s, s + 7))
+        s = data.index(b"a::b")
+        site = {"span": [s, len(data)], "name": "b"}
+        self.assertEqual(audit.receiver_named_like_its_call(data, site, (s + 3, s + 4)),
+                         (s + 12, s + 13))
 
     def test_python_calls_are_named_by_their_last_name(self):
         src = b"import json\n\ndef f(x):\n    json.dumps(x)\n    g()(1)\n"
@@ -359,7 +374,7 @@ class Issue107ASites(unittest.TestCase):
                                   missing[key]["shape"]),
                                  (r["line"], r["oracle_target"], r["shape"]), key)
         else:
-            self.assertEqual(provenance["site_matching_version"], "a0-match-2")
+            self.assertIn(provenance["site_matching_version"], ("a0-match-2", "a0-match-3"))
             self.assertEqual(set(evidence) & set(missing), set())
 
 

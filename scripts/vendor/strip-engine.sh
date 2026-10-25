@@ -12,7 +12,7 @@
 # The report is advice, not an instruction: a file referenced only from a header
 # macro, or only under a platform the report did not build for, will look unused.
 # Deletions are reviewed and added to the list by hand.
-set -uo pipefail
+set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 ENGINE="$REPO_ROOT/engine"

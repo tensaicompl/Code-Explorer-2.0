@@ -8,7 +8,8 @@
 //!   project-authored and committed, every file of which is listed: a compared source
 //!   (`files`), a support file staged for the engines but never compared (`support`:
 //!   `pdx-metadata.txt` for the vendored engine, the native manifest it stands for for
-//!   the reference), or the fixture's own `assert.tsv` and `expected.tsv`.
+//!   the reference), or the fixture's own `assert.tsv`, `expected.tsv` and
+//!   `ratified.tsv` (the typed comparator's ratified divergences).
 //! - `[[golden]]`: a bounded subset of a typed-tier golden repository, its paths at the
 //!   commit `bench/repos.lock` pins, fetched as the golden harness fetches (P2-12). No
 //!   source is committed; the paths are, so a pin refresh never silently changes what is
@@ -42,7 +43,7 @@ pub const MANIFEST: &str = "bench/engine-differential.toml";
 pub const FIXTURE_ROOT: &str = "engine/tests/fixtures/resolve";
 
 /// A fixture's own files, which no engine reads.
-pub const FIXTURE_RECORDS: [&str; 2] = ["assert.tsv", "expected.tsv"];
+pub const FIXTURE_RECORDS: [&str; 3] = ["assert.tsv", "expected.tsv", "ratified.tsv"];
 
 /// The fewest and most files a golden subset holds.
 pub const SUBSET_FILES: std::ops::RangeInclusive<usize> = 2..=10;

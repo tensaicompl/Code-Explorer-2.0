@@ -3,7 +3,7 @@
 # into a directory outside the repository, and verifies its licence.
 #
 # Nothing is copied into the tree here. That is copy-engine.sh.
-set -uo pipefail
+set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 name="$ENGINE_REF_NAME"
