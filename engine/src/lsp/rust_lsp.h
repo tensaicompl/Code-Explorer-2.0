@@ -137,6 +137,10 @@ typedef struct {
      * — used when emitting trait method calls so we can prefer concrete
      * implementations over the trait method when only one impl exists. */
     const char *self_type_qn;
+    /* Issue 105: the impl's self type as written (`MethodRouter<S, E>`), which a
+     * `Self::` path is read through; `self_type_qn` is its type (`MethodRouter`). NULL
+     * reads `Self::` through `self_type_qn`. */
+    const char *self_path_qn;
     const char *self_trait_qn;
 
     /* Closure parameter inference: when the call resolver descends into a
@@ -218,6 +222,14 @@ typedef struct {
     int generic_name_count;
     int generic_name_cap;
 
+    /* Issue 105: the where-clause predicates in force (the enclosing impl's and
+     * function's), each as its subject type's qualified name and a bound trait's; saved
+     * and restored as the walk enters and leaves them. */
+    const char **where_subjects;
+    const char **where_traits;
+    int where_count;
+    int where_cap;
+
     /* Output: resolved (and unresolved-with-reason) calls accumulate here. */
     PDXEResolvedCallArray *resolved_calls;
 
@@ -270,6 +282,20 @@ typedef struct {
      * top-level invocation so distinct source sites keep their attribution. */
     PDXENegMemo macro_memo;
 } RustLSPContext;
+
+/* Issues 105 and 113: the repository's Rust modules, indexed once per cross-file pass
+ * (rust_lsp.c), so that a path is read as Rust's name resolution reads it: through
+ * `crate`, `self`, `super`, `use` declarations and globs, child module files, re-exports
+ * and the workspace's library crates. Built by the pass's driver from every Rust file
+ * and every definition, set for the pass's thread, cleared after it. */
+typedef struct PDXERustModuleIndex PDXERustModuleIndex;
+PDXERustModuleIndex *pdxe_rust_modules_new(PDXEArena *arena);
+void pdxe_rust_modules_add_item(PDXERustModuleIndex *x, const char *qualified_name, bool is_type);
+void pdxe_rust_modules_add_file(PDXERustModuleIndex *x, const char *rel_path,
+                                const char *module_qn, const char *source, int source_len);
+void pdxe_rust_modules_finish(PDXERustModuleIndex *x, const char *root_package);
+void pdxe_rust_modules_set(const PDXERustModuleIndex *index);
+const PDXERustModuleIndex *pdxe_rust_modules_get(void);
 
 /* Initialise an empty context for processing one file. */
 void rust_lsp_init(RustLSPContext *ctx, PDXEArena *arena, const char *source, int source_len,
@@ -393,6 +419,9 @@ typedef struct {
     bool is_rust_impl_relation;   /* independent type-level impl record       */
     bool is_abstract;             /* required trait declaration (no default)  */
     const char **impl_bounds;     /* issue 109: the trait impl's header       */
+    const char *rust_return_type; /* issue 105: an impl method's return type  */
+    const char *rust_field_defs;  /* issue 105: a struct's "name:type" fields */
+    bool rust_is_async;           /* issue 105: an `async` function           */
 } PDXERustLSPDef;
 
 /* Issue 109: a Rust trait impl's header (PDXEImplTrait's impl_bounds), read once at

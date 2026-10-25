@@ -73,6 +73,7 @@ baseline documents and `mismatches.jsonl` exactly.
 | `pdx-self.json` | The same for the PDX repository's Rust code. Diagnostic only: it can neither pass nor fail G1b |
 | `counterfactuals.json` | A0.2's policies C0 to C7 for each corpus |
 | `mismatches.jsonl` | Every drawn false positive, every piece of wrong weak evidence (`wrong_weak_evidence`, issue 102) and every oracle relation no drawn edge reproduces, for all three corpora (PDX itself: the first two only): file, line, byte span, callee, band, structural target, oracle target, category |
+| `rust-candidate-classification.json`, `rust-candidate-relations.jsonl` | Issue 105 (R5): the Rust golden's oracle relations at a structural site with no drawn edge, classified by the evidence that could resolve them, at engine 13 (before R5) and engine 14 (after): each state's population and summary, and each relation (its classes, primary class, recoverability, band, candidate count, weak candidate's correctness, oracle target, whether the registry holds it and represents its type, the typed pass's outcome; the receiver signatures read are source text and stay in the classifier's own output). A diagnostic of a dataset A0 measured; it changes no measure |
 
 The full site datasets are not committed. `scripts/a0/run.py` regenerates them, and
 the result documents with them, from the pins and tool versions recorded here.
@@ -337,6 +338,22 @@ values; rebuild it and run again. The executable's bytes are then held: each dat
 and the results check it is unchanged. The results are staged in the work directory
 and promoted together once all are written. A document's `engine_version` is the
 executed engine's own.
+
+The Rust candidate classification (issue 105) is made from one corpus's A0 outputs, the
+structural dataset, the engine's typed rows and the oracle, then written in its
+committed form from each state's document:
+
+```
+target/engine/tests/differential_dump LIST STAGE > typed-rows.jsonl
+python3 scripts/a0/rust_candidates.py --corpus rust-golden --checkout DIR \
+    --audit AUDIT-DIR --sites rust-golden.sites.jsonl --rust-analyzer BIN \
+    --scip rust-golden.scip --scip rust-golden-examples.scip=examples/ \
+    --typed-rows typed-rows.jsonl --out engine-N.json
+python3 scripts/a0/rust_candidates.py artifact --state engine-13=BEFORE.json \
+    --state engine-14=AFTER.json \
+    --summary bench/results/a0/rust-candidate-classification.json \
+    --relations bench/results/a0/rust-candidate-relations.jsonl
+```
 
 `run.py` checks the sanity fixtures first. These are the cases in
 `bench/a0/sanity/`, each marked `A0: <case> -> <expected>`, and every one must pass

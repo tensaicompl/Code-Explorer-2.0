@@ -103,6 +103,12 @@ typedef struct {
      * a decorator rebinds the function name, so the undecorated definition is
      * not automatically an exact callable-value target. */
     const char **decorators;
+    /* Issue 105, Rust only: an impl method's declared return type
+     * (PDXEDefinition.rust_return_type), and a struct's fields, "name:type" pairs
+     * separated by "|". Never in the per-file cross surface (lsp_surface.c). */
+    const char *rust_return_type;
+    const char *rust_field_defs;
+    bool rust_is_async; /* issue 105: an `async` Rust function */
 } PDXELSPDef;
 
 // Parse source, build registry from defs + stdlib, run LSP.

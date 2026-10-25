@@ -209,12 +209,13 @@ fn the_one_handwritten_member_is_no_target_beside_macro_written_ones() {
 
 #[test]
 fn a_member_no_macro_writes_is_still_drawn() {
+    // Typed since issue 105 reads a type's member through its import.
     let got = at("src/user.rs", "Payload::new");
-    assert_eq!(got.band(), Band::ImportGuided, "{got:?}");
+    assert_eq!(got.band(), Band::Typed, "{got:?}");
     assert_eq!(got.target(), Some(&def("src/payload.rs", "new")));
     // A macro no invocation sees writes nothing: the handwritten impl is drawn.
     let got = at("src/user.rs", "Plain::from");
-    assert_eq!(got.band(), Band::ImportGuided, "{got:?}");
+    assert_eq!(got.band(), Band::Typed, "{got:?}");
     assert_eq!(got.target(), Some(&def("src/plain.rs", "from")));
 }
 
@@ -235,7 +236,7 @@ fn a_type_or_member_named_by_a_metavariable() {
     // The macro writes `alpha`, what its metavariable is bound to: `Widget`'s
     // handwritten `beta` is still its one `beta`.
     let got = at("src/user.rs", "Widget::beta");
-    assert_eq!(got.band(), Band::ImportGuided, "{got:?}");
+    assert_eq!(got.band(), Band::Typed, "{got:?}");
     assert_eq!(got.target(), Some(&def("src/widget.rs", "beta")));
 }
 

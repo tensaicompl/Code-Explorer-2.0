@@ -69,8 +69,12 @@
  * when the impl is proven to apply, and a Rust file's surface (version 6) carries its
  * trait impls' headers (issue 109, patch 0032). 13: a Rust call whose function is a
  * turbofish path or method (`f::<T>()`, `x.m::<T>()`) is extracted as a call of that path
- * or method, its type arguments no part of the callee (issue 107A, patch 0033). */
-static const char ENGINE_VERSION_STRING[] = "13";
+ * or method, its type arguments no part of the callee (issue 107A, patch 0033). 14: a
+ * Rust path is read as Rust's name resolution reads it (`crate`, `self`, `super`, a
+ * crate's name, a `pub use`, a module file), a receiver's type is taken only from proven
+ * evidence, and a Rust file's surface (version 7) carries an impl method's declared
+ * return type and a function's `async` (issues 105, 113 and 116, patch 0034). */
+static const char ENGINE_VERSION_STRING[] = "14";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;

@@ -341,6 +341,13 @@ static inline bool pdxe_pipeline_invocation_leaf_matches(const PDXEResolvedCall 
     if (resolved_leaf && call_leaf && strcmp(resolved_leaf, call_leaf) == 0) {
         return true;
     }
+    /* Issue 105: a Rust function its `#[cfg(...)]` makes one of twins is named with that
+     * predicate (`serve#cfg(...)`, extract_defs.c); the call spells its name alone. */
+    const char *cfg = resolved_leaf ? strstr(resolved_leaf, "#cfg(") : NULL;
+    if (cfg && call_leaf && strlen(call_leaf) == (size_t)(cfg - resolved_leaf) &&
+        strncmp(resolved_leaf, call_leaf, (size_t)(cfg - resolved_leaf)) == 0) {
+        return true;
+    }
 
     /* Destructors intentionally join by their exact delete-expression
      * occurrence because the parser carrier starts as a neutral "~" marker. */

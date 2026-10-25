@@ -441,7 +441,7 @@ fn identical_builds_pass_and_are_recorded() {
     assert_eq!(determinism["workers_single"], 1);
     assert_eq!(determinism["workers_parallel"], 3);
     assert_eq!(determinism["warm_cache_hits"], FILES - 1);
-    assert_eq!(flask["provenance"]["engine_version"], 13);
+    assert_eq!(flask["provenance"]["engine_version"], 14);
     assert_eq!(flask["provenance"]["kind"], "golden");
     assert_eq!(flask["provenance"]["language"], "python");
     assert!(flask.get("performance").is_none());
@@ -819,7 +819,7 @@ fn a_stale_baseline_is_dropped_not_merged() {
         .0
         .expect("second");
     let flask = fixture.result("flask.json");
-    assert_eq!(flask["provenance"]["engine_version"], 13);
+    assert_eq!(flask["provenance"]["engine_version"], 14);
     assert!(
         flask.get("performance").is_none(),
         "an engine 5 baseline is dropped"

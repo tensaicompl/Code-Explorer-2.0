@@ -161,7 +161,7 @@ fn proven_impls_are_typed_and_unproven_ones_withheld() {
 #[test]
 fn a_warm_extraction_cache_resolves_as_a_cold_one() {
     // The second run reads every extraction, its surface included, from the cache: the
-    // headers the proofs need come from surface 6 there. Both runs answer alike.
+    // headers the proofs need come from its surface there. Both runs answer alike.
     let checkout = Checkout::new();
     let cache_dir = tempfile::Builder::new()
         .prefix("pdx-rust-impl-bounds-cache-")

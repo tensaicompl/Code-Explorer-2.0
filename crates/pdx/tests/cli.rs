@@ -709,7 +709,7 @@ fn cli_version_prints_four_versions() {
     // Written out here, not taken from the code under test.
     assert_eq!(
         stdout(&output),
-        "pdx 0.1.0\nengine 13\nschema 3\nmatrix 2\n"
+        "pdx 0.1.0\nengine 14\nschema 3\nmatrix 2\n"
     );
     assert_eq!(stderr(&output), "");
 }

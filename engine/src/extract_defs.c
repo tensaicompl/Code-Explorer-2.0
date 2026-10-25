@@ -4315,6 +4315,20 @@ static char *resolve_cpp_test_macro_name(PDXEArena *a, const char *macro, TSNode
     return NULL;
 }
 
+/* Issue 105: whether a Rust function's modifiers hold `async`. */
+static bool rust_fn_is_async(TSNode fn) {
+    PDXE_FOR_EACH_CHILD(it, fn) {
+        if (strcmp(ts_node_type(it.node), "function_modifiers") == 0) {
+            PDXE_FOR_EACH_CHILD(m, it.node) {
+                if (strcmp(ts_node_type(m.node), "async") == 0) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec) {
     PDXEArena *a = ctx->arena;
 
@@ -4410,6 +4424,9 @@ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpe
     if (ctx->language == PDXE_LANG_RUST &&
         strcmp(ts_node_type(node), "function_signature_item") == 0) {
         def.is_abstract = true;
+    }
+    if (ctx->language == PDXE_LANG_RUST) {
+        def.rust_is_async = rust_fn_is_async(node); /* issue 105 */
     }
 
     // Parameters — use func_node (inner function for templates)
@@ -6234,6 +6251,13 @@ static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSp
             def.signature_param_types = extract_signature_param_types(
                 a, params, ctx->source, ctx->language, true, &def.signature_param_count);
         }
+        /* Issue 105: what the method returns, as declared, for the type of a call's
+         * result (`Router::new().route(..)`). */
+        TSNode ret = ts_node_child_by_field_name(child, TS_FIELD("return_type"));
+        if (!ts_node_is_null(ret)) {
+            def.rust_return_type = pdxe_node_text(a, ret, ctx->source);
+        }
+        def.rust_is_async = rust_fn_is_async(child);
 
         if (spec->branching_node_types && spec->branching_node_types[0]) {
             set_def_complexity(&def, child, spec);

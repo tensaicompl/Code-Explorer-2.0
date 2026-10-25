@@ -1,0 +1,686 @@
+{
+ "classes": [
+  "crate_self_super_path",
+  "re_export",
+  "import_use_binding",
+  "associated_static_path_type",
+  "receiver_local_variable_type",
+  "receiver_parameter_type",
+  "receiver_field_type",
+  "receiver_call_result_type",
+  "receiver_self",
+  "trait_bound",
+  "generic_type_parameter",
+  "impl_relation",
+  "deref_wrapper_receiver",
+  "external_type",
+  "macro_generated",
+  "unknown_other"
+ ],
+ "format": 1,
+ "states": {
+  "engine-13": {
+   "corpus": "rust-golden",
+   "matching_version": "a0-match-2",
+   "population": {
+    "blocked": 357,
+    "candidate": 2066,
+    "drawn_correct": 959,
+    "exact": 427,
+    "external": 28,
+    "no_site": 345,
+    "scoped": 264,
+    "typed_not_materialized": 9
+   },
+   "summary": {
+    "any_label": {
+     "associated_static_path_type": 936,
+     "crate_self_super_path": 306,
+     "deref_wrapper_receiver": 139,
+     "external_type": 1218,
+     "generic_type_parameter": 48,
+     "impl_relation": 372,
+     "import_use_binding": 978,
+     "macro_generated": 2,
+     "re_export": 32,
+     "receiver_call_result_type": 1110,
+     "receiver_field_type": 102,
+     "receiver_local_variable_type": 621,
+     "receiver_parameter_type": 78,
+     "receiver_self": 24,
+     "trait_bound": 40,
+     "unknown_other": 133
+    },
+    "by_primary": {
+     "associated_static_path_type": {
+      "bands": {
+       "candidate": 19,
+       "exact": 1,
+       "scoped": 20
+      },
+      "recoverable": {
+       "structural": 40
+      },
+      "relations": 40,
+      "target_forms": {
+       "inherent_method": 16,
+       "trait_impl_method": 1,
+       "trait_method": 23
+      },
+      "typed_outcome": {
+       "lsp_unresolved:function_not_in_registry": 23,
+       "no_typed_row": 17
+      }
+     },
+     "crate_self_super_path": {
+      "bands": {
+       "blocked": 1,
+       "candidate": 238,
+       "exact": 26,
+       "scoped": 41
+      },
+      "recoverable": {
+       "structural": 306
+      },
+      "relations": 306,
+      "target_forms": {
+       "free_function": 14,
+       "inherent_method": 275,
+       "trait_impl_method": 4,
+       "trait_method": 1,
+       "type": 12
+      },
+      "typed_outcome": {
+       "lsp_short_name_unique,lsp_unresolved:function_not_in_registry": 13,
+       "lsp_unresolved:function_not_in_registry": 292,
+       "no_typed_row": 1
+      }
+     },
+     "impl_relation": {
+      "bands": {
+       "candidate": 54,
+       "exact": 3,
+       "scoped": 25
+      },
+      "recoverable": {
+       "proof": 82
+      },
+      "relations": 82,
+      "target_forms": {
+       "trait_impl_method": 65,
+       "trait_method": 17
+      },
+      "typed_outcome": {
+       "lsp_unresolved:method_not_found": 16,
+       "lsp_unresolved:unknown_receiver_type": 66
+      }
+     },
+     "import_use_binding": {
+      "bands": {
+       "candidate": 541,
+       "exact": 71,
+       "scoped": 53
+      },
+      "recoverable": {
+       "structural": 665
+      },
+      "relations": 665,
+      "target_forms": {
+       "free_function": 27,
+       "inherent_method": 594,
+       "trait_impl_method": 8,
+       "trait_method": 3,
+       "type": 33
+      },
+      "typed_outcome": {
+       "lsp_cross_crate": 14,
+       "lsp_direct": 8,
+       "lsp_unresolved:function_not_in_registry": 632,
+       "no_typed_row": 11
+      }
+     },
+     "macro_generated": {
+      "bands": {
+       "exact": 2
+      },
+      "recoverable": {
+       "unknown": 2
+      },
+      "relations": 2,
+      "target_forms": {
+       "inherent_method": 2
+      },
+      "typed_outcome": {
+       "lsp_unresolved:unknown_receiver_type": 2
+      }
+     },
+     "re_export": {
+      "bands": {
+       "candidate": 4,
+       "exact": 3,
+       "external": 8,
+       "scoped": 10
+      },
+      "recoverable": {
+       "structural": 25
+      },
+      "relations": 25,
+      "target_forms": {
+       "free_function": 8,
+       "inherent_method": 1,
+       "trait_impl_method": 7,
+       "trait_method": 3,
+       "type": 6
+      },
+      "typed_outcome": {
+       "lsp_direct": 8,
+       "lsp_unresolved:function_not_in_registry": 17
+      }
+     },
+     "receiver_call_result_type": {
+      "bands": {
+       "blocked": 33,
+       "candidate": 874,
+       "exact": 130,
+       "external": 11,
+       "scoped": 62
+      },
+      "recoverable": {
+       "propagation": 1073,
+       "unknown": 37
+      },
+      "relations": 1110,
+      "target_forms": {
+       "inherent_method": 1018,
+       "trait_impl_method": 81,
+       "trait_method": 11
+      },
+      "typed_outcome": {
+       "lsp_unresolved:method_not_found": 5,
+       "lsp_unresolved:method_not_found,lsp_unresolved:unknown_receiver_type": 6,
+       "lsp_unresolved:unknown_receiver_type": 1097,
+       "no_typed_row": 2
+      }
+     },
+     "receiver_field_type": {
+      "bands": {
+       "blocked": 31,
+       "candidate": 52,
+       "exact": 12,
+       "scoped": 7
+      },
+      "recoverable": {
+       "structural": 96,
+       "unknown": 6
+      },
+      "relations": 102,
+      "target_forms": {
+       "inherent_method": 55,
+       "trait_impl_method": 25,
+       "trait_method": 22
+      },
+      "typed_outcome": {
+       "lsp_unresolved:method_not_found,lsp_unresolved:unknown_receiver_type": 5,
+       "lsp_unresolved:unknown_receiver_type": 97
+      }
+     },
+     "receiver_local_variable_type": {
+      "bands": {
+       "blocked": 269,
+       "candidate": 195,
+       "exact": 117,
+       "external": 9,
+       "scoped": 31
+      },
+      "recoverable": {
+       "propagation": 164,
+       "structural": 377,
+       "unknown": 80
+      },
+      "relations": 621,
+      "target_forms": {
+       "inherent_method": 503,
+       "trait_impl_method": 97,
+       "trait_method": 21
+      },
+      "typed_outcome": {
+       "lsp_prelude_trait": 19,
+       "lsp_unresolved:method_not_found": 4,
+       "lsp_unresolved:method_not_found,lsp_unresolved:unknown_receiver_type": 12,
+       "lsp_unresolved:unknown_receiver_type": 586
+      }
+     },
+     "receiver_parameter_type": {
+      "bands": {
+       "blocked": 19,
+       "candidate": 29,
+       "exact": 24,
+       "scoped": 6
+      },
+      "recoverable": {
+       "proof": 2,
+       "structural": 76
+      },
+      "relations": 78,
+      "target_forms": {
+       "inherent_method": 55,
+       "trait_impl_method": 21,
+       "trait_method": 2
+      },
+      "typed_outcome": {
+       "lsp_method_dispatch": 2,
+       "lsp_prelude_trait": 1,
+       "lsp_unresolved:method_not_found": 53,
+       "lsp_unresolved:unknown_receiver_type": 21,
+       "no_typed_row": 1
+      }
+     },
+     "receiver_self": {
+      "bands": {
+       "blocked": 4,
+       "candidate": 18,
+       "exact": 1,
+       "scoped": 1
+      },
+      "recoverable": {
+       "structural": 24
+      },
+      "relations": 24,
+      "target_forms": {
+       "inherent_method": 17,
+       "trait_impl_method": 5,
+       "trait_method": 2
+      },
+      "typed_outcome": {
+       "lsp_method_dispatch": 1,
+       "lsp_prelude_trait": 1,
+       "lsp_unresolved:method_not_found": 20,
+       "lsp_unresolved:unknown_receiver_type": 2
+      }
+     },
+     "unknown_other": {
+      "bands": {
+       "candidate": 42,
+       "exact": 37,
+       "scoped": 8,
+       "typed": 9
+      },
+      "recoverable": {
+       "unknown": 96
+      },
+      "relations": 96,
+      "target_forms": {
+       "free_function": 68,
+       "inherent_method": 1,
+       "type": 27
+      },
+      "typed_outcome": {
+       "lsp_cross_crate": 40,
+       "lsp_short_name_unique,lsp_unresolved:function_not_in_registry": 9,
+       "lsp_unresolved:function_not_in_registry": 30,
+       "lsp_unresolved:unknown_receiver_type": 1,
+       "no_typed_row": 16
+      }
+     }
+    },
+    "primary": {
+     "associated_static_path_type": 40,
+     "crate_self_super_path": 306,
+     "impl_relation": 82,
+     "import_use_binding": 665,
+     "macro_generated": 2,
+     "re_export": 25,
+     "receiver_call_result_type": 1110,
+     "receiver_field_type": 102,
+     "receiver_local_variable_type": 621,
+     "receiver_parameter_type": 78,
+     "receiver_self": 24,
+     "unknown_other": 96
+    },
+    "recoverable": {
+     "proof": 84,
+     "propagation": 1237,
+     "structural": 1609,
+     "unknown": 221
+    },
+    "relations": 3151
+   }
+  },
+  "engine-14": {
+   "corpus": "rust-golden",
+   "matching_version": "a0-match-2",
+   "population": {
+    "blocked": 47,
+    "candidate": 400,
+    "drawn_correct": 3371,
+    "exact": 134,
+    "external": 8,
+    "no_site": 296,
+    "scoped": 141,
+    "typed_not_materialized": 58
+   },
+   "summary": {
+    "any_label": {
+     "associated_static_path_type": 79,
+     "crate_self_super_path": 28,
+     "deref_wrapper_receiver": 48,
+     "external_type": 195,
+     "generic_type_parameter": 42,
+     "impl_relation": 334,
+     "import_use_binding": 109,
+     "macro_generated": 2,
+     "re_export": 32,
+     "receiver_call_result_type": 147,
+     "receiver_field_type": 41,
+     "receiver_local_variable_type": 203,
+     "receiver_parameter_type": 45,
+     "receiver_self": 11,
+     "trait_bound": 39,
+     "unknown_other": 138
+    },
+    "by_primary": {
+     "associated_static_path_type": {
+      "bands": {
+       "candidate": 19,
+       "exact": 1,
+       "scoped": 20
+      },
+      "recoverable": {
+       "structural": 40
+      },
+      "relations": 40,
+      "target_forms": {
+       "inherent_method": 16,
+       "trait_impl_method": 1,
+       "trait_method": 23
+      },
+      "typed_outcome": {
+       "lsp_unresolved:function_not_in_registry": 23,
+       "no_typed_row": 17
+      }
+     },
+     "crate_self_super_path": {
+      "bands": {
+       "blocked": 1,
+       "candidate": 13,
+       "exact": 10,
+       "scoped": 4
+      },
+      "recoverable": {
+       "structural": 28
+      },
+      "relations": 28,
+      "target_forms": {
+       "free_function": 5,
+       "inherent_method": 6,
+       "trait_impl_method": 4,
+       "trait_method": 1,
+       "type": 12
+      },
+      "typed_outcome": {
+       "lsp_constructor,lsp_unresolved:function_not_in_registry": 2,
+       "lsp_short_name_unique,lsp_unresolved:function_not_in_registry": 4,
+       "lsp_ufcs,lsp_unresolved:function_not_in_registry": 1,
+       "lsp_unresolved:function_not_in_registry": 20,
+       "no_typed_row": 1
+      }
+     },
+     "impl_relation": {
+      "bands": {
+       "candidate": 54,
+       "exact": 3,
+       "scoped": 25
+      },
+      "recoverable": {
+       "proof": 82
+      },
+      "relations": 82,
+      "target_forms": {
+       "trait_impl_method": 65,
+       "trait_method": 17
+      },
+      "typed_outcome": {
+       "lsp_unresolved:method_not_found": 16,
+       "lsp_unresolved:unknown_receiver_type": 66
+      }
+     },
+     "import_use_binding": {
+      "bands": {
+       "candidate": 32,
+       "exact": 15,
+       "scoped": 16
+      },
+      "recoverable": {
+       "structural": 63
+      },
+      "relations": 63,
+      "target_forms": {
+       "free_function": 13,
+       "inherent_method": 6,
+       "trait_impl_method": 8,
+       "trait_method": 3,
+       "type": 33
+      },
+      "typed_outcome": {
+       "lsp_constructor,lsp_unresolved:function_not_in_registry": 4,
+       "lsp_cross_crate": 1,
+       "lsp_direct": 7,
+       "lsp_ufcs,lsp_unresolved:function_not_in_registry": 1,
+       "lsp_unresolved:function_not_in_registry": 39,
+       "no_typed_row": 11
+      }
+     },
+     "macro_generated": {
+      "bands": {
+       "exact": 2
+      },
+      "recoverable": {
+       "unknown": 2
+      },
+      "relations": 2,
+      "target_forms": {
+       "inherent_method": 2
+      },
+      "typed_outcome": {
+       "lsp_unresolved:unknown_receiver_type": 2
+      }
+     },
+     "re_export": {
+      "bands": {
+       "candidate": 4,
+       "exact": 3,
+       "external": 8,
+       "scoped": 10
+      },
+      "recoverable": {
+       "structural": 25
+      },
+      "relations": 25,
+      "target_forms": {
+       "free_function": 8,
+       "inherent_method": 1,
+       "trait_impl_method": 7,
+       "trait_method": 3,
+       "type": 6
+      },
+      "typed_outcome": {
+       "lsp_direct": 8,
+       "lsp_unresolved:function_not_in_registry": 17
+      }
+     },
+     "receiver_call_result_type": {
+      "bands": {
+       "blocked": 15,
+       "candidate": 91,
+       "exact": 19,
+       "scoped": 22
+      },
+      "recoverable": {
+       "propagation": 110,
+       "unknown": 37
+      },
+      "relations": 147,
+      "target_forms": {
+       "inherent_method": 57,
+       "trait_impl_method": 79,
+       "trait_method": 11
+      },
+      "typed_outcome": {
+       "lsp_method_dispatch,lsp_unresolved:unknown_receiver_type": 9,
+       "lsp_unresolved:impl_unproven,lsp_unresolved:unknown_receiver_type": 14,
+       "lsp_unresolved:method_not_found": 3,
+       "lsp_unresolved:method_not_found,lsp_unresolved:unknown_receiver_type": 35,
+       "lsp_unresolved:unknown_receiver_type": 83,
+       "no_typed_row": 2
+      }
+     },
+     "receiver_field_type": {
+      "bands": {
+       "blocked": 9,
+       "candidate": 25,
+       "exact": 1,
+       "scoped": 6
+      },
+      "recoverable": {
+       "structural": 35,
+       "unknown": 6
+      },
+      "relations": 41,
+      "target_forms": {
+       "inherent_method": 6,
+       "trait_impl_method": 15,
+       "trait_method": 20
+      },
+      "typed_outcome": {
+       "lsp_method_dispatch,lsp_prelude_trait": 1,
+       "lsp_prelude_trait,lsp_trait_dispatch": 2,
+       "lsp_unresolved:method_not_found": 19,
+       "lsp_unresolved:unknown_receiver_type": 19
+      }
+     },
+     "receiver_local_variable_type": {
+      "bands": {
+       "blocked": 8,
+       "candidate": 128,
+       "exact": 41,
+       "scoped": 26
+      },
+      "recoverable": {
+       "propagation": 107,
+       "structural": 28,
+       "unknown": 68
+      },
+      "relations": 203,
+      "target_forms": {
+       "inherent_method": 111,
+       "trait_impl_method": 71,
+       "trait_method": 21
+      },
+      "typed_outcome": {
+       "lsp_prelude_trait": 2,
+       "lsp_prelude_trait,lsp_trait_dispatch": 19,
+       "lsp_unresolved:impl_unproven": 1,
+       "lsp_unresolved:method_not_found": 15,
+       "lsp_unresolved:method_not_found,lsp_unresolved:unknown_receiver_type": 5,
+       "lsp_unresolved:unknown_receiver_type": 160
+      }
+     },
+     "receiver_parameter_type": {
+      "bands": {
+       "blocked": 12,
+       "candidate": 24,
+       "exact": 4,
+       "scoped": 5
+      },
+      "recoverable": {
+       "proof": 2,
+       "structural": 43
+      },
+      "relations": 45,
+      "target_forms": {
+       "inherent_method": 22,
+       "trait_impl_method": 21,
+       "trait_method": 2
+      },
+      "typed_outcome": {
+       "lsp_prelude_trait,lsp_trait_dispatch": 1,
+       "lsp_unresolved:method_not_found": 22,
+       "lsp_unresolved:unknown_receiver_type": 21,
+       "no_typed_row": 1
+      }
+     },
+     "receiver_self": {
+      "bands": {
+       "blocked": 2,
+       "candidate": 7,
+       "exact": 1,
+       "scoped": 1
+      },
+      "recoverable": {
+       "structural": 11
+      },
+      "relations": 11,
+      "target_forms": {
+       "inherent_method": 2,
+       "trait_impl_method": 7,
+       "trait_method": 2
+      },
+      "typed_outcome": {
+       "lsp_prelude_trait": 1,
+       "lsp_unresolved:impl_unproven": 2,
+       "lsp_unresolved:method_not_found": 6,
+       "lsp_unresolved:unknown_receiver_type": 2
+      }
+     },
+     "unknown_other": {
+      "bands": {
+       "candidate": 3,
+       "exact": 34,
+       "scoped": 6,
+       "typed": 58
+      },
+      "recoverable": {
+       "unknown": 101
+      },
+      "relations": 101,
+      "target_forms": {
+       "free_function": 25,
+       "inherent_method": 47,
+       "trait_impl_method": 2,
+       "type": 27
+      },
+      "typed_outcome": {
+       "lsp_method_dispatch,lsp_unresolved:method_not_found": 5,
+       "lsp_method_dispatch,lsp_unresolved:unknown_receiver_type": 37,
+       "lsp_short_name_unique,lsp_unresolved:function_not_in_registry": 9,
+       "lsp_ufcs,lsp_unresolved:function_not_in_registry": 5,
+       "lsp_unresolved:function_not_in_registry": 27,
+       "no_typed_row": 16
+      }
+     }
+    },
+    "primary": {
+     "associated_static_path_type": 40,
+     "crate_self_super_path": 28,
+     "impl_relation": 82,
+     "import_use_binding": 63,
+     "macro_generated": 2,
+     "re_export": 25,
+     "receiver_call_result_type": 147,
+     "receiver_field_type": 41,
+     "receiver_local_variable_type": 203,
+     "receiver_parameter_type": 45,
+     "receiver_self": 11,
+     "unknown_other": 101
+    },
+    "recoverable": {
+     "proof": 84,
+     "propagation": 217,
+     "structural": 273,
+     "unknown": 214
+    },
+    "relations": 788
+   }
+  }
+ }
+}

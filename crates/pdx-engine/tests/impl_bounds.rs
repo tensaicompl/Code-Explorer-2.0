@@ -115,7 +115,7 @@ fn a_trait_impls_header_crosses_the_surface() {
             .windows(needle.len())
             .any(|w| w == needle)
     };
-    assert!(extract_starts_with(&make, b"{\"v\":6,"), "surface 6");
+    assert!(extract_starts_with(&make, b"{\"v\":7,"), "surface 7");
     // `impl Show for A`'s relation, and `impl<X: Show> Make for W<X>`'s relation and
     // method, carry their headers; an inherent or free definition none.
     assert!(contains(b"\"impl_bounds\":[\"s:plain\"]"));
@@ -141,7 +141,7 @@ fn a_surface_of_version_five_is_refused() {
     let mut bytes = common::record_bytes(&extract);
     let at = bytes
         .windows(7)
-        .position(|w| w == b"{\"v\":6,")
+        .position(|w| w == b"{\"v\":7,")
         .expect("the record holds the surface");
     bytes[at + 5] = b'5';
     let record: ExtractRecord = postcard::from_bytes(&bytes).expect("the record decodes");

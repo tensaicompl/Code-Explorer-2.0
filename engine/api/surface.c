@@ -57,8 +57,10 @@
  * usages carry their node-type path (issue 46). 4: definitions carry their route
  * facts (issue 54). 5: text as source ranges, qualified names by definition, and the
  * source's length (issue 90). 6: a Rust trait impl's relation and methods carry the
- * impl's header, what must hold for it to apply (issue 109). */
-enum { SURFACE_VERSION = 6 };
+ * impl's header, what must hold for it to apply (issue 109). 7: a Rust impl block's
+ * method carries its declared return type, and a Rust function whether it is `async`
+ * (issue 105). */
+enum { SURFACE_VERSION = 7 };
 
 /* The file's bytes, and the engine's numbers, as they are; see the comment above. */
 #define SURFACE_WRITE_FLAGS (YYJSON_WRITE_ALLOW_INVALID_UNICODE | YYJSON_WRITE_ALLOW_INF_AND_NAN)
@@ -163,6 +165,8 @@ static const field DEFINITION_FIELDS[] = {
     COUNTED(PDXEDefinition, F_ROUTES, routes, route_count),
     FIELD(PDXEDefinition, F_INT, route_count),
     FIELD(PDXEDefinition, F_STRV, impl_bounds),
+    FIELD(PDXEDefinition, F_STR, rust_return_type),
+    FIELD(PDXEDefinition, F_BOOL, rust_is_async),
 };
 
 static const field ROUTE_FIELDS[] = {

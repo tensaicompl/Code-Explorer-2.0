@@ -17,6 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import audit  # noqa: E402
+import rust_candidates  # noqa: E402
 import scip  # noqa: E402
 import score  # noqa: E402
 import syntax  # noqa: E402
@@ -360,6 +361,49 @@ class Issue107ASites(unittest.TestCase):
         else:
             self.assertEqual(provenance["site_matching_version"], "a0-match-2")
             self.assertEqual(set(evidence) & set(missing), set())
+
+
+class RustCandidateClassification(unittest.TestCase):
+    """Issue 105 (R5): the Rust golden's relations at a structural site with no drawn
+    edge, classified (`scripts/a0/rust_candidates.py`), before and after R5
+    (`bench/results/a0/rust-candidate-classification.json` and
+    `rust-candidate-relations.jsonl`). The summaries are their rows': nothing in them is
+    written by hand."""
+
+    ROOT = Path(__file__).resolve().parents[2] / "bench/results/a0"
+
+    def load(self):
+        doc = json.loads((self.ROOT / "rust-candidate-classification.json").read_text())
+        rows = {}
+        for line in (self.ROOT / "rust-candidate-relations.jsonl").read_text().splitlines():
+            r = json.loads(line)
+            rows.setdefault(r.pop("state"), []).append(r)
+        return doc, rows
+
+    def test_each_summary_is_its_rows(self):
+        doc, rows = self.load()
+        self.assertEqual(doc["classes"], list(rust_candidates.CLASSES))
+        self.assertEqual(set(doc["states"]), set(rows))
+        for label, state in doc["states"].items():
+            self.assertEqual(rust_candidates.summarise(rows[label]), state["summary"], label)
+            undrawn = {k: v for k, v in state["population"].items()
+                       if k not in ("no_site", "site_ambiguous") and not k.startswith("drawn_")}
+            self.assertEqual(sum(undrawn.values()), len(rows[label]), label)
+
+    def test_a_relations_primary_class_is_its_first(self):
+        _, rows = self.load()
+        order = {c: i for i, c in enumerate(rust_candidates.CLASSES)}
+        for label, state_rows in rows.items():
+            keys = [(r["file"], tuple(r["token"])) for r in state_rows]
+            self.assertEqual(len(set(keys)), len(keys), label)
+            for r in state_rows:
+                self.assertTrue(r["classes"], r)
+                self.assertEqual(r["primary"], min(r["classes"], key=order.__getitem__), r)
+
+    def test_r5_draws_nothing_wrong(self):
+        doc, _ = self.load()
+        for label, state in doc["states"].items():
+            self.assertNotIn("drawn_wrong", state["population"], label)
 
 
 class BlocklistAccounting(unittest.TestCase):

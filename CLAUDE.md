@@ -125,9 +125,34 @@ golden's 56 oracle relations with no structural site were turbofish calls
 (`f::<T>()`, `x.m::<T>()`) the engine dropped; they are extracted now (patch 0033,
 `ENGINE_VERSION` 13). The other 2 had sites all along: A0's matcher read a comment's `<`
 as generic syntax (issue 120, `a0-match-2`). All 56 are at a site; 29 are drawn, every
-one correct. Issue 107B (macro token trees) and issue 107 stay open. Next, **only when
-the driver authorises it**: a recall package beginning with R5 (issue 105); issue 113
-waits for recall work.
+one correct. Issue 107B (macro token trees) and issue 107 stay open.
+
+**R5, the Rust recall package (2026-10-17): issue 105 remediated, 113A, 113B and 116
+resolved.** The Rust golden's 3,151 relations at a structural site with no drawn edge
+were classified first (`scripts/a0/rust_candidates.py`, committed as
+`bench/results/a0/rust-candidate-classification.json`), then recovered by evidence only:
+paths read as Rust reads them, declared parameter, field and return types,
+constructors, `async` and `?` as they are, impl proofs on every dispatch path (patch
+0034, `ENGINE_VERSION` 14, below). Rust golden recall 23.33% → 81.05% with every drawn
+band 100% precise; 788 relations left, each classified (issue 105 stays open for them).
+113C's calls are answered and its naming left open. Do not start issues 106, 108, 107B,
+119, 96, 97, 93B, 82 or P3 until the driver authorises them.
+
+**R5 is saved, not closed (2026-10-25).** Committed as a progress save at the driver's
+request, with four driver decisions still open, so `make engine-test` and
+`make engine-differential` fail by design until they are made (decision 66: never add
+a record to make a run pass):
+1. the engine differential's 81 new `typed` rows (47 exact candidate records: 33 issue
+   113B caller renames, 7 unresolved rows under the path's identity, 3 rows an unknown
+   receiver no longer writes, 2 new answers, 2 `Meter.read`), not ratified;
+2. the `rust_workspace_*` resolve fixtures' one extra typed edge, `main →
+   alpha.Meter.read` (correct; `expected.tsv` is the reference's output and its
+   comparator has no ratification);
+3. A0 matching for PDX itself's `peak.peak()` sites in `assert_eq!` (2 drawn edges A0
+   calls false, both to the method the oracle names at the method's token), which keeps
+   the official three-corpus results (Python 28.82%, Rust 81.05%, PDX itself 88.02%) out
+   of `bench/results/a0/`;
+4. whether issue 105 stays open for its 788 classified residual relations.
 
 **How work is validated (driver, 2026-10-16).** A change is proved by its targeted
 tests (the code it touches, a few focused cases, the dangerous invariants' mutations),
@@ -279,7 +304,7 @@ binding with its declaring node's position and path (`routes`, patch 0011); both
 records whose text is ranges of the source (issue 90B, below), a Rust file the members
 its macro invocations may write (issue 110), Rust calls their `use` scope (issue 114)
 and a Rust trait impl's relation and methods its header, the methods their trait
-(issue 117, all below); `ENGINE_VERSION` is 13 (issue 107A). Issue 74 (decision 45, engine 4): the C and C++ expression
+(issue 117, all below); `ENGINE_VERSION` is 14 (issue 105). Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -382,7 +407,9 @@ the buffer Stage 2 supplies is the whole input.
     convert a range to a `String` in a loop. Range coordinates are equality within one
     extraction only.
   - Surface 5 (ranges, `source_len`, definition references, structural names; 6 since a
-    trait impl's relation and methods carry its header, issue 109), cache
+    trait impl's relation and methods carry its header, issue 109; 7 since a Rust impl
+    method carries its declared return type and a function whether it is `async`, issue
+    105), cache
     format 6 (records bound to the verified current source; a misfit is a miss),
     protocol 7 (the parent binds the worker's records to the source it sent). Identities
     hash the bytes the whole text or name gives: segment schema stays 3.
@@ -473,7 +500,8 @@ need path evidence.
   `cache_entries_of_engine_nine_are_never_served` for 0030,
   `cache_entries_of_engine_ten_are_never_served` for 0031,
   `cache_entries_of_engine_eleven_are_never_served` for 0032 and
-  `cache_entries_of_engine_twelve_are_never_served` for 0033 (planted in the current cache
+  `cache_entries_of_engine_twelve_are_never_served` for 0033 and
+  `cache_entries_of_engine_thirteen_are_never_served` for 0034 (planted in the current cache
   format, so that the engine version alone keeps it out).
 
 Issue 111 (patch 0029, engine 9): a Rust file's `use` declarations are read from its
@@ -659,6 +687,53 @@ is its function's call.
   twin's graph), the cache test above, `scripts/a0/test_a0.py` (the matcher;
   `bench/a0/issue-107a-sites.json`, the 56 relations by class).
 
+Issue 105 (R5, patch 0034, engine 14; with issues 113 and 116): a Rust call's target is
+drawn only on positive evidence, and that evidence is read as Rust reads it.
+- **Classified first.** `scripts/a0/rust_candidates.py` classifies, from A0's rows, every
+  Rust golden relation at a structural site with no drawn edge (16 classes, the primary
+  the first that applies; recoverable by structure, propagation or proof, or unknown),
+  from rust-analyzer's syntax tree, the oracle's signatures and the engine's typed rows.
+  `bench/results/a0/rust-candidate-classification.json` (summaries, engines 13 and 14)
+  and `rust-candidate-relations.jsonl` (rows); `test_a0.py` recomputes the summaries.
+- **Paths (113A).** The cross-file pass builds one index of the repository's Rust module
+  files (`PDXERustModuleIndex`, `pxc_build_rust_modules`, set around the pass like the
+  manifest): each file's module, child directory, parent, crate root and `use` scope, its
+  items by qualified name, crates by directory name (`-` as `_`). A path naming nothing
+  registered as written is read as Rust does (`rust_resolve_path_expr_ex`,
+  `rmi_path_at_site`): `crate`, `self`, `super`, the `use` in force (a nearer scope's glob
+  before an outer `use`), a child file, an item, a module's own `use`/`pub use` bindings,
+  exactly one glob, a crate's name; memoised, depth-bounded. Signature types the same
+  (`rmi_type_in_module`). An `index.rs` module's items are found under the names
+  extraction gives them; its naming (113C) is unchanged.
+- **Receivers.** A field read as a value is its declared type, never a method of the
+  name; a method call is its method's declared return type (impl methods record it,
+  `rust_return_type`, surface 7; Rust fields cross as `rust_field_defs`); an `async fn`
+  returns `core.future.Future<T>`, which `.await` alone unwraps; `?` unwraps `Result` and
+  `Option` alone; `(x,)` is a tuple; a turbofish call is its function's. `self`/`Self` in
+  `impl<S> T<S>` are `T`; a `Self::` path is read through the impl's type as written.
+- **Proof.** Issue 109's proof on every dispatch path: a trait impl's method by method
+  call, a trait's default through the type's one impl of the trait, a method a whole path
+  names (`lsp_direct`). A `where` predicate bounding the receiver's type by the method's
+  trait withholds the impl's method (rustc takes the predicate's). Unproven:
+  `impl_unproven`, no answer.
+- **Callers (113B).** An impl's methods are callers named as extraction names their
+  owner: the file's module and the impl's type as written.
+- **Labels.** A free function only the index finds keeps the label of the reading that
+  also finds it (`lsp_cross_crate`, `lsp_short_name_unique`, `lsp_import_alias`), else
+  `lsp_direct`.
+- **Stage 3.** A Rust typed answer whose qualified name a field and a method share names
+  the method (`answered_definition`); two callables stay no answer (issue 108). Issue
+  116: a method call's receiver is a value, never external by its first name's import.
+- **Not here.** A project `Deref` impl's target (not recorded), a generic bound's trait
+  method, 113C's naming, macro token trees (107B), same-name identity (108), the route
+  band (119). Never type a receiver by a method's name, a naming convention or the only
+  definition left.
+- **Tests.** `crates/pdx-core/tests/rust_receiver_evidence.rs` (E1 to E9),
+  `crates/pdx/tests/rust_recall.rs` (end to end, cold and warm), `rust_trusted_impls`'s
+  check that typed resolution draws nothing Stage 3 withholds, `weak_evidence` (sites
+  typed resolution cannot answer), `cache_entries_of_engine_thirteen_are_never_served`,
+  `test_a0.py`'s classification.
+
 Issue 117 (no patch, engine 12): Stage 3's trusted name stages take a Rust trait impl's
 member only when the impl is proven to apply.
 - **Exposed.** The facts issue 109 records cross the interface as they are:
@@ -696,7 +771,8 @@ member only when the impl is proven to apply.
 Resolution (`resolve::stages::resolve`) runs typed resolution over the whole
 repository on every build, then settles each site in a fixed precedence: a qualifying
 typed answer first (`typed` only through `bands::from_engine` and a target that is
-exactly one definition, whatever the callee's name; issue 103); then the B.4
+exactly one definition, whatever the callee's name, issue 103, or in Rust the one
+callable of a field and a method sharing its qualified name, issue 105); then the B.4
 blocklist, which no engine hint passes; then the engine's other answers (a target in
 no file of the project is `external`, issue 45); then local bindings (`unresolved`) and
 external-only bindings (`external`, and a Rust path starting with an extern-prelude
@@ -976,7 +1052,10 @@ of `bench/engine-differential.toml`.
   run from an empty working directory (issue 83, decision 52). At engine 13, 31 are
   identical and `golden:rust/axum` passes with 17 ratified divergences: 3 `typed` (issue
   111's, 114's and 109's) and 14 `calls` (issue 107A's turbofish calls, which the
-  reference does not extract; `issue-107a-axum-core-…`, record `issue` 107).
+  reference does not extract; `issue-107a-axum-core-…`, record `issue` 107). At engine
+  14 (R5) those 17 still occur, 29 corpora are identical, and 81 new `typed` rows in
+  `golden:rust/axum` and the two `rust_workspace_*` fixtures await the driver's
+  ratification (above).
 
 `bench/corpus/` is the sanitizer corpus: one directory per engine language ID, at most
 200 small project-authored files, every one extracted by `make check-asan`. A file

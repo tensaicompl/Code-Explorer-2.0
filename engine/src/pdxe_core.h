@@ -353,6 +353,13 @@ typedef struct {
      * this method, written as PDXEImplTrait's impl_bounds; NULL for every other
      * definition. Kept at the tail, as impl_trait is. */
     const char **impl_bounds;
+    /* Issue 105, Rust only: an `impl` block's method's declared return type, the text
+     * after its `->`; NULL when it declares none and for every other definition (a
+     * free function's is `return_type`, as before). Kept at the tail, as impl_trait is. */
+    const char *rust_return_type;
+    /* Issue 105, Rust only: the function is `async`, so a call of it is a future of its
+     * declared return type. Kept at the tail, as impl_trait is. */
+    bool rust_is_async;
 } PDXEDefinition;
 
 

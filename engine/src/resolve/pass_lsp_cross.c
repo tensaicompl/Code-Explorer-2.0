@@ -511,6 +511,10 @@ static int pxc_build_lsp_def(PDXEArena *arena, const PDXEDefinition *src, const 
         dst->trait_qn = src->impl_trait ? pdxe_arena_strdup(arena, src->impl_trait) : NULL;
         dst->is_abstract = src->is_abstract;
         dst->impl_bounds = pxc_copy_impl_bounds(arena, src->impl_bounds);
+        /* Issue 105: an impl method's declared return type. */
+        dst->rust_return_type =
+            src->rust_return_type ? pdxe_arena_strdup(arena, src->rust_return_type) : NULL;
+        dst->rust_is_async = src->rust_is_async;
     }
     return 0;
 }
@@ -750,6 +754,15 @@ PDXELSPDef *pdxe_pxc_collect_all_defs(const pdxe_pipeline_ctx_t *ctx, PDXEArena 
         pdxe_pxc_free_import_map(imp_keys, imp_vals, imp_count); /* NULL-safe */
         if (files[fi].language == PDXE_LANG_GO) {
             pxc_fold_go_struct_fields(arena, fr, defs, file_start, idx);
+        }
+        if (files[fi].language == PDXE_LANG_RUST) {
+            /* Issue 105: a Rust struct's fields, folded as Go's are, carried apart
+             * (rust_field_defs): the per-file cross surface keeps what it held. */
+            pxc_fold_go_struct_fields(arena, fr, defs, file_start, idx);
+            for (int di = file_start; di < idx; di++) {
+                defs[di].rust_field_defs = defs[di].field_defs;
+                defs[di].field_defs = NULL;
+            }
         }
         if (files[fi].language == PDXE_LANG_RUST) {
             for (int ii = 0; ii < fr->impl_traits.count; ii++) {
@@ -1500,6 +1513,9 @@ static PDXERustLSPDef *pxc_lspdefs_to_rust(PDXEArena *arena, const PDXELSPDef *d
         out[i].is_rust_impl_relation = defs[i].is_rust_impl_relation;
         out[i].is_abstract = defs[i].is_abstract;
         out[i].impl_bounds = defs[i].impl_bounds;
+        out[i].rust_return_type = defs[i].rust_return_type;
+        out[i].rust_field_defs = defs[i].rust_field_defs;
+        out[i].rust_is_async = defs[i].rust_is_async;
     }
     return out;
 }
@@ -1823,6 +1839,50 @@ void pdxe_pxc_dispatch_file(PDXELanguage lang, PDXEFileResult *result, const cha
     free(filtered);
 }
 
+/* Issues 105 and 113: the Rust module index for one pass: every Rust file with its
+ * module and source, every Rust type and free function by qualified name. The files'
+ * module names are the pass's own (`def_modules`, computed here for a file not yet
+ * named), so a path names what the definitions are named. NULL when nothing is Rust or
+ * the index cannot be made (lost work: no path is then read through it). */
+static PDXERustModuleIndex *pxc_build_rust_modules(pdxe_pipeline_ctx_t *ctx,
+                                                  const pdxe_file_info_t *files, int file_count,
+                                                  PDXEFileResult **cache, char **def_modules,
+                                                  const PDXELSPDef *defs, int def_count) {
+    PDXERustModuleIndex *x = pdxe_rust_modules_new(&ctx->seq_cross_arena);
+    if (!x) {
+        pdxe_lost_allocation();
+        return NULL;
+    }
+    for (int i = 0; i < def_count; i++) {
+        const PDXELSPDef *d = &defs[i];
+        if (d->lang != PDXE_LANG_RUST || !d->qualified_name || !d->label ||
+            d->is_rust_impl_relation) {
+            continue;
+        }
+        if (pdxe_label_is_type_like(d->label)) {
+            pdxe_rust_modules_add_item(x, d->qualified_name, true);
+        } else if (strcmp(d->label, "Function") == 0 && !d->receiver_type) {
+            pdxe_rust_modules_add_item(x, d->qualified_name, false);
+        }
+    }
+    for (int i = 0; i < file_count; i++) {
+        if (!cache[i] || files[i].language != PDXE_LANG_RUST) {
+            continue;
+        }
+        if (!def_modules[i]) {
+            def_modules[i] = pdxe_pipeline_fqn_module_dir(ctx->project_name, files[i].rel_path,
+                                                         pxc_module_is_dir(files[i].language));
+        }
+        int source_len = 0;
+        char *source = pxc_read_file(files[i].path, &source_len);
+        pdxe_rust_modules_add_file(x, files[i].rel_path, def_modules[i], source, source_len);
+        free(source);
+    }
+    const PDXECargoManifest *manifest = pdxe_pxc_get_rust_manifest();
+    pdxe_rust_modules_finish(x, manifest ? manifest->package_name : NULL);
+    return x;
+}
+
 /* A manifest the embedding project supplies already parsed, in place of reading one
  * from the repository. Set around a pass by the thread that runs it. */
 static _Thread_local const PDXECargoManifest *pxc_supplied_manifest = NULL;
@@ -1946,6 +2006,15 @@ int pdxe_pipeline_pass_lsp_cross(pdxe_pipeline_ctx_t *ctx, const pdxe_file_info_
     int skipped_no_source = 0;
     int per_lang_calls = 0;
 
+    /* Issues 105 and 113: the repository's Rust modules, indexed once for the pass, so
+     * that each file's resolution reads a path as Rust does (rust_lsp.c). In the
+     * caller-owned arena: an answer may hold a name the index holds. */
+    PDXERustModuleIndex *rust_modules =
+        have_rust && all_defs ? pxc_build_rust_modules(ctx, files, file_count, cache,
+                                                       def_modules, all_defs, def_count)
+                              : NULL;
+    pdxe_rust_modules_set(rust_modules);
+
     for (int i = 0; i < file_count; i++) {
         if (!cache[i])
             continue;
@@ -1989,6 +2058,7 @@ int pdxe_pipeline_pass_lsp_cross(pdxe_pipeline_ctx_t *ctx, const pdxe_file_info_
         free(source);
     }
 
+    pdxe_rust_modules_set(NULL);
     pdxe_pxc_free_module_def_index(module_def_index);
     free(all_defs);
     /* The module-QN strings are borrowed by the shared cross registries in

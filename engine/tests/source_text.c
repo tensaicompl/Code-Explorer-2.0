@@ -724,7 +724,7 @@ static void surface_ranges(void) {
     good[surface_len] = '\0';
     pdxe_surface_free(surface);
     pdxe_result_free(ctx, r);
-    CHECK(strncmp(good, "{\"v\":6,", 7) == 0, "the surface is not version 6: %.12s", good);
+    CHECK(strncmp(good, "{\"v\":7,", 7) == 0, "the surface is not version 7: %.12s", good);
     char len_key[64];
     snprintf(len_key, sizeof(len_key), "\"source_len\":%zu,", strlen(py));
     CHECK(strstr(good, len_key) != NULL, "the surface does not record the source's length");
@@ -769,7 +769,7 @@ static void surface_ranges(void) {
 
     /* Refused: another version; a length that a range passes; a range past its end or
      * starting past it; a definition reference or a base past the definitions. */
-    expect_refused("of version 5", replace(good, "\"v\":6", "\"v\":5"));
+    expect_refused("of version 6", replace(good, "\"v\":7", "\"v\":6"));
     expect_refused("without the source's length", replace(good, len_key, ""));
     expect_refused("whose length is shorter than a range",
                    replace(good, len_key, "\"source_len\":3,"));

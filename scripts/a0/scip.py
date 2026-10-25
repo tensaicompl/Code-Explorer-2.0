@@ -60,6 +60,9 @@ class SymbolInfo:
     display_name: str = ""
     enclosing_symbol: str = ""
     relationships: list[Relationship] = field(default_factory=list)
+    # The signature the indexer documents for it (`let x: T`, `fn f() -> T`): the text
+    # of its signature_documentation; empty when none is given.
+    signature: str = ""
 
 
 @dataclass
@@ -177,6 +180,10 @@ def _symbol(buf: bytes) -> SymbolInfo:
             s.display_name = value.decode("utf-8")
         elif number == 8:
             s.enclosing_symbol = value.decode("utf-8")
+        elif number == 7:
+            for n2, _w2, v2 in _fields(value):
+                if n2 == 5:
+                    s.signature = v2.decode("utf-8", "replace")
     return s
 
 

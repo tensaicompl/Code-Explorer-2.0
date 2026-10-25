@@ -742,10 +742,7 @@ impl Resolver<'_> {
             .filter(|a| {
                 from_engine(a.score, a.strategy.as_str(), a.candidates) == EngineVerdict::Typed
             })
-            .and_then(|_| match mapped.as_slice() {
-                [one] => Some(one.clone()),
-                _ => None,
-            })
+            .and_then(|_| self.answered_definition(language, &mapped))
             // A member a macro may write another of its name for is no proven target,
             // typed or not (issue 110).
             .filter(|t| !self.member_unproven(language, receiver, name, t));
@@ -824,7 +821,12 @@ impl Resolver<'_> {
                 self.registry.name_provenance(path, name)
             }
         };
-        if receiver.is_none() || role == Receiver::Other {
+        // Issue 116: a Rust method call's receiver is a value (a `let`, a parameter, what a
+        // call made), whatever an import of its first name binds; where the method is
+        // is not said by that import. Only a path is.
+        let rust_method_call =
+            language.id == "rust" && receiver.is_some_and(|r| spelled[r.len()..].starts_with('.'));
+        if (receiver.is_none() || role == Receiver::Other) && !rust_method_call {
             let head = receiver.map_or(name, head_of);
             match provenance(head) {
                 NameProvenance::ExternalImport(_) => {
@@ -1099,6 +1101,32 @@ impl Resolver<'_> {
             .filter(|r| &r.path == path)
             .cloned()
             .collect()
+    }
+
+    /// The one definition a typed answer names, of those with its file and qualified
+    /// name. A Rust type's field and its method of one name share the qualified name
+    /// `Type.name`; the typed pass answers with a callable only, so of the two it names
+    /// the method (issue 105). Two callables of one name stay no answer (issue 108).
+    fn answered_definition(
+        &self,
+        language: &Language,
+        mapped: &[DefinitionRef],
+    ) -> Option<DefinitionRef> {
+        match mapped {
+            [one] => Some(one.clone()),
+            _ if language.id == "rust" => {
+                let mut callables = mapped.iter().filter(|r| {
+                    self.registry
+                        .definition(r)
+                        .is_some_and(|d| callable(d.kind))
+                });
+                match (callables.next(), callables.next()) {
+                    (Some(one), None) => Some(one.clone()),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
     }
 
     /// The type a call is made from: the caller itself when it is a type, else the type

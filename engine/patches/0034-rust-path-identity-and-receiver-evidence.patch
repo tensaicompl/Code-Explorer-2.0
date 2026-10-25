@@ -1,0 +1,1688 @@
+--- a/engine/src/extract_defs.c
++++ b/engine/src/extract_defs.c
+@@ -4315,6 +4315,20 @@ static char *resolve_cpp_test_macro_name(PDXEArena *a, const char *macro, TSNode
+     return NULL;
+ }
+ 
++/* Issue 105: whether a Rust function's modifiers hold `async`. */
++static bool rust_fn_is_async(TSNode fn) {
++    PDXE_FOR_EACH_CHILD(it, fn) {
++        if (strcmp(ts_node_type(it.node), "function_modifiers") == 0) {
++            PDXE_FOR_EACH_CHILD(m, it.node) {
++                if (strcmp(ts_node_type(m.node), "async") == 0) {
++                    return true;
++                }
++            }
++        }
++    }
++    return false;
++}
++
+ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpec *spec) {
+     PDXEArena *a = ctx->arena;
+ 
+@@ -4411,6 +4425,9 @@ static void extract_func_def(PDXEExtractCtx *ctx, TSNode node, const PDXELangSpe
+         strcmp(ts_node_type(node), "function_signature_item") == 0) {
+         def.is_abstract = true;
+     }
++    if (ctx->language == PDXE_LANG_RUST) {
++        def.rust_is_async = rust_fn_is_async(node); /* issue 105 */
++    }
+ 
+     // Parameters — use func_node (inner function for templates)
+     TSNode params = find_function_params(func_node, ctx->language);
+@@ -6234,6 +6251,13 @@ static void extract_rust_impl(PDXEExtractCtx *ctx, TSNode node, const PDXELangSp
+             def.signature_param_types = extract_signature_param_types(
+                 a, params, ctx->source, ctx->language, true, &def.signature_param_count);
+         }
++        /* Issue 105: what the method returns, as declared, for the type of a call's
++         * result (`Router::new().route(..)`). */
++        TSNode ret = ts_node_child_by_field_name(child, TS_FIELD("return_type"));
++        if (!ts_node_is_null(ret)) {
++            def.rust_return_type = pdxe_node_text(a, ret, ctx->source);
++        }
++        def.rust_is_async = rust_fn_is_async(child);
+ 
+         if (spec->branching_node_types && spec->branching_node_types[0]) {
+             set_def_complexity(&def, child, spec);
+--- a/engine/src/lsp/go_lsp.h
++++ b/engine/src/lsp/go_lsp.h
+@@ -103,6 +103,12 @@ typedef struct {
+      * a decorator rebinds the function name, so the undecorated definition is
+      * not automatically an exact callable-value target. */
+     const char **decorators;
++    /* Issue 105, Rust only: an impl method's declared return type
++     * (PDXEDefinition.rust_return_type), and a struct's fields, "name:type" pairs
++     * separated by "|". Never in the per-file cross surface (lsp_surface.c). */
++    const char *rust_return_type;
++    const char *rust_field_defs;
++    bool rust_is_async; /* issue 105: an `async` Rust function */
+ } PDXELSPDef;
+ 
+ // Parse source, build registry from defs + stdlib, run LSP.
+--- a/engine/src/lsp/rust_lsp.c
++++ b/engine/src/lsp/rust_lsp.c
+@@ -62,6 +62,16 @@ static const char *rust_lookup_type_param_bound(RustLSPContext *ctx, const char
+ static void rust_collect_bounds_from_text(RustLSPContext *ctx, const char *text);
+ static void rust_record_type_param_bound(RustLSPContext *ctx, const char *param_name,
+                                          const char *trait_qn);
++static const char *rust_path_identity(RustLSPContext *ctx, const char *path);
++static const char *rmi_type_in_module(PDXEArena *arena, const char *module_qn, const char *text);
++static const char *rust_scope_binding(RustLSPContext *ctx, struct RustUseScope *sc,
++                                      const char *local_name, bool *withheld);
++static RustUseScope *rust_file_scope(RustLSPContext *ctx);
++static void rust_declare_uses(RustLSPContext *ctx, TSNode items, int s);
++static int rust_visible_globs(RustLSPContext *ctx, int upto, const char ***out);
++static int rust_split_path(PDXEArena *arena, const char *path, char ***out);
++static const char *rust_resolve_use_ranked(RustLSPContext *ctx, const char *local_name,
++                                           int *rank);
+ 
+ void rust_lsp_init(RustLSPContext *ctx, PDXEArena *arena, const char *source, int source_len,
+                    const PDXETypeRegistry *registry, const char *module_qn,
+@@ -934,14 +944,15 @@ static const char *rust_registered_relative_path(RustLSPContext *ctx, const char
+  *
+  * The returned string is arena-owned; in case (6) we return the input
+  * with `::` already converted to `.`. */
+-static const char *rust_resolve_path_expr(RustLSPContext *ctx, const char *path) {
++static const char *rust_resolve_path_expr_text(RustLSPContext *ctx, const char *path) {
+     if (!ctx || !path || !path[0]) {
+         return path;
+     }
+ 
+     /* Self:: handling — we treat the receiver type's QN as the head. */
+     if (strncmp(path, "Self::", 6) == 0 && ctx->self_type_qn) {
+-        return pdxe_arena_sprintf(ctx->arena, "%s.%s", ctx->self_type_qn,
++        return pdxe_arena_sprintf(ctx->arena, "%s.%s",
++                                 ctx->self_path_qn ? ctx->self_path_qn : ctx->self_type_qn,
+                                  convert_path_to_qn(ctx->arena, path + 6));
+     }
+     if (strcmp(path, "Self") == 0 && ctx->self_type_qn) {
+@@ -1050,6 +1061,49 @@ static const char *rust_resolve_path_expr(RustLSPContext *ctx, const char *path)
+     return convert_path_to_qn(ctx->arena, path);
+ }
+ 
++/* Whether `qn` names something registered: a type, a function, or a name of a
++ * registered type (`Type.method`), which the caller looks up. */
++static bool rust_qn_registered(RustLSPContext *ctx, const char *qn) {
++    if (!qn || !ctx->registry) {
++        return false;
++    }
++    if (pdxe_registry_lookup_type(ctx->registry, qn) || pdxe_registry_lookup_func(ctx->registry, qn)) {
++        return true;
++    }
++    const char *dot = strrchr(qn, '.');
++    if (!dot) {
++        return false;
++    }
++    char *head = pdxe_arena_strndup(ctx->arena, qn, (size_t)(dot - qn));
++    return head && pdxe_registry_lookup_type(ctx->registry, head) != NULL;
++}
++
++/* A path expression's qualified name: as its text reads (above), or, where that names
++ * nothing registered, as Rust's name resolution reads it (issues 105 and 113), and then
++ * `*via_identity` is set. */
++static const char *rust_resolve_path_expr_ex(RustLSPContext *ctx, const char *path,
++                                             bool *via_identity) {
++    const char *qn = rust_resolve_path_expr_text(ctx, path);
++    if (via_identity) {
++        *via_identity = false;
++    }
++    if (!ctx || !path || !path[0] || rust_qn_registered(ctx, qn)) {
++        return qn;
++    }
++    if (strcmp(path, "Self") == 0 || strncmp(path, "Self::", 6) == 0) {
++        return qn;
++    }
++    const char *identity = rust_path_identity(ctx, path);
++    if (identity && via_identity) {
++        *via_identity = true;
++    }
++    return identity ? identity : qn;
++}
++
++static const char *rust_resolve_path_expr(RustLSPContext *ctx, const char *path) {
++    return rust_resolve_path_expr_ex(ctx, path, NULL);
++}
++
+ /* ════════════════════════════════════════════════════════════════════
+  * 4. Type-AST → PDXEType
+  * ════════════════════════════════════════════════════════════════════ */
+@@ -1485,6 +1539,11 @@ static const PDXEType *parse_type_text_with_params(PDXEArena *arena, const char
+                 }
+             }
+             const char *head_qn = head;
++            /* Issues 105 and 113: the type the head names where it is written. */
++            const char *canonical_head = rmi_type_in_module(arena, module_qn, head);
++            if (canonical_head) {
++                head_qn = canonical_head;
++            }
+             if (is_rust_primitive(head)) {
+                 /* Primitives don't take generics in practice except for str ref — pass through. */
+                 return pdxe_type_builtin(arena, head);
+@@ -1509,6 +1568,15 @@ static const PDXEType *parse_type_text_with_params(PDXEArena *arena, const char
+     if (strcmp(text, "Self") == 0) {
+         return pdxe_type_named(arena, "Self");
+     }
++    /* Issues 105 and 113: the type the text names in the module it is written in,
++     * through that module's `use` declarations and globs, `crate`, `self`, `super`
++     * and re-exports, when the repository's modules are indexed. */
++    if (!strchr(text, '.')) {
++        const char *canonical = rmi_type_in_module(arena, module_qn, text);
++        if (canonical) {
++            return pdxe_type_named(arena, canonical);
++        }
++    }
+     /* Has `::` → absolute path; treat dotted paths as already-qualified
+      * QNs (cross-file callers pass module-qualified text directly). */
+     if (strstr(text, "::")) {
+@@ -1780,6 +1848,49 @@ static const PDXEType *rust_eval_literal_type(RustLSPContext *ctx, const char *k
+ static const PDXEType *rust_eval_member_access(RustLSPContext *ctx, const PDXEType *recv,
+                                               const char *member);
+ 
++/* Issue 105: the type of field `name` of the receiver's type (through references), or
++ * unknown; a method of the name is no field. */
++static const PDXEType *rust_eval_field_access(RustLSPContext *ctx, const PDXEType *recv,
++                                              const char *name) {
++    const PDXEType *base = recv;
++    while (base && (base->kind == PDXE_TYPE_REFERENCE || base->kind == PDXE_TYPE_POINTER)) {
++        base = base->kind == PDXE_TYPE_REFERENCE ? base->data.reference.elem
++                                                 : base->data.pointer.elem;
++    }
++    const char *type_qn = NULL;
++    if (base && base->kind == PDXE_TYPE_NAMED) {
++        type_qn = base->data.named.qualified_name;
++    } else if (base && base->kind == PDXE_TYPE_TEMPLATE) {
++        type_qn = base->data.template_type.template_name;
++    }
++    const PDXEType *field = type_qn ? rust_lookup_field(ctx, type_qn, name, 0) : NULL;
++    return field ? field : pdxe_type_unknown();
++}
++
++/* Issue 105: whether the receiver's type (through references) has a method `name` the
++ * registry holds, as rust_eval_member_access looks one up. */
++static bool rust_receiver_has_method(RustLSPContext *ctx, const PDXEType *recv, const char *name) {
++    const PDXEType *base = recv;
++    while (base && (base->kind == PDXE_TYPE_REFERENCE || base->kind == PDXE_TYPE_POINTER)) {
++        base = base->kind == PDXE_TYPE_REFERENCE ? base->data.reference.elem
++                                                 : base->data.pointer.elem;
++    }
++    const char *type_qn = NULL;
++    if (base && base->kind == PDXE_TYPE_NAMED) {
++        type_qn = base->data.named.qualified_name;
++    } else if (base && base->kind == PDXE_TYPE_TEMPLATE) {
++        type_qn = base->data.template_type.template_name;
++    } else if (base && base->kind == PDXE_TYPE_BUILTIN) {
++        const char *nm = base->data.builtin.name;
++        type_qn = strcmp(nm, "str") == 0      ? "core.str"
++                  : strcmp(nm, "String") == 0 ? "alloc.string.String"
++                                              : nm;
++    } else if (base && base->kind == PDXE_TYPE_SLICE) {
++        type_qn = "core.slice";
++    }
++    return type_qn && rust_lookup_method(ctx, type_qn, name) != NULL;
++}
++
+ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
+     if (ts_node_is_null(node)) {
+         return pdxe_type_unknown();
+@@ -1886,7 +1997,9 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
+         if (!fname) {
+             return pdxe_type_unknown();
+         }
+-        return rust_eval_member_access(ctx, recv, fname);
++        /* Issue 105: `x.f` read as a value is a field, never a method of the name (a
++         * method is only called, `x.f()`, typed above). */
++        return rust_eval_field_access(ctx, recv, fname);
+     }
+ 
+     /* call_expression: any callable invocation. */
+@@ -1896,6 +2009,14 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
+         if (ts_node_is_null(func_node)) {
+             return pdxe_type_unknown();
+         }
++        /* A call through a turbofish (`start::<u8>()`, `x.m::<T>()`) is its function's
++         * call (issue 107A), and returns what the function does (issue 105). */
++        if (strcmp(ts_node_type(func_node), "generic_function") == 0) {
++            TSNode inner = ts_node_child_by_field_name(func_node, "function", 8);
++            if (!ts_node_is_null(inner)) {
++                func_node = inner;
++            }
++        }
+         const char *fk = ts_node_type(func_node);
+ 
+         /* Constructor of a tuple struct, unit-like struct, or stdlib
+@@ -2248,9 +2369,12 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
+                         }
+                         return ret;
+                     }
+-                    return t;
++                    /* Issue 105: `x.f()` calls a method; a field of the name is no
++                     * answer (a field is called as `(x.f)()`). */
++                    return rust_receiver_has_method(ctx, recv, mname) ? t : pdxe_type_unknown();
+                 }
+             }
++            return pdxe_type_unknown(); /* issue 105: a method call is never a field's */
+         }
+ 
+         /* Fallback: function expression's return type. */
+@@ -2397,24 +2521,33 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
+ 
+     /* try_expression: e? — peel one Result<T, _> / Option<T> layer. */
+     if (strcmp(kind, "try_expression") == 0 && ts_node_named_child_count(node) > 0) {
++        /* Issue 105: `?` gives a Result's or an Option's value; of anything else, what
++         * its Try impl says, which is not read: unknown, never the value's own type. */
+         const PDXEType *inner = rust_eval_expr_type(ctx, ts_node_named_child(node, 0));
+         if (inner && inner->kind == PDXE_TYPE_TEMPLATE) {
+             const char *nm = inner->data.template_type.template_name;
+-            if ((strstr(nm, "Result") || strstr(nm, "Option")) &&
++            const char *last = strrchr(nm, '.');
++            last = last ? last + 1 : nm;
++            if ((strcmp(last, "Result") == 0 || strcmp(last, "Option") == 0) &&
+                 inner->data.template_type.arg_count > 0) {
+                 return inner->data.template_type.template_args[0];
+             }
+         }
+-        return inner;
++        return pdxe_type_unknown();
+     }
+ 
+     /* await_expression: future.await — peel one Future / Poll layer naively. */
+     if (strcmp(kind, "await_expression") == 0 && ts_node_named_child_count(node) > 0) {
++        /* Issue 105: only a future's output is known: an `async` function's call
++         * (core.future.Future<T>, rust_populate_cross_registry). Anything else awaited
++         * (a type implementing IntoFuture) gives what its impl says, which is not read:
++         * unknown, never the awaited value's own type. */
+         const PDXEType *inner = rust_eval_expr_type(ctx, ts_node_named_child(node, 0));
+-        if (inner && inner->kind == PDXE_TYPE_TEMPLATE && inner->data.template_type.arg_count > 0) {
++        if (inner && inner->kind == PDXE_TYPE_TEMPLATE && inner->data.template_type.arg_count > 0 &&
++            strcmp(inner->data.template_type.template_name, "core.future.Future") == 0) {
+             return inner->data.template_type.template_args[0];
+         }
+-        return inner;
++        return pdxe_type_unknown();
+     }
+ 
+     /* type_cast_expression: x as T */
+@@ -2438,9 +2571,8 @@ const PDXEType *rust_eval_expr_type(RustLSPContext *ctx, TSNode node) {
+         if (count == 0) {
+             return pdxe_type_builtin(ctx->arena, "()");
+         }
+-        if (count == 1) {
+-            return elems[0];
+-        }
++        /* Issue 105: `(x,)` is a tuple of one, never `x` (a parenthesized expression
++         * is a node of its own). */
+         return pdxe_type_tuple(ctx->arena, elems, count);
+     }
+ 
+@@ -5324,6 +5456,128 @@ static bool rust_impl_proven_to_apply(RustLSPContext *ctx, const PDXERustImplFac
+     return true;
+ }
+ 
++/* Issue 105: records the predicates of `item`'s where clause (an impl's, a function's)
++ * whose subject is a type: `Router<S>: Clone` as Router's QN and Clone's. */
++static void rust_push_where_predicates(RustLSPContext *ctx, TSNode item) {
++    PDXE_FOR_EACH_CHILD(it, item) {
++        if (strcmp(ts_node_type(it.node), "where_clause") != 0) {
++            continue;
++        }
++        PDXE_FOR_EACH_NAMED_CHILD(p, it.node) {
++            if (strcmp(ts_node_type(p.node), "where_predicate") != 0) {
++                continue;
++            }
++            TSNode left = ts_node_child_by_field_name(p.node, "left", 4);
++            TSNode bounds = ts_node_child_by_field_name(p.node, "bounds", 6);
++            if (ts_node_is_null(left) || ts_node_is_null(bounds)) {
++                continue;
++            }
++            if (strcmp(ts_node_type(left), "generic_type") == 0) {
++                left = ts_node_child_by_field_name(left, "type", 4);
++            }
++            const char *lk = ts_node_is_null(left) ? "" : ts_node_type(left);
++            if (strcmp(lk, "type_identifier") != 0 && strcmp(lk, "scoped_type_identifier") != 0) {
++                continue;
++            }
++            char *subject_text = rust_node_text(ctx, left);
++            const char *subject = subject_text ? rust_resolve_path_expr(ctx, subject_text) : NULL;
++            if (!subject) {
++                continue;
++            }
++            PDXE_FOR_EACH_NAMED_CHILD(b, bounds) {
++                TSNode trait = b.node;
++                if (strcmp(ts_node_type(trait), "generic_type") == 0) {
++                    trait = ts_node_child_by_field_name(trait, "type", 4);
++                }
++                const char *tk = ts_node_is_null(trait) ? "" : ts_node_type(trait);
++                if (strcmp(tk, "type_identifier") != 0 &&
++                    strcmp(tk, "scoped_type_identifier") != 0) {
++                    continue;
++                }
++                char *trait_text = rust_node_text(ctx, trait);
++                const char *trait_qn = trait_text ? rust_resolve_path_expr(ctx, trait_text) : NULL;
++                if (!trait_qn) {
++                    continue;
++                }
++                if (ctx->where_count >= ctx->where_cap) {
++                    int cap = ctx->where_cap ? ctx->where_cap * 2 : 8;
++                    const char **s = (const char **)pdxe_arena_alloc(ctx->arena,
++                                                                     (size_t)cap * sizeof(char *));
++                    const char **t = (const char **)pdxe_arena_alloc(ctx->arena,
++                                                                     (size_t)cap * sizeof(char *));
++                    if (!s || !t) {
++                        return;
++                    }
++                    if (ctx->where_count > 0) {
++                        memcpy(s, ctx->where_subjects, (size_t)ctx->where_count * sizeof(char *));
++                        memcpy(t, ctx->where_traits, (size_t)ctx->where_count * sizeof(char *));
++                    }
++                    ctx->where_subjects = s;
++                    ctx->where_traits = t;
++                    ctx->where_cap = cap;
++                }
++                ctx->where_subjects[ctx->where_count] = subject;
++                ctx->where_traits[ctx->where_count] = trait_qn;
++                ctx->where_count++;
++            }
++        }
++    }
++}
++
++/* Issue 105: whether a predicate in force bounds the type `type_qn` by the trait
++ * `trait_qn`: a call of the trait's method on that type goes through the bound, as
++ * method resolution takes it before any impl. */
++static bool rust_where_bounds(const RustLSPContext *ctx, const char *type_qn,
++                              const char *trait_qn) {
++    for (int i = 0; type_qn && trait_qn && i < ctx->where_count; i++) {
++        if (strcmp(ctx->where_subjects[i], type_qn) == 0 &&
++            strcmp(ctx->where_traits[i], trait_qn) == 0) {
++            return true;
++        }
++    }
++    return false;
++}
++
++static const PDXERustImplFacts *rust_sole_impl_of(const RustLSPContext *ctx, const char *type_qn,
++                                                  const char *trait_qn);
++
++/* Issue 105: a trait impl's method answers a method call (`x.m()`) on a value of the
++ * type `type_qn` only when its impl is proven to apply, as issue 109 requires of
++ * `Type::method`; a trait's own method (a default) only when the type's one impl of the
++ * trait is. The receiver gives the self type no type arguments a header could be
++ * checked against, so only an impl whose header requires nothing is: a bound left
++ * unproven, an opaque or missing header, no impl or several, is no answer. A trait's
++ * method reached through a bound or a trait object is the trait's, and a derive's method
++ * and an inherent one are answered as before. */
++static bool rust_method_dispatch_proven(RustLSPContext *ctx, const char *type_qn,
++                                        const PDXERegisteredFunc *m) {
++    if (!m || (m->flags & PDXE_FUNC_FLAG_RUST_DERIVED) != 0) {
++        return true;
++    }
++    if ((m->flags & PDXE_FUNC_FLAG_RUST_TRAIT_IMPL) != 0) {
++        /* A predicate in force that bounds the receiver's type by the method's trait:
++         * the call is through that bound, the trait's method, not this impl's. */
++        if (rust_where_bounds(ctx, m->receiver_type, m->impl_trait_qn)) {
++            return false;
++        }
++        return rust_impl_proven_to_apply(ctx, m->rust_impl, NULL, 0);
++    }
++    const PDXERegisteredType *owner =
++        m->receiver_type ? pdxe_registry_lookup_type(ctx->registry, m->receiver_type) : NULL;
++    if (!owner || !owner->is_interface || !type_qn) {
++        return true;
++    }
++    const PDXERegisteredType *receiver = pdxe_registry_lookup_type(ctx->registry, type_qn);
++    if (receiver && receiver->is_interface) {
++        return true;
++    }
++    const PDXERustImplFacts *impl = rust_sole_impl_of(ctx, type_qn, m->receiver_type);
++    if (impl && impl->derived) {
++        return true;
++    }
++    return rust_impl_proven_to_apply(ctx, impl, NULL, 0);
++}
++
+ /* The one impl of `trait_qn` the registry holds for the type `type_qn`, or NULL when
+  * it holds none or several. */
+ static const PDXERustImplFacts *rust_sole_impl_of(const RustLSPContext *ctx, const char *type_qn,
+@@ -5501,6 +5755,10 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+             bool trait_dispatch = false;
+             const PDXERegisteredFunc *m =
+                 rust_resolve_trait_method(ctx, type_qn, mname, &impl_count, &trait_dispatch);
++            if (m && !rust_method_dispatch_proven(ctx, type_qn, m)) {
++                rust_emit_unresolved_call(ctx, m->qualified_name, "impl_unproven");
++                return;
++            }
+             if (m) {
+                 const char *strategy = "lsp_method_dispatch";
+                 float conf = PDXE_RUST_CONF_METHOD;
+@@ -5550,6 +5808,10 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+                 int hop_impls = 0;
+                 const PDXERegisteredFunc *hm =
+                     rust_resolve_trait_method(ctx, next_qn, mname, &hop_impls, NULL);
++                if (hm && !rust_method_dispatch_proven(ctx, next_qn, hm)) {
++                    rust_emit_unresolved_call(ctx, hm->qualified_name, "impl_unproven");
++                    return;
++                }
+                 if (hm) {
+                     rust_emit_resolved_call(ctx, hm->qualified_name, "lsp_deref_dispatch",
+                                             PDXE_RUST_CONF_PROMOTED);
+@@ -5572,6 +5834,10 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+                     int bimpls = 0;
+                     const PDXERegisteredFunc *bm =
+                         rust_resolve_trait_method(ctx, bound, mname, &bimpls, NULL);
++                    if (bm && !rust_method_dispatch_proven(ctx, bound, bm)) {
++                        rust_emit_unresolved_call(ctx, bm->qualified_name, "impl_unproven");
++                        return;
++                    }
+                     if (bm) {
+                         rust_emit_resolved_call(ctx, bm->qualified_name, "lsp_bound_dispatch",
+                                                 PDXE_RUST_CONF_TRAIT_AMB);
+@@ -5627,17 +5893,53 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+             }
+         }
+ 
+-        const char *qn = rust_resolve_path_expr(ctx, path);
++        bool via_identity = false;
++        const char *qn = rust_resolve_path_expr_ex(ctx, path, &via_identity);
+         if (!qn)
+             return;
+ 
+         /* Try registered free function first. Also try module-prefixed
+          * fallback so `Logger::new` (which resolves to "Logger.new")
+-         * still finds the project's `<module>.Logger.new`. */
+-        if (pdxe_registry_lookup_func(ctx->registry, qn)) {
++         * still finds the project's `<module>.Logger.new`. A path that names a
++         * method only as Rust's name resolution reads it (`Type::method`, issue 105)
++         * goes to the UFCS dispatch below, which proves its impl (issue 109). */
++        const PDXERegisteredFunc *direct = pdxe_registry_lookup_func(ctx->registry, qn);
++        if (direct && !via_identity) {
++            /* A type's method its whole path names (`Self::m` in an impl of a type with
++             * no arguments) is a trait impl's only when the impl is proven to apply, as
++             * through the dispatch below (issue 109): never by the name alone. */
++            const PDXERegisteredType *owner =
++                direct->receiver_type
++                    ? pdxe_registry_lookup_type(ctx->registry, direct->receiver_type)
++                    : NULL;
++            if (direct->receiver_type && (!owner || !owner->is_interface)) {
++                const char *last = strrchr(qn, '.');
++                const char *owner_qn =
++                    last ? pdxe_arena_strndup(ctx->arena, qn, (size_t)(last - qn)) : NULL;
++                TSNode owner_path = strcmp(ts_node_type(actual_func), "scoped_identifier") == 0
++                                        ? ts_node_child_by_field_name(actual_func, "path", 4)
++                                        : (TSNode){0};
++                const PDXERegisteredFunc *proven =
++                    rust_ufcs_target(ctx, owner_path, owner_qn, direct);
++                if (!proven) {
++                    rust_emit_unresolved_call(ctx, qn, "impl_unproven");
++                    return;
++                }
++                if (proven != direct) {
++                    rust_emit_resolved_call(ctx, proven->qualified_name, "lsp_ufcs",
++                                            PDXE_RUST_CONF_UFCS);
++                    return;
++                }
++            }
+             rust_emit_resolved_call(ctx, qn, "lsp_direct", PDXE_RUST_CONF_DIRECT);
+             return;
+         }
++        /* A free function the path names only as Rust reads it is answered below,
++         * under the label of the reading that also finds it (the workspace member's,
++         * the imported path's), and as itself when none does or another names a
++         * different function. */
++        const PDXERegisteredFunc *identity_free =
++            direct && !direct->receiver_type ? direct : NULL;
+         if (ctx->module_qn && strstr(qn, ".") == NULL) {
+             const char *full = pdxe_arena_sprintf(ctx->arena, "%s.%s", ctx->module_qn, qn);
+             if (pdxe_registry_lookup_func(ctx->registry, full)) {
+@@ -5648,7 +5950,7 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+ 
+         /* UFCS form: T::method or trait_qn::method. */
+         const char *dot = strrchr(qn, '.');
+-        if (dot) {
++        if (dot && !identity_free) {
+             char *head = pdxe_arena_strndup(ctx->arena, qn, (size_t)(dot - qn));
+             const char *short_name = dot + 1;
+             /* If `head` is a trait, `Trait::method` UFCS resolves to the sole
+@@ -5783,7 +6085,8 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+                         if (mem_matches == 1)
+                             mem_unique = f;
+                     }
+-                    if (mem_matches == 1 && mem_unique) {
++                    if (mem_matches == 1 && mem_unique &&
++                        (!identity_free || mem_unique == identity_free)) {
+                         rust_emit_resolved_call(ctx, mem_unique->qualified_name, "lsp_cross_crate",
+                                                 PDXE_RUST_CONF_DIRECT);
+                         return;
+@@ -5843,7 +6146,7 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+                 agree = rust_agreeing_free_funcs(ctx, wanted, crate_len, read, &ql, globs, glob_n,
+                                                  &agreeing);
+             }
+-            if (agree == 1 && agreeing) {
++            if (agree == 1 && agreeing && (!identity_free || agreeing == identity_free)) {
+                 if (strcmp(wanted, tail) != 0) {
+                     /* Called by its alias: the site joins by the name it spells, as
+                      * Python's imported aliases do. */
+@@ -5858,6 +6161,10 @@ static void rust_resolve_call_expression_inner(RustLSPContext *ctx, TSNode node)
+             }
+         }
+ 
++        if (identity_free) {
++            rust_emit_resolved_call(ctx, qn, "lsp_direct", PDXE_RUST_CONF_DIRECT);
++            return;
++        }
+         /* Last-ditch: emit with the resolved path. */
+         rust_emit_unresolved_call(ctx, qn, "function_not_in_registry");
+         return;
+@@ -6305,6 +6612,8 @@ static void rust_process_function(RustLSPContext *ctx, TSNode func_node, const c
+     /* Issue 109: the function's generic parameters are in scope in its body. */
+     int saved_generic_names = ctx->generic_name_count;
+     rust_push_generic_names(ctx, func_node);
++    int saved_where = ctx->where_count; /* issue 105 */
++    rust_push_where_predicates(ctx, func_node);
+ 
+     /* Chalk-lite: capture the active function's type-parameter bounds
+      * and where-clause bounds into ctx so dispatch through generic
+@@ -6363,6 +6672,7 @@ static void rust_process_function(RustLSPContext *ctx, TSNode func_node, const c
+     /* Restore bound-env count so the caller's bounds are unaffected. */
+     ctx->type_param_bound_count = saved_bound_count;
+     ctx->generic_name_count = saved_generic_names;
++    ctx->where_count = saved_where;
+ }
+ 
+ /* Walk an `impl_item`, processing each `function_item` inside its body
+@@ -6550,6 +6860,16 @@ static void rust_process_impl(RustLSPContext *ctx, TSNode impl_node) {
+     TSNode type_node = ts_node_child_by_field_name(impl_node, "type", 4);
+     if (ts_node_is_null(type_node))
+         return;
++    /* Issue 105: `impl<S, E> MethodRouter<S, E>` is MethodRouter's: `self` and `Self` are
++     * that type, its path without the arguments. Its methods' callers keep the text as
++     * written (below), which is how extraction names the owner of their calls. */
++    TSNode self_node = type_node;
++    if (strcmp(ts_node_type(type_node), "generic_type") == 0) {
++        TSNode base = ts_node_child_by_field_name(type_node, "type", 4);
++        if (!ts_node_is_null(base)) {
++            self_node = base;
++        }
++    }
+     char *type_text = rust_node_text(ctx, type_node);
+     if (!type_text)
+         return;
+@@ -6575,12 +6895,34 @@ static void rust_process_impl(RustLSPContext *ctx, TSNode impl_node) {
+         return;
+ 
+     const char *saved_self = ctx->self_type_qn;
++    const char *saved_self_path = ctx->self_path_qn;
+     const char *saved_trait = ctx->self_trait_qn;
+     ctx->self_type_qn = effective_recv;
++    ctx->self_path_qn = effective_recv;
++    if (!is_blanket && !ts_node_eq(self_node, type_node)) {
++        char *self_text = rust_node_text(ctx, self_node);
++        const char *self_qn = self_text ? rust_resolve_path_expr(ctx, self_text) : NULL;
++        if (self_qn) {
++            ctx->self_type_qn = self_qn;
++        }
++    }
+     ctx->self_trait_qn = NULL;
++    /* Issue 113B: an impl's methods are the callers of their calls as extraction names
++     * their owner, the file's module and the impl's type as written, whatever the type
++     * resolves to (an imported `HeaderMap` named through its import joined no site). A
++     * blanket impl's keep the trait's. */
++    const char *caller_parent =
++        is_blanket || !ctx->module_qn
++            ? effective_recv
++            : pdxe_arena_sprintf(ctx->arena, "%s.%s", ctx->module_qn, type_text);
++    if (!caller_parent) {
++        caller_parent = effective_recv;
++    }
+     /* Issue 109: the impl's generic parameters are in scope in its methods. */
+     int saved_generic_names = ctx->generic_name_count;
+     rust_push_generic_names(ctx, impl_node);
++    int saved_where = ctx->where_count; /* issue 105 */
++    rust_push_where_predicates(ctx, impl_node);
+ 
+     if (!ts_node_is_null(trait_node) && !is_blanket) {
+         char *tt = rust_node_text(ctx, trait_node);
+@@ -6596,14 +6938,16 @@ static void rust_process_impl(RustLSPContext *ctx, TSNode impl_node) {
+                 continue;
+             const char *ck = ts_node_type(c);
+             if (strcmp(ck, "function_item") == 0) {
+-                rust_process_function(ctx, c, effective_recv);
++                rust_process_function(ctx, c, caller_parent);
+             }
+         }
+     }
+ 
+     ctx->self_type_qn = saved_self;
++    ctx->self_path_qn = saved_self_path;
+     ctx->self_trait_qn = saved_trait;
+     ctx->generic_name_count = saved_generic_names;
++    ctx->where_count = saved_where;
+ }
+ 
+ void rust_lsp_process_file(RustLSPContext *ctx, TSNode root) {
+@@ -7073,6 +7417,723 @@ static int rust_use_scope_of(RustLSPContext *ctx, TSNode node) {
+     return -1;
+ }
+ 
++/* ════════════════════════════════════════════════════════════════════
++ * Issues 105 and 113: a Rust path read as Rust resolves it
++ * ════════════════════════════════════════════════════════════════════
++ *
++ * The cross-file pass read a path's text: `crate::` became the first two segments of
++ * the file's module name, a re-export was never followed, and a name a glob brings in
++ * or another crate of the workspace names was found nowhere. A type in another file's
++ * signature was qualified by that file's module whatever imported it. Each of those
++ * paths named no registered definition, and its call no answer.
++ *
++ * The repository's Rust modules are indexed once per cross-file pass, from the files:
++ * each file's module (its qualified-name prefix, as the definitions are named), the
++ * directory its child modules' files are in, its parent and its crate root, and what
++ * its own `use` declarations bind, read by the collector the file's typed pass uses. A
++ * path is walked segment by segment, as Rust's name resolution does: `crate`, `self`
++ * and `super`; a name the site's scope binds by `use` or glob; a child module's file
++ * (`a.rs`, `a/mod.rs`); an item the module defines; a name the module's own `use`
++ * binds, followed in the module that declares it (a re-export, `pub use`); the names a
++ * glob of the module brings in; a library crate of the workspace by the name of its
++ * directory, when exactly one crate has it.
++ *
++ * Nothing is guessed. A name no rule finds, two definitions of one name (cfg variants
++ * or several of one qualified name, issue 108's), two globs that bring a name in, a
++ * walk past its depth bound, are no answer. The index is read only where a path's text
++ * names nothing registered, so every answer the pass gave before stands. */
++
++#define RMI_MAX_DEPTH 24
++
++typedef struct {
++    const char *rel_path;
++    const char *module_qn;
++    /* The qualified name its items are named under: the module's, but a module file named
++     * `index.rs` names its items as its parent's (issue 113C, not renamed here), so its
++     * items are found where extraction put them. */
++    const char *item_qn;
++    const char *child_dir; /* the directory of its child modules' files ("" at the top) */
++    int parent;            /* -1 for a crate root, or when no parent file is found */
++    int crate_root;        /* -1 when the module is under no crate root */
++    bool is_crate_root;
++    RustUseScope *uses; /* the file's own scope: its `use` bindings and globs */
++} RustModuleEntry;
++
++struct PDXERustModuleIndex {
++    PDXEArena *arena;
++    RustModuleEntry *modules;
++    int count;
++    int cap;
++    PDXEIdxMemo by_path; /* rel_path -> module */
++    PDXEIdxMemo by_qn;   /* module qualified name -> module */
++    /* Items (types, traits, free functions) by qualified name, a `#cfg(...)`
++     * disambiguator left out; `item_dups` holds the names more than one has. */
++    PDXEIdxMemo items;
++    PDXEIdxMemo item_dups;
++    const char **item_qns;
++    bool *item_is_type;
++    int item_count;
++    int item_cap;
++    /* Library crates by name, `-` read as `_`; `crate_dups` as `item_dups`. */
++    PDXEIdxMemo crates;
++    PDXEIdxMemo crate_dups;
++    /* What a name means in a module, once worked out (rmi_encode). */
++    PDXEIdxMemo memo;
++    bool finished;
++};
++
++/* What a path names: a module, an item, or nothing. `rest` is what follows an item in
++ * the path (`Type::method`: the method's name), NULL when nothing does. */
++typedef struct {
++    int module;
++    int item;
++    const char *rest;
++} RustRid;
++
++static const RustRid RMI_NONE = {-1, -1, NULL};
++
++static _Thread_local const PDXERustModuleIndex *g_rust_modules = NULL;
++
++void pdxe_rust_modules_set(const PDXERustModuleIndex *index) {
++    g_rust_modules = index;
++}
++
++const PDXERustModuleIndex *pdxe_rust_modules_get(void) {
++    return g_rust_modules;
++}
++
++/* A glob's module as the collector records it (dotted) read back as the path it is. */
++static const char *rust_qn_to_path(PDXEArena *a, const char *dotted) {
++    size_t n = strlen(dotted), dots = 0;
++    for (size_t i = 0; i < n; i++) {
++        dots += dotted[i] == '.';
++    }
++    char *out = (char *)pdxe_arena_alloc(a, n + dots + 1);
++    if (!out) {
++        return NULL;
++    }
++    char *o = out;
++    for (size_t i = 0; i < n; i++) {
++        if (dotted[i] == '.') {
++            *o++ = ':';
++            *o++ = ':';
++        } else {
++            *o++ = dotted[i];
++        }
++    }
++    *o = '\0';
++    return out;
++}
++
++static bool rmi_found(RustRid r) {
++    return r.module >= 0 || r.item >= 0;
++}
++
++static const char *rmi_dirname(PDXEArena *a, const char *path) {
++    const char *slash = strrchr(path, '/');
++    return slash ? pdxe_arena_strndup(a, path, (size_t)(slash - path)) : "";
++}
++
++static const char *rmi_basename(const char *path) {
++    const char *slash = strrchr(path, '/');
++    return slash ? slash + 1 : path;
++}
++
++static const char *rmi_join(PDXEArena *a, const char *dir, const char *name) {
++    return dir[0] ? pdxe_arena_sprintf(a, "%s/%s", dir, name) : pdxe_arena_strdup(a, name);
++}
++
++/* Whether `dir`'s last component is `name`. */
++static bool rmi_dir_is(const char *dir, const char *name) {
++    return strcmp(rmi_basename(dir), name) == 0;
++}
++
++/* A name with `-` read as `_`, as a package's name is a crate's in a path. */
++static char *rmi_crate_name(PDXEArena *a, const char *name) {
++    char *out = pdxe_arena_strdup(a, name);
++    for (char *p = out; p && *p; p++) {
++        if (*p == '-') {
++            *p = '_';
++        }
++    }
++    return out;
++}
++
++PDXERustModuleIndex *pdxe_rust_modules_new(PDXEArena *arena) {
++    PDXERustModuleIndex *x =
++        (PDXERustModuleIndex *)pdxe_arena_alloc(arena, sizeof(PDXERustModuleIndex));
++    if (!x) {
++        return NULL;
++    }
++    memset(x, 0, sizeof(*x));
++    x->arena = arena;
++    return x;
++}
++
++/* An item: a type (or trait) or a free function, by its qualified name. */
++void pdxe_rust_modules_add_item(PDXERustModuleIndex *x, const char *qualified_name, bool is_type) {
++    if (!x || x->finished || !qualified_name) {
++        return;
++    }
++    const char *last_dot = strrchr(qualified_name, '.');
++    const char *hash = strchr(last_dot ? last_dot : qualified_name, '#');
++    const char *key = hash ? pdxe_arena_strndup(x->arena, qualified_name,
++                                               (size_t)(hash - qualified_name))
++                           : pdxe_arena_strdup(x->arena, qualified_name);
++    if (!key) {
++        return;
++    }
++    int32_t prior = pdxe_idxmemo_get(&x->items, key);
++    if (prior >= 0) {
++        if (strcmp(x->item_qns[prior], qualified_name) != 0 ||
++            x->item_is_type[prior] != is_type) {
++            pdxe_idxmemo_put_if_absent(&x->item_dups, x->arena, key, 1);
++        }
++        return;
++    }
++    if (x->item_count >= x->item_cap) {
++        int cap = x->item_cap ? x->item_cap * 2 : 256;
++        const char **q = (const char **)pdxe_arena_alloc(x->arena, (size_t)cap * sizeof(char *));
++        bool *t = (bool *)pdxe_arena_alloc(x->arena, (size_t)cap * sizeof(bool));
++        if (!q || !t) {
++            return;
++        }
++        if (x->item_count > 0) {
++            memcpy(q, x->item_qns, (size_t)x->item_count * sizeof(char *));
++            memcpy(t, x->item_is_type, (size_t)x->item_count * sizeof(bool));
++        }
++        x->item_qns = q;
++        x->item_is_type = t;
++        x->item_cap = cap;
++    }
++    x->item_qns[x->item_count] = pdxe_arena_strdup(x->arena, qualified_name);
++    x->item_is_type[x->item_count] = is_type;
++    pdxe_idxmemo_put_if_absent(&x->items, x->arena, key, x->item_count);
++    x->item_count++;
++}
++
++/* A Rust file: its path, its module's qualified name, and its source, whose file-level
++ * `use` declarations are read here, by the collector the file's own typed pass uses. */
++void pdxe_rust_modules_add_file(PDXERustModuleIndex *x, const char *rel_path,
++                                const char *module_qn, const char *source, int source_len) {
++    if (!x || x->finished || !rel_path || !module_qn) {
++        return;
++    }
++    if (pdxe_idxmemo_get(&x->by_path, rel_path) >= 0) {
++        return;
++    }
++    if (x->count >= x->cap) {
++        int cap = x->cap ? x->cap * 2 : 64;
++        RustModuleEntry *grown =
++            (RustModuleEntry *)pdxe_arena_alloc(x->arena, (size_t)cap * sizeof(RustModuleEntry));
++        if (!grown) {
++            return;
++        }
++        if (x->count > 0) {
++            memcpy(grown, x->modules, (size_t)x->count * sizeof(RustModuleEntry));
++        }
++        x->modules = grown;
++        x->cap = cap;
++    }
++    RustModuleEntry *m = &x->modules[x->count];
++    memset(m, 0, sizeof(*m));
++    m->rel_path = pdxe_arena_strdup(x->arena, rel_path);
++    m->module_qn = pdxe_arena_strdup(x->arena, module_qn);
++    m->item_qn = m->module_qn;
++    size_t qn_len = m->module_qn ? strlen(m->module_qn) : 0;
++    const char *slash = strrchr(rel_path, '/');
++    if (strcmp(slash ? slash + 1 : rel_path, "index.rs") == 0 && qn_len > 6 &&
++        strcmp(m->module_qn + qn_len - 6, ".index") == 0) {
++        m->item_qn = pdxe_arena_strndup(x->arena, m->module_qn, qn_len - 6);
++    }
++    m->parent = -1;
++    m->crate_root = -1;
++    if (source && source_len > 0) {
++        TSParser *parser = ts_parser_new();
++        if (parser) {
++            ts_parser_set_language(parser, tree_sitter_rust());
++            TSTree *tree = ts_parser_parse_string(parser, NULL, source, (uint32_t)source_len);
++            if (tree) {
++                RustLSPContext ctx;
++                rust_lsp_init(&ctx, x->arena, source, source_len, NULL, m->module_qn, NULL);
++                RustUseScope *file = rust_file_scope(&ctx);
++                if (file) {
++                    rust_declare_uses(&ctx, ts_tree_root_node(tree), 0);
++                    m->uses = &ctx.use_scopes[0];
++                    /* Its names indexed now, in the index's arena: a lookup during the
++                     * pass never places one in a file's arena. */
++                    bool withheld = false;
++                    (void)rust_scope_binding(&ctx, m->uses, "", &withheld);
++                }
++                ts_tree_delete(tree);
++            }
++            ts_parser_delete(parser);
++        }
++    }
++    pdxe_idxmemo_put_if_absent(&x->by_path, x->arena, m->rel_path, x->count);
++    pdxe_idxmemo_put_if_absent(&x->by_qn, x->arena, m->module_qn, x->count);
++    x->count++;
++}
++
++static int rmi_file(const PDXERustModuleIndex *x, const char *rel_path) {
++    return rel_path ? pdxe_idxmemo_get(&x->by_path, rel_path) : -1;
++}
++
++/* Whether a `src` directory is among the components of `dir`: a file below one is in
++ * a crate's module tree, never a target of its own. */
++static bool rmi_under_src(const char *dir) {
++    for (const char *p = dir; p && *p;) {
++        const char *slash = strchr(p, '/');
++        size_t len = slash ? (size_t)(slash - p) : strlen(p);
++        if (len == 3 && strncmp(p, "src", 3) == 0) {
++            return true;
++        }
++        p = slash ? slash + 1 : NULL;
++    }
++    return false;
++}
++
++/* Whether `rel_path` is a crate root: a package's `src/lib.rs` or `src/main.rs`, a
++ * binary in `src/bin`, a test, bench or example target (a file directly in a package's
++ * `tests`, `benches` or `examples`, outside its `src`), a build script. */
++static bool rmi_is_crate_root(PDXEArena *a, const char *rel_path) {
++    const char *base = rmi_basename(rel_path);
++    const char *dir = rmi_dirname(a, rel_path);
++    if (strcmp(base, "lib.rs") == 0 || strcmp(base, "main.rs") == 0) {
++        return rmi_dir_is(dir, "src");
++    }
++    if (strcmp(base, "build.rs") == 0) {
++        return !rmi_under_src(dir);
++    }
++    if ((rmi_dir_is(dir, "tests") || rmi_dir_is(dir, "benches") || rmi_dir_is(dir, "examples")) &&
++        !rmi_under_src(dir)) {
++        return true;
++    }
++    if (rmi_dir_is(dir, "bin")) {
++        return rmi_dir_is(rmi_dirname(a, dir), "src");
++    }
++    return false;
++}
++
++/* The module file of the module whose files are in directory `p`: `p/mod.rs`; a crate
++ * root when `p` is a package's `src` (its library's, else its binary's); else `p.rs`. */
++static int rmi_module_of_dir(const PDXERustModuleIndex *x, const char *p) {
++    int m = rmi_file(x, rmi_join(x->arena, p, "mod.rs"));
++    if (m >= 0) {
++        return m;
++    }
++    if (rmi_dir_is(p, "src")) {
++        m = rmi_file(x, rmi_join(x->arena, p, "lib.rs"));
++        return m >= 0 ? m : rmi_file(x, rmi_join(x->arena, p, "main.rs"));
++    }
++    return p[0] ? rmi_file(x, pdxe_arena_sprintf(x->arena, "%s.rs", p)) : -1;
++}
++
++/* Works out every module's child directory, parent and crate root, and indexes the
++ * library crates by name. `root_package` is the repository's root package's name,
++ * the crate a top-level `src/lib.rs` is. */
++void pdxe_rust_modules_finish(PDXERustModuleIndex *x, const char *root_package) {
++    if (!x || x->finished) {
++        return;
++    }
++    for (int i = 0; i < x->count; i++) {
++        RustModuleEntry *m = &x->modules[i];
++        const char *dir = rmi_dirname(x->arena, m->rel_path);
++        m->is_crate_root = rmi_is_crate_root(x->arena, m->rel_path);
++        if (m->is_crate_root || strcmp(rmi_basename(m->rel_path), "mod.rs") == 0) {
++            m->child_dir = dir;
++        } else {
++            size_t len = strlen(m->rel_path);
++            m->child_dir = pdxe_arena_strndup(x->arena, m->rel_path, len > 3 ? len - 3 : len);
++        }
++        if (!m->is_crate_root) {
++            const char *home =
++                strcmp(rmi_basename(m->rel_path), "mod.rs") == 0 ? rmi_dirname(x->arena, dir) : dir;
++            int parent = rmi_module_of_dir(x, home);
++            m->parent = parent != i ? parent : -1;
++        }
++    }
++    for (int i = 0; i < x->count; i++) {
++        int at = i;
++        for (int hops = 0; at >= 0 && !x->modules[at].is_crate_root && hops < x->count; hops++) {
++            at = x->modules[at].parent;
++        }
++        x->modules[i].crate_root = at >= 0 && x->modules[at].is_crate_root ? at : -1;
++        RustModuleEntry *m = &x->modules[i];
++        if (!m->is_crate_root || strcmp(rmi_basename(m->rel_path), "lib.rs") != 0) {
++            continue;
++        }
++        const char *src = rmi_dirname(x->arena, m->rel_path);
++        const char *package = rmi_dirname(x->arena, src);
++        const char *name = package[0] ? rmi_basename(package) : root_package;
++        if (!name || !name[0]) {
++            continue;
++        }
++        char *crate = rmi_crate_name(x->arena, name);
++        if (!crate) {
++            continue;
++        }
++        if (pdxe_idxmemo_get(&x->crates, crate) >= 0) {
++            pdxe_idxmemo_put_if_absent(&x->crate_dups, x->arena, crate, 1);
++        } else {
++            pdxe_idxmemo_put_if_absent(&x->crates, x->arena, crate, i);
++        }
++    }
++    x->finished = true;
++}
++
++/* The child module `name` of module `m`: `<child dir>/name.rs` or `.../name/mod.rs`.
++ * Keys are made in `a`, the caller's arena. */
++static int rmi_child(PDXEArena *a, const PDXERustModuleIndex *x, int m, const char *name) {
++    const char *dir = x->modules[m].child_dir;
++    int c = rmi_file(x, rmi_join(a, dir, pdxe_arena_sprintf(a, "%s.rs", name)));
++    if (c < 0) {
++        c = rmi_file(x, rmi_join(a, dir, pdxe_arena_sprintf(a, "%s/mod.rs", name)));
++    }
++    return c != m ? c : -1;
++}
++
++/* The item `name` module `m` defines: its index, -1 for none, -2 when several. */
++static int rmi_item(PDXEArena *a, const PDXERustModuleIndex *x, int m, const char *name) {
++    const char *key = pdxe_arena_sprintf(a, "%s.%s", x->modules[m].item_qn, name);
++    if (!key) {
++        return -1;
++    }
++    if (pdxe_idxmemo_get(&x->item_dups, key) >= 0) {
++        return -2;
++    }
++    return pdxe_idxmemo_get(&x->items, key);
++}
++
++static int rmi_crate(const PDXERustModuleIndex *x, const char *name) {
++    if (pdxe_idxmemo_get(&x->crate_dups, name) >= 0) {
++        return -1;
++    }
++    return pdxe_idxmemo_get(&x->crates, name);
++}
++
++/* A result in the memo, never negative: 0 for nothing, 1 + module, or
++ * RMI_ITEM_BASE + item. */
++#define RMI_ITEM_BASE (1 << 29)
++
++static int32_t rmi_encode(RustRid r) {
++    if (r.module >= 0) {
++        return 1 + r.module;
++    }
++    if (r.item >= 0) {
++        return RMI_ITEM_BASE + r.item;
++    }
++    return 0;
++}
++
++static RustRid rmi_decode(int32_t v) {
++    RustRid r = RMI_NONE;
++    if (v >= RMI_ITEM_BASE) {
++        r.item = v - RMI_ITEM_BASE;
++    } else if (v > 0) {
++        r.module = v - 1;
++    }
++    return r;
++}
++
++static RustRid rmi_path_in_module(RustLSPContext *ctx, const PDXERustModuleIndex *x, int m,
++                                  const char *path, int inline_depth, int depth, bool *cut);
++
++/* Two results that name one thing. */
++static bool rmi_same(RustRid a, RustRid b) {
++    return a.module == b.module && a.item == b.item;
++}
++
++/* What `name` is in module `m`, as another module sees it through a path: a child
++ * module's file, an item the module defines, a name its own `use` binds (followed
++ * where it is declared), or one exactly one of its globs brings in. */
++static RustRid rmi_in_module(RustLSPContext *ctx, const PDXERustModuleIndex *x, int m,
++                             const char *name, int depth, bool *cut) {
++    if (m < 0 || !name || !name[0]) {
++        return RMI_NONE;
++    }
++    if (depth > RMI_MAX_DEPTH) {
++        *cut = true;
++        return RMI_NONE;
++    }
++    /* The memo is the index's, filled as names are worked out: one pass, one thread. */
++    PDXEIdxMemo *memo = (PDXEIdxMemo *)&x->memo;
++    const char *probe = pdxe_arena_sprintf(ctx->arena, "%d\x1f%s", m, name);
++    int32_t cached = probe ? pdxe_idxmemo_get(memo, probe) : -1;
++    if (cached >= 0) {
++        return rmi_decode(cached);
++    }
++    RustRid found = RMI_NONE;
++    bool here_cut = false;
++    int child = rmi_child(ctx->arena, x, m, name);
++    if (child >= 0) {
++        found.module = child;
++    } else {
++        int item = rmi_item(ctx->arena, x, m, name);
++        if (item >= 0) {
++            found.item = item;
++        } else if (item == -1) {
++            RustUseScope *uses = x->modules[m].uses;
++            bool withheld = false;
++            const char *path = uses ? rust_scope_binding(ctx, uses, name, &withheld) : NULL;
++            if (path && !withheld) {
++                found = rmi_path_in_module(ctx, x, m, path, 0, depth + 1, &here_cut);
++            } else if (!withheld && uses) {
++                RustRid only = RMI_NONE;
++                bool several = false;
++                for (int g = 0; g < uses->glob_count && !several; g++) {
++                    const char *glob = rust_qn_to_path(ctx->arena, uses->globs[g]);
++                    RustRid module = rmi_path_in_module(ctx, x, m, glob, 0, depth + 1, &here_cut);
++                    if (module.module < 0) {
++                        continue;
++                    }
++                    RustRid r = rmi_in_module(ctx, x, module.module, name, depth + 1, &here_cut);
++                    if (!rmi_found(r)) {
++                        continue;
++                    }
++                    if (rmi_found(only) && !rmi_same(only, r)) {
++                        several = true;
++                    } else {
++                        only = r;
++                    }
++                }
++                found = several ? RMI_NONE : only;
++            }
++        }
++    }
++    if (here_cut) {
++        *cut = true; /* a bound was met below: what was found is not the whole answer */
++    } else if (probe) {
++        pdxe_idxmemo_put_if_absent(memo, x->arena, pdxe_arena_strdup(x->arena, probe),
++                                   rmi_encode(found));
++    }
++    return found;
++}
++
++/* Walks `segs[0..n)` on from `from`: through modules by rmi_in_module, and past an
++ * item, its associated name (`Type::method`), which the caller looks up. */
++static RustRid rmi_walk(RustLSPContext *ctx, const PDXERustModuleIndex *x, RustRid from,
++                        char **segs, int n, int depth, bool *cut) {
++    RustRid at = from;
++    for (int i = 0; i < n && rmi_found(at); i++) {
++        if (at.module >= 0) {
++            at = rmi_in_module(ctx, x, at.module, segs[i], depth, cut);
++            continue;
++        }
++        /* An item: one associated name may follow a type, nothing a function. */
++        if (i == n - 1 && x->item_is_type[at.item]) {
++            at.rest = segs[i];
++            return at;
++        }
++        return RMI_NONE;
++    }
++    return at;
++}
++
++/* `super` `k` times from module `m`. */
++static int rmi_super(const PDXERustModuleIndex *x, int m, int k) {
++    for (; m >= 0 && k > 0; k--) {
++        m = x->modules[m].parent;
++    }
++    return m;
++}
++
++/* The segments of `path`, each without a turbofish (`Type::<A>::f` reads `Type`, `f`). */
++static int rmi_segments(RustLSPContext *ctx, const char *path, char ***out) {
++    char *copy = pdxe_arena_strdup(ctx->arena, path);
++    if (!copy) {
++        return -1;
++    }
++    rust_strip_turbofish(copy);
++    const char *p = copy;
++    while (*p == ':') {
++        p++; /* a leading `::` names the crate's extern prelude: read the rest */
++    }
++    return rust_split_path(ctx->arena, p, out);
++}
++
++/* What `path`, written in module `m` (a `use` path, a glob's module, a signature's
++ * type), names. `inline_depth` is how many inline modules the writing scope is in:
++ * its first `super`s name the file's own module. */
++static RustRid rmi_path_in_module(RustLSPContext *ctx, const PDXERustModuleIndex *x, int m,
++                                  const char *path, int inline_depth, int depth, bool *cut) {
++    char **segs = NULL;
++    int n = path ? rmi_segments(ctx, path, &segs) : -1;
++    if (n <= 0 || m < 0) {
++        return RMI_NONE;
++    }
++    if (depth > RMI_MAX_DEPTH) {
++        *cut = true;
++        return RMI_NONE;
++    }
++    RustRid start = RMI_NONE;
++    int used = 1;
++    if (strcmp(segs[0], "crate") == 0) {
++        start.module = x->modules[m].crate_root;
++    } else if (strcmp(segs[0], "self") == 0) {
++        start.module = m;
++    } else if (strcmp(segs[0], "super") == 0) {
++        int k = 0;
++        while (k < n && strcmp(segs[k], "super") == 0) {
++            k++;
++        }
++        used = k;
++        int inline_hops = k < inline_depth ? k : inline_depth;
++        start.module = rmi_super(x, m, k - inline_hops);
++    } else if (strcmp(segs[0], "Self") == 0) {
++        return RMI_NONE;
++    } else {
++        start = rmi_in_module(ctx, x, m, segs[0], depth + 1, cut);
++        if (!rmi_found(start)) {
++            int crate = rmi_crate(x, segs[0]);
++            if (crate >= 0) {
++                start.module = crate;
++            }
++        }
++    }
++    if (!rmi_found(start)) {
++        return RMI_NONE;
++    }
++    return rmi_walk(ctx, x, start, segs + used, n - used, depth + 1, cut);
++}
++
++/* What `path`, written where the walk is, names: its first name as the site's scope
++ * binds it (a `use`, a glob in force), else as the file's module does. */
++/* What the glob imports of the site's scopes nearer than `upto` (all, when negative)
++ * bring in as `name`: the one item or module they agree on; none when none does, or
++ * when they bring in different ones (`*several` set). */
++static RustRid rmi_through_globs(RustLSPContext *ctx, const PDXERustModuleIndex *x, int m,
++                                 const char *name, int upto, int inline_depth, bool *cut,
++                                 bool *several) {
++    const char **globs = NULL;
++    int glob_n = rust_visible_globs(ctx, upto, &globs);
++    RustRid only = RMI_NONE;
++    *several = false;
++    for (int g = 0; g < glob_n && !*several; g++) {
++        const char *glob = rust_qn_to_path(ctx->arena, globs[g]);
++        RustRid module = rmi_path_in_module(ctx, x, m, glob, inline_depth, 1, cut);
++        if (module.module < 0) {
++            continue;
++        }
++        RustRid r = rmi_in_module(ctx, x, module.module, name, 1, cut);
++        if (!rmi_found(r)) {
++            continue;
++        }
++        if (rmi_found(only) && !rmi_same(only, r)) {
++            *several = true;
++        } else {
++            only = r;
++        }
++    }
++    return *several ? RMI_NONE : only;
++}
++
++static RustRid rmi_path_at_site(RustLSPContext *ctx, const char *path) {
++    const PDXERustModuleIndex *x = g_rust_modules;
++    if (!x || !x->finished || !ctx->module_qn || !path) {
++        return RMI_NONE;
++    }
++    int m = pdxe_idxmemo_get(&x->by_qn, ctx->module_qn);
++    if (m < 0) {
++        return RMI_NONE;
++    }
++    char **segs = NULL;
++    int n = rmi_segments(ctx, path, &segs);
++    if (n <= 0) {
++        return RMI_NONE;
++    }
++    int inline_depth = 0;
++    if (ctx->use_scope >= 0 && ctx->use_scope < ctx->use_scope_count) {
++        inline_depth = ctx->use_scopes[ctx->use_scope].module_depth;
++    }
++    bool cut = false;
++    const char *head = segs[0];
++    if (strcmp(head, "crate") == 0 || strcmp(head, "self") == 0 || strcmp(head, "super") == 0) {
++        return rmi_path_in_module(ctx, x, m, path, inline_depth, 0, &cut);
++    }
++    if (strcmp(head, "Self") == 0) {
++        return RMI_NONE;
++    }
++    RustRid start = RMI_NONE;
++    int rank = -1;
++    const char *imported = rust_resolve_use_ranked(ctx, head, &rank);
++    bool several = false;
++    if (imported && rank > 0) {
++        /* A glob of a nearer scope that brings the name in shadows the `use` of an outer
++         * one (issue 114). */
++        start = rmi_through_globs(ctx, x, m, head, rank, inline_depth, &cut, &several);
++        if (several) {
++            return RMI_NONE;
++        }
++    }
++    if (imported && !rmi_found(start)) {
++        start = rmi_path_in_module(ctx, x, m, imported, inline_depth, 1, &cut);
++    } else if (!imported && rank < 0) {
++        /* Not bound by a `use` in force (a name bound to two paths is withheld). */
++        if (inline_depth == 0) {
++            int child = rmi_child(ctx->arena, x, m, head);
++            if (child >= 0) {
++                start.module = child;
++            }
++        }
++        if (!rmi_found(start)) {
++            int item = rmi_item(ctx->arena, x, m, head);
++            if (item >= 0) {
++                start.item = item;
++            } else if (item == -1) {
++                start = rmi_through_globs(ctx, x, m, head, -1, inline_depth, &cut, &several);
++                if (!rmi_found(start) && !several) {
++                    int crate = rmi_crate(x, head);
++                    if (crate >= 0) {
++                        start.module = crate;
++                    }
++                }
++            }
++        }
++    }
++    if (!rmi_found(start)) {
++        return RMI_NONE;
++    }
++    return rmi_walk(ctx, x, start, segs + 1, n - 1, 1, &cut);
++}
++
++/* The qualified name a result names: an item's, with what follows it in the path. */
++static const char *rmi_qn(RustLSPContext *ctx, RustRid r) {
++    const PDXERustModuleIndex *x = g_rust_modules;
++    if (!x || r.item < 0) {
++        return NULL;
++    }
++    const char *qn = x->item_qns[r.item];
++    return r.rest ? pdxe_arena_sprintf(ctx->arena, "%s.%s", qn, r.rest) : qn;
++}
++
++/* A type's text in a signature written in module `module_qn` (another file's return,
++ * parameter or field type): the type it names, or NULL. */
++static const char *rmi_type_in_module(PDXEArena *arena, const char *module_qn, const char *text) {
++    const PDXERustModuleIndex *x = g_rust_modules;
++    if (!x || !x->finished || !module_qn || !text || !text[0]) {
++        return NULL;
++    }
++    int m = pdxe_idxmemo_get(&x->by_qn, module_qn);
++    if (m < 0) {
++        return NULL;
++    }
++    RustLSPContext scratch;
++    rust_lsp_init(&scratch, arena, "", 0, NULL, module_qn, NULL);
++    bool cut = false;
++    RustRid r = rmi_path_in_module(&scratch, x, m, text, 0, 0, &cut);
++    if (r.item < 0 || r.rest || !x->item_is_type[r.item]) {
++        return NULL;
++    }
++    return x->item_qns[r.item];
++}
++
++/* Issues 105 and 113: what a path at the site names, as rmi_path_at_site reads it, as
++ * a qualified name; NULL when it names nothing the index holds. */
++static const char *rust_path_identity(RustLSPContext *ctx, const char *path) {
++    return rmi_qn(ctx, rmi_path_at_site(ctx, path));
++}
++
+ static int rust_call_occurrence_cmp(const void *a, const void *b) {
+     const RustCallOccurrence *x = (const RustCallOccurrence *)a;
+     const RustCallOccurrence *y = (const RustCallOccurrence *)b;
+@@ -8427,6 +9488,48 @@ extern const TSLanguage *tree_sitter_rust(void);
+  * `module_qn` is ONLY the fallback used to qualify a def's return type when that def
+  * carries no def_module_qn; pass NULL for the shared build (all_defs always carry
+  * def_module_qn — verified: 0 NULL across the C + Rust kernel corpora). */
++/* Issue 105: a struct's fields, "name:type" pairs separated by "|" as the cross-file
++ * pass folds them, each type read where the struct is written (`module_qn`). A field
++ * whose pair cannot be read is left out; none leaves the type without fields. */
++static void rust_registered_type_set_fields(PDXEArena *arena, PDXERegisteredType *rt,
++                                            const char *field_defs, const char *module_qn) {
++    if (!field_defs || !field_defs[0]) {
++        return;
++    }
++    int count = 1;
++    for (const char *p = field_defs; *p; p++) {
++        count += *p == '|';
++    }
++    const char **names = (const char **)pdxe_arena_alloc(arena, (size_t)(count + 1) * sizeof(char *));
++    const PDXEType **types =
++        (const PDXEType **)pdxe_arena_alloc(arena, (size_t)(count + 1) * sizeof(PDXEType *));
++    char *buf = pdxe_arena_strdup(arena, field_defs);
++    if (!names || !types || !buf) {
++        return;
++    }
++    int n = 0;
++    for (char *pair = buf; pair;) {
++        char *bar = strchr(pair, '|');
++        if (bar) {
++            *bar = '\0';
++        }
++        char *colon = strchr(pair, ':');
++        if (colon && colon > pair && colon[1]) {
++            *colon = '\0';
++            names[n] = pair;
++            types[n] = rust_parse_return_type_text(arena, colon + 1, module_qn);
++            n++;
++        }
++        pair = bar ? bar + 1 : NULL;
++    }
++    names[n] = NULL;
++    types[n] = NULL;
++    if (n > 0) {
++        rt->field_names = names;
++        rt->field_types = types;
++    }
++}
++
+ static void rust_populate_cross_registry(PDXETypeRegistry *reg, PDXEArena *arena,
+                                          PDXERustLSPDef *defs, int def_count,
+                                          const char *module_qn) {
+@@ -8466,6 +9569,8 @@ static void rust_populate_cross_registry(PDXETypeRegistry *reg, PDXEArena *arena
+         rt.short_name = pdxe_arena_strdup(arena, d->short_name);
+         rt.is_interface =
+             d->is_interface || strcmp(d->label, "Trait") == 0 || strcmp(d->label, "Interface") == 0;
++        rust_registered_type_set_fields(arena, &rt, d->rust_field_defs,
++                                        d->def_module_qn ? d->def_module_qn : module_qn);
+         pdxe_registry_add_type(reg, rt);
+         pdxe_idxmemo_put_if_absent(&type_idx, arena, rt.qualified_name, reg->type_count - 1);
+     }
+@@ -8551,6 +9656,28 @@ static void rust_populate_cross_registry(PDXETypeRegistry *reg, PDXEArena *arena
+                     }
+                 }
+                 ret_types[idx] = NULL;
++            } else if (d->rust_return_type && d->rust_return_type[0]) {
++                /* Issue 105: an impl method's declared return type, one type. */
++                ret_types = (const PDXEType **)pdxe_arena_alloc(arena, 2 * sizeof(const PDXEType *));
++                if (ret_types) {
++                    ret_types[0] = rust_parse_return_type_text(arena, d->rust_return_type, def_mod);
++                    ret_types[1] = NULL;
++                }
++            }
++            if (d->rust_is_async) {
++                /* Issue 105: calling an `async` function gives a future of what it
++                 * declares to return (`()` when it declares nothing); `.await` gives
++                 * that. */
++                const PDXEType *output = ret_types && ret_types[0]
++                                             ? ret_types[0]
++                                             : pdxe_type_builtin(arena, "()");
++                const PDXEType **wrapped =
++                    (const PDXEType **)pdxe_arena_alloc(arena, 2 * sizeof(const PDXEType *));
++                if (wrapped && output) {
++                    wrapped[0] = pdxe_type_template(arena, "core.future.Future", &output, 1);
++                    wrapped[1] = NULL;
++                    ret_types = wrapped;
++                }
+             }
+             RustSignatureParamParserContext parser_ctx = {.module_qn = def_mod};
+             const PDXEType **param_types = pdxe_type_materialize_signature_params(
+@@ -8649,6 +9776,9 @@ PDXETypeRegistry *pdxe_rust_build_cross_registry(PDXEArena *arena, PDXELSPDef *d
+             rdefs[i].is_rust_impl_relation = defs[i].is_rust_impl_relation;
+             rdefs[i].is_abstract = defs[i].is_abstract;
+             rdefs[i].impl_bounds = defs[i].impl_bounds;
++            rdefs[i].rust_return_type = defs[i].rust_return_type;
++            rdefs[i].rust_field_defs = defs[i].rust_field_defs;
++            rdefs[i].rust_is_async = defs[i].rust_is_async;
+         }
+     }
+     rust_populate_cross_registry(reg, arena, rdefs, def_count, /*module_qn=*/NULL);
+--- a/engine/src/lsp/rust_lsp.h
++++ b/engine/src/lsp/rust_lsp.h
+@@ -137,6 +137,10 @@ typedef struct {
+      * — used when emitting trait method calls so we can prefer concrete
+      * implementations over the trait method when only one impl exists. */
+     const char *self_type_qn;
++    /* Issue 105: the impl's self type as written (`MethodRouter<S, E>`), which a
++     * `Self::` path is read through; `self_type_qn` is its type (`MethodRouter`). NULL
++     * reads `Self::` through `self_type_qn`. */
++    const char *self_path_qn;
+     const char *self_trait_qn;
+ 
+     /* Closure parameter inference: when the call resolver descends into a
+@@ -218,6 +222,14 @@ typedef struct {
+     int generic_name_count;
+     int generic_name_cap;
+ 
++    /* Issue 105: the where-clause predicates in force (the enclosing impl's and
++     * function's), each as its subject type's qualified name and a bound trait's; saved
++     * and restored as the walk enters and leaves them. */
++    const char **where_subjects;
++    const char **where_traits;
++    int where_count;
++    int where_cap;
++
+     /* Output: resolved (and unresolved-with-reason) calls accumulate here. */
+     PDXEResolvedCallArray *resolved_calls;
+ 
+@@ -271,6 +283,20 @@ typedef struct {
+     PDXENegMemo macro_memo;
+ } RustLSPContext;
+ 
++/* Issues 105 and 113: the repository's Rust modules, indexed once per cross-file pass
++ * (rust_lsp.c), so that a path is read as Rust's name resolution reads it: through
++ * `crate`, `self`, `super`, `use` declarations and globs, child module files, re-exports
++ * and the workspace's library crates. Built by the pass's driver from every Rust file
++ * and every definition, set for the pass's thread, cleared after it. */
++typedef struct PDXERustModuleIndex PDXERustModuleIndex;
++PDXERustModuleIndex *pdxe_rust_modules_new(PDXEArena *arena);
++void pdxe_rust_modules_add_item(PDXERustModuleIndex *x, const char *qualified_name, bool is_type);
++void pdxe_rust_modules_add_file(PDXERustModuleIndex *x, const char *rel_path,
++                                const char *module_qn, const char *source, int source_len);
++void pdxe_rust_modules_finish(PDXERustModuleIndex *x, const char *root_package);
++void pdxe_rust_modules_set(const PDXERustModuleIndex *index);
++const PDXERustModuleIndex *pdxe_rust_modules_get(void);
++
+ /* Initialise an empty context for processing one file. */
+ void rust_lsp_init(RustLSPContext *ctx, PDXEArena *arena, const char *source, int source_len,
+                    const PDXETypeRegistry *registry, const char *module_qn,
+@@ -393,6 +419,9 @@ typedef struct {
+     bool is_rust_impl_relation;   /* independent type-level impl record       */
+     bool is_abstract;             /* required trait declaration (no default)  */
+     const char **impl_bounds;     /* issue 109: the trait impl's header       */
++    const char *rust_return_type; /* issue 105: an impl method's return type  */
++    const char *rust_field_defs;  /* issue 105: a struct's "name:type" fields */
++    bool rust_is_async;           /* issue 105: an `async` function           */
+ } PDXERustLSPDef;
+ 
+ /* Issue 109: a Rust trait impl's header (PDXEImplTrait's impl_bounds), read once at
+--- a/engine/src/pdxe_core.h
++++ b/engine/src/pdxe_core.h
+@@ -353,6 +353,13 @@ typedef struct {
+      * this method, written as PDXEImplTrait's impl_bounds; NULL for every other
+      * definition. Kept at the tail, as impl_trait is. */
+     const char **impl_bounds;
++    /* Issue 105, Rust only: an `impl` block's method's declared return type, the text
++     * after its `->`; NULL when it declares none and for every other definition (a
++     * free function's is `return_type`, as before). Kept at the tail, as impl_trait is. */
++    const char *rust_return_type;
++    /* Issue 105, Rust only: the function is `async`, so a call of it is a future of its
++     * declared return type. Kept at the tail, as impl_trait is. */
++    bool rust_is_async;
+ } PDXEDefinition;
+ 
+ 
+--- a/engine/src/resolve/lsp_resolve.h
++++ b/engine/src/resolve/lsp_resolve.h
+@@ -341,6 +341,13 @@ static inline bool pdxe_pipeline_invocation_leaf_matches(const PDXEResolvedCall
+     if (resolved_leaf && call_leaf && strcmp(resolved_leaf, call_leaf) == 0) {
+         return true;
+     }
++    /* Issue 105: a Rust function its `#[cfg(...)]` makes one of twins is named with that
++     * predicate (`serve#cfg(...)`, extract_defs.c); the call spells its name alone. */
++    const char *cfg = resolved_leaf ? strstr(resolved_leaf, "#cfg(") : NULL;
++    if (cfg && call_leaf && strlen(call_leaf) == (size_t)(cfg - resolved_leaf) &&
++        strncmp(resolved_leaf, call_leaf, (size_t)(cfg - resolved_leaf)) == 0) {
++        return true;
++    }
+ 
+     /* Destructors intentionally join by their exact delete-expression
+      * occurrence because the parser carrier starts as a neutral "~" marker. */
+--- a/engine/src/resolve/pass_lsp_cross.c
++++ b/engine/src/resolve/pass_lsp_cross.c
+@@ -511,6 +511,10 @@ static int pxc_build_lsp_def(PDXEArena *arena, const PDXEDefinition *src, const
+         dst->trait_qn = src->impl_trait ? pdxe_arena_strdup(arena, src->impl_trait) : NULL;
+         dst->is_abstract = src->is_abstract;
+         dst->impl_bounds = pxc_copy_impl_bounds(arena, src->impl_bounds);
++        /* Issue 105: an impl method's declared return type. */
++        dst->rust_return_type =
++            src->rust_return_type ? pdxe_arena_strdup(arena, src->rust_return_type) : NULL;
++        dst->rust_is_async = src->rust_is_async;
+     }
+     return 0;
+ }
+@@ -751,6 +755,15 @@ PDXELSPDef *pdxe_pxc_collect_all_defs(const pdxe_pipeline_ctx_t *ctx, PDXEArena
+         if (files[fi].language == PDXE_LANG_GO) {
+             pxc_fold_go_struct_fields(arena, fr, defs, file_start, idx);
+         }
++        if (files[fi].language == PDXE_LANG_RUST) {
++            /* Issue 105: a Rust struct's fields, folded as Go's are, carried apart
++             * (rust_field_defs): the per-file cross surface keeps what it held. */
++            pxc_fold_go_struct_fields(arena, fr, defs, file_start, idx);
++            for (int di = file_start; di < idx; di++) {
++                defs[di].rust_field_defs = defs[di].field_defs;
++                defs[di].field_defs = NULL;
++            }
++        }
+         if (files[fi].language == PDXE_LANG_RUST) {
+             for (int ii = 0; ii < fr->impl_traits.count; ii++) {
+                 if (pxc_build_rust_impl_relation(arena, &fr->impl_traits.items[ii], project_name,
+@@ -1500,6 +1513,9 @@ static PDXERustLSPDef *pxc_lspdefs_to_rust(PDXEArena *arena, const PDXELSPDef *d
+         out[i].is_rust_impl_relation = defs[i].is_rust_impl_relation;
+         out[i].is_abstract = defs[i].is_abstract;
+         out[i].impl_bounds = defs[i].impl_bounds;
++        out[i].rust_return_type = defs[i].rust_return_type;
++        out[i].rust_field_defs = defs[i].rust_field_defs;
++        out[i].rust_is_async = defs[i].rust_is_async;
+     }
+     return out;
+ }
+@@ -1823,6 +1839,50 @@ void pdxe_pxc_dispatch_file(PDXELanguage lang, PDXEFileResult *result, const cha
+     free(filtered);
+ }
+ 
++/* Issues 105 and 113: the Rust module index for one pass: every Rust file with its
++ * module and source, every Rust type and free function by qualified name. The files'
++ * module names are the pass's own (`def_modules`, computed here for a file not yet
++ * named), so a path names what the definitions are named. NULL when nothing is Rust or
++ * the index cannot be made (lost work: no path is then read through it). */
++static PDXERustModuleIndex *pxc_build_rust_modules(pdxe_pipeline_ctx_t *ctx,
++                                                  const pdxe_file_info_t *files, int file_count,
++                                                  PDXEFileResult **cache, char **def_modules,
++                                                  const PDXELSPDef *defs, int def_count) {
++    PDXERustModuleIndex *x = pdxe_rust_modules_new(&ctx->seq_cross_arena);
++    if (!x) {
++        pdxe_lost_allocation();
++        return NULL;
++    }
++    for (int i = 0; i < def_count; i++) {
++        const PDXELSPDef *d = &defs[i];
++        if (d->lang != PDXE_LANG_RUST || !d->qualified_name || !d->label ||
++            d->is_rust_impl_relation) {
++            continue;
++        }
++        if (pdxe_label_is_type_like(d->label)) {
++            pdxe_rust_modules_add_item(x, d->qualified_name, true);
++        } else if (strcmp(d->label, "Function") == 0 && !d->receiver_type) {
++            pdxe_rust_modules_add_item(x, d->qualified_name, false);
++        }
++    }
++    for (int i = 0; i < file_count; i++) {
++        if (!cache[i] || files[i].language != PDXE_LANG_RUST) {
++            continue;
++        }
++        if (!def_modules[i]) {
++            def_modules[i] = pdxe_pipeline_fqn_module_dir(ctx->project_name, files[i].rel_path,
++                                                         pxc_module_is_dir(files[i].language));
++        }
++        int source_len = 0;
++        char *source = pxc_read_file(files[i].path, &source_len);
++        pdxe_rust_modules_add_file(x, files[i].rel_path, def_modules[i], source, source_len);
++        free(source);
++    }
++    const PDXECargoManifest *manifest = pdxe_pxc_get_rust_manifest();
++    pdxe_rust_modules_finish(x, manifest ? manifest->package_name : NULL);
++    return x;
++}
++
+ /* A manifest the embedding project supplies already parsed, in place of reading one
+  * from the repository. Set around a pass by the thread that runs it. */
+ static _Thread_local const PDXECargoManifest *pxc_supplied_manifest = NULL;
+@@ -1946,6 +2006,15 @@ int pdxe_pipeline_pass_lsp_cross(pdxe_pipeline_ctx_t *ctx, const pdxe_file_info_
+     int skipped_no_source = 0;
+     int per_lang_calls = 0;
+ 
++    /* Issues 105 and 113: the repository's Rust modules, indexed once for the pass, so
++     * that each file's resolution reads a path as Rust does (rust_lsp.c). In the
++     * caller-owned arena: an answer may hold a name the index holds. */
++    PDXERustModuleIndex *rust_modules =
++        have_rust && all_defs ? pxc_build_rust_modules(ctx, files, file_count, cache,
++                                                       def_modules, all_defs, def_count)
++                              : NULL;
++    pdxe_rust_modules_set(rust_modules);
++
+     for (int i = 0; i < file_count; i++) {
+         if (!cache[i])
+             continue;
+@@ -1989,6 +2058,7 @@ int pdxe_pipeline_pass_lsp_cross(pdxe_pipeline_ctx_t *ctx, const pdxe_file_info_
+         free(source);
+     }
+ 
++    pdxe_rust_modules_set(NULL);
+     pdxe_pxc_free_module_def_index(module_def_index);
+     free(all_defs);
+     /* The module-QN strings are borrowed by the shared cross registries in

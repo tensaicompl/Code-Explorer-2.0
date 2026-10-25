@@ -13,7 +13,9 @@
 //!
 //! Every repository here is real: written to a checkout, discovered, extracted by the
 //! engine, registered and resolved with typed resolution itself, so each band is Stage
-//! 3's.
+//! 3's. Since issue 105 typed resolution answers a type's member through an import, and a
+//! method on a parameter of the type, first: what Stage 3 makes of those sites is read
+//! from Stage 3 alone, with no typed answer, and the typed answer must name the same.
 
 use std::fs;
 use std::path::Path;
@@ -23,8 +25,8 @@ use pdx_core::config::PdxConfig;
 use pdx_core::index::discover::discover;
 use pdx_core::index::extract::{ExtractLimits, ExtractStage};
 use pdx_core::resolve::registry::{DefinitionRef, ImportTarget, SymbolRegistry};
-use pdx_core::resolve::stages::{Resolution, ResolveReport, resolve};
-use pdx_engine::DefinitionKind;
+use pdx_core::resolve::stages::{Resolution, ResolveReport, resolve, resolve_with};
+use pdx_engine::{DefinitionKind, ProjectResolution, RunHealth, RunStatus};
 
 const FILES: &[(&str, &str)] = &[
     (
@@ -101,6 +103,8 @@ struct Resolved {
     _dir: tempfile::TempDir,
     reg: SymbolRegistry,
     report: ResolveReport,
+    /// Stage 3 alone: no typed answer.
+    stage3: ResolveReport,
 }
 
 fn resolved() -> &'static Resolved {
@@ -127,19 +131,47 @@ fn resolved() -> &'static Resolved {
             .expect("extraction succeeds");
         let reg = SymbolRegistry::build(root, &files, report).expect("the registry builds");
         let report = resolve(root, &reg).expect("resolution succeeds");
+        let health = RunHealth {
+            status: RunStatus::Clean,
+            files: 0,
+            files_resolved: 0,
+            files_untyped: 0,
+            files_empty: 0,
+            files_over_budget: 0,
+            files_source_unavailable: 0,
+            files_not_reached: 0,
+            pass_failures: 0,
+        };
+        let stage3 = resolve_with(
+            &reg,
+            &ProjectResolution {
+                resolutions: Vec::new(),
+                health,
+            },
+        )
+        .expect("resolution succeeds");
         Resolved {
             _dir: dir,
             reg,
             report,
+            stage3,
         }
     })
 }
 
 /// What the one call site of `path` spelled `callee` resolved to.
 fn at(path: &str, callee: &str) -> &'static Resolution {
+    at_in(&resolved().report, path, callee)
+}
+
+/// As [`at`], by Stage 3 alone.
+fn at3(path: &str, callee: &str) -> &'static Resolution {
+    at_in(&resolved().stage3, path, callee)
+}
+
+fn at_in(report: &'static ResolveReport, path: &str, callee: &str) -> &'static Resolution {
     let r = resolved();
-    let found: Vec<&Resolution> = r
-        .report
+    let found: Vec<&Resolution> = report
         .resolutions
         .iter()
         .filter(|s| {
@@ -219,29 +251,30 @@ fn e2_a_variant_through_a_brace_group_is_not_the_modules_namesake() {
 fn e3_a_types_associated_function_through_a_brace_group_is_its_own() {
     // `Gauge::assemble` is `Gauge`'s associated function, never the module's free
     // `assemble`, which the group also imports and a bare call reaches.
+    let assemble = def(Some("Gauge"), "assemble");
     assert_drawn(
-        at("src/e3.rs", "Gauge::assemble"),
+        at3("src/e3.rs", "Gauge::assemble"),
         Band::ImportGuided,
-        &def(Some("Gauge"), "assemble"),
+        &assemble,
     );
+    assert_drawn(at("src/e3.rs", "Gauge::assemble"), Band::Typed, &assemble);
     let free = at("src/e3.rs", "assemble");
     assert_eq!(free.target(), Some(&def(None, "assemble")), "{free:?}");
 }
 
 #[test]
 fn e4_an_inherent_method_through_a_brace_group_is_its_own() {
+    let reading = def(Some("Gauge"), "reading");
     assert_drawn(
-        at("src/e4.rs", "Gauge::reading"),
+        at3("src/e4.rs", "Gauge::reading"),
         Band::ImportGuided,
-        &def(Some("Gauge"), "reading"),
+        &reading,
     );
-    // A method called on a value: only the name's uniqueness, `exact` evidence, no edge
-    // (issue 102).
-    assert_weak(
-        at("src/e4.rs", "g.reading"),
-        Band::Exact,
-        &def(Some("Gauge"), "reading"),
-    );
+    assert_drawn(at("src/e4.rs", "Gauge::reading"), Band::Typed, &reading);
+    // A method called on a value: to Stage 3 only the name's uniqueness, `exact`
+    // evidence, no edge (issue 102); the parameter's type is typed resolution's proof.
+    assert_weak(at3("src/e4.rs", "g.reading"), Band::Exact, &reading);
+    assert_drawn(at("src/e4.rs", "g.reading"), Band::Typed, &reading);
 }
 
 #[test]
@@ -280,11 +313,13 @@ fn a_module_a_group_binds_leads_to_its_own_items() {
         Some(&def(None, "assemble")),
         "{through_the_module:?}"
     );
+    let assemble = def(Some("Gauge"), "assemble");
     assert_drawn(
-        at("src/modules.rs", "G::assemble"),
+        at3("src/modules.rs", "G::assemble"),
         Band::ImportGuided,
-        &def(Some("Gauge"), "assemble"),
+        &assemble,
     );
+    assert_drawn(at("src/modules.rs", "G::assemble"), Band::Typed, &assemble);
 }
 
 /// The one definition of `path` named `name`, declared in the type `ty`.
@@ -311,10 +346,16 @@ fn def_in(path: &str, ty: Option<&str>, name: &str) -> DefinitionRef {
 fn a_nested_groups_item_leads_under_the_enclosing_groups_path() {
     // `use crate::outer::{inner::{Meter}, self as o};`: `Meter` is `outer::inner::Meter`,
     // `o` the module `outer` itself.
+    let assemble = def_in("src/outer/inner.rs", Some("Meter"), "assemble");
+    assert_drawn(
+        at3("src/nested.rs", "Meter::assemble"),
+        Band::ImportGuided,
+        &assemble,
+    );
     assert_drawn(
         at("src/nested.rs", "Meter::assemble"),
-        Band::ImportGuided,
-        &def_in("src/outer/inner.rs", Some("Meter"), "assemble"),
+        Band::Typed,
+        &assemble,
     );
     let through_self = at("src/nested.rs", "o::assemble");
     assert_eq!(

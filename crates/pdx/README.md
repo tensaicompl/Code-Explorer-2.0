@@ -89,6 +89,16 @@ its edges, candidate rows and sites): every turbofish call a site, drawn where t
 evidence allows and weak or candidate otherwise, the call in the macro's tokens no site,
 no site twice; and the same crate with each call's turbofish blanked builds the same graph.
 
+`tests/rust_recall.rs` is issue 105 (R5) end to end: a Rust crate of modules, `crate`,
+`self` and `super` paths, a `pub use`, a module file named `index.rs`, local, parameter
+and field receivers, an associated function, a trait and its impl, a generic bound, a
+`Deref` wrapper, `async` and `?`, an external import a parameter shadows, a type a macro
+writes and a macro whose tokens read like calls. Indexed cold and warm (the same segment)
+and read back: every path and proven receiver drawn `typed` to its target, the bound, the
+wrapper, the shared method name and the untyped value never drawn and weak where they
+were, the shadowed import's method not `external`, the macro's tokens no sites, every
+drawn edge of a drawn band, no site twice.
+
 `engine_isolate_recovers` runs extraction in this binary as a worker, makes the engine
 abort on one file through its test switch, and checks that only that file fails, with
 reason `engine_crash`, and every other file, before and after it, is extracted exactly

@@ -7,9 +7,10 @@
 //! requires. Unknown is never proven: the site is a `candidate`.
 //!
 //! Every repository here is real: written to a checkout, discovered, extracted by the
-//! engine, registered and resolved with typed resolution itself, so each band is Stage
-//! 3's. A call through an imported type in another file has no typed answer (issue 113),
-//! so `import-guided` is what settles it.
+//! engine and registered. The trusted stages are read from Stage 3 alone, with no typed
+//! answer: since issue 105 typed resolution answers a call through an imported type in
+//! another file, and a call on `self`, first. With it, nothing Stage 3 withholds is drawn
+//! (`typed_resolution_draws_nothing_stage_3_withholds`).
 
 use std::fs;
 use std::path::Path;
@@ -19,8 +20,8 @@ use pdx_core::config::PdxConfig;
 use pdx_core::index::discover::discover;
 use pdx_core::index::extract::{ExtractLimits, ExtractStage, FileOutcome};
 use pdx_core::resolve::registry::{DefinitionRef, SymbolRegistry};
-use pdx_core::resolve::stages::{Resolution, ResolveReport, resolve};
-use pdx_engine::ExtractRecord;
+use pdx_core::resolve::stages::{Resolution, ResolveReport, resolve, resolve_with};
+use pdx_engine::{ExtractRecord, ProjectResolution, RunHealth, RunStatus};
 
 const FILES: &[(&str, &str)] = &[
     (
@@ -84,7 +85,10 @@ const FILES: &[(&str, &str)] = &[
 struct Resolved {
     _dir: tempfile::TempDir,
     reg: SymbolRegistry,
+    /// Stage 3 alone: no typed answer.
     report: ResolveReport,
+    /// With typed resolution.
+    full: ResolveReport,
 }
 
 /// `FILES` resolved, each extraction record passed through `edit` before the registry
@@ -119,10 +123,30 @@ fn build(edit: fn(&mut ExtractRecord)) -> Resolved {
         }
     }
     let reg = SymbolRegistry::build(root, &files, report).expect("the registry builds");
-    let report = resolve(root, &reg).expect("resolution succeeds");
+    let full = resolve(root, &reg).expect("resolution succeeds");
+    let health = RunHealth {
+        status: RunStatus::Clean,
+        files: 0,
+        files_resolved: 0,
+        files_untyped: 0,
+        files_empty: 0,
+        files_over_budget: 0,
+        files_source_unavailable: 0,
+        files_not_reached: 0,
+        pass_failures: 0,
+    };
+    let report = resolve_with(
+        &reg,
+        &ProjectResolution {
+            resolutions: Vec::new(),
+            health,
+        },
+    )
+    .expect("resolution succeeds");
     Resolved {
         _dir: dir,
         reg,
+        full,
         report,
     }
 }
@@ -391,4 +415,41 @@ fn a_call_from_the_impl_that_declares_its_target_is_inheritance_guided() {
     assert_eq!(found.len(), 2, "{found:?}");
     assert_drawn(found[0], Band::InheritanceGuided, &fire);
     assert_withheld(found[1], &fire);
+}
+
+#[test]
+fn typed_resolution_draws_nothing_stage_3_withholds() {
+    // With typed resolution, a site is drawn to what Stage 3 alone draws it to, or to a
+    // member typed resolution proves; a member Stage 3 withholds as unproven is never
+    // drawn (issue 109's proof is the typed pass's too). Every withheld site of this
+    // repository is checked, and the fixture holds some of each.
+    let r = resolved();
+    let full: std::collections::HashMap<_, _> = r
+        .full
+        .resolutions
+        .iter()
+        .map(|s| (&s.site_ref, &s.resolution))
+        .collect();
+    let (mut withheld, mut drawn) = (0, 0);
+    for site in &r.report.resolutions {
+        let alone = &site.resolution;
+        let with_typed = full[&site.site_ref];
+        if let Some(target) = alone.target() {
+            drawn += 1;
+            assert_eq!(with_typed.target(), Some(target), "{:?}", site.site_ref);
+        } else if alone.band() == Band::Candidate {
+            withheld += 1;
+            assert!(
+                with_typed
+                    .target()
+                    .is_none_or(|t| !alone.candidates().contains(t)),
+                "{:?}: {with_typed:?}",
+                site.site_ref
+            );
+        }
+    }
+    assert!(
+        withheld >= 8 && drawn >= 6,
+        "{withheld} withheld, {drawn} drawn"
+    );
 }

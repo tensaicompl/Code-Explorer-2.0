@@ -351,31 +351,46 @@ fn of<'s>(all: &'s [Served], caller: &str) -> Vec<(u32, &'s str, &'s str)> {
     found
 }
 
-/// What `src.app.run`'s sites must be served as, in line order.
+/// What `src.app.run`'s sites must be served as, in line order. Since issue 105 a
+/// receiver is typed from what proves its type: the imported `Store`'s path, `Store`
+/// as `open_with` returns it, `start_at`'s `Stage`, the tuple struct `Stage(1)`, and
+/// `impl Convert for Store`, which requires nothing; before it, all but `start_at`'s
+/// path were the weak evidence or the candidate Stage 3 left.
 fn expected_run() -> Vec<(u32, &'static str, String)> {
     let typed = "CALLS typed -> ";
     let import = "CALLS import-guided -> ";
-    let exact = |target: &str| format!("candidate exact [\"{target}\"]");
     let unresolved = "unresolved no definition the name can reach []".to_owned();
     vec![
         (17, "plain_len", format!("{typed}src.codec.plain_len")),
         (18, "decode_as", format!("{typed}src.codec.decode_as")),
         (19, "decode_as", format!("{typed}src.codec.decode_as")),
-        (20, "open_with", format!("{import}src.store.Store.open_with")),
-        (21, "fetch_as", exact("src.store.Store.fetch_as")),
-        (22, "widen_into", exact("src.store.Store.widen_into")),
+        (20, "open_with", format!("{typed}src.store.Store.open_with")),
+        (21, "fetch_as", format!("{typed}src.store.Store.fetch_as")),
+        (
+            22,
+            "widen_into",
+            format!("{typed}src.store.Store.widen_into"),
+        ),
         (
             23,
             "convert_to",
-            "candidate several definitions survive every stage [\"src.store.Convert.convert_to\", \"src.store.Store.convert_to\"]".to_owned(),
+            format!("{typed}src.store.Store.convert_to"),
         ),
-        (24, "sized", exact("src.store.Grid.sized")),
-        (25, "settle_on", exact("src.pipeline.Stage.settle_on")),
+        (24, "sized", format!("{typed}src.store.Grid.sized")),
+        (
+            25,
+            "settle_on",
+            format!("{typed}src.pipeline.Stage.settle_on"),
+        ),
         (25, "start_at", format!("{typed}src.pipeline.start_at")),
-        (25, "widen_by", exact("src.pipeline.Stage.widen_by")),
+        (
+            25,
+            "widen_by",
+            format!("{typed}src.pipeline.Stage.widen_by"),
+        ),
         (26, "Stage", format!("{import}src.pipeline.Stage")),
-        (26, "finish", exact("src.pipeline.Stage.finish")),
-        (26, "step", exact("src.pipeline.Stage.step")),
+        (26, "finish", format!("{typed}src.pipeline.Stage.finish")),
+        (26, "step", format!("{typed}src.pipeline.Stage.step")),
         (31, "wrap", unresolved.clone()),
         (35, "local_pick", unresolved),
     ]

@@ -6,7 +6,10 @@
 //!
 //! One real crate, written to a checkout and resolved through discovery, extraction,
 //! typed resolution and Stage 3, then built to a segment and read back: one site of each
-//! band (R3-1 to R3-10).
+//! band (R3-1 to R3-10). Each site is one typed resolution cannot answer, so the band is
+//! Stage 3's (since issue 105 it types a parameter's, a constructor's or `self`'s
+//! receiver, and a type's member through an import): a tuple struct's constructor, a
+//! call on `self` in a trait's default method, methods on values nothing types.
 
 use std::fs;
 use std::path::Path;
@@ -34,7 +37,7 @@ const FILES: &[(&str, &str)] = &[
     ),
     (
         "src/kinds.rs",
-        "pub struct Gauge {\n    pub n: u8,\n}\n\nimpl Gauge {\n    pub fn assemble(n: u8) -> Gauge {\n        Gauge { n }\n    }\n\n    pub fn reading(&self) -> u8 {\n        self.n\n    }\n}\n\npub trait Scale {\n    fn unit(&self) -> u8;\n    fn twice(&self) -> u8;\n}\n\npub struct Wrap<H>(pub H);\n\nimpl<H> Scale for Wrap<H> {\n    fn unit(&self) -> u8 {\n        1\n    }\n\n    fn twice(&self) -> u8 {\n        self.unit() * 2\n    }\n}\n\npub fn local_helper() -> u8 {\n    1\n}\n\npub fn calls_local() -> u8 {\n    local_helper()\n}\n",
+        "pub struct Gauge {\n    pub n: u8,\n}\n\nimpl Gauge {\n    pub fn assemble(n: u8) -> Gauge {\n        Gauge { n }\n    }\n\n    pub fn reading(&self) -> u8 {\n        self.n\n    }\n}\n\npub struct Pair(pub u8, pub u8);\n\npub trait Scale {\n    fn unit(&self) -> u8;\n    fn twice(&self) -> u8 {\n        self.unit() * 2\n    }\n}\n\npub struct Wrap<H>(pub H);\n\nimpl<H> Scale for Wrap<H> {\n    fn unit(&self) -> u8 {\n        1\n    }\n}\n\npub fn local_helper() -> u8 {\n    1\n}\n\npub fn calls_local() -> u8 {\n    local_helper()\n}\n",
     ),
     (
         "src/other.rs",
@@ -46,7 +49,7 @@ const FILES: &[(&str, &str)] = &[
     ),
     (
         "src/uses.rs",
-        "use crate::kinds::{Gauge};\nuse crate::twins::Clock;\n\npub struct Counter;\n\nimpl Counter {\n    pub fn tick(&self) -> u8 {\n        1\n    }\n}\n\npub fn grouped() -> Gauge {\n    Gauge::assemble(1)\n}\n\npub fn by_value(g: &Gauge) -> u8 {\n    g.reading()\n}\n\npub fn scoped_tick<T>(c: T) -> u8 {\n    c.tick()\n}\n\npub fn ambiguous(x: &Clock) -> u8 {\n    x.chime()\n}\n\n#[test]\nfn reads_a_gauge() {\n    let g = Gauge::assemble(3);\n    let _ = g.reading();\n}\n",
+        "use crate::kinds::{Pair};\nuse crate::twins::Clock;\n\npub struct Counter;\n\nimpl Counter {\n    pub fn tick(&self) -> u8 {\n        1\n    }\n}\n\npub fn grouped() -> Pair {\n    Pair(1, 2)\n}\n\npub fn by_value<T>(g: T) -> u8 {\n    g.reading()\n}\n\npub fn scoped_tick<T>(c: T) -> u8 {\n    c.tick()\n}\n\npub fn ambiguous(x: &Clock) -> u8 {\n    x.chime()\n}\n\n#[test]\nfn reads_a_gauge() {\n    let p = Pair(3, 4);\n    let _ = make_gauge(p).reading();\n}\n",
     ),
 ];
 
@@ -219,33 +222,29 @@ fn r3_1_typed_remains_drawn() {
 
 #[test]
 fn r3_2_import_guided_remains_drawn() {
-    let (assemble, _) = def("src.kinds.Gauge.assemble");
-    assert_drawn(
-        at("src/uses.rs", "Gauge::assemble", 13),
-        Band::ImportGuided,
-        &assemble,
-    );
+    let (pair, _) = def("src.kinds.Pair");
+    assert_drawn(at("src/uses.rs", "Pair", 13), Band::ImportGuided, &pair);
     // The call in `grouped` and the test's: both drawn, the test's with its `TESTS`.
     assert_eq!(
-        edges_into(EdgeKind::Calls, "src.kinds.Gauge.assemble"),
+        edges_into(EdgeKind::Calls, "src.kinds.Pair"),
         [Band::ImportGuided, Band::ImportGuided]
     );
     assert_eq!(
-        edges_into(EdgeKind::Tests, "src.kinds.Gauge.assemble"),
+        edges_into(EdgeKind::Tests, "src.kinds.Pair"),
         [Band::ImportGuided]
     );
 }
 
 #[test]
 fn r3_3_inheritance_guided_remains_drawn() {
-    let (unit, _) = def("src.kinds.Wrap.unit");
+    let (unit, _) = def("src.kinds.Scale.unit");
     assert_drawn(
-        at("src/kinds.rs", "self.unit", 28),
+        at("src/kinds.rs", "self.unit", 20),
         Band::InheritanceGuided,
         &unit,
     );
     assert_eq!(
-        edges_into(EdgeKind::Calls, "src.kinds.Wrap.unit"),
+        edges_into(EdgeKind::Calls, "src.kinds.Scale.unit"),
         [Band::InheritanceGuided]
     );
 }

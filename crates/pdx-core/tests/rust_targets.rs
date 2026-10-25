@@ -658,9 +658,10 @@ fn e9_an_import_guided_from_reaches_the_imported_types_impl() {
         assert!(got.candidates().contains(&bodys), "{what}: {got:?}");
         assert!(!got.candidates().contains(&others), "{what}: {got:?}");
     }
-    // A type no macro writes for keeps its one `from`.
+    // A type no macro writes for keeps its one `from`, typed since issue 105 reads a
+    // type's member through its import.
     let other = at(&reg, &report, "src/ext.rs", "Other::from");
-    assert_eq!(other.band(), Band::ImportGuided, "{other:?}");
+    assert_eq!(other.band(), Band::Typed, "{other:?}");
     assert_eq!(other.target(), Some(&others));
 }
 
