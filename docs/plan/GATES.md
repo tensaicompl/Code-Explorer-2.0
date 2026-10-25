@@ -647,6 +647,26 @@ The Rust golden's 56 relations with no site are all at one now (`site_missing` 5
 are issue 107B's. Python's floors are unchanged (no Python extraction changed). Two of
 the six floors still fail, both recall's.
 
+A0 at the stabilisation checkpoint, 2026-10-25: the three-corpus run (`a0-match-3`,
+`a0-metrics-2`, engine 14) measuring R4, R5 (issues 105, 113A, 113B, 116) and the
+stabilisation round (issues 96, 97, 99, 121 to 128) together, PDX itself at `f1e406a`.
+Results in `bench/results/a0/` (methodology's Runs). Evidence, not an evaluation; the
+status stays `pending`.
+
+| Golden | Floor | After R4 | Stabilisation | Floor met |
+|---|---|---|---|---|
+| Python | `typed` precision ≥ 97% | 314 / 314 = 100.00% | 314 / 314 = 100.00% | yes |
+| Python | union precision ≥ 95% | 339 / 339 = 100.00% | 339 / 339 = 100.00% | yes |
+| Python | recall ≥ 85% | 321 / 1,114 = 28.82% | 321 / 1,114 = 28.82% | **no** |
+| Rust | `typed` precision ≥ 97% | 874 / 874 = 100.00% | 3,520 / 3,520 = 100.00% | yes |
+| Rust | union precision ≥ 95% | 1,162 / 1,162 = 100.00% | 3,581 / 3,581 = 100.00% | yes |
+| Rust | recall ≥ 85% | 959 / 4,110 = 23.33% | 3,371 / 4,159 = 81.05% | **no** |
+
+PDX itself (diagnostic): union 8,849 / 8,849, recall 8,810 / 10,040 = 87.75%. Every drawn
+band is precise in every corpus. Two of the six floors still fail, both recall's: Rust
+is 3.95 points short (788 relations classified in issue 105, 296 more in macro token
+trees, issue 107B); Python needs issue 106's recall work.
+
 ## G2 — after `P3-09`
 
 Status: **pending**

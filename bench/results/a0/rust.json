@@ -1,275 +1,276 @@
 {
  "blocklist": {
-  "accepted_typed_answer_correct": 32,
-  "edges_drawn": 32,
+  "accepted_typed_answer_correct": 365,
+  "accepted_typed_answer_unverifiable": 4,
+  "edges_drawn": 346,
   "examples_correct_suppressed": [],
-  "final_band:blocked": 1407,
-  "final_band:typed": 32,
-  "no_typed_answer_and_blocked": 1407,
-  "no_typed_answer_and_blocked_with_oracle_relation": 357,
-  "oracle_relation": 389,
-  "oracle_verifiable": 945,
+  "final_band:blocked": 1134,
+  "final_band:typed": 369,
+  "no_typed_answer_and_blocked": 1134,
+  "no_typed_answer_and_blocked_with_oracle_relation": 47,
+  "oracle_relation": 412,
+  "oracle_verifiable": 1010,
   "recall_c0": {
-   "denominator": 4054,
-   "numerator": 930,
-   "value": 0.229403
+   "denominator": 4159,
+   "numerator": 3371,
+   "value": 0.810531
   },
   "recall_c4": {
-   "denominator": 4054,
-   "numerator": 930,
-   "value": 0.229403
+   "denominator": 4159,
+   "numerator": 3371,
+   "value": 0.810531
   },
   "relations_recovered_in_c4": 0,
-  "sites": 1439,
-  "typed_answer_accepted_before_blocklist": 32,
+  "sites": 1503,
+  "typed_answer_accepted_before_blocklist": 369,
   "typed_answer_suppressed_by_blocklist": 0
  },
  "corpus": "rust-golden",
  "counterfactuals": {
   "C0": {
-   "drawn": 1165,
+   "drawn": 3705,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 1133,
+   "oracle_verifiable": 3581,
    "oracle_verifiable_fraction": {
-    "denominator": 1165,
-    "numerator": 1133,
-    "value": 0.972532
+    "denominator": 3705,
+    "numerator": 3581,
+    "value": 0.966532
    },
    "policy": "current behaviour",
    "precision": {
-    "denominator": 1133,
-    "numerator": 1133,
+    "denominator": 3581,
+    "numerator": 3581,
     "value": 1.0
    },
    "recall": {
-    "denominator": 4054,
-    "numerator": 930,
-    "value": 0.229403
+    "denominator": 4159,
+    "numerator": 3371,
+    "value": 0.810531
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 860,
-    "numerator": 860,
+    "denominator": 3520,
+    "numerator": 3520,
     "value": 1.0
    }
   },
   "C1": {
-   "drawn": 1165,
+   "drawn": 3705,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 1133,
+   "oracle_verifiable": 3581,
    "oracle_verifiable_fraction": {
-    "denominator": 1165,
-    "numerator": 1133,
-    "value": 0.972532
+    "denominator": 3705,
+    "numerator": 3581,
+    "value": 0.966532
    },
    "policy": "`exact` not drawn",
    "precision": {
-    "denominator": 1133,
-    "numerator": 1133,
+    "denominator": 3581,
+    "numerator": 3581,
     "value": 1.0
    },
    "recall": {
-    "denominator": 4054,
-    "numerator": 930,
-    "value": 0.229403
+    "denominator": 4159,
+    "numerator": 3371,
+    "value": 0.810531
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 860,
-    "numerator": 860,
+    "denominator": 3520,
+    "numerator": 3520,
     "value": 1.0
    }
   },
   "C2": {
-   "drawn": 1165,
+   "drawn": 3705,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 1133,
+   "oracle_verifiable": 3581,
    "oracle_verifiable_fraction": {
-    "denominator": 1165,
-    "numerator": 1133,
-    "value": 0.972532
+    "denominator": 3705,
+    "numerator": 3581,
+    "value": 0.966532
    },
    "policy": "`scoped` not drawn",
    "precision": {
-    "denominator": 1133,
-    "numerator": 1133,
+    "denominator": 3581,
+    "numerator": 3581,
     "value": 1.0
    },
    "recall": {
-    "denominator": 4054,
-    "numerator": 930,
-    "value": 0.229403
+    "denominator": 4159,
+    "numerator": 3371,
+    "value": 0.810531
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 860,
-    "numerator": 860,
+    "denominator": 3520,
+    "numerator": 3520,
     "value": 1.0
    }
   },
   "C3": {
-   "drawn": 1165,
+   "drawn": 3705,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 1133,
+   "oracle_verifiable": 3581,
    "oracle_verifiable_fraction": {
-    "denominator": 1165,
-    "numerator": 1133,
-    "value": 0.972532
+    "denominator": 3705,
+    "numerator": 3581,
+    "value": 0.966532
    },
    "policy": "neither `exact` nor `scoped` drawn",
    "precision": {
-    "denominator": 1133,
-    "numerator": 1133,
+    "denominator": 3581,
+    "numerator": 3581,
     "value": 1.0
    },
    "recall": {
-    "denominator": 4054,
-    "numerator": 930,
-    "value": 0.229403
+    "denominator": 4159,
+    "numerator": 3371,
+    "value": 0.810531
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 860,
-    "numerator": 860,
+    "denominator": 3520,
+    "numerator": 3520,
     "value": 1.0
    }
   },
   "C4": {
-   "drawn": 1165,
+   "drawn": 3705,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 1133,
+   "oracle_verifiable": 3581,
    "oracle_verifiable_fraction": {
-    "denominator": 1165,
-    "numerator": 1133,
-    "value": 0.972532
+    "denominator": 3705,
+    "numerator": 3581,
+    "value": 0.966532
    },
    "policy": "a valid typed answer is accepted before the generic-name blocklist",
    "precision": {
-    "denominator": 1133,
-    "numerator": 1133,
+    "denominator": 3581,
+    "numerator": 3581,
     "value": 1.0
    },
    "recall": {
-    "denominator": 4054,
-    "numerator": 930,
-    "value": 0.229403
+    "denominator": 4159,
+    "numerator": 3371,
+    "value": 0.810531
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 860,
-    "numerator": 860,
+    "denominator": 3520,
+    "numerator": 3520,
     "value": 1.0
    }
   },
   "C5": {
-   "drawn": 1165,
+   "drawn": 3705,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 1133,
+   "oracle_verifiable": 3581,
    "oracle_verifiable_fraction": {
-    "denominator": 1165,
-    "numerator": 1133,
-    "value": 0.972532
+    "denominator": 3705,
+    "numerator": 3581,
+    "value": 0.966532
    },
    "policy": "a Rust call on an unproven member or static receiver does not fall through to `exact` or `scoped`",
    "precision": {
-    "denominator": 1133,
-    "numerator": 1133,
+    "denominator": 3581,
+    "numerator": 3581,
     "value": 1.0
    },
    "recall": {
-    "denominator": 4054,
-    "numerator": 930,
-    "value": 0.229403
+    "denominator": 4159,
+    "numerator": 3371,
+    "value": 0.810531
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 860,
-    "numerator": 860,
+    "denominator": 3520,
+    "numerator": 3520,
     "value": 1.0
    }
   },
   "C6": {
-   "drawn": 1165,
+   "drawn": 3705,
    "false_positives_added": 0,
    "false_positives_removed": 0,
-   "oracle_verifiable": 1133,
+   "oracle_verifiable": 3581,
    "oracle_verifiable_fraction": {
-    "denominator": 1165,
-    "numerator": 1133,
-    "value": 0.972532
+    "denominator": 3705,
+    "numerator": 3581,
+    "value": 0.966532
    },
    "policy": "C3, C4 and C5 together",
    "precision": {
-    "denominator": 1133,
-    "numerator": 1133,
+    "denominator": 3581,
+    "numerator": 3581,
     "value": 1.0
    },
    "recall": {
-    "denominator": 4054,
-    "numerator": 930,
-    "value": 0.229403
+    "denominator": 4159,
+    "numerator": 3371,
+    "value": 0.810531
    },
    "true_positives_added": 0,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 860,
-    "numerator": 860,
+    "denominator": 3520,
+    "numerator": 3520,
     "value": 1.0
    }
   },
   "C7": {
-   "drawn": 2589,
-   "false_positives_added": 893,
+   "drawn": 4758,
+   "false_positives_added": 828,
    "false_positives_removed": 0,
-   "oracle_verifiable": 2541,
+   "oracle_verifiable": 4619,
    "oracle_verifiable_fraction": {
-    "denominator": 2589,
-    "numerator": 2541,
-    "value": 0.98146
+    "denominator": 4758,
+    "numerator": 4619,
+    "value": 0.970786
    },
    "policy": "`exact` and `scoped` drawn, as before issue 102",
    "precision": {
-    "denominator": 2541,
-    "numerator": 1648,
-    "value": 0.648564
+    "denominator": 4619,
+    "numerator": 3791,
+    "value": 0.82074
    },
    "recall": {
-    "denominator": 4054,
-    "numerator": 1445,
-    "value": 0.356438
+    "denominator": 4159,
+    "numerator": 3581,
+    "value": 0.861024
    },
-   "true_positives_added": 515,
+   "true_positives_added": 210,
    "true_positives_lost": 0,
    "typed": {
-    "denominator": 860,
-    "numerator": 860,
+    "denominator": 3520,
+    "numerator": 3520,
     "value": 1.0
    }
   }
  },
  "coverage": {
   "drawn_edges_by_kind": {
-   "CALLS": 950,
-   "CALL_REFERENCE": 215
+   "CALLS": 3483,
+   "CALL_REFERENCE": 222
   },
-  "engine_sites": 9,
+  "engine_sites": 58,
   "language_files": 301,
   "language_files_indexed_by_oracle": 180,
   "name_token_rules": {
-   "M1": 11192,
-   "M1c": 38,
+   "M1": 11366,
+   "M1c": 87,
    "None": 3
   },
   "oracle_assumed_encoding": {},
@@ -291,23 +292,23 @@
   },
   "oracle_unconvertible_occurrences": 0,
   "parse_failures": [],
-  "structural_call_sites": 11233,
+  "structural_call_sites": 11456,
   "structural_call_sites_by_band": {
-   "blocked": 1407,
-   "candidate": 2638,
-   "exact": 1030,
-   "external": 1645,
-   "import-guided": 213,
-   "inheritance-guided": 60,
-   "scoped": 394,
-   "typed": 901,
-   "unresolved": 2945
+   "blocked": 1134,
+   "candidate": 920,
+   "exact": 778,
+   "external": 1356,
+   "import-guided": 47,
+   "inheritance-guided": 14,
+   "scoped": 275,
+   "typed": 3702,
+   "unresolved": 3230
   },
   "structural_call_sites_not_materialized_by_band": {
-   "typed": 9
+   "typed": 58
   },
   "structural_call_sites_without_name_token": 3,
-  "structural_sites_not_call_sites": 2687
+  "structural_sites_not_call_sites": 2680
  },
  "exact_scoped_false_positives": {
   "exact": {
@@ -385,7 +386,7 @@
       "pdx_target": "axum.src.test_helpers.tracing_helpers.Handle.take",
       "reason": "oracle_external",
       "receiver_proof": "value_unproven",
-      "site": 5,
+      "site": 6,
       "span": [
        853,
        861
@@ -405,7 +406,7 @@
       "pdx_target": "axum.src.extract.ws.Message.into_data",
       "reason": "oracle_external",
       "receiver_proof": "value_unproven",
-      "site": 30,
+      "site": 31,
       "span": [
        5035,
        5052
@@ -425,7 +426,7 @@
       "pdx_target": "axum.src.routing.method_routing.ok",
       "reason": "oracle_external",
       "receiver_proof": "value_unproven",
-      "site": 39,
+      "site": 40,
       "span": [
        5502,
        5525
@@ -487,7 +488,7 @@
       "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
       "reason": "other_target_unmapped",
       "receiver_proof": "value_unproven",
-      "site": 14,
+      "site": 16,
       "span": [
        2499,
        2518
@@ -509,7 +510,7 @@
       "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
       "reason": "other_target_unmapped",
       "receiver_proof": "none",
-      "site": 16,
+      "site": 17,
       "span": [
        3356,
        3423
@@ -529,7 +530,7 @@
       "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
       "reason": "other_target_unmapped",
       "receiver_proof": "none",
-      "site": 31,
+      "site": 32,
       "span": [
        8010,
        8023
@@ -549,7 +550,7 @@
       "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
       "reason": "other_target_unmapped",
       "receiver_proof": "none",
-      "site": 42,
+      "site": 43,
       "span": [
        8963,
        8976
@@ -571,7 +572,7 @@
       "pdx_target": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
       "reason": "other_target_unmapped",
       "receiver_proof": "path_unproven",
-      "site": 4,
+      "site": 6,
       "span": [
        1105,
        1136
@@ -591,7 +592,7 @@
       "pdx_target": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
       "reason": "other_target_unmapped",
       "receiver_proof": "path_unproven",
-      "site": 6,
+      "site": 8,
       "span": [
        1186,
        1217
@@ -633,7 +634,7 @@
       "pdx_target": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
       "reason": "other_target_unmapped",
       "receiver_proof": "path_unproven",
-      "site": 8,
+      "site": 9,
       "span": [
        1745,
        1783
@@ -653,7 +654,7 @@
       "pdx_target": "axum-core.src.extract.rejection.FailedToBufferBody.from_err",
       "reason": "other_target_unmapped",
       "receiver_proof": "path_unproven",
-      "site": 10,
+      "site": 11,
       "span": [
        1836,
        1878
@@ -685,28 +686,28 @@
      }
     ]
    },
-   "false_positives": 588,
+   "false_positives": 629,
    "primary": {
     "constructor_collision": 20,
-    "external_receiver_mistaken_for_local": 411,
+    "external_receiver_mistaken_for_local": 450,
     "hierarchy_evidence_missing": 0,
     "import_provenance_failure": 43,
     "module_or_package_uniqueness_only": 0,
     "other": 43,
     "same_short_name_on_unrelated_type": 0,
-    "self_edge": 30,
+    "self_edge": 32,
     "unknown_or_unproven_receiver": 41
    },
    "tagged": {
     "constructor_collision": 20,
-    "external_receiver_mistaken_for_local": 439,
+    "external_receiver_mistaken_for_local": 480,
     "hierarchy_evidence_missing": 13,
-    "import_provenance_failure": 127,
+    "import_provenance_failure": 157,
     "module_or_package_uniqueness_only": 0,
     "other": 43,
     "same_short_name_on_unrelated_type": 0,
-    "self_edge": 30,
-    "unknown_or_unproven_receiver": 474
+    "self_edge": 32,
+    "unknown_or_unproven_receiver": 515
    }
   },
   "scoped": {
@@ -714,62 +715,62 @@
     "constructor_collision": [
      {
       "band": "scoped",
-      "callee": "Error::new",
-      "file": "axum-core/src/body.rs",
-      "line": 243,
-      "oracle_status": "mapped",
-      "oracle_target": "axum-core.src.error.Error.new",
-      "pdx_target": "axum-core.src.body.Body.new",
-      "reason": "other_target",
+      "callee": "ResponseFuture::new",
+      "file": "axum/src/extract/connect_info.rs",
+      "line": 116,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum extract/connect_info/impl#[`ResponseFuture<S, C>`]new().",
+      "pdx_target": "axum.src.extract.connect_info.IntoMakeServiceWithConnectInfo.new",
+      "reason": "other_target_unmapped",
+      "receiver_proof": "path_unproven",
+      "site": 11,
+      "span": [
+       3266,
+       3301
+      ],
+      "token": [
+       3282,
+       3285
+      ]
+     },
+     {
+      "band": "scoped",
+      "callee": "super::future::IntoServiceFuture::new",
+      "file": "axum/src/handler/service.rs",
+      "line": 174,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum handler/future/impl#[`IntoServiceFuture<F>`]new().",
+      "pdx_target": "axum.src.handler.service.HandlerService.new",
+      "reason": "other_target_unmapped",
       "receiver_proof": "path_bound",
-      "site": 53,
+      "site": 14,
       "span": [
-       6714,
-       6729
+       4997,
+       5042
       ],
       "token": [
-       6721,
-       6724
+       5031,
+       5034
       ]
      },
      {
       "band": "scoped",
-      "callee": "Router::new",
-      "file": "axum-extra/src/extract/cookie/mod.rs",
-      "line": 367,
-      "oracle_status": "mapped",
-      "oracle_target": "axum.src.routing.mod.Router.new",
-      "pdx_target": "axum-extra.src.extract.cookie.mod.CookieJar.new",
-      "reason": "other_target",
+      "callee": "IntoMakeServiceFuture::new",
+      "file": "axum/src/routing/into_make_service.rs",
+      "line": 36,
+      "oracle_status": "unmapped",
+      "oracle_target": "axum routing/into_make_service/impl#[`IntoMakeServiceFuture<S>`]new().",
+      "pdx_target": "axum.src.routing.into_make_service.IntoMakeService.new",
+      "reason": "other_target_unmapped",
       "receiver_proof": "path_unproven",
-      "site": 40,
+      "site": 1,
       "span": [
-       11281,
-       11294
+       753,
+       808
       ],
       "token": [
-       11289,
-       11292
-      ]
-     },
-     {
-      "band": "scoped",
-      "callee": "Router::new",
-      "file": "axum-extra/src/json_lines.rs",
-      "line": 195,
-      "oracle_status": "mapped",
-      "oracle_target": "axum.src.routing.mod.Router.new",
-      "pdx_target": "axum-extra.src.json_lines.JsonLines.new",
-      "reason": "other_target",
-      "receiver_proof": "path_unproven",
-      "site": 28,
-      "span": [
-       5713,
-       5726
-      ],
-      "token": [
-       5721,
-       5724
+       776,
+       779
       ]
      }
     ],
@@ -804,7 +805,7 @@
       "pdx_target": "axum-extra.src.extract.multipart.Field.file_name",
       "reason": "oracle_external",
       "receiver_proof": "value_unproven",
-      "site": 63,
+      "site": 69,
       "span": [
        12363,
        12439
@@ -846,7 +847,7 @@
       "pdx_target": "axum.src.extract.connect_info.IntoMakeServiceWithConnectInfo.clone",
       "reason": "other_target_unmapped",
       "receiver_proof": "self",
-      "site": 18,
+      "site": 19,
       "span": [
        6377,
        6389
@@ -854,6 +855,28 @@
       "token": [
        6382,
        6387
+      ]
+     }
+    ],
+    "import_provenance_failure": [
+     {
+      "band": "scoped",
+      "callee": "StatusCode::INTERNAL_SERVER_ERROR.into_response",
+      "file": "axum-extra/src/response/file_stream.rs",
+      "line": 688,
+      "oracle_status": "mapped",
+      "oracle_target": "axum-core.src.response.into_response.StatusCode.into_response",
+      "pdx_target": "axum-extra.src.response.file_stream.FileStream.into_response",
+      "reason": "other_target",
+      "receiver_proof": "value_unproven",
+      "site": 207,
+      "span": [
+       22101,
+       22150
+      ],
+      "token": [
+       22135,
+       22148
       ]
      }
     ],
@@ -1004,94 +1027,34 @@
      }
     ]
    },
-   "false_positives": 305,
+   "false_positives": 199,
    "primary": {
-    "constructor_collision": 80,
+    "constructor_collision": 8,
     "external_receiver_mistaken_for_local": 30,
     "hierarchy_evidence_missing": 1,
-    "import_provenance_failure": 0,
+    "import_provenance_failure": 1,
     "module_or_package_uniqueness_only": 0,
     "other": 0,
     "same_short_name_on_unrelated_type": 1,
-    "self_edge": 136,
-    "unknown_or_unproven_receiver": 57
+    "self_edge": 129,
+    "unknown_or_unproven_receiver": 29
    },
    "tagged": {
-    "constructor_collision": 89,
-    "external_receiver_mistaken_for_local": 105,
+    "constructor_collision": 15,
+    "external_receiver_mistaken_for_local": 109,
     "hierarchy_evidence_missing": 1,
-    "import_provenance_failure": 18,
-    "module_or_package_uniqueness_only": 305,
+    "import_provenance_failure": 12,
+    "module_or_package_uniqueness_only": 199,
     "other": 0,
-    "same_short_name_on_unrelated_type": 175,
-    "self_edge": 136,
-    "unknown_or_unproven_receiver": 283
+    "same_short_name_on_unrelated_type": 65,
+    "self_edge": 129,
+    "unknown_or_unproven_receiver": 187
    }
   }
  },
- "extraction_loss": 401,
+ "extraction_loss": 296,
  "false_negative_examples": {
   "resolution_not_drawn:blocked": [
-   {
-    "bucket": "resolution_not_drawn:blocked",
-    "callee": "self.jar.get",
-    "file": "axum-extra/src/extract/cookie/private.rs",
-    "line": 301,
-    "macro": null,
-    "oracle_target": "axum-extra.src.extract.cookie.private.PrivateCookieJar.get",
-    "pdx_band": "blocked",
-    "pdx_site": 28,
-    "pdx_target": null,
-    "shape": "method",
-    "span": [
-     8920,
-     8947
-    ],
-    "token": [
-     8929,
-     8932
-    ]
-   },
-   {
-    "bucket": "resolution_not_drawn:blocked",
-    "callee": "self.jar.get",
-    "file": "axum-extra/src/extract/cookie/signed.rs",
-    "line": 319,
-    "macro": null,
-    "oracle_target": "axum-extra.src.extract.cookie.signed.SignedCookieJar.get",
-    "pdx_band": "blocked",
-    "pdx_site": 28,
-    "pdx_target": null,
-    "shape": "method",
-    "span": [
-     9624,
-     9651
-    ],
-    "token": [
-     9633,
-     9636
-    ]
-   },
-   {
-    "bucket": "resolution_not_drawn:blocked",
-    "callee": "client.get",
-    "file": "axum-extra/src/extract/form.rs",
-    "line": 142,
-    "macro": null,
-    "oracle_target": "axum.src.test_helpers.test_client.TestClient.get",
-    "pdx_band": "blocked",
-    "pdx_site": 27,
-    "pdx_target": null,
-    "shape": "method",
-    "span": [
-     4214,
-     4237
-    ],
-    "token": [
-     4221,
-     4224
-    ]
-   },
    {
     "bucket": "resolution_not_drawn:blocked",
     "callee": "deserializer.deserialize",
@@ -1100,7 +1063,7 @@
     "macro": null,
     "oracle_target": "axum-extra.src.extract.json_deserializer.JsonDeserializer.deserialize",
     "pdx_band": "blocked",
-    "pdx_site": 25,
+    "pdx_site": 26,
     "pdx_target": null,
     "shape": "method",
     "span": [
@@ -1120,7 +1083,7 @@
     "macro": null,
     "oracle_target": "axum-extra.src.extract.json_deserializer.JsonDeserializer.deserialize",
     "pdx_band": "blocked",
-    "pdx_site": 37,
+    "pdx_site": 38,
     "pdx_target": null,
     "shape": "method",
     "span": [
@@ -1130,6 +1093,66 @@
     "token": [
      8538,
      8549
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "deserializer.deserialize",
+    "file": "axum-extra/src/extract/json_deserializer.rs",
+    "line": 288,
+    "macro": null,
+    "oracle_target": "axum-extra.src.extract.json_deserializer.JsonDeserializer.deserialize",
+    "pdx_band": "blocked",
+    "pdx_site": 49,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     9699,
+     9725
+    ],
+    "token": [
+     9712,
+     9723
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "deserializer.deserialize",
+    "file": "axum-extra/src/extract/json_deserializer.rs",
+    "line": 363,
+    "macro": null,
+    "oracle_target": "axum-extra.src.extract.json_deserializer.JsonDeserializer.deserialize",
+    "pdx_band": "blocked",
+    "pdx_site": 81,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     12332,
+     12358
+    ],
+    "token": [
+     12345,
+     12356
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:blocked",
+    "callee": "deserializer.deserialize",
+    "file": "axum-extra/src/extract/json_deserializer.rs",
+    "line": 400,
+    "macro": null,
+    "oracle_target": "axum-extra.src.extract.json_deserializer.JsonDeserializer.deserialize",
+    "pdx_band": "blocked",
+    "pdx_site": 90,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     13241,
+     13267
+    ],
+    "token": [
+     13254,
+     13265
     ]
    }
   ],
@@ -1142,7 +1165,7 @@
     "macro": null,
     "oracle_target": "axum-core.src.body.Body.size_hint",
     "pdx_band": "candidate",
-    "pdx_site": 33,
+    "pdx_site": 34,
     "pdx_target": null,
     "shape": "method",
     "span": [
@@ -1156,13 +1179,33 @@
    },
    {
     "bucket": "resolution_not_drawn:candidate",
+    "callee": "Pin::new(&mut self.inner).poll_frame",
+    "file": "axum-core/src/body.rs",
+    "line": 206,
+    "macro": null,
+    "oracle_target": "axum-core.src.body.Body.poll_frame",
+    "pdx_band": "candidate",
+    "pdx_site": 42,
+    "pdx_target": null,
+    "shape": "method",
+    "span": [
+     5819,
+     5859
+    ],
+    "token": [
+     5845,
+     5855
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:candidate",
     "callee": "self.inner.is_end_stream",
     "file": "axum-core/src/body.rs",
     "line": 211,
     "macro": null,
     "oracle_target": "axum-core.src.body.Body.is_end_stream",
     "pdx_band": "candidate",
-    "pdx_site": 43,
+    "pdx_site": 44,
     "pdx_target": null,
     "shape": "method",
     "span": [
@@ -1182,7 +1225,7 @@
     "macro": null,
     "oracle_target": "axum-core.src.body.Body.size_hint",
     "pdx_band": "candidate",
-    "pdx_site": 44,
+    "pdx_site": 45,
     "pdx_target": null,
     "shape": "method",
     "span": [
@@ -1213,151 +1256,111 @@
      689,
      697
     ]
-   },
-   {
-    "bucket": "resolution_not_drawn:candidate",
-    "callee": "String::from_ref",
-    "file": "axum-core/src/ext_traits/mod.rs",
-    "line": 45,
-    "macro": null,
-    "oracle_target": "axum-core.src.extract.from_ref.FromRef.from_ref",
-    "pdx_band": "candidate",
-    "pdx_site": 1,
-    "pdx_target": null,
-    "shape": "call",
-    "span": [
-     1224,
-     1247
-    ],
-    "token": [
-     1232,
-     1240
-    ]
    }
   ],
   "resolution_not_drawn:exact": [
    {
     "bucket": "resolution_not_drawn:exact",
-    "callee": "body_to_bytes_mut",
-    "file": "axum-core/src/extract/request_parts.rs",
-    "line": 79,
+    "callee": "CachedEntry",
+    "file": "axum-extra/src/extract/cached.rs",
+    "line": 95,
     "macro": null,
-    "oracle_target": "axum-core.src.extract.request_parts.body_to_bytes_mut",
+    "oracle_target": "axum-extra.src.extract.cached.CachedEntry",
     "pdx_band": "exact",
-    "pdx_site": 5,
-    "pdx_target": "axum-core.src.extract.request_parts.body_to_bytes_mut",
+    "pdx_site": 4,
+    "pdx_target": "axum-extra.src.extract.cached.CachedEntry",
     "shape": "call",
     "span": [
-     1991,
-     2031
+     2983,
+     3009
     ],
     "token": [
-     1991,
-     2008
+     2983,
+     2994
     ]
    },
    {
     "bucket": "resolution_not_drawn:exact",
-    "callee": "res.headers_mut",
-    "file": "axum-core/src/response/append_headers.rs",
-    "line": 63,
+    "callee": "TestClient::new(app) .post",
+    "file": "axum-extra/src/extract/json_deserializer.rs",
+    "line": 345,
     "macro": null,
-    "oracle_target": "axum-core.src.response.into_response_parts.ResponseParts.headers_mut",
+    "oracle_target": "axum.src.test_helpers.test_client.TestClient.post",
+    "pdx_band": "exact",
+    "pdx_site": 78,
+    "pdx_target": "axum.src.test_helpers.test_client.TestClient.post",
+    "shape": "method",
+    "span": [
+     11589,
+     11636
+    ],
+    "token": [
+     11627,
+     11631
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "TestClient::new(app) .post(\"\") .header",
+    "file": "axum-extra/src/extract/json_deserializer.rs",
+    "line": 346,
+    "macro": null,
+    "oracle_target": "axum.src.test_helpers.test_client.RequestBuilder.header",
+    "pdx_band": "exact",
+    "pdx_site": 77,
+    "pdx_target": "axum.src.test_helpers.test_client.RequestBuilder.header",
+    "shape": "method",
+    "span": [
+     11589,
+     11690
+    ],
+    "token": [
+     11654,
+     11660
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "TestClient::new(app) .post(\"\") .header(\"\", content_type) .body",
+    "file": "axum-extra/src/extract/json_deserializer.rs",
+    "line": 347,
+    "macro": null,
+    "oracle_target": "axum.src.test_helpers.test_client.RequestBuilder.body",
+    "pdx_band": "exact",
+    "pdx_site": 76,
+    "pdx_target": "axum.src.test_helpers.test_client.RequestBuilder.body",
+    "shape": "method",
+    "span": [
+     11589,
+     11718
+    ],
+    "token": [
+     11708,
+     11712
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:exact",
+    "callee": "stream.into_data_stream",
+    "file": "axum-extra/src/extract/multipart.rs",
+    "line": 103,
+    "macro": null,
+    "oracle_target": "axum-core.src.body.Body.into_data_stream",
     "pdx_band": "exact",
     "pdx_site": 6,
-    "pdx_target": "axum-core.src.response.into_response_parts.ResponseParts.headers_mut",
+    "pdx_target": "axum-core.src.body.Body.into_data_stream",
     "shape": "method",
     "span": [
-     1948,
-     1965
+     3446,
+     3471
     ],
     "token": [
-     1952,
-     1963
-    ]
-   },
-   {
-    "bucket": "resolution_not_drawn:exact",
-    "callee": "res.headers_mut",
-    "file": "axum-core/src/response/into_response_parts.rs",
-    "line": 151,
-    "macro": null,
-    "oracle_target": "axum-core.src.response.into_response_parts.ResponseParts.headers_mut",
-    "pdx_band": "exact",
-    "pdx_site": 8,
-    "pdx_target": "axum-core.src.response.into_response_parts.ResponseParts.headers_mut",
-    "shape": "method",
-    "span": [
-     4440,
-     4457
-    ],
-    "token": [
-     4444,
-     4455
-    ]
-   },
-   {
-    "bucket": "resolution_not_drawn:exact",
-    "callee": "res.extensions_mut",
-    "file": "axum-core/src/response/into_response_parts.rs",
-    "line": 278,
-    "macro": null,
-    "oracle_target": "axum-core.src.response.into_response_parts.ResponseParts.extensions_mut",
-    "pdx_band": "exact",
-    "pdx_site": 23,
-    "pdx_target": "axum-core.src.response.into_response_parts.ResponseParts.extensions_mut",
-    "shape": "method",
-    "span": [
-     8052,
-     8072
-    ],
-    "token": [
-     8056,
-     8070
-    ]
-   },
-   {
-    "bucket": "resolution_not_drawn:exact",
-    "callee": "res.extensions_mut",
-    "file": "axum-core/src/response/mod.rs",
-    "line": 177,
-    "macro": null,
-    "oracle_target": "axum-core.src.response.into_response_parts.ResponseParts.extensions_mut",
-    "pdx_band": "exact",
-    "pdx_site": 3,
-    "pdx_target": "axum-core.src.response.into_response_parts.ResponseParts.extensions_mut",
-    "shape": "method",
-    "span": [
-     5053,
-     5073
-    ],
-    "token": [
-     5057,
-     5071
+     3453,
+     3469
     ]
    }
   ],
   "resolution_not_drawn:external": [
-   {
-    "bucket": "resolution_not_drawn:external",
-    "callee": "Pin::new(&mut self.inner).poll_frame",
-    "file": "axum-core/src/body.rs",
-    "line": 206,
-    "macro": null,
-    "oracle_target": "axum-core.src.body.Body.poll_frame",
-    "pdx_band": "external",
-    "pdx_site": 41,
-    "pdx_target": null,
-    "shape": "method",
-    "span": [
-     5819,
-     5859
-    ],
-    "token": [
-     5845,
-     5855
-    ]
-   },
    {
     "bucket": "resolution_not_drawn:external",
     "callee": "Bytes::from_request",
@@ -1380,86 +1383,86 @@
    },
    {
     "bucket": "resolution_not_drawn:external",
-    "callee": "Cow::Borrowed(self).into_response",
-    "file": "axum-core/src/response/into_response.rs",
-    "line": 178,
+    "callee": "Bytes::from_request",
+    "file": "axum-extra/src/extract/json_deserializer.rs",
+    "line": 95,
     "macro": null,
-    "oracle_target": "axum-core.src.response.into_response.Cow.into_response",
+    "oracle_target": "axum-core.src.extract.request_parts.Bytes.from_request",
+    "pdx_band": "external",
+    "pdx_site": 2,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     3446,
+     3477
+    ],
+    "token": [
+     3453,
+     3465
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:external",
+    "callee": "Bytes::from_request",
+    "file": "axum-extra/src/protobuf.rs",
+    "line": 102,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.request_parts.Bytes.from_request",
+    "pdx_band": "external",
+    "pdx_site": 0,
+    "pdx_target": null,
+    "shape": "call",
+    "span": [
+     2808,
+     2839
+    ],
+    "token": [
+     2815,
+     2827
+    ]
+   },
+   {
+    "bucket": "resolution_not_drawn:external",
+    "callee": "Bytes::from_request",
+    "file": "axum/src/extract/raw_form.rs",
+    "line": 50,
+    "macro": null,
+    "oracle_target": "axum-core.src.extract.request_parts.Bytes.from_request",
     "pdx_band": "external",
     "pdx_site": 10,
     "pdx_target": null,
-    "shape": "method",
+    "shape": "call",
     "span": [
-     4524,
-     4559
+     1361,
+     1392
     ],
     "token": [
-     4544,
-     4557
+     1368,
+     1380
     ]
    },
    {
     "bucket": "resolution_not_drawn:external",
-    "callee": "Cow::<'static, str>::Owned(self).into_response",
-    "file": "axum-core/src/response/into_response.rs",
-    "line": 184,
+    "callee": "Bytes::from_request",
+    "file": "axum/src/json.rs",
+    "line": 111,
     "macro": null,
-    "oracle_target": "axum-core.src.response.into_response.Cow.into_response",
+    "oracle_target": "axum-core.src.extract.request_parts.Bytes.from_request",
     "pdx_band": "external",
-    "pdx_site": 12,
+    "pdx_site": 3,
     "pdx_target": null,
-    "shape": "method",
+    "shape": "call",
     "span": [
-     4649,
-     4697
+     3191,
+     3222
     ],
     "token": [
-     4682,
-     4695
-    ]
-   },
-   {
-    "bucket": "resolution_not_drawn:external",
-    "callee": "Cow::Borrowed(self).into_response",
-    "file": "axum-core/src/response/into_response.rs",
-    "line": 290,
-    "macro": null,
-    "oracle_target": "axum-core.src.response.into_response.Cow.into_response",
-    "pdx_band": "external",
-    "pdx_site": 60,
-    "pdx_target": null,
-    "shape": "method",
-    "span": [
-     7586,
-     7621
-    ],
-    "token": [
-     7606,
-     7619
+     3198,
+     3210
     ]
    }
   ],
   "resolution_not_drawn:scoped": [
-   {
-    "bucket": "resolution_not_drawn:scoped",
-    "callee": "Error::new",
-    "file": "axum-core/src/body.rs",
-    "line": 243,
-    "macro": null,
-    "oracle_target": "axum-core.src.error.Error.new",
-    "pdx_band": "scoped",
-    "pdx_site": 53,
-    "pdx_target": "axum-core.src.body.Body.new",
-    "shape": "call",
-    "span": [
-     6714,
-     6729
-    ],
-    "token": [
-     6721,
-     6724
-    ]
-   },
    {
     "bucket": "resolution_not_drawn:scoped",
     "callee": "E::from_request",
@@ -1539,209 +1542,127 @@
      6085,
      6098
     ]
+   },
+   {
+    "bucket": "resolution_not_drawn:scoped",
+    "callee": "(StatusCode::CREATED, [(\"\", \"\")]).into_response",
+    "file": "axum-core/src/response/into_response_parts.rs",
+    "line": 299,
+    "macro": null,
+    "oracle_target": "axum-core.src.response.into_response.(StatusCode, R).into_response",
+    "pdx_band": "scoped",
+    "pdx_site": 24,
+    "pdx_target": "axum-core.src.response.into_response_parts.TryIntoHeaderError.into_response",
+    "shape": "method",
+    "span": [
+     8457,
+     8510
+    ],
+    "token": [
+     8495,
+     8508
+    ]
    }
   ],
   "resolution_not_materialized:typed": [
    {
     "bucket": "resolution_not_materialized:typed",
-    "callee": "path_for_nested_route",
-    "file": "axum/src/routing/tests/mod.rs",
-    "line": 1150,
+    "callee": "as_str",
+    "file": "axum/src/extract/nested_path.rs",
+    "line": 129,
     "macro": "assert_eq",
-    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "oracle_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "pdx_band": "typed",
-    "pdx_site": 730,
-    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_site": 84,
+    "pdx_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "shape": "macro_tt",
     "span": [
-     33571,
-     33602
+     3163,
+     3171
     ],
     "token": [
-     33571,
-     33592
+     3163,
+     3169
     ]
    },
    {
     "bucket": "resolution_not_materialized:typed",
-    "callee": "path_for_nested_route",
-    "file": "axum/src/routing/tests/mod.rs",
-    "line": 1152,
+    "callee": "as_str",
+    "file": "axum/src/extract/nested_path.rs",
+    "line": 147,
     "macro": "assert_eq",
-    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "oracle_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "pdx_band": "typed",
-    "pdx_site": 731,
-    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_site": 85,
+    "pdx_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "shape": "macro_tt",
     "span": [
-     33626,
-     33658
+     3659,
+     3667
     ],
     "token": [
-     33626,
-     33647
+     3659,
+     3665
     ]
    },
    {
     "bucket": "resolution_not_materialized:typed",
-    "callee": "path_for_nested_route",
-    "file": "axum/src/routing/tests/mod.rs",
-    "line": 1153,
+    "callee": "as_str",
+    "file": "axum/src/extract/nested_path.rs",
+    "line": 165,
     "macro": "assert_eq",
-    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "oracle_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "pdx_band": "typed",
-    "pdx_site": 732,
-    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_site": 86,
+    "pdx_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "shape": "macro_tt",
     "span": [
-     33682,
-     33714
+     4138,
+     4146
     ],
     "token": [
-     33682,
-     33703
+     4138,
+     4144
     ]
    },
    {
     "bucket": "resolution_not_materialized:typed",
-    "callee": "path_for_nested_route",
-    "file": "axum/src/routing/tests/mod.rs",
-    "line": 1154,
+    "callee": "as_str",
+    "file": "axum/src/extract/nested_path.rs",
+    "line": 183,
     "macro": "assert_eq",
-    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "oracle_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "pdx_band": "typed",
-    "pdx_site": 733,
-    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_site": 87,
+    "pdx_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "shape": "macro_tt",
     "span": [
-     33738,
-     33771
+     4668,
+     4676
     ],
     "token": [
-     33738,
-     33759
+     4668,
+     4674
     ]
    },
    {
     "bucket": "resolution_not_materialized:typed",
-    "callee": "path_for_nested_route",
-    "file": "axum/src/routing/tests/mod.rs",
-    "line": 1155,
+    "callee": "as_str",
+    "file": "axum/src/extract/nested_path.rs",
+    "line": 199,
     "macro": "assert_eq",
-    "oracle_target": "axum.src.routing.path_router.path_for_nested_route",
+    "oracle_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "pdx_band": "typed",
-    "pdx_site": 734,
-    "pdx_target": "axum.src.routing.path_router.path_for_nested_route",
+    "pdx_site": 88,
+    "pdx_target": "axum.src.extract.nested_path.NestedPath.as_str",
     "shape": "macro_tt",
     "span": [
-     33796,
-     33829
+     5134,
+     5142
     ],
     "token": [
-     33796,
-     33817
-    ]
-   }
-  ],
-  "site_missing": [
-   {
-    "bucket": "site_missing",
-    "callee": null,
-    "file": "axum-core/src/ext_traits/request_parts.rs",
-    "line": 164,
-    "macro": null,
-    "oracle_target": "axum-core.src.ext_traits.request_parts.Parts.extract_with_state",
-    "pdx_band": null,
-    "pdx_site": null,
-    "pdx_target": null,
-    "shape": "method",
-    "span": [
-     4765,
-     4835
-    ],
-    "token": [
-     4784,
-     4802
-    ]
-   },
-   {
-    "bucket": "site_missing",
-    "callee": null,
-    "file": "axum-core/src/extract/tuple.rs",
-    "line": 96,
-    "macro": null,
-    "oracle_target": "axum-core.src.extract.tuple.assert_from_request_parts",
-    "pdx_band": null,
-    "pdx_site": null,
-    "pdx_target": null,
-    "shape": "call",
-    "span": [
-     2909,
-     2942
-    ],
-    "token": [
-     2909,
-     2934
-    ]
-   },
-   {
-    "bucket": "site_missing",
-    "callee": null,
-    "file": "axum-core/src/extract/tuple.rs",
-    "line": 97,
-    "macro": null,
-    "oracle_target": "axum-core.src.extract.tuple.assert_from_request",
-    "pdx_band": null,
-    "pdx_site": null,
-    "pdx_target": null,
-    "shape": "call",
-    "span": [
-     2952,
-     2982
-    ],
-    "token": [
-     2952,
-     2971
-    ]
-   },
-   {
-    "bucket": "site_missing",
-    "callee": null,
-    "file": "axum-core/src/extract/tuple.rs",
-    "line": 102,
-    "macro": null,
-    "oracle_target": "axum-core.src.extract.tuple.assert_from_request_parts",
-    "pdx_band": null,
-    "pdx_site": null,
-    "pdx_target": null,
-    "shape": "call",
-    "span": [
-     3035,
-     3075
-    ],
-    "token": [
-     3035,
-     3060
-    ]
-   },
-   {
-    "bucket": "site_missing",
-    "callee": null,
-    "file": "axum-core/src/extract/tuple.rs",
-    "line": 103,
-    "macro": null,
-    "oracle_target": "axum-core.src.extract.tuple.assert_from_request",
-    "pdx_band": null,
-    "pdx_site": null,
-    "pdx_target": null,
-    "shape": "call",
-    "span": [
-     3085,
-     3122
-    ],
-    "token": [
-     3085,
-     3104
+     5134,
+     5140
     ]
    }
   ],
@@ -1860,7 +1781,7 @@
     "pdx_target": "axum.src.test_helpers.tracing_helpers.Handle.take",
     "reason": "oracle_external",
     "receiver_proof": "value_unproven",
-    "site": 5,
+    "site": 6,
     "span": [
      853,
      861
@@ -1880,7 +1801,7 @@
     "pdx_target": "axum.src.extract.ws.Message.into_data",
     "reason": "oracle_external",
     "receiver_proof": "value_unproven",
-    "site": 30,
+    "site": 31,
     "span": [
      5035,
      5052
@@ -1900,7 +1821,7 @@
     "pdx_target": "axum.src.routing.method_routing.ok",
     "reason": "oracle_external",
     "receiver_proof": "value_unproven",
-    "site": 39,
+    "site": 40,
     "span": [
      5502,
      5525
@@ -1954,26 +1875,6 @@
   "import-guided": [],
   "inheritance-guided": [],
   "scoped": [
-   {
-    "band": "scoped",
-    "callee": "Error::new",
-    "file": "axum-core/src/body.rs",
-    "line": 243,
-    "oracle_status": "mapped",
-    "oracle_target": "axum-core.src.error.Error.new",
-    "pdx_target": "axum-core.src.body.Body.new",
-    "reason": "other_target",
-    "receiver_proof": "path_bound",
-    "site": 53,
-    "span": [
-     6714,
-     6729
-    ],
-    "token": [
-     6721,
-     6724
-    ]
-   },
    {
     "band": "scoped",
     "callee": "E::from_request",
@@ -2053,6 +1954,26 @@
      1359,
      1372
     ]
+   },
+   {
+    "band": "scoped",
+    "callee": "self.res.status",
+    "file": "axum-core/src/response/into_response_parts.rs",
+    "line": 113,
+    "oracle_status": "external",
+    "oracle_target": "http response/impl#[`Response<T>`]status().",
+    "pdx_target": "axum-core.src.response.into_response_parts.ResponseParts.status",
+    "reason": "oracle_external",
+    "receiver_proof": "value_unproven",
+    "site": 1,
+    "span": [
+     3434,
+     3451
+    ],
+    "token": [
+     3443,
+     3449
+    ]
    }
   ],
   "typed": []
@@ -2074,13 +1995,13 @@
   "token_tree_calls": {
    "call_text_in_token_trees": 1696,
    "drawn_correct": 83,
-   "engine_site_band:typed": 9,
-   "invisible_to_structural_calls": 1550,
-   "invisible_with_oracle_relation": 345,
+   "engine_site_band:typed": 58,
+   "invisible_to_structural_calls": 1501,
+   "invisible_with_oracle_relation": 296,
    "oracle_relations": 437,
    "visible_to_oracle": 1508,
    "with_drawn_edge": 83,
-   "with_engine_site_only": 9,
+   "with_engine_site_only": 58,
    "with_structural_call_site": 83,
    "with_unconfirmed_site_only": 54
   }
@@ -2089,239 +2010,239 @@
   "note": "an overloaded call is an oracle relation whose target shares its qualified name with another definition of its file; a call whose oracle symbol denotes several such definitions has no verdict",
   "oracle_calls_whose_target_is_ambiguous": 1,
   "oracle_verifiable_overloaded_calls": {
-   "correct_overload_selected": 2,
-   "drawn": 2,
-   "structural_site_exists": 83,
+   "correct_overload_selected": 55,
+   "drawn": 60,
+   "structural_site_exists": 88,
    "total": 89,
-   "typed_answer_supplied": 1,
-   "withheld_qn_maps_to_several_definitions": 1
+   "typed_answer_supplied": 59,
+   "wrong_overload_selected": 5
   }
  },
  "precision": {
   "exact": {
-   "correct": 426,
-   "drawn": 1030,
-   "false_positive": 588,
-   "oracle_verifiable": 1014,
+   "correct": 134,
+   "drawn": 778,
+   "false_positive": 629,
+   "oracle_verifiable": 763,
    "oracle_verifiable_fraction": {
-    "denominator": 1030,
-    "numerator": 1014,
-    "value": 0.984466
+    "denominator": 778,
+    "numerator": 763,
+    "value": 0.98072
    },
    "precision": {
-    "denominator": 1014,
-    "numerator": 426,
-    "value": 0.420118
+    "denominator": 763,
+    "numerator": 134,
+    "value": 0.175623
    }
   },
   "import-guided": {
-   "correct": 213,
-   "drawn": 213,
+   "correct": 47,
+   "drawn": 47,
    "false_positive": 0,
-   "oracle_verifiable": 213,
+   "oracle_verifiable": 47,
    "oracle_verifiable_fraction": {
-    "denominator": 213,
-    "numerator": 213,
+    "denominator": 47,
+    "numerator": 47,
     "value": 1.0
    },
    "precision": {
-    "denominator": 213,
-    "numerator": 213,
+    "denominator": 47,
+    "numerator": 47,
     "value": 1.0
    }
   },
   "inheritance-guided": {
-   "correct": 60,
-   "drawn": 60,
+   "correct": 14,
+   "drawn": 14,
    "false_positive": 0,
-   "oracle_verifiable": 60,
+   "oracle_verifiable": 14,
    "oracle_verifiable_fraction": {
-    "denominator": 60,
-    "numerator": 60,
+    "denominator": 14,
+    "numerator": 14,
     "value": 1.0
    },
    "precision": {
-    "denominator": 60,
-    "numerator": 60,
+    "denominator": 14,
+    "numerator": 14,
     "value": 1.0
    }
   },
   "scoped": {
-   "correct": 89,
-   "drawn": 394,
-   "false_positive": 305,
-   "oracle_verifiable": 394,
+   "correct": 76,
+   "drawn": 275,
+   "false_positive": 199,
+   "oracle_verifiable": 275,
    "oracle_verifiable_fraction": {
-    "denominator": 394,
-    "numerator": 394,
+    "denominator": 275,
+    "numerator": 275,
     "value": 1.0
    },
    "precision": {
-    "denominator": 394,
-    "numerator": 89,
-    "value": 0.225888
+    "denominator": 275,
+    "numerator": 76,
+    "value": 0.276364
    }
   },
   "typed": {
-   "correct": 860,
-   "drawn": 892,
+   "correct": 3520,
+   "drawn": 3644,
    "false_positive": 0,
-   "oracle_verifiable": 860,
+   "oracle_verifiable": 3520,
    "oracle_verifiable_fraction": {
-    "denominator": 892,
-    "numerator": 860,
-    "value": 0.964126
+    "denominator": 3644,
+    "numerator": 3520,
+    "value": 0.965971
    },
    "precision": {
-    "denominator": 860,
-    "numerator": 860,
+    "denominator": 3520,
+    "numerator": 3520,
     "value": 1.0
    }
   },
   "union": {
-   "correct": 1133,
-   "drawn": 1165,
+   "correct": 3581,
+   "drawn": 3705,
    "false_positive": 0,
-   "oracle_verifiable": 1133,
+   "oracle_verifiable": 3581,
    "oracle_verifiable_fraction": {
-    "denominator": 1165,
-    "numerator": 1133,
-    "value": 0.972532
+    "denominator": 3705,
+    "numerator": 3581,
+    "value": 0.966532
    },
    "precision": {
-    "denominator": 1133,
-    "numerator": 1133,
+    "denominator": 3581,
+    "numerator": 3581,
     "value": 1.0
    }
   },
   "union_with_evidence": {
-   "correct": 1648,
-   "drawn": 2589,
-   "false_positive": 893,
-   "oracle_verifiable": 2541,
+   "correct": 3791,
+   "drawn": 4758,
+   "false_positive": 828,
+   "oracle_verifiable": 4619,
    "oracle_verifiable_fraction": {
-    "denominator": 2589,
-    "numerator": 2541,
-    "value": 0.98146
+    "denominator": 4758,
+    "numerator": 4619,
+    "value": 0.970786
    },
    "precision": {
-    "denominator": 2541,
-    "numerator": 1648,
-    "value": 0.648564
+    "denominator": 4619,
+    "numerator": 3791,
+    "value": 0.82074
    }
   }
  },
  "precision_calls_only": {
   "exact": {
-   "correct": 426,
-   "drawn": 1030,
-   "false_positive": 588,
-   "oracle_verifiable": 1014,
+   "correct": 134,
+   "drawn": 778,
+   "false_positive": 629,
+   "oracle_verifiable": 763,
    "oracle_verifiable_fraction": {
-    "denominator": 1030,
-    "numerator": 1014,
-    "value": 0.984466
+    "denominator": 778,
+    "numerator": 763,
+    "value": 0.98072
    },
    "precision": {
-    "denominator": 1014,
-    "numerator": 426,
-    "value": 0.420118
+    "denominator": 763,
+    "numerator": 134,
+    "value": 0.175623
    }
   },
   "import-guided": {
-   "correct": 213,
-   "drawn": 213,
+   "correct": 47,
+   "drawn": 47,
    "false_positive": 0,
-   "oracle_verifiable": 213,
+   "oracle_verifiable": 47,
    "oracle_verifiable_fraction": {
-    "denominator": 213,
-    "numerator": 213,
+    "denominator": 47,
+    "numerator": 47,
     "value": 1.0
    },
    "precision": {
-    "denominator": 213,
-    "numerator": 213,
+    "denominator": 47,
+    "numerator": 47,
     "value": 1.0
    }
   },
   "inheritance-guided": {
-   "correct": 60,
-   "drawn": 60,
+   "correct": 14,
+   "drawn": 14,
    "false_positive": 0,
-   "oracle_verifiable": 60,
+   "oracle_verifiable": 14,
    "oracle_verifiable_fraction": {
-    "denominator": 60,
-    "numerator": 60,
+    "denominator": 14,
+    "numerator": 14,
     "value": 1.0
    },
    "precision": {
-    "denominator": 60,
-    "numerator": 60,
+    "denominator": 14,
+    "numerator": 14,
     "value": 1.0
    }
   },
   "scoped": {
-   "correct": 89,
-   "drawn": 394,
-   "false_positive": 305,
-   "oracle_verifiable": 394,
+   "correct": 76,
+   "drawn": 275,
+   "false_positive": 199,
+   "oracle_verifiable": 275,
    "oracle_verifiable_fraction": {
-    "denominator": 394,
-    "numerator": 394,
+    "denominator": 275,
+    "numerator": 275,
     "value": 1.0
    },
    "precision": {
-    "denominator": 394,
-    "numerator": 89,
-    "value": 0.225888
+    "denominator": 275,
+    "numerator": 76,
+    "value": 0.276364
    }
   },
   "typed": {
-   "correct": 672,
-   "drawn": 677,
+   "correct": 3325,
+   "drawn": 3422,
    "false_positive": 0,
-   "oracle_verifiable": 672,
+   "oracle_verifiable": 3325,
    "oracle_verifiable_fraction": {
-    "denominator": 677,
-    "numerator": 672,
-    "value": 0.992614
+    "denominator": 3422,
+    "numerator": 3325,
+    "value": 0.971654
    },
    "precision": {
-    "denominator": 672,
-    "numerator": 672,
+    "denominator": 3325,
+    "numerator": 3325,
     "value": 1.0
    }
   },
   "union": {
-   "correct": 945,
-   "drawn": 950,
+   "correct": 3386,
+   "drawn": 3483,
    "false_positive": 0,
-   "oracle_verifiable": 945,
+   "oracle_verifiable": 3386,
    "oracle_verifiable_fraction": {
-    "denominator": 950,
-    "numerator": 945,
-    "value": 0.994737
+    "denominator": 3483,
+    "numerator": 3386,
+    "value": 0.97215
    },
    "precision": {
-    "denominator": 945,
-    "numerator": 945,
+    "denominator": 3386,
+    "numerator": 3386,
     "value": 1.0
    }
   },
   "union_with_evidence": {
-   "correct": 1460,
-   "drawn": 2374,
-   "false_positive": 893,
-   "oracle_verifiable": 2353,
+   "correct": 3596,
+   "drawn": 4536,
+   "false_positive": 828,
+   "oracle_verifiable": 4424,
    "oracle_verifiable_fraction": {
-    "denominator": 2374,
-    "numerator": 2353,
-    "value": 0.991154
+    "denominator": 4536,
+    "numerator": 4424,
+    "value": 0.975309
    },
    "precision": {
-    "denominator": 2353,
-    "numerator": 1460,
-    "value": 0.620484
+    "denominator": 4424,
+    "numerator": 3596,
+    "value": 0.812839
    }
   }
  },
@@ -2391,50 +2312,50 @@
    }
   },
   "typed": {
-   "correct": 188,
-   "drawn": 215,
+   "correct": 195,
+   "drawn": 222,
    "false_positive": 0,
-   "oracle_verifiable": 188,
+   "oracle_verifiable": 195,
    "oracle_verifiable_fraction": {
-    "denominator": 215,
-    "numerator": 188,
-    "value": 0.874419
+    "denominator": 222,
+    "numerator": 195,
+    "value": 0.878378
    },
    "precision": {
-    "denominator": 188,
-    "numerator": 188,
+    "denominator": 195,
+    "numerator": 195,
     "value": 1.0
    }
   },
   "union": {
-   "correct": 188,
-   "drawn": 215,
+   "correct": 195,
+   "drawn": 222,
    "false_positive": 0,
-   "oracle_verifiable": 188,
+   "oracle_verifiable": 195,
    "oracle_verifiable_fraction": {
-    "denominator": 215,
-    "numerator": 188,
-    "value": 0.874419
+    "denominator": 222,
+    "numerator": 195,
+    "value": 0.878378
    },
    "precision": {
-    "denominator": 188,
-    "numerator": 188,
+    "denominator": 195,
+    "numerator": 195,
     "value": 1.0
    }
   },
   "union_with_evidence": {
-   "correct": 188,
-   "drawn": 215,
+   "correct": 195,
+   "drawn": 222,
    "false_positive": 0,
-   "oracle_verifiable": 188,
+   "oracle_verifiable": 195,
    "oracle_verifiable_fraction": {
-    "denominator": 215,
-    "numerator": 188,
-    "value": 0.874419
+    "denominator": 222,
+    "numerator": 195,
+    "value": 0.878378
    },
    "precision": {
-    "denominator": 188,
-    "numerator": 188,
+    "denominator": 195,
+    "numerator": 195,
     "value": 1.0
    }
   }
@@ -2444,7 +2365,7 @@
   "corpus_url": "github.com/tokio-rs/axum",
   "dataset_format": 1,
   "engine_health": "RunHealth { status: Clean, files: 419, files_resolved: 306, files_untyped: 113, files_empty: 0, files_over_budget: 0, files_source_unavailable: 0, files_not_reached: 0, pass_failures: 0 }",
-  "engine_version": 12,
+  "engine_version": 14,
   "metrics_version": "a0-metrics-2",
   "oracle": "rust-analyzer scip",
   "oracle_setup": {
@@ -2477,28 +2398,27 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "resolver": "post-R3: issue 102, the commit 'Issue 102: stop Exact and Scoped from drawing graph edges' (parent: the commit 'Issue 118: read each Rust use-group binding as its own path'). Baseline: post-118, results committed at 1feb3d7",
-  "site_matching_version": "a0-match-1"
+  "resolver": "the stabilisation round's commits on pdx-goal-approach, ending f1e406a",
+  "site_matching_version": "a0-match-3"
  },
  "recall": {
-  "at_parsed_structural_sites": 4054,
+  "at_parsed_structural_sites": 4159,
   "breakdown": {
-   "at_parsed_site": 4054,
-   "drawn_correct": 930,
-   "resolution_not_drawn:blocked": 357,
-   "resolution_not_drawn:candidate": 2040,
-   "resolution_not_drawn:exact": 426,
-   "resolution_not_drawn:external": 28,
-   "resolution_not_drawn:scoped": 264,
-   "resolution_not_materialized:typed": 9,
-   "site_missing": 56,
-   "site_missing_macro_token_tree": 345
+   "at_parsed_site": 4159,
+   "drawn_correct": 3371,
+   "resolution_not_drawn:blocked": 47,
+   "resolution_not_drawn:candidate": 400,
+   "resolution_not_drawn:exact": 134,
+   "resolution_not_drawn:external": 8,
+   "resolution_not_drawn:scoped": 141,
+   "resolution_not_materialized:typed": 58,
+   "site_missing_macro_token_tree": 296
   },
-  "drawn_correct": 930,
+  "drawn_correct": 3371,
   "end_to_end_recall": {
    "denominator": 4455,
-   "numerator": 930,
-   "value": 0.208754
+   "numerator": 3371,
+   "value": 0.756678
   },
   "oracle_calls_outside_relations": {
    "not_a_relation:external": 6872,
@@ -2511,16 +2431,16 @@
   },
   "oracle_relations": 4455,
   "recall": {
-   "denominator": 4054,
-   "numerator": 930,
-   "value": 0.229403
+   "denominator": 4159,
+   "numerator": 3371,
+   "value": 0.810531
   },
   "weak_evidence": {
-   "exact": 426,
-   "exact:correct": 426,
-   "scoped": 264,
-   "scoped:correct": 89,
-   "scoped:false_positive": 175
+   "exact": 134,
+   "exact:correct": 134,
+   "scoped": 141,
+   "scoped:correct": 76,
+   "scoped:false_positive": 65
   }
  },
  "receivers": {
@@ -2528,67 +2448,66 @@
    "by_band": {
     "blocked": 469,
     "candidate": 30,
-    "exact": 144,
-    "external": 268,
-    "import-guided": 102,
+    "exact": 141,
+    "external": 276,
+    "import-guided": 42,
     "scoped": 23,
-    "typed": 681,
+    "typed": 830,
     "unresolved": 511
    },
-   "call_sites": 2228,
+   "call_sites": 2322,
    "exact_or_scoped_precision": {
-    "denominator": 165,
-    "numerator": 81,
-    "value": 0.490909
+    "denominator": 162,
+    "numerator": 78,
+    "value": 0.481481
    },
-   "exact_or_scoped_weak_evidence": 167
+   "exact_or_scoped_weak_evidence": 164
   },
   "path_bound": {
    "by_band": {
     "blocked": 23,
-    "candidate": 227,
-    "exact": 52,
-    "external": 491,
-    "import-guided": 107,
-    "scoped": 22,
-    "typed": 96,
+    "candidate": 65,
+    "exact": 22,
+    "external": 492,
+    "import-guided": 5,
+    "scoped": 12,
+    "typed": 400,
     "unresolved": 87
    },
-   "call_sites": 1105,
+   "call_sites": 1106,
    "exact_or_scoped_precision": {
-    "denominator": 74,
-    "numerator": 36,
-    "value": 0.486486
+    "denominator": 34,
+    "numerator": 6,
+    "value": 0.176471
    },
-   "exact_or_scoped_weak_evidence": 74
+   "exact_or_scoped_weak_evidence": 34
   },
   "path_unproven": {
    "by_band": {
-    "blocked": 129,
-    "candidate": 739,
-    "exact": 74,
-    "external": 575,
-    "import-guided": 4,
-    "scoped": 87,
-    "typed": 14,
-    "unresolved": 68
+    "blocked": 130,
+    "candidate": 91,
+    "exact": 33,
+    "external": 588,
+    "scoped": 21,
+    "typed": 773,
+    "unresolved": 70
    },
-   "call_sites": 1690,
+   "call_sites": 1706,
    "exact_or_scoped_precision": {
-    "denominator": 161,
-    "numerator": 44,
-    "value": 0.273292
+    "denominator": 54,
+    "numerator": 3,
+    "value": 0.055556
    },
-   "exact_or_scoped_weak_evidence": 161
+   "exact_or_scoped_weak_evidence": 54
   },
   "self": {
    "by_band": {
-    "blocked": 8,
-    "candidate": 27,
+    "blocked": 6,
+    "candidate": 16,
     "exact": 15,
-    "inheritance-guided": 60,
+    "inheritance-guided": 14,
     "scoped": 16,
-    "typed": 40,
+    "typed": 99,
     "unresolved": 51
    },
    "call_sites": 217,
@@ -2601,26 +2520,26 @@
   },
   "value_unproven": {
    "by_band": {
-    "blocked": 778,
-    "candidate": 1615,
-    "exact": 745,
-    "external": 311,
-    "scoped": 246,
-    "typed": 70,
-    "unresolved": 2228
+    "blocked": 506,
+    "candidate": 718,
+    "exact": 567,
+    "scoped": 203,
+    "typed": 1600,
+    "unresolved": 2511
    },
-   "call_sites": 5993,
+   "call_sites": 6105,
    "exact_or_scoped_precision": {
-    "denominator": 977,
-    "numerator": 337,
-    "value": 0.344933
+    "denominator": 757,
+    "numerator": 106,
+    "value": 0.140026
    },
-   "exact_or_scoped_weak_evidence": 991
+   "exact_or_scoped_weak_evidence": 770
   }
  },
- "resolution_loss": 3124,
+ "resolution_loss": 788,
  "unverifiable_drawn": {
-  "typed:file_not_indexed": 29,
-  "typed:no_token": 3
+  "typed:file_not_indexed": 115,
+  "typed:no_token": 3,
+  "typed:none": 6
  }
 }

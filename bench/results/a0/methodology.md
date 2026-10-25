@@ -25,11 +25,20 @@ The result files hold the latest run. Earlier runs stay in Git history:
 | post-109, issue 109 (trait impl applicability) | the commit "Issue 109: validate Rust impl applicability before typed resolution", parent `c8239ba` | `83fbb45` |
 | post-117, issue 117 (trusted stages and impl headers) | the commit "Issue 117: validate trait impl applicability in import-guided resolution", parent `83fbb45` | `27f7d5b` |
 | post-118, issue 118 (a `use` group's bindings) | the commit "Issue 118: read each Rust use-group binding as its own path", parent `27f7d5b` | `1feb3d7` |
-| post-R3, issue 102 (`exact` and `scoped` not drawn; `a0-metrics-2`) | the commit "Issue 102: stop Exact and Scoped from drawing graph edges", parent `1feb3d7` | that commit (these files) |
+| post-R3, issue 102 (`exact` and `scoped` not drawn; `a0-metrics-2`) | the commit "Issue 102: stop Exact and Scoped from drawing graph edges", parent `1feb3d7` | the commit itself |
+| stabilisation, engine 14 (R4, R5 and issues 121 to 128; `a0-match-3`) | the stabilisation round's commits on `pdx-goal-approach`, ending `f1e406a` (PDX itself measured at that commit) | the commit "A0: the stabilisation round's three-corpus run" (these files) |
 
 Every run uses the same golden pins, oracle versions and configuration,
 `a0-match-1` and `a0-metrics-1` (`a0-metrics-2` from post-R3, below). The PDX diagnostic corpus is `e746b1e` in all, so
 its change is the resolver's alone.
+
+**The stabilisation run (2026-10-25, engine 14, `a0-match-3`, `a0-metrics-2`)** is the
+first three-corpus run since post-R3, measuring R4 and R5 together with the
+stabilisation round. PDX itself is measured at `f1e406a`, so its change since earlier
+runs is the code's as well as the resolver's. Every drawn band is precise in all three
+corpora: Python golden union 339 / 339, recall 321 / 1,114 = 28.82% (unchanged since
+post-R3); Rust golden union 3,581 / 3,581, recall 3,371 / 4,159 = 81.05% (R5's); PDX
+itself union 8,849 / 8,849, recall 8,810 / 10,040 = 87.75%.
 
 **Post-R4 (issue 107A and issue 120, engine 13, `a0-match-2`) is not a committed run.**
 From R4 the driver measures a remediation on the corpus it changes and runs the three
@@ -168,6 +177,12 @@ the last name of the callee outside generic arguments, never a receiver.
   no comment. Under `a0-match-1` a comment's `<` (`// <- Inner layer`) hid every name
   after it, and two Rust golden relations whose sites exist were counted
   `site_missing`.
+- **A receiver named like its call** (`a0-match-3`, issue 121): for a call inside a
+  macro's arguments the engine gives the method's name alone as callee text, as a range
+  where those bytes first stand in the site; in `peak.peak()` that is the receiver, a
+  local. When the callee range is the bare name and a `.` or `::` follows it, M1 takes
+  the later occurrence of the name that an argument list (or turbofish) follows. Two
+  correct drawn edges of PDX itself had been counted false.
 
 Line numbers, nearest occurrences and names alone are never used.
 

@@ -1567,7 +1567,7 @@
   "corpus_url": "github.com/pallets/flask",
   "dataset_format": 1,
   "engine_health": "RunHealth { status: Clean, files: 107, files_resolved: 80, files_untyped: 24, files_empty: 3, files_over_budget: 0, files_source_unavailable: 0, files_not_reached: 0, pass_failures: 0 }",
-  "engine_version": 12,
+  "engine_version": 14,
   "metrics_version": "a0-metrics-2",
   "oracle": "scip-python",
   "oracle_setup": {
@@ -1598,8 +1598,8 @@
    "scip-python_integrity": "sha512-qoKL1Rggg0o5newAFbCFAKlS0AjWxG5MA+mC28BtgxOv0DhO4zdL8u7151FxEppDpXMVvm7+yXSjXotoVH9cMQ==",
    "scip-python_package": "@sourcegraph/scip-python@0.6.6"
   },
-  "resolver": "post-R3: issue 102, the commit 'Issue 102: stop Exact and Scoped from drawing graph edges' (parent: the commit 'Issue 118: read each Rust use-group binding as its own path'). Baseline: post-118, results committed at 1feb3d7",
-  "site_matching_version": "a0-match-1"
+  "resolver": "the stabilisation round's commits on pdx-goal-approach, ending f1e406a",
+  "site_matching_version": "a0-match-3"
  },
  "recall": {
   "at_parsed_structural_sites": 1114,
