@@ -25,7 +25,7 @@ use crate::index::derive::DeriveError;
 use crate::index::derive::calls::{call_site, ordinals};
 use crate::index::derive::routes::imports_module;
 
-use super::calls::declared_parameter_type;
+use super::calls::{declared_parameter_type, is_internal};
 use crate::kinds::{ContractKind, EdgeKind, NodeKind, SiteKind};
 use crate::model::ContractDirection;
 use crate::resolve::registry::SymbolRegistry;
@@ -120,7 +120,10 @@ fn consumers(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveError
                     .iter()
                     .any(|c| extract.text(&c.callee_text).starts_with("reqwest::")));
         for (index, call) in extract.calls.iter().enumerate() {
-            if call.is_reference || call.typed_only {
+            // A call resolution draws to the repository's own code is that code (a
+            // wrapper's `get`, a map's `get`), never an HTTP client's, as for every other
+            // contract source (contracts::calls).
+            if call.is_reference || call.typed_only || is_internal(context, path, index) {
                 continue;
             }
             let Some(client) = client_call(registry, language.id, path, call, uses_reqwest) else {

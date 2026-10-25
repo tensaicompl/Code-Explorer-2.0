@@ -52,13 +52,18 @@ pub(crate) fn read(sources: &Sources<'_>, path: &str) -> Result<Option<String>, 
         // Too large for the memory budget, or not a candidate: never read.
         _ => return Ok(None),
     };
-    String::from_utf8(prepared.bytes)
-        .map(Some)
-        .map_err(|_| RegistryError::MetadataParse {
-            path: path.to_owned(),
-            reason: "not UTF-8".into(),
-        })
+    // A metadata file that is not UTF-8 says nothing a tool would read; a leading
+    // byte-order mark is dropped, as the tools that read these files drop it.
+    Ok(String::from_utf8(prepared.bytes).ok().map(|text| {
+        text.strip_prefix('\u{feff}')
+            .map(str::to_owned)
+            .unwrap_or(text)
+    }))
 }
+
+/// The most configurations an `extends` chain is followed through: TypeScript has no
+/// need of more, and a hostile chain never recurses past it.
+const MAX_EXTENDS_DEPTH: usize = 32;
 
 /// `rel`, taken from the directory `base`, as a path below the repository root:
 /// `.` and `..` applied, `/`-separated, "" for the root. `None` for a path that leaves
@@ -264,14 +269,13 @@ pub(crate) fn alias_scope(
     if base_url.is_none() && paths.is_none() {
         return Ok(None);
     }
-    let invalid = |reason: &str| RegistryError::InvalidMetadata {
-        path: config_path.to_owned(),
-        reason: reason.to_owned(),
-    };
+    // A `baseUrl` that leaves the repository gives no alias scope: nothing in the
+    // repository can be reached through it.
     let base_dir = match &base_url {
-        Some((dir, url)) => {
-            Some(join(dir, url).ok_or_else(|| invalid("`baseUrl` leaves the repository"))?)
-        }
+        Some((dir, url)) => match join(dir, url) {
+            Some(base) => Some(base),
+            None => return Ok(None),
+        },
         None => None,
     };
     let mut aliases = Vec::new();
@@ -293,23 +297,24 @@ pub(crate) fn alias_scope(
     }))
 }
 
-/// The configuration at `path` and those it extends, nearest first.
+/// The configuration at `path` and those it extends, nearest first, at most
+/// [`MAX_EXTENDS_DEPTH`] of them. A configuration that does not parse ends the chain there,
+/// as if it were absent.
 fn collect_chain(
     sources: &Sources<'_>,
     path: &str,
     seen: &mut BTreeSet<String>,
     chain: &mut Vec<(String, TsConfig)>,
 ) -> Result<(), RegistryError> {
-    if !seen.insert(path.to_owned()) {
+    if chain.len() >= MAX_EXTENDS_DEPTH || !seen.insert(path.to_owned()) {
         return Ok(()); // a cycle: each configuration counts once
     }
     let Some(text) = read(sources, path)? else {
         return Ok(());
     };
-    let config = parse_tsconfig(&text).map_err(|reason| RegistryError::MetadataParse {
-        path: path.to_owned(),
-        reason,
-    })?;
+    let Ok(config) = parse_tsconfig(&text) else {
+        return Ok(());
+    };
     let extends = config.extends.clone();
     chain.push((path.to_owned(), config));
     for base in extends {

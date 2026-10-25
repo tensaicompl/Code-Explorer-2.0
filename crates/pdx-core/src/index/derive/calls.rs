@@ -24,7 +24,7 @@ use crate::ids::{NodeId, SiteKey, ast_fingerprint};
 use crate::kinds::{EdgeKind, SiteKind};
 use crate::model::{CandidateSite, Edge, Site, Span};
 use crate::resolve::registry::{DefinitionRef, SymbolRegistry};
-use crate::resolve::stages::split_callee;
+use crate::resolve::stages::{Resolution, split_callee};
 
 use super::containment::is_file_definition;
 use super::{Builder, DeriveError, DeriveInput, Missing, Unmaterialized};
@@ -152,6 +152,16 @@ pub(crate) fn call_site(
 /// `scoped` are weak evidence (issue 102): 4.3's `candidates.band` does not name them,
 /// so their row is a `candidate` one with their one candidate, and its reason names the
 /// band. `None` for a drawn band, which has an edge instead.
+/// A row's reason, which for a set the bound held says how many survived (issue 122).
+fn bounded_reason(resolution: &Resolution, reason: &str) -> String {
+    let (kept, total) = (resolution.candidates().len(), resolution.candidates_total());
+    if total > kept {
+        format!("{reason}: {total}, the first {kept} by path and position kept")
+    } else {
+        reason.to_owned()
+    }
+}
+
 fn candidate_row(band: Band, candidates: usize) -> Option<(CandidateBand, &'static str)> {
     if band.is_drawn() {
         return None;
@@ -268,6 +278,7 @@ pub(crate) fn materialise(
                     path: path.to_owned(),
                     detail: "a band that is neither drawn nor a candidate band",
                 })?;
+            let reason = bounded_reason(resolution, reason);
             graph.add_candidate(CandidateSite {
                 site_id,
                 src,
@@ -277,7 +288,7 @@ pub(crate) fn materialise(
                 engine_score: engine.map(|e| e.score),
                 engine_strategy: engine.and_then(|e| e.engine_strategy.clone()),
                 engine_candidates: engine.map(|e| e.candidates),
-                reason: reason.to_owned(),
+                reason,
             })?;
         }
     }

@@ -1036,12 +1036,9 @@ fn ambiguous_trait_remains_ambiguous() {
     let [relation] = reg.impl_relations("src/c.rs") else {
         panic!("one relation: {:?}", reg.impl_relations("src/c.rs"));
     };
-    let mut both = vec![
-        def(&reg, "src/a.rs", "Shape"),
-        def(&reg, "src/b.rs", "Shape"),
-    ];
-    both.sort();
-    assert_eq!(relation.implemented_trait, BaseResolution::Ambiguous(both));
+    // No `use` brings either `Shape` into `c`'s scope: neither is evidence, so the trait
+    // is unresolved (a repository-wide namesake never was; one alone would not be).
+    assert_eq!(relation.implemented_trait, BaseResolution::Unresolved);
     assert_eq!(
         relation.implementing_type,
         BaseResolution::Internal(square.clone())
@@ -1057,19 +1054,13 @@ fn ambiguous_base_is_not_forced() {
         ("three/derived.py", "class Derived(Base):\n    pass\n"),
     ]);
     let reg = checkout.registry();
+    // Nothing imports `Base` into `derived.py`: the two namesakes elsewhere are no
+    // evidence, and neither would one alone be.
     let derived = def(&reg, "three/derived.py", "Derived");
-    match &reg.direct_bases(&derived)[0].resolution {
-        BaseResolution::Ambiguous(candidates) => {
-            assert_eq!(
-                candidates
-                    .iter()
-                    .map(|r| r.path.as_str())
-                    .collect::<Vec<_>>(),
-                ["one/base.py", "two/base.py"]
-            );
-        }
-        other => panic!("{other:?}"),
-    }
+    assert_eq!(
+        reg.direct_bases(&derived)[0].resolution,
+        BaseResolution::Unresolved
+    );
     assert!(reg.ancestors(&derived).is_empty());
 }
 
@@ -1865,21 +1856,31 @@ fn malformed_extractions_are_refused() {
 }
 
 #[test]
-fn bad_metadata_is_an_error() {
+fn bad_metadata_is_as_if_absent() {
+    // A metadata file its tool would not read (a test fixture's deliberately broken
+    // `package.json`, a manifest that does not parse, a `baseUrl` that leaves the
+    // repository, a configuration that is not UTF-8) is as if absent: the index goes on
+    // without it, never fails for it. A byte-order mark is read past, as tools do.
     for (path, content) in [
-        ("go.mod", "go 1.22\n"),
-        ("tsconfig.json", "{ \"compilerOptions\": [ }\n"),
-        ("Cargo.toml", "[package\n"),
+        ("go.mod", "go 1.22\n".as_bytes()),
+        ("tsconfig.json", "{ \"compilerOptions\": [ }\n".as_bytes()),
+        (
+            "tsconfig.json",
+            "{ \"compilerOptions\": { \"baseUrl\": \"../..\" } }\n".as_bytes(),
+        ),
+        ("Cargo.toml", "[package\n".as_bytes()),
+        ("fixtures/bad/package.json", "{ \"name\": \n".as_bytes()),
+        ("package.json", &[0xff, 0xfe, b'{', 0, b'}', 0][..]),
     ] {
-        let checkout = Checkout::new(&[(path, content), ("a.go", "package a\n")]);
-        assert!(
-            matches!(
-                checkout.try_registry(),
-                Err(RegistryError::MetadataParse { .. })
-            ),
-            "{path}"
-        );
+        let checkout = Checkout::new(&[(path, ""), ("a.go", "package a\n")]);
+        fs::write(checkout.root().join(path), content).expect("the metadata file");
+        assert!(checkout.try_registry().is_ok(), "{path}");
     }
+    let checkout = Checkout::new(&[
+        ("package.json", "\u{feff}{ \"name\": \"shop\" }\n"),
+        ("index.js", "module.exports = 1;\n"),
+    ]);
+    assert!(checkout.try_registry().is_ok());
 }
 
 #[test]
@@ -1985,4 +1986,48 @@ fn the_crate_never_decodes_the_surface_or_runs_a_program() {
             assert!(!text.contains(forbidden), "{path} uses `{forbidden}`");
         }
     }
+}
+
+#[test]
+fn a_namesake_elsewhere_is_no_base() {
+    // A base or trait the language does not make visible where it is named is not
+    // resolved to the repository's one type of that name: Java's fully qualified external
+    // base, and a Rust trait named through an external crate's path, each have one
+    // namesake in the repository, and neither is the base.
+    let checkout = Checkout::new(&[
+        (
+            "src/main/java/com/acme/legacy/AbstractController.java",
+            "package com.acme.legacy;\n\npublic class AbstractController {\n    public void render() {}\n}\n",
+        ),
+        (
+            "src/main/java/com/acme/web/C.java",
+            "package com.acme.web;\n\npublic class C extends org.lib.AbstractController {\n    void go() { render(); }\n}\n",
+        ),
+        (
+            "Cargo.toml",
+            "[package]\nname = \"shapes\"\nversion = \"0.1.0\"\n",
+        ),
+        ("src/lib.rs", "pub mod ser;\npub mod foo;\n"),
+        (
+            "src/ser.rs",
+            "pub trait Serialize {\n    fn serialize(&self) -> u8;\n}\n",
+        ),
+        (
+            "src/foo.rs",
+            "pub struct Foo;\n\nimpl serde::Serialize for Foo {\n    fn serialize(&self) -> u8 {\n        0\n    }\n}\n",
+        ),
+    ]);
+    let reg = checkout.registry();
+    let c = def(&reg, "src/main/java/com/acme/web/C.java", "C");
+    assert!(
+        !matches!(
+            reg.direct_bases(&c)[0].resolution,
+            BaseResolution::Internal(_)
+        ),
+        "{:?}",
+        reg.direct_bases(&c)
+    );
+    assert!(reg.ancestors(&c).is_empty());
+    let foo = def(&reg, "src/foo.rs", "Foo");
+    assert!(reg.implemented_traits(&foo).is_empty());
 }

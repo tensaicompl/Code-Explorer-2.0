@@ -17,8 +17,11 @@
 //! - a directory named `.git`, `node_modules`, `target`, `build`, `dist` or `vendor`, at
 //!   any depth (`vendor` not when `[discover] include_vendor` is set), and `.git` as a
 //!   file too;
+//! - a directory holding a `.git` entry (a submodule or a nested clone: another
+//!   repository's commit), and the root's `.pdx`, where PDX writes;
 //! - the `.gitignore` files of the directories down to it, with Git's precedence
-//!   among them;
+//!   among them; one Git would not read (a symlink, not UTF-8) adds no rule, and a
+//!   pattern that does not compile is skipped alone, as Git skips it;
 //! - the root `.pdxignore`;
 //! - `[discover] extra_excludes`.
 //!
@@ -46,6 +49,9 @@ pub const HARD_EXCLUDES: [&str; 6] = [".git", "node_modules", "target", "build",
 
 /// The repository's own ignore file, at its root, in gitignore syntax.
 pub const PDXIGNORE: &str = ".pdxignore";
+
+/// Where PDX writes in a repository (its segment, issue 99): never a source of it.
+pub const PDX_OUTPUT_DIR: &str = ".pdx";
 
 const GITIGNORE: &str = ".gitignore";
 
@@ -389,24 +395,28 @@ fn walk(
     found: &mut Vec<Found>,
 ) -> Result<(), DiscoverError> {
     let gitignore_path = dir.join(GITIGNORE);
-    let pushed = match read_ignore_file(&gitignore_path)? {
+    // Read as Git reads one: a `.gitignore` that is a symlink, is not UTF-8 or cannot be
+    // read whole adds no rule, and a pattern Git would not compile is skipped alone. One
+    // odd ignore file in a vendored corner never stops the whole repository's index.
+    let text = match read_ignore_file(&gitignore_path) {
+        Ok(text) => text,
+        Err(DiscoverError::IgnoreFile { .. }) => None,
+        Err(other) => return Err(other),
+    };
+    let pushed = match text {
         None => false,
         Some(text) => {
             let mut builder = GitignoreBuilder::new(dir);
             for line in text.lines() {
-                builder
-                    .add_line(Some(gitignore_path.clone()), line)
-                    .map_err(|e| DiscoverError::IgnoreFile {
-                        path: gitignore_path.clone(),
-                        reason: e.to_string(),
-                    })?;
+                let _ = builder.add_line(Some(gitignore_path.clone()), line);
             }
-            let gitignore = builder.build().map_err(|e| DiscoverError::IgnoreFile {
-                path: gitignore_path.clone(),
-                reason: e.to_string(),
-            })?;
-            gitignores.push(gitignore);
-            true
+            match builder.build() {
+                Ok(gitignore) => {
+                    gitignores.push(gitignore);
+                    true
+                }
+                Err(_) => false,
+            }
         }
     };
 
@@ -429,9 +439,15 @@ fn walk(
             continue; // a pipe, socket or device is not a file of the repository
         }
         if rules.hard_excluded(name, is_dir)
+            || (is_dir && relative.is_empty() && name == PDX_OUTPUT_DIR)
             || git_excluded(gitignores, &absolute, is_dir)
             || rules.pdx_excluded(&absolute, is_dir)
         {
+            continue;
+        }
+        // A directory holding a `.git` entry is another repository (a submodule or a
+        // nested clone): its files are its own commit's, never this one's.
+        if is_dir && absolute.join(".git").symlink_metadata().is_ok() {
             continue;
         }
         if is_dir {

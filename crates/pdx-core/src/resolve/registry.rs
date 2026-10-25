@@ -599,13 +599,13 @@ impl SymbolRegistry {
         layout: &Layout,
         namespaces: &BTreeMap<(&'static str, String), ModuleKey>,
     ) {
-        let lookup = Lookup {
+        let lookup = Lookup::new(
             sources,
             layout,
-            file_modules: &self.file_modules,
-            module_files: &self.module_files,
+            &self.file_modules,
+            &self.module_files,
             namespaces,
-        };
+        );
         let mut all: BTreeMap<String, Vec<ImportRecord>> = BTreeMap::new();
         for (path, state) in &sources.files {
             let (Some(language), FileOutcome::Extracted { extract, .. }) =
@@ -831,9 +831,14 @@ impl SymbolRegistry {
 
     /// What a type name written in `context` names: an exact qualified name; a type of
     /// the same name in the context's module; a type an import binding the name leads
-    /// to (or external, if the import is); a type of that name unique in the
-    /// repository. The first of these that finds anything decides; several are
-    /// ambiguous.
+    /// to (or external, if the import is); a type of that name in a file an import
+    /// that binds no name of its own leads to (a C# `using` of a namespace, Java's
+    /// `import p.*`, Python's `from m import *`, an include), which makes its types
+    /// visible. The first of these that finds anything decides; several are
+    /// ambiguous. A type of the name somewhere else in the
+    /// repository is no evidence: a base or a trait is read only where the language
+    /// says it is visible, never because its name happens to be unique (a hierarchy
+    /// drawn on that would draw `inheritance-guided` edges on a name's uniqueness).
     fn resolve_type_name(
         &self,
         sources: &Sources<'_>,
@@ -900,16 +905,42 @@ impl SymbolRegistry {
         {
             return found;
         }
-        // 4. A type of that name unique in the repository.
-        let anywhere: Vec<DefinitionRef> = self
-            .by_name
-            .get(short)
-            .into_iter()
-            .flatten()
-            .filter(|r| is_type_here(r))
-            .cloned()
-            .collect();
-        decide(anywhere).unwrap_or(BaseResolution::Unresolved)
+        // 4. An import that binds no name of its own makes its target's names visible.
+        if qualifier.is_none() {
+            let mut unlisted = Vec::new();
+            for record in self
+                .imports
+                .get(context.path)
+                .into_iter()
+                .flatten()
+                .filter(|i| i.bindings.is_empty())
+            {
+                let targets: Vec<&InternalTarget> = match &record.target {
+                    ImportTarget::Internal(t) => vec![t],
+                    ImportTarget::InternalCandidates(ts) => ts.iter().collect(),
+                    _ => Vec::new(),
+                };
+                for target in targets {
+                    for file in &target.files {
+                        unlisted.extend(
+                            self.by_file
+                                .get(file)
+                                .into_iter()
+                                .flatten()
+                                .filter(|r| is_type_here(r))
+                                .filter(|r| {
+                                    definition_of(sources, r).is_some_and(|d| d.name == short)
+                                })
+                                .cloned(),
+                        );
+                    }
+                }
+            }
+            if let Some(found) = decide(unlisted) {
+                return found;
+            }
+        }
+        BaseResolution::Unresolved
     }
 
     /// Stage 3 of [`Self::resolve_base`]: the types the imports that bind the base's

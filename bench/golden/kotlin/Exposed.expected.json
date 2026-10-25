@@ -16589,12 +16589,6 @@
       "band": "import-guided"
     },
     {
-      "src_qn": "exposed-json.src.main.kotlin.org.jetbrains.exposed.v1.json.JsonConditions.exists",
-      "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Op.Exists",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "exposed-json.src.main.kotlin.org.jetbrains.exposed.v1.json.JsonFunctions.castToJson",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Function.CastToJson",
       "kind": "CALLS",
@@ -25163,90 +25157,6 @@
       "band": "import-guided"
     },
     {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualDateTime",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.assertEqualDateTime",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualDateTime",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualDateTime",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualDateTime",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.floorToMicro",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.floorToMicro",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.floorToMilli",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.floorToMilli",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.roundTo100Nanos",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.roundTo100Nanos",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.roundToMicro",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.roundToMicro",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.roundToMilli",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.JavaTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-java-time.src.test.kotlin.org.jetbrains.exposed.v1.javatime.JavaTimeTests.roundToMilli",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.javatime.MiscTableTest.MiscTableTest.testSelect01",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Function.Cast",
       "kind": "CALLS",
@@ -26225,90 +26135,6 @@
       "band": "import-guided"
     },
     {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualDateTime",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.assertEqualDateTime",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualDateTime",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.assertEqualFractionalPart",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualDateTime",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.assertEqualFractionalPart",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualDateTime",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.assertEqualFractionalPart",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.floorToMicro",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.floorToMicro",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.floorToMilli",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.floorToMilli",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.roundTo100Nanos",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.roundTo100Nanos",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.roundToMicro",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.roundToMicro",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.roundToMilli",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.KotlinTimeTests.assertEqualFractionalPart",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.roundToMilli",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.MiscTableTest.MiscTableTest.testSelect01",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Function.Cast",
       "kind": "CALLS",
@@ -26377,18 +26203,6 @@
     {
       "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.MiscTableTest.checkRowDates",
       "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.KotlinTimeTests.assertEqualDateTime",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.MiscTableTest.checkRowDates",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.MiscTableTest.assertLocalTime",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests.src.test.kotlin.org.jetbrains.exposed.v1.r2dbc.sql.tests.kotlindatetime.MiscTableTest.checkRowDates",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.MiscTableTest.assertLocalTime",
       "kind": "CALLS",
       "band": "import-guided"
     },
@@ -43681,12 +43495,6 @@
     {
       "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/kotlindatetime/DefaultsTest.kt",
       "dst_qn": "exposed-kotlin-datetime.src.main.kotlin.org.jetbrains.exposed.v1.datetime.KotlinDateColumnType.timestampWithTimeZone",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "exposed-r2dbc-tests/src/test/kotlin/org/jetbrains/exposed/v1/r2dbc/sql/tests/kotlindatetime/DefaultsTest.kt",
-      "dst_qn": "exposed-kotlin-datetime.src.test.kotlin.org.jetbrains.exposed.v1.datetime.DefaultsTest.now",
       "kind": "CALLS",
       "band": "import-guided"
     },

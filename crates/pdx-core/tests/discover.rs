@@ -590,3 +590,55 @@ fn a_path_that_is_not_utf8_is_refused() {
         Err(DiscoverError::NonUtf8Path(_))
     ));
 }
+
+#[test]
+fn another_repository_and_the_output_directory_are_not_read() {
+    // A submodule (`.git` file) or a nested clone (`.git` directory) holds another
+    // repository's commit; `.pdx` at the root is where PDX writes. A `.pdx` deeper down
+    // is an ordinary directory.
+    let checkout = Checkout::new();
+    checkout
+        .write("a.rs", "x")
+        .write("sub/.git", "gitdir: ../.git/modules/sub\n")
+        .write("sub/b.rs", "x")
+        .write("nested/.git/HEAD", "ref: refs/heads/main\n")
+        .write("nested/c.rs", "x")
+        .write(".pdx/segment.db", "x")
+        .write(".pdx/.gitignore", "*\n")
+        .write("deep/.pdx/d.rs", "x");
+    assert_eq!(checkout.paths(), ["a.rs", "deep/.pdx/d.rs"]);
+}
+
+#[test]
+fn an_ignore_file_git_would_not_read_adds_no_rule() {
+    // As Git: a `.gitignore` that is not UTF-8 or a symlink adds no rule, and a pattern
+    // that does not compile is skipped alone. Neither stops discovery.
+    let checkout = Checkout::new();
+    checkout
+        .write("a.rs", "x")
+        .write("utf16/.gitignore", [0xff, 0xfe, b'*', 0, b'\n', 0])
+        .write("utf16/b.rs", "x")
+        .write("bad/.gitignore", "[unclosed\nskip.rs\n")
+        .write("bad/skip.rs", "x")
+        .write("bad/keep.rs", "x");
+    let outside = tempfile::tempdir().expect("a directory");
+    fs::write(outside.path().join("rules"), "*.rs\n").expect("a file");
+    fs::create_dir_all(checkout.path("linked")).expect("a directory");
+    symlink_file(
+        &outside.path().join("rules"),
+        &checkout.path("linked/.gitignore"),
+    )
+    .expect("a symlink");
+    checkout.write("linked/c.rs", "x");
+    assert_eq!(
+        checkout.paths(),
+        [
+            "a.rs",
+            "bad/.gitignore",
+            "bad/keep.rs",
+            "linked/c.rs",
+            "utf16/.gitignore",
+            "utf16/b.rs"
+        ]
+    );
+}

@@ -18491,62 +18491,14 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.lexer.yy_create_buffer",
-      "dst_qn": "src.parser.yyalloc",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src.lexer.yy_create_buffer",
-      "dst_qn": "src.parser.yyalloc",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src.lexer.yy_push_state",
-      "dst_qn": "src.parser.yyalloc",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src.lexer.yy_scan_buffer",
-      "dst_qn": "src.parser.yyalloc",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src.lexer.yy_scan_bytes",
-      "dst_qn": "src.parser.yyalloc",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "src.lexer.yyalloc",
       "dst_qn": "src.jv_alloc.jv_mem_alloc",
       "kind": "CALLS",
       "band": "import-guided"
     },
     {
-      "src_qn": "src.lexer.yyensure_buffer_stack",
-      "dst_qn": "src.parser.yyalloc",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "src.lexer.yyfree",
       "dst_qn": "src.jv_alloc.jv_mem_free",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src.lexer.yylex_init",
-      "dst_qn": "src.parser.yyalloc",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "src.lexer.yylex_init_extra",
-      "dst_qn": "src.parser.yyalloc",
       "kind": "CALLS",
       "band": "import-guided"
     },
@@ -23481,6 +23433,396 @@
       "dst_qn": "src.parser.yytnamerr",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.BINOP",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
+    },
+    {
+      "src_qn": "src/builtin.c",
+      "dst_qn": "src.builtin.CFUNC",
+      "kind": "CALLS",
+      "band": "import-guided"
     },
     {
       "src_qn": "src/builtin.c",

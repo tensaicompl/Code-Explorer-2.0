@@ -2550,3 +2550,38 @@ fn library_calls_need_unambiguous_provenance() {
     let g = graph(&[("src/main/java/a/Bus.java", own)]);
     assert!(g.contracts.is_empty(), "{:#?}", g.contracts);
 }
+
+#[test]
+fn a_contract_name_no_identity_can_be_made_of_is_diagnosed() {
+    // A channel name holding a NUL (JSON's `\u0000`) is untrusted input no contract id can
+    // hash: it is left out and diagnosed, and every other contract stands.
+    let g = graph(&[(
+        "asyncapi.json",
+        "{\"asyncapi\": \"2.6.0\", \"channels\": {\"a\\u0000b\": {\"publish\": {\"message\": {}}}, \"orders\": {\"publish\": {\"message\": {}}}}}",
+    )]);
+    let keys: Vec<&str> = g.contracts.iter().map(|c| c.key.as_str()).collect();
+    assert!(keys.contains(&"orders"), "{keys:?}");
+    assert!(!keys.iter().any(|k| k.contains('\0')), "{keys:?}");
+    assert!(
+        g.diagnostics
+            .contracts
+            .iter()
+            .any(|d| d.path == "asyncapi.json" && d.problem == ContractProblem::InvalidKey),
+        "{:?}",
+        g.diagnostics.contracts
+    );
+}
+
+#[test]
+fn templated_servers_do_not_inherit_the_outer_levels() {
+    // The operation's own servers are all templated: it has no literal prefix or host,
+    // never the root's `/v1` on `api.example.com`.
+    let g = graph(&[(
+        "openapi.yaml",
+        "openapi: 3.0.0\nservers:\n  - url: https://api.example.com/v1\npaths:\n  /upload:\n    post:\n      servers:\n        - url: https://{tenant}.files.acme.com\n      responses: {}\n  /items:\n    get:\n      responses: {}\n",
+    )]);
+    let keys: Vec<&str> = g.contracts.iter().map(|c| c.key.as_str()).collect();
+    assert!(keys.contains(&"POST /upload"), "{keys:?}");
+    assert!(!keys.contains(&"POST /v1/upload"), "{keys:?}");
+    assert!(keys.contains(&"GET /v1/items"), "{keys:?}");
+}

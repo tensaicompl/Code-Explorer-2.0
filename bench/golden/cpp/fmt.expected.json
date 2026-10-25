@@ -1781,12 +1781,6 @@
       "band": "inheritance-guided"
     },
     {
-      "src_qn": "src.os.vwindows_error",
-      "dst_qn": "include.fmt.os.system_category",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "support.docopt.Argument.single_match",
       "dst_qn": "support.docopt.Argument",
       "kind": "CALLS",
@@ -5699,18 +5693,6 @@
       "band": "import-guided"
     },
     {
-      "src_qn": "test.format-test.TEST_format_test_format_facet",
-      "dst_qn": "include.fmt.format.format_facet",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "test.format-test.TEST_format_test_format_facet",
-      "dst_qn": "include.fmt.format.format_facet",
-      "kind": "TESTS",
-      "band": "import-guided"
-    },
-    {
       "src_qn": "test.format-test.TEST_format_test_format_hex",
       "dst_qn": "test.util.safe_sprintf",
       "kind": "CALLS",
@@ -9409,30 +9391,6 @@
     {
       "src_qn": "test.gtest.gmock-gtest-all.DefaultDeathTestFactory.Create",
       "dst_qn": "test.gtest.gtest.gtest.testing.internal.StreamableToString",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "test.gtest.gmock-gtest-all.DefaultDeathTestFactory.Create",
-      "dst_qn": "test.gtest.gtest.gtest.testing.testing.internal.ExecDeathTest",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "test.gtest.gmock-gtest-all.DefaultDeathTestFactory.Create",
-      "dst_qn": "test.gtest.gtest.gtest.testing.testing.internal.FuchsiaDeathTest",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "test.gtest.gmock-gtest-all.DefaultDeathTestFactory.Create",
-      "dst_qn": "test.gtest.gtest.gtest.testing.testing.internal.NoExecDeathTest",
-      "kind": "CALLS",
-      "band": "import-guided"
-    },
-    {
-      "src_qn": "test.gtest.gmock-gtest-all.DefaultDeathTestFactory.Create",
-      "dst_qn": "test.gtest.gtest.gtest.testing.testing.internal.WindowsDeathTest",
       "kind": "CALLS",
       "band": "import-guided"
     },

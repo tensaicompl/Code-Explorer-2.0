@@ -714,6 +714,15 @@ impl<'a> ExtractStage<'a> {
         // A failure here (an isolated worker that timed out included) fails the
         // stage before anything of the batch is stored or returned.
         let outcomes = backend.extract_batch(&sources)?;
+        // One outcome a file, in order: a backend that answers for more or fewer files
+        // than it was given is an error, never a silently shortened batch.
+        if outcomes.len() != sources.len() {
+            return Err(ExtractError::WrongAnswer(format!(
+                "a batch of {} files answered with {} outcomes",
+                sources.len(),
+                outcomes.len()
+            )));
+        }
         for ((index, key, blob_sha, digest, lines), (source, outcome)) in
             pending.into_iter().zip(sources.into_iter().zip(outcomes))
         {

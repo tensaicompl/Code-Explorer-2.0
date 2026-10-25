@@ -1,10 +1,11 @@
-//! Writing a segment (4.3): a temporary build, then `VACUUM INTO` a new file that is
-//! made read-only and hashed.
+//! Writing a segment (4.3): a temporary build, then `VACUUM INTO` a staged file beside
+//! the destination that is made durable and hashed, given the destination's name only
+//! if nothing has it, and made read-only.
 
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
-use std::fs::File;
-use std::io::Read;
+use std::fs::OpenOptions;
+use std::io::{ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags, Statement, params};
@@ -33,9 +34,9 @@ pub struct WrittenSegment {
 
 /// Writes segments.
 ///
-/// A segment is built in a temporary directory, by default the system's, and only its
-/// finished form reaches the destination. Where the build happens never affects the
-/// bytes written.
+/// A segment is built in a temporary directory, by default one inside the destination's
+/// own directory (the system's may be memory), and only its finished form reaches the
+/// destination. Where the build happens never affects the bytes written.
 #[derive(Clone, Debug, Default)]
 pub struct SegmentWriter {
     temp_root: Option<PathBuf>,
@@ -74,9 +75,14 @@ impl SegmentWriter {
     ///
     /// In order: a temporary database, its settings, the schema, every table's rows in
     /// their key's order in one transaction, the full-text index, a check of the
-    /// build, `VACUUM INTO` the destination, every connection closed, the destination
-    /// made read-only (mode 0444 on Unix), and its bytes hashed. Nothing is left at the
-    /// destination if any step fails.
+    /// build, `VACUUM INTO` a staged file of its own beside the destination, every
+    /// connection closed, the staged file synced to storage and its bytes hashed, then
+    /// given the destination's name by a hard link, which never replaces a file (a
+    /// rename, after one more look, where the file system has no hard links), made
+    /// read-only (mode 0444 on Unix), and its directory synced. A destination that
+    /// appears meanwhile is [`SegmentError::DestinationExists`] and is never touched: if
+    /// any step fails, nothing this write did not create is removed, and nothing it
+    /// created is left.
     ///
     /// # Errors
     ///
@@ -95,25 +101,33 @@ impl SegmentWriter {
         })?;
         check_destination(&destination)?;
         let rows = Canonical::of(data)?;
+        let Some(directory) = destination.parent() else {
+            return Err(SegmentError::InvalidDestination {
+                path: destination.clone(),
+                reason: "its directory does not exist".to_owned(),
+            });
+        };
+        let io = |path: &Path| {
+            let path = path.to_path_buf();
+            move |source| SegmentError::Io { path, source }
+        };
 
-        let temp = match &self.temp_root {
-            Some(dir) => tempfile::Builder::new()
-                .prefix("pdx-segment-")
-                .tempdir_in(dir),
-            None => tempfile::Builder::new().prefix("pdx-segment-").tempdir(),
-        }
-        .map_err(|source| SegmentError::Io {
-            path: self.temp_root.clone().unwrap_or_else(std::env::temp_dir),
-            source,
-        })?;
-        let build_path = temp.path().join("build.db");
-
-        let result = build(&rows, &build_path, &destination).and_then(|()| publish(&destination));
-        if result.is_err() {
-            remove_partial(&destination);
-        }
+        let build_root = self.temp_root.as_deref().unwrap_or(directory);
+        let temp = tempfile::Builder::new()
+            .prefix(".pdx-segment-")
+            .tempdir_in(build_root)
+            .map_err(io(build_root))?;
+        // Created empty, which `VACUUM INTO` writes into; removed when dropped unless it
+        // has become the destination.
+        let staged = tempfile::Builder::new()
+            .prefix(".pdx-segment-")
+            .suffix(".partial")
+            .tempfile_in(directory)
+            .map_err(io(directory))?
+            .into_temp_path();
+        build(&rows, &temp.path().join("build.db"), &staged)?;
         drop(temp);
-        result
+        publish(staged, &destination)
     }
 }
 
@@ -134,8 +148,8 @@ fn check_destination(destination: &Path) -> Result<(), SegmentError> {
     }
 }
 
-/// Builds the segment at `build_path` and writes it to `destination` with `VACUUM INTO`.
-/// Every connection is closed when this returns.
+/// Builds the segment at `build_path` and writes it to `destination`, an empty file,
+/// with `VACUUM INTO`. Every connection is closed when this returns.
 fn build(rows: &Canonical<'_>, build_path: &Path, destination: &Path) -> Result<(), SegmentError> {
     // Opened without URI names, so no path is ever read as anything but a path.
     let mut conn = Connection::open_with_flags(
@@ -154,20 +168,53 @@ fn build(rows: &Canonical<'_>, build_path: &Path, destination: &Path) -> Result<
     transaction.commit()?;
 
     verify::verify(&conn)?;
-    let destination = destination.to_str().expect("checked to be UTF-8");
+    let destination = destination
+        .to_str()
+        .ok_or_else(|| SegmentError::InvalidDestination {
+            path: destination.to_path_buf(),
+            reason: "the path is not UTF-8".to_owned(),
+        })?;
     conn.execute(queries::VACUUM_INTO, [destination])?;
     conn.close().map_err(|(_, e)| SegmentError::Sqlite(e))?;
     Ok(())
 }
 
-/// Makes the finished file read-only and hashes it.
-fn publish(destination: &Path) -> Result<WrittenSegment, SegmentError> {
-    let io = |source| SegmentError::Io {
+/// Syncs and hashes the staged file, gives it the destination's name without ever
+/// replacing a file there, and makes it read-only.
+fn publish(staged: tempfile::TempPath, destination: &Path) -> Result<WrittenSegment, SegmentError> {
+    let (content_sha256, size_bytes) = sync_and_hash(&staged)?;
+    link_no_clobber(&staged, destination)?;
+    // The staged name goes; the destination's stays. A rename has already moved it.
+    let _ = staged.close();
+    if let Err(source) = make_read_only(destination) {
+        // Linked by this write a moment ago: the destination is this write's own.
+        let _ = std::fs::remove_file(destination);
+        return Err(SegmentError::Io {
+            path: destination.to_path_buf(),
+            source,
+        });
+    }
+    sync_directory(destination);
+    Ok(WrittenSegment {
         path: destination.to_path_buf(),
+        content_sha256,
+        size_bytes,
+    })
+}
+
+/// Syncs `path`'s bytes to storage and returns their `lowerhex(sha256)` and length.
+fn sync_and_hash(path: &Path) -> Result<(String, u64), SegmentError> {
+    let io = |source| SegmentError::Io {
+        path: path.to_path_buf(),
         source,
     };
-    make_read_only(destination).map_err(io)?;
-    let mut file = File::open(destination).map_err(io)?;
+    // Write access, which syncing a file takes on Windows.
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(io)?;
+    file.sync_all().map_err(io)?;
     let mut hasher = Sha256::new();
     let mut buffer = vec![0u8; 1 << 16];
     let mut size_bytes = 0u64;
@@ -184,11 +231,37 @@ fn publish(destination: &Path) -> Result<WrittenSegment, SegmentError> {
         let _ = write!(hex, "{b:02x}");
         hex
     });
-    Ok(WrittenSegment {
-        path: destination.to_path_buf(),
-        content_sha256,
-        size_bytes,
-    })
+    Ok((content_sha256, size_bytes))
+}
+
+/// Gives `from` the name `to` too, failing if anything has that name: a hard link
+/// never replaces a file. A file system without hard links gets a rename once nothing
+/// is seen at `to`, the most it offers.
+fn link_no_clobber(from: &Path, to: &Path) -> Result<(), SegmentError> {
+    let exists = || SegmentError::DestinationExists(to.to_path_buf());
+    let io = |source| SegmentError::Io {
+        path: to.to_path_buf(),
+        source,
+    };
+    match std::fs::hard_link(from, to) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::AlreadyExists => Err(exists()),
+        Err(_) if to.symlink_metadata().is_ok() => Err(exists()),
+        Err(_) => std::fs::rename(from, to).map_err(io),
+    }
+}
+
+/// Syncs the directory holding `path`, so that its new name survives a crash. Only
+/// Unix opens a directory to sync it; a failure leaves a name the next sync keeps.
+fn sync_directory(path: &Path) {
+    #[cfg(unix)]
+    if let Some(directory) = path.parent()
+        && let Ok(directory) = std::fs::File::open(directory)
+    {
+        let _ = directory.sync_all();
+    }
+    #[cfg(not(unix))]
+    let _ = path;
 }
 
 #[cfg(unix)]
@@ -202,18 +275,6 @@ fn make_read_only(path: &Path) -> std::io::Result<()> {
     let mut permissions = std::fs::metadata(path)?.permissions();
     permissions.set_readonly(true);
     std::fs::set_permissions(path, permissions)
-}
-
-/// Removes whatever a failed write left at the destination, which did not exist when
-/// the write began.
-fn remove_partial(destination: &Path) {
-    if let Ok(metadata) = destination.symlink_metadata() {
-        let mut permissions = metadata.permissions();
-        #[allow(clippy::permissions_set_readonly_false)]
-        permissions.set_readonly(false);
-        let _ = std::fs::set_permissions(destination, permissions);
-        let _ = std::fs::remove_file(destination);
-    }
 }
 
 /// Every table's rows, checked and in their key's order.
@@ -616,4 +677,64 @@ fn insert_node(statement: &mut Statement<'_>, n: &Node) -> Result<(), SegmentErr
         json("nodes", &n.props)?,
     ])?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A staged file holding `bytes`, in `dir`.
+    fn staged(dir: &Path, bytes: &[u8]) -> tempfile::TempPath {
+        let file = tempfile::Builder::new()
+            .prefix(".pdx-segment-")
+            .suffix(".partial")
+            .tempfile_in(dir)
+            .expect("a staged file");
+        std::fs::write(file.path(), bytes).expect("written");
+        file.into_temp_path()
+    }
+
+    #[test]
+    fn publishing_never_replaces_a_file_that_appeared_meanwhile() {
+        // Another run's segment reaches the destination after the check and before the
+        // publication: it is refused, left exactly as it was, and the staged file goes.
+        let dir = tempfile::tempdir().expect("a directory");
+        let destination = dir.path().join("segment.db");
+        let ours = staged(dir.path(), b"ours");
+        let ours_path = ours.to_path_buf();
+        std::fs::write(&destination, b"theirs").expect("written");
+        let refused = publish(ours, &destination);
+        assert!(matches!(refused, Err(SegmentError::DestinationExists(_))));
+        assert_eq!(std::fs::read(&destination).expect("theirs"), b"theirs");
+        assert!(!ours_path.exists(), "the staged file is removed");
+    }
+
+    #[test]
+    fn publishing_gives_the_staged_bytes_the_destination_name_only() {
+        let dir = tempfile::tempdir().expect("a directory");
+        let destination = dir.path().join("segment.db");
+        let ours = staged(dir.path(), b"segment bytes");
+        let ours_path = ours.to_path_buf();
+        let written = publish(ours, &destination).expect("published");
+        assert_eq!(std::fs::read(&destination).expect("ours"), b"segment bytes");
+        assert_eq!(written.size_bytes, 13);
+        // sha256sum of the 13 bytes, computed independently.
+        assert_eq!(
+            written.content_sha256,
+            "560e67b96c49975a2cf9adba2682e00cc6b74a879f2b6897e03b63d7434098e8"
+        );
+        assert!(
+            destination
+                .metadata()
+                .expect("metadata")
+                .permissions()
+                .readonly()
+        );
+        assert!(!ours_path.exists());
+        let names: Vec<_> = std::fs::read_dir(dir.path())
+            .expect("a listing")
+            .map(|e| e.expect("an entry").file_name())
+            .collect();
+        assert_eq!(names, ["segment.db"]);
+    }
 }

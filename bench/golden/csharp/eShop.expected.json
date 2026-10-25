@@ -1511,12 +1511,6 @@
       "band": "typed"
     },
     {
-      "src_qn": "src.Ordering.Domain.AggregatesModel.OrderAggregate.Order.Order.AddOrderStartedDomainEvent",
-      "dst_qn": "src.Ordering.Domain.SeedWork.Entity.Entity.AddDomainEvent",
-      "kind": "CALLS",
-      "band": "inheritance-guided"
-    },
-    {
       "src_qn": "src.Ordering.Domain.AggregatesModel.OrderAggregate.Order.Order.Order",
       "dst_qn": "src.Ordering.Domain.AggregatesModel.OrderAggregate.Order.Order.AddOrderStartedDomainEvent",
       "kind": "CALLS",
@@ -1626,21 +1620,9 @@
     },
     {
       "src_qn": "src.Ordering.Infrastructure.OrderingContext.OrderingContext.CommitTransactionAsync",
-      "dst_qn": "src.Ordering.Domain.SeedWork.IUnitOfWork.IUnitOfWork.SaveChangesAsync",
-      "kind": "CALLS",
-      "band": "inheritance-guided"
-    },
-    {
-      "src_qn": "src.Ordering.Infrastructure.OrderingContext.OrderingContext.CommitTransactionAsync",
       "dst_qn": "src.Ordering.Infrastructure.OrderingContext.OrderingContext.RollbackTransaction",
       "kind": "CALLS",
       "band": "typed"
-    },
-    {
-      "src_qn": "src.Ordering.Infrastructure.OrderingContext.OrderingContext.SaveEntitiesAsync",
-      "dst_qn": "src.Ordering.Domain.SeedWork.IUnitOfWork.IUnitOfWork.SaveChangesAsync",
-      "kind": "CALLS",
-      "band": "inheritance-guided"
     },
     {
       "src_qn": "src.Shared.MigrateDbContextExtensions.MigrateDbContextExtensions.AddMigration",

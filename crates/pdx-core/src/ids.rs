@@ -450,18 +450,19 @@ pub fn overload_disambiguators(signatures_in_file_order: &[&str]) -> Result<Vec<
         }
         return Ok(vec![String::new(); signatures_in_file_order.len()]);
     }
+    // How many members share each signature, then each one's ordinal among them in file
+    // order: one pass each, so a file of thousands of identical members stays linear.
+    let mut totals: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
+    for signature in signatures_in_file_order {
+        *totals.entry(signature).or_default() += 1;
+    }
+    let mut seen: std::collections::BTreeMap<&str, usize> = std::collections::BTreeMap::new();
     let mut out = Vec::with_capacity(signatures_in_file_order.len());
-    for (i, signature) in signatures_in_file_order.iter().enumerate() {
+    for signature in signatures_in_file_order {
         let hash = signature_disambiguator(signature)?;
-        let identical = signatures_in_file_order
-            .iter()
-            .filter(|s| *s == signature)
-            .count();
-        if identical > 1 {
-            let ordinal = 1 + signatures_in_file_order[..i]
-                .iter()
-                .filter(|s| *s == signature)
-                .count();
+        if totals[signature] > 1 {
+            let ordinal = seen.entry(signature).or_default();
+            *ordinal += 1;
             out.push(format!("{hash}-{ordinal}"));
         } else {
             out.push(hash);

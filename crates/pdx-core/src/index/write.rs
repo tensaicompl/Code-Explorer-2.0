@@ -36,7 +36,7 @@ pub fn segment_data(
 }
 
 /// Writes the segment at `destination`, building it in a temporary directory inside
-/// `build_dir` when one is given (the system's otherwise).
+/// `build_dir` when one is given (inside the destination's directory otherwise).
 ///
 /// # Errors
 ///

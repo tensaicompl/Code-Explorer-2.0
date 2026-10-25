@@ -310,11 +310,17 @@ impl SegmentReader {
     /// [`SegmentError::InvalidSearch`] for a query that is not valid FTS5 syntax; as
     /// [`SegmentReader::node`] otherwise.
     pub fn search(&self, query: &str, limit: u32) -> Result<Vec<SearchHit>, SegmentError> {
+        // Only the full-text parser's own refusal (a plain SQLITE_ERROR) is the query's
+        // fault; corruption, I/O and memory failures are the segment's, and say so.
         let invalid = |e: rusqlite::Error| match e {
-            rusqlite::Error::SqliteFailure(_, Some(reason)) => SegmentError::InvalidSearch {
-                query: query.to_owned(),
-                reason,
-            },
+            rusqlite::Error::SqliteFailure(code, Some(reason))
+                if code.code == rusqlite::ErrorCode::Unknown =>
+            {
+                SegmentError::InvalidSearch {
+                    query: query.to_owned(),
+                    reason,
+                }
+            }
             other => SegmentError::Sqlite(other),
         };
         let mut statement = self.conn.prepare(queries::SEARCH)?;

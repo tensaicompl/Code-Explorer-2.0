@@ -115,8 +115,8 @@ pub struct IndexRequest<'a> {
     pub backend: Option<&'a BackendFactory<'a>>,
     /// Where the segment is written: nothing may be there.
     pub destination: PathBuf,
-    /// Where the segment is built before it is written, if not the system's
-    /// temporary directory.
+    /// Where the segment is built before it is written, if not inside the
+    /// destination's directory (the system's temporary directory may be memory).
     pub build_dir: Option<PathBuf>,
     /// Called as each stage starts and finishes.
     pub progress: Option<&'a dyn Fn(&Progress)>,

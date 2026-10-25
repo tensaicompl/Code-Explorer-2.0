@@ -362,6 +362,12 @@ fn malformed_configuration_is_refused() {
         ("[discover]\ninclude_vendr = true\n", "include_vendr"),
         ("[discover]\nmax_file_bytes = 0\n", "max_file_bytes"),
         ("[discover]\nmax_file_bytes = -1\n", "max_file_bytes"),
+        // A repository may raise the limit, never past 64 MiB a file.
+        (
+            "[discover]\nmax_file_bytes = 18446744073709551615\n",
+            "max_file_bytes",
+        ),
+        ("[discover]\nmax_file_bytes = 67108865\n", "max_file_bytes"),
         (
             "[discover]\nextra_excludes = [\"!keep/**\"]\n",
             "discover.extra_excludes",

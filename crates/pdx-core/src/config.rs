@@ -21,6 +21,9 @@ use crate::kinds::{EdgeKind, LayerRole};
 use crate::languages::{self, Language};
 use crate::vocabulary::vocabulary;
 
+/// The most `[discover] max_file_bytes` may be set to: 64 MiB.
+pub const MAX_CONFIGURABLE_FILE_BYTES: u64 = 64 * 1024 * 1024;
+
 /// The configuration file's name, at the repository's root.
 pub const CONFIG_FILE: &str = "pdx.toml";
 
@@ -573,6 +576,15 @@ impl Checker<'_> {
             max_file_bytes: match raw.discover.max_file_bytes {
                 Some(0) => {
                     return Err(self.invalid("discover.max_file_bytes", "must be greater than 0"));
+                }
+                // `pdx.toml` is the repository's, so untrusted: it may raise the limit, never
+                // past what one machine can read file by file (a multi-gigabyte "source"
+                // read whole would take the host down).
+                Some(n) if n > MAX_CONFIGURABLE_FILE_BYTES => {
+                    return Err(self.invalid(
+                        "discover.max_file_bytes",
+                        "must be at most 67108864 (64 MiB)",
+                    ));
                 }
                 Some(n) => n,
                 None => defaults.discover.max_file_bytes,

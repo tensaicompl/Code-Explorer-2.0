@@ -39,8 +39,11 @@
 //! here makes a graph identity: a target is a [`DefinitionRef`], a site a
 //! [`SiteRef`].
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::borrow::Cow;
+use std::cell::{OnceCell, RefCell};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::Path;
+use std::rc::Rc;
 
 use pdx_engine::{
     Call, DefinitionKind, Engine, EngineError, LexicalFacts, ProjectResolution, ProjectResolver,
@@ -48,6 +51,7 @@ use pdx_engine::{
 };
 
 use crate::bands::{Band, EngineVerdict, from_engine};
+use crate::consts::MAX_STORED_CANDIDATES;
 use crate::index::extract::{ExtractError, FileOutcome, prepare_source};
 use crate::languages::Language;
 
@@ -126,6 +130,9 @@ pub struct Resolution {
     band: Band,
     target: Option<DefinitionRef>,
     candidates: Vec<DefinitionRef>,
+    /// How many candidates survived, of which `candidates` holds at most
+    /// [`MAX_STORED_CANDIDATES`].
+    candidates_total: usize,
     engine: Option<EngineAnswer>,
 }
 
@@ -167,12 +174,37 @@ impl Resolution {
             }
             Band::Precise | Band::Contradicted => return Err(InvalidResolution::NotAssigned(band)),
         }
+        let candidates_total = candidates.len();
         Ok(Self {
             band,
             target,
             candidates,
+            candidates_total,
             engine,
         })
+    }
+
+    /// A `candidate` resolution of `candidates`, sorted and distinct, holding the first
+    /// [`MAX_STORED_CANDIDATES`] of them and how many there were (issue 122).
+    ///
+    /// # Errors
+    ///
+    /// [`InvalidResolution`] as [`Resolution::new`] reports it for a `candidate`.
+    pub fn bounded_candidates(
+        mut candidates: Vec<DefinitionRef>,
+    ) -> Result<Self, InvalidResolution> {
+        let total = candidates.len();
+        candidates.truncate(MAX_STORED_CANDIDATES);
+        let mut resolution = Self::new(Band::Candidate, None, candidates, None)?;
+        resolution.candidates_total = total;
+        Ok(resolution)
+    }
+
+    /// How many candidates survived every stage: more than
+    /// [`Resolution::candidates`] holds only for a `candidate` site that had more than
+    /// [`MAX_STORED_CANDIDATES`].
+    pub fn candidates_total(&self) -> usize {
+        self.candidates_total
     }
 
     /// The band.
@@ -387,7 +419,7 @@ pub fn resolve_with(
     typed: &ProjectResolution,
 ) -> Result<ResolveReport, ResolutionError> {
     let answers = answers_by_site(registry, &typed.resolutions)?;
-    let resolver = Resolver { registry };
+    let resolver = Resolver::new(registry);
     let mut resolutions = Vec::new();
     let mut unconfirmed = Vec::new();
     let mut record = |site_ref: SiteRef, site: &Call, outcome: Outcome| match outcome {
@@ -522,9 +554,37 @@ pub enum Narrowed {
 /// set every later stage sees; one with no evidence leaves the set as it was, so a
 /// stage that does not apply never erases candidates another source established.
 pub fn narrow(initial: Vec<DefinitionRef>, stages: Vec<NarrowingStage<'_>>) -> Narrowed {
+    let mut initial = initial;
+    initial.sort();
+    initial.dedup();
+    match narrow_from(Cow::Owned(initial), stages) {
+        Reached::Resolved { band, target } => Narrowed::Resolved { band, target },
+        Reached::Weak { band, candidate } => Narrowed::Weak { band, candidate },
+        Reached::Remaining(remaining) => Narrowed::Remaining(remaining.into_owned()),
+    }
+}
+
+/// What [`narrow_from`] reached: [`Narrowed`], with what remains borrowed when no stage
+/// narrowed it, so that a set a name shares with every site of it is never copied for
+/// one (issue 122).
+enum Reached<'a> {
+    Resolved {
+        band: Band,
+        target: DefinitionRef,
+    },
+    Weak {
+        band: Band,
+        candidate: DefinitionRef,
+    },
+    Remaining(Cow<'a, [DefinitionRef]>),
+}
+
+/// [`narrow`] over `initial`, already sorted and distinct.
+fn narrow_from<'a>(
+    initial: Cow<'a, [DefinitionRef]>,
+    stages: Vec<NarrowingStage<'_>>,
+) -> Reached<'a> {
     let mut current = initial;
-    current.sort();
-    current.dedup();
     for mut stage in stages {
         let mut subset: Vec<DefinitionRef> = (stage.evidence)(&current)
             .into_iter()
@@ -535,21 +595,38 @@ pub fn narrow(initial: Vec<DefinitionRef>, stages: Vec<NarrowingStage<'_>>) -> N
         match subset.len() {
             0 => {}
             1 if stage.band.is_drawn() => {
-                return Narrowed::Resolved {
+                return Reached::Resolved {
                     band: stage.band,
                     target: subset.remove(0),
                 };
             }
             1 => {
-                return Narrowed::Weak {
+                return Reached::Weak {
                     band: stage.band,
                     candidate: subset.remove(0),
                 };
             }
-            _ => current = subset,
+            _ => current = Cow::Owned(subset),
         }
     }
-    Narrowed::Remaining(current)
+    Reached::Remaining(current)
+}
+
+/// The run of sorted `refs` in the file `path`.
+fn in_file<'a>(refs: &'a [DefinitionRef], path: &str) -> &'a [DefinitionRef] {
+    let start = refs.partition_point(|r| r.path.as_str() < path);
+    let len = refs[start..].partition_point(|r| r.path == path);
+    &refs[start..start + len]
+}
+
+/// A language's family: the languages whose names can name one another's definitions
+/// ([`same_family`]).
+fn family(language: &'static str) -> &'static str {
+    match language {
+        "typescript" | "javascript" => "javascript",
+        "c" | "cpp" => "c",
+        other => other,
+    }
 }
 
 // --- one site --------------------------------------------------------------------
@@ -694,8 +771,32 @@ fn same_family(a: &str, b: &str) -> bool {
         || (matches!(a, "c" | "cpp") && matches!(b, "c" | "cpp"))
 }
 
+/// Each name's invocable definitions, by language family, sorted: one list a name,
+/// never one a site (issue 122).
+type NamedDefinitions = RefCell<HashMap<&'static str, HashMap<String, Rc<[DefinitionRef]>>>>;
+
 struct Resolver<'r> {
     registry: &'r SymbolRegistry,
+    named: NamedDefinitions,
+}
+
+impl<'r> Resolver<'r> {
+    fn new(registry: &'r SymbolRegistry) -> Self {
+        Self {
+            registry,
+            named: RefCell::default(),
+        }
+    }
+}
+
+/// What a site's import-guided stage asks about the caller's own file and module,
+/// read once a site rather than once a candidate (issue 122).
+#[derive(Default)]
+struct Near {
+    /// The caller's file's own top-level callables of the call's name.
+    own: OnceCell<Vec<DefinitionRef>>,
+    /// The types named as the receiver that the caller's file or module declares.
+    types: OnceCell<Vec<DefinitionRef>>,
 }
 
 /// What one site's stages need to know about it.
@@ -867,10 +968,20 @@ impl Resolver<'_> {
             use_scope: call.use_scope,
         };
         let named = self.named(&context);
-        let mut universe: BTreeSet<DefinitionRef> = named.iter().cloned().collect();
-        universe.extend(self.by_qualified_text(&context, spelled));
-        universe.extend(self.through_aliases(&context));
-        universe.extend(hinted);
+        // The name's definitions, shared by every site of it, and what this site adds:
+        // copied only when it adds something (issue 122).
+        let mut added: BTreeSet<DefinitionRef> = BTreeSet::new();
+        added.extend(self.by_qualified_text(&context, spelled));
+        added.extend(self.through_aliases(&context));
+        added.extend(hinted);
+        added.retain(|r| named.binary_search(r).is_err());
+        let universe: Cow<'_, [DefinitionRef]> = if added.is_empty() {
+            Cow::Borrowed(&named)
+        } else {
+            let mut all: BTreeSet<DefinitionRef> = named.iter().cloned().collect();
+            all.extend(added);
+            Cow::Owned(all.into_iter().collect())
+        };
         // A member call on a receiver the extractor could not tie to anything is not
         // resolved by its name alone: exact and scoped do not run. Import-guided runs
         // only when the receiver is a name the file's own imports bind into the
@@ -897,8 +1008,8 @@ impl Resolver<'_> {
         if !arbitrary_member {
             stages.push(NarrowingStage {
                 band: Band::Exact,
-                evidence: Box::new(|current: &[DefinitionRef]| match named.as_slice() {
-                    [one] if current.contains(one) => vec![one.clone()],
+                evidence: Box::new(|current: &[DefinitionRef]| match &*named {
+                    [one] if current.binary_search(one).is_ok() => vec![one.clone()],
                     _ => Vec::new(),
                 }),
             });
@@ -908,8 +1019,8 @@ impl Resolver<'_> {
             });
         }
         // 6. What is left.
-        let narrowed = narrow(universe.into_iter().collect(), stages);
-        self.settled(&context, narrowed)
+        let reached = narrow_from(universe, stages);
+        self.settled(&context, reached)
     }
 
     /// What the stages left settles a site: their one target, unless a macro may write
@@ -919,11 +1030,11 @@ impl Resolver<'_> {
     fn settled(
         &self,
         context: &SiteContext<'_>,
-        narrowed: Narrowed,
+        reached: Reached<'_>,
     ) -> Result<Resolution, ResolutionError> {
         let made = |band, target, candidates| Resolution::new(band, target, candidates, None);
-        match narrowed {
-            Narrowed::Resolved { target, .. }
+        match reached {
+            Reached::Resolved { target, .. }
                 if self.member_unproven(
                     context.language,
                     context.receiver,
@@ -933,14 +1044,14 @@ impl Resolver<'_> {
             {
                 Ok(made(Band::Candidate, None, vec![target])?)
             }
-            Narrowed::Resolved { band, target } if self.impl_unproven(context, band, &target) => {
+            Reached::Resolved { band, target } if self.impl_unproven(context, band, &target) => {
                 Ok(made(Band::Candidate, None, vec![target])?)
             }
-            Narrowed::Resolved { band, target } => Ok(made(band, Some(target), Vec::new())?),
+            Reached::Resolved { band, target } => Ok(made(band, Some(target), Vec::new())?),
             // Weak evidence keeps its band and its one candidate, never a target (issue
             // 102); a member a macro may write another of is no evidence at all (issue
             // 110).
-            Narrowed::Weak { candidate, .. }
+            Reached::Weak { candidate, .. }
                 if self.member_unproven(
                     context.language,
                     context.receiver,
@@ -950,11 +1061,16 @@ impl Resolver<'_> {
             {
                 Ok(made(Band::Candidate, None, vec![candidate])?)
             }
-            Narrowed::Weak { band, candidate } => Ok(made(band, None, vec![candidate])?),
-            Narrowed::Remaining(candidates) if !candidates.is_empty() => {
-                Ok(made(Band::Candidate, None, candidates)?)
+            Reached::Weak { band, candidate } => Ok(made(band, None, vec![candidate])?),
+            // At most the first MAX_STORED_CANDIDATES, and how many there were (issue 122).
+            Reached::Remaining(candidates) if !candidates.is_empty() => {
+                let total = candidates.len();
+                let kept = candidates[..total.min(MAX_STORED_CANDIDATES)].to_vec();
+                let mut resolution = made(Band::Candidate, None, kept)?;
+                resolution.candidates_total = total;
+                Ok(resolution)
             }
-            Narrowed::Remaining(_) => Ok(made(Band::Unresolved, None, Vec::new())?),
+            Reached::Remaining(_) => Ok(made(Band::Unresolved, None, Vec::new())?),
         }
     }
 
@@ -1157,14 +1273,32 @@ impl Resolver<'_> {
                 .is_some_and(|l| same_family(context.language.id, l.id))
     }
 
-    /// The definitions of the callee's short name.
-    fn named(&self, context: &SiteContext<'_>) -> Vec<DefinitionRef> {
-        self.registry
+    /// The definitions of the callee's short name a call in this file can invoke,
+    /// sorted: read once a name and language family (issue 122).
+    fn named(&self, context: &SiteContext<'_>) -> Rc<[DefinitionRef]> {
+        let family = family(context.language.id);
+        if let Some(found) = self
+            .named
+            .borrow()
+            .get(family)
+            .and_then(|names| names.get(context.name))
+        {
+            return Rc::clone(found);
+        }
+        // `by_name` is by path then index, so the list is sorted and distinct.
+        let found: Rc<[DefinitionRef]> = self
+            .registry
             .by_name(context.name)
             .iter()
             .filter(|r| self.invocable(context, r))
             .cloned()
-            .collect()
+            .collect();
+        self.named
+            .borrow_mut()
+            .entry(family)
+            .or_default()
+            .insert(context.name.to_owned(), Rc::clone(&found));
+        found
     }
 
     /// The definitions whose qualified name is the callee's whole text.
@@ -1260,25 +1394,51 @@ impl Resolver<'_> {
         context: &SiteContext<'_>,
         current: &[DefinitionRef],
     ) -> Vec<DefinitionRef> {
-        current
-            .iter()
-            .filter(|c| self.import_visible(context, c))
+        let key = context.receiver.map_or(context.name, head_of);
+        let imports = self.imports_for(context, key);
+        // Every candidate an import makes visible is in a file one of the site's imports
+        // leads to, or the source such a header is paired with ([`Resolver::in_target`]):
+        // only those files' candidates are read, never every definition of the name
+        // (issue 122).
+        let mut files: BTreeSet<&str> = BTreeSet::new();
+        for import in &imports {
+            for target in Self::targets(import.target_of(key)) {
+                for file in &target.files {
+                    files.insert(file);
+                    if let Some(paired) = self.registry.paired_file(file) {
+                        files.insert(paired);
+                    }
+                }
+            }
+        }
+        let near = Near::default();
+        files
+            .into_iter()
+            .flat_map(|file| in_file(current, file))
+            .filter(|c| self.import_visible(context, &imports, &near, c))
             .cloned()
             .collect()
     }
 
-    fn import_visible(&self, context: &SiteContext<'_>, c: &DefinitionRef) -> bool {
+    fn import_visible(
+        &self,
+        context: &SiteContext<'_>,
+        imports: &[&ImportRecord],
+        near: &Near,
+        c: &DefinitionRef,
+    ) -> bool {
         let Some(definition) = self.registry.definition(c) else {
             return false;
         };
-        let declaring = self
-            .registry
-            .declaring_type(c)
-            .and_then(|t| self.registry.definition(&t).map(|d| d.name.clone()));
+        let declaring_type = self.registry.declaring_type(c);
+        let declaring = declaring_type
+            .as_ref()
+            .and_then(|t| self.registry.definition(t))
+            .map(|d| d.name.as_str());
         let inside_type =
             context.current_type.is_some() && IMPLICIT_RECEIVER.contains(&context.language.id);
         let key = context.receiver.map_or(context.name, head_of);
-        for import in self.imports_for(context, key) {
+        for import in imports {
             // An import leads, for a name it binds, where that name's own path does: a
             // Rust brace group's `T` is `T`, never the group's module (issue 118).
             let targets = Self::targets(import.target_of(key));
@@ -1299,6 +1459,7 @@ impl Resolver<'_> {
                         && declaring.is_none()
                         && definition.name == context.name
                         && targets.iter().any(|t| self.in_target(t, c))
+                        && !self.defined_in_file(near, context.path, context.name, c)
                     {
                         return true;
                     }
@@ -1316,9 +1477,9 @@ impl Resolver<'_> {
                                     // The receiver is the module: a function at its top,
                                     // or a member of a type named after it.
                                     (None, []) => declaring.is_none(),
-                                    (None, [ty]) => declaring.as_deref() == Some(*ty),
+                                    (None, [ty]) => declaring == Some(*ty),
                                     // The receiver is the type the import names.
-                                    (Some(member), []) => declaring.as_deref() == Some(member),
+                                    (Some(member), []) => declaring == Some(member),
                                     _ => false,
                                 }
                         };
@@ -1327,8 +1488,9 @@ impl Resolver<'_> {
                         }
                     } else if import.bindings.is_empty()
                         && tail.is_empty()
-                        && declaring.as_deref() == Some(receiver)
+                        && declaring == Some(receiver)
                         && targets.iter().any(|t| self.in_target(t, c))
+                        && !self.type_declared_near(near, context.path, receiver, c)
                     {
                         return true;
                     }
@@ -1336,6 +1498,80 @@ impl Resolver<'_> {
             }
         }
         false
+    }
+
+    /// Whether the caller's file `path` itself defines `name` at its top level (not
+    /// `other`): a closer binding than any import that binds no name of its own. A C
+    /// file's `static usage()` is its own `usage`, whatever header it includes; Python's
+    /// `def f` after `from a import *` is its `f`. A method or constructor is never such
+    /// a binding, even at the top: C++'s out-of-line `file::file(...)` is a member of the
+    /// header's `file`, which the call still names.
+    fn defined_in_file(&self, near: &Near, path: &str, name: &str, other: &DefinitionRef) -> bool {
+        near.own
+            .get_or_init(|| {
+                in_file(self.registry.by_name(name), path)
+                    .iter()
+                    .filter(|r| {
+                        self.registry.declaring_type(r).is_none()
+                            && self.registry.definition(r).is_some_and(|d| {
+                                callable(d.kind)
+                                    && !matches!(
+                                        d.kind,
+                                        DefinitionKind::Method | DefinitionKind::Constructor
+                                    )
+                            })
+                    })
+                    .cloned()
+                    .collect()
+            })
+            .iter()
+            .any(|r| r != other)
+    }
+
+    /// Whether a type named `ty` (not the one `member` is declared in) is declared in the
+    /// caller's file or its module (a Java or C# package, a Go package): it, not a
+    /// wildcard import's type of that name, is what the receiver names.
+    fn type_declared_near(
+        &self,
+        near: &Near,
+        path: &str,
+        ty: &str,
+        member: &DefinitionRef,
+    ) -> bool {
+        let declaring = self.registry.declaring_type(member);
+        near.types
+            .get_or_init(|| self.types_near(path, ty))
+            .iter()
+            .any(|r| Some(r) != declaring.as_ref())
+    }
+
+    /// The types named `ty` declared in the caller's file `path` or its module. A global
+    /// namespace or default package is no module here: it spans every project of the
+    /// repository (eShop's `Extensions` classes, one a project, are all in C#'s global
+    /// namespace), so only the file itself counts.
+    fn types_near(&self, path: &str, ty: &str) -> Vec<DefinitionRef> {
+        let module = self
+            .registry
+            .module_of_file(path)
+            .filter(|m| !m.name.is_empty());
+        self.registry
+            .by_name(ty)
+            .iter()
+            .filter(|r| {
+                self.registry.definition(r).is_some_and(|d| {
+                    matches!(
+                        d.kind,
+                        DefinitionKind::Class
+                            | DefinitionKind::Interface
+                            | DefinitionKind::Struct
+                            | DefinitionKind::Trait
+                            | DefinitionKind::Enum
+                    )
+                }) && (r.path == path
+                    || (module.is_some() && self.registry.module_of_file(&r.path) == module))
+            })
+            .cloned()
+            .collect()
     }
 
     /// Inheritance-guided: the candidates declared in the hierarchy of the type the call
@@ -1368,8 +1604,12 @@ impl Resolver<'_> {
             if level.len() > 1 {
                 linear = false;
             }
-            let here: Vec<DefinitionRef> = current
-                .iter()
+            // A member's declaring type is in the member's own file, so only the level's
+            // types' files are read (issue 122).
+            let files: BTreeSet<&str> = level.iter().map(|t| t.path.as_str()).collect();
+            let here: Vec<DefinitionRef> = files
+                .into_iter()
+                .flat_map(|file| in_file(current, file))
                 .filter(|c| declared_in(c).is_some_and(|t| level.contains(&t)))
                 .cloned()
                 .collect();
@@ -1427,10 +1667,20 @@ impl Resolver<'_> {
         let Some(module) = module else {
             return Vec::new();
         };
-        current
-            .iter()
-            .filter(|c| self.registry.module_of_definition(c) == Some(module))
-            .cloned()
-            .collect()
+        // The smaller of the two sets is read (issue 122).
+        let in_module = self.registry.definitions_in_module(module);
+        if in_module.len() < current.len() {
+            in_module
+                .iter()
+                .filter(|r| current.binary_search(r).is_ok())
+                .cloned()
+                .collect()
+        } else {
+            current
+                .iter()
+                .filter(|c| self.registry.module_of_definition(c) == Some(module))
+                .cloned()
+                .collect()
+        }
     }
 }

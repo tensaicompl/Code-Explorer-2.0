@@ -18,7 +18,10 @@
 //! - Prisma: each `model`, its table its `@@map("…")` or its name. Owned by the file.
 //!
 //! **Consumers**: a call's string argument that is SQL (it starts with `SELECT`,
-//! `INSERT`, `UPDATE`, `DELETE`, `WITH` or `MERGE`) consumes every table it reads
+//! `INSERT`, `UPDATE`, `DELETE`, `WITH` or `MERGE`, and shows SQL beyond its first word:
+//! that keyword in capitals, SQL punctuation, or a second clause keyword; issue 97: a
+//! sentence such as "Select an item from the list" is no statement) consumes every
+//! table it reads
 //! (`FROM`, `JOIN`) or writes (`INSERT INTO`, `UPDATE`, `DELETE FROM`, `MERGE INTO`),
 //! with that access in `props.access_modes`. A name that is a placeholder or a
 //! common-table expression is not a table. A `FROM` list is read up to its first
@@ -240,10 +243,11 @@ fn sql_tokens(text: &str) -> Option<Vec<Sql>> {
                     j += 1;
                 }
                 if chars.get(j) == Some(&'$') {
-                    let tag: String = chars[i..=j].iter().collect();
-                    let rest: String = chars[j + 1..].iter().collect();
-                    let end = rest.find(&tag)?;
-                    i = j + 1 + rest[..end].chars().count() + tag.chars().count();
+                    // The closing tag, searched in place: never a copy of the rest of the
+                    // file per opener, which made a file of openers quadratic.
+                    let tag = &chars[i..=j];
+                    let end = chars[j + 1..].windows(tag.len()).position(|w| w == tag)?;
+                    i = j + 1 + end + tag.len();
                 } else {
                     i = j;
                 }
@@ -418,7 +422,7 @@ pub fn sql_access(text: &str) -> BTreeSet<(String, Access)> {
         return out;
     };
     let starts = ["SELECT", "INSERT", "UPDATE", "DELETE", "WITH", "MERGE"];
-    if !starts.iter().any(|s| keyword(tokens.first(), s)) {
+    if !starts.iter().any(|s| keyword(tokens.first(), s)) || !shows_sql(&tokens) {
         return out;
     }
     let mut ctes = BTreeSet::new();
@@ -478,6 +482,7 @@ pub fn sql_access(text: &str) -> BTreeSet<(String, Access)> {
         let mut at = i + 1;
         while let Some((name, after)) = sql_name(&tokens, at) {
             if (name.contains('.') || !ctes.contains(&name.to_ascii_lowercase()))
+                && !is_determiner(&name)
                 && let Some(key) = table_key(&name).filter(|k| !is_reserved(k))
             {
                 out.insert((key, access));
@@ -498,6 +503,55 @@ pub fn sql_access(text: &str) -> BTreeSet<(String, Access)> {
         }
     }
     out
+}
+
+/// Whether text that begins with a statement's keyword shows SQL beyond it (issue 97):
+/// that first keyword written in capitals, a token prose does not have (`*`, `=`, `?`,
+/// `(`, `;`, a placeholder or a qualified `a.b`), or a second keyword that begins a
+/// clause or names a statement's target (`WHERE`, `JOIN`, `INTO`, `VALUES`, `SET`, ...).
+/// "Select an item from the list" shows none of them; `select * from users` shows `*`. A
+/// statement written all in lower case with nothing else (`select id from users`) is
+/// missed: a table missed, never one invented.
+fn shows_sql(tokens: &[Sql]) -> bool {
+    if matches!(tokens.first(), Some(Sql::Word(w)) if w.chars().all(|c| c.is_ascii_uppercase())) {
+        return true;
+    }
+    tokens.iter().skip(1).any(|t| match t {
+        Sql::Punct(c) => matches!(c, '*' | '=' | '?' | '(' | ')' | ';' | '<' | '>'),
+        Sql::Value | Sql::Quoted(_) => true,
+        Sql::Word(w) => {
+            w.contains('.')
+                || w.starts_with(['$', ':', '@'])
+                || [
+                    "WHERE",
+                    "JOIN",
+                    "INTO",
+                    "VALUES",
+                    "SET",
+                    "GROUP",
+                    "ORDER",
+                    "LIMIT",
+                    "UNION",
+                    "HAVING",
+                    "RETURNING",
+                    "DISTINCT",
+                    "INNER",
+                    "OUTER",
+                ]
+                .iter()
+                .any(|k| w.eq_ignore_ascii_case(k))
+        }
+    })
+}
+
+/// English determiners, never a table's name where prose put them after "from".
+fn is_determiner(name: &str) -> bool {
+    [
+        "the", "a", "an", "this", "that", "these", "those", "your", "my", "our", "their", "his",
+        "her", "its", "each", "every", "any", "some",
+    ]
+    .iter()
+    .any(|d| name.eq_ignore_ascii_case(d))
 }
 
 /// Words that begin a clause, never an alias.
@@ -989,6 +1043,29 @@ mod tests {
                 .collect();
         assert_eq!(found, [("events".to_owned(), Access::Read)]);
         assert!(sql_access("not sql FROM x").is_empty());
+    }
+
+    #[test]
+    fn prose_is_no_statement() {
+        // Issue 97: a sentence that begins like a statement mints no table.
+        for prose in [
+            "Select an item from the list",
+            "Select a file from the dialog, then click OK",
+            "Update your settings from the menu",
+            "Delete it from the list (this cannot be undone)",
+            "With the button from your account",
+        ] {
+            assert!(sql_access(prose).is_empty(), "{prose}");
+        }
+        // Statements written in lower case still read when they show SQL.
+        let found: Vec<(String, Access)> = sql_access("select * from users where id = ?")
+            .into_iter()
+            .collect();
+        assert_eq!(found, [("users".to_owned(), Access::Read)]);
+        let found: Vec<(String, Access)> = sql_access("insert into audit values (1)")
+            .into_iter()
+            .collect();
+        assert_eq!(found, [("audit".to_owned(), Access::Write)]);
     }
 
     #[test]

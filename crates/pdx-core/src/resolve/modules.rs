@@ -29,6 +29,10 @@ pub(crate) struct Layout {
     pub(crate) alias_scopes: Vec<AliasScope>,
     /// The packages `package.json` files name, by name.
     pub(crate) npm_packages: Vec<NpmPackage>,
+    /// Metadata files that could not be read as their tool reads them (a fixture's
+    /// deliberately broken `package.json`, say), with why: each is as if absent, never a
+    /// failed index.
+    pub(crate) skipped: Vec<(String, String)>,
 }
 
 /// One `Cargo.toml`.
@@ -57,10 +61,6 @@ pub(crate) struct NpmPackage {
 /// Reads the layout from the repository's metadata files.
 pub(crate) fn layout(sources: &Sources<'_>) -> Result<Layout, RegistryError> {
     let mut layout = Layout::default();
-    let parse_error = |path: &str, reason: String| RegistryError::MetadataParse {
-        path: path.to_owned(),
-        reason,
-    };
     for path in sources.files.keys() {
         match file_name(path) {
             "__init__.py" => {
@@ -68,9 +68,12 @@ pub(crate) fn layout(sources: &Sources<'_>) -> Result<Layout, RegistryError> {
             }
             "go.mod" => {
                 if let Some(text) = metadata::read(sources, path)? {
-                    let module = metadata::parse_go_mod(&text)
-                        .ok_or_else(|| parse_error(path, "no `module` directive".into()))?;
-                    layout.go_modules.push((dir_of(path).to_owned(), module));
+                    match metadata::parse_go_mod(&text) {
+                        Some(module) => layout.go_modules.push((dir_of(path).to_owned(), module)),
+                        None => layout
+                            .skipped
+                            .push((path.clone(), "no `module` directive".into())),
+                    }
                 }
             }
             "tsconfig.json" => {
@@ -80,8 +83,13 @@ pub(crate) fn layout(sources: &Sources<'_>) -> Result<Layout, RegistryError> {
             }
             "package.json" => {
                 if let Some(text) = metadata::read(sources, path)? {
-                    let (name, entries) =
-                        metadata::parse_package_json(&text).map_err(|r| parse_error(path, r))?;
+                    let (name, entries) = match metadata::parse_package_json(&text) {
+                        Ok(parsed) => parsed,
+                        Err(reason) => {
+                            layout.skipped.push((path.clone(), reason));
+                            continue;
+                        }
+                    };
                     if let Some(name) = name {
                         let dir = dir_of(path).to_owned();
                         let entry = npm_entry(sources, &dir, &entries);
@@ -91,8 +99,13 @@ pub(crate) fn layout(sources: &Sources<'_>) -> Result<Layout, RegistryError> {
             }
             "Cargo.toml" => {
                 if let Some(text) = metadata::read(sources, path)? {
-                    let manifest =
-                        metadata::parse_cargo(&text).map_err(|r| parse_error(path, r))?;
+                    let manifest = match metadata::parse_cargo(&text) {
+                        Ok(manifest) => manifest,
+                        Err(reason) => {
+                            layout.skipped.push((path.clone(), reason));
+                            continue;
+                        }
+                    };
                     layout.crates.push(Crate {
                         dir: dir_of(path).to_owned(),
                         manifest,

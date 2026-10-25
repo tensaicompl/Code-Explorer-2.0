@@ -15,11 +15,14 @@ use pdx_engine::Import;
 
 use crate::languages::Language;
 
-use super::metadata::{dir_of, join};
+use super::metadata::{dir_of, file_name, join};
 use super::modules::{self, Layout, SCRIPT_EXTENSIONS, is_within};
 use super::registry::{ImportTarget, InternalTarget, ModuleKey, Sources};
 
-/// What import resolution looks things up in.
+/// What import resolution looks things up in. Every question an import asks is
+/// answered from an index built once (issue 122): never by scanning the repository's
+/// files or modules per import, which is quadratic in a large repository. An index
+/// holds its entries in the order the scan met them, so its answers are the scan's.
 pub(crate) struct Lookup<'a> {
     pub(crate) sources: &'a Sources<'a>,
     pub(crate) layout: &'a Layout,
@@ -29,9 +32,55 @@ pub(crate) struct Lookup<'a> {
     pub(crate) module_files: &'a BTreeMap<ModuleKey, BTreeSet<String>>,
     /// Declared namespaces by language and comparison key.
     pub(crate) namespaces: &'a BTreeMap<(&'static str, String), ModuleKey>,
+    /// Python modules by name, each name's in key order.
+    python_modules: BTreeMap<&'a str, Vec<&'a ModuleKey>>,
+    /// The first part of every Python module's name: the repository's own packages.
+    python_packages: BTreeSet<&'a str>,
+    /// Go files by directory, each directory's in path order.
+    go_files: BTreeMap<&'a str, Vec<&'a String>>,
+    /// Every file by its last path segment, each name's in path order.
+    files_by_name: BTreeMap<&'a str, Vec<&'a String>>,
 }
 
-impl Lookup<'_> {
+impl<'a> Lookup<'a> {
+    /// The lookup over these, its indexes built.
+    pub(crate) fn new(
+        sources: &'a Sources<'a>,
+        layout: &'a Layout,
+        file_modules: &'a BTreeMap<String, Vec<ModuleKey>>,
+        module_files: &'a BTreeMap<ModuleKey, BTreeSet<String>>,
+        namespaces: &'a BTreeMap<(&'static str, String), ModuleKey>,
+    ) -> Self {
+        let mut python_modules: BTreeMap<&str, Vec<&ModuleKey>> = BTreeMap::new();
+        let mut python_packages = BTreeSet::new();
+        for key in module_files.keys().filter(|k| k.language == "python") {
+            python_modules
+                .entry(key.name.as_str())
+                .or_default()
+                .push(key);
+            python_packages.insert(key.name.split('.').next().unwrap_or(&key.name));
+        }
+        let mut go_files: BTreeMap<&str, Vec<&String>> = BTreeMap::new();
+        let mut files_by_name: BTreeMap<&str, Vec<&String>> = BTreeMap::new();
+        for (path, state) in &sources.files {
+            if state.discovered.language.is_some_and(|l| l.id == "go") {
+                go_files.entry(dir_of(path)).or_default().push(path);
+            }
+            files_by_name.entry(file_name(path)).or_default().push(path);
+        }
+        Self {
+            sources,
+            layout,
+            file_modules,
+            module_files,
+            namespaces,
+            python_modules,
+            python_packages,
+            go_files,
+            files_by_name,
+        }
+    }
+
     /// A target that is this file.
     fn file_target(&self, path: &str, member: Option<String>) -> InternalTarget {
         let module = match self.file_modules.get(path).map(Vec::as_slice) {
@@ -200,12 +249,9 @@ fn python(lookup: &Lookup<'_>, language: &Language, path: &str, text: &str) -> I
             return decide(found, ImportTarget::External);
         }
         // A package of the repository's own that lacks the module named is not a
-        // third-party package.
+        // third-party package: a module named `top` or `top.…`.
         let top = rest.split('.').next().unwrap_or(rest);
-        let owned = lookup.module_files.keys().any(|k| {
-            k.language == "python" && (k.name == top || k.name.starts_with(&format!("{top}.")))
-        });
-        return if owned {
+        return if lookup.python_packages.contains(top) {
             ImportTarget::UnresolvedInternal
         } else {
             ImportTarget::External
@@ -262,9 +308,11 @@ fn python_lookup(
 ) -> Vec<InternalTarget> {
     let modules_named = |name: &str| -> Vec<&ModuleKey> {
         lookup
-            .module_files
-            .keys()
-            .filter(|k| k.language == "python" && k.name == name)
+            .python_modules
+            .get(name)
+            .into_iter()
+            .flatten()
+            .copied()
             .filter(|k| scope.is_none_or(|s| k.scope == s))
             .collect()
     };
@@ -413,13 +461,11 @@ fn go(lookup: &Lookup<'_>, spec: &str) -> ImportTarget {
         return ImportTarget::UnresolvedInternal;
     };
     let files: Vec<String> = lookup
-        .sources
-        .files
-        .iter()
-        .filter(|(p, s)| {
-            dir_of(p) == target_dir && s.discovered.language.is_some_and(|l| l.id == "go")
-        })
-        .map(|(p, _)| p.clone())
+        .go_files
+        .get(target_dir.as_str())
+        .into_iter()
+        .flatten()
+        .map(|p| (*p).clone())
         .collect();
     let key = files
         .first()
@@ -516,12 +562,15 @@ fn include(lookup: &Lookup<'_>, path: &str, spec: &str) -> ImportTarget {
             return ImportTarget::Internal(lookup.file_target(&candidate, None));
         }
     }
+    // A file ending with the spec, or the spec itself, has the spec's last segment as
+    // its own.
     let suffix = format!("/{}", spec.trim_start_matches("./"));
     let found: Vec<InternalTarget> = lookup
-        .sources
-        .files
-        .keys()
-        .filter(|f| f.ends_with(&suffix) || *f == spec)
+        .files_by_name
+        .get(file_name(&suffix))
+        .into_iter()
+        .flatten()
+        .filter(|f| f.ends_with(&suffix) || **f == spec)
         .map(|f| lookup.file_target(f, None))
         .collect();
     let relative = spec.starts_with("./") || spec.starts_with("../");

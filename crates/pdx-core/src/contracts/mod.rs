@@ -170,6 +170,9 @@ pub enum ContractProblem {
     /// A route registration on a router composed under a prefix the facts do not give
     /// (a group, a scope, a nest): its full path is unknown, so no contract (issue 65).
     PrefixUnknown,
+    /// A contract name holding a control character (a NUL in a channel name, say): no
+    /// identity can be made of it, so it is no contract, never a failed build.
+    InvalidKey,
 }
 
 /// The contracts of one repository, as its observations are merged (issue 59).
@@ -532,6 +535,15 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
     artifacts::observe(&context, &mut found)?;
     let mut accumulator = ContractAccumulator::new(input.repo.clone());
     for observation in found.observations {
+        // A name read from a repository's documents or code is untrusted: one no
+        // identity can be made of is diagnosed and left out, never a failed build.
+        if observation.key.chars().any(char::is_control) {
+            graph.diagnostics.contracts.push(ContractDiagnostic {
+                path: observation.source_path.clone(),
+                problem: ContractProblem::InvalidKey,
+            });
+            continue;
+        }
         accumulator.observe(observation)?;
     }
     let contracts = accumulator.finish(&graph.nodes)?;

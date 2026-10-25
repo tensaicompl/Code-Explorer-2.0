@@ -165,7 +165,9 @@ fn operations(
 }
 
 /// An `OpenAPI` `servers` list, read: `None` when there is none, so a nearer level's
-/// absence defers to the next.
+/// absence defers to the next. A level whose servers are all templated
+/// (`https://{tenant}.example.com`) is no absence: it names no literal authority or
+/// prefix, so its operations have neither, never the outer level's.
 fn servers(list: Option<&Doc>) -> Option<Vec<Server>> {
     let items = list?.items();
     if items.is_empty() {
@@ -198,7 +200,13 @@ fn servers(list: Option<&Doc>) -> Option<Vec<Server>> {
             prefix: prefix.to_owned(),
         });
     }
-    (!out.is_empty()).then(|| out.into_iter().collect())
+    if out.is_empty() {
+        return Some(vec![Server {
+            authority: None,
+            prefix: String::new(),
+        }]);
+    }
+    Some(out.into_iter().collect())
 }
 
 /// Swagger 2's one server: `host` (with each of `schemes`, for its default port) and
