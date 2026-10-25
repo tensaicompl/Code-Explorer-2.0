@@ -15,19 +15,25 @@ pdx version
 - **`pdx index`** builds the structural segment of a Git repository's `HEAD` commit
   through `pdx_core::index::build_segment`. `PATH` (default `.`) is the repository or
   any directory inside it; the repository's top level is indexed.
-  - The working tree must be clean: a modified, deleted, staged, or untracked and not
-    ignored file refuses the build, since a segment is of a commit (decision 38). Put
-    `.pdx/` in `.gitignore`.
-  - The repository's identity comes from its `origin` remote, which must be an HTTPS
-    clone URL: its canonical form is `repo_url`, and `repo_id` is derived from it
+  - The working tree must be exactly its commit, as discovery reads it: a modified,
+    deleted, staged, or untracked file the repository's `.gitignore` files do not ignore
+    (`.git/info/exclude` and global excludes are not read), or a skip-worktree,
+    sparse-checkout or assume-unchanged entry refuses the build, since a segment is of a
+    commit (decision 38). `.pdx/`, where PDX writes, never counts (issue 99).
+  - The repository's identity comes from its `origin` remote as configured (never
+    through a `url.<base>.insteadOf` rewrite), which must be an HTTPS clone URL: its canonical form is `repo_url`, and `repo_id` is derived from it
     (4.2.1, decision 36), so the segment records `repo_id_source = "url"` (decision
     40). Any other remote is refused, never guessed into HTTPS, and
     never printed. A repository with a server configured (`pdx.toml [server]`) is
     refused: its identity is the server's registered one, which this build cannot ask
     for.
   - The segment goes to `<repository root>/.pdx/segment.db`; a relative `--out` is below
-    the repository root, an absolute one as given. Only the default `.pdx` directory is
-    made, never through a symlink. An existing segment is never overwritten.
+    the repository root, an absolute one as given. `.pdx` is made when the output is in
+    it, never through a symlink, and ignores itself (a `.gitignore` of `*`). The default
+    segment is built beside itself and then replaces the previous one, so `pdx index`
+    runs again after every commit (issue 99); a segment `--out` names is never
+    overwritten. Discovery never reads `.pdx`, a submodule or a nested repository.
+  - `pdx coverage` reads `.pdx/segment.db`, or the segment `--segment` names.
   - `--profile` accepts `structural` only.
   - Without `--json`, a summary goes to standard output; with it, one JSON report
     (status, repository with its `repo_id_source`, segment, files, rows, resolution,

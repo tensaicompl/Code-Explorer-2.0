@@ -79,7 +79,8 @@ pub fn command() -> Command {
                         .value_parser(value_parser!(OsString))
                         .help(
                             "Where to write the segment; a relative path is below the \
-                             repository root; never overwritten [default: .pdx/segment.db]",
+                             repository root; a segment named here is never overwritten, \
+                             the default one is replaced [default: .pdx/segment.db]",
                         ),
                 )
                 .arg(
@@ -95,6 +96,13 @@ pub fn command() -> Command {
         .subcommand(
             Command::new("coverage")
                 .about("Print the coverage of the repository's segment, .pdx/segment.db")
+                .arg(
+                    Arg::new("segment")
+                        .long("segment")
+                        .value_name("PATH")
+                        .value_parser(clap::value_parser!(PathBuf))
+                        .help("Read this segment instead (one `pdx index --out` wrote)"),
+                )
                 .arg(json.help("Print the coverage as JSON")),
         )
         .subcommand(Command::new("version").about(
@@ -167,14 +175,47 @@ fn bench(m: &ArgMatches) -> Result<Outcome, String> {
     })
 }
 
-/// Writes to standard output, ignoring a closed pipe.
-fn out(text: &str) {
-    let _ = std::io::stdout().lock().write_all(text.as_bytes());
+/// Writes to standard output. A closed pipe (`pdx index --json | head`) is no error;
+/// any other failure (a full disk under `> report.json`) is, so a truncated report is
+/// never a success. Control characters but newlines and tabs are escaped: a file name
+/// in a report never writes escape sequences to a terminal.
+fn out(text: &str) -> Result<(), String> {
+    let text = printable(text);
+    let mut stdout = std::io::stdout().lock();
+    match stdout
+        .write_all(text.as_bytes())
+        .and_then(|()| stdout.flush())
+    {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => Ok(()),
+        Err(e) => Err(format!("standard output could not be written: {e}")),
+    }
+}
+
+/// `text` with every control character but newline and tab escaped as `\u{..}`.
+fn printable(text: &str) -> std::borrow::Cow<'_, str> {
+    if !text
+        .chars()
+        .any(|c| c.is_control() && c != '\n' && c != '\t')
+    {
+        return std::borrow::Cow::Borrowed(text);
+    }
+    std::borrow::Cow::Owned(
+        text.chars()
+            .map(|c| {
+                if c.is_control() && c != '\n' && c != '\t' {
+                    c.escape_unicode().to_string()
+                } else {
+                    c.to_string()
+                }
+            })
+            .collect(),
+    )
 }
 
 /// An error, as one line on standard error.
 fn fail(message: &str) -> Outcome {
-    let line = message.replace('\n', " ");
+    let line = printable(&message.replace('\n', " ")).into_owned();
     let _ = writeln!(std::io::stderr().lock(), "pdx: {line}");
     Outcome::Error
 }
@@ -193,8 +234,10 @@ pub fn run(args: impl IntoIterator<Item = OsString>) -> ExitCode {
 fn usage(error: &clap::Error) -> Outcome {
     match error.kind() {
         ErrorKind::DisplayHelp | ErrorKind::DisplayVersion => {
-            out(&error.render().to_string());
-            Outcome::Success
+            match out(&error.render().to_string()) {
+                Ok(()) => Outcome::Success,
+                Err(message) => fail(&message),
+            }
         }
         ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand => {
             fail("a command is required: index, coverage, version or bench (see pdx --help)")
@@ -213,10 +256,10 @@ fn dispatch(matches: &ArgMatches) -> Outcome {
         Some(("index", m)) => index(m).unwrap_or_else(|message| fail(&message)),
         Some(("coverage", m)) => coverage(m).unwrap_or_else(|message| fail(&message)),
         Some(("bench", m)) => bench(m).unwrap_or_else(|message| fail(&message)),
-        Some(("version", _)) => {
-            out(&report::version_text());
-            Outcome::Success
-        }
+        Some(("version", _)) => match out(&report::version_text()) {
+            Ok(()) => Outcome::Success,
+            Err(message) => fail(&message),
+        },
         _ => fail("a command is required: index, coverage, version or bench (see pdx --help)"),
     }
 }
@@ -241,6 +284,7 @@ fn index(m: &ArgMatches) -> Result<Outcome, String> {
     let output = local::output(&root, m.get_one::<OsString>("out").map(OsString::as_os_str))
         .map_err(|e| e.to_string())?;
     local::prepare(&root, &output).map_err(|e| e.to_string())?;
+    let staged = local::staging_path(&output);
 
     let cache = local::extract_cache(&root).map(FsCache::at);
     let tty = std::io::stderr().is_terminal();
@@ -256,16 +300,17 @@ fn index(m: &ArgMatches) -> Result<Outcome, String> {
         limits,
         cache: cache.as_ref().map(|c| c as &dyn ExtractCache),
         backend: None,
-        destination: output.path.clone(),
+        destination: staged.clone(),
         build_dir: None,
         progress: tty.then_some(&progress as &dyn Fn(&Progress)),
     };
     let built = build_segment(request).map_err(|e| build_error(&e, &output))?;
+    local::publish(&staged, &output).map_err(|e| e.to_string())?;
     let dto = IndexReport::new(&built, &identity, &output.display);
     if json {
-        out(&report::json(&dto));
+        out(&report::json(&dto))?;
     } else {
-        out(&report::index_text(&dto));
+        out(&report::index_text(&dto))?;
     }
     Ok(if dto.degraded() {
         Outcome::Degraded
@@ -278,7 +323,7 @@ fn index(m: &ArgMatches) -> Result<Outcome, String> {
 fn build_error(error: &IndexError, output: &Output) -> String {
     match error {
         IndexError::Write(SegmentError::DestinationExists(_)) => format!(
-            "{} already exists, and a segment is never overwritten",
+            "{} already exists, and a segment --out names is never overwritten",
             output.display
         ),
         IndexError::Write(SegmentError::InvalidDestination { reason, .. }) => {
@@ -288,27 +333,32 @@ fn build_error(error: &IndexError, output: &Output) -> String {
     }
 }
 
-/// `pdx coverage`: the coverage of `.pdx/segment.db`, read through the segment reader,
-/// which opens it read-only and verifies it. Nothing is indexed or written.
+/// `pdx coverage`: the coverage of a segment, `.pdx/segment.db` of the repository the
+/// command runs in unless `--segment` names one (a segment `pdx index --out` wrote),
+/// read through the segment reader, which opens it read-only and verifies it. Nothing
+/// is indexed or written.
 fn coverage(m: &ArgMatches) -> Result<Outcome, String> {
-    let root = repository::toplevel(std::path::Path::new(".")).map_err(|e| e.to_string())?;
-    let path = root.join(".pdx").join("segment.db");
+    let (path, shown) = if let Some(path) = m.get_one::<PathBuf>("segment") {
+        (path.clone(), path.display().to_string())
+    } else {
+        let root = repository::toplevel(std::path::Path::new(".")).map_err(|e| e.to_string())?;
+        (
+            root.join(".pdx").join("segment.db"),
+            local::DEFAULT_OUTPUT.to_owned(),
+        )
+    };
     if !path.is_file() {
-        return Err(format!(
-            "no segment at {}; run `pdx index` first",
-            local::DEFAULT_OUTPUT
-        ));
+        return Err(format!("no segment at {shown}; run `pdx index` first"));
     }
-    let reader = SegmentReader::open(&path)
-        .map_err(|e| format!("{} cannot be read: {e}", local::DEFAULT_OUTPUT))?;
+    let reader = SegmentReader::open(&path).map_err(|e| format!("{shown} cannot be read: {e}"))?;
     let rows = reader
         .coverage_all()
-        .map_err(|e| format!("{} cannot be read: {e}", local::DEFAULT_OUTPUT))?;
+        .map_err(|e| format!("{shown} cannot be read: {e}"))?;
     let dto = CoverageReport::new(reader.meta(), rows);
     if m.get_flag("json") {
-        out(&report::json(&dto));
+        out(&report::json(&dto))?;
     } else {
-        out(&report::coverage_text(&dto));
+        out(&report::coverage_text(&dto))?;
     }
     Ok(Outcome::Success)
 }

@@ -23,8 +23,9 @@ use std::process::{Command, Stdio};
 use pdx_core::ids::{RepoId, canonical_clone_url, repo_id_from_url};
 
 /// Environment variables that would make Git look at a repository other than the one
-/// named by path.
-const ROUTING: [&str; 7] = [
+/// named by path, or read configuration the command line injected (a repository's
+/// identity and cleanliness are its own, never an environment's).
+const ROUTING: [&str; 10] = [
     "GIT_DIR",
     "GIT_WORK_TREE",
     "GIT_INDEX_FILE",
@@ -32,6 +33,9 @@ const ROUTING: [&str; 7] = [
     "GIT_OBJECT_DIRECTORY",
     "GIT_ALTERNATE_OBJECT_DIRECTORIES",
     "GIT_NAMESPACE",
+    "GIT_CONFIG_PARAMETERS",
+    "GIT_CONFIG_COUNT",
+    "GIT_CONFIG",
 ];
 
 /// The most output any metadata query may give.
@@ -44,15 +48,14 @@ pub enum RepositoryError {
     GitUnavailable,
     /// The path is no directory inside a Git working tree.
     NotARepository(String),
+    /// Git refuses the repository because another user owns it (`safe.directory`).
+    NotSafe(String),
     /// The repository has no commit yet.
     NoCommit,
     /// Git answered with something that is not what was asked for.
     UnexpectedOutput(&'static str),
     /// The working tree has changes `HEAD` does not hold.
-    Dirty {
-        /// Whether `.pdx` or a path under it is among them (a segment written there).
-        pdx: bool,
-    },
+    Dirty,
     /// The repository has no remote named `origin`.
     NoOrigin,
     /// `origin` is not an HTTPS clone URL; says what kind it is, never what it is.
@@ -66,18 +69,20 @@ impl fmt::Display for RepositoryError {
         match self {
             Self::GitUnavailable => f.write_str("git could not be run; `pdx index` needs it"),
             Self::NotARepository(path) => write!(f, "{path}: not a Git repository"),
+            Self::NotSafe(path) => write!(
+                f,
+                "{path}: Git refuses a repository another user owns; add it to Git's \
+                 safe.directory if it is trusted"
+            ),
             Self::NoCommit => f.write_str("the repository has no commit to index yet"),
             Self::UnexpectedOutput(what) => write!(f, "git gave an unexpected {what}"),
-            Self::Dirty { pdx } => {
-                f.write_str(
-                    "the working tree has uncommitted changes (modified, staged or untracked \
-                     files); a segment is of a commit, so commit or remove them first",
-                )?;
-                if *pdx {
-                    f.write_str(", and add .pdx/ to .gitignore")?;
-                }
-                Ok(())
-            }
+            Self::Dirty => f.write_str(
+                "the working tree is not exactly its commit: modified, staged or untracked \
+                 files (only the repository's .gitignore files ignore one; \
+                 .git/info/exclude and global excludes do not), or files Git was told not \
+                 to check (skip-worktree, sparse checkout, assume-unchanged); a segment is \
+                 of a commit, so commit or remove them first",
+            ),
             Self::NoOrigin => f.write_str(
                 "the repository has no remote named origin; its identity comes from \
                  origin's HTTPS clone URL",
@@ -113,11 +118,65 @@ struct Answer {
     stdout: Vec<u8>,
     /// Whether there was more than [`LIMIT`] of it (only the first part is kept).
     truncated: bool,
+    /// Whether Git said it refuses the repository's ownership (`safe.directory`).
+    unsafe_ownership: bool,
 }
 
 /// Runs `git -C <dir> <args>`: no shell, routing variables cleared, no prompt, no
-/// optional locks, stdout bounded, stderr discarded.
+/// optional locks, stdout bounded, stderr read only to recognise Git's ownership
+/// refusal and never shown.
 fn git(dir: &Path, args: &[&str]) -> Result<Answer, RepositoryError> {
+    let mut command = Command::new("git");
+    command.arg("-C").arg(dir).args(args);
+    for name in ROUTING {
+        command.env_remove(name);
+    }
+    command
+        .env("GIT_TERMINAL_PROMPT", "0")
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command
+        .spawn()
+        .map_err(|_| RepositoryError::GitUnavailable)?;
+    // Stderr is drained on its own thread (bounded) so a chatty Git never blocks on it.
+    let err_reader = child.stderr.take();
+    let err_thread = std::thread::spawn(move || {
+        let mut text = Vec::new();
+        if let Some(reader) = err_reader {
+            let _ = reader.take(4096).read_to_end(&mut text);
+        }
+        text
+    });
+    let mut stdout = Vec::new();
+    let reader = child.stdout.take().ok_or(RepositoryError::GitUnavailable)?;
+    let read = reader.take(LIMIT as u64 + 1).read_to_end(&mut stdout);
+    let truncated = stdout.len() > LIMIT;
+    if truncated {
+        stdout.truncate(LIMIT);
+        let _ = child.kill();
+    }
+    let status = child.wait().map_err(|_| RepositoryError::GitUnavailable)?;
+    let stderr = err_thread.join().unwrap_or_default();
+    if !truncated {
+        read.map_err(|_| RepositoryError::GitUnavailable)?;
+    }
+    Ok(Answer {
+        success: status.success(),
+        stdout,
+        truncated,
+        unsafe_ownership: String::from_utf8_lossy(&stderr).contains("dubious ownership"),
+    })
+}
+
+/// Whether any NUL-terminated record `git -C <dir> <args>` writes satisfies `pred`,
+/// reading its output as a stream (a large repository's listing is never held whole).
+fn git_any_record(
+    dir: &Path,
+    args: &[&str],
+    pred: impl Fn(&[u8]) -> bool,
+) -> Result<bool, RepositoryError> {
     let mut command = Command::new("git");
     command.arg("-C").arg(dir).args(args);
     for name in ROUTING {
@@ -132,21 +191,31 @@ fn git(dir: &Path, args: &[&str]) -> Result<Answer, RepositoryError> {
     let mut child = command
         .spawn()
         .map_err(|_| RepositoryError::GitUnavailable)?;
-    let mut stdout = Vec::new();
-    let reader = child.stdout.take().ok_or(RepositoryError::GitUnavailable)?;
-    let read = reader.take(LIMIT as u64 + 1).read_to_end(&mut stdout);
-    let truncated = stdout.len() > LIMIT;
-    if truncated {
-        stdout.truncate(LIMIT);
-        let _ = child.kill();
+    let mut reader =
+        std::io::BufReader::new(child.stdout.take().ok_or(RepositoryError::GitUnavailable)?);
+    let mut record = Vec::new();
+    let mut found = false;
+    loop {
+        record.clear();
+        let n = std::io::BufRead::read_until(&mut reader, 0, &mut record)
+            .map_err(|_| RepositoryError::GitUnavailable)?;
+        if n == 0 {
+            break;
+        }
+        if record.last() == Some(&0) {
+            record.pop();
+        }
+        if pred(&record) {
+            found = true;
+            let _ = child.kill();
+            break;
+        }
     }
     let status = child.wait().map_err(|_| RepositoryError::GitUnavailable)?;
-    read.map_err(|_| RepositoryError::GitUnavailable)?;
-    Ok(Answer {
-        success: status.success(),
-        stdout,
-        truncated,
-    })
+    if !found && !status.success() {
+        return Err(RepositoryError::UnexpectedOutput("file listing"));
+    }
+    Ok(found)
 }
 
 /// One line of output as text: UTF-8, no control character, the final newline gone.
@@ -176,6 +245,9 @@ pub fn toplevel(path: &Path) -> Result<PathBuf, RepositoryError> {
     }
     let answer = git(path, &["rev-parse", "--show-toplevel"])?;
     if !answer.success {
+        if answer.unsafe_ownership {
+            return Err(RepositoryError::NotSafe(shown));
+        }
         return Err(RepositoryError::NotARepository(shown));
     }
     Ok(PathBuf::from(line(&answer, "top-level directory")?))
@@ -199,8 +271,13 @@ pub fn head_commit(root: &Path) -> Result<String, RepositoryError> {
     Ok(sha)
 }
 
-/// Whether the working tree is exactly `HEAD`: nothing modified, deleted or staged, and
-/// no untracked file Git does not ignore. Ignored files do not count.
+/// Whether the working tree is exactly `HEAD`, as discovery will read it: nothing
+/// modified, deleted or staged; no untracked file the repository's `.gitignore` files do
+/// not ignore (discovery reads no other ignore file, so a file hidden only by
+/// `.git/info/exclude` or the user's global excludes would be indexed, and counts); and
+/// no tracked file Git has been told not to look at (skip-worktree, a sparse checkout's
+/// absent files, assume-unchanged), whose bytes may not be HEAD's. `.pdx`, where PDX
+/// itself writes, never counts (issue 99).
 ///
 /// # Errors
 ///
@@ -212,32 +289,55 @@ pub fn require_clean(root: &Path) -> Result<(), RepositoryError> {
             "status",
             "--porcelain=v1",
             "-z",
-            "--untracked-files=all",
+            "--untracked-files=no",
             "--ignore-submodules=none",
+            "--",
+            ".",
+            ":(exclude,top).pdx",
         ],
     )?;
+    // More than the bound is certainly a change; only an empty answer is clean.
+    if answer.truncated || (answer.success && !answer.stdout.is_empty()) {
+        return Err(RepositoryError::Dirty);
+    }
     if !answer.success {
         return Err(RepositoryError::UnexpectedOutput("status"));
     }
-    if answer.stdout.is_empty() {
-        return Ok(());
+    let untracked = git_any_record(
+        root,
+        &[
+            "ls-files",
+            "-z",
+            "--others",
+            "--exclude-per-directory=.gitignore",
+            "--",
+            ".",
+            ":(exclude,top).pdx",
+        ],
+        |_| true,
+    )?;
+    // `ls-files -v` tags an assume-unchanged entry in lower case and a skip-worktree
+    // one `S`.
+    let hidden = git_any_record(
+        root,
+        &["ls-files", "-z", "-v", "--", ".", ":(exclude,top).pdx"],
+        |record| {
+            record
+                .first()
+                .is_some_and(|t| t.is_ascii_lowercase() || *t == b'S')
+        },
+    )?;
+    if untracked || hidden {
+        return Err(RepositoryError::Dirty);
     }
-    Err(RepositoryError::Dirty {
-        pdx: mentions_pdx(&answer.stdout),
-    })
+    Ok(())
 }
 
-/// Whether porcelain v1 `-z` output names `.pdx` or a path under it.
-fn mentions_pdx(status: &[u8]) -> bool {
-    status
-        .split(|b| *b == 0)
-        .map(|record| record.get(3..).unwrap_or(record))
-        .any(|path| path == b".pdx" || path.starts_with(b".pdx/"))
-}
-
-/// `origin`'s fetch URL, as Git resolves it; `None` when there is no `origin`.
+/// `origin`'s URL exactly as configured; `None` when there is no `origin`. Read from
+/// the configuration, never through `url.<base>.insteadOf`: a user's rewrite rule (an
+/// HTTPS host fetched over SSH, say) must not change the repository's identity.
 fn origin(root: &Path) -> Result<Option<String>, RepositoryError> {
-    let answer = git(root, &["remote", "get-url", "origin"])?;
+    let answer = git(root, &["config", "--get", "remote.origin.url"])?;
     if !answer.success {
         return Ok(None);
     }
@@ -366,14 +466,5 @@ mod tests {
             assert!(!message.contains("git.example"), "{message}");
             assert!(!message.contains("hunter2"), "{message}");
         }
-    }
-
-    #[test]
-    fn porcelain_paths_under_pdx_are_noticed() {
-        assert!(mentions_pdx(b"?? .pdx/segment.db\0"));
-        assert!(mentions_pdx(b"?? .pdx\0"));
-        assert!(mentions_pdx(b" M a.py\0?? .pdx/segment.db\0"));
-        assert!(!mentions_pdx(b" M a.py\0?? b.py\0"));
-        assert!(!mentions_pdx(b"?? src/.pdx/x\0"));
     }
 }

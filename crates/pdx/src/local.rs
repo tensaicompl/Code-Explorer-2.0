@@ -4,8 +4,12 @@
 //!   another place: an absolute path as given, a relative one below the repository root
 //!   (never the directory the command was run from). Only the default `.pdx` directory
 //!   is created, and only when nothing is there: a `.pdx` that is a symlink, a file or
-//!   anything but a directory is refused, never written through. A segment is never
-//!   overwritten (the segment writer refuses an existing destination).
+//!   anything but a directory is refused, never written through. `.pdx` ignores itself
+//!   (a `.gitignore` of `*` inside it), so a build leaves the tree clean (issue 99).
+//! - The default segment is built beside itself (`.pdx/segment.db.<pid>.partial`) and
+//!   then replaces the previous one, so `pdx index` can run again after every commit
+//!   (issue 99). A segment `--out` names is never overwritten: the segment writer
+//!   refuses an existing destination.
 //! - The extraction cache (4.5) is `pdx/extract` below the platform's cache directory:
 //!   `$XDG_CACHE_HOME` or `~/.cache` on Linux, `~/Library/Caches` on macOS,
 //!   `%LOCALAPPDATA%\pdx\cache` on Windows (4.3's local cache roots). With no usable
@@ -41,6 +45,8 @@ pub enum OutputError {
     PdxNotADirectory,
     /// `.pdx` could not be created.
     PdxCreate,
+    /// The new default segment could not replace the previous one.
+    Replace,
 }
 
 impl fmt::Display for OutputError {
@@ -52,6 +58,10 @@ impl fmt::Display for OutputError {
                  through); remove it or pass --out",
             ),
             Self::PdxCreate => f.write_str(".pdx could not be created in the repository"),
+            Self::Replace => f.write_str(
+                "the new segment could not replace .pdx/segment.db; the previous segment is \
+                 left as it was",
+            ),
         }
     }
 }
@@ -83,24 +93,115 @@ pub fn output(root: &Path, out: Option<&OsStr>) -> Result<Output, OutputError> {
     })
 }
 
-/// Makes the default `.pdx` directory, when the output is the default: kept when it is
-/// a plain directory, made when absent, refused otherwise.
+/// Makes the `.pdx` directory when the output is in it (the default, or `--out
+/// .pdx/<name>`): kept when it is a plain directory, made when absent, refused
+/// otherwise. `.pdx` ignores itself, and a partial file a stopped build left (a day old
+/// or more, so never a running build's) is removed.
 ///
 /// # Errors
 ///
 /// [`OutputError::PdxNotADirectory`] or [`OutputError::PdxCreate`].
 pub fn prepare(root: &Path, output: &Output) -> Result<(), OutputError> {
-    if !output.default {
+    let pdx = root.join(".pdx");
+    if !output.default && output.path.parent() != Some(pdx.as_path()) {
         return Ok(());
     }
-    let pdx = root.join(".pdx");
     match fs::symlink_metadata(&pdx) {
-        Ok(metadata) if metadata.file_type().is_dir() => Ok(()),
+        Ok(metadata) if metadata.file_type().is_dir() => {}
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            fs::create_dir(&pdx).map_err(|_| OutputError::PdxCreate)
+            fs::create_dir(&pdx).map_err(|_| OutputError::PdxCreate)?;
         }
-        _ => Err(OutputError::PdxNotADirectory),
+        _ => return Err(OutputError::PdxNotADirectory),
     }
+    // `.pdx` ignores itself, so what is written there never makes the tree dirty for
+    // Git or any other tool. Only made when absent; never written through a symlink.
+    let ignore = pdx.join(".gitignore");
+    if fs::symlink_metadata(&ignore).is_err() {
+        fs::write(&ignore, "*\n").map_err(|_| OutputError::PdxCreate)?;
+    }
+    let day = std::time::Duration::from_hours(24);
+    if let Ok(entries) = fs::read_dir(&pdx) {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            if !(name.starts_with("segment.db.") && name.ends_with(".partial")) {
+                continue;
+            }
+            // Regular files only (a symlink is never followed), and only old ones.
+            let Ok(metadata) = fs::symlink_metadata(entry.path()) else {
+                continue;
+            };
+            let old = metadata
+                .modified()
+                .ok()
+                .and_then(|m| m.elapsed().ok())
+                .is_some_and(|age| age >= day);
+            if metadata.file_type().is_file() && old {
+                let _ = remove_file(&entry.path());
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Where the build writes: for the default output, a partial file beside the segment
+/// it will replace, so the replacement is a rename within `.pdx`; else the output
+/// itself.
+pub fn staging_path(output: &Output) -> PathBuf {
+    if output.default {
+        output
+            .path
+            .with_file_name(format!("segment.db.{}.partial", std::process::id()))
+    } else {
+        output.path.clone()
+    }
+}
+
+/// Puts the segment built at `staged` in place of the default output, replacing the
+/// previous one; nothing for an explicit `--out`, which was written in place. The
+/// previous segment is never removed before the new one is in its place.
+///
+/// # Errors
+///
+/// [`OutputError::Replace`] when the rename fails; the partial file is removed and the
+/// previous segment is left as it was.
+pub fn publish(staged: &Path, output: &Output) -> Result<(), OutputError> {
+    if staged == output.path {
+        return Ok(());
+    }
+    let mut replaced = fs::rename(staged, &output.path);
+    if cfg!(windows) && replaced.is_err() {
+        // Windows will not rename over a read-only file, and a segment is published
+        // read-only: clear the attribute on the file itself (never through a link) and
+        // try once more.
+        if let Ok(metadata) = fs::symlink_metadata(&output.path)
+            && metadata.file_type().is_file()
+        {
+            let mut permissions = metadata.permissions();
+            #[allow(clippy::permissions_set_readonly_false)]
+            permissions.set_readonly(false);
+            let _ = fs::set_permissions(&output.path, permissions);
+        }
+        replaced = fs::rename(staged, &output.path);
+    }
+    replaced.map_err(|_| {
+        let _ = remove_file(staged);
+        OutputError::Replace
+    })
+}
+
+/// Removes a file the segment writer made read-only: on Unix unlinking needs only the
+/// directory's permission; on Windows the file's read-only attribute is cleared first,
+/// on the file itself. Never follows a symlink.
+fn remove_file(path: &Path) -> std::io::Result<()> {
+    let metadata = fs::symlink_metadata(path)?;
+    if cfg!(windows) && metadata.file_type().is_file() && metadata.permissions().readonly() {
+        let mut permissions = metadata.permissions();
+        #[allow(clippy::permissions_set_readonly_false)]
+        permissions.set_readonly(false);
+        let _ = fs::set_permissions(path, permissions);
+    }
+    fs::remove_file(path)
 }
 
 /// The platforms whose cache directory conventions differ.

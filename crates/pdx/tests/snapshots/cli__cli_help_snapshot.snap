@@ -27,7 +27,7 @@ Arguments:
   [PATH]  The repository, or a directory inside it [default: .]
 
 Options:
-      --out <FILE>         Where to write the segment; a relative path is below the repository root; never overwritten [default: .pdx/segment.db]
+      --out <FILE>         Where to write the segment; a relative path is below the repository root; a segment named here is never overwritten, the default one is replaced [default: .pdx/segment.db]
       --profile <PROFILE>  The build profile [default: structural] [possible values: structural]
       --json               Print the index report as JSON
   -h, --help               Print help
@@ -40,8 +40,9 @@ Print the coverage of the repository's segment, .pdx/segment.db
 Usage: pdx coverage [OPTIONS]
 
 Options:
-      --json  Print the coverage as JSON
-  -h, --help  Print help
+      --segment <PATH>  Read this segment instead (one `pdx index --out` wrote)
+      --json            Print the coverage as JSON
+  -h, --help            Print help
 
 $ pdx version --help
 Print the versions of pdx, the engine, the segment schema and the language matrix

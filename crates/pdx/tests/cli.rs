@@ -415,12 +415,71 @@ fn cli_runtime_errors_exit_one_with_nothing_on_stdout() {
     );
     fails(&["--out", "missing/dir/x.db"], &[], "missing/dir/x.db");
     assert!(!world.segment().exists());
-    // The destination is never overwritten.
+    // A segment `--out` names is never overwritten; the default one is replaced
+    // (issue 99), by the same bytes for the same commit.
     let output = world.pdx(&["index"]);
     assert_eq!(code(&output), 0, "{}", stderr(&output));
     let before = fs::read(world.segment()).expect("the segment");
-    fails(&[], &[], "already exists");
+    let output = world.pdx(&["index", "--out", ".pdx/named.db"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    fails(&["--out", ".pdx/named.db"], &[], "already exists");
+    let output = world.pdx(&["index"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
     assert_eq!(fs::read(world.segment()).expect("the segment"), before);
+}
+
+#[test]
+fn cli_index_runs_again_after_every_commit() {
+    // Issue 99: a repository whose ignore files do not cover `.pdx/` is indexed, then
+    // indexed again, then changed, committed and indexed again: each run succeeds, the
+    // tree stays clean for Git, and the default segment is the latest commit's.
+    let mut files = SHOP;
+    files[0] = (".gitignore", "*.log\n");
+    let world = World::repository(&files, Some(ORIGIN));
+    let first = world.pdx(&["index", "--json"]);
+    assert_eq!(code(&first), 0, "{}", stderr(&first));
+    let status = Command::new("git")
+        .args([
+            "-C",
+            world.root().to_str().expect("UTF-8"),
+            "status",
+            "--porcelain",
+        ])
+        .output()
+        .expect("git runs");
+    assert_eq!(stdout(&status), "", "the build left the tree dirty");
+    let again = world.pdx(&["index", "--json"]);
+    assert_eq!(code(&again), 0, "{}", stderr(&again));
+    assert_eq!(
+        json(&first)["repository"]["commit_sha"],
+        json(&again)["repository"]["commit_sha"]
+    );
+
+    world.write("shop/fees.py", "def fee():\n    return 2\n");
+    world.git(&["add", "-A"]);
+    world.git(&["commit", "-q", "--no-verify", "-m", "fees"]);
+    let third = world.pdx(&["index", "--json"]);
+    assert_eq!(code(&third), 0, "{}", stderr(&third));
+    assert_ne!(
+        json(&third)["repository"]["commit_sha"],
+        json(&first)["repository"]["commit_sha"]
+    );
+    let entries: Vec<String> = fs::read_dir(world.root().join(".pdx"))
+        .expect(".pdx")
+        .map(|e| {
+            e.expect("an entry")
+                .file_name()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    let mut entries = entries;
+    entries.sort();
+    assert_eq!(
+        entries,
+        [".gitignore", "segment.db"],
+        "no partial file is left"
+    );
 }
 
 #[test]
@@ -458,7 +517,7 @@ fn cli_index_refuses_what_is_not_a_clean_commit() {
         let output = world.pdx(&["index"]);
         assert_eq!(code(&output), 1, "{change}: {}", stderr(&output));
         assert!(
-            stderr(&output).contains("uncommitted"),
+            stderr(&output).contains("not exactly its commit"),
             "{change}: {}",
             stderr(&output)
         );
@@ -791,4 +850,81 @@ fn cli_coverage_errors_exit_one() {
     // Not a repository.
     let output = world.pdx_in(world.elsewhere.path(), &["coverage"], &[]);
     assert_eq!(code(&output), 1);
+}
+
+#[test]
+fn cli_coverage_reads_a_named_segment() {
+    // A segment `--out` wrote is read with `--segment`, from anywhere.
+    let world = World::repository(&SHOP, Some(ORIGIN));
+    let indexed = world.pdx(&["index", "--out", ".pdx/named.db", "--json"]);
+    assert_eq!(code(&indexed), 0, "{}", stderr(&indexed));
+    let named = world.root().join(".pdx").join("named.db");
+    let named = named.to_str().expect("UTF-8");
+    let output = world.pdx_in(
+        world.elsewhere.path(),
+        &["coverage", "--segment", named, "--json"],
+        &[],
+    );
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert_eq!(
+        json(&output)["commit_sha"],
+        json(&indexed)["repository"]["commit_sha"]
+    );
+    let missing = world.pdx_in(
+        world.elsewhere.path(),
+        &["coverage", "--segment", "nope.db"],
+        &[],
+    );
+    assert_eq!(code(&missing), 1);
+    assert!(
+        stderr(&missing).contains("no segment at nope.db"),
+        "{}",
+        stderr(&missing)
+    );
+}
+
+#[test]
+fn cli_index_refuses_what_discovery_would_read_but_git_hides() {
+    // Discovery reads only the repository's `.gitignore` files: a file hidden only by
+    // `.git/info/exclude` would be indexed, so it counts as a change; a skip-worktree
+    // entry's bytes may not be its commit's, so it counts too.
+    let world = World::repository(&SHOP, Some(ORIGIN));
+    fs::write(world.root().join(".git/info/exclude"), "scratch.py\n").expect("exclude");
+    world.write("scratch.py", "def scratch():\n    return 1\n");
+    let output = world.pdx(&["index"]);
+    assert_eq!(code(&output), 1, "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("info/exclude"),
+        "{}",
+        stderr(&output)
+    );
+
+    let world = World::repository(&SHOP, Some(ORIGIN));
+    world.git(&["update-index", "--skip-worktree", "shop/prices.py"]);
+    world.write("shop/prices.py", "def total(items):\n    return 0\n");
+    let output = world.pdx(&["index"]);
+    assert_eq!(code(&output), 1, "{}", stderr(&output));
+    assert!(
+        stderr(&output).contains("skip-worktree"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn cli_identity_is_origin_as_configured_never_rewritten() {
+    // A user's `insteadOf` rule (HTTPS fetched over SSH) does not change the identity:
+    // the configured HTTPS origin is the repository's.
+    let world = World::repository(&SHOP, Some(ORIGIN));
+    fs::write(
+        world.home.path().join("gitconfig"),
+        "[url \"git@git.example:\"]\n\tinsteadOf = https://git.example/\n",
+    )
+    .expect("a global configuration");
+    let output = world.pdx(&["index", "--json"]);
+    assert_eq!(code(&output), 0, "{}", stderr(&output));
+    assert_eq!(
+        json(&output)["repository"]["repo_url"],
+        "https://git.example/acme/shop"
+    );
 }
