@@ -30,7 +30,8 @@ use crate::ids::RepoId;
 use crate::index::derive::{DeriveError, DeriveInput};
 use crate::index::discover::DiscoverError;
 use crate::index::extract::{
-    BackendFactory, ExtractCache, ExtractError, ExtractLimits, ExtractStage, SurfaceSpill,
+    BackendFactory, ExtractCache, ExtractError, ExtractLimits, ExtractReport, ExtractStage,
+    SurfaceSpill,
 };
 use crate::resolve::registry::{RegistryError, SymbolRegistry};
 use crate::resolve::stages::{ResolutionError, resolve};
@@ -202,23 +203,12 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
     })?;
     let extracted = report.stage(Stage::Extract, |span| {
         span.record("files", found.files.len());
-        let spill = surface_spill(build_dir.as_deref(), &destination).map_err(|source| {
-            ExtractError::Spill {
-                path: String::new(),
-                source,
-            }
-        })?;
-        let mut stage = ExtractStage::new(root, &found.config.secrets, limits)
-            .with_surface_spill(Arc::new(spill));
-        if let Some(cache) = cache {
-            stage = stage.with_cache(cache);
-        }
-        if let Some(backend) = backend {
-            stage = stage.with_backend(backend);
-        }
-        let extracted = stage.run(&found.files)?;
+        let spill = surface_spill(build_dir.as_deref(), &destination)?;
+        let extracted = extract(root, &found, limits, cache, backend, spill)?;
         Ok((extracted.files.len() as u64, extracted))
     })?;
+    // Stage 2's workers freed what they extracted with; give it back before Stage 3.
+    pdx_engine::release_freed_memory();
     let extract_stats = extracted.stats.clone();
     let (registry, resolution) = report.stage(Stage::Resolve, |span| {
         let registry = SymbolRegistry::build(root, &found.files, extracted)?;
@@ -226,6 +216,8 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
         span.record("call_sites", resolution.resolutions.len());
         Ok((resolution.resolutions.len() as u64, (registry, resolution)))
     })?;
+    // Typed resolution's engine project has ended.
+    pdx_engine::release_freed_memory();
     let (graph, coverage, files, degraded) = report.stage(Stage::Derive, |span| {
         let graph = derive::derive(&DeriveInput {
             repo: &repo_id,
@@ -280,15 +272,43 @@ struct Found {
 }
 
 /// Stage 1: the repository's configuration and files.
+/// Stage 2 as a build runs it: with the build's surface spill, and the cache and
+/// backend the request names.
+fn extract(
+    root: &Path,
+    found: &Found,
+    limits: ExtractLimits,
+    cache: Option<&dyn ExtractCache>,
+    backend: Option<&BackendFactory<'_>>,
+    spill: SurfaceSpill,
+) -> Result<ExtractReport, ExtractError> {
+    let mut stage =
+        ExtractStage::new(root, &found.config.secrets, limits).with_surface_spill(Arc::new(spill));
+    if let Some(cache) = cache {
+        stage = stage.with_cache(cache);
+    }
+    if let Some(backend) = backend {
+        stage = stage.with_backend(backend);
+    }
+    stage.run(&found.files)
+}
+
 /// The build's surface spill (P2-17), on the disk the segment is built on: in
 /// `build_dir` when one is given, else beside the destination, as the segment itself is
 /// staged; the system's temporary directory only when neither exists yet.
-fn surface_spill(build_dir: Option<&Path>, destination: &Path) -> std::io::Result<SurfaceSpill> {
+fn surface_spill(
+    build_dir: Option<&Path>,
+    destination: &Path,
+) -> Result<SurfaceSpill, ExtractError> {
     let dir = build_dir.or_else(|| destination.parent().filter(|d| !d.as_os_str().is_empty()));
     match dir {
         Some(dir) if dir.is_dir() => SurfaceSpill::create_in(dir),
         _ => SurfaceSpill::create(),
     }
+    .map_err(|source| ExtractError::Spill {
+        path: String::new(),
+        source,
+    })
 }
 
 fn discovered(root: &Path) -> Result<Found, IndexError> {

@@ -40,3 +40,23 @@ pub use resolver::{
     AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ProjectResolution,
     ProjectResolver, ResolutionMetadata, RunHealth, RunStatus, SiteRef, Strategy, TypedResolution,
 };
+
+/// Gives the memory the process has freed back to the operating system (P2-17).
+///
+/// With glibc, memory freed on a thread stays in that thread's allocation arena: Stage 2's
+/// extraction workers, and the engine they run, free nearly everything they allocate,
+/// and the arenas kept it, more than a third of the build's resident memory on a cold
+/// extraction. A build calls this between its stages. It changes no result; elsewhere
+/// it does nothing.
+pub fn release_freed_memory() {
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    {
+        unsafe extern "C" {
+            fn malloc_trim(pad: usize) -> std::ffi::c_int;
+        }
+        // SAFETY: glibc's `malloc_trim` takes no pointer and only returns free memory.
+        unsafe {
+            malloc_trim(0);
+        }
+    }
+}

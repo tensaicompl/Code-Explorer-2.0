@@ -501,7 +501,9 @@ impl<'a> ExtractStage<'a> {
 
     /// Moves each extraction's surface to `spill` as it completes, after the cache has
     /// stored the whole record (P2-17): the report's extractions hold empty surfaces and
-    /// [`ExtractReport::surfaces`] the spill.
+    /// [`ExtractReport::surfaces`] the spill. They also hold none of the facts only the
+    /// engine reads ([`FileExtract::shed_engine_facts`]), which typed resolution reads
+    /// from the surface: a build's stages never read them.
     #[must_use]
     pub fn with_surface_spill(mut self, spill: Arc<SurfaceSpill>) -> Self {
         self.spill = Some(spill);
@@ -790,7 +792,8 @@ impl<'a> ExtractStage<'a> {
 }
 
 impl ExtractStage<'_> {
-    /// Moves `extract`'s surface to the stage's spill, if it has one.
+    /// Moves `extract`'s surface to the stage's spill, if it has one, and sheds the
+    /// facts only the engine reads.
     fn spill_surface(&self, path: &str, extract: &mut FileExtract) -> Result<(), ExtractError> {
         let Some(spill) = &self.spill else {
             return Ok(());
@@ -801,7 +804,11 @@ impl ExtractStage<'_> {
             .map_err(|source| ExtractError::Spill {
                 path: path.to_owned(),
                 source,
-            })
+            })?;
+        // What only the engine reads, it reads from the surface: the build's stages never
+        // read these facts, and holding them for every file was a fifth of Stage 2.
+        extract.shed_engine_facts();
+        Ok(())
     }
 }
 

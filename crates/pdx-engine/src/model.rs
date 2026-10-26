@@ -995,6 +995,17 @@ impl FileExtract {
         Surface(std::mem::take(&mut self.record.surface.0))
     }
 
+    /// Drops the facts only the engine reads, which it reads from the surface (P2-17):
+    /// usages, type references, field reads and writes, throws and environment reads.
+    /// A build's own stages never read them, so it sheds them once the surface is kept.
+    pub fn shed_engine_facts(&mut self) {
+        self.record.usages = Vec::new();
+        self.record.type_refs = Vec::new();
+        self.record.read_writes = Vec::new();
+        self.record.throws = Vec::new();
+        self.record.env_accesses = Vec::new();
+    }
+
     /// The exact bytes extracted.
     pub fn source(&self) -> &[u8] {
         &self.source
