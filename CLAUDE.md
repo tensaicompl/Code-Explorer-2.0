@@ -83,8 +83,13 @@ that cannot work yet because a prerequisite is not built is recorded, not forced
   file is added to the engine's project with an empty marker result
   (`ProjectResolver::cache_marker`): the project reads such a file from its surface alone,
   and the old full rebuild copied the whole record into C for nothing (peak → 1.95 GB).
-  Next: shed the fields no later stage reads, stop cloning calls into Stage 3's
-  results, and the engine patch that decodes each surface only for its own file. The `registry` guard test allows only these
+  Stage 2 sheds the facts only the engine reads (`FileExtract::shed_engine_facts`) and
+  `pdx_engine::release_freed_memory` (glibc `malloc_trim`) runs between stages. The
+  engine's project keeps the caller's surfaces (`pdxe_resolve_project_set_surface_source`,
+  `ProjectResolver::set_surface_source`, patch 0036's per-file result hooks): light
+  results for every file, one whole result at a time. Kubernetes `pkg/` warm: Stage 3
+  1.73 → 1.20 GB; full Kubernetes (25,930 files) now completes (131 s, 7.0 GB before
+  this last step); the peak is now Stage 4/5 holding the whole graph, next. The `registry` guard test allows only these
   byte-moving mentions of a surface.
 - **Plan v1.4 (2026-10-26, decisions 72 to 85):** the owner accepted the plan review
   with the instruction that the tool be best in class. The external plan is

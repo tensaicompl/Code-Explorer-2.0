@@ -1,0 +1,45 @@
+--- a/engine/src/resolve/pass_lsp_cross.c
++++ b/engine/src/resolve/pass_lsp_cross.c
+@@ -90,6 +90,23 @@ void pdxe_pxc_set_source_provider(pdxe_pxc_source_fn fn, void *userdata) {
+     pxc_source_userdata = userdata;
+ }
+ 
++/* Where a file's whole result comes from when the caller keeps only part of each in
++ * memory (P2-17, issue 82): `materialise` makes cache[i] the file's whole result just
++ * before the file is resolved, and `release` takes it back just after. A file
++ * `materialise` cannot complete is not resolved; the hook counts the loss. Thread-local,
++ * as the source provider is. */
++typedef bool (*pdxe_pxc_result_fn)(int index, void *userdata);
++static _Thread_local pdxe_pxc_result_fn pxc_materialise_fn = NULL;
++static _Thread_local pdxe_pxc_result_fn pxc_release_fn = NULL;
++static _Thread_local void *pxc_result_userdata = NULL;
++
++void pdxe_pxc_set_result_hooks(pdxe_pxc_result_fn materialise, pdxe_pxc_result_fn release,
++                               void *userdata) {
++    pxc_materialise_fn = materialise;
++    pxc_release_fn = release;
++    pxc_result_userdata = userdata;
++}
++
+ static char *pxc_read_file(const char *path, int *out_len) {
+     if (pxc_source_fn) {
+         return pxc_source_fn(path, out_len, pxc_source_userdata);
+@@ -2049,9 +2066,15 @@ int pdxe_pipeline_pass_lsp_cross(pdxe_pipeline_ctx_t *ctx, const pdxe_file_info_
+          * file, not to a stale extraction marker (the innocent-quarantine
+          * failure mode). */
+         pdxe_index_mark_start(files[i].rel_path);
+-        pdxe_pxc_dispatch_file(lang, cache[i], source, source_len, files[i].rel_path, def_modules[i],
+-                              &cross_registries, module_def_index, all_defs, def_count, imp_keys,
+-                              imp_vals, imp_count, NULL, NULL);
++        bool whole = !pxc_materialise_fn || pxc_materialise_fn(i, pxc_result_userdata);
++        if (whole) {
++            pdxe_pxc_dispatch_file(lang, cache[i], source, source_len, files[i].rel_path,
++                                  def_modules[i], &cross_registries, module_def_index, all_defs,
++                                  def_count, imp_keys, imp_vals, imp_count, NULL, NULL);
++            if (pxc_release_fn) {
++                pxc_release_fn(i, pxc_result_userdata);
++            }
++        }
+         pdxe_index_mark_done(files[i].rel_path);
+         per_lang_calls++;
+         processed++;

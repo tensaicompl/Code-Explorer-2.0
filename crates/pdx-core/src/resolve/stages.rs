@@ -381,6 +381,15 @@ pub fn typed_resolution(
 ) -> Result<ProjectResolution, ResolutionError> {
     let engine = Engine::new()?;
     let mut project = ProjectResolver::new(&engine)?;
+    // Each file's surface is read whole only while its own file resolves (P2-17): the
+    // project holds every file's definitions and imports, and one file's sites.
+    project.set_surface_source(|path| {
+        registry
+            .surface(path)
+            .ok()
+            .flatten()
+            .map(std::borrow::Cow::into_owned)
+    })?;
     project.set_metadata(registry.resolution_metadata())?;
     for path in registry.files() {
         let Some(FileOutcome::Extracted { extract, blob_sha }) = registry.outcome(path) else {

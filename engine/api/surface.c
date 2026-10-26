@@ -1203,8 +1203,33 @@ void pdxe_surface_texts_free(pdxe_surface_texts *texts) {
     }
 }
 
+/* The arrays a light decode keeps (P2-17): what a project reads of every file before it
+ * resolves any (definitions, imports, `impl` relations), as opposed to a file's sites,
+ * which only its own resolution reads. */
+static bool light_array(const array_spec *a) {
+    return a->items_offset == offsetof(PDXEFileResult, defs) ||
+           a->items_offset == offsetof(PDXEFileResult, imports) ||
+           a->items_offset == offsetof(PDXEFileResult, impl_traits);
+}
+
+static int decode_surface(const uint8_t *bytes, size_t len, bool light, PDXEFileResult **out,
+                          char **rel_path, int *abi_lang, uint32_t *lost,
+                          pdxe_surface_texts **texts);
+
 int pdxe_surface_decode(const uint8_t *bytes, size_t len, PDXEFileResult **out, char **rel_path,
                         int *abi_lang, uint32_t *lost, pdxe_surface_texts **texts) {
+    return decode_surface(bytes, len, false, out, rel_path, abi_lang, lost, texts);
+}
+
+int pdxe_surface_decode_light(const uint8_t *bytes, size_t len, PDXEFileResult **out,
+                              char **rel_path, int *abi_lang, uint32_t *lost,
+                              pdxe_surface_texts **texts) {
+    return decode_surface(bytes, len, true, out, rel_path, abi_lang, lost, texts);
+}
+
+static int decode_surface(const uint8_t *bytes, size_t len, bool light, PDXEFileResult **out,
+                          char **rel_path, int *abi_lang, uint32_t *lost,
+                          pdxe_surface_texts **texts) {
     if (!bytes || !out || !rel_path || !abi_lang || !lost || !texts) {
         return PDXE_E_INVALID;
     }
@@ -1252,6 +1277,9 @@ int pdxe_surface_decode(const uint8_t *bytes, size_t len, PDXEFileResult **out, 
         if (!yyjson_is_arr(list)) {
             ok = false;
             break;
+        }
+        if (light && !light_array(&ARRAYS[a])) {
+            continue; /* left empty: the full surface is decoded when the file resolves */
         }
         size_t n = yyjson_arr_size(list);
         any_array *arr = AT(r, ARRAYS[a].items_offset, any_array);

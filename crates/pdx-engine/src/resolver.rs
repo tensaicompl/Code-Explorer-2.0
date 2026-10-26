@@ -1,7 +1,7 @@
 //! Typed resolution across the files of a project.
 
 use std::collections::BTreeMap;
-use std::ffi::{CString, c_char};
+use std::ffi::{CStr, CString, c_char, c_int, c_void};
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 
@@ -260,6 +260,49 @@ pub struct ProjectResolver<'e> {
     files: BTreeMap<String, (u32, u64)>,
     /// The first error that left the project unusable.
     broken: Option<EngineError>,
+    /// The caller's surfaces, asked for one file at a time, when it keeps them (P2-17).
+    /// Freed after the project ends, which is the last time the engine can ask.
+    surface_source: Option<Box<SurfaceSource<'e>>>,
+}
+
+/// A caller's surfaces by path: the surface's bytes, or `None` when it has none.
+type SurfaceFn<'s> = Box<dyn FnMut(&str) -> Option<Vec<u8>> + 's>;
+
+/// What [`ProjectResolver::set_surface_source`] keeps for the engine to call.
+struct SurfaceSource<'s> {
+    source: SurfaceFn<'s>,
+    /// The bytes the engine was last given, alive until it asks again.
+    last: Vec<u8>,
+}
+
+/// The engine's call for a file's whole surface: the caller's source, asked by path.
+/// Never unwinds into the engine: a panicking source is a surface not given.
+unsafe extern "C" fn give_surface(
+    userdata: *mut c_void,
+    rel_path: *const c_char,
+    bytes: *mut *const u8,
+    len: *mut usize,
+) -> c_int {
+    // SAFETY: `userdata` is the `SurfaceSource` the resolver set with this function and
+    // keeps alive past the project's end; the engine calls on the project's one thread.
+    let state = unsafe { &mut *userdata.cast::<SurfaceSource<'_>>() };
+    // SAFETY: the engine passes the NUL-terminated path the file was added with.
+    let Ok(path) = unsafe { CStr::from_ptr(rel_path) }.to_str() else {
+        return 1;
+    };
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| (state.source)(path))) {
+        Ok(Some(found)) => {
+            state.last = found;
+            // SAFETY: the engine passes places to write; the bytes stay in `last` until
+            // the next call.
+            unsafe {
+                *bytes = state.last.as_ptr();
+                *len = state.last.len();
+            }
+            0
+        }
+        _ => 1,
+    }
 }
 
 impl<'e> ProjectResolver<'e> {
@@ -282,6 +325,7 @@ impl<'e> ProjectResolver<'e> {
             held: Vec::new(),
             files: BTreeMap::new(),
             broken: None,
+            surface_source: None,
         })
     }
 
@@ -333,6 +377,44 @@ impl<'e> ProjectResolver<'e> {
         source: &[u8],
     ) -> Result<FileExtract, EngineError> {
         let result = self.extract_and_add_inner(language, rel_path, source);
+        self.note(result)
+    }
+
+    /// Keeps the files' surfaces with the caller (P2-17): every surface added from now on
+    /// is read light, its definitions, imports and `impl` relations alone, and `source`
+    /// is asked for a file's surface again, by its path, when the run resolves that file,
+    /// so the run holds one file's whole result at a time instead of every file's. The
+    /// answers are the same. Set before any file is added.
+    ///
+    /// `source` must give the very surface the file is added with; one it cannot give, or
+    /// gives wrong, leaves the file unresolved, counted in the run's health.
+    ///
+    /// # Errors
+    ///
+    /// The engine's refusal: a file already added, or a source already set. After an
+    /// error the project cannot run.
+    pub fn set_surface_source(
+        &mut self,
+        source: impl FnMut(&str) -> Option<Vec<u8>> + 'e,
+    ) -> Result<(), EngineError> {
+        let mut state = Box::new(SurfaceSource {
+            source: Box::new(source),
+            last: Vec::new(),
+        });
+        let userdata = (&raw mut *state).cast::<c_void>();
+        // SAFETY: the project is alive; `give_surface` matches the interface's type, and
+        // `state` is kept in `self` until after the project ends.
+        let status = unsafe {
+            sys::pdxe_resolve_project_set_surface_source(
+                self.project.as_ptr(),
+                Some(give_surface),
+                userdata,
+            )
+        };
+        let result = check(status, "pdxe_resolve_project_set_surface_source", None);
+        if result.is_ok() {
+            self.surface_source = Some(state);
+        }
         self.note(result)
     }
 

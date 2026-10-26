@@ -166,7 +166,12 @@ Everything goes through `include/pdxe.h`. In outline:
 - **Caching.** `pdxe_result_build` rebuilds a result from the parts a cache keeps,
   and `pdxe_surface_export` / `pdxe_surface_import` carry everything the resolver
   reads from a file, so an unchanged file is never extracted again and resolves
-  exactly as it would fresh.
+  exactly as it would fresh. With `pdxe_resolve_project_set_surface_source`, the caller keeps
+  the surfaces: each is imported light (definitions, imports, `impl` relations) and
+  decoded whole only while its own file resolves, through the cross-file pass's
+  per-file result hooks (patch 0036); the file's answers are copied into the project's
+  arena and its whole result freed (P2-17). `resolve_dump --lazy` runs every fixture
+  that way, and the fixture tests require the same answers.
 
 Nothing in the interface writes to standard output or standard error. The engine's
 own debugging prints stay behind their switches, which are off unless a debugging

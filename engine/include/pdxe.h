@@ -941,6 +941,27 @@ int pdxe_surface_export(const pdxe_file_result *r, const char *rel_path, uint8_t
 int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len);
 void pdxe_surface_free(uint8_t *bytes);
 
+/*
+ * Where a project asks for a file's whole surface when the caller keeps the surfaces
+ * itself (P2-17). Set once, before any surface is imported and before the run; then
+ * every surface imported is decoded light (the file's definitions, imports and `impl`
+ * relations, what the run reads of every file before it resolves any), and the run
+ * asks for each file's surface again, by the path it was imported for, just before it
+ * resolves that file, decodes it whole, resolves the file, keeps its answers and frees
+ * it. The run then holds one file's whole result at a time instead of every file's.
+ * The answers are the same as with every surface decoded whole.
+ *
+ * The source writes a pointer to the surface's bytes and their length and returns 0;
+ * the bytes must be the ones imported for that path and must stay valid until the
+ * source is called again or the run returns. A source that returns non-zero, or bytes
+ * of another file, leaves that file unresolved, counted as lost work in the run's
+ * health. The source is called on the thread running the project.
+ */
+typedef int (*pdxe_surface_source_fn)(void *userdata, const char *rel_path,
+                                     const uint8_t **bytes, size_t *len);
+int pdxe_resolve_project_set_surface_source(pdxe_project *p, pdxe_surface_source_fn fn,
+                                            void *userdata);
+
 #ifdef __cplusplus
 }
 #endif

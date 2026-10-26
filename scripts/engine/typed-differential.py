@@ -80,11 +80,12 @@ def run_field(key):
     sys.exit(f"error: {RUN_DATA.name} has no {key}")
 
 
-def ours(dump, fixture, reverse=False, cached=False):
+def ours(dump, fixture, reverse=False, cached=False, lazy=False):
     """Our rows: {(kind, source, target): set of strategies}. Run from an empty working
     directory of its own, the fixture given by absolute path (decision 52)."""
     args = ([str(pathlib.Path(dump).resolve())] + (["--reverse"] if reverse else [])
-            + (["--cached"] if cached else []) + [str(pathlib.Path(fixture).resolve())])
+            + (["--cached"] if cached else []) + (["--lazy"] if lazy else [])
+            + [str(pathlib.Path(fixture).resolve())])
     with tempfile.TemporaryDirectory(prefix="pdx-typed-ours-cwd-") as cwd:
         out = subprocess.run(args, cwd=cwd, capture_output=True, text=True)
     if out.returncode != 0:
@@ -273,6 +274,9 @@ def main():
             problems.append("  the answers change when the files are added in reverse order")
         if ours(a.dump, fixture, cached=True) != mine:
             problems.append("  the answers change when the files come from a cache")
+        if ours(a.dump, fixture, lazy=True) != mine:
+            problems.append("  the answers change when each surface is decoded only for "
+                            "its own file")
         if a.reference:
             theirs = reference(binary, fixture)
             if a.update:

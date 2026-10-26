@@ -2,7 +2,7 @@
  * Prints what typed resolution decided for a directory of source files, one row per
  * decision, in a form that can be compared with the reference engine's graph.
  *
- *     resolve_dump [--reverse] [--cached] <dir>
+ *     resolve_dump [--reverse] [--cached | --lazy] <dir>
  *
  * --reverse adds the files in reverse path order, to show which answers depend on
  * the order files are added.
@@ -11,6 +11,10 @@
  * holds: the extraction result is reduced to its surface and to the parts a cache
  * keeps, freed, and the file is added with a result rebuilt from those parts and its
  * surface imported, so nothing is extracted twice. The answers must not change.
+ *
+ * --lazy is --cached with the surfaces kept by the caller (P2-17): each is imported
+ * light and asked for again, whole, when its file resolves
+ * (pdxe_resolve_project_set_surface_source). The answers must not change either.
  * Every file under <dir> in a language this harness knows is extracted, added to one
  * project in path order, and resolved. A run that is not clean is refused: its rows
  * would be incomplete without saying so. Each row is tab-separated:
@@ -233,19 +237,42 @@ static void print_import(const char *rel, const char *local, const char *target,
     printf("IMPORTS\tFILE:%s\t%s\t%s\n", rel, target ? target : "-", local);
 }
 
+/* The surfaces --lazy keeps, asked for by path. */
+typedef struct {
+    const strings *files;
+    uint8_t **surfaces;
+    size_t *lens;
+} surface_store;
+
+static int give_surface(void *userdata, const char *rel_path, const uint8_t **bytes,
+                        size_t *len) {
+    const surface_store *s = (const surface_store *)userdata;
+    for (size_t i = 0; i < s->files->count; i++) {
+        if (s->surfaces[i] && strcmp(s->files->items[i], rel_path) == 0) {
+            *bytes = s->surfaces[i];
+            *len = s->lens[i];
+            return 0;
+        }
+    }
+    return 1;
+}
+
 int main(int argc, char **argv) {
-    int reverse = 0, cached = 0;
+    int reverse = 0, cached = 0, lazy = 0;
     for (int a = 1; a < argc - 1; a++) {
         if (strcmp(argv[a], "--reverse") == 0) {
             reverse = 1;
         } else if (strcmp(argv[a], "--cached") == 0) {
             cached = 1;
+        } else if (strcmp(argv[a], "--lazy") == 0) {
+            lazy = 1;
         }
     }
-    if (argc != 2 + reverse + cached) {
-        fprintf(stderr, "usage: resolve_dump [--reverse] [--cached] <dir>\n");
+    if (argc != 2 + reverse + cached + lazy || (cached && lazy)) {
+        fprintf(stderr, "usage: resolve_dump [--reverse] [--cached | --lazy] <dir>\n");
         return 2;
     }
+    cached |= lazy;
     const char *dir = argv[argc - 1];
     strings files = {0};
     walk(dir, "", &files);
@@ -264,6 +291,13 @@ int main(int argc, char **argv) {
     }
     pdxe_project *p = NULL;
     if (pdxe_resolve_project_begin(ctx, &p) != PDXE_OK) {
+        return 1;
+    }
+    uint8_t **kept = calloc(files.count ? files.count : 1, sizeof(*kept));
+    size_t *kept_lens = calloc(files.count ? files.count : 1, sizeof(*kept_lens));
+    surface_store store = {&files, kept, kept_lens};
+    if (lazy && pdxe_resolve_project_set_surface_source(p, give_surface, &store) != PDXE_OK) {
+        fprintf(stderr, "cannot keep the surfaces\n");
         return 1;
     }
     pdxe_file_result **results = calloc(files.count ? files.count : 1, sizeof(*results));
@@ -296,7 +330,12 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "cannot cache %s\n", files.items[i]);
                 return 1;
             }
-            pdxe_surface_free(surface);
+            if (lazy) {
+                kept[i] = surface;
+                kept_lens[i] = surface_len;
+            } else {
+                pdxe_surface_free(surface);
+            }
             pdxe_result_free(ctx, results[i]);
             results[i] = rebuilt;
         }
@@ -356,10 +395,13 @@ int main(int argc, char **argv) {
 
     pdxe_resolve_project_end(p);
     for (size_t i = 0; i < files.count; i++) {
+        pdxe_surface_free(kept[i]);
         pdxe_result_free(ctx, results[i]);
         free(sources[i]);
         free(files.items[i]);
     }
+    free(kept);
+    free(kept_lens);
     free(results);
     free(sources);
     free(lens);

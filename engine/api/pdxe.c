@@ -1982,7 +1982,13 @@ typedef struct {
     bool source_served;
     /* What extraction lost on the file before it reached the project. */
     uint32_t extraction_lost;
+    /* P2-17: the file's light result, kept aside while its whole one resolves, and
+     * whether its answers were collected then. */
+    PDXEFileResult *light;
+    bool collected;
 } file_state;
+
+struct resolution_list;
 
 struct pdxe_project {
     pdxe_ctx *ctx;
@@ -2032,6 +2038,18 @@ struct pdxe_project {
     PDXEHashTable *surface_by_path;
 
     string_list owned;
+
+    /* P2-17: where each file's whole surface comes from when the caller keeps the
+     * surfaces (pdxe_resolve_project_set_surface_source). Then each surface imported is
+     * decoded light, its definitions, imports and `impl` relations alone, and decoded
+     * whole only while its own file resolves; that file's answers are copied into
+     * `kept` and its whole result freed, so the run holds every file's light result and
+     * one file's whole one, never every whole one. */
+    pdxe_surface_source_fn surface_source;
+    void *surface_userdata;
+    struct resolution_list *per_file;
+    PDXEArena kept;
+    bool kept_live;
 };
 
 /* The index stored for `i`, and back. */
@@ -2243,7 +2261,9 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
     int lang = 0;
     uint32_t lost = 0;
     pdxe_surface_texts *texts = NULL;
-    int rc = pdxe_surface_decode(bytes, len, &r, &path, &lang, &lost, &texts);
+    int rc = p->surface_source
+                 ? pdxe_surface_decode_light(bytes, len, &r, &path, &lang, &lost, &texts)
+                 : pdxe_surface_decode(bytes, len, &r, &path, &lang, &lost, &texts);
     if (rc != PDXE_OK) {
         return rc;
     }
@@ -2291,6 +2311,16 @@ int pdxe_surface_import(pdxe_project *p, const uint8_t *bytes, size_t len) {
     p->surface_texts[p->n_surfaces] = texts;
     pdxe_ht_set(p->surface_by_path, path, INDEX_VALUE(p->n_surfaces));
     p->n_surfaces++;
+    return PDXE_OK;
+}
+
+int pdxe_resolve_project_set_surface_source(pdxe_project *p, pdxe_surface_source_fn fn,
+                                            void *userdata) {
+    if (!p || !fn || p->ran || p->n_surfaces > 0 || p->surface_source) {
+        return PDXE_E_INVALID;
+    }
+    p->surface_source = fn;
+    p->surface_userdata = userdata;
     return PDXE_OK;
 }
 
@@ -2744,7 +2774,7 @@ static const char *engine_strategy_of(const PDXEResolvedCall *rc) {
     return rc->strategy ? rc->strategy : "lsp_override";
 }
 
-typedef struct {
+typedef struct resolution_list {
     pdxe_resolution *items;
     uint32_t count;
     uint32_t cap;
@@ -3132,27 +3162,222 @@ static int cmp_resolution_site(const void *a, const void *b) {
  * The results: for each file in the order added, its resolved sites in call order.
  * Each site appears at most once, so the order is total.
  */
+/* File i's answers, appended to `out` in call order. */
+static int collect_file(pdxe_project *p, int i, resolution_list *out) {
+    uint32_t first = out->count;
+    uint32_t n_refs = count_reference_sites(&p->cache[i]->usages);
+    int rc = collect_calls(p, i, n_refs, out);
+    if (rc == PDXE_OK) {
+        rc = collect_references(p, i, out);
+    }
+    if (rc != PDXE_OK) {
+        return rc;
+    }
+    for (uint32_t k = first; k < out->count; k++) {
+        out->items[k].rel_path = p->files[i].rel_path;
+        out->items[k].strategy = TYPED_STRATEGY;
+        out->items[k].candidates = 1;
+    }
+    if (out->count - first > 1) {
+        qsort(out->items + first, out->count - first, sizeof(*out->items), cmp_resolution_site);
+    }
+    return PDXE_OK;
+}
+
+/* --- one whole result at a time (P2-17) ----------------------------------------------- */
+
+static const char *kept_string(pdxe_project *p, const char *s, bool *failed) {
+    if (!s) {
+        return NULL;
+    }
+    char *copy = pdxe_arena_strdup(&p->kept, s);
+    if (!copy) {
+        *failed = true;
+    }
+    return copy;
+}
+
+/* Copies every string the answers in `l` point to into the project's own arena, so the
+ * whole result they were collected from can be freed. Their rel_path is the project's
+ * own and their strategy a constant already. */
+static int keep_answers(pdxe_project *p, resolution_list *l) {
+    if (!p->kept_live) {
+        pdxe_arena_init(&p->kept);
+        p->kept_live = true;
+    }
+    bool failed = false;
+    for (uint32_t k = 0; k < l->count; k++) {
+        pdxe_resolution *o = &l->items[k];
+        o->target_qualified_name = kept_string(p, o->target_qualified_name, &failed);
+        o->target_rel_path = kept_string(p, o->target_rel_path, &failed);
+        o->engine_strategy = kept_string(p, o->engine_strategy, &failed);
+        pdxe_call *c = &o->site;
+        c->callee_text.owned = kept_string(p, c->callee_text.owned, &failed);
+        c->receiver_text = kept_string(p, c->receiver_text, &failed);
+        if (c->n_ast_path > 0) {
+            const char **path =
+                (const char **)pdxe_arena_calloc(&p->kept, c->n_ast_path * sizeof(*path));
+            if (!path) {
+                return PDXE_E_NOMEM;
+            }
+            for (uint32_t t = 0; t < c->n_ast_path; t++) {
+                path[t] = kept_string(p, c->ast_path[t], &failed);
+            }
+            c->ast_path = path;
+        }
+        if (c->n_args > 0) {
+            pdxe_call_arg *args =
+                (pdxe_call_arg *)pdxe_arena_calloc(&p->kept, c->n_args * sizeof(*args));
+            if (!args) {
+                return PDXE_E_NOMEM;
+            }
+            for (uint32_t a = 0; a < c->n_args; a++) {
+                args[a] = c->args[a];
+                args[a].expr.owned = kept_string(p, c->args[a].expr.owned, &failed);
+                args[a].value = kept_string(p, c->args[a].value, &failed);
+                args[a].keyword = kept_string(p, c->args[a].keyword, &failed);
+            }
+            c->args = args;
+        }
+    }
+    return failed ? PDXE_E_NOMEM : PDXE_OK;
+}
+
+/* File i's whole result, decoded from the surface the caller keeps for it and bound to
+ * its source; NULL, with the loss counted, when it cannot be. */
+static PDXEFileResult *load_whole(pdxe_project *p, int i) {
+    const uint8_t *bytes = NULL;
+    size_t len = 0;
+    if (p->surface_source(p->surface_userdata, p->files[i].rel_path, &bytes, &len) != 0 ||
+        !bytes) {
+        pdxe_lost_work();
+        return NULL;
+    }
+    PDXEFileResult *r = NULL;
+    char *path = NULL;
+    int lang = 0;
+    uint32_t lost = 0;
+    pdxe_surface_texts *texts = NULL;
+    int rc = pdxe_surface_decode(bytes, len, &r, &path, &lang, &lost, &texts);
+    if (rc != PDXE_OK) {
+        if (rc == PDXE_E_NOMEM) {
+            pdxe_lost_allocation();
+        } else {
+            pdxe_lost_work();
+        }
+        return NULL;
+    }
+    /* The surface the file was imported with, and no other. */
+    bool same = strcmp(path, p->files[i].rel_path) == 0 && lang == p->state[i].abi_lang &&
+                lost == p->state[i].extraction_lost;
+    free(path);
+    if (!same) {
+        pdxe_free_result(r);
+        pdxe_surface_texts_free(texts);
+        pdxe_lost_work();
+        return NULL;
+    }
+    rc = pdxe_surface_bind(r, texts, p->sources[i], (size_t)p->source_lens[i]);
+    if (rc != PDXE_OK) {
+        pdxe_free_result(r);
+        if (rc == PDXE_E_NOMEM) {
+            pdxe_lost_allocation();
+        } else {
+            pdxe_lost_work();
+        }
+        return NULL;
+    }
+    r->cached_tree = NULL;
+    return r;
+}
+
+/* The cross-file pass's hook: makes cache[i] file i's whole result. */
+static bool project_materialise(int i, void *userdata) {
+    pdxe_project *p = (pdxe_project *)userdata;
+    file_state *st = &p->state[i];
+    if (st->source != FROM_SURFACE || st->light || st->collected) {
+        return true; /* whole already: the caller's own result, or extracted here */
+    }
+    PDXEFileResult *whole = load_whole(p, i);
+    if (!whole) {
+        return false;
+    }
+    st->light = p->cache[i];
+    p->cache[i] = whole;
+    st->n_calls_before = whole->calls.count;
+    st->n_resolved_before = whole->resolved_calls.count;
+    return true;
+}
+
+/* The cross-file pass's hook: file i is resolved, so its answers are collected and kept
+ * and its whole result freed, its light one back in place. Answers that cannot be kept
+ * are lost work, counted. */
+static bool project_release(int i, void *userdata) {
+    pdxe_project *p = (pdxe_project *)userdata;
+    file_state *st = &p->state[i];
+    if (!st->light) {
+        return true;
+    }
+    PDXEFileResult *whole = p->cache[i];
+    resolution_list *answers = &p->per_file[i];
+    int rc = collect_file(p, i, answers);
+    if (rc == PDXE_OK) {
+        rc = keep_answers(p, answers);
+    }
+    if (rc != PDXE_OK) {
+        pdxe_lost_allocation();
+        free(answers->items);
+        memset(answers, 0, sizeof(*answers));
+    }
+    st->light->lsp_skipped = whole->lsp_skipped;
+    p->cache[i] = st->light;
+    st->light = NULL;
+    st->collected = true;
+    pdxe_free_result(whole);
+    return true;
+}
+
+/*
+ * The results: for each file in the order added, its resolved sites in call order.
+ * Each site appears at most once, so the order is total. With the caller's surfaces
+ * (P2-17), a file the pass resolved was collected as it resolved; any other is made
+ * whole, collected and released here, in the same order.
+ */
 static int collect_results(pdxe_project *p) {
     resolution_list out = {0};
     for (int i = 0; i < p->n_files; i++) {
-        uint32_t first = out.count;
-        uint32_t n_refs = count_reference_sites(&p->cache[i]->usages);
-        int rc = collect_calls(p, i, n_refs, &out);
-        if (rc == PDXE_OK) {
-            rc = collect_references(p, i, &out);
+        if (!p->per_file) {
+            int rc = collect_file(p, i, &out);
+            if (rc != PDXE_OK) {
+                free(out.items);
+                return rc;
+            }
+            continue;
         }
-        if (rc != PDXE_OK) {
-            free(out.items);
-            return rc;
+        if (!p->state[i].collected && project_materialise(i, p)) {
+            if (p->state[i].light) {
+                project_release(i, p);
+            } else {
+                /* Whole throughout: its strings last as long as the project. */
+                int rc = collect_file(p, i, &p->per_file[i]);
+                if (rc != PDXE_OK) {
+                    free(out.items);
+                    return rc;
+                }
+                p->state[i].collected = true;
+            }
         }
-        for (uint32_t k = first; k < out.count; k++) {
-            out.items[k].rel_path = p->files[i].rel_path;
-            out.items[k].strategy = TYPED_STRATEGY;
-            out.items[k].candidates = 1;
+        resolution_list *answers = &p->per_file[i];
+        for (uint32_t k = 0; k < answers->count; k++) {
+            pdxe_resolution *o = next_resolution(&out);
+            if (!o) {
+                free(out.items);
+                return PDXE_E_NOMEM;
+            }
+            *o = answers->items[k];
         }
-        if (out.count - first > 1) {
-            qsort(out.items + first, out.count - first, sizeof(*out.items), cmp_resolution_site);
-        }
+        free(answers->items);
+        memset(answers, 0, sizeof(*answers));
     }
     p->results = out.items;
     p->n_results = out.count;
@@ -3250,7 +3475,18 @@ int pdxe_resolve_project_run(pdxe_project *p) {
     pdxe_pxc_set_source_provider(project_source, p);
     pdxe_pxc_set_supplied_rust_manifest(p->crate_set ? &p->crate : NULL);
 
-    int rc = materialise_results(p);
+    int rc = PDXE_OK;
+    if (p->surface_source && p->n_files > 0) {
+        p->per_file = (resolution_list *)calloc((size_t)p->n_files, sizeof(*p->per_file));
+        if (!p->per_file) {
+            rc = PDXE_E_NOMEM;
+        } else {
+            pdxe_pxc_set_result_hooks(project_materialise, project_release, p);
+        }
+    }
+    if (rc == PDXE_OK) {
+        rc = materialise_results(p);
+    }
     if (rc == PDXE_OK) {
         rc = build_structure(p);
     }
@@ -3272,6 +3508,7 @@ int pdxe_resolve_project_run(pdxe_project *p) {
         p->health_known = true;
     }
 
+    pdxe_pxc_set_result_hooks(NULL, NULL, NULL);
     pdxe_pxc_set_source_provider(NULL, NULL);
     pdxe_pxc_set_supplied_rust_manifest(NULL);
     pdxe_pipeline_set_pkgmap(NULL);
@@ -3331,6 +3568,9 @@ void pdxe_resolve_project_end(pdxe_project *p) {
             pdxe_free_result(engine);
         }
         free(st->resolved_before);
+        if (st->light) {
+            pdxe_free_result(st->light);
+        }
         line_index_free(&st->li);
         free(p->files[i].path);
         free(p->files[i].rel_path);
@@ -3363,6 +3603,15 @@ void pdxe_resolve_project_end(pdxe_project *p) {
     free(p->surface_lost);
     free(p->surface_texts);
     free(p->results);
+    if (p->per_file) {
+        for (int i = 0; i < p->n_files; i++) {
+            free(p->per_file[i].items);
+        }
+        free(p->per_file);
+    }
+    if (p->kept_live) {
+        pdxe_arena_destroy(&p->kept);
+    }
     if (p->pkgmap) {
         pdxe_ht_free(p->pkgmap);
     }

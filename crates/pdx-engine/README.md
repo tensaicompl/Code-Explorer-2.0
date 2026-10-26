@@ -84,6 +84,14 @@ that classification.
 `add_file(&extract, source)`, from an extraction that may have come from a cache or
 another process, or with `extract_and_add(language, rel_path, source)`;
 `set_metadata` supplies the repository's packages, path aliases and crate manifest.
+A cached file is added with an empty marker result (the engine reads such a file from
+its surface alone); `add_file_with_surface` takes the surface separately, for a caller
+that kept it outside the extraction (`FileExtract::take_surface`). With
+`set_surface_source(|path| ...)`, set before any file, every surface is read light
+(definitions, imports, `impl` relations) and asked for again, whole, only when its own
+file resolves: the run holds one file's whole result at a time, with the same answers
+(`tests/surface_source.rs`; P2-17). `release_freed_memory()` returns what glibc's
+per-thread arenas keep after a stage frees its work (a no-op elsewhere).
 `run()` consumes the resolver and returns a `ProjectResolution`:
 
 - `resolutions`: one `TypedResolution` per answered site, with the site

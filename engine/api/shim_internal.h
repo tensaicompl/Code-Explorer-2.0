@@ -66,6 +66,14 @@ uint32_t pdxe_gbuf_node_count(const pdxe_gbuf_t *gb);
  */
 typedef char *(*pdxe_pxc_source_fn)(const char *path, int *out_len, void *userdata);
 void pdxe_pxc_set_source_provider(pdxe_pxc_source_fn fn, void *userdata);
+/* The cross-file pass's per-file result hooks (P2-17): `materialise(i)` makes the
+ * project's cache[i] the file's whole result before the pass resolves file i, returning
+ * false when it cannot (the file is then not resolved, and the hook has counted the
+ * loss); `release(i)` is called after, with the file resolved. NULL hooks: every
+ * result is whole throughout. Thread-local, as the source provider is. */
+typedef bool (*pdxe_pxc_result_fn)(int index, void *userdata);
+void pdxe_pxc_set_result_hooks(pdxe_pxc_result_fn materialise, pdxe_pxc_result_fn release,
+                               void *userdata);
 
 /*
  * The root crate manifest the cross-file pass uses in place of reading one from the
@@ -106,6 +114,13 @@ int pdxe_surface_encode(const struct PDXEFileResult *r, const char *rel_path, in
 int pdxe_surface_decode(const uint8_t *bytes, size_t len, struct PDXEFileResult **out,
                         char **rel_path, int *abi_lang, uint32_t *lost,
                         pdxe_surface_texts **texts);
+/* As pdxe_surface_decode, keeping only what a project reads of every file before it
+ * resolves any: the file's own values, its definitions, imports and `impl` relations.
+ * Its sites and everything else stay empty until the whole surface is decoded for the
+ * file's own resolution (P2-17). */
+int pdxe_surface_decode_light(const uint8_t *bytes, size_t len, struct PDXEFileResult **out,
+                              char **rel_path, int *abi_lang, uint32_t *lost,
+                              pdxe_surface_texts **texts);
 int pdxe_surface_bind(struct PDXEFileResult *r, pdxe_surface_texts *texts, const char *source,
                       size_t source_len);
 void pdxe_surface_texts_free(pdxe_surface_texts *texts);

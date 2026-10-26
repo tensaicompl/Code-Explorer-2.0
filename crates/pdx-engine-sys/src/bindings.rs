@@ -1173,3 +1173,19 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn pdxe_surface_free(bytes: *mut u8);
 }
+#[doc = " Where a project asks for a file's whole surface when the caller keeps the surfaces\n itself (P2-17). Set once, before any surface is imported and before the run; then\n every surface imported is decoded light (the file's definitions, imports and `impl`\n relations, what the run reads of every file before it resolves any), and the run\n asks for each file's surface again, by the path it was imported for, just before it\n resolves that file, decodes it whole, resolves the file, keeps its answers and frees\n it. The run then holds one file's whole result at a time instead of every file's.\n The answers are the same as with every surface decoded whole.\n\n The source writes a pointer to the surface's bytes and their length and returns 0;\n the bytes must be the ones imported for that path and must stay valid until the\n source is called again or the run returns. A source that returns non-zero, or bytes\n of another file, leaves that file unresolved, counted as lost work in the run's\n health. The source is called on the thread running the project."]
+pub type pdxe_surface_source_fn = ::std::option::Option<
+    unsafe extern "C" fn(
+        userdata: *mut ::std::os::raw::c_void,
+        rel_path: *const ::std::os::raw::c_char,
+        bytes: *mut *const u8,
+        len: *mut usize,
+    ) -> ::std::os::raw::c_int,
+>;
+unsafe extern "C" {
+    pub fn pdxe_resolve_project_set_surface_source(
+        p: *mut pdxe_project,
+        fn_: pdxe_surface_source_fn,
+        userdata: *mut ::std::os::raw::c_void,
+    ) -> ::std::os::raw::c_int;
+}
