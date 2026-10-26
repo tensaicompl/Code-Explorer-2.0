@@ -1203,6 +1203,9 @@ void pdxe_surface_texts_free(pdxe_surface_texts *texts) {
     }
 }
 
+/* The first arena block of a light result (P2-17). */
+#define LIGHT_ARENA_BLOCK ((size_t)4 * 1024)
+
 /* The arrays a light decode keeps (P2-17): what a project reads of every file before it
  * resolves any (definitions, imports, `impl` relations), as opposed to a file's sites,
  * which only its own resolution reads. */
@@ -1268,7 +1271,13 @@ static int decode_surface(const uint8_t *bytes, size_t len, bool light, PDXEFile
         return PDXE_E_NOMEM;
     }
     d.texts->source_len = (size_t)yyjson_get_uint(source_len);
-    pdxe_arena_init(&r->arena);
+    /* A light result is a few kilobytes, and the project holds one for every file: its
+     * arena starts small rather than at the default 64 KB (P2-17). */
+    if (light) {
+        pdxe_arena_init_sized(&r->arena, LIGHT_ARENA_BLOCK);
+    } else {
+        pdxe_arena_init(&r->arena);
+    }
     d.arena = &r->arena;
     d.r = r;
     bool ok = decode_fields(&d, yyjson_obj_get(root, "file"), r, FILE_FIELDS, N(FILE_FIELDS));
