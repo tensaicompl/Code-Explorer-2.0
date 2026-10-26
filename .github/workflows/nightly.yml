@@ -20,20 +20,21 @@ jobs:
     # The accuracy and scale suites are long; they are why this is not on push.
     timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Show toolchain
         run: rustup show
 
       # Restored here and saved at the end whatever happened, so a red night does not
       # fetch every golden and scale repository again the next.
-      - uses: actions/cache/restore@v4
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/cargo-deny
             ~/.cargo/bin/cargo-vet
+            ~/.cargo/bin/cargo-llvm-cov
             target
             bench/.cache
           key: nightly-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'bench/repos.lock') }}
@@ -42,7 +43,7 @@ jobs:
       - name: Install the pinned dependency policy checker
         run: scripts/cargo-deny.sh install
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: ui/.nvmrc
 
@@ -74,6 +75,15 @@ jobs:
       - name: performance
         if: always()
         run: make perf
+      # Per-crate line coverage against floors that only ratchet up (P0-07).
+      - name: Install the coverage tool
+        if: always()
+        run: |
+          rustup component add llvm-tools-preview
+          cargo install --locked --version "$(make -s -f Makefile --eval 'print-llvm-cov: ; @echo $(LLVM_COV_VERSION)' print-llvm-cov)" cargo-llvm-cov
+      - name: coverage
+        if: always()
+        run: make coverage
 
       # The same supply-chain checks as every push (ci.yml), on what is built tonight.
       - name: Install the pinned cargo-vet
@@ -88,22 +98,27 @@ jobs:
         if: always()
         run: make deny
 
+      - name: interface dependency audit
+        if: always()
+        run: make ui-audit
+
       - name: Save the caches
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cargo/bin/cargo-deny
             ~/.cargo/bin/cargo-vet
+            ~/.cargo/bin/cargo-llvm-cov
             target
             bench/.cache
           key: nightly-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml', 'bench/repos.lock') }}-${{ github.run_id }}
 
       - name: Publish the results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: bench-results
           path: bench/results/

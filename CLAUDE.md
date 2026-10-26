@@ -1071,7 +1071,21 @@ audits (issue 36), and neither are the four exact-version ones P2-04 added (issu
 P2-07's two (issue 52), P2-08's three parser crates (issue 60), P2-10's three
 tracing crates (issue 69), P2-11's four clap crates (issue 70) or P2-14's 31 Criterion
 and `sysinfo` crates, with `syn` 2.0.119 raised to `safe-to-deploy` (issue 81): 142
-exemptions.
+exemptions. After the check it prints the shipped closure's vetted share
+(`scripts/ci/vet_shipped.py`: the `pdx` binary with `enterprise`, normal edges, 70
+crates, 0 audited at P0-07); decision 83 makes that 100% a G7 criterion.
+
+P0-07 (issue 100): every workflow action is pinned by commit digest with a `# vX.Y.Z`
+comment (`make actions-pinned`, part of `check`); `.github/workflows/codeql.yml`
+analyses Rust, the interface, the scripts and the workflows (the vendored engine is
+excluded); `make ui-audit` (CI's supply-chain job and the nightly) fails on any
+advisory against a shipped interface dependency and a moderate one against a build or
+test tool, unless `ui/audit-exceptions.json` accepts it with a reason and an expiry;
+`make coverage` (nightly, cargo-llvm-cov 0.9.1 with `llvm-tools-preview`) checks each
+crate's line coverage against `scripts/ci/coverage-floors.json`, and
+`make coverage-ratchet` raises the floors, never lowering one. Their tests are
+`scripts/ci/test_ci.py`. The interface runs vite 6.4.4 and vitest 4.1.12, whose
+config is typed through `vitest/config`.
 
 Engine-specific targets: `make engine-test` (the interface tests),
 `make engine-typed-reference` (re-record the reference engine's answers for the

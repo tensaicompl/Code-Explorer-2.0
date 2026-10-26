@@ -15,15 +15,16 @@ UI    := ui
         ui-install ui-lint ui-test ui-build bundle-budget \
         licence-scan provenance-scan open-binary-check \
         golden oracle e2e check-asan asan determinism engine-differential perf \
-        vet deny bindgen vendor-refresh vendor-verify clean
+        vet deny bindgen vendor-refresh vendor-verify clean actions-pinned ui-audit \
+        coverage coverage-ratchet
 
 all: check
 
 # --- the gate every task passes -------------------------------------------
 
-check: fmt-check lint build test engine-test consts-sync open-binary-check licence-scan provenance-scan ui-lint ui-test bundle-budget
+check: fmt-check lint build test engine-test consts-sync open-binary-check licence-scan provenance-scan actions-pinned ui-lint ui-test bundle-budget
 
-check-full: check golden oracle e2e check-asan determinism engine-differential perf
+check-full: check golden oracle e2e check-asan determinism engine-differential perf coverage
 
 # --- Rust ------------------------------------------------------------------
 
@@ -78,16 +79,28 @@ test: engine
 	python3 scripts/engine/test_differential.py
 	python3 scripts/engine/test_typed_differential.py
 	python3 scripts/a0/test_a0.py
+	python3 scripts/ci/test_ci.py
 
 # Every third-party crate in Cargo.lock is covered by supply-chain/: audited, imported
 # by an owner's decision, or exempted on the record (Part 5.12, issue 36). Needs the
 # pinned cargo-vet, which this does not install; the message says how.
 vet:
 	@scripts/cargo-vet.sh
+	@python3 scripts/ci/vet_shipped.py
 
 # The pinned cargo-deny, over deny.toml's whole policy.
 deny:
 	@scripts/cargo-deny.sh check
+
+# The interface's dependency audit (P0-07): any advisory against what ships, or a
+# moderate one against a build or test tool, fails unless ui/audit-exceptions.json
+# accepts it with a reason and an expiry. Needs the network, so it is CI's, not check's.
+ui-audit:
+	@python3 scripts/ci/ui_audit.py --root .
+
+# Every workflow action pinned by commit digest (P0-07, issue 100).
+actions-pinned:
+	@python3 scripts/ci/actions_pinned.py --root .
 
 # The two constant definitions must agree.
 consts-sync:
@@ -148,6 +161,19 @@ e2e:
 # nightly build cannot pass while either fails. `asan` is the earlier name, kept.
 check-asan:
 	@scripts/check-asan.sh
+
+# Per-crate line coverage of the Rust crates against floors that only ratchet up
+# (P0-07): scripts/ci/coverage-floors.json. Needs cargo-llvm-cov $(LLVM_COV_VERSION) and
+# the llvm-tools component; nightly. `make coverage-ratchet` raises the floors to what was
+# measured, never lowering one.
+LLVM_COV_VERSION := 0.9.1
+coverage: engine
+	PDX_REQUIRE_ENGINE=1 $(CARGO) llvm-cov --workspace --all-features --json --summary-only \
+	  --output-path target/coverage-summary.json
+	python3 scripts/ci/coverage_floors.py target/coverage-summary.json --root .
+
+coverage-ratchet:
+	python3 scripts/ci/coverage_floors.py target/coverage-summary.json --root . --ratchet
 
 asan: check-asan
 

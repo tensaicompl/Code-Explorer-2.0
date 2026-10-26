@@ -1,0 +1,9 @@
+{
+  "floors": {
+    "pdx": 91.6,
+    "pdx-bench": 87.6,
+    "pdx-core": 92.9,
+    "pdx-engine": 92.7,
+    "pdx-engine-sys": 4.1
+  }
+}

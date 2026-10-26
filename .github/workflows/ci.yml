@@ -30,7 +30,7 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-14]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # The toolchain file pins the version; rustup on the runner honours it.
       - name: Show toolchain
@@ -39,7 +39,7 @@ jobs:
           cc --version || true
           cmake --version
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry
@@ -52,7 +52,7 @@ jobs:
       - name: Install the pinned dependency policy checker
         run: scripts/cargo-deny.sh install
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version-file: ui/.nvmrc
 
@@ -72,14 +72,14 @@ jobs:
   # issue 36). One Linux job: the store is the same on every system, so cargo-vet is
   # built once. It only verifies; nothing here accepts a crate.
   supply-chain:
-    name: supply chain (cargo vet, cargo deny)
+    name: supply chain (cargo vet, cargo deny, interface audit)
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Show toolchain
         run: rustup show
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry
@@ -98,6 +98,19 @@ jobs:
       - name: cargo deny
         if: always()
         run: make deny
+      # The interface's dependencies against the npm advisory database (P0-07): what
+      # ships, and the build and test tools from moderate up.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: always()
+        with:
+          node-version-file: ui/.nvmrc
+      - name: Enable the pinned package manager
+        if: always()
+        working-directory: ui
+        run: corepack enable && corepack prepare --activate
+      - name: interface dependency audit
+        if: always()
+        run: make ui-audit
 
   windows-binary:
     # Windows carries the local binary only: the server is not supported there.
@@ -105,10 +118,10 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Show toolchain
         run: rustup show
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ~/.cargo/registry

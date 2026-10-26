@@ -1,0 +1,51 @@
+name: codeql
+
+# Static analysis of the code we write (P0-07, issue 100): the Rust crates, the
+# interface, the scripts and the workflows themselves. The vendored C engine is not
+# analysed here: it is checked by the sanitizer corpus (make check-asan), the engine
+# differential and its own tests, and its upstream findings would bury ours.
+
+on:
+  push:
+    branches: ["main", "pdx-goal-approach"]
+  pull_request:
+    branches: ["main", "pdx-goal-approach"]
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [actions, javascript-typescript, python, rust]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-and-quality
+          config: |
+            paths-ignore:
+              - engine
+              - legacy
+              - bench/.cache
+              - ui/node_modules
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          category: /language:${{ matrix.language }}
