@@ -481,7 +481,7 @@ fn contract_metric_and_coverage_serialised_forms() {
 
     let metric = Metric {
         node_id: method(),
-        metric: "cyclomatic".to_owned(),
+        metric: "cyclomatic".into(),
         value: 4.0,
     };
     assert_eq!(
@@ -501,7 +501,7 @@ fn contract_metric_and_coverage_serialised_forms() {
     ] {
         let m = Metric {
             node_id: method(),
-            metric: name.to_owned(),
+            metric: name.to_owned().into(),
             value: 1.0,
         };
         assert_eq!(serde_json::from_str::<Metric>(&json(&m)).expect("json"), m);

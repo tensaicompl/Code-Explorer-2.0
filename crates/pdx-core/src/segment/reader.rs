@@ -591,7 +591,7 @@ fn contract(row: &Row<'_>) -> Result<Contract, SegmentError> {
 fn metric(row: &Row<'_>) -> Result<Metric, SegmentError> {
     Ok(Metric {
         node_id: id_at(row, "metrics", "node_id", 0, NodeId::parse)?,
-        metric: row.get(1)?,
+        metric: std::borrow::Cow::Owned(row.get(1)?),
         value: row.get(2)?,
     })
 }

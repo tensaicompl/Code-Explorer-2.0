@@ -114,7 +114,7 @@ fn metrics<'g>(graph: &'g DerivedGraph, id: &NodeId) -> BTreeMap<&'g str, f64> {
         .metrics
         .iter()
         .filter(|m| &m.node_id == id)
-        .map(|m| (m.metric.as_str(), m.value))
+        .map(|m| (&*m.metric, m.value))
         .collect()
 }
 
@@ -1072,7 +1072,7 @@ fn metrics_are_deterministic() {
     }
     for m in &forward.metrics {
         assert!(m.value.is_finite());
-        assert!(METRICS.contains(&m.metric.as_str()), "{}", m.metric);
+        assert!(METRICS.contains(&&*m.metric), "{}", m.metric);
     }
 }
 

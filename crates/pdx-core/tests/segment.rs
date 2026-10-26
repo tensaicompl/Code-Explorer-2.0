@@ -399,17 +399,17 @@ fn fixture() -> SegmentData {
     data.metrics = vec![
         Metric {
             node_id: add.node_id,
-            metric: "cyclomatic".to_owned(),
+            metric: "cyclomatic".into(),
             value: 2.0,
         },
         Metric {
             node_id: add.node_id,
-            metric: "loc".to_owned(),
+            metric: "loc".into(),
             value: 7.0,
         },
         Metric {
             node_id: remove.node_id,
-            metric: "importance".to_owned(),
+            metric: "importance".into(),
             value: 1.25,
         },
     ];

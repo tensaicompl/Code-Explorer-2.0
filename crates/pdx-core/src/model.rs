@@ -21,25 +21,59 @@ use crate::vocabulary::vocabulary;
 /// visibility, `is_entry_point`, `is_test` and the like.
 ///
 /// Kept in key order at every level, so equal properties serialise identically
-/// whatever order they were set in. Empty serialises as `{}`.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Props(BTreeMap<String, Value>);
+/// whatever order they were set in. Empty serialises as `{}`. Held as a sorted list of
+/// entries rather than a tree (P2-17): a row has a few properties, and a graph holds
+/// hundreds of thousands of rows, for each of which a tree took a node of a dozen
+/// slots. It serialises, compares and prints exactly as the map it replaced.
+#[derive(Clone, Default, PartialEq, Eq)]
+pub struct Props(Vec<(Box<str>, Value)>);
 
 impl Props {
     /// Sets a property, replacing any value it had.
     pub fn insert(&mut self, key: &str, value: Value) {
-        self.0.insert(key.to_owned(), value);
+        match self.0.binary_search_by(|(k, _)| (**k).cmp(key)) {
+            Ok(at) => self.0[at].1 = value,
+            Err(at) => self.0.insert(at, (key.into(), value)),
+        }
     }
 
     /// A property's value.
     pub fn get(&self, key: &str) -> Option<&Value> {
-        self.0.get(key)
+        self.0
+            .binary_search_by(|(k, _)| (**k).cmp(key))
+            .ok()
+            .map(|at| &self.0[at].1)
     }
 
     /// Whether there are none.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+}
+
+/// As the map it was: `{"key": value, ...}` in key order.
+impl std::fmt::Debug for Props {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map()
+            .entries(self.0.iter().map(|(k, v)| (&**k as &str, v)))
+            .finish()
+    }
+}
+
+impl Serialize for Props {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_map(self.0.iter().map(|(k, v)| (&**k as &str, v)))
+    }
+}
+
+impl<'de> Deserialize<'de> for Props {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let map = BTreeMap::<String, Value>::deserialize(deserializer)?;
+        Ok(Self(
+            map.into_iter()
+                .map(|(k, v)| (k.into_boxed_str(), v))
+                .collect(),
+        ))
     }
 }
 
@@ -327,8 +361,9 @@ pub struct Contract {
 pub struct Metric {
     /// The node.
     pub node_id: NodeId,
-    /// The metric's name.
-    pub metric: String,
+    /// The metric's name: one of the fixed names, borrowed, when the build computed it
+    /// (P2-17: three million rows on Kubernetes each held a copy).
+    pub metric: std::borrow::Cow<'static, str>,
     /// Its value.
     pub value: f64,
 }

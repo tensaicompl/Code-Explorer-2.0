@@ -98,7 +98,7 @@ impl Rows {
             .into_iter()
             .map(|((node_id, metric), value)| Metric {
                 node_id,
-                metric: metric.to_owned(),
+                metric: std::borrow::Cow::Borrowed(metric),
                 value,
             })
             .collect()
