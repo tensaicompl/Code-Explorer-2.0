@@ -79,9 +79,12 @@ that cannot work yet because a prerequisite is not built is recorded, not forced
   `ExtractReport::surfaces`); typed resolution reads it back (`SymbolRegistry::surface`,
   `ProjectResolver::add_file_with_surface`). Node-type paths are `pdx_engine::AstPath`
   (interned names, shared per file, wire-identical). Kubernetes `pkg/` (3,593 files):
-  Stage 2 1.59 GB → 0.59 GB, peak 3.57 → 2.49 GB, segment byte-identical; the rest of
-  Stage 3's peak is the engine's project (three copies of each file: decoded surface,
-  rebuilt result, source), the next step. The `registry` guard test allows only these
+  Stage 2 1.59 GB → 0.59 GB, peak 3.57 → 2.49 GB, segment byte-identical. A cached
+  file is added to the engine's project with an empty marker result
+  (`ProjectResolver::cache_marker`): the project reads such a file from its surface alone,
+  and the old full rebuild copied the whole record into C for nothing (peak → 1.95 GB).
+  Next: shed the fields no later stage reads, stop cloning calls into Stage 3's
+  results, and the engine patch that decodes each surface only for its own file. The `registry` guard test allows only these
   byte-moving mentions of a surface.
 - **Plan v1.4 (2026-10-26, decisions 72 to 85):** the owner accepted the plan review
   with the instruction that the tool be best in class. The external plan is

@@ -12,10 +12,7 @@ use pdx_engine_sys as sys;
 use crate::convert;
 use crate::engine::{Engine, RawResult, c_string, language_id};
 use crate::error::{EngineError, SourceDifference, check};
-use crate::model::{
-    Call, CallArg, Definition, FileExtract, ImplTrait, QualifiedName, ReadWrite, RouteFact,
-    SourceDigest, Span, TextRef, TypeRef, Usage, Visibility,
-};
+use crate::model::{Call, FileExtract, SourceDigest};
 
 /// How a resolution was reached, in the interface's normalised vocabulary.
 ///
@@ -424,7 +421,7 @@ impl<'e> ProjectResolver<'e> {
         }
         let lang = language_id(&extract.language)
             .ok_or_else(|| EngineError::UnknownLanguage(extract.language.clone()))?;
-        let rebuilt = self.rebuild(extract)?;
+        let rebuilt = self.cache_marker(extract)?;
         // SAFETY: the project is alive; the engine copies the bytes.
         let status = unsafe {
             sys::pdxe_surface_import(self.project.as_ptr(), surface.as_ptr(), surface.len())
@@ -485,77 +482,33 @@ impl<'e> ProjectResolver<'e> {
         Ok(())
     }
 
-    /// An engine result rebuilt from an extraction's arrays, as a cache keeps them.
-    fn rebuild(&self, e: &FileExtract) -> Result<RawResult<'e>, EngineError> {
-        let mut strings = Strings::default();
-        let defs = e
-            .definitions
-            .iter()
-            .map(|d| c_definition(d, &mut strings))
-            .collect::<Result<Vec<_>, EngineError>>()?;
-        let calls = e
-            .calls
-            .iter()
-            .map(|c| c_call(c, &mut strings))
-            .collect::<Result<Vec<_>, EngineError>>()?;
-        let imports = e
-            .imports
-            .iter()
-            .map(|i| {
-                Ok(sys::pdxe_import {
-                    module_text: strings.required(&i.module_text)?,
-                    imported_name: strings.optional(i.imported_name.as_deref())?,
-                    alias: strings.optional(i.alias.as_deref())?,
-                    span: c_span(i.span),
-                })
-            })
-            .collect::<Result<Vec<_>, EngineError>>()?;
-        let usages = e
-            .usages
-            .iter()
-            .map(|u| c_usage(u, &mut strings))
-            .collect::<Result<Vec<_>, EngineError>>()?;
-        let types = e
-            .type_refs
-            .iter()
-            .map(|t| c_type_ref(t, &mut strings))
-            .collect::<Result<Vec<_>, EngineError>>()?;
-        let rws = e
-            .read_writes
-            .iter()
-            .map(|w| c_read_write(w, &mut strings))
-            .collect::<Result<Vec<_>, EngineError>>()?;
-        let impls = e
-            .impl_traits
-            .iter()
-            .map(|t| c_impl_trait(t, &mut strings))
-            .collect::<Result<Vec<_>, EngineError>>()?;
-
+    /// The result a cached file is added with (P2-17). The engine resolves such a file
+    /// from its imported surface alone and reads nothing from this result: it only marks
+    /// the file as one the caller holds an extraction of, so the project never extracts it
+    /// silently, and records its length. Rebuilding the extraction's arrays here, as
+    /// before, copied every definition, call, usage and node type into the engine for
+    /// the whole run without any of them being read.
+    fn cache_marker(&self, e: &FileExtract) -> Result<RawResult<'e>, EngineError> {
         let mut out = ptr::null_mut();
-        // SAFETY: every array holds its count and every string is alive in `strings`
-        // for the call; the engine copies all of them.
+        // SAFETY: every array is empty; the engine allocates the result.
         let status = unsafe {
             sys::pdxe_result_build(
                 self.engine.ctx(),
                 usize::try_from(e.source_len).map_err(|_| EngineError::TooLarge)?,
-                defs.as_ptr(),
-                count(defs.len())?,
-                calls.as_ptr(),
-                count(calls.len())?,
-                imports.as_ptr(),
-                count(imports.len())?,
-                usages.as_ptr(),
-                count(usages.len())?,
-                types.as_ptr(),
-                count(types.len())?,
-                rws.as_ptr(),
-                count(rws.len())?,
-                if impls.is_empty() {
-                    ptr::null()
-                } else {
-                    impls.as_ptr()
-                },
-                count(impls.len())?,
+                ptr::null(),
+                0,
+                ptr::null(),
+                0,
+                ptr::null(),
+                0,
+                ptr::null(),
+                0,
+                ptr::null(),
+                0,
+                ptr::null(),
+                0,
+                ptr::null(),
+                0,
                 &raw mut out,
             )
         };
@@ -765,15 +718,9 @@ fn run_health(h: sys::pdxe_run_health) -> Result<RunHealth, EngineError> {
     })
 }
 
-/// C strings, arrays of them, and arrays of arguments and routes, kept alive while
-/// the engine reads them.
+/// C strings, kept alive while the engine reads them.
 #[derive(Default)]
-struct Strings(
-    Vec<CString>,
-    Vec<Vec<*const c_char>>,
-    Vec<Vec<sys::pdxe_call_arg>>,
-    Vec<Vec<sys::pdxe_route>>,
-);
+struct Strings(Vec<CString>);
 
 impl Strings {
     fn required(&mut self, s: &str) -> Result<*const c_char, EngineError> {
@@ -783,255 +730,9 @@ impl Strings {
         Ok(p)
     }
 
-    /// An array of these strings, or NULL when there are none, as the interface's
-    /// counted string arrays are.
-    fn array<S: AsRef<str>>(&mut self, items: &[S]) -> Result<*mut *const c_char, EngineError> {
-        if items.is_empty() {
-            return Ok(ptr::null_mut());
-        }
-        let mut pointers = items
-            .iter()
-            .map(|s| self.required(s.as_ref()))
-            .collect::<Result<Vec<_>, _>>()?;
-        // The vector's buffer does not move when it is kept below.
-        let p = pointers.as_mut_ptr();
-        self.1.push(pointers);
-        Ok(p)
-    }
-
     fn optional(&mut self, s: Option<&str>) -> Result<*const c_char, EngineError> {
         s.map_or(Ok(ptr::null()), |s| self.required(s))
     }
-
-    /// A text as the interface holds it: a range stays a range, owned text is a string
-    /// kept alive here (issue 90).
-    fn text(&mut self, t: &TextRef) -> Result<sys::pdxe_text, EngineError> {
-        Ok(match t {
-            TextRef::Source { start, end } => sys::pdxe_text {
-                owned: ptr::null(),
-                start: *start,
-                end: *end,
-                kind: sys::PDXE_TEXT_SOURCE,
-                reserved: 0,
-            },
-            TextRef::Owned(s) => sys::pdxe_text {
-                owned: self.required(s)?,
-                start: 0,
-                end: 0,
-                kind: sys::PDXE_TEXT_OWNED,
-                reserved: 0,
-            },
-        })
-    }
-
-    /// The text a qualified name holds: the whole name, a rest, or none for a member.
-    fn qualified_name_text(&mut self, qn: &QualifiedName) -> Result<*const c_char, EngineError> {
-        match qn {
-            QualifiedName::Whole(text)
-            | QualifiedName::Extended { rest: text, .. }
-            | QualifiedName::Prefix { rest: text, .. } => self.required(text),
-            QualifiedName::Member { .. } => Ok(ptr::null()),
-        }
-    }
-
-    /// As [`Strings::text`], or no text.
-    fn optional_text(&mut self, t: Option<&TextRef>) -> Result<sys::pdxe_text, EngineError> {
-        t.map_or(Ok(sys::pdxe_text::default()), |t| self.text(t))
-    }
-
-    /// An array of these arguments, or NULL when there are none.
-    fn args(&mut self, args: &[CallArg]) -> Result<*const sys::pdxe_call_arg, EngineError> {
-        if args.is_empty() {
-            return Ok(ptr::null());
-        }
-        let array = args
-            .iter()
-            .map(|a| {
-                Ok(sys::pdxe_call_arg {
-                    expr: self.text(&a.expr)?,
-                    value: self.optional(a.value.as_deref())?,
-                    keyword: self.optional(a.keyword.as_deref())?,
-                    index: a.index,
-                })
-            })
-            .collect::<Result<Vec<_>, EngineError>>()?;
-        // The vector's buffer does not move when it is kept below.
-        let p = array.as_ptr();
-        self.2.push(array);
-        Ok(p)
-    }
-
-    /// An array of these routes, or NULL when there are none.
-    fn routes(&mut self, routes: &[RouteFact]) -> Result<*const sys::pdxe_route, EngineError> {
-        if routes.is_empty() {
-            return Ok(ptr::null());
-        }
-        let array = routes
-            .iter()
-            .map(|r| {
-                Ok(sys::pdxe_route {
-                    method: self.required(&r.method)?,
-                    path: self.required(&r.path)?,
-                    callee_text: self.required(&r.callee_text)?,
-                    source_text: self.optional_text(r.source_text.as_ref())?,
-                    span: c_span(r.span),
-                    ast_path: self.array(&r.ast_path)?,
-                    n_ast_path: count(r.ast_path.len())?,
-                })
-            })
-            .collect::<Result<Vec<_>, EngineError>>()?;
-        // The vector's buffer does not move when it is kept below.
-        let p = array.as_ptr();
-        self.3.push(array);
-        Ok(p)
-    }
-}
-
-/// The definition a qualified name is given relative to, or none for a whole one.
-fn qualified_name_base(qn: &QualifiedName) -> u32 {
-    match *qn {
-        QualifiedName::Whole(_) => sys::PDXE_NO_PARENT,
-        QualifiedName::Member { base }
-        | QualifiedName::Extended { base, .. }
-        | QualifiedName::Prefix { base, .. } => base,
-    }
-}
-
-/// How many bytes of its base's name a qualified name keeps: a prefix's, else 0.
-fn qualified_name_keep(qn: &QualifiedName) -> u32 {
-    match *qn {
-        QualifiedName::Prefix { keep, .. } => keep,
-        _ => 0,
-    }
-}
-
-/// A qualified name's form, as the interface numbers it (issue 90).
-fn qualified_name_form(qn: &QualifiedName) -> u32 {
-    match qn {
-        QualifiedName::Whole(_) => sys::PDXE_QN_WHOLE,
-        QualifiedName::Member { .. } => sys::PDXE_QN_MEMBER,
-        QualifiedName::Extended { .. } => sys::PDXE_QN_EXTENDED,
-        QualifiedName::Prefix { .. } => sys::PDXE_QN_PREFIX,
-    }
-}
-
-fn c_span(s: Option<Span>) -> sys::pdxe_span {
-    s.map_or_else(sys::pdxe_span::default, |s| sys::pdxe_span {
-        start_byte: s.start_byte,
-        end_byte: s.end_byte,
-        start_line: s.start_line,
-        start_col: s.start_col,
-        end_line: s.end_line,
-        end_col: s.end_col,
-    })
-}
-
-fn c_visibility(v: Visibility) -> Result<u8, EngineError> {
-    let code = match v {
-        Visibility::Unknown => sys::PDXE_VIS_UNKNOWN,
-        Visibility::Public => sys::PDXE_VIS_PUBLIC,
-        Visibility::NonPublic => sys::PDXE_VIS_NON_PUBLIC,
-    };
-    u8::try_from(code)
-        .map_err(|_| EngineError::Contract(format!("visibility {code} is not a byte")))
-}
-
-fn c_index(i: Option<u32>) -> u32 {
-    i.unwrap_or(sys::PDXE_NO_PARENT)
-}
-
-fn c_definition(
-    d: &Definition,
-    strings: &mut Strings,
-) -> Result<sys::pdxe_definition, EngineError> {
-    Ok(sys::pdxe_definition {
-        name: strings.required(&d.name)?,
-        qn_text: strings.qualified_name_text(&d.qualified_name)?,
-        qn_base: qualified_name_base(&d.qualified_name),
-        qn_form: qualified_name_form(&d.qualified_name),
-        qn_keep: qualified_name_keep(&d.qualified_name),
-        kind: strings.required(d.kind.as_str())?,
-        engine_kind: strings.required(&d.engine_kind)?,
-        signature: strings.optional_text(d.signature.as_ref())?,
-        doc: strings.optional(d.doc.as_deref())?,
-        span: c_span(d.span),
-        body_span: c_span(d.body_span),
-        parent_index: c_index(d.parent),
-        visibility: c_visibility(d.visibility)?,
-        is_test: u8::from(d.is_test),
-        is_entry_point: u8::from(d.is_entry_point),
-        cyclomatic: d.cyclomatic,
-        cognitive: d.cognitive,
-        loop_depth: d.loop_depth,
-        base_classes: strings.array(&d.base_classes)?,
-        n_base_classes: count(d.base_classes.len())?,
-        decorators: strings.array(&d.decorators)?,
-        n_decorators: count(d.decorators.len())?,
-        signature_param_types: strings.array(&d.signature_param_types)?,
-        n_signature_param_types: count(d.signature_param_types.len())?,
-        // The engine's single summary is not kept; `routes` carry every binding.
-        route_path: ptr::null(),
-        route_method: ptr::null(),
-        routes: strings.routes(&d.routes)?,
-        n_routes: count(d.routes.len())?,
-        impl_trait: strings.optional(d.impl_trait.as_deref())?,
-        impl_bounds: strings.array(&d.impl_bounds)?,
-        n_impl_bounds: count(d.impl_bounds.len())?,
-    })
-}
-
-fn c_call(c: &Call, strings: &mut Strings) -> Result<sys::pdxe_call, EngineError> {
-    Ok(sys::pdxe_call {
-        callee_text: strings.text(&c.callee_text)?,
-        receiver_text: strings.optional(c.receiver_text.as_deref())?,
-        caller_index: c_index(c.caller),
-        span: c_span(c.span),
-        is_reference: u8::from(c.is_reference),
-        typed_only: u8::from(c.typed_only),
-        lexical: c.lexical.bits(),
-        ast_path: strings.array(&c.ast_path)?,
-        n_ast_path: count(c.ast_path.len())?,
-        args: strings.args(&c.args)?,
-        n_args: count(c.args.len())?,
-        // The engine reads no scope from a result built from parts (issue 114).
-        use_scope: c_index(c.use_scope),
-    })
-}
-
-fn c_usage(u: &Usage, strings: &mut Strings) -> Result<sys::pdxe_usage, EngineError> {
-    Ok(sys::pdxe_usage {
-        name: strings.text(&u.name)?,
-        scope_index: c_index(u.scope),
-        span: c_span(u.span),
-        lexical: u.lexical.bits(),
-    })
-}
-
-fn c_type_ref(t: &TypeRef, strings: &mut Strings) -> Result<sys::pdxe_type_ref, EngineError> {
-    Ok(sys::pdxe_type_ref {
-        type_text: strings.required(&t.type_text)?,
-        scope_index: c_index(t.scope),
-        span: c_span(t.span),
-    })
-}
-
-fn c_read_write(w: &ReadWrite, strings: &mut Strings) -> Result<sys::pdxe_rw, EngineError> {
-    Ok(sys::pdxe_rw {
-        field_text: strings.required(&w.field_text)?,
-        scope_index: c_index(w.scope),
-        is_write: u8::from(w.is_write),
-        span: c_span(w.span),
-    })
-}
-
-fn c_impl_trait(t: &ImplTrait, strings: &mut Strings) -> Result<sys::pdxe_impl_trait, EngineError> {
-    Ok(sys::pdxe_impl_trait {
-        trait_name: strings.required(&t.trait_name)?,
-        struct_name: strings.required(&t.struct_name)?,
-        struct_qn: strings.required(&t.struct_qn)?,
-        impl_bounds: strings.array(&t.impl_bounds)?,
-        n_impl_bounds: count(t.impl_bounds.len())?,
-    })
 }
 
 /// A length as the interface counts it.

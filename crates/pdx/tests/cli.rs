@@ -264,6 +264,23 @@ fn cli_help_snapshot() {
 
 // --- bench ---------------------------------------------------------------------------------
 
+/// Runs a program this test wrote, again while the system calls it busy: a process
+/// another test forks inherits the open file until it executes, and running a file
+/// that is open for writing fails with `ETXTBSY` (26), on our side or, for the harness
+/// `pdx` starts, on its. Nothing else is retried.
+fn run_written(command: &mut Command) -> Output {
+    const ETXTBSY: i32 = 26;
+    for _ in 0..100 {
+        match command.output() {
+            Err(e) if e.raw_os_error() == Some(ETXTBSY) => {}
+            Ok(output) if String::from_utf8_lossy(&output.stderr).contains("os error 26") => {}
+            other => return other.expect("runs"),
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    command.output().expect("runs")
+}
+
 /// A copy of `pdx` alone in a directory, so the harness beside it is the test's.
 fn lone_pdx(dir: &Path) -> PathBuf {
     let pdx = dir.join(format!("pdx{}", std::env::consts::EXE_SUFFIX));
@@ -275,10 +292,7 @@ fn lone_pdx(dir: &Path) -> PathBuf {
 fn pdx_bench_without_the_harness_beside_it_says_so() {
     let dir = tempfile::tempdir().expect("tempdir");
     let pdx = lone_pdx(dir.path());
-    let output = Command::new(&pdx)
-        .args(["bench", "--perf"])
-        .output()
-        .expect("runs");
+    let output = run_written(Command::new(&pdx).args(["bench", "--perf"]));
     assert_eq!(code(&output), 1);
     let text = stderr(&output);
     assert!(
@@ -287,7 +301,7 @@ fn pdx_bench_without_the_harness_beside_it_says_so() {
     );
     assert_eq!(text.lines().count(), 1, "{text}");
     for args in [&["bench"][..], &["bench", "--perf", "linux"]] {
-        let output = Command::new(&pdx).args(args).output().expect("runs");
+        let output = run_written(Command::new(&pdx).args(args));
         assert_eq!(code(&output), 1, "{args:?}: a usage error exits 1, never 2");
     }
 }
@@ -309,20 +323,17 @@ fn pdx_bench_runs_the_harness_beside_it_with_its_modes() {
     )
     .expect("writes a harness");
     std::fs::set_permissions(&harness, std::fs::Permissions::from_mode(0o755)).expect("chmod");
-    let output = Command::new(&pdx)
-        .args(["bench", "--perf", "--determinism"])
-        .output()
-        .expect("runs");
+    let output = run_written(Command::new(&pdx).args(["bench", "--perf", "--determinism"]));
     assert_eq!(code(&output), 0, "{}", stderr(&output));
     assert_eq!(
         std::fs::read_to_string(&seen).expect("arguments"),
         "bench\n--determinism\n--perf\n"
     );
-    let failed = Command::new(&pdx)
-        .args(["bench", "--determinism"])
-        .env("PDX_TEST_EXIT", "3")
-        .output()
-        .expect("runs");
+    let failed = run_written(
+        Command::new(&pdx)
+            .args(["bench", "--determinism"])
+            .env("PDX_TEST_EXIT", "3"),
+    );
     assert_eq!(code(&failed), 1, "any harness failure is 1");
     assert_eq!(
         std::fs::read_to_string(&seen).expect("arguments"),

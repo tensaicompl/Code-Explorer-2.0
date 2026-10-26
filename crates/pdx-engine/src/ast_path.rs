@@ -214,9 +214,9 @@ mod tests {
         assert!(std::ptr::eq(a[0], b[0]));
         assert!(!a.shares(&b));
         let (ab, ac) = (AstPath::from(["a", "b"]), AstPath::from(["a", "c"]));
-        let (a, aa) = (AstPath::from(["a"]), AstPath::from(["a", "a"]));
+        let (one, two) = (AstPath::from(["a"]), AstPath::from(["a", "a"]));
         assert!(ab < ac);
-        assert!(a < aa);
+        assert!(one < two);
         assert_eq!(
             format!("{a:?}"),
             format!("{:?}", vec!["block".to_owned(), "call".to_owned()])
