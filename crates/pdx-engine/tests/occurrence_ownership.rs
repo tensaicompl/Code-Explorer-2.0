@@ -39,7 +39,7 @@ fn caller(e: &FileExtract, call: &Call) -> Option<String> {
 }
 
 fn path(call: &Call) -> Vec<&str> {
-    call.ast_path.iter().map(String::as_str).collect()
+    call.ast_path.iter().copied().collect()
 }
 
 /// The one positioned call to `callee`, owned by `owner`, its path starting at `node`.

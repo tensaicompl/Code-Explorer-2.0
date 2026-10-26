@@ -821,7 +821,7 @@ fn blocklisted_sites_that_are_no_call_need_a_qualifying_answer() {
         is_reference: false,
         typed_only: true,
         lexical: pdx_engine::LexicalFacts::default(),
-        ast_path: Vec::new(),
+        ast_path: pdx_engine::AstPath::default(),
         args: Vec::new(),
         use_scope: None,
     };
@@ -1906,7 +1906,7 @@ fn engine_sites_past_the_extraction_need_an_answer() {
             is_reference: false,
             typed_only: true,
             lexical: pdx_engine::LexicalFacts::default(),
-            ast_path: Vec::new(),
+            ast_path: pdx_engine::AstPath::default(),
             args: Vec::new(),
             use_scope: None,
         },

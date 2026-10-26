@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use pdx_engine_sys as sys;
 
+use crate::ast_path::AstPath;
 use crate::error::EngineError;
 use crate::model::{
     Call, CallArg, Channel, ChannelDirection, Definition, DefinitionKind, Diagnostic, EnvAccess,
@@ -331,7 +332,9 @@ unsafe fn route(r: &sys::pdxe_route, len: u64) -> Result<RouteFact, EngineError>
         callee_text: unsafe { required(callee_text, "a route's callee") }?,
         source_text: unsafe { text(&source_text, len, "a route's declaring node") }?,
         span: span(at),
-        ast_path: unsafe { strings(ast_path.cast_const(), n_ast_path, "a route's node type") }?,
+        ast_path: ast_path_of(&unsafe {
+            strings(ast_path.cast_const(), n_ast_path, "a route's node type")
+        }?)?,
     })
 }
 
@@ -346,6 +349,13 @@ unsafe fn strings(p: *const *const c_char, n: u32, what: &str) -> Result<Vec<Str
         .iter()
         .map(|&s| unsafe { required(s, what) })
         .collect()
+}
+
+/// A node-type path from the engine's names, interned (P2-17).
+fn ast_path_of(names: &[String]) -> Result<AstPath, EngineError> {
+    AstPath::try_from_names(names.iter().map(String::as_str)).ok_or_else(|| {
+        EngineError::Contract("more distinct node types than any grammar has".to_owned())
+    })
 }
 
 /// # Safety
@@ -407,7 +417,9 @@ pub(crate) unsafe fn call(
         typed_only: typed_only != 0,
         lexical: LexicalFacts::from_bits(lexical),
         // SAFETY: the arrays hold their counts, and their strings are alive.
-        ast_path: unsafe { strings(ast_path.cast_const(), n_ast_path, "a node type") }?,
+        ast_path: ast_path_of(&unsafe {
+            strings(ast_path.cast_const(), n_ast_path, "a node type")
+        }?)?,
         args: unsafe { each(args, n_args, "a call's arguments", |a| call_arg(a, len)) }?,
         use_scope: (use_scope != sys::PDXE_NO_PARENT).then_some(use_scope),
     })

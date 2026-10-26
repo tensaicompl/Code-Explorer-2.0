@@ -24,7 +24,7 @@ fn paths<'e>(e: &'e FileExtract, callee: &str, reference: bool) -> Vec<Vec<&'e s
     found.sort_by_key(|c| c.span.map(|s| s.start_byte));
     found
         .iter()
-        .map(|c| c.ast_path.iter().map(String::as_str).collect())
+        .map(|c| c.ast_path.iter().copied().collect())
         .collect()
 }
 

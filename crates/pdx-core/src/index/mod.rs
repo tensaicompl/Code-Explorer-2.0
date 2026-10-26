@@ -22,6 +22,7 @@ pub mod report;
 pub mod write;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::config::{ConfigError, PdxConfig};
 use crate::coverage::{self, CoverageError};
@@ -29,7 +30,7 @@ use crate::ids::RepoId;
 use crate::index::derive::{DeriveError, DeriveInput};
 use crate::index::discover::DiscoverError;
 use crate::index::extract::{
-    BackendFactory, ExtractCache, ExtractError, ExtractLimits, ExtractStage,
+    BackendFactory, ExtractCache, ExtractError, ExtractLimits, ExtractStage, SurfaceSpill,
 };
 use crate::resolve::registry::{RegistryError, SymbolRegistry};
 use crate::resolve::stages::{ResolutionError, resolve};
@@ -201,7 +202,14 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
     })?;
     let extracted = report.stage(Stage::Extract, |span| {
         span.record("files", found.files.len());
-        let mut stage = ExtractStage::new(root, &found.config.secrets, limits);
+        let spill = surface_spill(build_dir.as_deref(), &destination).map_err(|source| {
+            ExtractError::Spill {
+                path: String::new(),
+                source,
+            }
+        })?;
+        let mut stage = ExtractStage::new(root, &found.config.secrets, limits)
+            .with_surface_spill(Arc::new(spill));
         if let Some(cache) = cache {
             stage = stage.with_cache(cache);
         }
@@ -272,6 +280,17 @@ struct Found {
 }
 
 /// Stage 1: the repository's configuration and files.
+/// The build's surface spill (P2-17), on the disk the segment is built on: in
+/// `build_dir` when one is given, else beside the destination, as the segment itself is
+/// staged; the system's temporary directory only when neither exists yet.
+fn surface_spill(build_dir: Option<&Path>, destination: &Path) -> std::io::Result<SurfaceSpill> {
+    let dir = build_dir.or_else(|| destination.parent().filter(|d| !d.as_os_str().is_empty()));
+    match dir {
+        Some(dir) if dir.is_dir() => SurfaceSpill::create_in(dir),
+        _ => SurfaceSpill::create(),
+    }
+}
+
 fn discovered(root: &Path) -> Result<Found, IndexError> {
     let config = PdxConfig::load(root)?;
     let all = discover::discover(root, &config)?;

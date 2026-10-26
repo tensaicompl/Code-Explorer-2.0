@@ -254,7 +254,7 @@ fn read(extract: &FileExtract, call: &Call) -> Read {
         is_reference: call.is_reference,
         typed_only: call.typed_only,
         lexical: call.lexical.bits(),
-        ast_path: call.ast_path.clone(),
+        ast_path: call.ast_path.iter().map(|s| (*s).to_owned()).collect(),
         args: call
             .args
             .iter()

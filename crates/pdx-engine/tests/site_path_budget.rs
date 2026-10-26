@@ -119,16 +119,12 @@ fn a_files_paths_are_bounded_complete_or_absent_in_every_language() {
             );
             // Complete: from the owner's node type down to the call's own.
             assert_eq!(
-                c.ast_path.first().map(String::as_str),
+                c.ast_path.first().copied(),
                 Some(owner),
                 "{language}: {:?}",
                 c.ast_path
             );
-            assert_eq!(
-                c.ast_path.last().map(String::as_str),
-                Some(call),
-                "{language}"
-            );
+            assert_eq!(c.ast_path.last().copied(), Some(call), "{language}");
             entries += c.ast_path.len();
         }
         let first_absent = first_absent.unwrap_or_else(|| panic!("{language}: nothing was cut"));

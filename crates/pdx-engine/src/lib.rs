@@ -18,6 +18,7 @@
 //! before the engine's own copy is freed, and the engine objects a project depends on
 //! are owned by the project.
 
+mod ast_path;
 mod convert;
 mod engine;
 mod error;
@@ -25,6 +26,7 @@ pub mod isolate;
 mod model;
 mod resolver;
 
+pub use ast_path::{AstPath, MAX_INTERNED_NODE_TYPES};
 pub use engine::{EXTRACTION_SWITCHES, Engine, NODE_BUDGET_ENV, extraction_switch_set};
 pub use error::{EngineError, SourceDifference};
 pub use model::{

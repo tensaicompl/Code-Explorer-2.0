@@ -1978,12 +1978,28 @@ fn crate_sources() -> Vec<(String, String)> {
 #[test]
 fn the_crate_never_decodes_the_surface_or_runs_a_program() {
     // The surface is the engine's opaque encoding: `pdx-core` reads facts from the
-    // extraction's own fields, never from it. And nothing here learns about a
-    // repository by running its tools (`cargo`, `go`, `node`, a compiler): metadata
-    // is read from files.
+    // extraction's own fields, never from it. Since P2-17 it moves a surface's bytes,
+    // whole, to the build's spill and back to the engine, and nothing else: these
+    // operations are the only mention of a surface allowed. And nothing here learns
+    // about a repository by running its tools (`cargo`, `go`, `node`, a compiler):
+    // metadata is read from files.
+    const MOVES_BYTES: [&str; 8] = [
+        "SurfaceSpill",
+        ".surfaces",
+        ".surface(path)",
+        "take_surface",
+        "add_file_with_surface",
+        "extract.surface.is_empty()",
+        "extract.surface.as_bytes()",
+        "surface.as_bytes()",
+    ];
     for (path, text) in crate_sources() {
+        let mut rest = text.clone();
+        for allowed in MOVES_BYTES {
+            rest = rest.replace(allowed, "");
+        }
         for forbidden in [".surface", "Surface", "process::Command", "Command::new"] {
-            assert!(!text.contains(forbidden), "{path} uses `{forbidden}`");
+            assert!(!rest.contains(forbidden), "{path} uses `{forbidden}`");
         }
     }
 }

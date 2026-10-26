@@ -31,6 +31,7 @@
 
 mod cache;
 mod plan;
+mod spill;
 
 use std::fs;
 use std::io::{self, Read};
@@ -56,6 +57,7 @@ pub use cache::{
     FsCache,
 };
 pub use plan::{Batch, BatchPlan, ExtractLimits, plan_batches};
+pub use spill::SurfaceSpill;
 
 /// What a worker extracts with: one per worker thread, never shared.
 pub trait ExtractBackend {
@@ -208,6 +210,9 @@ pub struct ExtractReport {
     pub files: Vec<ExtractedFile>,
     /// What the stage did.
     pub stats: ExtractStats,
+    /// Where the extractions' surfaces were moved, when the stage was given a spill
+    /// ([`ExtractStage::with_surface_spill`]); their extractions then hold empty ones.
+    pub surfaces: Option<Arc<SurfaceSpill>>,
 }
 
 impl ExtractReport {
@@ -298,6 +303,15 @@ pub enum ExtractError {
     /// The worker pool could not be built.
     #[error("cannot start the extraction workers: {0}")]
     Workers(String),
+    /// A surface could not be moved to the build's spill.
+    #[error("{path}: cannot keep its surface: {source}")]
+    Spill {
+        /// The file.
+        path: String,
+        /// What went wrong.
+        #[source]
+        source: io::Error,
+    },
 }
 
 /// A file's source, ready for the engine: read, identified and normalised.
@@ -461,6 +475,7 @@ pub struct ExtractStage<'a> {
     limits: ExtractLimits,
     cache: Option<&'a dyn ExtractCache>,
     backend: Option<&'a BackendFactory<'a>>,
+    spill: Option<Arc<SurfaceSpill>>,
 }
 
 impl<'a> ExtractStage<'a> {
@@ -473,6 +488,7 @@ impl<'a> ExtractStage<'a> {
             limits,
             cache: None,
             backend: None,
+            spill: None,
         }
     }
 
@@ -480,6 +496,15 @@ impl<'a> ExtractStage<'a> {
     #[must_use]
     pub fn with_cache(mut self, cache: &'a dyn ExtractCache) -> Self {
         self.cache = Some(cache);
+        self
+    }
+
+    /// Moves each extraction's surface to `spill` as it completes, after the cache has
+    /// stored the whole record (P2-17): the report's extractions hold empty surfaces and
+    /// [`ExtractReport::surfaces`] the spill.
+    #[must_use]
+    pub fn with_surface_spill(mut self, spill: Arc<SurfaceSpill>) -> Self {
+        self.spill = Some(spill);
         self
     }
 
@@ -569,6 +594,7 @@ impl<'a> ExtractStage<'a> {
                 batches: plan.batches.len(),
                 peak_source_bytes: counters.peak_source_bytes.load(Ordering::Relaxed),
             },
+            surfaces: self.spill.clone(),
         })
     }
 
@@ -674,9 +700,10 @@ impl<'a> ExtractStage<'a> {
                         .transpose()
                 });
                 match usable {
-                    Ok(Some(extract)) => {
+                    Ok(Some(mut extract)) => {
                         counters.cache_hits.fetch_add(1, Ordering::Relaxed);
                         held.sub(prepared.bytes.len() as u64);
+                        self.spill_surface(&file.path, &mut extract)?;
                         done.push((
                             index,
                             FileOutcome::Extracted {
@@ -727,7 +754,7 @@ impl<'a> ExtractStage<'a> {
             pending.into_iter().zip(sources.into_iter().zip(outcomes))
         {
             let outcome = match outcome {
-                ExtractOutcome::Extracted(extract) => {
+                ExtractOutcome::Extracted(mut extract) => {
                     if extract.rel_path != source.rel_path
                         || extract.language != source.language
                         || extract.source_len != source.source.len() as u64
@@ -744,6 +771,7 @@ impl<'a> ExtractStage<'a> {
                         };
                         counter.fetch_add(1, Ordering::Relaxed);
                     }
+                    self.spill_surface(&source.rel_path, &mut extract)?;
                     FileOutcome::Extracted { extract, blob_sha }
                 }
                 ExtractOutcome::Failed(ExtractFailure::EngineCrash) => {
@@ -758,6 +786,22 @@ impl<'a> ExtractStage<'a> {
         // The batch's sources are released here, with `held`.
         done.sort_by_key(|(index, _, _)| *index);
         Ok(done)
+    }
+}
+
+impl ExtractStage<'_> {
+    /// Moves `extract`'s surface to the stage's spill, if it has one.
+    fn spill_surface(&self, path: &str, extract: &mut FileExtract) -> Result<(), ExtractError> {
+        let Some(spill) = &self.spill else {
+            return Ok(());
+        };
+        let surface = extract.take_surface();
+        spill
+            .put(path, surface.as_bytes())
+            .map_err(|source| ExtractError::Spill {
+                path: path.to_owned(),
+                source,
+            })
     }
 }
 

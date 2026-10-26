@@ -163,7 +163,7 @@ fn declared(registry: &SymbolRegistry, out: &mut Vec<Binding>) {
 /// position, grouped by node-type path and callee as resolution splits it (4.2.1). The
 /// facts one node declares share it.
 fn declared_ordinals(facts: &[RouteFact]) -> Vec<Option<u32>> {
-    type Group<'a> = (&'a [String], &'a str, &'a str);
+    type Group<'a> = (&'a [&'static str], &'a str, &'a str);
     let mut nodes: BTreeMap<Group<'_>, BTreeSet<(u32, u32)>> = BTreeMap::new();
     for fact in facts {
         let (Some(span), false) = (fact.span, fact.ast_path.is_empty()) else {
@@ -203,8 +203,8 @@ fn declared_site(
         return Ok(Err(Missing::AstPath));
     };
     let (receiver, name) = split_callee(&fact.callee_text);
-    let node_types: Vec<&str> = fact.ast_path.iter().map(String::as_str).collect();
-    let fingerprint = ast_fingerprint(&node_types, name, receiver.unwrap_or(""), ordinal)?;
+    let node_types: &[&str] = fact.ast_path.as_slice();
+    let fingerprint = ast_fingerprint(node_types, name, receiver.unwrap_or(""), ordinal)?;
     let enclosing = graph.definition_node(handler)?.clone();
     let key = SiteKey::new(&handler.path, Some(enclosing), SiteKind::Route, fingerprint);
     let file = graph.file_node(&handler.path)?.clone();

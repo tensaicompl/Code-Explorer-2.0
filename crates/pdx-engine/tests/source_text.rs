@@ -70,11 +70,11 @@ fn owned_bytes(e: &FileExtract) -> usize {
 fn encoded_text_size(e: &FileExtract) -> usize {
     let mut record = e.record().clone();
     for c in &mut record.calls {
-        c.ast_path.clear();
+        c.ast_path = pdx_engine::AstPath::default();
     }
     for d in &mut record.definitions {
         for r in &mut d.routes {
-            r.ast_path.clear();
+            r.ast_path = pdx_engine::AstPath::default();
         }
     }
     postcard::to_stdvec(&record).unwrap().len() - record.surface.as_bytes().len()

@@ -400,7 +400,20 @@ pub fn typed_resolution(
         if prepared.blob_sha != *blob_sha || prepared.digest != extract.source_digest {
             return Err(ResolutionError::SourceChanged(path.to_owned()));
         }
-        project.add_file(extract, &prepared.bytes)?;
+        let surface = registry
+            .surface(path)
+            .map_err(|source| ResolutionError::SourceRead {
+                path: path.to_owned(),
+                source: Box::new(ExtractError::Spill {
+                    path: path.to_owned(),
+                    source,
+                }),
+            })?
+            .ok_or_else(|| ResolutionError::Registry {
+                path: path.to_owned(),
+                detail: "an extracted file with no surface",
+            })?;
+        project.add_file_with_surface(extract, &prepared.bytes, &surface)?;
     }
     Ok(project.run()?)
 }

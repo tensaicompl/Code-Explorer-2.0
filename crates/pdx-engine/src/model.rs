@@ -23,6 +23,8 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
+use crate::ast_path::{AstPath, PathSharing};
+
 /// A position in a file: byte offsets into its UTF-8 source, and the 1-based lines and
 /// columns they fall on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -330,7 +332,7 @@ pub struct RouteFact {
     /// The node types from the lowest node holding both the definition and the
     /// declaring node (the definition itself for an annotation inside it; the decorated
     /// wrapper for a Python decorator) down to the declaring node; empty when not known.
-    pub ast_path: Vec<String>,
+    pub ast_path: AstPath,
 }
 
 /// One argument the engine captured at a call (issue 47).
@@ -413,7 +415,7 @@ pub struct Call {
     /// file scope) down to the node the site is recorded at: what a site's identity
     /// hashes (4.2.1, issue 46). Empty when the engine could not record it, and for a
     /// resolution's site.
-    pub ast_path: Vec<String>,
+    pub ast_path: AstPath,
     /// The arguments the engine captured, in its order; empty for a reference and a
     /// resolution's site (issue 47).
     pub args: Vec<CallArg>,
@@ -565,6 +567,17 @@ impl Surface {
     /// The engine's bytes.
     pub fn as_bytes(&self) -> &[u8] {
         &self.0
+    }
+
+    /// The engine's bytes, owned.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
+    }
+
+    /// Whether the surface holds no bytes: one taken out of its extraction
+    /// ([`FileExtract::take_surface`]), never one the engine wrote.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -804,10 +817,23 @@ impl ExtractRecord {
             return Err(BindError::Digest);
         }
         self.check_well_formed()?;
-        Ok(FileExtract {
-            record: self,
-            source,
-        })
+        let mut record = self;
+        record.share_ast_paths();
+        Ok(FileExtract { record, source })
+    }
+
+    /// Gives the equal node-type paths of this extraction's sites one allocation each
+    /// (P2-17): most of a file's sites share a few paths.
+    fn share_ast_paths(&mut self) {
+        let mut sharing = PathSharing::default();
+        for call in &mut self.calls {
+            sharing.share(&mut call.ast_path);
+        }
+        for definition in &mut self.definitions {
+            for route in &mut definition.routes {
+                sharing.share(&mut route.ast_path);
+            }
+        }
     }
 
     /// Every text range within the source, every qualified name's base earlier, every
@@ -945,7 +971,8 @@ impl Deref for FileExtract {
 
 impl FileExtract {
     /// A record just made from `source` by this crate, bound without checking again.
-    pub(crate) fn fresh(record: ExtractRecord, source: Arc<[u8]>) -> Self {
+    pub(crate) fn fresh(mut record: ExtractRecord, source: Arc<[u8]>) -> Self {
+        record.share_ast_paths();
         Self { record, source }
     }
 
@@ -957,6 +984,15 @@ impl FileExtract {
     /// The record, unbound.
     pub fn into_record(self) -> ExtractRecord {
         self.record
+    }
+
+    /// Moves the surface out, leaving an empty one: the largest part of an extraction,
+    /// which only typed resolution reads, so a build can keep it elsewhere until then
+    /// (P2-17, issue 82) and hand it to [`ProjectResolver::add_file_with_surface`].
+    ///
+    /// [`ProjectResolver::add_file_with_surface`]: crate::ProjectResolver::add_file_with_surface
+    pub fn take_surface(&mut self) -> Surface {
+        Surface(std::mem::take(&mut self.record.surface.0))
     }
 
     /// The exact bytes extracted.

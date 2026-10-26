@@ -300,7 +300,25 @@ impl<'e> ProjectResolver<'e> {
     /// and the engine's refusals, such as a path added twice. After an error the
     /// project cannot run.
     pub fn add_file(&mut self, extract: &FileExtract, source: &[u8]) -> Result<(), EngineError> {
-        let result = self.add_file_inner(extract, source);
+        let result = self.add_file_inner(extract, source, extract.surface.as_bytes());
+        self.note(result)
+    }
+
+    /// Adds a file as [`ProjectResolver::add_file`] does, with its surface given
+    /// separately: one a build kept outside the extraction ([`FileExtract::take_surface`]),
+    /// which must be the extraction's own.
+    ///
+    /// # Errors
+    ///
+    /// As for [`ProjectResolver::add_file`]; the engine refuses a surface that is not
+    /// for this path.
+    pub fn add_file_with_surface(
+        &mut self,
+        extract: &FileExtract,
+        source: &[u8],
+        surface: &[u8],
+    ) -> Result<(), EngineError> {
+        let result = self.add_file_inner(extract, source, surface);
         self.note(result)
     }
 
@@ -382,7 +400,12 @@ impl<'e> ProjectResolver<'e> {
         result
     }
 
-    fn add_file_inner(&mut self, extract: &FileExtract, source: &[u8]) -> Result<(), EngineError> {
+    fn add_file_inner(
+        &mut self,
+        extract: &FileExtract,
+        source: &[u8],
+        surface: &[u8],
+    ) -> Result<(), EngineError> {
         let difference = if source.len() as u64 != extract.source_len {
             Some(SourceDifference::Length {
                 extracted: extract.source_len,
@@ -402,7 +425,6 @@ impl<'e> ProjectResolver<'e> {
         let lang = language_id(&extract.language)
             .ok_or_else(|| EngineError::UnknownLanguage(extract.language.clone()))?;
         let rebuilt = self.rebuild(extract)?;
-        let surface = extract.surface.as_bytes();
         // SAFETY: the project is alive; the engine copies the bytes.
         let status = unsafe {
             sys::pdxe_surface_import(self.project.as_ptr(), surface.as_ptr(), surface.len())
@@ -763,13 +785,13 @@ impl Strings {
 
     /// An array of these strings, or NULL when there are none, as the interface's
     /// counted string arrays are.
-    fn array(&mut self, items: &[String]) -> Result<*mut *const c_char, EngineError> {
+    fn array<S: AsRef<str>>(&mut self, items: &[S]) -> Result<*mut *const c_char, EngineError> {
         if items.is_empty() {
             return Ok(ptr::null_mut());
         }
         let mut pointers = items
             .iter()
-            .map(|s| self.required(s))
+            .map(|s| self.required(s.as_ref()))
             .collect::<Result<Vec<_>, _>>()?;
         // The vector's buffer does not move when it is kept below.
         let p = pointers.as_mut_ptr();

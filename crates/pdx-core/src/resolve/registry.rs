@@ -19,6 +19,7 @@
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::Path;
+use std::sync::Arc;
 
 use pdx_engine::{
     CrateManifest, Definition, DefinitionKind, FileExtract, NamespaceEvidence, PackageEntry,
@@ -26,7 +27,7 @@ use pdx_engine::{
 };
 
 use crate::index::discover::{DiscoveredFile, Disposition};
-use crate::index::extract::{ExtractError, ExtractReport, FileOutcome};
+use crate::index::extract::{ExtractError, ExtractReport, FileOutcome, SurfaceSpill};
 use crate::languages::Language;
 
 use super::impls::ImplHeader;
@@ -425,6 +426,8 @@ pub struct SymbolRegistry {
     /// relations' order, each with the file its impl is in (issue 117).
     relation_headers: BTreeMap<(DefinitionRef, DefinitionRef), Vec<RelationHeader>>,
     metadata: ResolutionMetadata,
+    /// Where Stage 2 moved the extractions' surfaces, if it did (P2-17).
+    surfaces: Option<Arc<SurfaceSpill>>,
 }
 
 /// The members macro invocations may write for types of one name (issue 110).
@@ -451,6 +454,7 @@ impl SymbolRegistry {
         discovered: &[DiscoveredFile],
         extracted: ExtractReport,
     ) -> Result<Self, RegistryError> {
+        let surfaces = extracted.surfaces.clone();
         let sources = Sources {
             root,
             files: pair_stages(discovered, extracted)?,
@@ -485,6 +489,7 @@ impl SymbolRegistry {
             rust_method_impls: BTreeMap::new(),
             relation_headers: BTreeMap::new(),
             metadata: ResolutionMetadata::default(),
+            surfaces,
         };
         registry.index_definitions(&sources);
         registry.assign_modules(&sources, &layout);
@@ -1092,6 +1097,32 @@ impl SymbolRegistry {
     /// What Stage 2 did with a file.
     pub fn outcome(&self, path: &str) -> Option<&FileOutcome> {
         self.files.get(path).map(|s| &s.outcome)
+    }
+
+    /// The surface typed resolution adds `path` with: its extraction's own, or the one
+    /// Stage 2 moved to the build's spill (P2-17). `None` for a file with no extraction.
+    ///
+    /// # Errors
+    ///
+    /// When the spill cannot be read, or holds no surface for an extraction whose own
+    /// was moved.
+    pub fn surface(&self, path: &str) -> std::io::Result<Option<Cow<'_, [u8]>>> {
+        let Some(extract) = self.extract(path) else {
+            return Ok(None);
+        };
+        if !extract.surface.is_empty() {
+            return Ok(Some(Cow::Borrowed(extract.surface.as_bytes())));
+        }
+        let Some(spill) = &self.surfaces else {
+            return Ok(Some(Cow::Borrowed(extract.surface.as_bytes())));
+        };
+        match spill.get(path)? {
+            Some(bytes) => Ok(Some(Cow::Owned(bytes))),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("{path}: no surface in the build's spill"),
+            )),
+        }
     }
 
     /// A file's extraction, if it was extracted.

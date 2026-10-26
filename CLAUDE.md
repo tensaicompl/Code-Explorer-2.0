@@ -72,6 +72,17 @@ that cannot work yet because a prerequisite is not built is recorded, not forced
   own index is `degraded` by one generated grammar table; discovery ignores
   `linguist-generated`) and 133 (the local extraction cache has no retention), all
   owner decisions; Kubernetes still passes 6 GiB in Stage 2 (issue 82).
+- **P2-17 in progress (2026-10-26):** Stage 2 moves each extraction's surface (the
+  engine's JSON re-encoding of the extraction, ~20× the source, 62% of what Stage 2
+  held) into an unnamed per-build spill file beside the build after the cache stores the
+  record (`index::extract::SurfaceSpill`, `ExtractStage::with_surface_spill`,
+  `ExtractReport::surfaces`); typed resolution reads it back (`SymbolRegistry::surface`,
+  `ProjectResolver::add_file_with_surface`). Node-type paths are `pdx_engine::AstPath`
+  (interned names, shared per file, wire-identical). Kubernetes `pkg/` (3,593 files):
+  Stage 2 1.59 GB → 0.59 GB, peak 3.57 → 2.49 GB, segment byte-identical; the rest of
+  Stage 3's peak is the engine's project (three copies of each file: decoded surface,
+  rebuilt result, source), the next step. The `registry` guard test allows only these
+  byte-moving mentions of a surface.
 - **Plan v1.4 (2026-10-26, decisions 72 to 85):** the owner accepted the plan review
   with the instruction that the tool be best in class. The external plan is
   `! Version 2.0/PDX-2.0-PLAN-v1.4.md` (uncommitted; extract with

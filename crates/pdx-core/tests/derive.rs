@@ -1295,15 +1295,9 @@ fn identical_sites_get_deterministic_ordinals() {
         .iter()
         .find(|c| shop_extract.text(&c.callee_text) == "helper")
         .unwrap();
-    assert_eq!(
-        call.ast_path.first().map(String::as_str),
-        Some("method_declaration")
-    );
-    assert_eq!(
-        call.ast_path.last().map(String::as_str),
-        Some("method_invocation")
-    );
-    let path: Vec<&str> = call.ast_path.iter().map(String::as_str).collect();
+    assert_eq!(call.ast_path.first().copied(), Some("method_declaration"));
+    assert_eq!(call.ast_path.last().copied(), Some("method_invocation"));
+    let path: Vec<&str> = call.ast_path.iter().copied().collect();
     for (ordinal, site) in (1u32..).zip(&sites) {
         assert_eq!(
             site.ast_fingerprint,

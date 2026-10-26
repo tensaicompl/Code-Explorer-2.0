@@ -49,7 +49,7 @@ fn enclosing(registry: &SymbolRegistry, path: &str, call: &Call) -> Option<u32> 
 /// enclosing definition, node-type path, callee and receiver, its position in source
 /// order, counting from 1.
 pub(crate) fn ordinals(registry: &SymbolRegistry) -> BTreeMap<SiteRef, u32> {
-    type Group<'a> = (Option<u32>, &'a [String], &'a str, &'a str);
+    type Group<'a> = (Option<u32>, &'a [&'static str], &'a str, &'a str);
     let mut out = BTreeMap::new();
     for path in registry.files() {
         let Some(extract) = registry.extract(path) else {
@@ -132,8 +132,8 @@ pub(crate) fn call_site(
             detail: "a call site in a file with no extraction",
         })?;
     let (receiver, name) = split_callee(&spelled);
-    let node_types: Vec<&str> = call.ast_path.iter().map(String::as_str).collect();
-    let fingerprint = ast_fingerprint(&node_types, name, receiver.unwrap_or(""), ordinal)?;
+    let node_types: &[&str] = call.ast_path.as_slice();
+    let fingerprint = ast_fingerprint(node_types, name, receiver.unwrap_or(""), ordinal)?;
     let caller = enclosing(registry, path, call).map(|index| DefinitionRef {
         path: path.to_owned(),
         index,

@@ -36,7 +36,7 @@ fn caller(e: &FileExtract, call: &Call) -> Option<String> {
 }
 
 fn path(call: &Call) -> Vec<&str> {
-    call.ast_path.iter().map(String::as_str).collect()
+    call.ast_path.iter().copied().collect()
 }
 
 fn defined(e: &FileExtract, name: &str) -> usize {
