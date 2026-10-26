@@ -145,7 +145,7 @@ fn declared(registry: &SymbolRegistry, out: &mut Vec<Binding>) {
             for (k, fact) in definition.routes.iter().enumerate() {
                 out.push(Binding {
                     handler: DefinitionRef {
-                        path: path.to_owned(),
+                        path: path.into(),
                         index,
                     },
                     method: fact.method.to_uppercase(),
@@ -255,7 +255,7 @@ fn express(
                 continue;
             };
             let site_ref = SiteRef {
-                rel_path: path.to_owned(),
+                rel_path: path.into(),
                 call_index,
             };
             let handler_expr = extract.text(&handler_arg.expr);
@@ -303,7 +303,7 @@ fn express_handler(
             continue;
         }
         let site_ref = SiteRef {
-            rel_path: path.to_owned(),
+            rel_path: path.into(),
             call_index: u32::try_from(i).ok()?,
         };
         // Its target when drawn, or the one candidate weak evidence names (issue 102):
@@ -359,7 +359,7 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
         let handler = registry
             .definition(&binding.handler)
             .ok_or(DeriveError::Missing {
-                path: binding.handler.path.clone(),
+                path: binding.handler.path.to_string(),
                 detail: "a route handler the registry does not have",
             })?;
         let handler_path = binding.handler.path.as_str();
@@ -395,7 +395,7 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
             .extract(handler_path)
             .map(|e| e.qualified_name(binding.handler.index as usize))
             .ok_or(DeriveError::Missing {
-                path: binding.handler.path.clone(),
+                path: binding.handler.path.to_string(),
                 detail: "a route handler in a file with no extraction",
             })?;
         let key = route_node_key(

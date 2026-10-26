@@ -209,7 +209,7 @@ fn write_definitions(
     };
     for (index, definition) in (0u32..).zip(&extract.definitions) {
         let r = DefinitionRef {
-            path: path.to_owned(),
+            path: path.into(),
             index,
         };
         line(

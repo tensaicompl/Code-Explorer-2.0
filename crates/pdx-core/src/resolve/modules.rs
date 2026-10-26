@@ -72,7 +72,7 @@ pub(crate) fn layout(sources: &Sources<'_>) -> Result<Layout, RegistryError> {
                         Some(module) => layout.go_modules.push((dir_of(path).to_owned(), module)),
                         None => layout
                             .skipped
-                            .push((path.clone(), "no `module` directive".into())),
+                            .push((path.to_string(), "no `module` directive".into())),
                     }
                 }
             }
@@ -86,7 +86,7 @@ pub(crate) fn layout(sources: &Sources<'_>) -> Result<Layout, RegistryError> {
                     let (name, entries) = match metadata::parse_package_json(&text) {
                         Ok(parsed) => parsed,
                         Err(reason) => {
-                            layout.skipped.push((path.clone(), reason));
+                            layout.skipped.push((path.to_string(), reason));
                             continue;
                         }
                     };
@@ -102,7 +102,7 @@ pub(crate) fn layout(sources: &Sources<'_>) -> Result<Layout, RegistryError> {
                     let manifest = match metadata::parse_cargo(&text) {
                         Ok(manifest) => manifest,
                         Err(reason) => {
-                            layout.skipped.push((path.clone(), reason));
+                            layout.skipped.push((path.to_string(), reason));
                             continue;
                         }
                     };
@@ -159,7 +159,7 @@ pub(crate) const SCRIPT_EXTENSIONS: [&str; 9] = [
 fn npm_entry(sources: &Sources<'_>, dir: &str, entries: &[String]) -> String {
     for entry in entries {
         if let Some(path) = join(dir, entry)
-            && sources.files.contains_key(&path)
+            && sources.files.contains_key(path.as_str())
         {
             return path;
         }
@@ -167,7 +167,7 @@ fn npm_entry(sources: &Sources<'_>, dir: &str, entries: &[String]) -> String {
     for base in ["index", "src/index"] {
         for ext in SCRIPT_EXTENSIONS {
             if let Some(path) = join(dir, &format!("{base}{ext}"))
-                && sources.files.contains_key(&path)
+                && sources.files.contains_key(path.as_str())
             {
                 return path;
             }

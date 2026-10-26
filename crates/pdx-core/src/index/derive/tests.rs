@@ -165,7 +165,7 @@ pub(crate) fn test_definitions(registry: &SymbolRegistry) -> BTreeSet<Definition
                 continue;
             };
             let r = DefinitionRef {
-                path: path.to_owned(),
+                path: path.into(),
                 index,
             };
             if is_test(registry, language, path, &r, definition) {

@@ -51,7 +51,7 @@ fn caller_node(
     let enclosing = call.caller.and_then(|index| {
         let definition = registry.extract(path)?.definitions.get(index as usize)?;
         (!is_file_definition(definition, path)).then(|| DefinitionRef {
-            path: path.to_owned(),
+            path: path.into(),
             index,
         })
     });
@@ -134,7 +134,7 @@ pub(crate) fn mark(
                 continue;
             };
             let r = DefinitionRef {
-                path: path.to_owned(),
+                path: path.into(),
                 index,
             };
             let spring_boot = definition.decorators.iter().any(|d| {
@@ -169,7 +169,7 @@ pub(crate) fn mark(
                             .is_some_and(|s| s.start_line <= line && line <= s.end_line);
                     if holds && let Ok(index) = u32::try_from(index) {
                         let r = DefinitionRef {
-                            path: path.to_owned(),
+                            path: path.into(),
                             index,
                         };
                         entries.insert(graph.definition_node(&r)?.clone());

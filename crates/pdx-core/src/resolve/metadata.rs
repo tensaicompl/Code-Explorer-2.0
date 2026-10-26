@@ -327,7 +327,7 @@ fn collect_chain(
         let is_json = std::path::Path::new(&target)
             .extension()
             .is_some_and(|e| e.eq_ignore_ascii_case("json"));
-        let target = if sources.files.contains_key(&target) || is_json {
+        let target = if sources.files.contains_key(target.as_str()) || is_json {
             target
         } else {
             format!("{target}.json")

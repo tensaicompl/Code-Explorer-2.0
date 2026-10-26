@@ -275,7 +275,7 @@ fn from<'r>(report: &'r ResolveReport, path: &str, caller: &str) -> Vec<&'r Reso
             s.site_ref.rel_path == path
                 && s.site.caller.is_some_and(|index| {
                     reg.definition(&DefinitionRef {
-                        path: path.to_owned(),
+                        path: path.into(),
                         index,
                     })
                     .is_some_and(|d| d.name == caller)

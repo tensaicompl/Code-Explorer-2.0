@@ -457,15 +457,16 @@ pub fn resolve_with(
             engine,
         }),
     };
-    for path in registry.files() {
+    // Every site's path is its file's shared one (P2-17).
+    for path in registry.file_paths() {
         let Some(extract) = registry.extract(path) else {
             continue;
         };
         for (index, call) in extract.calls.iter().enumerate() {
             let site_ref = SiteRef {
-                rel_path: path.to_owned(),
+                rel_path: path.clone(),
                 call_index: u32::try_from(index).map_err(|_| ResolutionError::Registry {
-                    path: path.to_owned(),
+                    path: path.to_string(),
                     detail: "more calls than an index can count",
                 })?,
             };
@@ -475,11 +476,11 @@ pub fn resolve_with(
         }
         // Sites typed resolution found past the extraction's calls, in index order.
         let past = SiteRef {
-            rel_path: path.to_owned(),
+            rel_path: path.clone(),
             call_index: u32::try_from(extract.calls.len()).unwrap_or(u32::MAX),
         };
         for (site_ref, answer) in answers.range(past..) {
-            if site_ref.rel_path != path {
+            if site_ref.rel_path != *path {
                 break;
             }
             let outcome = resolver.site(site_ref, &answer.site, Some(answer), true)?;
@@ -975,7 +976,7 @@ impl Resolver<'_> {
         }
         // 5. The Rust stages.
         let caller = call.caller.map(|index| DefinitionRef {
-            path: path.to_owned(),
+            path: path.into(),
             index,
         });
         let current_type = caller.as_ref().and_then(|c| self.current_type(c));

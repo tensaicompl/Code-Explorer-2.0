@@ -162,7 +162,7 @@ fn the_row_says_how_many_survived() {
 fn a_set_within_the_bound_is_held_whole() {
     let mut candidates: Vec<DefinitionRef> = (0..3u32)
         .map(|index| DefinitionRef {
-            path: "a.py".to_owned(),
+            path: "a.py".into(),
             index,
         })
         .collect();
@@ -172,7 +172,7 @@ fn a_set_within_the_bound_is_held_whole() {
     // Past the bound, the first are kept and the count is all of them.
     candidates = (0..u32::try_from(MAX_CANDIDATES + 5).expect("small"))
         .map(|index| DefinitionRef {
-            path: "a.py".to_owned(),
+            path: "a.py".into(),
             index,
         })
         .collect();

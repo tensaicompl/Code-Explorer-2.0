@@ -129,7 +129,7 @@ fn site_ref(reg: &SymbolRegistry, path: &str, callee: &str) -> SiteRef {
         .collect();
     assert_eq!(found.len(), 1, "{callee} in {path}: {calls:?}");
     SiteRef {
-        rel_path: path.to_owned(),
+        rel_path: path.into(),
         call_index: u32::try_from(found[0]).unwrap(),
     }
 }
@@ -465,7 +465,7 @@ fn resolution_stage_matrix() {
 #[test]
 fn narrowing_keeps_narrowest_set() {
     let make = |name: &str| DefinitionRef {
-        path: format!("{name}.py"),
+        path: format!("{name}.py").into(),
         index: 1,
     };
     let [alpha, beta, gamma, delta] = ["a", "b", "c", "d"].map(make);

@@ -364,7 +364,7 @@ impl Builder {
         self.definition_nodes
             .get(r)
             .ok_or_else(|| DeriveError::Missing {
-                path: r.path.clone(),
+                path: r.path.to_string(),
                 detail: "a definition with no node",
             })
     }

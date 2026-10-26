@@ -180,7 +180,7 @@ fn engine_facts(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveEr
             // A broker client rule already read the call that carries this fact.
             let read = extract.calls.iter().enumerate().any(|(i, c)| {
                 found.covered.contains(&SiteRef {
-                    rel_path: path.to_owned(),
+                    rel_path: path.into(),
                     call_index: u32::try_from(i).unwrap_or(u32::MAX),
                 }) && names(extract, c, &fact.channel_text)
             });
@@ -221,7 +221,7 @@ fn engine_facts(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveEr
                     observation = observation.with_owner(file.clone());
                 }
                 let site_ref = SiteRef {
-                    rel_path: path.to_owned(),
+                    rel_path: path.into(),
                     call_index: u32::try_from(index).unwrap_or(u32::MAX),
                 };
                 if let Ok((site, _)) = call_site(

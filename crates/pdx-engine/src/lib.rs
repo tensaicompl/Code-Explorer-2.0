@@ -24,6 +24,7 @@ mod engine;
 mod error;
 pub mod isolate;
 mod model;
+mod rel_path;
 mod resolver;
 
 pub use ast_path::{AstPath, MAX_INTERNED_NODE_TYPES};
@@ -36,6 +37,7 @@ pub use model::{
     ScopedImport, SourceDigest, Span, Surface, TextRef, Throw, TypeRef, Usage, UseScope,
     Visibility, namespace_evidence,
 };
+pub use rel_path::RelPath;
 pub use resolver::{
     AliasScope, CrateDependency, CrateManifest, PackageEntry, PathAlias, ProjectResolution,
     ProjectResolver, ResolutionMetadata, RunHealth, RunStatus, SiteRef, Strategy, TypedResolution,

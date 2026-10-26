@@ -29,6 +29,7 @@ use pdx_engine::{
 use crate::index::discover::{DiscoveredFile, Disposition};
 use crate::index::extract::{ExtractError, ExtractReport, FileOutcome, SurfaceSpill};
 use crate::languages::Language;
+pub use pdx_engine::RelPath;
 
 use super::impls::ImplHeader;
 use super::imports::{self, Lookup};
@@ -38,8 +39,9 @@ use super::modules::{self, Layout, Membership};
 /// A definition: the file it is in and its index in that file's extraction.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct DefinitionRef {
-    /// The file's path below the repository root.
-    pub path: String,
+    /// The file's path below the repository root, shared by every reference to the
+    /// file (P2-17).
+    pub path: RelPath,
     /// The definition's index in the file's extraction.
     pub index: u32,
 }
@@ -47,8 +49,9 @@ pub struct DefinitionRef {
 /// An import: the file it is in and its index in that file's extraction.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ImportRef {
-    /// The file's path below the repository root.
-    pub path: String,
+    /// The file's path below the repository root, shared by every reference to the
+    /// file (P2-17).
+    pub path: RelPath,
     /// The import's index in the file's extraction.
     pub index: u32,
 }
@@ -377,7 +380,7 @@ pub(crate) struct FileState {
 /// The checkout and its files, by path.
 pub(crate) struct Sources<'a> {
     pub(crate) root: &'a Path,
-    pub(crate) files: BTreeMap<String, FileState>,
+    pub(crate) files: BTreeMap<RelPath, FileState>,
 }
 
 impl Sources<'_> {
@@ -392,7 +395,7 @@ impl Sources<'_> {
 /// The symbol registry of one repository.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SymbolRegistry {
-    files: BTreeMap<String, FileState>,
+    files: BTreeMap<RelPath, FileState>,
     by_name: BTreeMap<String, Vec<DefinitionRef>>,
     by_qualified_name: BTreeMap<String, Vec<DefinitionRef>>,
     by_file: BTreeMap<String, Vec<DefinitionRef>>,
@@ -534,8 +537,8 @@ impl SymbolRegistry {
                     top_level.entry(d.name.clone()).or_default().push(r.clone());
                 }
             }
-            self.top_level.insert(path.clone(), top_level);
-            self.by_file.insert(path.clone(), refs);
+            self.top_level.insert(path.to_string(), top_level);
+            self.by_file.insert(path.to_string(), refs);
         }
         // Files arrive in path order and definitions in index order, so each list is
         // already in (path, index) order.
@@ -551,14 +554,20 @@ impl SymbolRegistry {
             match modules::membership(layout, path, language, extract) {
                 Membership::File(module) => {
                     if let Some(module) = module {
-                        for r in self.by_file.get(path).into_iter().flatten() {
+                        for r in self.by_file.get(path.as_str()).into_iter().flatten() {
                             self.definition_modules.insert(r.clone(), module.clone());
                         }
                         modules_here.insert(module);
                     }
                 }
                 Membership::PerDefinition(per) => {
-                    for (r, module) in self.by_file.get(path).into_iter().flatten().zip(per) {
+                    for (r, module) in self
+                        .by_file
+                        .get(path.as_str())
+                        .into_iter()
+                        .flatten()
+                        .zip(per)
+                    {
                         if let Some(module) = module {
                             self.definition_modules.insert(r.clone(), module.clone());
                             modules_here.insert(module);
@@ -570,10 +579,10 @@ impl SymbolRegistry {
                 self.module_files
                     .entry(module.clone())
                     .or_default()
-                    .insert(path.clone());
+                    .insert(path.to_string());
             }
             self.file_modules
-                .insert(path.clone(), modules_here.into_iter().collect());
+                .insert(path.to_string(), modules_here.into_iter().collect());
         }
         for (r, module) in &self.definition_modules {
             self.module_definitions
@@ -641,9 +650,9 @@ impl SymbolRegistry {
                 .collect();
             if language.id == "rust" && !extract.use_scopes.is_empty() {
                 let scopes = rust_use_scopes(&lookup, language, path, extract, &records);
-                self.rust_use_scopes.insert(path.clone(), scopes);
+                self.rust_use_scopes.insert(path.to_string(), scopes);
             }
-            all.insert(path.clone(), records);
+            all.insert(path.to_string(), records);
         }
         for (path, records) in &all {
             let mut by_binding: BTreeMap<String, Vec<usize>> = BTreeMap::new();
@@ -675,20 +684,20 @@ impl SymbolRegistry {
             let Some(stem) = path.strip_suffix(".h") else {
                 continue;
             };
-            let sources_of_pair: Vec<&String> = language
+            let sources_of_pair: Vec<&RelPath> = language
                 .extensions
                 .iter()
                 .filter(|e| **e != ".h")
                 .filter_map(|e| {
                     sources
                         .files
-                        .get_key_value(&format!("{stem}{e}"))
+                        .get_key_value(format!("{stem}{e}").as_str())
                         .map(|(k, _)| k)
                 })
                 .collect();
             if let [source] = sources_of_pair.as_slice() {
-                self.pairs.insert(path.clone(), (*source).clone());
-                self.pairs.insert((*source).clone(), path.clone());
+                self.pairs.insert(path.to_string(), source.to_string());
+                self.pairs.insert(source.to_string(), path.to_string());
             }
         }
     }
@@ -753,7 +762,7 @@ impl SymbolRegistry {
             if extract.impl_traits.is_empty() {
                 continue;
             }
-            let module = match self.file_modules.get(path).map(Vec::as_slice) {
+            let module = match self.file_modules.get(path.as_str()).map(Vec::as_slice) {
                 Some([one]) => Some(one),
                 _ => None,
             };
@@ -792,12 +801,12 @@ impl SymbolRegistry {
                         .entry((ty.clone(), tr.clone()))
                         .or_default()
                         .push(RelationHeader {
-                            path: path.clone(),
+                            path: path.to_string(),
                             header: ImplHeader::read(&relation.impl_bounds),
                         });
                 }
                 relations.push(ImplRelation {
-                    path: path.clone(),
+                    path: path.to_string(),
                     index,
                     trait_name: relation.trait_name.clone(),
                     struct_name: relation.struct_name.clone(),
@@ -806,7 +815,7 @@ impl SymbolRegistry {
                     implemented_trait,
                 });
             }
-            impls.insert(path.clone(), relations);
+            impls.insert(path.to_string(), relations);
         }
         self.impls = impls;
         let flatten = |m: BTreeMap<DefinitionRef, BTreeSet<DefinitionRef>>| {
@@ -1075,7 +1084,18 @@ impl SymbolRegistry {
 
     /// Every file, by path.
     pub fn files(&self) -> impl Iterator<Item = &str> {
-        self.files.keys().map(String::as_str)
+        self.files.keys().map(RelPath::as_str)
+    }
+
+    /// Every file's shared path, in path order (P2-17): what a reference to the file
+    /// clones rather than copying the path.
+    pub fn file_paths(&self) -> impl Iterator<Item = &RelPath> {
+        self.files.keys()
+    }
+
+    /// `path`'s shared path, if the registry has the file.
+    pub fn rel_path(&self, path: &str) -> Option<&RelPath> {
+        self.files.get_key_value(path).map(|(shared, _)| shared)
     }
 
     /// A file's language, as discovery assigned it.
@@ -1238,7 +1258,11 @@ impl SymbolRegistry {
         let own = self.imports_of(&r.path);
         match index.checked_sub(own.len()) {
             None => own.get(index),
-            Some(scoped) => self.rust_use_scopes.get(&r.path)?.scoped.get(scoped),
+            Some(scoped) => self
+                .rust_use_scopes
+                .get(r.path.as_str())?
+                .scoped
+                .get(scoped),
         }
     }
 
@@ -1605,7 +1629,7 @@ fn rust_external_crates(
         .filter_map(|(path, state)| {
             let language = state.discovered.language.filter(|l| l.id == "rust")?;
             Some((
-                path.clone(),
+                path.to_string(),
                 imports::rust_external_crates(layout, language, path),
             ))
         })
@@ -1616,7 +1640,7 @@ fn rust_external_crates(
 fn pair_stages(
     discovered: &[DiscoveredFile],
     extracted: ExtractReport,
-) -> Result<BTreeMap<String, FileState>, RegistryError> {
+) -> Result<BTreeMap<RelPath, FileState>, RegistryError> {
     let mut found: BTreeMap<String, DiscoveredFile> = BTreeMap::new();
     for file in discovered {
         if found.insert(file.path.clone(), file.clone()).is_some() {
@@ -1652,7 +1676,7 @@ fn pair_stages(
             });
         }
         files.insert(
-            e.path,
+            RelPath::from(e.path),
             FileState {
                 discovered: d,
                 outcome: e.outcome,
@@ -1757,7 +1781,7 @@ fn rust_use_scopes(
         let interpreted = imports::interpret(lookup, language, path, &read);
         let record = ImportRecord {
             import: ImportRef {
-                path: path.to_owned(),
+                path: path.into(),
                 index: u32::try_from(own.len() + j).unwrap_or(u32::MAX),
             },
             module_text: scoped.import.module_text.clone(),

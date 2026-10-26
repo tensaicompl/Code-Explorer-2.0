@@ -37,7 +37,7 @@ pub fn imports_any(registry: &SymbolRegistry, path: &str, modules: &[&str]) -> b
 /// Whether a call is the repository's own: resolution drew it to a definition here.
 pub(crate) fn is_internal(context: &Context<'_>, path: &str, index: usize) -> bool {
     let site = SiteRef {
-        rel_path: path.to_owned(),
+        rel_path: path.into(),
         call_index: u32::try_from(index).unwrap_or(u32::MAX),
     };
     context.internal.contains(&site)

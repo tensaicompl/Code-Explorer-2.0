@@ -162,7 +162,7 @@ fn consumers(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveError
             .with_identities(identities)
             .with_evidence("clients", client.client);
             let site_ref = SiteRef {
-                rel_path: path.to_owned(),
+                rel_path: path.into(),
                 call_index: u32::try_from(index).unwrap_or(u32::MAX),
             };
             if let Ok((site, _)) = call_site(

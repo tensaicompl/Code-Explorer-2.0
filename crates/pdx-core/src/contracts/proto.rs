@@ -428,7 +428,7 @@ fn consumers(
             .and_then(|e| e.calls.get(resolved.site_ref.call_index as usize))
         {
             let site_ref = SiteRef {
-                rel_path: path.to_owned(),
+                rel_path: path.into(),
                 call_index: resolved.site_ref.call_index,
             };
             if let Ok((site, _)) = call_site(

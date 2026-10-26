@@ -121,7 +121,7 @@ pub(crate) fn targets<'a>(
             continue;
         }
         let definition = registry.definition(r).ok_or_else(|| DeriveError::Missing {
-            path: r.path.clone(),
+            path: r.path.to_string(),
             detail: "a definition the registry does not have",
         })?;
         if definition.kind == DefinitionKind::Module {

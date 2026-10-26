@@ -165,7 +165,7 @@ fn def(qn: &str) -> (DefinitionRef, &'static Node) {
             let defs = f.reg.extract(path).map_or(0, |e| e.definitions.len());
             (0..defs).filter_map(move |i| {
                 let r = DefinitionRef {
-                    path: path.to_owned(),
+                    path: path.into(),
                     index: u32::try_from(i).ok()?,
                 };
                 (f.reg.qualified_name(&r).as_deref() == Some(qn)).then_some(r)

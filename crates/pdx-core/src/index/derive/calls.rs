@@ -85,7 +85,7 @@ pub(crate) fn ordinals(registry: &SymbolRegistry) -> BTreeMap<SiteRef, u32> {
             for (ordinal, (_, _, index)) in (1u32..).zip(members) {
                 out.insert(
                     SiteRef {
-                        rel_path: path.to_owned(),
+                        rel_path: path.into(),
                         call_index: index,
                     },
                     ordinal,
@@ -135,7 +135,7 @@ pub(crate) fn call_site(
     let node_types: &[&str] = call.ast_path.as_slice();
     let fingerprint = ast_fingerprint(node_types, name, receiver.unwrap_or(""), ordinal)?;
     let caller = enclosing(registry, path, call).map(|index| DefinitionRef {
-        path: path.to_owned(),
+        path: path.into(),
         index,
     });
     let enclosing_node = caller

@@ -11,7 +11,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use pdx_engine::Import;
+use pdx_engine::{Import, RelPath};
 
 use crate::languages::Language;
 
@@ -37,9 +37,9 @@ pub(crate) struct Lookup<'a> {
     /// The first part of every Python module's name: the repository's own packages.
     python_packages: BTreeSet<&'a str>,
     /// Go files by directory, each directory's in path order.
-    go_files: BTreeMap<&'a str, Vec<&'a String>>,
+    go_files: BTreeMap<&'a str, Vec<&'a RelPath>>,
     /// Every file by its last path segment, each name's in path order.
-    files_by_name: BTreeMap<&'a str, Vec<&'a String>>,
+    files_by_name: BTreeMap<&'a str, Vec<&'a RelPath>>,
 }
 
 impl<'a> Lookup<'a> {
@@ -60,8 +60,8 @@ impl<'a> Lookup<'a> {
                 .push(key);
             python_packages.insert(key.name.split('.').next().unwrap_or(&key.name));
         }
-        let mut go_files: BTreeMap<&str, Vec<&String>> = BTreeMap::new();
-        let mut files_by_name: BTreeMap<&str, Vec<&String>> = BTreeMap::new();
+        let mut go_files: BTreeMap<&str, Vec<&RelPath>> = BTreeMap::new();
+        let mut files_by_name: BTreeMap<&str, Vec<&RelPath>> = BTreeMap::new();
         for (path, state) in &sources.files {
             if state.discovered.language.is_some_and(|l| l.id == "go") {
                 go_files.entry(dir_of(path)).or_default().push(path);
@@ -465,7 +465,7 @@ fn go(lookup: &Lookup<'_>, spec: &str) -> ImportTarget {
         .get(target_dir.as_str())
         .into_iter()
         .flatten()
-        .map(|p| (*p).clone())
+        .map(|p| p.as_str().to_owned())
         .collect();
     let key = files
         .first()

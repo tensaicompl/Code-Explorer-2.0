@@ -767,7 +767,7 @@ fn entities(context: &Context<'_>, out: &mut Vec<ContractObservation>) -> Result
                 continue;
             };
             let r = DefinitionRef {
-                path: path.to_owned(),
+                path: path.into(),
                 index: u32::try_from(index).unwrap_or(u32::MAX),
             };
             let owner = context.graph.definition_node(&r)?.clone();
@@ -870,7 +870,7 @@ fn python_models(
                 continue;
             };
             let r = DefinitionRef {
-                path: path.to_owned(),
+                path: path.into(),
                 index: u32::try_from(owner).unwrap_or(u32::MAX),
             };
             let owner = context.graph.definition_node(&r)?.clone();
@@ -943,7 +943,7 @@ fn consumers(context: &Context<'_>, out: &mut Vec<ContractObservation>) -> Resul
                     continue;
                 }
                 let site_ref = SiteRef {
-                    rel_path: path.to_owned(),
+                    rel_path: path.into(),
                     call_index: u32::try_from(index).unwrap_or(u32::MAX),
                 };
                 let site = match call_site(

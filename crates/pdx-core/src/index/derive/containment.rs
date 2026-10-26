@@ -245,7 +245,7 @@ fn identities(
     tests: &BTreeSet<DefinitionRef>,
 ) -> Result<(Vec<Option<NodeKind>>, Vec<String>), DeriveError> {
     let reference = |index: usize| DefinitionRef {
-        path: path.to_owned(),
+        path: path.into(),
         index: u32::try_from(index).unwrap_or(u32::MAX),
     };
     let kinds: Vec<Option<NodeKind>> = extract
@@ -307,7 +307,7 @@ fn definitions(
     let language = registry.language(path).map_or("unknown", |l| l.id);
     let file_node = graph.file_node(path)?.clone();
     let reference = |index: usize| DefinitionRef {
-        path: path.to_owned(),
+        path: path.into(),
         index: u32::try_from(index).unwrap_or(u32::MAX),
     };
 

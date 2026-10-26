@@ -445,7 +445,7 @@ pub(crate) fn observe(context: &Context<'_>, found: &mut Found) -> Result<(), De
             };
             let clients: BTreeSet<&str> = readings.iter().map(|(client, ..)| *client).collect();
             let site_ref = SiteRef {
-                rel_path: path.to_owned(),
+                rel_path: path.into(),
                 call_index: u32::try_from(index).unwrap_or(u32::MAX),
             };
             found.covered.insert(site_ref.clone());

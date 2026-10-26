@@ -248,7 +248,7 @@ pub(crate) fn assign(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(),
         .definition_nodes
         .iter()
         .filter(|(r, _)| !graph.file_definitions.contains(*r))
-        .map(|(r, id)| (id, vec![r.path.clone()]))
+        .map(|(r, id)| (id, vec![r.path.to_string()]))
         .collect();
     for (key, id) in &graph.module_nodes {
         let members: BTreeSet<String> = registry.files_in_module(key).map(str::to_owned).collect();

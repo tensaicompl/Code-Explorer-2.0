@@ -468,7 +468,7 @@ fn actix_attributes(
                 _ => continue,
             };
             let r = DefinitionRef {
-                path: path.to_owned(),
+                path: path.into(),
                 index: u32::try_from(index).unwrap_or(u32::MAX),
             };
             let owner = context.graph.definition_node(&r)?.clone();
@@ -556,7 +556,7 @@ fn nest(context: &Context<'_>, path: &str, found: &mut Found) -> Result<(), Deri
                 continue;
             };
             let r = DefinitionRef {
-                path: path.to_owned(),
+                path: path.into(),
                 index: u32::try_from(index).unwrap_or(u32::MAX),
             };
             let owner = context.graph.definition_node(&r)?.clone();
@@ -686,7 +686,7 @@ fn aspnet(context: &Context<'_>, path: &str, found: &mut Found) -> Result<(), De
             continue;
         }
         let r = DefinitionRef {
-            path: path.to_owned(),
+            path: path.into(),
             index: u32::try_from(index).unwrap_or(u32::MAX),
         };
         let owner = context.graph.definition_node(&r)?.clone();

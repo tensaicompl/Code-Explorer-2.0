@@ -13,6 +13,7 @@ use crate::convert;
 use crate::engine::{Engine, RawResult, c_string, language_id};
 use crate::error::{EngineError, SourceDifference, check};
 use crate::model::{Call, FileExtract, SourceDigest};
+use crate::rel_path::RelPath;
 
 /// How a resolution was reached, in the interface's normalised vocabulary.
 ///
@@ -90,7 +91,7 @@ impl Strategy {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SiteRef {
     /// The file.
-    pub rel_path: String,
+    pub rel_path: RelPath,
     /// The call's index.
     pub call_index: u32,
 }
@@ -257,7 +258,7 @@ pub struct ProjectResolver<'e> {
     held: Vec<RawResult<'e>>,
     /// Definition counts and source lengths by file, to check the sites the engine
     /// reports.
-    files: BTreeMap<String, (u32, u64)>,
+    files: BTreeMap<RelPath, (u32, u64)>,
     /// The first error that left the project unusable.
     broken: Option<EngineError>,
     /// The caller's surfaces, asked for one file at a time, when it keeps them (P2-17).
@@ -511,7 +512,7 @@ impl<'e> ProjectResolver<'e> {
         check(status, "pdxe_surface_import", None)?;
         self.add(lang, &extract.language, &extract.rel_path, source, rebuilt)?;
         self.files.insert(
-            extract.rel_path.clone(),
+            RelPath::from(extract.rel_path.as_str()),
             (count(extract.definitions.len())?, extract.source_len),
         );
         Ok(())
@@ -531,7 +532,7 @@ impl<'e> ProjectResolver<'e> {
             .ok_or_else(|| EngineError::UnknownLanguage(language.to_owned()))?;
         self.add(lang, language, rel_path, source, raw)?;
         self.files.insert(
-            rel_path.to_owned(),
+            RelPath::from(rel_path),
             (count(extract.definitions.len())?, extract.source_len),
         );
         Ok(extract)
@@ -712,7 +713,13 @@ impl<'e> ProjectResolver<'e> {
             EngineError::Contract(format!("`{strategy_name}` is not a resolution strategy"))
         })?;
         // The site's text ranges are ranges of its own file's source.
-        let file = self.files.get(&rel_path).copied();
+        let known = self.files.get_key_value(rel_path.as_str());
+        let file = known.map(|(_, file)| *file);
+        // The file's own shared path when it is one of the project's (P2-17).
+        let rel_path = known.map_or_else(
+            || RelPath::from(rel_path.as_str()),
+            |(path, _)| path.clone(),
+        );
         let site =
             unsafe { convert::call(&site, file.map(|(n, _)| n), file.map_or(0, |(_, len)| len)) }?;
         Ok(TypedResolution {
