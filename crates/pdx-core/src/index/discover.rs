@@ -38,8 +38,10 @@ use std::path::{Path, PathBuf};
 use ignore::Match;
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 
+use crate::config::GeneratedFiles;
 use crate::config::PdxConfig;
 use crate::consts::MAX_FILE_BYTES;
+use crate::index::attributes::Attributes;
 use crate::index::derive::containment::is_repository_path;
 use crate::languages::Language;
 
@@ -68,13 +70,22 @@ pub enum Disposition {
     Binary,
     /// Its path matches a secret pattern: indexed as `redacted`, and never read.
     Redacted,
+    /// The repository's `.gitattributes` mark it `linguist-generated` (decision 85):
+    /// recorded as skipped, with the reason `generated`, and never read.
+    Generated,
+    /// The repository's `.gitattributes` mark it `linguist-vendored` (decision 85):
+    /// recorded as skipped, with the reason `vendored`, and never read.
+    Vendored,
 }
 
 impl Disposition {
-    /// The reason a skipped file is recorded with: `size` for one too large.
+    /// The reason a skipped file is recorded with: `size` for one too large,
+    /// `generated` or `vendored` for one the repository marks so.
     pub const fn reason(self) -> Option<&'static str> {
         match self {
             Self::SkippedSize => Some("size"),
+            Self::Generated => Some("generated"),
+            Self::Vendored => Some("vendored"),
             _ => None,
         }
     }
@@ -203,6 +214,12 @@ pub fn discover(root: &Path, config: &PdxConfig) -> Result<Vec<DiscoveredFile>, 
 
     let paths: BTreeSet<&str> = found.iter().map(|f| f.path.as_str()).collect();
     let max = config.discover.max_file_bytes;
+    // What the repository marks generated or vendored (decision 85), unless it asks for
+    // such files to be indexed.
+    let attributes = match config.discover.generated {
+        GeneratedFiles::Skip => Attributes::read(root, &paths.iter().copied().collect::<Vec<_>>()),
+        GeneratedFiles::Index => Attributes::default(),
+    };
     let mut files = Vec::with_capacity(found.len());
     for file in &found {
         let directory = file.path.rsplit_once('/').map_or("", |(dir, _)| dir);
@@ -214,8 +231,13 @@ pub fn discover(root: &Path, config: &PdxConfig) -> Result<Vec<DiscoveredFile>, 
             };
             paths.contains(sibling.as_str())
         };
+        let provenance = attributes.of(&file.path);
         let (disposition, content) = if rules.is_secret(&file.path) {
             (Disposition::Redacted, None)
+        } else if provenance.generated {
+            (Disposition::Generated, None)
+        } else if provenance.vendored {
+            (Disposition::Vendored, None)
         } else if file.size > max {
             (Disposition::SkippedSize, None)
         } else {

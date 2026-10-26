@@ -711,6 +711,82 @@ fn partial_unknown_binary_and_redacted_do_not_degrade() {
     );
 }
 
+#[test]
+fn generated_and_vendored_files_are_recorded_and_never_degrade() {
+    // Far more than 5% of the files are marked: counted as skipped for size, they would
+    // degrade the segment; marked by the repository, they never do (decision 85).
+    let mut files: Vec<(String, String)> = (0..30)
+        .map(|i| {
+            (
+                format!("gen/m{i}.py"),
+                format!("def made_{i}():\n    return {i}\n"),
+            )
+        })
+        .collect();
+    files.push((
+        "lib/x.py".to_owned(),
+        "def kept():\n    return 0\n".to_owned(),
+    ));
+    files.push((
+        "src/app.py".to_owned(),
+        "def app():\n    return 1\n".to_owned(),
+    ));
+    files.push((
+        ".gitattributes".to_owned(),
+        "gen/** linguist-generated\nlib/** linguist-vendored\n".to_owned(),
+    ));
+    let borrowed: Vec<(&str, &str)> = files
+        .iter()
+        .map(|(p, c)| (p.as_str(), c.as_str()))
+        .collect();
+    let checkout = Checkout::new(&borrowed);
+    let report = checkout.build();
+    assert_eq!(
+        report.status,
+        SegmentStatus::Ready,
+        "{:#?}",
+        report.degraded
+    );
+    assert_eq!(
+        (
+            report.files.skipped_generated,
+            report.files.skipped_vendored,
+            report.files.skipped_size
+        ),
+        (30, 1, 0)
+    );
+    let reader = SegmentReader::open(&report.segment.path).expect("the segment opens");
+    let generated = reader
+        .file_by_path("gen/m0.py")
+        .expect("a query")
+        .expect("recorded, never silently absent");
+    assert_eq!(generated.status, FileStatus::Skipped);
+    assert_eq!(generated.status_reason.as_deref(), Some("generated"));
+    assert_eq!(
+        (generated.blob_sha, generated.line_count),
+        (None, None),
+        "never read"
+    );
+    let vendored = reader
+        .file_by_path("lib/x.py")
+        .expect("a query")
+        .expect("recorded");
+    assert_eq!(vendored.status_reason.as_deref(), Some("vendored"));
+    let app = reader
+        .file_by_path("src/app.py")
+        .expect("a query")
+        .expect("recorded");
+    assert_eq!(app.status, FileStatus::Parsed);
+    assert!(
+        reader
+            .nodes_all()
+            .expect("nodes")
+            .iter()
+            .all(|n| !n.name.starts_with("made_")),
+        "nothing of a generated file is extracted"
+    );
+}
+
 /// A backend over the in-process engine that crashes on, or is refused, named files.
 struct Twisted {
     engine: Extractor,

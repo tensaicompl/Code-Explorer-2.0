@@ -642,3 +642,83 @@ fn an_ignore_file_git_would_not_read_adds_no_rule() {
         ]
     );
 }
+
+// --- generated and vendored files (P2-18, decision 85, issue 132) --------------------
+
+/// A checkout whose `.gitattributes` files mark generated and vendored files.
+fn marked_checkout() -> Checkout {
+    let c = Checkout::new();
+    c.write(
+        ".gitattributes",
+        "* text=auto eol=lf\n*.pb.go linguist-generated=true\nthird_party/** linguist-vendored\n",
+    )
+    .write("api/api.pb.go", "package api\n")
+    .write("api/handwritten.go", "package api\n")
+    .write("third_party/lib/x.go", "package lib\n")
+    .write("tools/.gitattributes", "keep.pb.go -linguist-generated\n")
+    .write("tools/keep.pb.go", "package tools\n")
+    .write("cert.pem", "not read\n");
+    // A secret path marked generated stays redacted: the secret rule wins.
+    c.write("api/.gitattributes", "*.pem linguist-generated\n")
+        .write("api/server.pem", "not read\n");
+    c
+}
+
+#[test]
+fn discover_skips_linguist_generated() {
+    let c = marked_checkout();
+    let files = c.discover();
+    let generated = find(&files, "api/api.pb.go");
+    assert_eq!(generated.disposition, Disposition::Generated);
+    assert_eq!(generated.disposition.reason(), Some("generated"));
+    let vendored = find(&files, "third_party/lib/x.go");
+    assert_eq!(vendored.disposition, Disposition::Vendored);
+    assert_eq!(vendored.disposition.reason(), Some("vendored"));
+    // Recorded, never silently absent; and the deeper file's unset wins.
+    assert_eq!(
+        find(&files, "api/handwritten.go").disposition,
+        Disposition::Candidate
+    );
+    assert_eq!(
+        find(&files, "tools/keep.pb.go").disposition,
+        Disposition::Candidate
+    );
+    assert_eq!(
+        find(&files, "api/server.pem").disposition,
+        Disposition::Redacted
+    );
+    assert_eq!(find(&files, "cert.pem").disposition, Disposition::Redacted);
+}
+
+#[test]
+fn discover_ignores_local_git_attributes() {
+    let c = Checkout::new();
+    c.write("main.go", "package main\n")
+        .write(".git/info/attributes", "main.go linguist-generated\n");
+    let files = c.discover();
+    assert_eq!(find(&files, "main.go").disposition, Disposition::Candidate);
+}
+
+#[test]
+fn discover_generated_index_opt_in() {
+    let c = marked_checkout();
+    c.write("pdx.toml", "[discover]\ngenerated = \"index\"\n");
+    let files = c.discover();
+    assert_eq!(
+        find(&files, "api/api.pb.go").disposition,
+        Disposition::Candidate
+    );
+    assert_eq!(
+        find(&files, "third_party/lib/x.go").disposition,
+        Disposition::Candidate
+    );
+    assert_eq!(
+        find(&files, "api/server.pem").disposition,
+        Disposition::Redacted
+    );
+
+    let bad = Checkout::new();
+    bad.write("pdx.toml", "[discover]\ngenerated = \"sometimes\"\n");
+    let error = PdxConfig::load(bad.root()).expect_err("an unknown value is refused");
+    assert!(error.to_string().contains("discover.generated"), "{error}");
+}

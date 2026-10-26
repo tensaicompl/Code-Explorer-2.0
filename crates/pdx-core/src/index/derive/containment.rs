@@ -102,6 +102,8 @@ pub fn file_status(outcome: &FileOutcome) -> (FileStatus, Option<&'static str>) 
         FileOutcome::EngineCrashed { .. } => (FileStatus::Failed, Some("engine_crash")),
         FileOutcome::SkippedMemory => (FileStatus::Skipped, Some("memory")),
         FileOutcome::SkippedSize => (FileStatus::Skipped, Some("size")),
+        FileOutcome::Generated => (FileStatus::Skipped, Some("generated")),
+        FileOutcome::Vendored => (FileStatus::Skipped, Some("vendored")),
         FileOutcome::UnknownLanguage => (FileStatus::Skipped, Some("unknown_language")),
         FileOutcome::Binary => (FileStatus::Binary, None),
         FileOutcome::Redacted => (FileStatus::Redacted, None),

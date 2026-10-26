@@ -131,6 +131,10 @@ pub enum FileOutcome {
     Redacted,
     /// Larger than `[discover] max_file_bytes`: never opened.
     SkippedSize,
+    /// Marked `linguist-generated` by the repository (decision 85): never opened.
+    Generated,
+    /// Marked `linguist-vendored` by the repository (decision 85): never opened.
+    Vendored,
     /// No language: never extracted.
     UnknownLanguage,
 }
@@ -550,6 +554,8 @@ impl<'a> ExtractStage<'a> {
                 Disposition::Redacted => Some(FileOutcome::Redacted),
                 Disposition::Binary => Some(FileOutcome::Binary),
                 Disposition::SkippedSize => Some(FileOutcome::SkippedSize),
+                Disposition::Generated => Some(FileOutcome::Generated),
+                Disposition::Vendored => Some(FileOutcome::Vendored),
                 Disposition::Candidate if f.language.is_none() => {
                     Some(FileOutcome::UnknownLanguage)
                 }

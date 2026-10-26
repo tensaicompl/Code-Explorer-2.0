@@ -15,6 +15,7 @@
 //! is decided once, from every file's outcome ([`report`]). A fatal error in any stage
 //! returns that stage's error and publishes nothing.
 
+pub mod attributes;
 pub mod derive;
 pub mod discover;
 pub mod extract;

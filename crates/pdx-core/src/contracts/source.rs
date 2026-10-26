@@ -66,11 +66,14 @@ pub(crate) fn read(
             prepared
         }
         FileOutcome::UnknownLanguage => prepare_candidate(root, discovered).map_err(read_error)?,
-        // Skipped for memory, redacted, binary or too large: never opened.
+        // Skipped for memory, redacted, binary, too large, generated or vendored: never
+        // opened.
         FileOutcome::SkippedMemory
         | FileOutcome::Redacted
         | FileOutcome::Binary
-        | FileOutcome::SkippedSize => return Ok(Read::Unread),
+        | FileOutcome::SkippedSize
+        | FileOutcome::Generated
+        | FileOutcome::Vendored => return Ok(Read::Unread),
     };
     Ok(String::from_utf8(prepared.bytes).map_or(Read::NotUtf8, Read::Text))
 }

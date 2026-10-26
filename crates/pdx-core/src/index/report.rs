@@ -82,11 +82,16 @@ pub struct FileCounts {
     pub partial: u64,
     /// Not parsed, refused by the engine or crashed on.
     pub failed: u64,
-    /// Not extracted: too large, beyond the memory budget, of no language, or of an
-    /// unportable path.
+    /// Not extracted: too large, beyond the memory budget, of no language, of an
+    /// unportable path, or marked generated or vendored by the repository.
     pub skipped: u64,
     /// Of `skipped`, too large.
     pub skipped_size: u64,
+    /// Of `skipped`, marked `linguist-generated` (decision 85): never a reason to
+    /// degrade, since the repository asked for it.
+    pub skipped_generated: u64,
+    /// Of `skipped`, marked `linguist-vendored` (decision 85).
+    pub skipped_vendored: u64,
     /// Not text.
     pub binary: u64,
     /// Withheld under the secrets policy.
@@ -194,8 +199,11 @@ pub(crate) fn assess(
             FileStatus::Binary => counts.binary += 1,
             FileStatus::Redacted => counts.redacted += 1,
         }
-        if status == FileStatus::Skipped && reason == Some("size") {
-            counts.skipped_size += 1;
+        match (status, reason) {
+            (FileStatus::Skipped, Some("size")) => counts.skipped_size += 1,
+            (FileStatus::Skipped, Some("generated")) => counts.skipped_generated += 1,
+            (FileStatus::Skipped, Some("vendored")) => counts.skipped_vendored += 1,
+            _ => {}
         }
         match outcome {
             FileOutcome::EngineCrashed { .. } => crashed.push(path.to_owned()),

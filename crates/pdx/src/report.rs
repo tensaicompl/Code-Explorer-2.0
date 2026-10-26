@@ -89,6 +89,8 @@ pub struct FilesReport {
     failed: u64,
     skipped: u64,
     skipped_size: u64,
+    skipped_generated: u64,
+    skipped_vendored: u64,
     binary: u64,
     redacted: u64,
 }
@@ -247,6 +249,8 @@ impl IndexReport {
                 failed: f.failed,
                 skipped: f.skipped,
                 skipped_size: f.skipped_size,
+                skipped_generated: f.skipped_generated,
+                skipped_vendored: f.skipped_vendored,
                 binary: f.binary,
                 redacted: f.redacted,
             },
@@ -345,6 +349,13 @@ pub fn index_text(report: &IndexReport) -> String {
         "files      {} ({} parsed, {} partial, {} failed, {} skipped, {} binary, {} redacted)",
         f.files, f.parsed, f.partial, f.failed, f.skipped, f.binary, f.redacted
     );
+    if f.skipped_generated + f.skipped_vendored > 0 {
+        let _ = writeln!(
+            out,
+            "           of the skipped, {} marked generated and {} vendored by the repository",
+            f.skipped_generated, f.skipped_vendored
+        );
+    }
     let r = &report.rows;
     let _ = writeln!(
         out,

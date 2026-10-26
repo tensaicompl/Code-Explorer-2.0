@@ -117,6 +117,20 @@ pub struct DiscoverConfig {
     /// Files larger than this are skipped, with the reason `size`. Default
     /// [`MAX_FILE_BYTES`].
     pub max_file_bytes: u64,
+    /// What becomes of a file the repository's `.gitattributes` mark
+    /// `linguist-generated` or `linguist-vendored` (decision 85, issue 132): skipped
+    /// with that reason, by default, or indexed like any other.
+    pub generated: GeneratedFiles,
+}
+
+/// `[discover] generated`: whether files marked generated or vendored are indexed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GeneratedFiles {
+    /// Recorded as skipped, with the reason `generated` or `vendored`, never read.
+    #[default]
+    Skip,
+    /// Indexed like any other file.
+    Index,
 }
 
 /// `[languages]`: extensions this repository adds to the language matrix.
@@ -336,6 +350,7 @@ impl Default for PdxConfig {
                 include_vendor: false,
                 extra_excludes: Vec::new(),
                 max_file_bytes: MAX_FILE_BYTES,
+                generated: GeneratedFiles::Skip,
             },
             languages: LanguagesConfig::default(),
             identity: None,
@@ -441,6 +456,7 @@ struct RawDiscover {
     include_vendor: Option<bool>,
     extra_excludes: Option<Vec<String>>,
     max_file_bytes: Option<u64>,
+    generated: Option<String>,
 }
 
 #[derive(Default, Deserialize)]
@@ -588,6 +604,14 @@ impl Checker<'_> {
                 }
                 Some(n) => n,
                 None => defaults.discover.max_file_bytes,
+            },
+            generated: match raw.discover.generated.as_deref() {
+                None => defaults.discover.generated,
+                Some("skip") => GeneratedFiles::Skip,
+                Some("index") => GeneratedFiles::Index,
+                Some(_) => {
+                    return Err(self.invalid("discover.generated", "must be \"skip\" or \"index\""));
+                }
             },
         };
         // The mandatory patterns, and any the repository adds; never fewer.

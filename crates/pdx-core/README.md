@@ -96,7 +96,7 @@ default.
 
 | Section | Fields |
 |---|---|
-| `[discover]` | `include_vendor` (false), `extra_excludes` (none; gitignore patterns, no negation), `max_file_bytes` (`MAX_FILE_BYTES`, above 0, at most `MAX_CONFIGURABLE_FILE_BYTES`) |
+| `[discover]` | `include_vendor` (false), `extra_excludes` (none; gitignore patterns, no negation), `max_file_bytes` (`MAX_FILE_BYTES`, above 0, at most `MAX_CONFIGURABLE_FILE_BYTES`), `generated` (`"skip"`, or `"index"` to index files `.gitattributes` mark `linguist-generated` or `linguist-vendored`; decision 85) |
 | `[languages]` | `extra`: extension → matrix language; adds suffixes Appendix A does not define, never redefines one. `LanguagesConfig::detect` applies them, longest first, before `languages::detect` |
 | `[secrets]` | `patterns`: patterns a repository adds to 5.12's mandatory `*.pem`, `*.key`, `.env*`, `*id_rsa*`, which it can never remove. The effective patterns are the sorted, de-duplicated union |
 | `[layers]` | `rules`: `{ match = { path_glob }, role }`, with `role` a `LayerRole` |
@@ -120,7 +120,9 @@ followed, and the root must be a real directory.
 
 `Disposition` says what discovery found, never that anything was extracted:
 `Redacted` (a secret path; never read), `SkippedSize` (over `max_file_bytes`, reason
-`size`; never read), `Binary` (holds a NUL byte) or `Candidate`. Only candidates and
+`size`; never read), `Generated` and `Vendored` (marked so by the checkout's own
+`.gitattributes`, `index::attributes`; reasons `generated` and `vendored`; never read),
+`Binary` (holds a NUL byte) or `Candidate`. Only candidates and
 binaries are read, at most `max_file_bytes` of them. A file of no language is still
 discovered.
 
