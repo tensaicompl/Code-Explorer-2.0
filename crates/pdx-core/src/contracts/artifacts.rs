@@ -130,11 +130,11 @@ pub(crate) fn observe(context: &Context<'_>, found: &mut Found) -> Result<(), De
             found.diagnose(path, ContractProblem::Unparseable { format });
             continue;
         };
-        let owner = context.graph.file_node(path)?.clone();
+        let owner = *context.graph.file_node(path)?;
         for coordinate in coordinates {
             for observation in observations(&coordinate, path) {
                 found.observe(if coordinate.provides {
-                    observation.with_owner(owner.clone())
+                    observation.with_owner(owner)
                 } else {
                     observation
                 });

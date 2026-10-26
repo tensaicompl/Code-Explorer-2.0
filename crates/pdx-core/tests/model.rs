@@ -317,7 +317,7 @@ fn node_serialised_form() {
         "add",
     )
     .expect("a node");
-    node.file_id = Some(file.clone());
+    node.file_id = Some(file);
     node.parent_id = Some(file);
     node.start_line = Some(12);
     node.end_line = Some(18);

@@ -144,7 +144,7 @@ pub(crate) fn build(
         edges: BTreeMap::new(),
         candidates: BTreeMap::new(),
         contracts: Vec::new(),
-        repo_node: repo_node.node_id.clone(),
+        repo_node: repo_node.node_id,
         file_nodes: BTreeMap::new(),
         folder_nodes: BTreeMap::new(),
         definition_nodes: BTreeMap::new(),
@@ -182,12 +182,10 @@ fn folders_and_files(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(),
     for folder in &folders {
         let mut node = Node::new(&NodeKey::folder(repo, folder), last_component(folder))?;
         node.parent_id = Some(match parent_dir(folder) {
-            Some(p) => graph.folder_nodes[p].clone(),
-            None => graph.repo_node.clone(),
+            Some(p) => graph.folder_nodes[p],
+            None => graph.repo_node,
         });
-        graph
-            .folder_nodes
-            .insert(folder.clone(), node.node_id.clone());
+        graph.folder_nodes.insert(folder.clone(), node.node_id);
         graph.add_node(node)?;
     }
 
@@ -202,10 +200,10 @@ fn folders_and_files(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(),
             detail: "a file with no outcome",
         })?;
         let mut node = Node::new(&NodeKey::file(repo, path), last_component(path))?;
-        node.file_id = Some(node.node_id.clone());
+        node.file_id = Some(node.node_id);
         node.parent_id = Some(match parent_dir(path) {
-            Some(dir) => graph.folder_nodes[dir].clone(),
-            None => graph.repo_node.clone(),
+            Some(dir) => graph.folder_nodes[dir],
+            None => graph.repo_node,
         });
         node.props
             .insert("language", Value::from(discovered.language_id()));
@@ -213,7 +211,7 @@ fn folders_and_files(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(),
         graph.files.insert(
             path.to_owned(),
             FileRecord {
-                file_id: node.node_id.clone(),
+                file_id: node.node_id,
                 path: path.to_owned(),
                 language: discovered.language_id().to_owned(),
                 status,
@@ -223,9 +221,7 @@ fn folders_and_files(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(),
                 line_count: registry.line_count(path),
             },
         );
-        graph
-            .file_nodes
-            .insert(path.to_owned(), node.node_id.clone());
+        graph.file_nodes.insert(path.to_owned(), node.node_id);
         graph.add_node(node)?;
     }
 
@@ -305,7 +301,7 @@ fn definitions(
         return Ok(());
     };
     let language = registry.language(path).map_or("unknown", |l| l.id);
-    let file_node = graph.file_node(path)?.clone();
+    let file_node = *graph.file_node(path)?;
     let reference = |index: usize| DefinitionRef {
         path: path.into(),
         index: u32::try_from(index).unwrap_or(u32::MAX),
@@ -323,14 +319,14 @@ fn definitions(
         let id = match kinds[i] {
             None => {
                 graph.file_definitions.insert(r.clone());
-                file_node.clone()
+                file_node
             }
             Some(kind) => {
                 NodeKey::definition(input.repo, kind, path, names.get(i), &disambiguators[i])
                     .node_id()?
             }
         };
-        graph.definition_nodes.insert(r, id.clone());
+        graph.definition_nodes.insert(r, id);
         ids.push(id);
     }
 
@@ -340,10 +336,10 @@ fn definitions(
         };
         let key = NodeKey::definition(input.repo, kind, path, names.get(i), &disambiguators[i]);
         let mut node = Node::new(&key, &d.name)?;
-        node.file_id = Some(file_node.clone());
+        node.file_id = Some(file_node);
         node.parent_id = Some(match d.parent.and_then(|p| ids.get(p as usize)) {
-            Some(parent) => parent.clone(),
-            None => file_node.clone(),
+            Some(parent) => *parent,
+            None => file_node,
         });
         node.start_line = d.span.map(|s| s.start_line);
         node.end_line = d.span.map(|s| s.end_line);

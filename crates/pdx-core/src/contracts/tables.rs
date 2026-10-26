@@ -90,7 +90,7 @@ fn provided(
     let finish = |o: ContractObservation| {
         let o = o.with_evidence("frameworks", framework);
         match owner {
-            Some(owner) => o.with_owner(owner.clone()),
+            Some(owner) => o.with_owner(*owner),
             None => o,
         }
     };
@@ -141,7 +141,7 @@ fn documents(
             }
             Read::Unread => continue,
         };
-        let owner = context.graph.file_node(path)?.clone();
+        let owner = *context.graph.file_node(path)?;
         let (tables, framework) = if sql {
             let Some(tables) = create_tables(&text) else {
                 found.diagnose(path, ContractProblem::Unparseable { format: "sql" });
@@ -770,7 +770,7 @@ fn entities(context: &Context<'_>, out: &mut Vec<ContractObservation>) -> Result
                 path: path.into(),
                 index: u32::try_from(index).unwrap_or(u32::MAX),
             };
-            let owner = context.graph.definition_node(&r)?.clone();
+            let owner = *context.graph.definition_node(&r)?;
             let table = DeclaredTable {
                 name,
                 columns: Vec::new(),
@@ -873,7 +873,7 @@ fn python_models(
                 path: path.into(),
                 index: u32::try_from(owner).unwrap_or(u32::MAX),
             };
-            let owner = context.graph.definition_node(&r)?.clone();
+            let owner = *context.graph.definition_node(&r)?;
             let table = DeclaredTable {
                 name: format!("\"{name}\""),
                 columns: Vec::new(),

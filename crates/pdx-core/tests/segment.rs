@@ -159,23 +159,23 @@ fn fixture() -> SegmentData {
     let repo_node = Node::new(&NodeKey::repo(&repo()), "Code-Explorer-2.0").expect("a node");
     let mut java_file = Node::new(&NodeKey::file(&repo(), JAVA), "Inventory.java").expect("a node");
     java_file.file_id = Some(file_id(JAVA));
-    java_file.parent_id = Some(repo_node.node_id.clone());
+    java_file.parent_id = Some(repo_node.node_id);
     let mut guide_file = Node::new(&NodeKey::file(&repo(), GUIDE), "guide.md").expect("a node");
     guide_file.file_id = Some(file_id(GUIDE));
-    guide_file.parent_id = Some(repo_node.node_id.clone());
+    guide_file.parent_id = Some(repo_node.node_id);
     let class_key = NodeKey::definition(&repo(), NodeKind::Class, JAVA, "com.acme.Inventory", "");
     let mut class = Node::new(&class_key, "Inventory")
         .expect("a node")
         .with_lines(Some(3), Some(118));
     class.file_id = Some(file_id(JAVA));
-    class.parent_id = Some(java_file.node_id.clone());
+    class.parent_id = Some(java_file.node_id);
     class.layer_role = Some(LayerRole::Domain);
     class.doc = Some("Tracks stock levels — Bestände, in-store and online.".to_owned());
     let mut add = Node::new(&method("com.acme.Inventory.add"), "add")
         .expect("a node")
         .with_lines(Some(12), Some(18));
     add.file_id = Some(file_id(JAVA));
-    add.parent_id = Some(class.node_id.clone());
+    add.parent_id = Some(class.node_id);
     add.signature = Some("(String,int)".to_owned());
     add.doc = Some("Adds an item's quantity; rejects a negative one.".to_owned());
     add.props = props(&[
@@ -186,7 +186,7 @@ fn fixture() -> SegmentData {
         .expect("a node")
         .with_lines(Some(20), Some(31));
     remove.file_id = Some(file_id(JAVA));
-    remove.parent_id = Some(class.node_id.clone());
+    remove.parent_id = Some(class.node_id);
     remove.props = props(&[("nested", json!({"z": [1, 2], "a": "ü"}))]);
     let mut section = Node::new(
         &NodeKey::definition(&repo(), NodeKind::Doc, GUIDE, "docs/guide.md#Überblick", ""),
@@ -195,7 +195,7 @@ fn fixture() -> SegmentData {
     .expect("a node")
     .with_lines(Some(1), Some(14));
     section.file_id = Some(file_id(GUIDE));
-    section.parent_id = Some(guide_file.node_id.clone());
+    section.parent_id = Some(guide_file.node_id);
     section.doc = Some("Ein Überblick über das Lager.".to_owned());
 
     let fingerprint = ids::ast_fingerprint(
@@ -205,7 +205,7 @@ fn fixture() -> SegmentData {
         1,
     )
     .expect("a fingerprint");
-    let site_key = SiteKey::new(JAVA, Some(add.node_id.clone()), SiteKind::Call, fingerprint);
+    let site_key = SiteKey::new(JAVA, Some(add.node_id), SiteKind::Call, fingerprint);
     let site = Site::new(
         &site_key,
         file_id(JAVA),
@@ -241,7 +241,7 @@ fn fixture() -> SegmentData {
     let type_site = Site::new(
         &SiteKey::new(
             JAVA,
-            Some(add.node_id.clone()),
+            Some(add.node_id),
             SiteKind::TypeRef,
             ids::ast_fingerprint(
                 &["method_declaration", "formal_parameter", "type_identifier"],
@@ -266,7 +266,7 @@ fn fixture() -> SegmentData {
     let back_site = Site::new(
         &SiteKey::new(
             JAVA,
-            Some(remove.node_id.clone()),
+            Some(remove.node_id),
             SiteKind::Call,
             ids::ast_fingerprint(
                 &["method_declaration", "method_invocation"],
@@ -290,44 +290,44 @@ fn fixture() -> SegmentData {
     .with_texts(Some("add"), Some("this"));
 
     let calls = Edge::new(
-        add.node_id.clone(),
-        remove.node_id.clone(),
+        add.node_id,
+        remove.node_id,
         EdgeKind::Calls,
         Band::Typed,
-        Some(site.site_id.clone()),
+        Some(site.site_id),
     )
     .with_engine(0.95, "lsp_typed", 1);
     let mut uses = Edge::new(
-        add.node_id.clone(),
-        class.node_id.clone(),
+        add.node_id,
+        class.node_id,
         EdgeKind::UsesType,
         Band::Exact,
-        Some(type_site.site_id.clone()),
+        Some(type_site.site_id),
     );
     uses.props = props(&[("via", json!("parameter"))]);
     let mut observed = Edge::new(
-        remove.node_id.clone(),
-        add.node_id.clone(),
+        remove.node_id,
+        add.node_id,
         EdgeKind::Calls,
         Band::Precise,
-        Some(back_site.site_id.clone()),
+        Some(back_site.site_id),
     );
     observed.observed = true;
     observed.weight = 3;
     let changes = Edge::new(
-        java_file.node_id.clone(),
-        guide_file.node_id.clone(),
+        java_file.node_id,
+        guide_file.node_id,
         EdgeKind::ChangesWith,
         Band::Exact,
         None,
     );
 
     let candidate = CandidateSite {
-        site_id: import_site.site_id.clone(),
-        src: java_file.node_id.clone(),
+        site_id: import_site.site_id,
+        src: java_file.node_id,
         callee_name: "Map.put".to_owned(),
         band: CandidateBand::Candidate,
-        candidate_ids: vec![add.node_id.clone(), remove.node_id.clone()],
+        candidate_ids: vec![add.node_id, remove.node_id],
         engine_score: Some(0.5),
         engine_strategy: Some("suffix_match".to_owned()),
         engine_candidates: Some(2),
@@ -343,7 +343,7 @@ fn fixture() -> SegmentData {
         key: "GET /orders/{}".to_owned(),
         namespace_key: namespace.to_owned(),
         identity_strength: IdentityStrength::Declared,
-        owner_node_id: Some(add.node_id.clone()),
+        owner_node_id: Some(add.node_id),
         direction: ContractDirection::Provides,
         props: props(&[("spec", json!("openapi.yaml"))]),
     };
@@ -379,15 +379,15 @@ fn fixture() -> SegmentData {
         occ_id: "occ-0001".to_owned(),
         provider: "scip-java".to_owned(),
         provider_symbol: "com/acme/Inventory#remove().".to_owned(),
-        target_node_id: Some(remove.node_id.clone()),
+        target_node_id: Some(remove.node_id),
         file_id: file_id(JAVA),
         start_byte: 310,
         end_byte: 316,
         start_line: 14,
         start_col: 8,
         role: OccurrenceRole::Reference,
-        site_id: Some(site.site_id.clone()),
-        enclosing_node_id: Some(add.node_id.clone()),
+        site_id: Some(site.site_id),
+        enclosing_node_id: Some(add.node_id),
     };
 
     let mut java_bands = BandCounts::default();
@@ -398,17 +398,17 @@ fn fixture() -> SegmentData {
 
     data.metrics = vec![
         Metric {
-            node_id: add.node_id.clone(),
+            node_id: add.node_id,
             metric: "cyclomatic".to_owned(),
             value: 2.0,
         },
         Metric {
-            node_id: add.node_id.clone(),
+            node_id: add.node_id,
             metric: "loc".to_owned(),
             value: 7.0,
         },
         Metric {
-            node_id: remove.node_id.clone(),
+            node_id: remove.node_id,
             metric: "importance".to_owned(),
             value: 1.25,
         },
@@ -656,7 +656,7 @@ fn segment_roundtrip() {
         .filter(|n| n.parent_id.as_ref() == Some(&class.node_id))
         .cloned()
         .collect();
-    methods.sort_by(|a, b| a.node_id.cmp(&b.node_id));
+    methods.sort_by_key(|a| a.node_id);
     assert_eq!(reader.children(&class.node_id).expect("a query"), methods);
 
     for file in &data.files {
@@ -682,7 +682,7 @@ fn segment_roundtrip() {
             .filter(|e| &e.src == src)
             .cloned()
             .collect();
-        out.sort_by(|a, b| a.edge_id.cmp(&b.edge_id));
+        out.sort_by_key(|a| a.edge_id);
         assert_eq!(reader.edges_from(src, &[]).expect("a query"), out);
         let mut into: Vec<Edge> = data
             .edges
@@ -690,7 +690,7 @@ fn segment_roundtrip() {
             .filter(|e| &e.dst == src)
             .cloned()
             .collect();
-        into.sort_by(|a, b| a.edge_id.cmp(&b.edge_id));
+        into.sort_by_key(|a| a.edge_id);
         assert_eq!(reader.edges_to(src, &[]).expect("a query"), into);
         let candidates: Vec<CandidateSite> = data
             .candidates
@@ -709,7 +709,7 @@ fn segment_roundtrip() {
         assert_eq!(reader.metrics(src).expect("a query"), metrics);
     }
     let mut contracts = data.contracts.clone();
-    contracts.sort_by(|a, b| a.contract_id.cmp(&b.contract_id));
+    contracts.sort_by_key(|a| a.contract_id);
     assert_eq!(reader.contracts(None, None).expect("a query"), contracts);
     let mut coverage = data.coverage.clone();
     coverage.sort_by(|a, b| a.language.cmp(&b.language));
@@ -981,10 +981,7 @@ fn equal_scores_are_ordered_by_node_id() {
     );
     let mut ids = [a.node_id, b.node_id];
     ids.sort();
-    assert_eq!(
-        [hits[0].node.node_id.clone(), hits[1].node.node_id.clone()],
-        ids
-    );
+    assert_eq!([hits[0].node.node_id, hits[1].node.node_id], ids);
 }
 
 // --- queries ---------------------------------------------------------------------
@@ -1104,7 +1101,7 @@ fn candidate_sets_are_stored_sorted() {
     data.candidates[0].candidate_ids.reverse();
     let segment = write(&data, &scratch, "sets");
     let reader = SegmentReader::open(&segment.path).expect("opens");
-    let src = data.candidates[0].src.clone();
+    let src = data.candidates[0].src;
     let stored = reader
         .candidates_from(&src)
         .expect("a query")
@@ -1802,7 +1799,7 @@ fn rows_that_cannot_be_stored_are_refused() {
     ));
 
     let mut twice = fixture();
-    let first = twice.candidates[0].candidate_ids[0].clone();
+    let first = twice.candidates[0].candidate_ids[0];
     twice.candidates[0].candidate_ids.push(first);
     assert!(matches!(
         attempt(&twice, "twice.db"),
@@ -1867,8 +1864,8 @@ fn rows_that_cannot_be_stored_are_refused() {
 
 /// Contract rows as P2-08 makes them: every kind, merged evidence, an ambiguous owner.
 fn populated_contracts(data: &SegmentData) -> Vec<Contract> {
-    let owner = data.nodes[0].node_id.clone();
-    let other = data.nodes[1].node_id.clone();
+    let owner = data.nodes[0].node_id;
+    let other = data.nodes[1].node_id;
     let row = |kind: ContractKind,
                key: &str,
                namespace: &str,
@@ -1915,7 +1912,7 @@ fn populated_contracts(data: &SegmentData) -> Vec<Contract> {
             "acme.users.UserService/GetUser",
             "unresolved:ce63551447285fd4:acme.users.UserService/GetUser",
             IdentityStrength::Unresolved,
-            Some(owner.clone()),
+            Some(owner),
             ContractDirection::Provides,
             &[("package", json!("acme.users"))],
         ),
@@ -1933,7 +1930,7 @@ fn populated_contracts(data: &SegmentData) -> Vec<Contract> {
             "users",
             r#"{"identity":"db.example.com:5432/shop","key":"users"}"#,
             IdentityStrength::Declared,
-            Some(owner.clone()),
+            Some(owner),
             ContractDirection::Provides,
             &[("access_modes", json!(["read", "write"]))],
         ),
@@ -1942,7 +1939,7 @@ fn populated_contracts(data: &SegmentData) -> Vec<Contract> {
             "users.id",
             r#"{"identity":"db.example.com:5432/shop","key":"users.id"}"#,
             IdentityStrength::Declared,
-            Some(owner.clone()),
+            Some(owner),
             ContractDirection::Provides,
             &[],
         ),
@@ -1951,7 +1948,7 @@ fn populated_contracts(data: &SegmentData) -> Vec<Contract> {
             "maven:com.acme:shop",
             "maven:com.acme:shop",
             IdentityStrength::Exact,
-            Some(owner.clone()),
+            Some(owner),
             ContractDirection::Provides,
             &[("ecosystem", json!("maven"))],
         ),
@@ -1975,7 +1972,7 @@ fn contract_rows_round_trip_exactly() {
     let written = write(&data, &scratch, "populated");
     let reader = SegmentReader::open(&written.path).expect("opened");
     let mut expected = data.contracts.clone();
-    expected.sort_by(|a, b| a.contract_id.cmp(&b.contract_id));
+    expected.sort_by_key(|a| a.contract_id);
     assert_eq!(reader.contracts(None, None).expect("a query"), expected);
     // Reordered input, and each contract's props built in another order: one file.
     let mut backwards = data.clone();

@@ -449,7 +449,7 @@ proptest! {
             let now = after.iter().find(|(s, _)| s == sig).map(|(_, id)| id);
             prop_assert_eq!(now, Some(id), "{} was renumbered", sig);
         }
-        let new_id = after.iter().find(|(s, _)| *s == inserted).map(|(_, id)| id.clone()).expect("inserted");
+        let new_id = after.iter().find(|(s, _)| *s == inserted).map(|(_, id)| *id).expect("inserted");
         prop_assert!(before.iter().all(|(_, id)| *id != new_id));
     }
 }
@@ -514,7 +514,7 @@ proptest! {
             start_byte: byte, end_byte: byte + len, start_line: line, start_col: col, end_line: line, end_col: col + len,
         };
         let file = NodeKey::file(&repo(), JAVA_FILE).node_id().expect("an id");
-        let here = Site::new(&key, file.clone(), span(start_byte, start_line, start_col)).expect("a site");
+        let here = Site::new(&key, file, span(start_byte, start_line, start_col)).expect("a site");
         let there = Site::new(&key, file, span(moved_byte, moved_line, moved_col)).expect("a site");
         prop_assert_eq!(&here.site_id, &there.site_id);
         prop_assert_eq!(&here.site_id, &key.site_id().expect("an id"));
@@ -555,7 +555,7 @@ fn edge_id_fixed_vectors() {
     .node_id()
     .expect("an id");
     assert_eq!(dst.as_str(), "639NYMS5S3YSVEMV5N1G4T7HEQ");
-    let site = SiteKey::new(JAVA_FILE, Some(src.clone()), SiteKind::Call, fingerprint())
+    let site = SiteKey::new(JAVA_FILE, Some(src), SiteKind::Call, fingerprint())
         .site_id()
         .expect("an id");
     assert_eq!(
@@ -594,7 +594,7 @@ fn id_types_serialise_as_their_strings() {
         serde_json::to_string(&fingerprint()).expect("json"),
         "\"b72a1edb5ebc15504aff07917b0760bc15da4cdc57e725700662a10a2d9e755f\""
     );
-    let site = SiteKey::new(JAVA_FILE, Some(id.clone()), SiteKind::Call, fingerprint())
+    let site = SiteKey::new(JAVA_FILE, Some(id), SiteKind::Call, fingerprint())
         .site_id()
         .expect("an id");
     assert_eq!(

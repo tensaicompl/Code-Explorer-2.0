@@ -86,9 +86,9 @@ pub(crate) fn observe(context: &Context<'_>, found: &mut Found) -> Result<(), De
                 continue;
             }
         };
-        let owner = context.graph.file_node(path)?.clone();
+        let owner = *context.graph.file_node(path)?;
         operations(&doc, path, family, &context.declared, found, |o| {
-            o.with_owner(owner.clone())
+            o.with_owner(owner)
         });
     }
     Ok(())

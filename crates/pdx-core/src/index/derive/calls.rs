@@ -143,7 +143,7 @@ pub(crate) fn call_site(
         .map(|r| graph.definition_node(r).cloned())
         .transpose()?;
     let key = SiteKey::new(path, enclosing_node, kind, fingerprint);
-    let file = graph.file_node(path)?.clone();
+    let file = *graph.file_node(path)?;
     let site = Site::new(&key, file, model_span(span))?.with_texts(Some(name), receiver);
     Ok(Ok((site, caller)))
 }
@@ -237,10 +237,10 @@ pub(crate) fn materialise(
             };
         let path = resolved.site_ref.rel_path.as_str();
         let src = match &caller {
-            Some(r) => graph.definition_node(r)?.clone(),
-            None => graph.file_node(path)?.clone(),
+            Some(r) => *graph.definition_node(r)?,
+            None => *graph.file_node(path)?,
         };
-        let site_id = site.site_id.clone();
+        let site_id = site.site_id;
         let called_name = site.callee_text.clone().unwrap_or_default();
         graph.add_site(site)?;
         let engine = resolution.engine();
@@ -249,7 +249,7 @@ pub(crate) fn materialise(
                 path: path.to_owned(),
                 detail: "a drawn resolution with no target",
             })?;
-            let dst = graph.definition_node(target)?.clone();
+            let dst = *graph.definition_node(target)?;
             let edge_kind = if reference {
                 EdgeKind::CallReference
             } else {

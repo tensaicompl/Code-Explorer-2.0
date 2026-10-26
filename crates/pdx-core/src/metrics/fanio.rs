@@ -47,8 +47,8 @@ pub fn count<'a>(edges: impl Iterator<Item = &'a Edge>) -> Fans {
     let mut fans = Fans::default();
     for edge in edges.filter(|e| e.kind == EdgeKind::Calls) {
         let weight = f64::from(edge.weight);
-        *fans.fan_out.entry(edge.src.clone()).or_default() += weight;
-        *fans.fan_in.entry(edge.dst.clone()).or_default() += weight;
+        *fans.fan_out.entry(edge.src).or_default() += weight;
+        *fans.fan_in.entry(edge.dst).or_default() += weight;
     }
     fans
 }

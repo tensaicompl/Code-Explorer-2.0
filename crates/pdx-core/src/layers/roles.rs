@@ -269,7 +269,7 @@ pub(crate) fn assign(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(),
             .or_else(|| framework.get(&node.node_id).map(|rule| rule.role()))
             .or_else(|| paths_role(registry, paths))
             .unwrap_or(LayerRole::Unknown);
-        assigned.insert(node.node_id.clone(), role);
+        assigned.insert(node.node_id, role);
     }
     for (id, role) in assigned {
         if let Some(node) = graph.nodes.get_mut(&id) {
@@ -285,7 +285,7 @@ fn framework_roles(graph: &Builder, registry: &SymbolRegistry) -> BTreeMap<NodeI
     let mut satisfied: BTreeMap<NodeId, BTreeSet<usize>> = BTreeMap::new();
     let mut note = |id: &NodeId, rule: FrameworkRule| {
         if let Some(order) = FRAMEWORK_RULES.iter().position(|r| *r == rule) {
-            satisfied.entry(id.clone()).or_default().insert(order);
+            satisfied.entry(*id).or_default().insert(order);
         }
     };
     for (r, id) in &graph.definition_nodes {
@@ -492,7 +492,7 @@ fn route_handler_owners(graph: &Builder) -> BTreeSet<NodeId> {
                         .is_some_and(|n| n.kind == NodeKind::Module)
                 })
         };
-        if let Some(owner) = class.map(|c| c.node_id.clone()).or_else(module) {
+        if let Some(owner) = class.map(|c| c.node_id).or_else(module) {
             owners.insert(owner);
         }
     }
@@ -512,7 +512,7 @@ fn sqlalchemy_models(graph: &Builder) -> BTreeSet<NodeId> {
                 .and_then(Value::as_array)
                 .is_some_and(|f| f.iter().any(|v| v.as_str() == Some("sqlalchemy")))
         })
-        .filter_map(|c| c.owner_node_id.clone())
+        .filter_map(|c| c.owner_node_id)
         .filter(|owner| {
             graph
                 .nodes

@@ -757,7 +757,7 @@ fn edges_from(graph: &DerivedGraph, src: &NodeId, kind: EdgeKind) -> Vec<pdx_cor
         .filter(|e| &e.src == src && e.kind == kind)
         .cloned()
         .collect();
-    found.sort_by(|a, b| a.site_id.cmp(&b.site_id));
+    found.sort_by_key(|a| a.site_id);
     found
 }
 
@@ -840,8 +840,7 @@ fn tests_pytest() {
     assert!(tests.iter().any(|t| t.dst == helper.node_id
         && t.band == calls.iter().find(|c| c.dst == helper.node_id).unwrap().band));
     // Non-drawn calls never become TESTS edges.
-    let drawn_sites: std::collections::BTreeSet<_> =
-        calls.iter().map(|c| c.site_id.clone()).collect();
+    let drawn_sites: std::collections::BTreeSet<_> = calls.iter().map(|c| c.site_id).collect();
     assert!(tests.iter().all(|t| drawn_sites.contains(&t.site_id)));
     let pick = g
         .candidates
@@ -1133,11 +1132,7 @@ fn module_members_sorted() {
 fn module_id_does_not_depend_on_file_count() {
     let two = run(&modules_checkout(false));
     let three = run(&modules_checkout(true));
-    let id = |r: &Run| {
-        module(&r.graph, "java", "", "com.acme.shop")
-            .node_id
-            .clone()
-    };
+    let id = |r: &Run| module(&r.graph, "java", "", "com.acme.shop").node_id;
     assert_eq!(id(&two), id(&three));
     assert_eq!(id(&two).as_str(), "55G35296BGG2AQWVHDDXJJXD1M");
     // A one-file module and the same module spanning files: one id.
@@ -1270,14 +1265,11 @@ fn sites_named<'g>(graph: &'g DerivedGraph, name: &str) -> Vec<&'g pdx_core::mod
 }
 
 fn site_ids(graph: &DerivedGraph, name: &str) -> Vec<pdx_core::ids::SiteId> {
-    sites_named(graph, name)
-        .iter()
-        .map(|s| s.site_id.clone())
-        .collect()
+    sites_named(graph, name).iter().map(|s| s.site_id).collect()
 }
 
 fn node_ids(graph: &DerivedGraph) -> std::collections::BTreeSet<NodeId> {
-    graph.nodes.iter().map(|n| n.node_id.clone()).collect()
+    graph.nodes.iter().map(|n| n.node_id).collect()
 }
 
 #[test]
@@ -1395,7 +1387,7 @@ fn unrelated_definition_keeps_overload_ids() {
         let mut found: Vec<_> = nodes_of(&r.graph, NodeKind::Method)
             .into_iter()
             .filter(|n| n.name == "f")
-            .map(|n| (n.signature.clone().unwrap_or_default(), n.node_id.clone()))
+            .map(|n| (n.signature.clone().unwrap_or_default(), n.node_id))
             .collect();
         found.sort();
         found
@@ -1435,7 +1427,7 @@ fn fastapi(before: &str, method: &str, route: &str) -> Checkout {
 fn route_id(run: &Run) -> NodeId {
     let found = nodes_of(&run.graph, NodeKind::Route);
     assert_eq!(found.len(), 1, "{found:#?}");
-    found[0].node_id.clone()
+    found[0].node_id
 }
 
 #[test]
@@ -1993,14 +1985,14 @@ fn derived_graph_writes_a_segment() {
     }
     let totals = node(g, NodeKind::Test, "totals");
     let mut stored = reader.edges_from(&totals.node_id, &[]).unwrap();
-    stored.sort_by(|a, b| a.edge_id.cmp(&b.edge_id));
+    stored.sort_by_key(|a| a.edge_id);
     let mut derived: Vec<_> = g
         .edges
         .iter()
         .filter(|e| e.src == totals.node_id)
         .cloned()
         .collect();
-    derived.sort_by(|a, b| a.edge_id.cmp(&b.edge_id));
+    derived.sort_by_key(|a| a.edge_id);
     assert!(!derived.is_empty());
     assert_eq!(stored, derived);
 }
@@ -2056,7 +2048,7 @@ fn spring_route_has_real_site() {
     assert_eq!(site.ast_fingerprint, fingerprint);
     let key = pdx_core::ids::SiteKey::new(
         path,
-        Some(list.node_id.clone()),
+        Some(list.node_id),
         pdx_core::kinds::SiteKind::Route,
         fingerprint,
     );
@@ -2114,7 +2106,7 @@ fn spring_request_mapping_multiple_methods() {
     let sites: std::collections::BTreeSet<_> = edges
         .iter()
         .filter(|(name, _)| !name.starts_with("ANY"))
-        .map(|(_, e)| e[0].site_id.clone())
+        .map(|(_, e)| e[0].site_id)
         .collect();
     assert_eq!(
         sites.len(),
@@ -2192,7 +2184,7 @@ fn route_line_shift_keeps_route_site_id() {
         let run = run(&Checkout::new(&borrowed));
         route_edges(&run.graph)
             .into_iter()
-            .map(|(name, e)| (name, e[0].site_id.clone(), e[0].edge_id.clone()))
+            .map(|(name, e)| (name, e[0].site_id, e[0].edge_id))
             .collect::<Vec<_>>()
     };
     let before = ids("");
@@ -2379,7 +2371,7 @@ fn duplicate_noncallables_have_unique_deterministic_ids() {
         let ids = |r: &Run| -> Vec<NodeId> {
             let mut found: Vec<&Node> = nodes_of(&r.graph, kind);
             found.sort_by_key(|n| n.start_line);
-            found.iter().map(|n| n.node_id.clone()).collect()
+            found.iter().map(|n| n.node_id).collect()
         };
         let a = ids(&first);
         assert_eq!(a.len(), 2, "{kind}");
@@ -2519,7 +2511,7 @@ fn nested_site_identity_is_rebuilt_from_its_parts() {
     assert_eq!(site.ast_fingerprint, fingerprint);
     let key = SiteKey::new(
         NESTED_PATH,
-        Some(outer.node_id.clone()),
+        Some(outer.node_id),
         SiteKind::Call,
         fingerprint,
     );
@@ -2545,15 +2537,14 @@ fn nested_site_ids_survive_line_insertion() {
     let ids = |pad: &str| {
         let run = run(&nested_checkout(pad));
         let graph = &run.graph;
-        let outer = node(graph, NodeKind::Function, "outer").node_id.clone();
-        let site = nested_site(graph, "helper", true).site_id.clone();
+        let outer = node(graph, NodeKind::Function, "outer").node_id;
+        let site = nested_site(graph, "helper", true).site_id;
         let edge = graph
             .edges
             .iter()
             .find(|e| e.site_id.as_ref() == Some(&site))
             .expect("drawn")
-            .edge_id
-            .clone();
+            .edge_id;
         (outer, site, edge)
     };
     assert_eq!(ids(""), ids("\n\n    # a comment\n\n"));
@@ -2637,7 +2628,7 @@ fn renamed_callable_site_identity_is_rebuilt_from_its_parts() {
     assert_eq!(site.ast_fingerprint, fingerprint);
     let key = SiteKey::new(
         GENERIC_PATH,
-        Some(method.node_id.clone()),
+        Some(method.node_id),
         SiteKind::Call,
         fingerprint,
     );
@@ -2663,15 +2654,14 @@ fn renamed_callable_site_ids_survive_line_insertion() {
     let ids = |pad: &str| {
         let run = run(&generic_checkout(pad));
         let graph = &run.graph;
-        let method = node(graph, NodeKind::Method, "run").node_id.clone();
-        let site = nested_site(graph, "audit_debug", true).site_id.clone();
+        let method = node(graph, NodeKind::Method, "run").node_id;
+        let site = nested_site(graph, "audit_debug", true).site_id;
         let edge = graph
             .edges
             .iter()
             .find(|e| e.site_id.as_ref() == Some(&site))
             .expect("drawn")
-            .edge_id
-            .clone();
+            .edge_id;
         (method, site, edge)
     };
     assert_eq!(ids(""), ids("\n\n// a comment\n\n"));

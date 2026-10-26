@@ -175,7 +175,7 @@ fn engine_facts(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveEr
         if extract.channels.is_empty() {
             continue;
         }
-        let file = context.graph.file_node(path)?.clone();
+        let file = *context.graph.file_node(path)?;
         for fact in &extract.channels {
             // A broker client rule already read the call that carries this fact.
             let read = extract.calls.iter().enumerate().any(|(i, c)| {
@@ -218,7 +218,7 @@ fn engine_facts(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveEr
                 };
                 observation = observation.with_evidence("clients", callee.into_owned());
                 if direction == ContractDirection::Provides {
-                    observation = observation.with_owner(file.clone());
+                    observation = observation.with_owner(file);
                 }
                 let site_ref = SiteRef {
                     rel_path: path.into(),
@@ -330,7 +330,7 @@ fn asyncapi(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveError>
             found.diagnose(path, ContractProblem::NotADocument { format: "asyncapi" });
             continue;
         };
-        let file = context.graph.file_node(path)?.clone();
+        let file = *context.graph.file_node(path)?;
         let servers = servers(&doc);
         let bindings = if version.starts_with("2.") {
             version_2(&doc, path, found)
@@ -345,7 +345,7 @@ fn asyncapi(context: &Context<'_>, found: &mut Found) -> Result<(), DeriveError>
             };
             observation = observation.with_evidence("frameworks", "asyncapi");
             if direction == ContractDirection::Provides {
-                observation = observation.with_owner(file.clone());
+                observation = observation.with_owner(file);
             }
             found.observe(observation);
         }

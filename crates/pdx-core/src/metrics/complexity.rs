@@ -81,7 +81,7 @@ pub(crate) fn local(
         match loc(definition.span) {
             Some(lines) => rows.add(id, LOC, lines)?,
             None => diagnostics.push(MetricDiagnostic {
-                node_id: id.clone(),
+                node_id: *id,
                 metric: LOC,
             }),
         }
@@ -119,7 +119,7 @@ pub(crate) fn transitive<'a>(
     Ok(cyclic
         .into_iter()
         .filter(|id| targets.contains_key(*id))
-        .cloned()
+        .copied()
         .collect())
 }
 

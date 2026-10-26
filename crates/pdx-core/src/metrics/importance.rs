@@ -58,13 +58,13 @@ pub(crate) fn emit(
         let test = node.kind == NodeKind::Test;
         if node.props.get("is_test") != Some(&Value::Bool(test)) {
             return Err(DeriveError::Invariant {
-                node: id.clone(),
+                node: *id,
                 detail: "props.is_test disagrees with the node's kind",
             });
         }
         let public = node.props.get("visibility").and_then(Value::as_str) == Some("public");
-        let fan_in = rows.get(id, FAN_IN).ok_or_else(|| DeriveError::Invariant {
-            node: id.clone(),
+        let fan_in = rows.get(id, FAN_IN).ok_or(DeriveError::Invariant {
+            node: *id,
             detail: "a metric target with no fan_in",
         })?;
         rows.add(id, IMPORTANCE, importance(fan_in, public, test))?;

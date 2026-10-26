@@ -774,7 +774,7 @@ fn nodes_for(owners: &[&str]) -> BTreeMap<NodeId, Node> {
         .map(|n| {
             let key = pdx_core::ids::NodeKey::file(&repo(REPO), n);
             let node = Node::new(&key, n).expect("a node");
-            (node.node_id.clone(), node)
+            (node.node_id, node)
         })
         .collect()
 }

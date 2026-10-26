@@ -121,9 +121,13 @@ fn is_crockford_id(text: &str) -> bool {
 macro_rules! crockford_id_type {
     ($(#[$meta:meta])* $name:ident, $what:literal) => {
         $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+        ///
+        /// Held inline as its 26 symbols (P2-17): a graph holds millions of ids, and as
+        /// heap strings each cost a separate allocation. It reads, compares, orders,
+        /// hashes, prints and serialises exactly as its text.
+        #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
         #[serde(try_from = "String", into = "String")]
-        pub struct $name(String);
+        pub struct $name([u8; ID_LEN]);
 
         impl $name {
             /// The id written `text`, which must be one: 26 symbols of Crockford's
@@ -133,16 +137,20 @@ macro_rules! crockford_id_type {
             ///
             /// [`IdError::Malformed`] for anything else.
             pub fn parse(text: &str) -> Result<Self, IdError> {
-                if is_crockford_id(text) {
-                    Ok(Self(text.to_owned()))
-                } else {
-                    Err(IdError::Malformed($what, text.to_owned()))
-                }
+                Self::try_from(text.to_owned())
             }
 
             /// The id as its 26 symbols.
             pub fn as_str(&self) -> &str {
-                &self.0
+                // Every byte is one of Crockford's ASCII symbols, checked when it was made.
+                std::str::from_utf8(&self.0).unwrap_or_default()
+            }
+
+            /// The id of 26 symbols already checked to be Crockford's.
+            fn of_symbols(text: &str) -> Self {
+                let mut bytes = [0; ID_LEN];
+                bytes.copy_from_slice(text.as_bytes());
+                Self(bytes)
             }
         }
 
@@ -151,7 +159,7 @@ macro_rules! crockford_id_type {
 
             fn try_from(text: String) -> Result<Self, IdError> {
                 if is_crockford_id(&text) {
-                    Ok(Self(text))
+                    Ok(Self::of_symbols(&text))
                 } else {
                     Err(IdError::Malformed($what, text))
                 }
@@ -160,13 +168,20 @@ macro_rules! crockford_id_type {
 
         impl From<$name> for String {
             fn from(id: $name) -> String {
-                id.0
+                id.as_str().to_owned()
+            }
+        }
+
+        /// As the text, the way the string it once was printed.
+        impl fmt::Debug for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.debug_tuple(stringify!($name)).field(&self.as_str()).finish()
             }
         }
 
         impl fmt::Display for $name {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str(&self.0)
+                f.write_str(self.as_str())
             }
         }
     };
@@ -321,7 +336,7 @@ pub fn node_id(
     no_nul("disambiguator", disambiguator)?;
     let digest =
         sha256_nul_separated(&[repo_id, kind.as_str(), path, qualified_name, disambiguator]);
-    Ok(NodeId(crockford_id(&digest)))
+    Ok(NodeId::of_symbols(&crockford_id(&digest)))
 }
 
 /// Everything a node's identity is computed from, and nothing else: no line, no
@@ -595,7 +610,7 @@ impl SiteKey {
             self.site_kind.as_str(),
             self.ast_fingerprint.as_str(),
         ]);
-        Ok(SiteId(crockford_id(&digest)))
+        Ok(SiteId::of_symbols(&crockford_id(&digest)))
     }
 }
 
@@ -614,5 +629,5 @@ pub fn edge_id(src: &NodeId, dst: &NodeId, kind: EdgeKind, site: Option<&SiteId>
         kind.as_str().as_bytes(),
         site.map_or("", SiteId::as_str).as_bytes(),
     ]);
-    EdgeId(crockford_id(&digest))
+    EdgeId::of_symbols(&crockford_id(&digest))
 }

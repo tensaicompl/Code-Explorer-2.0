@@ -428,19 +428,17 @@ impl<'a> Canonical<'a> {
         let meta = verify::meta_rows(&data.meta)?;
         Ok(Self {
             meta,
-            files: sorted("files", &data.files, |r| r.file_id.clone())?,
-            nodes: sorted("nodes", &data.nodes, |r| r.node_id.clone())?,
-            sites: sorted("sites", &data.sites, |r| r.site_id.clone())?,
-            edges: sorted("edges", &data.edges, |r| r.edge_id.clone())?,
+            files: sorted("files", &data.files, |r| r.file_id)?,
+            nodes: sorted("nodes", &data.nodes, |r| r.node_id)?,
+            sites: sorted("sites", &data.sites, |r| r.site_id)?,
+            edges: sorted("edges", &data.edges, |r| r.edge_id)?,
             evidence: sorted("evidence", &data.evidence, |r| r.evidence_id.clone())?,
             occurrences: sorted("semantic_occurrences", &data.semantic_occurrences, |r| {
                 r.occ_id.clone()
             })?,
-            candidates: sorted("candidates", &data.candidates, |r| r.site_id.clone())?,
-            contracts: sorted("contracts", &data.contracts, |r| r.contract_id.clone())?,
-            metrics: sorted("metrics", &data.metrics, |r| {
-                (r.node_id.clone(), r.metric.clone())
-            })?,
+            candidates: sorted("candidates", &data.candidates, |r| r.site_id)?,
+            contracts: sorted("contracts", &data.contracts, |r| r.contract_id)?,
+            metrics: sorted("metrics", &data.metrics, |r| (r.node_id, r.metric.clone()))?,
             coverage: sorted("coverage", &data.coverage, |r| r.language.clone())?,
         })
     }

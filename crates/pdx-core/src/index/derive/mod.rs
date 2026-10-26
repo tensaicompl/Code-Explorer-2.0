@@ -302,7 +302,7 @@ impl Builder {
             Some(existing) if *existing == node => Ok(()),
             Some(_) => Err(DeriveError::DuplicateNode(node.node_id)),
             None => {
-                self.nodes.insert(node.node_id.clone(), node);
+                self.nodes.insert(node.node_id, node);
                 Ok(())
             }
         }
@@ -313,7 +313,7 @@ impl Builder {
             Some(existing) if *existing == site => Ok(()),
             Some(_) => Err(DeriveError::DuplicateSite(site.site_id)),
             None => {
-                self.sites.insert(site.site_id.clone(), site);
+                self.sites.insert(site.site_id, site);
                 Ok(())
             }
         }
@@ -327,7 +327,7 @@ impl Builder {
                 return Err(DeriveError::EdgeWithoutSite(edge.kind));
             }
             Some(site) if !self.sites.contains_key(site) => {
-                return Err(DeriveError::UnknownSite(site.clone()));
+                return Err(DeriveError::UnknownSite(*site));
             }
             _ => {}
         }
@@ -335,7 +335,7 @@ impl Builder {
             Some(existing) if *existing == edge => Ok(()),
             Some(_) => Err(DeriveError::DuplicateEdge(edge.edge_id)),
             None => {
-                self.edges.insert(edge.edge_id.clone(), edge);
+                self.edges.insert(edge.edge_id, edge);
                 Ok(())
             }
         }
@@ -346,7 +346,7 @@ impl Builder {
             Some(existing) if *existing == candidate => Ok(()),
             Some(_) => Err(DeriveError::DuplicateSite(candidate.site_id)),
             None => {
-                self.candidates.insert(candidate.site_id.clone(), candidate);
+                self.candidates.insert(candidate.site_id, candidate);
                 Ok(())
             }
         }
@@ -393,8 +393,7 @@ impl Builder {
         diagnostics.contracts.sort();
         diagnostics.contracts.dedup();
         diagnostics.metrics.sort();
-        self.contracts
-            .sort_by(|a, b| a.contract_id.cmp(&b.contract_id));
+        self.contracts.sort_by_key(|a| a.contract_id);
         DerivedGraph {
             files: self.files.into_values().collect(),
             nodes: self.nodes.into_values().collect(),

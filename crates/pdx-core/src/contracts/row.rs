@@ -127,7 +127,7 @@ pub fn check(
     if let Some(owner) = &contract.owner_node_id
         && !is_node(owner)
     {
-        return Err(ContractRowError::UnknownOwner(owner.clone()));
+        return Err(ContractRowError::UnknownOwner(*owner));
     }
     ownership(contract, &is_node)
 }

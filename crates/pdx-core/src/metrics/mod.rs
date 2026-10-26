@@ -76,10 +76,10 @@ impl Rows {
         value: f64,
     ) -> Result<(), DeriveError> {
         if !value.is_finite() {
-            return Err(DeriveError::NonFiniteMetric(node.clone(), metric));
+            return Err(DeriveError::NonFiniteMetric(*node, metric));
         }
-        match self.0.entry((node.clone(), metric)) {
-            Entry::Occupied(_) => Err(DeriveError::DuplicateMetric(node.clone(), metric)),
+        match self.0.entry((*node, metric)) {
+            Entry::Occupied(_) => Err(DeriveError::DuplicateMetric(*node, metric)),
             Entry::Vacant(slot) => {
                 slot.insert(value);
                 Ok(())
@@ -89,7 +89,7 @@ impl Rows {
 
     /// A node's value of a metric.
     pub fn get(&self, node: &NodeId, metric: &'static str) -> Option<f64> {
-        self.0.get(&(node.clone(), metric)).copied()
+        self.0.get(&(*node, metric)).copied()
     }
 
     /// The rows, by node then metric.
@@ -127,14 +127,14 @@ pub(crate) fn targets<'a>(
         if definition.kind == DefinitionKind::Module {
             continue;
         }
-        match targets.entry(id.clone()) {
+        match targets.entry(*id) {
             Entry::Vacant(slot) => {
                 slot.insert(definition);
             }
             Entry::Occupied(slot) if complexity::same_facts(slot.get(), definition) => {}
             Entry::Occupied(_) => {
                 return Err(DeriveError::Invariant {
-                    node: id.clone(),
+                    node: *id,
                     detail: "two definitions with different facts share a node",
                 });
             }

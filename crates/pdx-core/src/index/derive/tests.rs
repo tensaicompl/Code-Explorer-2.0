@@ -187,13 +187,13 @@ pub(crate) fn link(
         let Some(caller) = call.caller.as_ref().filter(|c| tests.contains(*c)) else {
             continue;
         };
-        let test = graph.definition_node(caller)?.clone();
+        let test = *graph.definition_node(caller)?;
         let mut edge = Edge::new(
             test,
-            call.edge.dst.clone(),
+            call.edge.dst,
             EdgeKind::Tests,
             call.edge.band,
-            call.edge.site_id.clone(),
+            call.edge.site_id,
         );
         edge.engine_score = call.edge.engine_score;
         edge.engine_strategy.clone_from(&call.edge.engine_strategy);

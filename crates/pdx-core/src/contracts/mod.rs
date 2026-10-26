@@ -301,7 +301,7 @@ impl ContractAccumulator {
             if provides(direction)
                 && let Some(owner) = &owner
             {
-                entry.provider_owners.insert(owner.clone());
+                entry.provider_owners.insert(*owner);
             }
             entry.raw_forms.insert(raw_form.clone());
             entry.source_paths.insert(source_path.clone());
@@ -361,7 +361,7 @@ impl ContractAccumulator {
                 props.insert(name, set(values));
             }
             let owner_node_id = match merged.provider_owners.len() {
-                1 => merged.provider_owners.first().cloned(),
+                1 => merged.provider_owners.first().copied(),
                 0 => None,
                 _ => {
                     props.insert("owner_ambiguous", Value::Bool(true));
@@ -391,7 +391,7 @@ impl ContractAccumulator {
             validate(&contract, &self.repo, nodes)?;
             contracts.push(contract);
         }
-        contracts.sort_by(|a, b| a.contract_id.cmp(&b.contract_id));
+        contracts.sort_by_key(|a| a.contract_id);
         Ok(contracts)
     }
 }

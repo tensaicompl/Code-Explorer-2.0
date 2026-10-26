@@ -50,7 +50,7 @@ fn providers(context: &Context<'_>, found: &mut Found) {
             && let Some(site) = &edge.site_id
         {
             sites
-                .entry(edge.dst.clone())
+                .entry(edge.dst)
                 .or_default()
                 .insert(site.as_str().to_owned());
         }
@@ -85,7 +85,7 @@ fn providers(context: &Context<'_>, found: &mut Found) {
             format!("{method} {path}"),
         )
         .with_identities(identities)
-        .with_owner(node.node_id.clone())
+        .with_owner(node.node_id)
         .with_evidence("route_node_ids", node.node_id.as_str());
         if let Some(framework) = text("framework") {
             observation = observation.with_evidence("frameworks", framework);

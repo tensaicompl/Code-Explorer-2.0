@@ -695,18 +695,12 @@ fn function_id(name: &str) -> NodeId {
 fn fan_counts_edge_weight() {
     // An edge standing for several calls counts each; other kinds count nothing.
     let (a, b, c) = (function_id("a"), function_id("b"), function_id("c"));
-    let mut heavy = Edge::new(a.clone(), b.clone(), EdgeKind::Calls, Band::Exact, None);
+    let mut heavy = Edge::new(a, b, EdgeKind::Calls, Band::Exact, None);
     heavy.weight = 3;
-    let light = Edge::new(a.clone(), c.clone(), EdgeKind::Calls, Band::Exact, None);
-    let mut tests = Edge::new(c.clone(), b.clone(), EdgeKind::Tests, Band::Exact, None);
+    let light = Edge::new(a, c, EdgeKind::Calls, Band::Exact, None);
+    let mut tests = Edge::new(c, b, EdgeKind::Tests, Band::Exact, None);
     tests.weight = 5;
-    let reference = Edge::new(
-        c.clone(),
-        b.clone(),
-        EdgeKind::CallReference,
-        Band::Exact,
-        None,
-    );
+    let reference = Edge::new(c, b, EdgeKind::CallReference, Band::Exact, None);
     let fans = count([&heavy, &light, &tests, &reference].into_iter());
     assert!(close(fans.fan_out(&a), 4.0));
     assert!(close(fans.fan_in(&b), 3.0));

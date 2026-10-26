@@ -122,7 +122,7 @@ pub(crate) fn mark(
     let registry = input.registry;
     let mut entries: BTreeSet<NodeId> = BTreeSet::new();
     for test in tests {
-        entries.insert(graph.definition_node(test)?.clone());
+        entries.insert(*graph.definition_node(test)?);
     }
     for path in registry.files() {
         let (Some(language), Some(extract)) = (registry.language(path), registry.extract(path))
@@ -144,7 +144,7 @@ pub(crate) fn mark(
                     .is_some_and(|n| n.rsplit('.').next() == Some("SpringBootApplication"))
             });
             if is_main(registry, language.id, path, &r, definition) || spring_boot {
-                entries.insert(graph.definition_node(&r)?.clone());
+                entries.insert(*graph.definition_node(&r)?);
             }
         }
 
@@ -172,7 +172,7 @@ pub(crate) fn mark(
                             path: path.into(),
                             index,
                         };
-                        entries.insert(graph.definition_node(&r)?.clone());
+                        entries.insert(*graph.definition_node(&r)?);
                     }
                 }
             }
@@ -206,7 +206,7 @@ pub(crate) fn mark(
                     })
             })
         {
-            entries.insert(graph.file_node(path)?.clone());
+            entries.insert(*graph.file_node(path)?);
         }
     }
     for entry in entries {

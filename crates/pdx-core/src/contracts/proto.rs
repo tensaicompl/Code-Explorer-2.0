@@ -288,12 +288,10 @@ pub(crate) fn observe(context: &Context<'_>, found: &mut Found) -> Result<(), De
             found.diagnose(path, ContractProblem::Unparseable { format: "proto" });
             continue;
         };
-        let owner = context.graph.file_node(path)?.clone();
+        let owner = *context.graph.file_node(path)?;
         for service in parsed {
             for (method, declaration) in &service.methods {
-                found.observe(
-                    provider(&service, method, declaration, path).with_owner(owner.clone()),
-                );
+                found.observe(provider(&service, method, declaration, path).with_owner(owner));
             }
             services
                 .entry(service.name.clone())

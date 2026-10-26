@@ -30,13 +30,7 @@ fn site(n: u32) -> SiteId {
 }
 
 fn edge(src: &Node, dst: &Node, kind: EdgeKind, band: Band, n: u32) -> Edge {
-    Edge::new(
-        src.node_id.clone(),
-        dst.node_id.clone(),
-        kind,
-        band,
-        Some(site(n)),
-    )
+    Edge::new(src.node_id, dst.node_id, kind, band, Some(site(n)))
 }
 
 fn tuple(src: &str, dst: &str, kind: &str, band: &str) -> GoldenEdge {

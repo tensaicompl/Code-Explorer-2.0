@@ -159,7 +159,7 @@ impl Site {
         Ok(Self {
             site_id: key.site_id()?,
             file_id,
-            enclosing_node_id: key.enclosing_node_id.clone(),
+            enclosing_node_id: key.enclosing_node_id,
             site_kind: key.site_kind,
             ast_fingerprint: key.ast_fingerprint.clone(),
             span,

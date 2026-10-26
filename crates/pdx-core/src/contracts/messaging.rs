@@ -415,7 +415,7 @@ pub(crate) fn observe(context: &Context<'_>, found: &mut Found) -> Result<(), De
         if rules.is_empty() {
             continue;
         }
-        let file = context.graph.file_node(path)?.clone();
+        let file = *context.graph.file_node(path)?;
         for (index, call) in extract.calls.iter().enumerate() {
             if call.is_reference || is_internal(context, path, index) {
                 continue;
@@ -479,7 +479,7 @@ pub(crate) fn observe(context: &Context<'_>, found: &mut Found) -> Result<(), De
                     observation = observation.with_evidence("clients", *client);
                 }
                 if direction == ContractDirection::Provides {
-                    observation = observation.with_owner(file.clone());
+                    observation = observation.with_owner(file);
                 }
                 if let Some(site) = &site {
                     observation = observation.with_evidence("site_ids", site.clone());

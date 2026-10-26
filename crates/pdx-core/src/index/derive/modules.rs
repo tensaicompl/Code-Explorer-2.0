@@ -82,8 +82,8 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
         let key = module_node_key(input.repo, module);
         let mut node = Node::new(&key, &module.name)?;
         if let [only] = files.as_slice() {
-            let file = graph.file_node(only)?.clone();
-            node.file_id = Some(file.clone());
+            let file = *graph.file_node(only)?;
+            node.file_id = Some(file);
             node.parent_id = Some(file);
         } else {
             node.parent_id = Some(match common_folder(&files) {
@@ -91,13 +91,13 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
                     graph
                         .folder_nodes
                         .get(&folder)
-                        .cloned()
+                        .copied()
                         .ok_or(DeriveError::Missing {
                             path: folder,
                             detail: "a module's folder with no node",
                         })?
                 }
-                None => graph.repo_node.clone(),
+                None => graph.repo_node,
             });
             node.props.insert(
                 "files",
@@ -105,9 +105,7 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
             );
         }
         node.props.insert("language", Value::from(module.language));
-        graph
-            .module_nodes
-            .insert(module.clone(), node.node_id.clone());
+        graph.module_nodes.insert(module.clone(), node.node_id);
         graph.add_node(node)?;
     }
 
@@ -118,7 +116,7 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
         .filter(|(r, _)| !graph.file_definitions.contains(r))
         .filter_map(|(r, id)| {
             let module = registry.module_of_definition(r)?;
-            Some((id.clone(), graph.module_nodes.get(module)?.clone()))
+            Some((*id, *graph.module_nodes.get(module)?))
         })
         .collect();
     for (symbol, module) in memberships {

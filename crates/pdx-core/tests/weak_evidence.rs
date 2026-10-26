@@ -307,7 +307,7 @@ fn r3_6_candidate_is_unchanged() {
         panic!("one row");
     };
     assert_eq!(row.band, CandidateBand::Candidate);
-    let mut ids = vec![left_node.node_id.clone(), right_node.node_id.clone()];
+    let mut ids = vec![left_node.node_id, right_node.node_id];
     ids.sort();
     assert_eq!(row.candidate_ids, ids);
     assert_eq!(row.reason, "several definitions survive every stage");

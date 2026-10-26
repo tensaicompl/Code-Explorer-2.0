@@ -183,7 +183,7 @@ fn registrations(
     let Some(extract) = registry.extract(path) else {
         return Ok(());
     };
-    let owner = context.graph.file_node(path)?.clone();
+    let owner = *context.graph.file_node(path)?;
     let (composers, groups) = composition(framework);
     // The callables that compose a prefixed router: which router a registration in
     // them is made on is not in the facts.
@@ -210,7 +210,7 @@ fn registrations(
         for (method, route) in registrations {
             let raw = format!("{}({route})", extract.text(&call.callee_text));
             if let Some(o) = provided(context, &method, &route, path, raw, framework) {
-                found.observe(o.with_owner(owner.clone()));
+                found.observe(o.with_owner(owner));
             }
         }
     }
@@ -471,12 +471,12 @@ fn actix_attributes(
                 path: path.into(),
                 index: u32::try_from(index).unwrap_or(u32::MAX),
             };
-            let owner = context.graph.definition_node(&r)?.clone();
+            let owner = *context.graph.definition_node(&r)?;
             for method in methods {
                 if let Some(o) =
                     provided(context, &method, route, path, text.to_owned(), "actix-web")
                 {
-                    found.observe(o.with_owner(owner.clone()));
+                    found.observe(o.with_owner(owner));
                 }
             }
         }
@@ -559,13 +559,13 @@ fn nest(context: &Context<'_>, path: &str, found: &mut Found) -> Result<(), Deri
                 path: path.into(),
                 index: u32::try_from(index).unwrap_or(u32::MAX),
             };
-            let owner = context.graph.definition_node(&r)?.clone();
+            let owner = *context.graph.definition_node(&r)?;
             for prefix in &prefixes {
                 for route in &paths {
                     let full = join(&[prefix, route]);
                     let raw = format!("{decorator} in @Controller({prefix:?})");
                     if let Some(o) = provided(context, &method, &full, path, raw, "nestjs") {
-                        found.observe(o.with_owner(owner.clone()));
+                        found.observe(o.with_owner(owner));
                     }
                 }
             }
@@ -689,11 +689,11 @@ fn aspnet(context: &Context<'_>, path: &str, found: &mut Found) -> Result<(), De
             path: path.into(),
             index: u32::try_from(index).unwrap_or(u32::MAX),
         };
-        let owner = context.graph.definition_node(&r)?.clone();
+        let owner = *context.graph.definition_node(&r)?;
         let raw = definition.decorators.join(" ");
         for (verb, route) in routes {
             if let Some(o) = provided(context, &verb, &route, path, raw.clone(), "aspnet") {
-                found.observe(o.with_owner(owner.clone()));
+                found.observe(o.with_owner(owner));
             }
         }
     }

@@ -205,9 +205,9 @@ fn declared_site(
     let (receiver, name) = split_callee(&fact.callee_text);
     let node_types: &[&str] = fact.ast_path.as_slice();
     let fingerprint = ast_fingerprint(node_types, name, receiver.unwrap_or(""), ordinal)?;
-    let enclosing = graph.definition_node(handler)?.clone();
+    let enclosing = *graph.definition_node(handler)?;
     let key = SiteKey::new(&handler.path, Some(enclosing), SiteKind::Route, fingerprint);
-    let file = graph.file_node(&handler.path)?.clone();
+    let file = *graph.file_node(&handler.path)?;
     Ok(Ok(
         Site::new(&key, file, model_span(span))?.with_texts(Some(name), receiver)
     ))
@@ -390,7 +390,7 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
             });
             continue;
         };
-        let handler_node = graph.definition_node(&binding.handler)?.clone();
+        let handler_node = *graph.definition_node(&binding.handler)?;
         let handler_qn = registry
             .extract(handler_path)
             .map(|e| e.qualified_name(binding.handler.index as usize))
@@ -406,8 +406,8 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
             &binding.route,
         );
         let mut node = Node::new(&key, &format!("{} {}", binding.method, binding.route))?;
-        let file = graph.file_node(handler_path)?.clone();
-        node.file_id = Some(file.clone());
+        let file = *graph.file_node(handler_path)?;
+        node.file_id = Some(file);
         node.parent_id = Some(file);
         node.props
             .insert("framework", Value::from(binding.framework));
@@ -417,12 +417,12 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
             .insert("path", Value::from(binding.route.as_str()));
         node.props
             .insert("handler", Value::from(handler_node.as_str()));
-        let route_node = node.node_id.clone();
+        let route_node = node.node_id;
         graph.add_node(node)?;
-        let site_id = site.site_id.clone();
+        let site_id = site.site_id;
         graph.add_site(site)?;
         graph.add_edge(Edge::new(
-            handler_node.clone(),
+            handler_node,
             route_node,
             EdgeKind::DefinesRoute,
             binding.band,
