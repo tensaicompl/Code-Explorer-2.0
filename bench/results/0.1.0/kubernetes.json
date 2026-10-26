@@ -1,42 +1,119 @@
 {
   "performance": {
-    "cached_extractions_at_stop": 21211,
-    "completed_stages": [
-      {
-        "duration_ns": 1784313185,
-        "items": 25930,
-        "stage": "discover"
-      }
-    ],
-    "files_discovered": 25930,
+    "content_sha256": "b56e8d27e5bfc43bdb3bf7cc4e31334647981f2ac88c010dca453adfe8ff3329",
+    "files": 25930,
     "host": {
       "architecture": "x86_64",
       "benchmark_memory_budget_bytes": 536870912,
-      "benchmark_workers": 28,
+      "benchmark_workers": 8,
       "cpu_brand": "Intel(R) Core(TM) i7-14700F",
       "logical_cpus": 28,
       "os": "linux",
       "total_memory_bytes": 10424033280
     },
-    "memory_budget_bytes": 536870912,
+    "median_derive_ns": 11052518627,
+    "median_discover_ns": 568220529,
+    "median_extract_ns": 14915511481,
+    "median_files_per_second": 591.207294811497,
+    "median_resolve_ns": 28941063264,
+    "median_total_wall_ns": 77426214793,
+    "median_write_ns": 23439824821,
     "memory_ceiling_bytes": 6442450944,
-    "outcome": "out_of_memory",
-    "peak_rss_bytes": 6443593728,
+    "outcome": "completed",
+    "peak_rss_bytes": 3176583168,
     "rss_sample_interval_ms": 10,
-    "rss_samples": 919,
-    "sample": 1,
-    "stage_reached": "extract",
-    "wall_ns_at_stop": 9576593897,
-    "workers": 28
+    "samples": [
+      {
+        "call_sites": 716257,
+        "content_sha256": "b56e8d27e5bfc43bdb3bf7cc4e31334647981f2ac88c010dca453adfe8ff3329",
+        "degraded": [
+          {
+            "files": 1,
+            "kind": "extraction_lost"
+          }
+        ],
+        "derive_ns": 11052518627,
+        "discover_ns": 1753070299,
+        "extract_ns": 14915511481,
+        "files": 25930,
+        "files_discovered": 25930,
+        "files_per_second": 584.6282275688675,
+        "memory_budget_bytes": 536870912,
+        "nodes": 459717,
+        "peak_rss_bytes": 3167907840,
+        "resolve_ns": 29437461532,
+        "rss_samples": 8037,
+        "sample": 1,
+        "size_bytes": 935161856,
+        "status": "degraded",
+        "total_wall_ns": 81323529459,
+        "workers": 8,
+        "write_ns": 23439824821
+      },
+      {
+        "call_sites": 716257,
+        "content_sha256": "b56e8d27e5bfc43bdb3bf7cc4e31334647981f2ac88c010dca453adfe8ff3329",
+        "degraded": [
+          {
+            "files": 1,
+            "kind": "extraction_lost"
+          }
+        ],
+        "derive_ns": 11450939710,
+        "discover_ns": 568220529,
+        "extract_ns": 10466134223,
+        "files": 25930,
+        "files_discovered": 25930,
+        "files_per_second": 658.001625427792,
+        "memory_budget_bytes": 536870912,
+        "nodes": 459717,
+        "peak_rss_bytes": 3176583168,
+        "resolve_ns": 28941063264,
+        "rss_samples": 7570,
+        "sample": 2,
+        "size_bytes": 935161856,
+        "status": "degraded",
+        "total_wall_ns": 76681612129,
+        "workers": 8,
+        "write_ns": 24501887699
+      },
+      {
+        "call_sites": 716257,
+        "content_sha256": "b56e8d27e5bfc43bdb3bf7cc4e31334647981f2ac88c010dca453adfe8ff3329",
+        "degraded": [
+          {
+            "files": 1,
+            "kind": "extraction_lost"
+          }
+        ],
+        "derive_ns": 10949789036,
+        "discover_ns": 539572029,
+        "extract_ns": 15065194284,
+        "files": 25930,
+        "files_discovered": 25930,
+        "files_per_second": 591.207294811497,
+        "memory_budget_bytes": 536870912,
+        "nodes": 459717,
+        "peak_rss_bytes": 3164016640,
+        "resolve_ns": 28794210408,
+        "rss_samples": 7645,
+        "sample": 3,
+        "size_bytes": 935161856,
+        "status": "degraded",
+        "total_wall_ns": 77426214793,
+        "workers": 8,
+        "write_ns": 21362427510
+      }
+    ]
   },
   "provenance": {
     "commit": "6c1c7702cf2052245ef10e699d45f071af306f59",
-    "engine_version": 6,
+    "engine_version": 16,
     "kind": "scale",
-    "language_matrix_version": 2,
+    "language_matrix_version": 3,
     "pdx_version": "0.1.0",
     "repository": "kubernetes",
-    "segment_schema_version": 3
+    "segment_schema_version": 4
   },
   "results_format_version": 1
 }

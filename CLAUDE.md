@@ -124,6 +124,19 @@ that cannot work yet because a prerequisite is not built is recorded, not forced
     (least recent first, never what the running build used or anything used since it
     began), `remove_retired_formats`; `[cache] max_bytes` (10 GiB) is the user's
     `pdx/config.toml` (`UserConfig`, decision 88), never `pdx.toml`.
+- **P2-19 (2026-10-26, issue 93, decision 74; patch 0038, engine 16).** The parser's
+  error recovery is bounded by counted work (below, "No unbounded parse recovery"); the
+  census's 98,434 extracted files (of 131,995) are identical with and without the bound.
+- **P2-20 (2026-10-26, decisions 68, 75, 76; issues 98, 119): segment schema 4.**
+  Declared `DEFINES_ROUTE` edges have no band and are drawn; `candidates_total`;
+  `excluded_directories`. The goldens gained 63 declared route edges, nothing else
+  moved. Details under Stage 4 below.
+- **G1 re-evaluated (2026-10-26, `48be0ad`): pending, eight of ten criteria hold.** Ten
+  goldens ready and byte-identical cold, parallel and warm; engine differential 32 passed
+  (29 identical, 64 ratified rows); `make check-asan` 62 of 62 clean; issue 131's
+  repository `ready` at 504 MiB. Kubernetes on eight processors: 591.2 files/s, 3,029 MiB
+  (`bench/results/0.1.0/`), but decision 80 takes the scale verdict on the local
+  reference profile only, never this 10 GB VM: `make local-scale` there closes the gate.
 - **Plan v1.4 (2026-10-26, decisions 72 to 85):** the owner accepted the plan review
   with the instruction that the tool be best in class. The external plan is
   `! Version 2.0/PDX-2.0-PLAN-v1.4.md` (uncommitted; extract with
@@ -162,7 +175,9 @@ removes it. The local CLI has `pdx index`, `pdx coverage` and `pdx version` (P2-
 `pdx bench` (P2-14) and `pdx cache stats|prune` (P2-18); the engine differential (P2-16) closes P2; there is no query
 surface (MCP, server, UI) yet. Gate G1 was evaluated on 2026-10-12 and failed on the
 Kubernetes performance criterion (issue 82); decision 72 lifted the hold on P3, P2-17
-met the criterion's numbers, and G1 is evaluated again after P2-20.
+met the criterion's numbers, and G1 was evaluated again after P2-20 (2026-10-26): every
+criterion holds but the scale verdict, which waits for a reference-profile machine
+(decision 80; `GATES.md`).
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.

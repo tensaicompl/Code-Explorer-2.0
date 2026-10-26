@@ -351,20 +351,23 @@ evaluated only once G1 and G1b have passed.
 Status: **pending**. Evaluated by the driver on 2026-10-12 at `2e6f253`: **fail**, and
 progression to P3 is halted. The gate records no state between `pending` and `passed`
 (`scripts/plan/plan-progress.py` reads `passed` alone), so the status stays `pending`
-and the verdict is in the log below.
+and the verdict is in the log below. Evaluated again on 2026-10-26 at `48be0ad`, after
+P2-20: eight of the ten criteria hold. The scale criterion's two rows meet their thresholds
+on the development VM, but decision 80 takes that verdict on the local reference profile
+only, so the gate stays `pending` until `make local-scale` passes there (log below).
 
 Criteria:
 
 - [x] `pdx index` succeeds on all 10 golden repos with `status ∈ {ready}` (no `degraded`): all ten ready (`make golden`)
 - [x] determinism 100%: ten of ten byte-identical (P2-14)
 - [x] golden snapshots committed: ten, in `bench/golden/`
-- [ ] performance baseline recorded: ≥ 400 files/s single-node for the structural profile (extraction plus typed resolution) on `kubernetes` (nightly), peak RSS ≤ 4 GiB on `kubernetes`: **not met**, issue 82
+- [ ] performance baseline recorded: ≥ 400 files/s single-node for the structural profile (extraction plus typed resolution) on `kubernetes` (nightly), peak RSS ≤ 4 GiB on `kubernetes`: recorded (`bench/results/0.1.0/kubernetes.json`, 2026-10-26) and the thresholds met on the development VM limited to eight processors, 591.2 files/s and 3,029 MiB; the verdict is the local reference profile's (D7, decision 80)
 - [x] coverage rows sum to call sites: the segment writer refuses rows that do not (P2-10)
 - [x] `bench/results/legacy-compare.md` exists
-- [ ] (v1.4) the scale criterion above measured on the local reference profile (decision 80)
-- [ ] (v1.4) issue 131's data repository indexed under 1 GiB peak
-- [ ] (v1.4) engine differential identical or ratified
-- [ ] (v1.4) sanitizer corpus run clean
+- [ ] (v1.4) the scale criterion above measured on the local reference profile (decision 80): **not yet**, `make local-scale` passes on the development VM, which decision 80 lets record numbers only
+- [x] (v1.4) issue 131's data repository indexed under 1 GiB peak: 504 MiB cold, `ready` (2026-10-26)
+- [x] (v1.4) engine differential identical or ratified: 32 corpora passed, 29 identical, 3 with only ratified rows (2026-10-26)
+- [x] (v1.4) sanitizer corpus run clean: `make check-asan`, 62 of 62, no sanitizer report (2026-10-26)
 
 Evaluation log:
 
@@ -407,6 +410,100 @@ with no sanitizer report; the engine differential 32 corpora, 0 unexpected rows.
 still passes a 6 GiB ceiling in Stage 2, after 13.6 s at 6.5 GB (issue 82). Decision 72
 (2026-10-26, the owner) lifts the hold on P3 this gate's verdict placed: P3 proceeds while
 G1 is open, and G2 is evaluated only once G1 and G1b have passed.
+
+2026-10-26, at `48be0ad` (engine 16, schema 4, matrix 3), after P2-20:
+
+```
+verdict: PENDING — eight of ten criteria hold; the scale criterion meets its thresholds
+on the development VM, whose numbers decision 80 records but never takes as a verdict
+open: `make local-scale` on the local reference profile (8 physical cores, 16 GB, NVMe, Linux x86-64)
+```
+
+- **Goldens, determinism, snapshots.** All ten goldens index `ready` and match the
+  committed goldens; each is byte-identical across a cold single-worker build, a cold
+  28-worker build and a warm rebuild.
+- **Scale.** Kubernetes (25,930 files), cold, eight workers, the process limited to eight
+  processors (`taskset -c 0-7`, as `make local-scale` runs it): 591.2 files/s (median of
+  584.6, 658.0 and 591.2) and a peak of 3,029 MiB (the largest of 3,021, 3,029 and 3,017),
+  against at least 400 files/s and at most 4,096 MiB. Every sample is `degraded` by one
+  file's lost work (issue 134, open), which decision 86 allows for a scale repository;
+  the segment's content hash is the same in all three (`b56e8d27…`). The machine is the
+  development VM (an i7-14700F's 28 logical processors under a hypervisor, 10 GB of
+  memory), which decision 80 names as recording numbers only: it has less memory than the
+  profile, and its eight processors are four cores' hardware threads as the VM reports
+  them, not eight physical cores. The peak follows from the worker count and the
+  repository, not the processor; throughput would have to be 32% lower on the reference
+  profile to miss.
+- **Issue 131's repository** (`tenderscore`, 1,314 files): `ready`, 82,714 nodes, peak
+  504 MiB cold and 462 MiB warm, the cold and warm segments byte-identical.
+- **Engine differential:** 32 corpora, 29 identical, `golden:rust/axum` and the two
+  `rust_workspace_*` fixtures with only their 64 ratified records, none unexpected or stale.
+- **Sanitizers:** the engine's 62 tests and the sanitizer corpus under the address,
+  undefined-behaviour and leak sanitizers, no report.
+
+Commands, from the repository root at the commit below, and their output verbatim (the
+harness's progress lines, `pdx-bench: …`, and the build and test runners' progress
+omitted; the results the harness wrote are committed in `bench/results/0.1.0/`):
+
+```
+$ git rev-parse HEAD
+48be0ad797f0bd101d13c6432615fa9b391a3542
+$ target/release/pdx-bench golden
+ada/Ada_Drivers_Library: matches, 18350 nodes, 76 drawn edges, segment 2dc25f373895a29e35ae9177f4fb22b4045ff78ba2ee01578d1a4402a66b6b50
+c/jq: matches, 2202 nodes, 3937 drawn edges, segment 017bb0371083aa471db676b92864f2e559cc295fbfa8eff12ba2701918df1785
+cpp/fmt: matches, 7823 nodes, 3250 drawn edges, segment e90a526bdbb65cc5bed26be1c95f156f476d765b6bf3c9e02315049e86bd9a5b
+csharp/eShop: matches, 6878 nodes, 514 drawn edges, segment 9438ee4788d5e43ba9bfb0442f6d98f992813a303a5add84051ebee6568204dd
+go/gin: matches, 2562 nodes, 3960 drawn edges, segment b12cc7086937ee3759abb77167e8cc5745cd57cc921427322ad0e09f52fe369f
+java/spring-petclinic: matches, 1636 nodes, 222 drawn edges, segment 2c14eee886dcc6f63c125cf9efcd118f715ff9b20242937d459231af90a88b0e
+kotlin/Exposed: matches, 24335 nodes, 11561 drawn edges, segment 0879c9def7458ab203336e08a00b2f309ca35fae056cc582bc45f854e1111856
+python/flask: matches, 1816 nodes, 469 drawn edges, segment 4d5697cfc395d18bf92284357d05d894a26850666a77e60cb5ce8f9f269e7b96
+rust/axum: matches, 6097 nodes, 5992 drawn edges, segment 1666a2a0a15ad8fab3d7359380e8a161da39a9664ac133a64acc589f52a27adf
+typescript/hono: matches, 5474 nodes, 3044 drawn edges, segment 66747210a9dd3b921cf155453aed97b003b69d7bf2af4f26162c2535e40727d2
+golden: 10 repositories match
+$ target/release/pdx-bench bench --determinism
+determinism: ada/Ada_Drivers_Library: identical, 1363 files, cold and warm rebuilds equivalent, segment 2dc25f373895a29e35ae9177f4fb22b4045ff78ba2ee01578d1a4402a66b6b50
+determinism: c/jq: identical, 397 files, cold and warm rebuilds equivalent, segment 017bb0371083aa471db676b92864f2e559cc295fbfa8eff12ba2701918df1785
+determinism: cpp/fmt: identical, 145 files, cold and warm rebuilds equivalent, segment e90a526bdbb65cc5bed26be1c95f156f476d765b6bf3c9e02315049e86bd9a5b
+determinism: csharp/eShop: identical, 1142 files, cold and warm rebuilds equivalent, segment 9438ee4788d5e43ba9bfb0442f6d98f992813a303a5add84051ebee6568204dd
+determinism: go/gin: identical, 130 files, cold and warm rebuilds equivalent, segment b12cc7086937ee3759abb77167e8cc5745cd57cc921427322ad0e09f52fe369f
+determinism: java/spring-petclinic: identical, 132 files, cold and warm rebuilds equivalent, segment 2c14eee886dcc6f63c125cf9efcd118f715ff9b20242937d459231af90a88b0e
+determinism: kotlin/Exposed: identical, 5593 files, cold and warm rebuilds equivalent, segment 0879c9def7458ab203336e08a00b2f309ca35fae056cc582bc45f854e1111856
+determinism: python/flask: identical, 236 files, cold and warm rebuilds equivalent, segment 4d5697cfc395d18bf92284357d05d894a26850666a77e60cb5ce8f9f269e7b96
+determinism: rust/axum: identical, 498 files, cold and warm rebuilds equivalent, segment 1666a2a0a15ad8fab3d7359380e8a161da39a9664ac133a64acc589f52a27adf
+determinism: typescript/hono: identical, 483 files, cold and warm rebuilds equivalent, segment 66747210a9dd3b921cf155453aed97b003b69d7bf2af4f26162c2535e40727d2
+bench: wrote 11 file(s) to bench/results/0.1.0/
+$ taskset -c 0-7 target/release/pdx-bench bench --perf --only ada/Ada_Drivers_Library --only c/jq --only cpp/fmt --only csharp/eShop --only go/gin --only java/spring-petclinic --only kotlin/Exposed --only python/flask --only rust/axum --only typescript/hono --only kubernetes
+perf: ada/Ada_Drivers_Library: 2009.5 files/s (median of 3), 1363 files, peak RSS 130 MiB, median wall 1.26 s
+perf: c/jq: 966.8 files/s (median of 3), 397 files, peak RSS 88 MiB, median wall 0.57 s
+perf: cpp/fmt: 73.5 files/s (median of 3), 145 files, peak RSS 238 MiB, median wall 2.47 s
+perf: csharp/eShop: 2715.9 files/s (median of 3), 1142 files, peak RSS 76 MiB, median wall 0.67 s
+perf: go/gin: 441.4 files/s (median of 3), 130 files, peak RSS 84 MiB, median wall 0.49 s
+perf: java/spring-petclinic: 1515.4 files/s (median of 3), 132 files, peak RSS 37 MiB, median wall 0.15 s
+perf: kotlin/Exposed: 1778.1 files/s (median of 3), 5593 files, peak RSS 317 MiB, median wall 5.50 s
+perf: python/flask: 1173.8 files/s (median of 3), 236 files, peak RSS 58 MiB, median wall 0.75 s
+perf: rust/axum: 287.6 files/s (median of 3), 498 files, peak RSS 87 MiB, median wall 2.04 s
+perf: typescript/hono: 619.2 files/s (median of 3), 483 files, peak RSS 139 MiB, median wall 1.45 s
+perf: kubernetes: 591.2 files/s (median of 3), 25930 files, peak RSS 3029 MiB, median wall 77.43 s, degraded (extraction_lost 1 file(s))
+bench: wrote 12 file(s) to bench/results/0.1.0/
+$ cargo test -p pdx-bench --test local_scale -- --ignored
+test kubernetes_local_scale ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+$ PDX_REFERENCE_EXTRA_FLAGS=… PDX_REFERENCE_JOBS=6 make engine-differential
+corpora 32: 32 passed, 29 identical, 3 with 64 ratified divergences, 0 unexpected divergences, 0 stale ratifications, 0 differ or failed
+mismatches 0
+engine differential: passed, 29 identical and 3 with only ratified divergences (decision 66)
+$ make check-asan
+100% tests passed, 0 tests failed out of 62
+check-asan: no sanitizer reports
+$ /usr/bin/time -v pdx index <issue 131's repository> --out .pdx/cold.db --json    # cold cache
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:03.24
+Maximum resident set size (kbytes): 515956
+Exit status: 0
+$ /usr/bin/time -v pdx index <issue 131's repository> --out .pdx/warm.db --json    # the same cache, warm
+Elapsed (wall clock) time (h:mm:ss or m:ss): 0:02.28
+Maximum resident set size (kbytes): 472956
+Exit status: 0
+```
 
 ## G1b — after `P2-22`
 

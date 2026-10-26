@@ -19,104 +19,99 @@
     "repositories_tested": 10
   },
   "performance": {
-    "all_completed": false,
+    "all_completed": true,
     "goldens": {
       "ada/Ada_Drivers_Library": {
         "files": 1363,
-        "median_files_per_second": 1874.1887172623678,
-        "median_total_wall_ns": 1250158907,
+        "median_files_per_second": 2009.4728229577838,
+        "median_total_wall_ns": 1262577711,
         "outcome": "completed",
-        "peak_rss_bytes": 502837248
+        "peak_rss_bytes": 136458240
       },
       "c/jq": {
         "files": 397,
-        "median_files_per_second": 733.661110202012,
-        "median_total_wall_ns": 692474790,
+        "median_files_per_second": 966.7795550232721,
+        "median_total_wall_ns": 565566020,
         "outcome": "completed",
-        "peak_rss_bytes": 195878912
+        "peak_rss_bytes": 92356608
       },
       "cpp/fmt": {
         "files": 145,
-        "median_files_per_second": 37.24640101698971,
-        "median_total_wall_ns": 4360996466,
+        "median_files_per_second": 73.46090433064434,
+        "median_total_wall_ns": 2471349076,
         "outcome": "completed",
-        "peak_rss_bytes": 423849984
+        "peak_rss_bytes": 250093568
       },
       "csharp/eShop": {
         "files": 1142,
-        "median_files_per_second": 3063.722498382317,
-        "median_total_wall_ns": 600301369,
+        "median_files_per_second": 2715.8921662007288,
+        "median_total_wall_ns": 672447741,
         "outcome": "completed",
-        "peak_rss_bytes": 198934528
+        "peak_rss_bytes": 79990784
       },
       "go/gin": {
         "files": 130,
-        "median_files_per_second": 378.08430927605946,
-        "median_total_wall_ns": 515224853,
+        "median_files_per_second": 441.4102882144336,
+        "median_total_wall_ns": 494278497,
         "outcome": "completed",
-        "peak_rss_bytes": 159174656
+        "peak_rss_bytes": 88543232
       },
       "java/spring-petclinic": {
         "files": 132,
-        "median_files_per_second": 1585.5374576197548,
-        "median_total_wall_ns": 121032979,
+        "median_files_per_second": 1515.428195602379,
+        "median_total_wall_ns": 149025907,
         "outcome": "completed",
-        "peak_rss_bytes": 53346304
+        "peak_rss_bytes": 38948864
       },
       "kotlin/Exposed": {
         "files": 5593,
-        "median_files_per_second": 1149.3433617043993,
-        "median_total_wall_ns": 7564940429,
+        "median_files_per_second": 1778.0913763383696,
+        "median_total_wall_ns": 5501018003,
         "outcome": "completed",
-        "peak_rss_bytes": 1323765760
+        "peak_rss_bytes": 333262848
       },
       "python/flask": {
         "files": 236,
-        "median_files_per_second": 774.8394755865417,
-        "median_total_wall_ns": 382337729,
+        "median_files_per_second": 1173.7773543403603,
+        "median_total_wall_ns": 750453831,
         "outcome": "completed",
-        "peak_rss_bytes": 86024192
+        "peak_rss_bytes": 60874752
       },
       "rust/axum": {
         "files": 498,
-        "median_files_per_second": 556.9455572140878,
-        "median_total_wall_ns": 1143376460,
+        "median_files_per_second": 287.5883304024252,
+        "median_total_wall_ns": 2035338760,
         "outcome": "completed",
-        "peak_rss_bytes": 219791360
+        "peak_rss_bytes": 92086272
       },
       "typescript/hono": {
         "files": 483,
-        "median_files_per_second": 496.7881223353649,
-        "median_total_wall_ns": 1658873896,
+        "median_files_per_second": 619.2367551860693,
+        "median_total_wall_ns": 1447838959,
         "outcome": "completed",
-        "peak_rss_bytes": 488263680
+        "peak_rss_bytes": 145874944
       }
     },
     "goldens_completed": 10,
     "goldens_measured": 10,
-    "repositories_measured": 12,
+    "repositories_measured": 11,
     "scale": {
       "kubernetes": {
-        "memory_ceiling_bytes": 6442450944,
-        "outcome": "out_of_memory",
-        "peak_rss_bytes": 6443593728,
-        "stage_reached": "extract"
-      },
-      "linux": {
-        "memory_ceiling_bytes": 6442450944,
-        "outcome": "out_of_memory",
-        "peak_rss_bytes": 6448656384,
-        "stage_reached": "extract"
+        "files": 25930,
+        "median_files_per_second": 591.207294811497,
+        "median_total_wall_ns": 77426214793,
+        "outcome": "completed",
+        "peak_rss_bytes": 3176583168
       }
     },
-    "scale_repositories_completed": 0,
-    "scale_repositories_measured": 2
+    "scale_repositories_completed": 1,
+    "scale_repositories_measured": 1
   },
   "provenance": {
-    "engine_version": 6,
-    "language_matrix_version": 2,
+    "engine_version": 16,
+    "language_matrix_version": 3,
     "pdx_version": "0.1.0",
-    "segment_schema_version": 3
+    "segment_schema_version": 4
   },
   "results_format_version": 1
 }
