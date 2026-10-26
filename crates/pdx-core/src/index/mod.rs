@@ -218,8 +218,8 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
     })?;
     // Typed resolution's engine project has ended.
     pdx_engine::release_freed_memory();
-    let (graph, coverage, files, degraded) = report.stage(Stage::Derive, |span| {
-        let graph = derive::derive(&DeriveInput {
+    let (pending, coverage, files, degraded) = report.stage(Stage::Derive, |span| {
+        let pending = derive::derive_pending(&DeriveInput {
             repo: &repo_id,
             repo_name: &repo_name,
             registry: &registry,
@@ -229,15 +229,20 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
         })?;
         let coverage = coverage::rows(&registry, &resolution, &found.unportable)?;
         let (files, degraded) = report::assess(&registry, &found.unportable);
-        span.record("nodes", graph.nodes.len());
-        Ok((graph.nodes.len() as u64, (graph, coverage, files, degraded)))
+        span.record("nodes", pending.node_count());
+        Ok((
+            pending.node_count() as u64,
+            (pending, coverage, files, degraded),
+        ))
     })?;
-    let summary = Summary::of(&graph, &coverage, &resolution);
-    // Nothing reads the extractions or Stage 3's report after Stage 4: the write holds
-    // the graph alone (P2-17).
+    let resolution_summary = ResolutionSummary::of(&resolution);
+    // Nothing reads the extractions or Stage 3's report after Stage 4: the graph's
+    // tables are laid out, and written, with them gone (P2-17).
     drop(registry);
     drop(resolution);
     pdx_engine::release_freed_memory();
+    let graph = pending.finish();
+    let summary = Summary::of(&graph, &coverage, resolution_summary);
     let segment = report.stage(Stage::Write, |span| {
         let data = write::segment_data(meta.clone(), graph, coverage.clone());
         let segment = write::write(&data, &destination, build_dir.as_deref())?;
@@ -368,11 +373,21 @@ struct Summary {
     derive: DeriveSummary,
 }
 
+impl ResolutionSummary {
+    fn of(resolution: &crate::resolve::stages::ResolveReport) -> Self {
+        Self {
+            call_sites: resolution.resolutions.len() as u64,
+            unconfirmed: resolution.unconfirmed.len() as u64,
+            engine_health: resolution.engine_health,
+        }
+    }
+}
+
 impl Summary {
     fn of(
         graph: &derive::DerivedGraph,
         coverage: &[crate::model::Coverage],
-        resolution: &crate::resolve::stages::ResolveReport,
+        resolution: ResolutionSummary,
     ) -> Self {
         Self {
             rows: RowCounts {
@@ -385,11 +400,7 @@ impl Summary {
                 metrics: graph.metrics.len() as u64,
                 coverage: coverage.len() as u64,
             },
-            resolution: ResolutionSummary {
-                call_sites: resolution.resolutions.len() as u64,
-                unconfirmed: resolution.unconfirmed.len() as u64,
-                engine_health: resolution.engine_health,
-            },
+            resolution,
             derive: DeriveSummary {
                 unmaterialized: graph.diagnostics.unmaterialized.len() as u64,
                 routes: graph.diagnostics.routes.len() as u64,

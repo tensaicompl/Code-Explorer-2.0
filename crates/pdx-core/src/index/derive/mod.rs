@@ -263,6 +263,33 @@ pub enum DeriveError {
 /// computed, two different facts would share an identity, or a resolution names a
 /// definition the registry does not have.
 pub fn derive(input: &DeriveInput<'_>) -> Result<DerivedGraph, DeriveError> {
+    derive_pending(input).map(PendingGraph::finish)
+}
+
+/// Stage 4's graph before its tables are laid out as rows: what [`derive`] returns,
+/// [`PendingGraph::finish`]ed. A build finishes it only once it has let go of the
+/// registry and Stage 3's report (P2-17): laying the tables out copies them, and doing
+/// so beside everything Stage 4 read held the graph twice at the build's peak.
+pub struct PendingGraph(Builder);
+
+impl PendingGraph {
+    /// How many nodes it has.
+    pub fn node_count(&self) -> usize {
+        self.0.nodes.len()
+    }
+
+    /// The graph, its tables as rows in id order.
+    pub fn finish(self) -> DerivedGraph {
+        self.0.finish()
+    }
+}
+
+/// As [`derive`], with the graph's tables not yet laid out as rows.
+///
+/// # Errors
+///
+/// As for [`derive`].
+pub fn derive_pending(input: &DeriveInput<'_>) -> Result<PendingGraph, DeriveError> {
     let tests = tests::test_definitions(input.registry);
     let mut graph = containment::build(input, &tests)?;
     modules::build(&mut graph, input)?;
@@ -273,7 +300,7 @@ pub fn derive(input: &DeriveInput<'_>) -> Result<DerivedGraph, DeriveError> {
     crate::contracts::build(&mut graph, input)?;
     crate::layers::roles::assign(&mut graph, input)?;
     crate::metrics::derive(&mut graph, input)?;
-    Ok(graph.finish())
+    Ok(PendingGraph(graph))
 }
 
 /// The graph as it is built: every part adds through it, and it refuses two different
