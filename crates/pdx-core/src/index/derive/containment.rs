@@ -147,7 +147,7 @@ pub(crate) fn build(
         repo_node: repo_node.node_id,
         file_nodes: BTreeMap::new(),
         folder_nodes: BTreeMap::new(),
-        definition_nodes: BTreeMap::new(),
+        definition_nodes: super::DefinitionNodes::default(),
         file_definitions: BTreeSet::new(),
         module_nodes: BTreeMap::new(),
         metrics: crate::metrics::Rows::default(),

@@ -43,7 +43,7 @@ use crate::contracts::ContractDiagnostic;
 use crate::ids::{EdgeId, IdError, NodeId, RepoId, SiteId};
 use crate::index::extract::ExtractError;
 use crate::model::{CandidateSite, Contract, Edge, FileRecord, Metric, Node, Site};
-use crate::resolve::registry::{DefinitionRef, ModuleKey, SymbolRegistry};
+use crate::resolve::registry::{DefinitionRef, ModuleKey, RelPath, SymbolRegistry};
 use crate::resolve::stages::{ResolveReport, Unconfirmed};
 
 pub mod calls;
@@ -67,6 +67,27 @@ pub struct DeriveInput<'a> {
     /// same checks as every other read (4.7.1).
     pub root: &'a Path,
     /// The repository's effective configuration: its `[identity]` scopes contracts.
+    pub config: &'a PdxConfig,
+}
+
+impl<'a> DeriveInput<'a> {
+    /// What Stage 4's last parts read: no resolution.
+    pub fn symbols(&self) -> SymbolInput<'a> {
+        SymbolInput {
+            registry: self.registry,
+            config: self.config,
+        }
+    }
+}
+
+/// What Stage 4's last parts, layer roles and metrics, derive from: the registry and
+/// the configuration, never Stage 3's report, which a build gives back before they run
+/// (P2-17).
+#[derive(Clone, Copy)]
+pub struct SymbolInput<'a> {
+    /// Stage 3's registry.
+    pub registry: &'a SymbolRegistry,
+    /// The repository's effective configuration: its `[layers]` rules.
     pub config: &'a PdxConfig,
 }
 
@@ -170,7 +191,7 @@ pub struct DerivedGraph {
     pub file_nodes: BTreeMap<String, NodeId>,
     /// Each extracted definition's node: the one map every part of the stage reads.
     /// The engine's file-level module definition maps to its file's node.
-    pub definition_nodes: BTreeMap<DefinitionRef, NodeId>,
+    pub definition_nodes: DefinitionNodes,
     /// Each module's node.
     pub module_nodes: BTreeMap<ModuleKey, NodeId>,
     /// What the stage could not persist, for coverage.
@@ -266,6 +287,46 @@ pub fn derive(input: &DeriveInput<'_>) -> Result<DerivedGraph, DeriveError> {
     derive_pending(input).map(PendingGraph::finish)
 }
 
+/// Each extracted definition's node, by file and index (P2-17): a graph has one for
+/// every definition, and a tree keyed by reference took several times the ids it held.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DefinitionNodes(BTreeMap<RelPath, Vec<Option<NodeId>>>);
+
+impl DefinitionNodes {
+    /// A definition's node.
+    pub fn get(&self, r: &DefinitionRef) -> Option<&NodeId> {
+        self.0
+            .get(r.path.as_str())?
+            .get(usize::try_from(r.index).ok()?)?
+            .as_ref()
+    }
+
+    /// Sets a definition's node, replacing any it had.
+    pub fn insert(&mut self, r: DefinitionRef, id: NodeId) {
+        let at = r.index as usize;
+        let nodes = self.0.entry(r.path).or_default();
+        if nodes.len() <= at {
+            nodes.resize(at + 1, None);
+        }
+        nodes[at] = Some(id);
+    }
+
+    /// Every definition with a node, and its node, in (path, index) order.
+    pub fn iter(&self) -> impl Iterator<Item = (DefinitionRef, &NodeId)> {
+        self.0.iter().flat_map(|(path, nodes)| {
+            nodes.iter().zip(0u32..).filter_map(move |(id, index)| {
+                Some((
+                    DefinitionRef {
+                        path: path.clone(),
+                        index,
+                    },
+                    id.as_ref()?,
+                ))
+            })
+        })
+    }
+}
+
 /// Stage 4's graph before its tables are laid out as rows: what [`derive`] returns,
 /// [`PendingGraph::finish`]ed. A build finishes it only once it has let go of the
 /// registry and Stage 3's report (P2-17): laying the tables out copies them, and doing
@@ -290,6 +351,19 @@ impl PendingGraph {
 ///
 /// As for [`derive`].
 pub fn derive_pending(input: &DeriveInput<'_>) -> Result<PendingGraph, DeriveError> {
+    derive_evidence(input)?.complete(&input.symbols())
+}
+
+/// Stage 4's parts that read Stage 3's report, in [`derive`]'s order: containment,
+/// modules, call sites, tests, routes, entry points and contracts. A build gives the
+/// report back before it [`complete`](EvidenceGraph::complete)s the graph with layer
+/// roles and metrics (P2-17): they add a row per symbol and metric, and the report
+/// held beside them was the build's peak.
+///
+/// # Errors
+///
+/// As for [`derive`].
+pub fn derive_evidence(input: &DeriveInput<'_>) -> Result<EvidenceGraph, DeriveError> {
     let tests = tests::test_definitions(input.registry);
     let mut graph = containment::build(input, &tests)?;
     modules::build(&mut graph, input)?;
@@ -298,9 +372,25 @@ pub fn derive_pending(input: &DeriveInput<'_>) -> Result<PendingGraph, DeriveErr
     routes::build(&mut graph, input)?;
     entry::mark(&mut graph, input, &tests)?;
     crate::contracts::build(&mut graph, input)?;
-    crate::layers::roles::assign(&mut graph, input)?;
-    crate::metrics::derive(&mut graph, input)?;
-    Ok(PendingGraph(graph))
+    Ok(EvidenceGraph(graph))
+}
+
+/// Stage 4's graph with every part that reads Stage 3's report, and no layer roles or
+/// metrics yet.
+pub struct EvidenceGraph(Builder);
+
+impl EvidenceGraph {
+    /// The graph with its layer roles and metrics, which read no resolution.
+    ///
+    /// # Errors
+    ///
+    /// As for [`derive`].
+    pub fn complete(self, input: &SymbolInput<'_>) -> Result<PendingGraph, DeriveError> {
+        let mut graph = self.0;
+        crate::layers::roles::assign(&mut graph, input)?;
+        crate::metrics::derive(&mut graph, input)?;
+        Ok(PendingGraph(graph))
+    }
 }
 
 /// The graph as it is built: every part adds through it, and it refuses two different
@@ -315,7 +405,7 @@ pub(crate) struct Builder {
     pub(crate) repo_node: NodeId,
     pub(crate) file_nodes: BTreeMap<String, NodeId>,
     pub(crate) folder_nodes: BTreeMap<String, NodeId>,
-    pub(crate) definition_nodes: BTreeMap<DefinitionRef, NodeId>,
+    pub(crate) definition_nodes: DefinitionNodes,
     /// The engine's file-level module definitions, which are their files, not symbols.
     pub(crate) file_definitions: BTreeSet<DefinitionRef>,
     pub(crate) module_nodes: BTreeMap<ModuleKey, NodeId>,
@@ -380,7 +470,7 @@ impl Builder {
     }
 
     /// Sets a property of a node the stage made.
-    pub(crate) fn set_prop(&mut self, id: &NodeId, key: &str, value: Value) {
+    pub(crate) fn set_prop(&mut self, id: &NodeId, key: &'static str, value: Value) {
         if let Some(node) = self.nodes.get_mut(id) {
             node.props.insert(key, value);
         }
@@ -456,7 +546,7 @@ mod invariant {
             repo_node: NodeKey::repo(&repo).node_id().expect("an id"),
             file_nodes: BTreeMap::new(),
             folder_nodes: BTreeMap::new(),
-            definition_nodes: BTreeMap::new(),
+            definition_nodes: DefinitionNodes::default(),
             file_definitions: BTreeSet::new(),
             module_nodes: BTreeMap::new(),
             metrics: crate::metrics::Rows::default(),

@@ -27,14 +27,14 @@ use std::sync::Arc;
 use crate::config::{ConfigError, PdxConfig};
 use crate::coverage::{self, CoverageError};
 use crate::ids::RepoId;
-use crate::index::derive::{DeriveError, DeriveInput};
+use crate::index::derive::{DeriveError, DeriveInput, PendingGraph, SymbolInput};
 use crate::index::discover::DiscoverError;
 use crate::index::extract::{
     BackendFactory, ExtractCache, ExtractError, ExtractLimits, ExtractReport, ExtractStage,
     SurfaceSpill,
 };
 use crate::resolve::registry::{RegistryError, SymbolRegistry};
-use crate::resolve::stages::{ResolutionError, resolve};
+use crate::resolve::stages::{ResolutionError, ResolveReport, resolve};
 use crate::segment::{RepoIdSource, SegmentError, SegmentMeta, SegmentProfile, SegmentWriter};
 
 pub use report::{
@@ -218,29 +218,22 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
     })?;
     // Typed resolution's engine project has ended.
     pdx_engine::release_freed_memory();
-    let (pending, coverage, files, degraded) = report.stage(Stage::Derive, |span| {
-        let pending = derive::derive_pending(&DeriveInput {
-            repo: &repo_id,
-            repo_name: &repo_name,
-            registry: &registry,
-            resolution: &resolution,
-            root,
-            config: &found.config,
-        })?;
-        let coverage = coverage::rows(&registry, &resolution, &found.unportable)?;
-        let (files, degraded) = report::assess(&registry, &found.unportable);
-        span.record("nodes", pending.node_count());
-        Ok((
-            pending.node_count() as u64,
-            (pending, coverage, files, degraded),
-        ))
+    let derived = report.stage(Stage::Derive, |span| {
+        let derived = derive_graph(&repo_id, &repo_name, &registry, resolution, root, &found)?;
+        span.record("nodes", derived.pending.node_count());
+        Ok((derived.pending.node_count() as u64, derived))
     })?;
-    let resolution_summary = ResolutionSummary::of(&resolution);
-    // Nothing reads the extractions or Stage 3's report after Stage 4: the graph's
-    // tables are laid out, and written, with them gone (P2-17).
+    // Nothing reads the extractions after Stage 4: the graph's tables are laid out,
+    // and written, with them gone (P2-17).
     drop(registry);
-    drop(resolution);
     pdx_engine::release_freed_memory();
+    let Derived {
+        pending,
+        coverage,
+        files,
+        degraded,
+        resolution: resolution_summary,
+    } = derived;
     let graph = pending.finish();
     let summary = Summary::of(&graph, &coverage, resolution_summary);
     let segment = report.stage(Stage::Write, |span| {
@@ -273,6 +266,52 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
     })
 }
 
+/// Stage 4's graph, its tables not yet laid out, and what the build reports of it.
+struct Derived {
+    pending: PendingGraph,
+    coverage: Vec<crate::model::Coverage>,
+    files: report::FileCounts,
+    degraded: Vec<DegradedReason>,
+    resolution: ResolutionSummary,
+}
+
+/// Stage 4 as a build runs it, with the coverage Stage 3's report counts. The report is
+/// given back before layer roles and metrics add their rows: they read no resolution
+/// (P2-17).
+fn derive_graph(
+    repo: &RepoId,
+    repo_name: &str,
+    registry: &SymbolRegistry,
+    resolution: ResolveReport,
+    root: &Path,
+    found: &Found,
+) -> Result<Derived, IndexError> {
+    let evidence = derive::derive_evidence(&DeriveInput {
+        repo,
+        repo_name,
+        registry,
+        resolution: &resolution,
+        root,
+        config: &found.config,
+    })?;
+    let coverage = coverage::rows(registry, &resolution, &found.unportable)?;
+    let summary = ResolutionSummary::of(&resolution);
+    drop(resolution);
+    pdx_engine::release_freed_memory();
+    let pending = evidence.complete(&SymbolInput {
+        registry,
+        config: &found.config,
+    })?;
+    let (files, degraded) = report::assess(registry, &found.unportable);
+    Ok(Derived {
+        pending,
+        coverage,
+        files,
+        degraded,
+        resolution: summary,
+    })
+}
+
 /// Stage 1's result: the configuration, the files the later stages index, and the
 /// files held back for an unportable path (issue 53).
 struct Found {
@@ -281,7 +320,6 @@ struct Found {
     unportable: Vec<discover::DiscoveredFile>,
 }
 
-/// Stage 1: the repository's configuration and files.
 /// Stage 2 as a build runs it: with the build's surface spill, and the cache and
 /// backend the request names.
 fn extract(
@@ -321,6 +359,7 @@ fn surface_spill(
     })
 }
 
+/// Stage 1: the repository's configuration and files.
 fn discovered(root: &Path) -> Result<Found, IndexError> {
     let config = PdxConfig::load(root)?;
     let all = discover::discover(root, &config)?;

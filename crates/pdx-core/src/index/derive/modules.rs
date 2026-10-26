@@ -115,7 +115,7 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
         .iter()
         .filter(|(r, _)| !graph.file_definitions.contains(r))
         .filter_map(|(r, id)| {
-            let module = registry.module_of_definition(r)?;
+            let module = registry.module_of_definition(&r)?;
             Some((*id, *graph.module_nodes.get(module)?))
         })
         .collect();

@@ -492,10 +492,11 @@ pub fn resolve_with(
             |resolver, path| resolve_file(resolver, registry, &answers, path),
         )
         .collect();
-    let mut resolutions = Vec::new();
-    let mut unconfirmed = Vec::new();
+    let per_file = per_file.into_iter().collect::<Result<Vec<_>, _>>()?;
+    // Sized exactly: Stage 4 reads the report while it holds the graph it builds.
+    let mut resolutions = Vec::with_capacity(per_file.iter().map(|f| f.resolved.len()).sum());
+    let mut unconfirmed = Vec::with_capacity(per_file.iter().map(|f| f.unconfirmed.len()).sum());
     for file in per_file {
-        let file = file?;
         resolutions.extend(file.resolved);
         unconfirmed.extend(file.unconfirmed);
     }

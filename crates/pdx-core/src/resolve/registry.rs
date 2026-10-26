@@ -369,6 +369,35 @@ pub enum RegistryError {
     SourceChanged(String),
 }
 
+/// Each definition's module, held by file (P2-17): where a language's rule makes the
+/// file the module, its definitions share the file's one key rather than each holding
+/// a copy of it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct DefinitionModules(BTreeMap<RelPath, FileModules>);
+
+/// The modules of one file's definitions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum FileModules {
+    /// Every definition of the file, `0..definitions`, is in the one module.
+    File { module: ModuleKey, definitions: u32 },
+    /// Each definition's own, by index.
+    PerDefinition(Vec<Option<ModuleKey>>),
+}
+
+impl DefinitionModules {
+    fn get(&self, r: &DefinitionRef) -> Option<&ModuleKey> {
+        match self.0.get(r.path.as_str())? {
+            FileModules::File {
+                module,
+                definitions,
+            } => (r.index < *definitions).then_some(module),
+            FileModules::PerDefinition(modules) => {
+                modules.get(usize::try_from(r.index).ok()?)?.as_ref()
+            }
+        }
+    }
+}
+
 /// One file as Stage 1 found it and Stage 2 left it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct FileState {
@@ -400,7 +429,7 @@ pub struct SymbolRegistry {
     by_qualified_name: BTreeMap<String, Vec<DefinitionRef>>,
     by_file: BTreeMap<String, Vec<DefinitionRef>>,
     file_modules: BTreeMap<String, Vec<ModuleKey>>,
-    definition_modules: BTreeMap<DefinitionRef, ModuleKey>,
+    definition_modules: DefinitionModules,
     module_files: BTreeMap<ModuleKey, BTreeSet<String>>,
     module_definitions: BTreeMap<ModuleKey, Vec<DefinitionRef>>,
     imports: BTreeMap<String, Vec<ImportRecord>>,
@@ -474,7 +503,7 @@ impl SymbolRegistry {
             by_qualified_name: BTreeMap::new(),
             by_file: BTreeMap::new(),
             file_modules: BTreeMap::new(),
-            definition_modules: BTreeMap::new(),
+            definition_modules: DefinitionModules::default(),
             module_files: BTreeMap::new(),
             module_definitions: BTreeMap::new(),
             imports: BTreeMap::new(),
@@ -551,27 +580,47 @@ impl SymbolRegistry {
             };
             let extract = sources.extract(path);
             let mut modules_here = BTreeSet::new();
+            let refs = self
+                .by_file
+                .get(path.as_str())
+                .map_or(&[][..], Vec::as_slice);
             match modules::membership(layout, path, language, extract) {
                 Membership::File(module) => {
                     if let Some(module) = module {
-                        for r in self.by_file.get(path.as_str()).into_iter().flatten() {
-                            self.definition_modules.insert(r.clone(), module.clone());
+                        for r in refs {
+                            self.module_definitions
+                                .entry(module.clone())
+                                .or_default()
+                                .push(r.clone());
+                        }
+                        if let Ok(definitions @ 1..) = u32::try_from(refs.len()) {
+                            self.definition_modules.0.insert(
+                                path.clone(),
+                                FileModules::File {
+                                    module: module.clone(),
+                                    definitions,
+                                },
+                            );
                         }
                         modules_here.insert(module);
                     }
                 }
                 Membership::PerDefinition(per) => {
-                    for (r, module) in self
-                        .by_file
-                        .get(path.as_str())
-                        .into_iter()
-                        .flatten()
-                        .zip(per)
-                    {
-                        if let Some(module) = module {
-                            self.definition_modules.insert(r.clone(), module.clone());
-                            modules_here.insert(module);
+                    let mut modules = Vec::with_capacity(refs.len());
+                    for (r, module) in refs.iter().zip(per) {
+                        if let Some(module) = &module {
+                            self.module_definitions
+                                .entry(module.clone())
+                                .or_default()
+                                .push(r.clone());
+                            modules_here.insert(module.clone());
                         }
+                        modules.push(module);
+                    }
+                    if modules.iter().any(Option::is_some) {
+                        self.definition_modules
+                            .0
+                            .insert(path.clone(), FileModules::PerDefinition(modules));
                     }
                 }
             }
@@ -584,12 +633,8 @@ impl SymbolRegistry {
             self.file_modules
                 .insert(path.to_string(), modules_here.into_iter().collect());
         }
-        for (r, module) in &self.definition_modules {
-            self.module_definitions
-                .entry(module.clone())
-                .or_default()
-                .push(r.clone());
-        }
+        // Files arrive in path order and definitions in index order, so each module's
+        // definitions are in (path, index) order.
     }
 
     /// Every declared package and namespace, by language and the key it is compared
@@ -906,7 +951,7 @@ impl SymbolRegistry {
                 .get(short)
                 .into_iter()
                 .flatten()
-                .filter(|r| is_type_here(r) && self.definition_modules.get(*r) == Some(module))
+                .filter(|r| is_type_here(r) && self.definition_modules.get(r) == Some(module))
                 .cloned()
                 .collect();
             if let Some(found) = decide(same) {

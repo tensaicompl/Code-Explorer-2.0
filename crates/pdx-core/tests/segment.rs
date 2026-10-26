@@ -90,7 +90,7 @@ fn id(key: &NodeKey) -> NodeId {
 fn props(pairs: &[(&str, serde_json::Value)]) -> Props {
     let mut props = Props::default();
     for (k, v) in pairs {
-        props.insert(k, v.clone());
+        props.insert((*k).to_owned(), v.clone());
     }
     props
 }
@@ -1983,7 +1983,7 @@ fn contract_rows_round_trip_exactly() {
         let mut pairs: Vec<_> = json.as_object().expect("an object").iter().collect();
         pairs.reverse();
         for (k, v) in pairs {
-            reordered.insert(k, v.clone());
+            reordered.insert(k.clone(), v.clone());
         }
         contract.props = reordered;
     }

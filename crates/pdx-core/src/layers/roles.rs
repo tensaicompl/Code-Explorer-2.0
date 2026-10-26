@@ -32,7 +32,7 @@ use crate::config::LayersConfig;
 use crate::contracts::annotation;
 use crate::ids::NodeId;
 use crate::index::derive::tests::is_test_path;
-use crate::index::derive::{Builder, DeriveError, DeriveInput};
+use crate::index::derive::{Builder, DeriveError, SymbolInput};
 use crate::kinds::{EdgeKind, LayerRole, NodeKind};
 use crate::resolve::registry::{BaseResolution, DefinitionRef, SymbolRegistry};
 
@@ -238,7 +238,7 @@ fn paths_role(registry: &SymbolRegistry, paths: &[String]) -> Option<LayerRole> 
 /// [`DeriveError::LayerRule`] for a configured glob that does not compile (the
 /// configuration was validated, so never in practice); [`DeriveError::Missing`] for a
 /// module or class whose files are not known.
-pub(crate) fn assign(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), DeriveError> {
+pub(crate) fn assign(graph: &mut Builder, input: &SymbolInput<'_>) -> Result<(), DeriveError> {
     let registry = input.registry;
     let configured_rules = compile(&input.config.layers)?;
     let framework = framework_roles(graph, registry);
@@ -247,7 +247,7 @@ pub(crate) fn assign(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(),
     let mut files: BTreeMap<&NodeId, Vec<String>> = graph
         .definition_nodes
         .iter()
-        .filter(|(r, _)| !graph.file_definitions.contains(*r))
+        .filter(|(r, _)| !graph.file_definitions.contains(r))
         .map(|(r, id)| (id, vec![r.path.to_string()]))
         .collect();
     for (key, id) in &graph.module_nodes {
@@ -288,13 +288,13 @@ fn framework_roles(graph: &Builder, registry: &SymbolRegistry) -> BTreeMap<NodeI
             satisfied.entry(*id).or_default().insert(order);
         }
     };
-    for (r, id) in &graph.definition_nodes {
+    for (r, id) in graph.definition_nodes.iter() {
         if graph
             .nodes
             .get(id)
             .is_some_and(|n| n.kind == NodeKind::Class)
         {
-            for rule in class_rules(registry, r) {
+            for rule in class_rules(registry, &r) {
                 note(id, rule);
             }
         }

@@ -21,7 +21,7 @@ use pdx_engine::{Definition, DefinitionKind};
 use serde_json::Value;
 
 use crate::ids::NodeId;
-use crate::index::derive::{Builder, DeriveError, DeriveInput};
+use crate::index::derive::{Builder, DeriveError, SymbolInput};
 use crate::model::Metric;
 use crate::resolve::registry::SymbolRegistry;
 
@@ -116,14 +116,16 @@ pub(crate) fn targets<'a>(
     registry: &'a SymbolRegistry,
 ) -> Result<BTreeMap<NodeId, &'a Definition>, DeriveError> {
     let mut targets: BTreeMap<NodeId, &'a Definition> = BTreeMap::new();
-    for (r, id) in &graph.definition_nodes {
-        if graph.file_definitions.contains(r) {
+    for (r, id) in graph.definition_nodes.iter() {
+        if graph.file_definitions.contains(&r) {
             continue;
         }
-        let definition = registry.definition(r).ok_or_else(|| DeriveError::Missing {
-            path: r.path.to_string(),
-            detail: "a definition the registry does not have",
-        })?;
+        let definition = registry
+            .definition(&r)
+            .ok_or_else(|| DeriveError::Missing {
+                path: r.path.to_string(),
+                detail: "a definition the registry does not have",
+            })?;
         if definition.kind == DefinitionKind::Module {
             continue;
         }
@@ -150,7 +152,7 @@ pub(crate) fn targets<'a>(
 ///
 /// [`DeriveError`] when a target's facts are missing or disagree, or a row would be a
 /// duplicate or not finite.
-pub(crate) fn derive(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), DeriveError> {
+pub(crate) fn derive(graph: &mut Builder, input: &SymbolInput<'_>) -> Result<(), DeriveError> {
     let targets = targets(graph, input.registry)?;
     let mut rows = Rows::default();
     complexity::local(&targets, &mut rows, &mut graph.diagnostics.metrics)?;

@@ -7,6 +7,7 @@
 //! are the rows only: building them is the pipeline's, storing them the segment
 //! writer's.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
@@ -24,16 +25,18 @@ use crate::vocabulary::vocabulary;
 /// whatever order they were set in. Empty serialises as `{}`. Held as a sorted list of
 /// entries rather than a tree (P2-17): a row has a few properties, and a graph holds
 /// hundreds of thousands of rows, for each of which a tree took a node of a dozen
-/// slots. It serialises, compares and prints exactly as the map it replaced.
+/// slots. A name the stages write is borrowed, never copied into every row. It
+/// serialises, compares and prints exactly as the map it replaced.
 #[derive(Clone, Default, PartialEq, Eq)]
-pub struct Props(Vec<(Box<str>, Value)>);
+pub struct Props(Vec<(Cow<'static, str>, Value)>);
 
 impl Props {
     /// Sets a property, replacing any value it had.
-    pub fn insert(&mut self, key: &str, value: Value) {
-        match self.0.binary_search_by(|(k, _)| (**k).cmp(key)) {
+    pub fn insert(&mut self, key: impl Into<Cow<'static, str>>, value: Value) {
+        let key = key.into();
+        match self.0.binary_search_by(|(k, _)| (**k).cmp(&*key)) {
             Ok(at) => self.0[at].1 = value,
-            Err(at) => self.0.insert(at, (key.into(), value)),
+            Err(at) => self.0.insert(at, (key, value)),
         }
     }
 
@@ -70,9 +73,7 @@ impl<'de> Deserialize<'de> for Props {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let map = BTreeMap::<String, Value>::deserialize(deserializer)?;
         Ok(Self(
-            map.into_iter()
-                .map(|(k, v)| (k.into_boxed_str(), v))
-                .collect(),
+            map.into_iter().map(|(k, v)| (Cow::Owned(k), v)).collect(),
         ))
     }
 }
@@ -363,7 +364,7 @@ pub struct Metric {
     pub node_id: NodeId,
     /// The metric's name: one of the fixed names, borrowed, when the build computed it
     /// (P2-17: three million rows on Kubernetes each held a copy).
-    pub metric: std::borrow::Cow<'static, str>,
+    pub metric: Cow<'static, str>,
     /// Its value.
     pub value: f64,
 }

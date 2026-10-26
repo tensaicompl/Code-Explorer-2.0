@@ -120,6 +120,20 @@ pub(crate) unsafe fn slice<'a, T>(p: *const T, n: u32, what: &str) -> Result<&'a
     Ok(unsafe { std::slice::from_raw_parts(p, n as usize) })
 }
 
+/// Converts every element, the vector sized exactly (P2-17): collecting through
+/// `Result` cannot know the length, so its vector grows by doubling, and a build holds
+/// every extraction's calls, arguments and definitions until Stage 4 ends.
+fn exactly<T, U>(
+    items: &[T],
+    mut f: impl FnMut(&T) -> Result<U, EngineError>,
+) -> Result<Vec<U>, EngineError> {
+    let mut out = Vec::with_capacity(items.len());
+    for item in items {
+        out.push(f(item)?);
+    }
+    Ok(out)
+}
+
 /// A position, or `None` for the all-zero span that means unknown.
 pub(crate) fn span(s: sys::pdxe_span) -> Option<Span> {
     let sys::pdxe_span {
@@ -273,16 +287,16 @@ unsafe fn definition(
         loop_depth,
         // SAFETY: the array, when there is one, holds `n_base_classes` strings alive
         // for the call.
-        base_classes: unsafe {
-            slice(
-                base_classes.cast_const(),
-                n_base_classes,
-                "a definition's bases",
-            )
-        }?
-        .iter()
-        .map(|&b| unsafe { required(b, "a definition's base") })
-        .collect::<Result<_, _>>()?,
+        base_classes: exactly(
+            unsafe {
+                slice(
+                    base_classes.cast_const(),
+                    n_base_classes,
+                    "a definition's bases",
+                )
+            }?,
+            |&b| unsafe { required(b, "a definition's base") },
+        )?,
         // SAFETY (the four below): the arrays hold their counts of strings, and every
         // string is alive for the call.
         decorators: unsafe { strings(decorators.cast_const(), n_decorators, "a decorator") }?,
@@ -295,10 +309,10 @@ unsafe fn definition(
         }?,
         // SAFETY: the array, when there is one, holds `n_routes` routes whose strings
         // are alive for the call.
-        routes: unsafe { slice(routes, n_routes, "a definition's routes") }?
-            .iter()
-            .map(|r| unsafe { route(r, len) })
-            .collect::<Result<_, _>>()?,
+        routes: exactly(
+            unsafe { slice(routes, n_routes, "a definition's routes") }?,
+            |r| unsafe { route(r, len) },
+        )?,
         // SAFETY (the two below): the string, and the array's `n_impl_bounds` strings,
         // are NULL or alive for the call.
         impl_trait: unsafe { optional(impl_trait) },
@@ -345,10 +359,9 @@ unsafe fn route(r: &sys::pdxe_route, len: u64) -> Result<RouteFact, EngineError>
 /// The array, when there is one, holds `n` strings alive for the call.
 unsafe fn strings(p: *const *const c_char, n: u32, what: &str) -> Result<Vec<String>, EngineError> {
     // SAFETY: as the caller guarantees.
-    unsafe { slice(p, n, what) }?
-        .iter()
-        .map(|&s| unsafe { required(s, what) })
-        .collect()
+    exactly(unsafe { slice(p, n, what) }?, |&s| unsafe {
+        required(s, what)
+    })
 }
 
 /// A node-type path from the engine's names, interned (P2-17).
@@ -437,7 +450,7 @@ unsafe fn each<T, U>(
     f: impl FnMut(&T) -> Result<U, EngineError>,
 ) -> Result<Vec<U>, EngineError> {
     // SAFETY: as the caller guarantees.
-    unsafe { slice(p, n, what) }?.iter().map(f).collect()
+    exactly(unsafe { slice(p, n, what) }?, f)
 }
 
 /// # Safety
@@ -707,11 +720,15 @@ pub(crate) unsafe fn file_extract(
             truncated: truncated != 0,
             extraction_lost,
             declared_namespace: optional(declared_namespace),
-            definitions: slice(defs, n_defs, "the definitions")?
-                .iter()
-                .zip(0u32..)
-                .map(|(d, own)| definition(d, own, n_defs, len))
-                .collect::<Result<_, _>>()?,
+            definitions: {
+                // Each definition's own index: at most `n_defs`, a u32.
+                let mut own = 0u32;
+                exactly(slice(defs, n_defs, "the definitions")?, |d| {
+                    let this = own;
+                    own += 1;
+                    definition(d, this, n_defs, len)
+                })?
+            },
             impl_traits: each(impl_traits, n_impl_traits, "the impl relations", |t| {
                 impl_trait(t)
             })?,

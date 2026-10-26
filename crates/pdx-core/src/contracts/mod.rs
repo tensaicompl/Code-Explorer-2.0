@@ -355,10 +355,10 @@ impl ContractAccumulator {
             props.insert("raw_forms", set(&merged.raw_forms));
             props.insert("source_paths", set(&merged.source_paths));
             for (name, value) in &merged.facts {
-                props.insert(name, Value::String(value.clone()));
+                props.insert(*name, Value::String(value.clone()));
             }
             for (name, values) in &merged.evidence {
-                props.insert(name, set(values));
+                props.insert(*name, set(values));
             }
             let owner_node_id = match merged.provider_owners.len() {
                 1 => merged.provider_owners.first().copied(),
