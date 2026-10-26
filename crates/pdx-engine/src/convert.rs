@@ -253,6 +253,7 @@ unsafe fn definition(
         impl_trait,
         impl_bounds,
         n_impl_bounds,
+        occurrences,
     } = *d;
     // SAFETY: (all string reads below) the caller guarantees the strings are alive.
     let kind_name = unsafe { required(kind, "a definition's kind") }?;
@@ -323,6 +324,7 @@ unsafe fn definition(
                 "an impl header's entry",
             )
         }?,
+        occurrences,
     })
 }
 

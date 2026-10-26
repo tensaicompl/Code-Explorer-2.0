@@ -53,8 +53,8 @@ use crate::languages::Language;
 use crate::secrets::{self, SecretPolicyDigest};
 
 pub use cache::{
-    BlobSha, CacheDefect, CacheEnvelope, CacheKey, CacheObjectId, CacheStoreError, ExtractCache,
-    FsCache,
+    BlobSha, CacheDefect, CacheEnvelope, CacheKey, CacheObjectId, CacheStats, CacheStoreError,
+    ExtractCache, FsCache, Pruned,
 };
 pub use plan::{Batch, BatchPlan, ExtractLimits, plan_batches};
 pub use spill::SurfaceSpill;

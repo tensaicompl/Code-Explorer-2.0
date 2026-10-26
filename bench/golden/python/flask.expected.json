@@ -30,7 +30,7 @@
     },
     {
       "kind": "Class",
-      "count": 125
+      "count": 70
     },
     {
       "kind": "Column",
@@ -150,7 +150,7 @@
     },
     {
       "kind": "Variable",
-      "count": 343
+      "count": 487
     }
   ],
   "drawn_edges": [

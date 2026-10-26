@@ -841,7 +841,14 @@ fn engine_test_languages_are_the_matrix_and_its_dialects() {
 }
 
 #[test]
-fn version_is_two() {
-    // 2 since issue 31: the test rules' semantics changed, the languages did not.
-    assert_eq!(LANGUAGE_MATRIX_VERSION, 2);
+fn version_is_three() {
+    // 2 since issue 31: the test rules' semantics changed, the languages did not. 3 since
+    // decision 85: JSON, YAML and TOML are data formats, and no other language is.
+    assert_eq!(LANGUAGE_MATRIX_VERSION, 3);
+    let data: Vec<&str> = languages::all()
+        .iter()
+        .filter(|l| l.data_format)
+        .map(|l| l.id)
+        .collect();
+    assert_eq!(data, ["yaml", "json", "toml"]);
 }

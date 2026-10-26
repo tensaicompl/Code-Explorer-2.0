@@ -121,7 +121,8 @@ followed, and the root must be a real directory.
 `Disposition` says what discovery found, never that anything was extracted:
 `Redacted` (a secret path; never read), `SkippedSize` (over `max_file_bytes`, reason
 `size`; never read), `Generated` and `Vendored` (marked so by the checkout's own
-`.gitattributes`, `index::attributes`; reasons `generated` and `vendored`; never read),
+`.gitattributes`, `index::attributes`, or a package manager's lock file by name,
+`GENERATED_FILE_NAMES`; reasons `generated` and `vendored`; never read),
 `Binary` (holds a NUL byte) or `Candidate`. Only candidates and
 binaries are read, at most `max_file_bytes` of them. A file of no language is still
 discovered.
@@ -161,7 +162,7 @@ that times out fails it with an `ExtractError`, which names paths and never cont
 | `prepare_source(root, file)` | The file read (each path component checked without following a link, never more than discovery's size), `BlobSha` over the original bytes, normalised in place, `SourceDigest` over the result. Stage 3 reads a file again through it |
 | `BlobSha` | Git's blob identity of the original bytes, 40 hex; never the `SourceDigest`, which is SHA-256 of the normalised bytes the engine was given |
 | `CacheKey`, `CacheObjectId` | `(engine_version, language_matrix_version, secret_policy_digest, language_id, rel_path, blob_sha)`; the object id is SHA-256 over a tagged, length-prefixed encoding of it, 64 hex |
-| `ExtractCache`, `FsCache::at(root)` | `load` and `store`, usable from every worker at once. `FsCache` keeps `<root>/v<format>/<2 hex>/<64 hex>` (`v5` today), written to a temporary file and renamed, 0700 directories and 0600 files on Unix |
+| `ExtractCache`, `FsCache::at(root)` | `load` and `store`, usable from every worker at once. `FsCache` keeps `<root>/v<format>/<2 hex>/<64 hex>` (`v10` today), written to a temporary file and renamed, 0700 directories and 0600 files on Unix. Retention (P2-18): an entry's mtime is its last use (write and hit); `prune(max_bytes)` removes least recently used entries first, never one this cache read or wrote or any used since it was made; `remove_retired_formats` removes other formats' `v<N>` directories; `stats` sizes it |
 | `CacheEnvelope` | `{ format_version, key, extract }` in postcard, decoded exactly; another format, key, trailing bytes or a damaged entry is a `CacheDefect`, a miss |
 | `ExtractLimits`, `plan_batches`, `BatchPlan` | Workers requested and the memory budget, resolved by the caller. A file over the whole budget is skipped; `effective_workers × largest ≤ budget`; each worker's share is `budget / effective_workers`; batches greedy in path order, at most `MAX_BATCH_FILES` |
 | `ExtractBackend`, `default_backend` | One per worker thread: the engine in process, or an isolated worker when `PDX_ENGINE_ISOLATE=1` |

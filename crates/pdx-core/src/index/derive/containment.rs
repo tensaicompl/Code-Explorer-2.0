@@ -376,6 +376,10 @@ fn definitions(
             node.props
                 .insert("declared_kind", Value::from(node_kind(d.kind).as_str()));
         }
+        // A data document's key path, and how often it occurs in its file (decision 85).
+        if d.occurrences > 0 {
+            node.props.insert("occurrences", Value::from(d.occurrences));
+        }
         graph.add_node(node)?;
     }
     Ok(())

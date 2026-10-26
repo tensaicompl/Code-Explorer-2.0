@@ -13,9 +13,12 @@
 //! normalised already: its length and digest are checked, and every range must lie
 //! within it, or the entry is a miss. No range is ever clamped or read unchecked.
 
+use std::collections::HashSet;
 use std::fs;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, PoisonError};
+use std::time::{Duration, SystemTime};
 
 use pdx_engine::{BindError, ExtractRecord};
 use serde::{Deserialize, Serialize};
@@ -151,6 +154,26 @@ impl CacheKey {
 /// The name a cache entry is stored under, written as 64 lowercase hex digits.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CacheObjectId([u8; 32]);
+
+impl CacheObjectId {
+    /// The id an entry's name spells: 64 lowercase hex digits, or none.
+    fn parse(name: &str) -> Option<Self> {
+        let bytes = name.as_bytes();
+        if bytes.len() != 64 {
+            return None;
+        }
+        let mut id = [0u8; 32];
+        for (i, pair) in bytes.chunks(2).enumerate() {
+            let digit = |c: u8| match c {
+                b'0'..=b'9' => Some(c - b'0'),
+                b'a'..=b'f' => Some(c - b'a' + 10),
+                _ => None,
+            };
+            id[i] = (digit(pair[0])? << 4) | digit(pair[1])?;
+        }
+        Some(Self(id))
+    }
+}
 
 impl std::fmt::Display for CacheObjectId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -316,15 +339,209 @@ pub trait ExtractCache: Sync {
 /// entry. On Unix every directory it creates is private to the user (0700), and so is
 /// every entry (0600). Where the cache lives is the caller's choice; nothing here
 /// picks a location.
+///
+/// Retention (decision 85, issue 133): an entry's modification time is its last use, set
+/// when it is written and again on every hit, and [`FsCache::prune`] removes the least
+/// recently used entries first until the cache fits its size. Nothing this cache read or
+/// wrote, and nothing used since it was made, is ever removed: a build prunes only what
+/// no build has used while it ran. [`FsCache::remove_retired_formats`] removes the
+/// directories of formats no build can read again.
 #[derive(Clone, Debug)]
 pub struct FsCache {
     root: PathBuf,
+    opened: SystemTime,
+    used: Arc<Mutex<HashSet<CacheObjectId>>>,
 }
+
+/// How large a cache is: its current format's entries.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CacheStats {
+    /// The entries of the current format.
+    pub entries: u64,
+    /// Their size, in bytes.
+    pub bytes: u64,
+    /// Every retired format's directory (`v<format>`), with its size in bytes.
+    pub retired: Vec<(String, u64)>,
+}
+
+/// What a prune removed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Pruned {
+    /// The entries removed.
+    pub entries: u64,
+    /// Their size, in bytes.
+    pub bytes: u64,
+    /// The size left, in bytes.
+    pub kept_bytes: u64,
+}
+
+/// One entry as a prune sees it.
+struct Entry {
+    used: SystemTime,
+    path: PathBuf,
+    id: Option<CacheObjectId>,
+    bytes: u64,
+}
+
+/// A temporary file older than this is a write that never finished: removed.
+const STALE_TEMPORARY: Duration = Duration::from_hours(24);
 
 impl FsCache {
     /// The cache in `root`, created when the first entry is stored.
     pub fn at(root: impl Into<PathBuf>) -> Self {
-        Self { root: root.into() }
+        Self {
+            root: root.into(),
+            opened: SystemTime::now(),
+            used: Arc::default(),
+        }
+    }
+
+    fn note_used(&self, key: &CacheKey) {
+        self.used
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(key.object_id());
+    }
+
+    /// The directory of the current format's entries.
+    fn current_dir(&self) -> PathBuf {
+        self.root.join(format!("v{EXTRACT_CACHE_FORMAT_VERSION}"))
+    }
+
+    /// Removes the directory of every retired cache format (`v<N>`, N not the current
+    /// format), whose entries no build can read again, and gives each with the bytes it
+    /// held. Nothing else in the cache's directory is touched, and a link is never
+    /// followed.
+    ///
+    /// # Errors
+    ///
+    /// When the cache's directory cannot be read or a retired directory removed.
+    pub fn remove_retired_formats(&self) -> io::Result<Vec<(String, u64)>> {
+        let retired = self.retired_formats()?;
+        for (name, _) in &retired {
+            fs::remove_dir_all(self.root.join(name))?;
+        }
+        Ok(retired)
+    }
+
+    fn retired_formats(&self) -> io::Result<Vec<(String, u64)>> {
+        let current = format!("v{EXTRACT_CACHE_FORMAT_VERSION}");
+        let listing = match fs::read_dir(&self.root) {
+            Ok(listing) => listing,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(e),
+        };
+        let mut retired = Vec::new();
+        for item in listing {
+            let item = item?;
+            let Ok(name) = item.file_name().into_string() else {
+                continue;
+            };
+            let is_format = name
+                .strip_prefix('v')
+                .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()));
+            if is_format && name != current && fs::symlink_metadata(item.path())?.is_dir() {
+                let bytes = tree_bytes(&item.path())?;
+                retired.push((name, bytes));
+            }
+        }
+        retired.sort();
+        Ok(retired)
+    }
+
+    /// The cache's size: its current format's entries, and every retired format's
+    /// directory.
+    ///
+    /// # Errors
+    ///
+    /// When the cache's directory cannot be read.
+    pub fn stats(&self) -> io::Result<CacheStats> {
+        let entries = self.entries()?;
+        Ok(CacheStats {
+            entries: entries.len() as u64,
+            bytes: entries.iter().map(|e| e.bytes).sum(),
+            retired: self.retired_formats()?,
+        })
+    }
+
+    /// Removes the current format's entries least recently used first, the oldest last
+    /// use first and by path among equals, until they hold at most `max_bytes`, never
+    /// one this cache read or wrote or any used since it was made. A write left
+    /// unfinished for a day is removed too.
+    ///
+    /// # Errors
+    ///
+    /// When the cache's directory cannot be read or an entry removed.
+    pub fn prune(&self, max_bytes: u64) -> io::Result<Pruned> {
+        let mut entries = self.entries()?;
+        let mut pruned = Pruned {
+            kept_bytes: entries.iter().map(|e| e.bytes).sum(),
+            ..Pruned::default()
+        };
+        let now = SystemTime::now();
+        for temp in entries.iter().filter(|e| e.id.is_none()) {
+            if now.duration_since(temp.used).unwrap_or_default() > STALE_TEMPORARY {
+                remove_entry(&temp.path)?;
+                pruned.kept_bytes -= temp.bytes;
+            }
+        }
+        entries.retain(|e| e.id.is_some());
+        entries.sort_by(|a, b| (a.used, &a.path).cmp(&(b.used, &b.path)));
+        let used = self
+            .used
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .clone();
+        for entry in &entries {
+            if pruned.kept_bytes <= max_bytes {
+                break;
+            }
+            let in_use = entry.used >= self.opened || entry.id.is_some_and(|id| used.contains(&id));
+            if in_use {
+                continue;
+            }
+            remove_entry(&entry.path)?;
+            pruned.entries += 1;
+            pruned.bytes += entry.bytes;
+            pruned.kept_bytes -= entry.bytes;
+        }
+        Ok(pruned)
+    }
+
+    /// The current format's entries and unfinished writes (no id).
+    fn entries(&self) -> io::Result<Vec<Entry>> {
+        let mut entries = Vec::new();
+        let shards = match fs::read_dir(self.current_dir()) {
+            Ok(shards) => shards,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(entries),
+            Err(e) => return Err(e),
+        };
+        for shard in shards {
+            let shard = shard?;
+            if !fs::symlink_metadata(shard.path())?.is_dir() {
+                continue;
+            }
+            for item in fs::read_dir(shard.path())? {
+                let item = item?;
+                let metadata = fs::symlink_metadata(item.path())?;
+                if !metadata.is_file() {
+                    continue;
+                }
+                let name = item.file_name();
+                let name = name.to_string_lossy();
+                let id = CacheObjectId::parse(&name);
+                if id.is_none() && !name.starts_with(".tmp-") {
+                    continue;
+                }
+                entries.push(Entry {
+                    used: metadata.modified()?,
+                    path: item.path(),
+                    id,
+                    bytes: metadata.len(),
+                });
+            }
+        }
+        Ok(entries)
     }
 
     /// Its directory.
@@ -357,7 +574,15 @@ impl ExtractCache for FsCache {
         if bytes.len() as u64 > EXTRACT_CACHE_MAX_ENTRY_BYTES {
             return Err(CacheDefect::TooLarge(bytes.len() as u64));
         }
-        CacheEnvelope::decode(&bytes, key).map(Some)
+        let record = CacheEnvelope::decode(&bytes, key)?;
+        // A hit is the entry's last use; recording it is best effort, since retention
+        // only orders what it removes by it.
+        self.note_used(key);
+        let _ = fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .and_then(|f| f.set_modified(SystemTime::now()));
+        Ok(Some(record))
     }
 
     fn store(&self, key: &CacheKey, extract: &ExtractRecord) -> Result<(), CacheStoreError> {
@@ -376,8 +601,35 @@ impl ExtractCache for FsCache {
             .map_err(failed)?;
         temp.flush().map_err(failed)?;
         temp.persist(&path).map_err(|e| failed(e.error))?;
+        self.note_used(key);
         Ok(())
     }
+}
+
+/// Removes a cache entry another build may have removed already.
+fn remove_entry(path: &Path) -> io::Result<()> {
+    match fs::remove_file(path) {
+        Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
+        _ => Ok(()),
+    }
+}
+
+/// The bytes of the regular files below `dir`, never following a link.
+fn tree_bytes(dir: &Path) -> io::Result<u64> {
+    let mut total = 0;
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for item in fs::read_dir(&dir)? {
+            let item = item?;
+            let metadata = fs::symlink_metadata(item.path())?;
+            if metadata.is_dir() {
+                pending.push(item.path());
+            } else if metadata.is_file() {
+                total += metadata.len();
+            }
+        }
+    }
+    Ok(total)
 }
 
 /// Creates `dir` and its missing parents, private to the user on Unix.

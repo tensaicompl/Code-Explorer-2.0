@@ -73,8 +73,11 @@
  * Rust path is read as Rust's name resolution reads it (`crate`, `self`, `super`, a
  * crate's name, a `pub use`, a module file), a receiver's type is taken only from proven
  * evidence, and a Rust file's surface (version 7) carries an impl method's declared
- * return type and a function's `async` (issues 105, 113 and 116, patch 0034). */
-static const char ENGINE_VERSION_STRING[] = "14";
+ * return type and a function's `async` (issues 105, 113 and 116, patch 0034). 15: a data
+ * document (JSON, YAML, TOML) gives one definition per distinct key path to four keys
+ * deep, each with its occurrences, its parent the key that holds it (P2-18, decision
+ * 85, issue 131, patch 0037). */
+static const char ENGINE_VERSION_STRING[] = "15";
 
 const char *pdxe_version(void) {
     return ENGINE_VERSION_STRING;
@@ -1106,6 +1109,8 @@ static int translate(PDXEFileResult *engine, const line_index *li, const source_
         o->impl_trait = d->impl_trait;
         o->n_impl_bounds = count_strings(d->impl_bounds);
         o->impl_bounds = o->n_impl_bounds ? d->impl_bounds : NULL;
+        /* P2-18: a data document's key path's occurrences in its file; 0 otherwise. */
+        o->occurrences = d->occurrences;
     }
     r->n_defs = kept;
 

@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use ignore::gitignore::GitignoreBuilder;
 use serde::Deserialize;
 
-use crate::consts::MAX_FILE_BYTES;
+use crate::consts::{EXTRACT_CACHE_DEFAULT_MAX_BYTES, MAX_FILE_BYTES};
 use crate::kinds::{EdgeKind, LayerRole};
 use crate::languages::{self, Language};
 use crate::vocabulary::vocabulary;
@@ -435,7 +435,94 @@ impl PdxConfig {
     }
 }
 
+/// The user's own configuration: `pdx/config.toml` in the platform's configuration
+/// directory, which the CLI finds (decision 88). It holds what is the user's to decide for
+/// every repository they index, never a repository's, since `pdx.toml` is the repository's
+/// and is untrusted: `[cache] max_bytes`, how large the local extraction cache may grow
+/// (decision 85, issue 133). A key it does not know is refused.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UserConfig {
+    /// `[cache] max_bytes`: the most the local extraction cache keeps, in bytes.
+    pub cache_max_bytes: u64,
+}
+
+impl Default for UserConfig {
+    fn default() -> Self {
+        Self {
+            cache_max_bytes: EXTRACT_CACHE_DEFAULT_MAX_BYTES,
+        }
+    }
+}
+
+impl UserConfig {
+    /// The configuration in the file at `path`: the defaults when there is none.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError`] for a file that cannot be read, is not a regular file, is larger
+    /// than any configuration may be, or is not a valid configuration.
+    pub fn load(path: &Path) -> Result<Self, ConfigError> {
+        let metadata = match std::fs::metadata(path) {
+            Ok(metadata) => metadata,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Self::default()),
+            Err(source) => {
+                return Err(ConfigError::Read {
+                    path: path.to_path_buf(),
+                    source,
+                });
+            }
+        };
+        if !metadata.is_file() {
+            return Err(ConfigError::NotARegularFile {
+                path: path.to_path_buf(),
+            });
+        }
+        if metadata.len() > MAX_FILE_BYTES {
+            return Err(ConfigError::TooLarge {
+                path: path.to_path_buf(),
+                size: metadata.len(),
+                limit: MAX_FILE_BYTES,
+            });
+        }
+        let text = std::fs::read_to_string(path).map_err(|source| ConfigError::Read {
+            path: path.to_path_buf(),
+            source,
+        })?;
+        Self::parse(&text, path)
+    }
+
+    /// The configuration `text` gives; `path` names it in errors.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Syntax`] for text that is not the configuration's shape.
+    pub fn parse(text: &str, path: &Path) -> Result<Self, ConfigError> {
+        let raw: RawUserConfig = toml::from_str(text).map_err(|e| ConfigError::Syntax {
+            path: path.to_path_buf(),
+            message: e.to_string().trim_end().to_owned(),
+        })?;
+        Ok(Self {
+            cache_max_bytes: raw
+                .cache
+                .max_bytes
+                .unwrap_or(EXTRACT_CACHE_DEFAULT_MAX_BYTES),
+        })
+    }
+}
+
 // --- the file as written ---------------------------------------------------------------
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+struct RawUserConfig {
+    cache: RawUserCache,
+}
+
+#[derive(Default, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+struct RawUserCache {
+    max_bytes: Option<u64>,
+}
 
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields, default)]

@@ -21,6 +21,8 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use pdx_core::config::UserConfig;
+
 /// The default segment, relative to the repository root, as reports show it.
 pub const DEFAULT_OUTPUT: &str = ".pdx/segment.db";
 
@@ -256,12 +258,53 @@ pub fn extract_cache_dir(
 /// The extraction cache's directory for a build of the repository at `root`: `None`
 /// when there is none, or when it would be inside the repository.
 pub fn extract_cache(root: &Path) -> Option<PathBuf> {
-    let dir = extract_cache_dir(Platform::current(), |name| {
-        std::env::var_os(name)
-            .filter(|v| !v.is_empty())
-            .map(PathBuf::from)
-    })?;
+    let dir = extract_cache_dir(Platform::current(), env_path)?;
     (!dir.starts_with(root)).then_some(dir)
+}
+
+/// The extraction cache's directory, for `pdx cache`: `None` when none is known.
+pub fn extract_cache_here() -> Option<PathBuf> {
+    extract_cache_dir(Platform::current(), env_path)
+}
+
+/// The user's configuration file on `platform` (decision 88), from the environment `var`
+/// reads: `pdx/config.toml` in `$XDG_CONFIG_HOME` or `~/.config` on Linux, in
+/// `~/Library/Application Support` on macOS and in `%APPDATA%` on Windows; `None` when no
+/// absolute directory is known.
+pub fn user_config_file(
+    platform: Platform,
+    var: impl Fn(&str) -> Option<PathBuf>,
+) -> Option<PathBuf> {
+    let absolute = |p: PathBuf| p.is_absolute().then_some(p);
+    let dir = match platform {
+        Platform::Xdg => var("XDG_CONFIG_HOME")
+            .and_then(absolute)
+            .or_else(|| var("HOME").and_then(absolute).map(|h| h.join(".config")))?,
+        Platform::MacOs => var("HOME")
+            .and_then(absolute)?
+            .join("Library")
+            .join("Application Support"),
+        Platform::Windows => var("APPDATA").and_then(absolute)?,
+    };
+    Some(dir.join("pdx").join("config.toml"))
+}
+
+/// The user's configuration: the defaults when there is no file, or no place for one.
+///
+/// # Errors
+///
+/// A message naming the file when it exists and is not a valid configuration.
+pub fn user_config() -> Result<UserConfig, String> {
+    match user_config_file(Platform::current(), env_path) {
+        Some(path) => UserConfig::load(&path).map_err(|e| e.to_string()),
+        None => Ok(UserConfig::default()),
+    }
+}
+
+fn env_path(name: &str) -> Option<PathBuf> {
+    std::env::var_os(name)
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
 }
 
 #[cfg(test)]
@@ -285,6 +328,39 @@ mod tests {
             assert_eq!(absolute.path, Path::new("/elsewhere/x.db"));
             assert_eq!(absolute.display, "/elsewhere/x.db");
         }
+    }
+
+    #[test]
+    fn the_user_configuration_follows_each_platforms_convention() {
+        let env = |pairs: &'static [(&'static str, &'static str)]| {
+            move |name: &str| {
+                pairs
+                    .iter()
+                    .find(|(k, _)| *k == name)
+                    .map(|(_, v)| PathBuf::from(v))
+            }
+        };
+        assert_eq!(
+            user_config_file(
+                Platform::Xdg,
+                env(&[("XDG_CONFIG_HOME", "/xdg"), ("HOME", "/h")])
+            ),
+            Some(PathBuf::from("/xdg/pdx/config.toml"))
+        );
+        assert_eq!(
+            user_config_file(
+                Platform::Xdg,
+                env(&[("XDG_CONFIG_HOME", "rel"), ("HOME", "/h")])
+            ),
+            Some(PathBuf::from("/h/.config/pdx/config.toml"))
+        );
+        assert_eq!(
+            user_config_file(Platform::MacOs, env(&[("HOME", "/Users/u")])),
+            Some(PathBuf::from(
+                "/Users/u/Library/Application Support/pdx/config.toml"
+            ))
+        );
+        assert_eq!(user_config_file(Platform::Xdg, env(&[])), None);
     }
 
     #[test]

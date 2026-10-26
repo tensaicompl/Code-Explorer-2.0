@@ -66,6 +66,8 @@ impl World {
             .env("HOME", home)
             .env("XDG_CACHE_HOME", home.join("cache"))
             .env("LOCALAPPDATA", home.join("local"))
+            .env("APPDATA", home.join("roaming"))
+            .env_remove("XDG_CONFIG_HOME")
             .env_remove("PDX_WORKERS")
             .env_remove("PDX_MEM_BUDGET_MB")
             .env_remove("PDX_ENGINE_ISOLATE")
@@ -779,7 +781,7 @@ fn cli_version_prints_four_versions() {
     // Written out here, not taken from the code under test.
     assert_eq!(
         stdout(&output),
-        "pdx 0.1.0\nengine 14\nschema 3\nmatrix 2\n"
+        "pdx 0.1.0\nengine 15\nschema 3\nmatrix 3\n"
     );
     assert_eq!(stderr(&output), "");
 }
@@ -937,5 +939,54 @@ fn cli_identity_is_origin_as_configured_never_rewritten() {
     assert_eq!(
         json(&output)["repository"]["repo_url"],
         "https://git.example/acme/shop"
+    );
+}
+
+#[test]
+fn cli_cache_reports_prunes_and_keeps_what_a_build_used() {
+    let world = World::repository(&SHOP, Some(ORIGIN));
+    let indexed = world.pdx(&["index"]);
+    assert_eq!(code(&indexed), 0, "{}", stderr(&indexed));
+    let stats = world.pdx(&["cache", "stats", "--json"]);
+    assert_eq!(code(&stats), 0, "{}", stderr(&stats));
+    let stats = json(&stats);
+    let entries = stats["entries"].as_u64().expect("entries");
+    assert!(entries > 0, "{stats}");
+    assert_eq!(stats["max_bytes"], 10_u64 << 30, "the default limit");
+    assert_eq!(stats["retired"], serde_json::json!([]));
+
+    // A retired format's entries, and every entry, given a limit of nothing.
+    let cache = world.home.path().join("cache").join("pdx").join("extract");
+    fs::create_dir_all(cache.join("v3").join("ab")).expect("a retired format");
+    fs::write(cache.join("v3").join("ab").join("entry"), "12345").expect("an entry");
+    let pruned = world.pdx(&["cache", "prune", "--max-bytes", "0", "--json"]);
+    assert_eq!(code(&pruned), 0, "{}", stderr(&pruned));
+    let pruned = json(&pruned);
+    assert_eq!(
+        pruned["retired"],
+        serde_json::json!([{"format": "v3", "bytes": 5}])
+    );
+    assert_eq!(pruned["removed_entries"], entries);
+    assert_eq!(pruned["kept_bytes"], 0);
+    assert!(!cache.join("v3").exists());
+
+    // The user's limit of nothing: a build still keeps everything it used.
+    let config = world.home.path().join(".config").join("pdx");
+    fs::create_dir_all(&config).expect("a configuration directory");
+    fs::write(config.join("config.toml"), "[cache]\nmax_bytes = 0\n").expect("a limit");
+    let indexed = world.pdx(&["index"]);
+    assert_eq!(code(&indexed), 0, "{}", stderr(&indexed));
+    let stats = json(&world.pdx(&["cache", "stats", "--json"]));
+    assert_eq!(stats["entries"], entries);
+    assert_eq!(stats["max_bytes"], 0);
+
+    // A configuration the user mistyped stops the build, naming the file.
+    fs::write(config.join("config.toml"), "[cache]\nmax_byte = 1\n").expect("a typo");
+    let refused = world.pdx(&["index"]);
+    assert_eq!(code(&refused), 1);
+    assert!(
+        stderr(&refused).contains("config.toml"),
+        "{}",
+        stderr(&refused)
     );
 }

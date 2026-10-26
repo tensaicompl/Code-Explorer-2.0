@@ -11,6 +11,7 @@ Commands:
   index     Build the structural segment of the repository's HEAD commit
   coverage  Print the coverage of the repository's segment, .pdx/segment.db
   version   Print the versions of pdx, the engine, the segment schema and the language matrix
+  cache     Report on, or prune, the local extraction cache
   bench     Run the benchmark harness: determinism, performance, or both
 
 Options:

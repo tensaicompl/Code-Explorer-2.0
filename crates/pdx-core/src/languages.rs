@@ -176,6 +176,9 @@ pub struct Language {
     pub module_rule: ModuleRule,
     /// How its tests are recognised.
     pub test_detection: TestDetection,
+    /// A data format (JSON, YAML, TOML): its definitions are the key paths of its
+    /// documents (decision 85), and no metric is computed for them.
+    pub data_format: bool,
 }
 
 impl Language {
@@ -383,6 +386,7 @@ static MATRIX: &[Language] = &[
             TestRule::Under(DirectoryPattern::Path("src/test")),
             file_name_rule("", "Test.java"),
         ]),
+        data_format: false,
     },
     Language {
         id: "kotlin",
@@ -395,6 +399,7 @@ static MATRIX: &[Language] = &[
             TestRule::Under(DirectoryPattern::Path("src/test")),
             file_name_rule("", "Test.kt"),
         ]),
+        data_format: false,
     },
     Language {
         id: "scala",
@@ -406,6 +411,7 @@ static MATRIX: &[Language] = &[
         test_detection: TestDetection::Rules(&[TestRule::Under(DirectoryPattern::Path(
             "src/test",
         ))]),
+        data_format: false,
     },
     Language {
         id: "typescript",
@@ -421,6 +427,7 @@ static MATRIX: &[Language] = &[
             TestRule::SourceSuffix(".spec"),
             TestRule::Under(DirectoryPattern::Path("__tests__")),
         ]),
+        data_format: false,
     },
     Language {
         id: "javascript",
@@ -430,6 +437,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::Directory,
         test_detection: TestDetection::SameAs("typescript"),
+        data_format: false,
     },
     Language {
         id: "python",
@@ -445,6 +453,7 @@ static MATRIX: &[Language] = &[
             file_name_rule("", "_test.py"),
             TestRule::Under(DirectoryPattern::Path("tests")),
         ]),
+        data_format: false,
     },
     Language {
         id: "go",
@@ -454,6 +463,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::DirectoryUnderModulePath { manifest: "go.mod" },
         test_detection: TestDetection::Rules(&[file_name_rule("", "_test.go")]),
+        data_format: false,
     },
     Language {
         id: "c",
@@ -466,6 +476,7 @@ static MATRIX: &[Language] = &[
             TestRule::Under(DirectoryPattern::NamePrefix("test")),
             file_name_rule("", "_test.c"),
         ]),
+        data_format: false,
     },
     Language {
         id: "cpp",
@@ -479,6 +490,7 @@ static MATRIX: &[Language] = &[
             TestRule::Under(DirectoryPattern::NamePrefix("test")),
             TestRule::Macros(TestFramework::GoogleTest),
         ]),
+        data_format: false,
     },
     Language {
         id: "csharp",
@@ -492,6 +504,7 @@ static MATRIX: &[Language] = &[
             TestRule::Attribute("Fact"),
             TestRule::Attribute("Test"),
         ]),
+        data_format: false,
     },
     Language {
         id: "rust",
@@ -506,6 +519,7 @@ static MATRIX: &[Language] = &[
             TestRule::Attribute("test"),
             TestRule::Under(DirectoryPattern::Path("tests")),
         ]),
+        data_format: false,
     },
     Language {
         id: "php",
@@ -515,6 +529,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::Declaration(DeclarationKeyword::Namespace),
         test_detection: TestDetection::Rules(&[file_name_rule("", "Test.php")]),
+        data_format: false,
     },
     Language {
         id: "perl",
@@ -524,6 +539,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::Declaration(DeclarationKeyword::Package),
         test_detection: TestDetection::Rules(&[TestRule::Under(DirectoryPattern::Path("t"))]),
+        data_format: false,
     },
     Language {
         id: "ada",
@@ -535,6 +551,7 @@ static MATRIX: &[Language] = &[
         test_detection: TestDetection::Rules(&[TestRule::Under(DirectoryPattern::NamePrefix(
             "test",
         ))]),
+        data_format: false,
     },
     Language {
         id: "bash",
@@ -544,6 +561,7 @@ static MATRIX: &[Language] = &[
         shebangs: &["bash"],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "ruby",
@@ -556,6 +574,7 @@ static MATRIX: &[Language] = &[
             TestRule::Under(DirectoryPattern::Path("spec")),
             TestRule::Under(DirectoryPattern::Path("test")),
         ]),
+        data_format: false,
     },
     Language {
         id: "swift",
@@ -565,6 +584,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::Directory,
         test_detection: TestDetection::Rules(&[file_name_rule("", "Tests.swift")]),
+        data_format: false,
     },
     Language {
         id: "objc",
@@ -574,6 +594,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::Directory,
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "groovy",
@@ -583,6 +604,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::Declaration(DeclarationKeyword::Package),
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "lua",
@@ -592,6 +614,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "sql",
@@ -601,6 +624,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "protobuf",
@@ -610,6 +634,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::Declaration(DeclarationKeyword::Package),
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "graphql",
@@ -619,6 +644,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "yaml",
@@ -628,6 +654,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: true,
     },
     Language {
         id: "json",
@@ -637,6 +664,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: true,
     },
     Language {
         id: "toml",
@@ -646,6 +674,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: true,
     },
     Language {
         id: "hcl",
@@ -655,6 +684,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "dockerfile",
@@ -664,6 +694,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "markdown",
@@ -673,6 +704,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::FileSectionsAsDocs,
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "xml",
@@ -682,6 +714,7 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::File,
         test_detection: NO_TESTS,
+        data_format: false,
     },
     Language {
         id: "properties",
@@ -691,5 +724,6 @@ static MATRIX: &[Language] = &[
         shebangs: &[],
         module_rule: ModuleRule::FileKeysOnly,
         test_detection: NO_TESTS,
+        data_format: false,
     },
 ];

@@ -218,6 +218,12 @@ typedef struct {
  * other definition, an inherent method's included; `impl_bounds` that block's header
  * (pdxe_impl_trait's), `n_impl_bounds` entries, NULL with 0 when the engine recorded
  * none. Appended by a specification change; see docs/plan/ISSUES.md, issue 117.
+ *
+ * Data documents (JSON, YAML, TOML) only: each definition is one distinct key path of
+ * its file, to PDXE_DATA_KEY_MAX_DEPTH keys, its parent the key that holds it, and
+ * `occurrences` how many times the path occurs in the file (an array's elements share
+ * one path, `items[].name`); 0 for every other definition. Appended by a specification
+ * change; see docs/plan/ISSUES.md, issue 131, and decision 85.
  */
 enum pdxe_qn_form {
     PDXE_QN_WHOLE = 0,
@@ -258,7 +264,12 @@ typedef struct {
     const char *impl_trait;
     const char **impl_bounds;
     uint32_t n_impl_bounds;
+    uint32_t occurrences;
 } pdxe_definition;
+
+/* How many keys deep a data document's (JSON, YAML, TOML) key paths are read (P2-18,
+ * decision 85): a key below it is no definition. */
+#define PDXE_DATA_KEY_MAX_DEPTH 4
 
 /*
  * What the extractor saw of a name in its surroundings, for resolving it by name when

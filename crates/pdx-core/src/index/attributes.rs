@@ -27,13 +27,14 @@ use globset::{GlobBuilder, GlobMatcher};
 
 use crate::consts::MAX_FILE_BYTES;
 
-/// What the repository says of one file's provenance.
+/// What the repository says of one file's provenance: `Some(true)` an attribute set,
+/// `Some(false)` unset, `None` unspecified (no line names it, or one resets it).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Provenance {
-    /// `linguist-generated` is set.
-    pub generated: bool,
-    /// `linguist-vendored` is set.
-    pub vendored: bool,
+    /// `linguist-generated`.
+    pub generated: Option<bool>,
+    /// `linguist-vendored`.
+    pub vendored: Option<bool>,
 }
 
 /// An attribute's state on a line: `attr` or `attr=true`, `-attr` or `attr=false`, and
@@ -126,9 +127,14 @@ impl Attributes {
                 vendored = rule.vendored.unwrap_or(vendored);
             }
         }
+        let said = |state: State| match state {
+            State::Set => Some(true),
+            State::Unset => Some(false),
+            State::Unspecified => None,
+        };
         Provenance {
-            generated: generated == State::Set,
-            vendored: vendored == State::Set,
+            generated: said(generated),
+            vendored: said(vendored),
         }
     }
 
@@ -202,7 +208,7 @@ mod tests {
     }
 
     fn generated(a: &Attributes, path: &str) -> bool {
-        a.of(path).generated
+        a.of(path).generated == Some(true)
     }
 
     #[test]
@@ -232,13 +238,14 @@ mod tests {
         )]);
         assert!(generated(&a, "api/spec.json"));
         assert!(!generated(&a, "api/v1/spec.json"));
-        assert!(!a.of("vendor/x.go").vendored);
-        assert!(
-            !a.of("vendor").vendored,
+        assert_eq!(a.of("vendor/x.go").vendored, None);
+        assert_eq!(
+            a.of("vendor").vendored,
+            None,
             "a directory pattern names no file"
         );
         let b = rules(&[("", "vendor/** linguist-vendored\n")]);
-        assert!(b.of("vendor/a/x.go").vendored);
+        assert_eq!(b.of("vendor/a/x.go").vendored, Some(true));
     }
 
     #[test]
@@ -255,7 +262,8 @@ mod tests {
         assert!(!generated(&a, "pkg/keep.go"));
         assert!(generated(&a, "pkg/other.go"));
         let reset = rules(&[("", "*.go linguist-generated\nx.go !linguist-generated\n")]);
-        assert!(!generated(&reset, "x.go"));
+        assert_eq!(reset.of("x.go").generated, None, "reset: unspecified");
+        assert_eq!(a.of("main_test.go").generated, Some(false), "unset is said");
     }
 
     #[test]

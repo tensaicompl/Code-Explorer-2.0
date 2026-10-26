@@ -196,7 +196,7 @@ const NOT_IN_A_SURFACE: [(&str, &str); 17] = [
 
 /// Fields of facts a surface does not carry, and why. Each must be one the resolver
 /// never reads, or cached answers would differ from fresh ones.
-const FACT_FIELDS_NOT_IN_A_SURFACE: [(&str, &str, &str); 4] = [
+const FACT_FIELDS_NOT_IN_A_SURFACE: [(&str, &str, &str); 5] = [
     (
         "PDXEDefinition",
         "occurrence",
@@ -219,6 +219,13 @@ const FACT_FIELDS_NOT_IN_A_SURFACE: [(&str, &str, &str); 4] = [
         "use_scope",
         "the Rust `use` scope a call is in (issue 114), reported in the file's own calls for \
          Stage 3; typed resolution places its sites in scopes it reads from the source again",
+    ),
+    (
+        "PDXEDefinition",
+        "occurrences",
+        "how often a data document's key path occurs in its file (decision 85), reported in \
+         the file's own definitions for Stage 4, which reads it from the record; no \
+         resolution reads it",
     ),
 ];
 

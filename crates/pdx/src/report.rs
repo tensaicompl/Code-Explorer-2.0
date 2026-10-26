@@ -9,7 +9,10 @@
 use std::fmt::Write as _;
 
 use pdx_core::bands::Band;
-use pdx_core::consts::{ENGINE_VERSION, LANGUAGE_MATRIX_VERSION, SEGMENT_SCHEMA_VERSION};
+use pdx_core::consts::{
+    ENGINE_VERSION, EXTRACT_CACHE_FORMAT_VERSION, LANGUAGE_MATRIX_VERSION, SEGMENT_SCHEMA_VERSION,
+};
+use pdx_core::index::extract::{CacheStats, Pruned};
 use pdx_core::index::{DegradedReason, Progress, SegmentReport, SegmentStatus, Stage};
 use pdx_core::model::Coverage;
 use pdx_core::segment::SegmentMeta;
@@ -482,6 +485,111 @@ pub fn progress_to(tty: bool, sink: &mut dyn std::io::Write, progress: &Progress
     }
 }
 
+// --- pdx cache -------------------------------------------------------------------------
+
+/// `pdx cache stats --json`: the cache's location and size. A local report of the user's
+/// own machine, so its path is in it, unlike an index report.
+#[derive(Clone, Debug, Serialize)]
+pub struct CacheStatsReport {
+    cache: String,
+    format: u32,
+    entries: u64,
+    bytes: u64,
+    max_bytes: u64,
+    retired: Vec<RetiredFormat>,
+}
+
+/// A retired format's directory and what it holds.
+#[derive(Clone, Debug, Serialize)]
+pub struct RetiredFormat {
+    format: String,
+    bytes: u64,
+}
+
+impl CacheStatsReport {
+    /// The report of `stats` of the cache at `dir`.
+    pub fn new(dir: &std::path::Path, stats: &CacheStats, max_bytes: u64) -> Self {
+        Self {
+            cache: dir.display().to_string(),
+            format: EXTRACT_CACHE_FORMAT_VERSION,
+            entries: stats.entries,
+            bytes: stats.bytes,
+            max_bytes,
+            retired: retired(&stats.retired),
+        }
+    }
+}
+
+/// `pdx cache prune --json`: what was removed.
+#[derive(Clone, Debug, Serialize)]
+pub struct CachePruneReport {
+    retired: Vec<RetiredFormat>,
+    removed_entries: u64,
+    removed_bytes: u64,
+    kept_bytes: u64,
+    max_bytes: u64,
+}
+
+impl CachePruneReport {
+    /// The report of a prune.
+    pub fn new(retired_formats: &[(String, u64)], pruned: &Pruned, max_bytes: u64) -> Self {
+        Self {
+            retired: retired(retired_formats),
+            removed_entries: pruned.entries,
+            removed_bytes: pruned.bytes,
+            kept_bytes: pruned.kept_bytes,
+            max_bytes,
+        }
+    }
+}
+
+fn retired(formats: &[(String, u64)]) -> Vec<RetiredFormat> {
+    formats
+        .iter()
+        .map(|(format, bytes)| RetiredFormat {
+            format: format.clone(),
+            bytes: *bytes,
+        })
+        .collect()
+}
+
+fn retired_text(formats: &[(String, u64)]) -> String {
+    if formats.is_empty() {
+        return "none".to_owned();
+    }
+    formats
+        .iter()
+        .map(|(format, bytes)| format!("{format} ({bytes} bytes)"))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// `pdx cache stats`.
+pub fn cache_stats_text(dir: &std::path::Path, stats: &CacheStats, max_bytes: u64) -> String {
+    format!(
+        "cache      {}\nformat     v{EXTRACT_CACHE_FORMAT_VERSION}\nentries    {}\nbytes      {} (at most {max_bytes})\nretired    {}\n",
+        dir.display(),
+        stats.entries,
+        stats.bytes,
+        retired_text(&stats.retired),
+    )
+}
+
+/// `pdx cache prune`.
+pub fn cache_prune_text(
+    retired_formats: &[(String, u64)],
+    pruned: &Pruned,
+    max_bytes: u64,
+) -> String {
+    format!(
+        "retired    {}\nremoved    {} entries, {} bytes\nkept       {} bytes (at most {max_bytes})\n",
+        retired_text(retired_formats),
+        pruned.entries,
+        pruned.bytes,
+        pruned.kept_bytes,
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -531,7 +639,7 @@ mod tests {
 
     #[test]
     fn the_version_names_the_four_versions() {
-        assert_eq!(version_text(), "pdx 0.1.0\nengine 14\nschema 3\nmatrix 2\n");
+        assert_eq!(version_text(), "pdx 0.1.0\nengine 15\nschema 3\nmatrix 3\n");
     }
 
     #[test]

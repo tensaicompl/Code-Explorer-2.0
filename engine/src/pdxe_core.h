@@ -360,7 +360,14 @@ typedef struct {
     /* Issue 105, Rust only: the function is `async`, so a call of it is a future of its
      * declared return type. Kept at the tail, as impl_trait is. */
     bool rust_is_async;
+    /* P2-18 (decision 85), data documents only: how many times the key path this
+     * definition stands for occurs in its file; 0 for every other definition. Kept at
+     * the tail, as impl_trait is. */
+    uint32_t occurrences;
 } PDXEDefinition;
+
+/* P2-18 (decision 85): how many keys deep a data document's key paths are read. */
+#define PDXE_DATA_KEY_MAX_DEPTH 4
 
 
 /* Issue 90: the definition records a parameter list, as a range or a copy. */

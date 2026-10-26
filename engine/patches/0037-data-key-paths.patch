@@ -1,0 +1,412 @@
+--- a/engine/src/extract_defs.c
++++ b/engine/src/extract_defs.c
+@@ -6,6 +6,9 @@
+ #include "foundation/platform.h" // safe_realloc (frees old on failure)
+ #include "foundation/log.h"      // pdxe_log_warn
+ #include "extract_node_stack.h"
++#include "foundation/dyn_array.h"  // PDXE_DYN_ARRAY (P2-18)
++#include "foundation/hash_table.h" // PDXEHashTable (P2-18)
++#include "lost_work.h"            // pdxe_lost_allocation (P2-18)
+ #include "tree_sitter/api.h" // TSNode, ts_node_*
+ #include <stdint.h>          // uint32_t
+ #include <stdio.h>           // snprintf (ObjectScript storage/trigger sidecars)
+@@ -4907,7 +4910,9 @@ static bool extract_config_class_def(PDXEExtractCtx *ctx, TSNode node, const cha
+ 
+     if (ctx->language == PDXE_LANG_TOML &&
+         (strcmp(kind, "table") == 0 || strcmp(kind, "table_array_element") == 0)) {
+-        name = find_toml_key_name(a, node, ctx->source);
++        /* P2-18 (decision 85): a table's header is a key path, which the data walk gives
++         * its one definition; no class besides. */
++        return true;
+     } else if (ctx->language == PDXE_LANG_INI && strcmp(kind, "section") == 0) {
+         name = find_ini_section_name(a, node, ctx->source);
+     } else if (ctx->language == PDXE_LANG_XML && strcmp(kind, "element") == 0) {
+@@ -7501,6 +7506,353 @@ static void extract_yaml_toplevel_keys(PDXEExtractCtx *ctx, TSNode root) {
+     }
+ }
+ 
++/* P2-18 (decision 85, issue 131): a data document (JSON, YAML, TOML) gives one Variable
++ * per distinct key path, to PDXE_DATA_KEY_MAX_DEPTH keys deep. The elements of an array
++ * share their container's path, marked "[]" (`items[].name`); a path met again is not
++ * another definition, only another occurrence (`occurrences`). A key's parent is the
++ * key that holds it, so the paths form a tree. A key holding `.`, `[`, `]` or `"`, or
++ * empty, is written quoted, so two different paths never spell one name. Nothing past
++ * the depth is visited: the walk stops there, so its work is the document's within the
++ * depth. A document's values are never definitions, and an alias is never followed. */
++
++typedef struct {
++    TSNode node;           /* what to read: a pair, mapping, array, table or wrapper */
++    const char *path;      /* its keys' path, "" at the top */
++    uint32_t depth;        /* how many keys `path` holds */
++    const char *parent_qn; /* the definition `path` names; NULL at the top */
++    bool key_only;         /* a flow mapping's key with no value: `{a, b}` */
++} PDXEDataFrame;
++
++typedef PDXE_DYN_ARRAY(PDXEDataFrame) PDXEDataFrames;
++
++typedef struct {
++    PDXEExtractCtx *ctx;
++    PDXEHashTable *seen; /* path -> definition index + 1 */
++    PDXEDataFrames frames;
++} PDXEDataWalk;
++
++static bool data_type_is(TSNode node, const char *const *types) {
++    const char *t = ts_node_type(node);
++    for (const char *const *k = types; *k; k++) {
++        if (strcmp(t, *k) == 0) {
++            return true;
++        }
++    }
++    return false;
++}
++
++/* Nodes that only wrap what they hold. */
++static const char *const data_wrappers[] = {"document", "stream",     "block_node",
++                                            "flow_node", "block_sequence_item", "ERROR", NULL};
++/* Nodes whose children are key/value pairs. */
++static const char *const data_mappings[] = {"object", "block_mapping", "flow_mapping",
++                                            "inline_table", NULL};
++/* Nodes whose children are elements. */
++static const char *const data_arrays[] = {"array", "block_sequence", "flow_sequence", NULL};
++/* Pairs. */
++static const char *const data_pairs[] = {"pair", "block_mapping_pair", "flow_pair", NULL};
++/* TOML keys. */
++static const char *const toml_keys[] = {"bare_key", "quoted_key", "dotted_key", NULL};
++
++/* A key as a path component: as it is, or quoted with `"` and `\` escaped. */
++static const char *data_key_component(PDXEArena *a, const char *key) {
++    bool plain = key[0] != '\0';
++    for (const char *p = key; *p && plain; p++) {
++        plain = *p != '.' && *p != '[' && *p != ']' && *p != '"';
++    }
++    if (plain) {
++        return key;
++    }
++    size_t n = strlen(key);
++    char *out = (char *)pdxe_arena_alloc(a, (2 * n) + 3);
++    if (!out) {
++        return NULL;
++    }
++    char *o = out;
++    *o++ = '"';
++    for (const char *p = key; *p; p++) {
++        if (*p == '"' || *p == '\\') {
++            *o++ = '\\';
++        }
++        *o++ = *p;
++    }
++    *o++ = '"';
++    *o = '\0';
++    return out;
++}
++
++static void data_push(PDXEDataWalk *w, TSNode node, const char *path, uint32_t depth,
++                      const char *parent_qn) {
++    if (ts_node_is_null(node)) {
++        return;
++    }
++    PDXEDataFrame f = {node, path, depth, parent_qn, false};
++    int before = w->frames.count;
++    pdxe_da_push(&w->frames, f);
++    if (w->frames.count == before) {
++        pdxe_lost_allocation();
++    }
++}
++
++/* Pushes `node`'s named children, each to be read in `at`'s place, last first, so the
++ * stack gives them back in source order and the walk meets every key in document
++ * order: a path's definition is its first occurrence. A collection that cannot get its
++ * memory is lost work, counted where it fails. */
++static void data_push_children(PDXEDataWalk *w, TSNode node, const char *path, uint32_t depth,
++                               const char *parent_qn) {
++    uint32_t count = 0;
++    TSNode *kids = pdxe_collect_children(w->ctx->arena, node, true, &count);
++    if (!kids) {
++        return;
++    }
++    bool flow_mapping = strcmp(ts_node_type(node), "flow_mapping") == 0;
++    for (uint32_t i = count; i-- > 0;) {
++        data_push(w, kids[i], path, depth, parent_qn);
++        if (flow_mapping && w->frames.count > 0 &&
++            strcmp(ts_node_type(kids[i]), "flow_node") == 0) {
++            w->frames.items[w->frames.count - 1].key_only = true;
++        }
++    }
++}
++
++/* The definition of `key` below `at`'s path: made where it first occurs, counted where
++ * it occurs again. Gives the key's path and qualified name; false past the depth, for
++ * a key with no text, or when memory fails (lost work, counted). */
++static bool data_key(PDXEDataWalk *w, const PDXEDataFrame *at, const char *key, TSNode node,
++                     const char **out_path, const char **out_qn) {
++    PDXEExtractCtx *ctx = w->ctx;
++    if (!key || at->depth >= PDXE_DATA_KEY_MAX_DEPTH) {
++        return false;
++    }
++    const char *component = data_key_component(ctx->arena, key);
++    const char *path = !component ? NULL
++                       : at->path[0]
++                           ? pdxe_arena_sprintf(ctx->arena, "%s.%s", at->path, component)
++                           : component;
++    if (!path) {
++        pdxe_lost_allocation();
++        return false;
++    }
++    PDXEDefArray *defs = &ctx->result->defs;
++    uintptr_t seen = (uintptr_t)pdxe_ht_get(w->seen, path);
++    if (seen) {
++        PDXEDefinition *d = &defs->items[seen - 1];
++        d->occurrences++;
++        *out_path = path;
++        *out_qn = d->qualified_name;
++        return true;
++    }
++    PDXEDefinition def;
++    memset(&def, 0, sizeof(def));
++    def.name = key;
++    def.qualified_name = pdxe_fqn_compute_source_lang(ctx->arena, ctx->project, ctx->rel_path,
++                                                     path, ctx->language);
++    def.label = "Variable";
++    def.file_path = ctx->rel_path;
++    def.parent_class = at->parent_qn;
++    def.start_line = ts_node_start_point(node).row + TS_LINE_OFFSET;
++    def.end_line = ts_node_end_point(node).row + TS_LINE_OFFSET;
++    def.is_exported = pdxe_is_exported(key, ctx->language);
++    def.occurrences = 1;
++    int before = defs->count;
++    if (def.qualified_name) {
++        pdxe_defs_push(defs, ctx->arena, def);
++    }
++    if (defs->count == before) {
++        pdxe_lost_allocation();
++        return false;
++    }
++    pdxe_ht_set(w->seen, path, (void *)(uintptr_t)defs->count);
++    if ((uintptr_t)pdxe_ht_get(w->seen, path) != (uintptr_t)defs->count) {
++        pdxe_lost_allocation(); /* a later occurrence would be a second definition */
++    }
++    *out_path = path;
++    *out_qn = defs->items[defs->count - 1].qualified_name;
++    return true;
++}
++
++/* A YAML or JSON key's text: the scalar under the key node, unquoted; NULL for a key
++ * that is a collection. */
++static const char *data_key_text(PDXEExtractCtx *ctx, TSNode key) {
++    TSNode scalar = key;
++    for (int hops = 0; hops < 4 && !ts_node_is_null(scalar); hops++) {
++        const char *t = ts_node_type(scalar);
++        size_t n = strlen(t);
++        if (strcmp(t, "string") == 0 || (n > 7 && strcmp(t + n - 7, "_scalar") == 0)) {
++            return strip_surrounding_quotes(pdxe_node_text(ctx->arena, scalar, ctx->source));
++        }
++        TSNode next = {0};
++        PDXE_FOR_EACH_NAMED_CHILD(it, scalar) {
++            const char *ct = ts_node_type(it.node);
++            if (strcmp(ct, "anchor") != 0 && strcmp(ct, "tag") != 0 && strcmp(ct, "comment") != 0) {
++                next = it.node;
++                break;
++            }
++        }
++        scalar = next;
++    }
++    return NULL;
++}
++
++/* A TOML key's components, in order (a dotted key is left-nested, read without
++ * recursion); NULL-terminated, NULL when memory fails. */
++static const char **toml_key_components(PDXEExtractCtx *ctx, TSNode key, uint32_t *out_n) {
++    uint32_t n = 0;
++    for (TSNode k = key; !ts_node_is_null(k) && strcmp(ts_node_type(k), "dotted_key") == 0;) {
++        n++;
++        k = ts_node_named_child(k, 0);
++    }
++    n++;
++    const char **parts = (const char **)pdxe_arena_alloc(ctx->arena, (n + 1) * sizeof(*parts));
++    if (!parts) {
++        return NULL;
++    }
++    uint32_t i = n;
++    parts[n] = NULL;
++    TSNode k = key;
++    while (i > 0 && !ts_node_is_null(k)) {
++        TSNode last = k;
++        TSNode first = {0};
++        if (strcmp(ts_node_type(k), "dotted_key") == 0) {
++            uint32_t count = 0;
++            TSNode *kids = pdxe_collect_children(ctx->arena, k, true, &count);
++            if (!kids || count == 0) {
++                return NULL;
++            }
++            first = kids[0];
++            last = kids[count - 1];
++        }
++        parts[--i] = strip_surrounding_quotes(pdxe_node_text(ctx->arena, last, ctx->source));
++        k = first;
++    }
++    *out_n = n;
++    return i == 0 ? parts : NULL;
++}
++
++/* The key of a pair, or of a TOML table's header, read from `at` on: each component a
++ * definition. Gives the last's path, depth and qualified name; false when the key or a
++ * component goes no further. */
++static bool data_pair_key(PDXEDataWalk *w, const PDXEDataFrame *at, TSNode key,
++                          PDXEDataFrame *out) {
++    PDXEExtractCtx *ctx = w->ctx;
++    *out = *at;
++    if (ts_node_is_null(key)) {
++        return false;
++    }
++    if (ctx->language != PDXE_LANG_TOML) {
++        const char *path = NULL;
++        const char *qn = NULL;
++        if (!data_key(w, at, data_key_text(ctx, key), key, &path, &qn)) {
++            return false;
++        }
++        out->path = path;
++        out->depth = at->depth + 1;
++        out->parent_qn = qn;
++        return true;
++    }
++    uint32_t n = 0;
++    const char **parts = toml_key_components(ctx, key, &n);
++    if (!parts) {
++        pdxe_lost_allocation();
++        return false;
++    }
++    for (uint32_t i = 0; i < n; i++) {
++        PDXEDataFrame level = *out;
++        const char *path = NULL;
++        const char *qn = NULL;
++        if (!data_key(w, &level, parts[i], key, &path, &qn)) {
++            return false;
++        }
++        out->path = path;
++        out->depth = level.depth + 1;
++        out->parent_qn = qn;
++    }
++    return true;
++}
++
++/* A pair's key and value: TOML's are its first and last named children, the others'
++ * their fields. */
++static void data_pair(PDXEDataWalk *w, const PDXEDataFrame *at, TSNode pair) {
++    TSNode key;
++    TSNode value;
++    if (w->ctx->language == PDXE_LANG_TOML) {
++        uint32_t count = 0;
++        TSNode *kids = pdxe_collect_children(w->ctx->arena, pair, true, &count);
++        if (!kids || count == 0) {
++            return;
++        }
++        key = kids[0];
++        value = count > 1 ? kids[count - 1] : (TSNode){0};
++    } else {
++        key = ts_node_child_by_field_name(pair, TS_FIELD("key"));
++        value = ts_node_child_by_field_name(pair, TS_FIELD("value"));
++    }
++    PDXEDataFrame below;
++    if (data_pair_key(w, at, key, &below) && below.depth < PDXE_DATA_KEY_MAX_DEPTH) {
++        data_push(w, value, below.path, below.depth, below.parent_qn);
++    }
++}
++
++/* A TOML `[table]` or `[[table]]`: its header from the top, then its pairs below it (an
++ * array of tables' below `name[]`), in source order. */
++static void toml_table(PDXEDataWalk *w, TSNode table, bool array) {
++    uint32_t count = 0;
++    TSNode *kids = pdxe_collect_children(w->ctx->arena, table, true, &count);
++    if (!kids || count == 0 || !data_type_is(kids[0], toml_keys)) {
++        return;
++    }
++    PDXEDataFrame top = {table, "", 0, NULL, false};
++    PDXEDataFrame below;
++    if (!data_pair_key(w, &top, kids[0], &below) || below.depth >= PDXE_DATA_KEY_MAX_DEPTH) {
++        return;
++    }
++    const char *path = array ? pdxe_arena_sprintf(w->ctx->arena, "%s[]", below.path) : below.path;
++    if (!path) {
++        pdxe_lost_allocation();
++        return;
++    }
++    for (uint32_t i = count; i-- > 1;) {
++        if (strcmp(ts_node_type(kids[i]), "pair") == 0) {
++            data_push(w, kids[i], path, below.depth, below.parent_qn);
++        }
++    }
++}
++
++static void extract_data_keys(PDXEExtractCtx *ctx, TSNode root) {
++    PDXEDataWalk w = {ctx, pdxe_ht_create(64), {0}};
++    if (!w.seen) {
++        pdxe_lost_allocation();
++        return;
++    }
++    data_push(&w, root, "", 0, NULL);
++    while (w.frames.count > 0) {
++        PDXEDataFrame f = pdxe_da_pop(&w.frames);
++        const char *type = ts_node_type(f.node);
++        if (f.key_only) {
++            PDXEDataFrame unused;
++            (void)data_pair_key(&w, &f, f.node, &unused);
++        } else if (data_type_is(f.node, data_pairs)) {
++            data_pair(&w, &f, f.node);
++        } else if (ctx->language == PDXE_LANG_TOML && strcmp(type, "table") == 0) {
++            toml_table(&w, f.node, false);
++        } else if (ctx->language == PDXE_LANG_TOML && strcmp(type, "table_array_element") == 0) {
++            toml_table(&w, f.node, true);
++        } else if (data_type_is(f.node, data_arrays)) {
++            const char *path = pdxe_arena_sprintf(ctx->arena, "%s[]", f.path);
++            if (!path) {
++                pdxe_lost_allocation();
++                continue;
++            }
++            data_push_children(&w, f.node, path, f.depth, f.parent_qn);
++        } else if (data_type_is(f.node, data_mappings) || data_type_is(f.node, data_wrappers)) {
++            /* A TOML document is a wrapper: its pairs, tables and arrays of tables. */
++            data_push_children(&w, f.node, f.path, f.depth, f.parent_qn);
++        }
++    }
++    pdxe_da_free(&w.frames);
++    pdxe_ht_free(w.seen);
++}
++
+ static void extract_variables(PDXEExtractCtx *ctx, TSNode root, const PDXELangSpec *spec) {
+     if (!spec->variable_node_types || !spec->variable_node_types[0]) {
+         return;
+@@ -7512,9 +7864,14 @@ static void extract_variables(PDXEExtractCtx *ctx, TSNode root, const PDXELangSp
+         return;
+     }
+ 
+-    // Config languages with nested structure: use recursive walk
++    // Data documents: one definition per key path (P2-18, decision 85).
+     if (ctx->language == PDXE_LANG_YAML || ctx->language == PDXE_LANG_TOML ||
+-        ctx->language == PDXE_LANG_INI || ctx->language == PDXE_LANG_JSON) {
++        ctx->language == PDXE_LANG_JSON) {
++        extract_data_keys(ctx, root);
++        return;
++    }
++    // INI: its sections' keys, walked as before.
++    if (ctx->language == PDXE_LANG_INI) {
+         walk_variables_iter(ctx, root, spec);
+         return;
+     }
+--- a/engine/src/pdxe_core.h
++++ b/engine/src/pdxe_core.h
+@@ -360,8 +360,15 @@ typedef struct {
+     /* Issue 105, Rust only: the function is `async`, so a call of it is a future of its
+      * declared return type. Kept at the tail, as impl_trait is. */
+     bool rust_is_async;
++    /* P2-18 (decision 85), data documents only: how many times the key path this
++     * definition stands for occurs in its file; 0 for every other definition. Kept at
++     * the tail, as impl_trait is. */
++    uint32_t occurrences;
+ } PDXEDefinition;
+ 
++/* P2-18 (decision 85): how many keys deep a data document's key paths are read. */
++#define PDXE_DATA_KEY_MAX_DEPTH 4
++
+ 
+ /* Issue 90: the definition records a parameter list, as a range or a copy. */
+ static inline bool pdxe_def_has_signature(const PDXEDefinition *d) {

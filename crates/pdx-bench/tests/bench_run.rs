@@ -20,6 +20,7 @@ use pdx_bench::bench::timer::{STAGES, StageRecord, StageTimer, StageTimes};
 use pdx_bench::bench::worker::{BuildStatus, ReasonCount, WorkerResponse};
 use pdx_bench::golden::run::EXTRACTION_SWITCHES;
 use pdx_bench::lock::BenchRepos;
+use pdx_core::consts::ENGINE_VERSION;
 use pdx_core::index::{Progress, Stage};
 use serde_json::Value;
 
@@ -454,7 +455,7 @@ fn identical_builds_pass_and_are_recorded() {
     assert_eq!(determinism["workers_single"], 1);
     assert_eq!(determinism["workers_parallel"], 3);
     assert_eq!(determinism["warm_cache_hits"], FILES - 1);
-    assert_eq!(flask["provenance"]["engine_version"], 14);
+    assert_eq!(flask["provenance"]["engine_version"], ENGINE_VERSION);
     assert_eq!(flask["provenance"]["kind"], "golden");
     assert_eq!(flask["provenance"]["language"], "python");
     assert!(flask.get("performance").is_none());
@@ -962,7 +963,7 @@ fn a_stale_baseline_is_dropped_not_merged() {
         .0
         .expect("second");
     let flask = fixture.result("flask.json");
-    assert_eq!(flask["provenance"]["engine_version"], 14);
+    assert_eq!(flask["provenance"]["engine_version"], ENGINE_VERSION);
     assert!(
         flask.get("performance").is_none(),
         "an engine 5 baseline is dropped"

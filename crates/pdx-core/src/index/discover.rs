@@ -91,6 +91,18 @@ impl Disposition {
     }
 }
 
+/// Files a package manager writes, known by their names: generated whatever a
+/// repository's attributes leave unsaid (decision 87). Only data formats are named, since
+/// a file of no language is never extracted anyway: npm's and pnpm's lock files.
+pub const GENERATED_FILE_NAMES: &[&str] =
+    &["package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml"];
+
+/// Whether `path`'s name is one of [`GENERATED_FILE_NAMES`].
+fn is_generated_by_name(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    GENERATED_FILE_NAMES.contains(&name)
+}
+
 /// One file of the checkout, as discovery found it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DiscoveredFile {
@@ -232,11 +244,17 @@ pub fn discover(root: &Path, config: &PdxConfig) -> Result<Vec<DiscoveredFile>, 
             paths.contains(sibling.as_str())
         };
         let provenance = attributes.of(&file.path);
+        // A lock file is the package manager's, whatever the attributes leave unsaid
+        // (decision 87); `-linguist-generated` or `generated = "index"` keeps it.
+        let generated = config.discover.generated == GeneratedFiles::Skip
+            && provenance
+                .generated
+                .unwrap_or_else(|| is_generated_by_name(&file.path));
         let (disposition, content) = if rules.is_secret(&file.path) {
             (Disposition::Redacted, None)
-        } else if provenance.generated {
+        } else if generated {
             (Disposition::Generated, None)
-        } else if provenance.vendored {
+        } else if provenance.vendored == Some(true) {
             (Disposition::Vendored, None)
         } else if file.size > max {
             (Disposition::SkippedSize, None)

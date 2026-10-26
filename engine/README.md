@@ -151,6 +151,11 @@ Everything goes through `include/pdxe.h`. In outline:
   fills with the rest of the file) costs its width, not its width squared
   (`patches/0026-linear-wide-node-traversal.patch`, issue 93). The parser's own recovery
   can still be quadratic in such a node (issue 93, open).
+- **Data documents.** A JSON, YAML or TOML file gives one definition per distinct key
+  path, to `PDXE_DATA_KEY_MAX_DEPTH` (4) keys, in document order, each the child of the
+  key that holds it and counting its `occurrences` (an array's elements share one path,
+  `items[].name`); a TOML table is its header's key path, not a class
+  (`patches/0037-data-key-paths.patch`, decision 85, issue 131).
 - **Typed resolution across files.** A project collects files
   (`pdxe_resolve_project_add_file`), optionally the repository's metadata
   (`pdxe_resolve_project_set_metadata`), runs once, and reports one resolution per

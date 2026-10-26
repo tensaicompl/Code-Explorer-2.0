@@ -312,6 +312,11 @@ pub struct Definition {
     /// empty for a definition no trait impl declares, and when the engine recorded none,
     /// which proves nothing (issue 117).
     pub impl_bounds: Vec<String>,
+    /// Data documents (JSON, YAML, TOML) only: how many times the key path this
+    /// definition stands for occurs in its file, an array's elements sharing one path
+    /// (decision 85); 0 for every other definition.
+    #[serde(default)]
+    pub occurrences: u32,
 }
 
 /// One HTTP route binding a decorator or annotation declares for a definition, and the

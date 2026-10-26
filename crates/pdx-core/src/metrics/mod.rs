@@ -117,7 +117,11 @@ pub(crate) fn targets<'a>(
 ) -> Result<BTreeMap<NodeId, &'a Definition>, DeriveError> {
     let mut targets: BTreeMap<NodeId, &'a Definition> = BTreeMap::new();
     for (r, id) in graph.definition_nodes.iter() {
-        if graph.file_definitions.contains(&r) {
+        // A file's own module is no symbol, and a data document's key paths get no
+        // metrics (decision 85).
+        if graph.file_definitions.contains(&r)
+            || registry.language(&r.path).is_some_and(|l| l.data_format)
+        {
             continue;
         }
         let definition = registry

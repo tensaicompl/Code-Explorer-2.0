@@ -9,6 +9,8 @@ Open. Apache-2.0; see `LICENSE` at the repository root.
 ```
 pdx index [PATH] [--out FILE] [--profile structural] [--json]
 pdx coverage [--json]
+pdx cache stats [--json]
+pdx cache prune [--max-bytes N] [--json]
 pdx version
 ```
 
@@ -42,6 +44,12 @@ pdx version
 - **`pdx coverage`** prints the coverage rows of the current repository's
   `.pdx/segment.db`, opened read-only and verified by the segment reader; `--json` for
   JSON, with the segment's identity and its `repo_id_source`. It indexes nothing and needs no clean tree.
+- **`pdx cache stats`** prints the extraction cache's location, format, entries and
+  size, the limit in force and any retired format's directory; **`pdx cache prune`**
+  removes retired formats, then entries least recently used first until the cache holds
+  at most `--max-bytes`, or the configured limit (P2-18, issue 133). A build does both on
+  its own: retired formats when it begins, a prune when it ends that never removes what
+  it read or wrote.
 - **`pdx version`** prints `pdx`, the engine, the segment schema and the language
   matrix versions.
 
@@ -54,7 +62,11 @@ processors available, the cgroup CPU quota and `PDX_WORKERS`; the memory budget 
 `PDX_MEM_BUDGET_MB` MiB, else 60% of the cgroup memory limit, else 512 MiB. An invalid
 setting fails the command. The extraction cache is `pdx/extract` below the platform's
 cache directory (`$XDG_CACHE_HOME` or `~/.cache`, `~/Library/Caches`,
-`%LOCALAPPDATA%\pdx\cache`), never inside the repository.
+`%LOCALAPPDATA%\pdx\cache`), never inside the repository. It keeps at most `[cache]
+max_bytes` (10 GiB by default) of the user's own configuration, `pdx/config.toml` in
+`$XDG_CONFIG_HOME` or `~/.config`, `~/Library/Application Support` or `%APPDATA%`, never
+of `pdx.toml`, which is the repository's (decision 88); a mistyped configuration stops
+`pdx index`.
 
 One more command exists, and is hidden: `pdx engine-worker` serves extraction over
 standard input and output, and is how isolated extraction (`PDX_ENGINE_ISOLATE=1`,

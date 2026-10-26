@@ -32,8 +32,10 @@ pub const TILE_FORMAT_VERSION: u32 = 1;
 /// Version of the language matrix: which languages exist, how they are detected, and
 /// what each recognises as a test. 2 since the test rules are read as issue 31 decided:
 /// TypeScript's `.test` and `.spec` on every extension, JavaScript's on its own, and a
-/// directory rule at any depth.
-pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
+/// directory rule at any depth; 3 since JSON, YAML and TOML are data formats
+/// (`Language::data_format`), whose definitions are key paths and get no metrics
+/// (decision 85, issue 131).
+pub const LANGUAGE_MATRIX_VERSION: u32 = 3;
 
 /// Version of the extraction engine's behaviour, bumped when its output can change. 2
 /// since extraction records each call's and possible reference's node-type path, which
@@ -73,9 +75,17 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 2;
 /// 14 since a Rust path is read as Rust's name resolution reads it, a receiver's type is
 /// taken only from proven evidence (a method's declared return type, a field's, `async`
 /// and `?` as they are), and a Rust file's surface (version 7) carries an impl method's
-/// return type and a function's `async` (patch 0034, issues 105, 113 and 116).
+/// return type and a function's `async` (patch 0034, issues 105, 113 and 116); 15 since
+/// a data document (JSON, YAML, TOML) gives one definition per distinct key path to
+/// `DATA_KEY_MAX_DEPTH` keys, its parent the key that holds it and its occurrences
+/// counted, in place of one per key at every depth (patch 0037, decision 85, issue 131).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
-pub const ENGINE_VERSION: u32 = 14;
+pub const ENGINE_VERSION: u32 = 15;
+
+/// How many keys deep a data document's key paths are read (P2-18, decision 85): a key
+/// below it is no definition. Equal to the engine's `PDXE_DATA_KEY_MAX_DEPTH`, which a
+/// test checks.
+pub const DATA_KEY_MAX_DEPTH: u32 = 4;
 
 /// Version of secret normalisation (5.12): which content detectors run, what each
 /// matches, and how a match is masked. Bumped when any of the three changes, since the
@@ -115,8 +125,9 @@ pub const MAX_STORED_CANDIDATES: usize = 32;
 /// extracted on a hit (issue 90), 7 since an extraction carries the members Rust's `macro_rules!` invocations may
 /// write (issue 110), 8 since it carries Rust's `use` scopes and the imports declared in
 /// them, and a call the scope it is in (issue 114), 9 since a Rust trait impl's relation
-/// and its methods carry the impl's header, and a method its trait (issue 117).
-pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 9;
+/// and its methods carry the impl's header, and a method its trait (issue 117), 10 since
+/// a data document's definition carries its key path's occurrences (decision 85).
+pub const EXTRACT_CACHE_FORMAT_VERSION: u32 = 10;
 
 // --- resolution ------------------------------------------------------------
 
@@ -149,6 +160,11 @@ pub const EXTRACT_BATCH_MAX_FILES: u32 = 16;
 /// is not one this program wrote, and is a miss. Unspecified by the plan; set under
 /// rule D17 (decision 23).
 pub const EXTRACT_CACHE_MAX_ENTRY_BYTES: u64 = 1024 * 1024 * 1024;
+
+/// How large the local extraction cache may grow before a build prunes it, least
+/// recently used first, by default: a user's `[cache] max_bytes` sets another (decision
+/// 85, issue 133).
+pub const EXTRACT_CACHE_DEFAULT_MAX_BYTES: u64 = 10 * 1024 * 1024 * 1024;
 
 /// Stage 2's memory budget, in bytes, for a local build when neither
 /// `PDX_MEM_BUDGET_MB` nor a cgroup memory limit sets one (4.5, "Worker and memory

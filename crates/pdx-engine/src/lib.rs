@@ -43,6 +43,10 @@ pub use resolver::{
     ProjectResolver, ResolutionMetadata, RunHealth, RunStatus, SiteRef, Strategy, TypedResolution,
 };
 
+/// How many keys deep the engine reads a data document's key paths (P2-18, decision 85):
+/// the engine's own `PDXE_DATA_KEY_MAX_DEPTH`.
+pub const DATA_KEY_MAX_DEPTH: u32 = pdx_engine_sys::PDXE_DATA_KEY_MAX_DEPTH;
+
 /// Gives the memory the process has freed back to the operating system (P2-17).
 ///
 /// With glibc, memory freed on a thread stays in that thread's allocation arena: Stage 2's

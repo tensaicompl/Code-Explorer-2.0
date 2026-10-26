@@ -722,3 +722,43 @@ fn discover_generated_index_opt_in() {
     let error = PdxConfig::load(bad.root()).expect_err("an unknown value is refused");
     assert!(error.to_string().contains("discover.generated"), "{error}");
 }
+
+#[test]
+fn discover_skips_lock_files_by_name() {
+    let c = Checkout::new();
+    c.write("package-lock.json", "{}\n")
+        .write("web/pnpm-lock.yaml", "lockfileVersion: '9.0'\n")
+        .write("web/npm-shrinkwrap.json", "{}\n")
+        .write("tools/package-lock.json", "{}\n")
+        .write(
+            "tools/.gitattributes",
+            "package-lock.json -linguist-generated\n",
+        )
+        .write("package.json", "{}\n");
+    let files = c.discover();
+    for path in [
+        "package-lock.json",
+        "web/pnpm-lock.yaml",
+        "web/npm-shrinkwrap.json",
+    ] {
+        let file = find(&files, path);
+        assert_eq!(file.disposition, Disposition::Generated, "{path}");
+        assert_eq!(file.disposition.reason(), Some("generated"));
+    }
+    // Unset by the repository: indexed.
+    assert_eq!(
+        find(&files, "tools/package-lock.json").disposition,
+        Disposition::Candidate
+    );
+    assert_eq!(
+        find(&files, "package.json").disposition,
+        Disposition::Candidate
+    );
+
+    c.write("pdx.toml", "[discover]\ngenerated = \"index\"\n");
+    let files = c.discover();
+    assert_eq!(
+        find(&files, "package-lock.json").disposition,
+        Disposition::Candidate
+    );
+}

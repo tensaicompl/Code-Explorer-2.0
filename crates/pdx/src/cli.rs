@@ -47,6 +47,35 @@ impl Outcome {
     }
 }
 
+/// `pdx cache` and its two commands.
+fn cache_command(json: &Arg) -> Command {
+    Command::new("cache")
+        .about("Report on, or prune, the local extraction cache")
+        .after_help(
+            "The cache keeps at most `[cache] max_bytes` of the user's pdx/config.toml \
+                 (10 GiB by default), least recently used first; a build prunes it when it \
+                 ends, and removes the entries of retired formats when it begins.",
+        )
+        .subcommand_required(true)
+        .subcommand(
+            Command::new("stats")
+                .about("Print the cache's location, size and retired formats")
+                .arg(json.clone().help("Print them as JSON")),
+        )
+        .subcommand(
+            Command::new("prune")
+                .about("Remove retired formats, then entries least recently used first")
+                .arg(
+                    Arg::new("max-bytes")
+                        .long("max-bytes")
+                        .value_name("BYTES")
+                        .value_parser(value_parser!(u64))
+                        .help("Keep at most this many bytes [default: the configured]"),
+                )
+                .arg(json.clone().help("Print what was removed as JSON")),
+        )
+}
+
 /// The command line's definition.
 pub fn command() -> Command {
     let json = Arg::new("json").long("json").action(ArgAction::SetTrue);
@@ -103,11 +132,12 @@ pub fn command() -> Command {
                         .value_parser(clap::value_parser!(PathBuf))
                         .help("Read this segment instead (one `pdx index --out` wrote)"),
                 )
-                .arg(json.help("Print the coverage as JSON")),
+                .arg(json.clone().help("Print the coverage as JSON")),
         )
         .subcommand(Command::new("version").about(
             "Print the versions of pdx, the engine, the segment schema and the language matrix",
         ))
+        .subcommand(cache_command(&json))
         .subcommand(
             Command::new("bench")
                 .about("Run the benchmark harness: determinism, performance, or both")
@@ -240,7 +270,7 @@ fn usage(error: &clap::Error) -> Outcome {
             }
         }
         ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand => {
-            fail("a command is required: index, coverage, version or bench (see pdx --help)")
+            fail("a command is required: index, coverage, cache, version or bench (see pdx --help)")
         }
         _ => {
             let rendered = error.render().to_string();
@@ -256,11 +286,14 @@ fn dispatch(matches: &ArgMatches) -> Outcome {
         Some(("index", m)) => index(m).unwrap_or_else(|message| fail(&message)),
         Some(("coverage", m)) => coverage(m).unwrap_or_else(|message| fail(&message)),
         Some(("bench", m)) => bench(m).unwrap_or_else(|message| fail(&message)),
+        Some(("cache", m)) => cache(m).unwrap_or_else(|message| fail(&message)),
         Some(("version", _)) => match out(&report::version_text()) {
             Ok(()) => Outcome::Success,
             Err(message) => fail(&message),
         },
-        _ => fail("a command is required: index, coverage, version or bench (see pdx --help)"),
+        _ => {
+            fail("a command is required: index, coverage, cache, version or bench (see pdx --help)")
+        }
     }
 }
 
@@ -286,7 +319,12 @@ fn index(m: &ArgMatches) -> Result<Outcome, String> {
     local::prepare(&root, &output).map_err(|e| e.to_string())?;
     let staged = local::staging_path(&output);
 
+    let user = local::user_config()?;
     let cache = local::extract_cache(&root).map(FsCache::at);
+    if let Some(cache) = &cache {
+        // The entries of formats no build reads again; a cache is never a reason to fail.
+        let _ = cache.remove_retired_formats();
+    }
     let tty = std::io::stderr().is_terminal();
     let progress = |p: &Progress| report::progress_to(tty, &mut std::io::stderr().lock(), p);
     let request = IndexRequest {
@@ -306,6 +344,12 @@ fn index(m: &ArgMatches) -> Result<Outcome, String> {
     };
     let built = build_segment(request).map_err(|e| build_error(&e, &output))?;
     local::publish(&staged, &output).map_err(|e| e.to_string())?;
+    if let Some(cache) = &cache {
+        // Never what this build read or wrote (decision 85, issue 133).
+        if let Err(e) = cache.prune(user.cache_max_bytes) {
+            eprintln!("pdx: the extraction cache was not pruned: {e}");
+        }
+    }
     let dto = IndexReport::new(&built, &identity, &output.display);
     if json {
         out(&report::json(&dto))?;
@@ -317,6 +361,47 @@ fn index(m: &ArgMatches) -> Result<Outcome, String> {
     } else {
         Outcome::Success
     })
+}
+
+/// `pdx cache stats | prune`.
+fn cache(m: &ArgMatches) -> Result<Outcome, String> {
+    let dir = local::extract_cache_here().ok_or_else(|| {
+        "no extraction cache directory is known (set HOME, or XDG_CACHE_HOME)".to_owned()
+    })?;
+    let cache = FsCache::at(&dir);
+    let user = local::user_config()?;
+    let failed = |e: std::io::Error| format!("{}: {e}", dir.display());
+    match m.subcommand() {
+        Some(("stats", m)) => {
+            let stats = cache.stats().map_err(failed)?;
+            let text = if m.get_flag("json") {
+                report::json(&report::CacheStatsReport::new(
+                    &dir,
+                    &stats,
+                    user.cache_max_bytes,
+                ))
+            } else {
+                report::cache_stats_text(&dir, &stats, user.cache_max_bytes)
+            };
+            out(&text)?;
+        }
+        Some(("prune", m)) => {
+            let max = m
+                .get_one::<u64>("max-bytes")
+                .copied()
+                .unwrap_or(user.cache_max_bytes);
+            let retired = cache.remove_retired_formats().map_err(failed)?;
+            let pruned = cache.prune(max).map_err(failed)?;
+            let text = if m.get_flag("json") {
+                report::json(&report::CachePruneReport::new(&retired, &pruned, max))
+            } else {
+                report::cache_prune_text(&retired, &pruned, max)
+            };
+            out(&text)?;
+        }
+        _ => return Err("a cache command is required: stats or prune".to_owned()),
+    }
+    Ok(Outcome::Success)
 }
 
 /// A build error in words, naming the output as the user did.
@@ -415,7 +500,7 @@ mod tests {
     fn the_hidden_worker_is_not_a_public_command() {
         let cli = command();
         let names: Vec<&str> = cli.get_subcommands().map(Command::get_name).collect();
-        assert_eq!(names, ["index", "coverage", "version", "bench"]);
+        assert_eq!(names, ["index", "coverage", "version", "cache", "bench"]);
         assert!(parse(&[pdx_engine::isolate::WORKER_SUBCOMMAND]).is_err());
     }
 

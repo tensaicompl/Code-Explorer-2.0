@@ -72,9 +72,10 @@ pub const DEFAULT_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(120);
 /// record carries the members Rust's `macro_rules!` invocations may write (issue 110); 9
 /// since a record carries Rust's `use` scopes and the imports declared in them, and a call
 /// the scope it is in (issue 114); 10 since a Rust trait impl's relation and its methods
-/// carry the impl's header, and a method its trait (issue 117). Public so a program can
-/// report the protocol it was built with (issue 115).
-pub const PROTOCOL: u32 = 10;
+/// carry the impl's header, and a method its trait (issue 117); 11 since a data
+/// document's definition carries its key path's occurrences (decision 85). Public so a
+/// program can report the protocol it was built with (issue 115).
+pub const PROTOCOL: u32 = 11;
 
 /// Whether the environment asks for isolation.
 pub fn isolation_requested() -> bool {
@@ -709,10 +710,10 @@ mod tests {
 
     #[test]
     fn a_worker_of_another_protocol_is_refused() {
-        // 10 since a record carries Rust's impl headers (issue 117): a worker still
-        // speaking 9 sends records without them, which the parent would read as the new
-        // shape.
-        assert_eq!(PROTOCOL, 10);
+        // 11 since a record's definitions carry a data document's key path occurrences
+        // (decision 85): a worker still speaking 10 sends records without them, which the
+        // parent would read as the new shape.
+        assert_eq!(PROTOCOL, 11);
         let ours = Engine::version();
         for (protocol, version) in [
             (2, ours.as_str()),
@@ -723,7 +724,8 @@ mod tests {
             (7, ours.as_str()),
             (8, ours.as_str()),
             (9, ours.as_str()),
-            (11, ours.as_str()),
+            (10, ours.as_str()),
+            (12, ours.as_str()),
             (PROTOCOL, "0"),
         ] {
             let err = accept(protocol, version).unwrap_err();

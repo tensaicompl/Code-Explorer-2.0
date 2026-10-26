@@ -698,7 +698,7 @@ fn cache_key_includes_language() {
     };
     let (python, ruby) = (as_language("python"), as_language("ruby"));
     assert_eq!(
-        LANGUAGE_MATRIX_VERSION, 2,
+        LANGUAGE_MATRIX_VERSION, 3,
         "the matrix version is the same for both"
     );
 
@@ -730,22 +730,23 @@ fn cache_object_id_fixed_vector() {
     assert_eq!(key.engine_version, ENGINE_VERSION);
     assert_eq!(key.language_matrix_version, LANGUAGE_MATRIX_VERSION);
     assert_eq!(
-        EXTRACT_CACHE_FORMAT_VERSION, 9,
-        "the vector below is format 9's"
+        EXTRACT_CACHE_FORMAT_VERSION, 10,
+        "the vector below is format 10's"
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (14, 2),
-        "the vector below is engine 14's and matrix 2's"
+        (15, 3),
+        "the vector below is engine 15's and matrix 3's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 5,
         "the vector below is detector 5's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 9, 14 and 2, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 10, 15 and 3, the policy digest
     // 6aa1dd65…3b99 of {"detector_version":5,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
-    // 3's to 13's are in cache_key_includes_engine_version. Format 8's (before issue 117)
+    // 3's to 14's are in cache_key_includes_engine_version. Format 9's at engine 14 and
+    // matrix 2 (before decision 85) was 26d5d2bc…9f3a, format 8's (before issue 117)
     // was d769d391…a28b at engine 12, format 7's (before issue 114)
     // was da5d96b4…0cb3 at engine 10, format 6's (before issue 110) b8e9117f…1d31 at
     // engine 9, and format 5's (texts copied, before issue 90) 59c9f740…550a: each format
@@ -755,10 +756,10 @@ fn cache_object_id_fixed_vector() {
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "26d5d2bc63f1b10976321d38bb2cd35a127d20af10267536e45144bc6d199f3a"
+        "0500dfc6e636d25967fe0424c654911f99504eb23156b9698dce96552c1a4998"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v9").join("26").join(&id));
+    assert_eq!(path, Path::new("cache").join("v10").join("05").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -769,11 +770,12 @@ fn cache_object_id_fixed_vector() {
 
 #[test]
 fn cache_key_includes_engine_version() {
-    // An engine whose output can differ is another key: what engines 3 to 13 cached is
-    // never found by engine 14 (issues 74 to 76, 83, 112, 111, 110, 114, 109, 107A and
-    // 105).
+    // An engine whose output can differ is another key: what engines 3 to 14 cached is
+    // never found by engine 15 (issues 74 to 76, 83, 112, 111, 110, 114, 109, 107A and
+    // 105, and decision 85).
     // Independently computed, as the vector above, with each engine version, under
-    // format 9 (issue 117) and detector 5 (issue 96); detector 4's were
+    // format 10 and matrix 3 (decision 85) and detector 5 (issue 96); format 9's (matrix
+    // 2) were b963f252…89ef, 491bbf84…e9dc, 536f85e7…b809, 7ee801e2…54d7, 2131036f…30f6, 810eca8b…938d, 362c9e58…cb28, 64cf6500…c278, 0b6ee870…717a, 8ffbc45b…5e44, 8d75bfa0…1858, 26d5d2bc…9f3a; detector 4's were
     // 93f612d3…fa3b, e0ad0220…9bc0, b9e43a4e…1a32, a882233e…607b, d49c2318…caad, d1ff8375…d85b,
     // adcf486f…88e1, 271b3c8a…f765, c74297c2…7e46, d58503f2…6ffa, 8341f6ac…ca7c, 88e79c01…c826; format 8's were 0446dc3c…a3d6, d84b3204…90bb, 0061bed3…7cf4,
     // 622d6caa…fb0e, 8cb1d243…5e5a, 17673fba…932a, d75ad477…735b, 7295ddd4…f6bd,
@@ -793,51 +795,55 @@ fn cache_key_includes_engine_version() {
     for (engine, expected) in [
         (
             3,
-            "b963f2521b8c64b6cb54122a1adacf4bc13dcced9e5f5e5781501e3353cd89ef",
+            "27db2a9d405e912a0859f4fb5f50fccbddc946304347bd5225a73ac1f1f985a5",
         ),
         (
             4,
-            "491bbf847491f58bf477fdf5797071efa485fc449f48cf3347b639d3b590e9dc",
+            "171122f7162961ab27533a2c9131179d88ca6ceefa62e2c7da6e07a51b14f231",
         ),
         (
             5,
-            "536f85e77f1e29e9b9e954f13cc8f60b34f2592de8a152a4f44f13484d21b809",
+            "d1a89a576da7652042bf2cd47e9155db5a8ec01b3ef4c8a80080af9f119b37ca",
         ),
         (
             6,
-            "7ee801e251b1b4067973a7cad62554bd8fa883c6a44007cf13f494abfd0d54d7",
+            "c637cc65fba582ea273b7644eda6304baebc3e1aea6f28f574985948981cd7aa",
         ),
         (
             7,
-            "2131036f21346af32e011de3c9374f47b9a6ce86ff421914e4f19cd6043830f6",
+            "48539e18c4ca484fe61cd59ecbed6a46fd7cd935003736a94132fc5b90afd91d",
         ),
         (
             8,
-            "810eca8bcf0dfd82d42963fa7fa9ebea975ea2c20c46ef6a8e78e3605dca938d",
+            "47d909283468fbd7521aba64648d2679334d5dd2fdb3c38624b481e8fb4bd4ce",
         ),
         (
             9,
-            "362c9e58af3c68c019254e7d3c3f7304faf33b07d6aa95cc4053cc4fd5aecb28",
+            "fd086a6928fdcecadc5564b5969f708dc446d3ab16c6e67170b44ab887afcd27",
         ),
         (
             10,
-            "64cf65000d1d4dcfe95cd224b1ccbdb2cd1a973cadccade13c430896eabcc278",
+            "fa62937af0585889dcc58c72a6cd227caa38b3a554d93918896942ca2ea8de80",
         ),
         (
             11,
-            "0b6ee8704ca57dfcc2d2d004eb8b33048befc55c8000ab468a95bcb44935717a",
+            "0251d483b4170f472b0e3b9b470a4f6d75748bb7272d300812235937d6548bbe",
         ),
         (
             12,
-            "8ffbc45bcd01cb3fd4479be1fcb063902ab339f275f251624097b15fc8375e44",
+            "7a8266a603e01382fc4416f7326d1f95552ea6656619bfd3813f31dbff19a369",
         ),
         (
             13,
-            "8d75bfa006a6bf844418032971dd9e411e5f9740838a702641e3b66609bb1858",
+            "de422ba79114feded5d1563a36567a8f849943da6545a7839c9843146d11eee6",
         ),
         (
             14,
-            "26d5d2bc63f1b10976321d38bb2cd35a127d20af10267536e45144bc6d199f3a",
+            "5fcfa2c6f9d8bf1426bcf19ff7e3a05edb1e05f12fa173d1c950e7a9def4516c",
+        ),
+        (
+            15,
+            "0500dfc6e636d25967fe0424c654911f99504eb23156b9698dce96552c1a4998",
         ),
     ] {
         let mut versioned = key.clone();
@@ -848,13 +854,13 @@ fn cache_key_includes_engine_version() {
             "engine {engine}"
         );
         let path = cache.object_path(&versioned);
-        assert!(path.starts_with(Path::new("cache").join("v9")), "{path:?}");
+        assert!(path.starts_with(Path::new("cache").join("v10")), "{path:?}");
         ids.push(versioned.object_id());
     }
-    assert_eq!(key.object_id(), ids[11], "the current key is engine 14's");
+    assert_eq!(key.object_id(), ids[12], "the current key is engine 15's");
     ids.sort();
     ids.dedup();
-    assert_eq!(ids.len(), 12, "each engine version is another key");
+    assert_eq!(ids.len(), 13, "each engine version is another key");
 }
 
 #[test]
@@ -1159,8 +1165,9 @@ fn cache_rejects_wrong_source_digest() {
 }
 
 #[test]
-fn cache_formats_before_9_are_a_miss() {
-    // Format 8 held Rust definitions without their impl's trait and header, and impl
+fn cache_formats_before_10_are_a_miss() {
+    // Format 9 held definitions without a data document's key path occurrences (decision
+    // 85); format 8 held Rust definitions without their impl's trait and header, and impl
     // relations without their header (issue 117); format 7 held extractions without
     // Rust's `use` scopes and calls without the scope
     // they are in (issue 114); format 6 no members Rust's macro invocations may write
@@ -1172,7 +1179,7 @@ fn cache_formats_before_9_are_a_miss() {
     // classes and extractions without a declared namespace. Their entries are never
     // decoded as the current format: not in the directory their format used, which is
     // never read, and not at the current path with their format written in them.
-    for old_format in [1, 2, 3, 4, 5, 6, 7, 8] {
+    for old_format in [1, 2, 3, 4, 5, 6, 7, 8, 9] {
         let checkout = Checkout::new();
         checkout.write("src/app.py", PYTHON);
         let config = checkout.config();
@@ -1190,7 +1197,7 @@ fn cache_formats_before_9_are_a_miss() {
         let cache = Cache::new();
         let current = cache.cache.object_path(&key);
         let current_text = current.to_string_lossy().replace('\\', "/");
-        assert!(current_text.contains("/v9/"), "{current_text}");
+        assert!(current_text.contains("/v10/"), "{current_text}");
         let old_dir = cache
             .cache
             .root()
@@ -2897,6 +2904,56 @@ fn cache_entries_of_engine_twelve_are_never_served() {
     );
     assert_eq!(probe.files(), 0);
     assert_eq!(extract_of(&warm, PATH), cold);
+}
+
+#[test]
+fn cache_entries_of_engine_fourteen_are_never_served() {
+    // Engine 14 gave a data document one definition per key at every depth, none of
+    // them counting its occurrences. Engine 15 gives one per distinct key path to four
+    // keys, each with its occurrences (patch 0037, decision 85). The engine 14 entry is
+    // planted in the current cache format, so only the engine version in the key keeps
+    // it from being served.
+    const PATH: &str = "config/app.json";
+    let checkout = Checkout::new();
+    checkout.write(PATH, "{\"items\": [{\"id\": 1}, {\"id\": 2}]}\n");
+    let config = checkout.config();
+    let fresh = run(&checkout, None, &Probe::new(Twist::None));
+    let fresh = extract_of(&fresh, PATH);
+    assert!(
+        fresh.definitions.iter().any(|d| d.occurrences == 2),
+        "the key path `items[].id` occurs twice"
+    );
+
+    // What engine 14 cached for these bytes, in the current format: no occurrences.
+    let mut stale = fresh.record().clone();
+    for d in &mut stale.definitions {
+        d.occurrences = 0;
+    }
+    let mut key = key_for(&checkout, &config, PATH, "json");
+    key.engine_version = 14;
+    let cache = Cache::new();
+    let stale_bytes = CacheEnvelope::encode(&key, &stale);
+    plant(&cache, &key, &stale_bytes);
+    let stale_path = cache.cache.object_path(&key);
+
+    let probe = Probe::new(Twist::None);
+    let cold = run(&checkout, Some(&cache), &probe);
+    assert_eq!(cold.stats.cache_hits, 0, "an engine 14 entry was served");
+    assert_eq!(probe.files(), 1, "the file was not extracted again");
+    assert_eq!(extract_of(&cold, PATH), fresh);
+    assert_eq!(
+        fs::read(&stale_path).unwrap(),
+        stale_bytes,
+        "the engine 14 entry changed"
+    );
+
+    let probe = Probe::new(Twist::None);
+    let warm = run(&checkout, Some(&cache), &probe);
+    assert_eq!(
+        warm.stats.cache_hits, 1,
+        "the current engine's entry was not served"
+    );
+    assert_eq!(extract_of(&warm, PATH), fresh);
 }
 
 #[test]
