@@ -59,7 +59,7 @@ use super::blocklist;
 use super::impls::ImplHeader;
 use super::registry::{
     BaseResolution, DefinitionRef, ImportRecord, ImportTarget, InternalTarget, NameProvenance,
-    SymbolRegistry, TraitImplOf,
+    RelPath, SymbolRegistry, TraitImplOf,
 };
 
 /// The engine's answer for a site, verbatim: kept beside the band for calibration
@@ -479,62 +479,98 @@ pub fn resolve_with(
     registry: &SymbolRegistry,
     typed: &ProjectResolution,
 ) -> Result<ResolveReport, ResolutionError> {
+    use rayon::prelude::*;
     let answers = answers_by_site(registry, &typed.resolutions)?;
-    let resolver = Resolver::new(registry);
+    // Files resolve independently, each against the registry alone (P2-17): in
+    // parallel, one resolver and its caches to a worker, collected back in path order,
+    // so the report and the first error are the same however the work is split.
+    let paths: Vec<&RelPath> = registry.file_paths().collect();
+    let per_file: Vec<Result<FileSites, ResolutionError>> = paths
+        .par_iter()
+        .map_init(
+            || Resolver::new(registry),
+            |resolver, path| resolve_file(resolver, registry, &answers, path),
+        )
+        .collect();
     let mut resolutions = Vec::new();
     let mut unconfirmed = Vec::new();
-    let mut record = |site_ref: SiteRef, site: SiteCall, outcome: Outcome| match outcome {
-        Outcome::Resolved(resolution) => resolutions.push(ResolvedSite {
-            site_ref,
-            site,
-            resolution,
-        }),
-        Outcome::Unconfirmed(reason, engine) => unconfirmed.push(UnconfirmedSite {
-            site_ref,
-            site,
-            reason,
-            engine,
-        }),
-    };
-    // Every site's path is its file's shared one (P2-17).
-    for path in registry.file_paths() {
-        let Some(extract) = registry.extract(path) else {
-            continue;
-        };
-        for (index, call) in extract.calls.iter().enumerate() {
-            let site_ref = SiteRef {
-                rel_path: path.clone(),
-                call_index: u32::try_from(index).map_err(|_| ResolutionError::Registry {
-                    path: path.to_string(),
-                    detail: "more calls than an index can count",
-                })?,
-            };
-            let answer = answers.get(&site_ref).copied();
-            let outcome = resolver.site(&site_ref, call, answer, false)?;
-            record(site_ref, SiteCall::Extracted, outcome);
-        }
-        // Sites typed resolution found past the extraction's calls, in index order.
-        let past = SiteRef {
-            rel_path: path.clone(),
-            call_index: u32::try_from(extract.calls.len()).unwrap_or(u32::MAX),
-        };
-        for (site_ref, answer) in answers.range(past..) {
-            if site_ref.rel_path != *path {
-                break;
-            }
-            let outcome = resolver.site(site_ref, &answer.site, Some(answer), true)?;
-            record(
-                site_ref.clone(),
-                SiteCall::Found(Box::new(answer.site.clone())),
-                outcome,
-            );
-        }
+    for file in per_file {
+        let file = file?;
+        resolutions.extend(file.resolved);
+        unconfirmed.extend(file.unconfirmed);
     }
     Ok(ResolveReport {
         resolutions,
         unconfirmed,
         engine_health: typed.health,
     })
+}
+
+/// One file's sites, as [`resolve_with`] reports them.
+#[derive(Default)]
+struct FileSites {
+    resolved: Vec<ResolvedSite>,
+    unconfirmed: Vec<UnconfirmedSite>,
+}
+
+impl FileSites {
+    fn record(&mut self, site_ref: SiteRef, site: SiteCall, outcome: Outcome) {
+        match outcome {
+            Outcome::Resolved(resolution) => self.resolved.push(ResolvedSite {
+                site_ref,
+                site,
+                resolution,
+            }),
+            Outcome::Unconfirmed(reason, engine) => self.unconfirmed.push(UnconfirmedSite {
+                site_ref,
+                site,
+                reason,
+                engine,
+            }),
+        }
+    }
+}
+
+/// Every site of the file at `path`, in index order: its extraction's calls, then the
+/// sites typed resolution found past them. Every site's path is its file's shared one.
+fn resolve_file(
+    resolver: &Resolver<'_>,
+    registry: &SymbolRegistry,
+    answers: &BTreeMap<SiteRef, &TypedResolution>,
+    path: &RelPath,
+) -> Result<FileSites, ResolutionError> {
+    let mut sites = FileSites::default();
+    let Some(extract) = registry.extract(path) else {
+        return Ok(sites);
+    };
+    for (index, call) in extract.calls.iter().enumerate() {
+        let site_ref = SiteRef {
+            rel_path: path.clone(),
+            call_index: u32::try_from(index).map_err(|_| ResolutionError::Registry {
+                path: path.to_string(),
+                detail: "more calls than an index can count",
+            })?,
+        };
+        let answer = answers.get(&site_ref).copied();
+        let outcome = resolver.site(&site_ref, call, answer, false)?;
+        sites.record(site_ref, SiteCall::Extracted, outcome);
+    }
+    let past = SiteRef {
+        rel_path: path.clone(),
+        call_index: u32::try_from(extract.calls.len()).unwrap_or(u32::MAX),
+    };
+    for (site_ref, answer) in answers.range(past..) {
+        if site_ref.rel_path != *path {
+            break;
+        }
+        let outcome = resolver.site(site_ref, &answer.site, Some(answer), true)?;
+        sites.record(
+            site_ref.clone(),
+            SiteCall::Found(Box::new(answer.site.clone())),
+            outcome,
+        );
+    }
+    Ok(sites)
 }
 
 /// One answer per site, checked against the extractions.
