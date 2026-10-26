@@ -956,7 +956,7 @@ fn cli_cache_reports_prunes_and_keeps_what_a_build_used() {
     assert_eq!(stats["retired"], serde_json::json!([]));
 
     // A retired format's entries, and every entry, given a limit of nothing.
-    let cache = world.home.path().join("cache").join("pdx").join("extract");
+    let cache = PathBuf::from(stats["cache"].as_str().expect("the cache's directory"));
     fs::create_dir_all(cache.join("v3").join("ab")).expect("a retired format");
     fs::write(cache.join("v3").join("ab").join("entry"), "12345").expect("an entry");
     let pruned = world.pdx(&["cache", "prune", "--max-bytes", "0", "--json"]);
@@ -971,7 +971,18 @@ fn cli_cache_reports_prunes_and_keeps_what_a_build_used() {
     assert!(!cache.join("v3").exists());
 
     // The user's limit of nothing: a build still keeps everything it used.
-    let config = world.home.path().join(".config").join("pdx");
+    let config = if cfg!(windows) {
+        world.home.path().join("roaming").join("pdx")
+    } else if cfg!(target_os = "macos") {
+        world
+            .home
+            .path()
+            .join("Library")
+            .join("Application Support")
+            .join("pdx")
+    } else {
+        world.home.path().join(".config").join("pdx")
+    };
     fs::create_dir_all(&config).expect("a configuration directory");
     fs::write(config.join("config.toml"), "[cache]\nmax_bytes = 0\n").expect("a limit");
     let indexed = world.pdx(&["index"]);

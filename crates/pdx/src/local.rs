@@ -340,27 +340,41 @@ mod tests {
                     .map(|(_, v)| PathBuf::from(v))
             }
         };
+        #[cfg(unix)]
+        {
+            assert_eq!(
+                user_config_file(
+                    Platform::Xdg,
+                    env(&[("XDG_CONFIG_HOME", "/xdg"), ("HOME", "/h")])
+                ),
+                Some(PathBuf::from("/xdg/pdx/config.toml"))
+            );
+            // A relative XDG_CONFIG_HOME is no configuration directory (XDG requires absolute).
+            assert_eq!(
+                user_config_file(
+                    Platform::Xdg,
+                    env(&[("XDG_CONFIG_HOME", "rel"), ("HOME", "/h")])
+                ),
+                Some(PathBuf::from("/h/.config/pdx/config.toml"))
+            );
+            assert_eq!(
+                user_config_file(Platform::MacOs, env(&[("HOME", "/Users/u")])),
+                Some(PathBuf::from(
+                    "/Users/u/Library/Application Support/pdx/config.toml"
+                ))
+            );
+        }
+        #[cfg(windows)]
         assert_eq!(
             user_config_file(
-                Platform::Xdg,
-                env(&[("XDG_CONFIG_HOME", "/xdg"), ("HOME", "/h")])
+                Platform::Windows,
+                env(&[("APPDATA", r"C:\Users\u\AppData\Roaming")])
             ),
-            Some(PathBuf::from("/xdg/pdx/config.toml"))
+            Some(PathBuf::from(r"C:\Users\u\AppData\Roaming\pdx\config.toml"))
         );
-        assert_eq!(
-            user_config_file(
-                Platform::Xdg,
-                env(&[("XDG_CONFIG_HOME", "rel"), ("HOME", "/h")])
-            ),
-            Some(PathBuf::from("/h/.config/pdx/config.toml"))
-        );
-        assert_eq!(
-            user_config_file(Platform::MacOs, env(&[("HOME", "/Users/u")])),
-            Some(PathBuf::from(
-                "/Users/u/Library/Application Support/pdx/config.toml"
-            ))
-        );
-        assert_eq!(user_config_file(Platform::Xdg, env(&[])), None);
+        for platform in [Platform::Xdg, Platform::MacOs, Platform::Windows] {
+            assert_eq!(user_config_file(platform, env(&[])), None);
+        }
     }
 
     #[test]
