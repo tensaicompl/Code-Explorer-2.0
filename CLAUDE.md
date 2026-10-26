@@ -72,25 +72,40 @@ that cannot work yet because a prerequisite is not built is recorded, not forced
   own index is `degraded` by one generated grammar table; discovery ignores
   `linguist-generated`) and 133 (the local extraction cache has no retention), all
   owner decisions; Kubernetes still passes 6 GiB in Stage 2 (issue 82).
-- **P2-17 in progress (2026-10-26):** Stage 2 moves each extraction's surface (the
-  engine's JSON re-encoding of the extraction, ~20× the source, 62% of what Stage 2
-  held) into an unnamed per-build spill file beside the build after the cache stores the
-  record (`index::extract::SurfaceSpill`, `ExtractStage::with_surface_spill`,
-  `ExtractReport::surfaces`); typed resolution reads it back (`SymbolRegistry::surface`,
-  `ProjectResolver::add_file_with_surface`). Node-type paths are `pdx_engine::AstPath`
-  (interned names, shared per file, wire-identical). Kubernetes `pkg/` (3,593 files):
-  Stage 2 1.59 GB → 0.59 GB, peak 3.57 → 2.49 GB, segment byte-identical. A cached
-  file is added to the engine's project with an empty marker result
-  (`ProjectResolver::cache_marker`): the project reads such a file from its surface alone,
-  and the old full rebuild copied the whole record into C for nothing (peak → 1.95 GB).
-  Stage 2 sheds the facts only the engine reads (`FileExtract::shed_engine_facts`) and
-  `pdx_engine::release_freed_memory` (glibc `malloc_trim`) runs between stages. The
-  engine's project keeps the caller's surfaces (`pdxe_resolve_project_set_surface_source`,
-  `ProjectResolver::set_surface_source`, patch 0036's per-file result hooks): light
-  results for every file, one whole result at a time. Kubernetes `pkg/` warm: Stage 3
-  1.73 → 1.20 GB; full Kubernetes (25,930 files) now completes (131 s, 7.0 GB before
-  this last step); the peak is now Stage 4/5 holding the whole graph, next. The `registry` guard test allows only these
-  byte-moving mentions of a surface.
+- **P2-17 done (2026-10-26, issue 82): the build's memory model.** Kubernetes (25,930
+  files), cold, 8 workers: peak 3,598 MiB (the largest of three samples) and 552.6
+  files/s (their median), the segment unchanged (before: killed at 6.5 GB in Stage 2).
+  `make local-scale` is the acceptance
+  (`kubernetes_local_scale`: the harness over Kubernetes alone on eight processors, then
+  ≥ 400 files/s and ≤ 4 GiB checked against its result).
+  - **Surfaces off the heap.** Stage 2 moves each extraction's surface (the engine's JSON
+    re-encoding, ~20× the source) into an unnamed per-build spill beside the build once
+    the cache holds the record (`SurfaceSpill`, `ExtractStage::with_surface_spill`,
+    `ExtractReport::surfaces`) and sheds the facts only the engine reads
+    (`FileExtract::shed_engine_facts`). Typed resolution reads a surface back one file
+    at a time (`pdxe_resolve_project_set_surface_source`,
+    `ProjectResolver::set_surface_source`, patch 0036's per-file result hooks: light
+    results for every file, one whole result at a time); a cached file joins the project
+    as an empty marker (`ProjectResolver::cache_marker`). The `registry` guard test allows
+    only these byte-moving mentions of a surface.
+  - **Layouts.** Node-type paths are `pdx_engine::AstPath` (interned, shared per file,
+    wire-identical), paths `RelPath` (`Arc<str>`), ids inline `[u8; 26]`, props a sorted
+    list borrowing static names, a definition's module and node held per file
+    (`DefinitionModules`, `DefinitionNodes`). The engine's results are converted at their
+    exact length (`convert::exactly`): never collect them through `Result`, whose vector
+    grows by doubling (it held calls, arguments and definitions at up to twice their
+    size). Stage 3's report is assembled at its exact size.
+  - **Lifetimes.** `pdx_engine::release_freed_memory` (glibc `malloc_trim`) runs between
+    stages. Stage 3 resolves files in parallel (one `Resolver` a worker, collected in
+    path order). Stage 4 is `derive_evidence` (every part that reads Stage 3's report)
+    then `EvidenceGraph::complete` (layer roles and metrics, from `SymbolInput`); the
+    build counts coverage and gives the report back between them, and lays the graph
+    out as rows (`PendingGraph::finish`) once the registry is gone.
+  - **Measuring.** Live heap per holder, not RSS, finds the next cut: at Kubernetes'
+    peak the registry held 1.36 GB (extractions 0.93, indexes 0.43) and Stage 4's
+    builder 1.72 GB. Kubernetes is `degraded` by one generated file past the depth
+    ceiling (issue 134, P2-19); decision 86 lets a scale sample be degraded by lost work
+    alone, its reasons recorded.
 - **Plan v1.4 (2026-10-26, decisions 72 to 85):** the owner accepted the plan review
   with the instruction that the tool be best in class. The external plan is
   `! Version 2.0/PDX-2.0-PLAN-v1.4.md` (uncommitted; extract with
@@ -128,7 +143,8 @@ The previous implementation is in `legacy/`, read-only until the retirement task
 removes it. The local CLI has `pdx index`, `pdx coverage` and `pdx version` (P2-11), and
 `pdx bench` (P2-14); the engine differential (P2-16) closes P2; there is no query
 surface (MCP, server, UI) yet. Gate G1 was evaluated on 2026-10-12 and failed on the
-Kubernetes performance criterion (issue 82): P3 is halted until it passes.
+Kubernetes performance criterion (issue 82); decision 72 lifted the hold on P3, P2-17
+met the criterion's numbers, and G1 is evaluated again after P2-20.
 
 Always read `docs/plan/PROGRESS.md` for the current position rather than trusting
 this paragraph.
@@ -990,8 +1006,10 @@ The determinism and performance baselines (P2-14, decision 49) are `pdx bench
   extract + resolve time; medians, the maximum peak RSS, hashes equal, every sample kept.
 - **RSS.** Sampled from the parent with `sysinfo` every 10 ms. Above the 6 GiB ceiling
   the worker is stopped: a golden fails, a scale repository records `out_of_memory`
-  (Decision 49's P2-14 measurement policy; issue 82: Stage 2 retains about 330 KB per file, so Kubernetes and
-  Linux do not complete on this machine).
+  (decision 49's P2-14 measurement policy). A golden must be ready; a scale
+  repository's sample may be degraded by lost work alone, recorded with its reasons
+  (decision 86). `--only <key>` measures the named repositories and keeps every other
+  result.
 - **Results** are `bench/results/<version>/<repo>.json` and `summary.json`, results
   format 1. Canonical JSON, provenance without branch or path, staged then promoted all
   or nothing, mode-merged, unknown fields kept, stale sections dropped, stale unknown
