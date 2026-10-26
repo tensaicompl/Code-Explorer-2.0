@@ -186,11 +186,15 @@ fn all_in(r: &'static Resolved, path: &str, callee: &str) -> Vec<&'static Resolu
         .filter(|s| {
             s.site_ref.rel_path == path
                 && r.reg
-                    .text(path, &s.site.callee_text)
+                    .text(path, &s.call(&r.reg).expect("a call").callee_text)
                     .is_some_and(|t| t == callee)
         })
         .collect();
-    found.sort_by_key(|s| s.site.span.map(|span| span.start_byte));
+    found.sort_by_key(|s| {
+        s.call(&r.reg)
+            .and_then(|c| c.span)
+            .map(|span| span.start_byte)
+    });
     found.into_iter().map(|s| &s.resolution).collect()
 }
 

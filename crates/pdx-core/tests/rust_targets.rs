@@ -97,7 +97,7 @@ fn all_at<'r>(
         .filter(|s| {
             s.site_ref.rel_path == path
                 && reg
-                    .text(path, &s.site.callee_text)
+                    .text(path, &s.call(reg).expect("a call").callee_text)
                     .is_some_and(|t| t == callee)
         })
         .map(|s| &s.resolution)
@@ -571,7 +571,8 @@ fn e7_a_name_a_match_arm_binds_is_not_a_function_of_that_name() {
         report
             .unconfirmed
             .iter()
-            .filter(|u| u.site_ref.rel_path == "src/lib.rs" && in_arm(u.site.span))
+            .filter(|u| u.site_ref.rel_path == "src/lib.rs"
+                && in_arm(u.call(&reg).and_then(|c| c.span)))
             .all(|u| u.reason == Unconfirmed::Reference && u.engine.is_none()),
         "{:?}",
         report.unconfirmed

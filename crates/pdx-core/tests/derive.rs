@@ -1721,13 +1721,14 @@ fn drawn_edges_copy_engine_calibration() {
         let (true, Some(engine)) = (r.band().is_drawn(), r.engine()) else {
             continue;
         };
-        let site = site_of(g, &resolved.site_ref.rel_path, &resolved.site).expect("a site");
+        let call = resolved.call(&run.registry).expect("a call");
+        let site = site_of(g, &resolved.site_ref.rel_path, call).expect("a site");
         let edge = g
             .edges
             .iter()
             .find(|e| e.site_id.as_ref() == Some(&site.site_id))
             .expect("an edge");
-        let expected = if resolved.site.is_reference {
+        let expected = if call.is_reference {
             EdgeKind::CallReference
         } else {
             EdgeKind::Calls

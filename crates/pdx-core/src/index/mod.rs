@@ -233,6 +233,11 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
         Ok((graph.nodes.len() as u64, (graph, coverage, files, degraded)))
     })?;
     let summary = Summary::of(&graph, &coverage, &resolution);
+    // Nothing reads the extractions or Stage 3's report after Stage 4: the write holds
+    // the graph alone (P2-17).
+    drop(registry);
+    drop(resolution);
+    pdx_engine::release_freed_memory();
     let segment = report.stage(Stage::Write, |span| {
         let data = write::segment_data(meta.clone(), graph, coverage.clone());
         let segment = write::write(&data, &destination, build_dir.as_deref())?;

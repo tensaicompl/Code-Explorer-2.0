@@ -192,7 +192,7 @@ fn all_at(path: &str, callee: &str) -> Vec<&'static Resolution> {
         .filter(|s| {
             s.site_ref.rel_path == path
                 && r.reg
-                    .text(path, &s.site.callee_text)
+                    .text(path, &s.call(&r.reg).expect("a call").callee_text)
                     .is_some_and(|t| t == callee)
         })
         .map(|s| &s.resolution)

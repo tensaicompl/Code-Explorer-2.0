@@ -255,16 +255,48 @@ impl Resolution {
     }
 }
 
+/// A site's call (P2-17): the extraction's own, read where the registry holds it rather
+/// than copied for every site, or one typed resolution found past the extraction's
+/// calls, held here.
+#[derive(Clone, Debug, PartialEq)]
+pub enum SiteCall {
+    /// The extraction's call at the site's index.
+    Extracted,
+    /// A call typed resolution found itself.
+    Found(Box<Call>),
+}
+
+impl SiteCall {
+    /// The call at `site_ref`: the registry's for an extracted one. `None` only for a
+    /// site the registry does not have, which a report of this registry never holds.
+    pub fn of<'a>(&'a self, site_ref: &SiteRef, registry: &'a SymbolRegistry) -> Option<&'a Call> {
+        match self {
+            Self::Found(call) => Some(call),
+            Self::Extracted => registry
+                .extract(&site_ref.rel_path)?
+                .calls
+                .get(usize::try_from(site_ref.call_index).ok()?),
+        }
+    }
+}
+
 /// A call site and what it resolves to.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ResolvedSite {
     /// The site: its file and its index there.
     pub site_ref: SiteRef,
-    /// The site as extraction (or, for a site typed resolution found, the engine)
-    /// describes it.
-    pub site: Call,
+    /// The site's call, as extraction (or, for a site typed resolution found, the
+    /// engine) describes it: [`ResolvedSite::call`].
+    pub site: SiteCall,
     /// What it resolves to.
     pub resolution: Resolution,
+}
+
+impl ResolvedSite {
+    /// The site's call, read from `registry`, the one the report was resolved from.
+    pub fn call<'a>(&'a self, registry: &'a SymbolRegistry) -> Option<&'a Call> {
+        self.site.of(&self.site_ref, registry)
+    }
 }
 
 /// Why a site is not a call site.
@@ -286,12 +318,19 @@ pub enum Unconfirmed {
 pub struct UnconfirmedSite {
     /// The site.
     pub site_ref: SiteRef,
-    /// The site as described.
-    pub site: Call,
+    /// The site's call, as described: [`UnconfirmedSite::call`].
+    pub site: SiteCall,
     /// Why it is not a call site.
     pub reason: Unconfirmed,
     /// The engine's answer, a hint, if it gave one.
     pub engine: Option<EngineAnswer>,
+}
+
+impl UnconfirmedSite {
+    /// The site's call, read from `registry`, the one the report was resolved from.
+    pub fn call<'a>(&'a self, registry: &'a SymbolRegistry) -> Option<&'a Call> {
+        self.site.of(&self.site_ref, registry)
+    }
 }
 
 /// What Stage 3's resolution found for a repository.
@@ -444,15 +483,15 @@ pub fn resolve_with(
     let resolver = Resolver::new(registry);
     let mut resolutions = Vec::new();
     let mut unconfirmed = Vec::new();
-    let mut record = |site_ref: SiteRef, site: &Call, outcome: Outcome| match outcome {
+    let mut record = |site_ref: SiteRef, site: SiteCall, outcome: Outcome| match outcome {
         Outcome::Resolved(resolution) => resolutions.push(ResolvedSite {
             site_ref,
-            site: site.clone(),
+            site,
             resolution,
         }),
         Outcome::Unconfirmed(reason, engine) => unconfirmed.push(UnconfirmedSite {
             site_ref,
-            site: site.clone(),
+            site,
             reason,
             engine,
         }),
@@ -472,7 +511,7 @@ pub fn resolve_with(
             };
             let answer = answers.get(&site_ref).copied();
             let outcome = resolver.site(&site_ref, call, answer, false)?;
-            record(site_ref, call, outcome);
+            record(site_ref, SiteCall::Extracted, outcome);
         }
         // Sites typed resolution found past the extraction's calls, in index order.
         let past = SiteRef {
@@ -484,7 +523,11 @@ pub fn resolve_with(
                 break;
             }
             let outcome = resolver.site(site_ref, &answer.site, Some(answer), true)?;
-            record(site_ref.clone(), &answer.site, outcome);
+            record(
+                site_ref.clone(),
+                SiteCall::Found(Box::new(answer.site.clone())),
+                outcome,
+            );
         }
     }
     Ok(ResolveReport {

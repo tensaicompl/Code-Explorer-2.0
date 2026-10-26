@@ -72,6 +72,14 @@ pub enum AuditError {
     Write(#[from] std::io::Error),
 }
 
+/// A site whose call the registry does not hold, which a report of it never has.
+fn missing_call(path: &str) -> AuditError {
+    AuditError::Stage {
+        stage: "resolve",
+        message: format!("{path}: a site its file's extraction does not have"),
+    }
+}
+
 fn failed<E: std::fmt::Display>(stage: &'static str) -> impl Fn(E) -> AuditError {
     move |e| AuditError::Stage {
         stage,
@@ -166,7 +174,7 @@ pub fn write_dataset(root: &Path, out: &mut dyn Write) -> Result<Counts, AuditEr
                 counts.resolved += 1;
                 Site {
                     call_index: site.site_ref.call_index,
-                    call: &site.site,
+                    call: site.call(&registry).ok_or_else(|| missing_call(path))?,
                     status: "resolved",
                     band: Some(site.resolution.band().as_str()),
                     target: site.resolution.target(),
@@ -180,7 +188,7 @@ pub fn write_dataset(root: &Path, out: &mut dyn Write) -> Result<Counts, AuditEr
                 counts.unconfirmed += 1;
                 Site {
                     call_index: site.site_ref.call_index,
-                    call: &site.site,
+                    call: site.call(&registry).ok_or_else(|| missing_call(path))?,
                     status: match site.reason {
                         Unconfirmed::TypedOnly => "typed_only",
                         Unconfirmed::Reference => "reference",

@@ -147,7 +147,7 @@ fn at<'r>(
         .filter(|s| {
             s.site_ref.rel_path == path
                 && reg
-                    .text(path, &s.site.callee_text)
+                    .text(path, &s.call(reg).expect("a call").callee_text)
                     .is_some_and(|t| t == callee)
         })
         .map(|s| &s.resolution)
@@ -159,7 +159,7 @@ fn at<'r>(
         report
             .resolutions
             .iter()
-            .map(|s| (&s.site_ref, &s.site.callee_text))
+            .map(|s| (&s.site_ref, s.call(reg).map(|c| &c.callee_text)))
             .collect::<Vec<_>>()
     );
     found[0]
@@ -1870,7 +1870,7 @@ fn c_include_reaches_the_paired_source() {
         .filter(|s| {
             s.site_ref.rel_path == "app/main.c"
                 && reg
-                    .text("app/main.c", &s.site.callee_text)
+                    .text("app/main.c", &s.call(&reg).expect("a call").callee_text)
                     .is_some_and(|t| t == "helper")
         })
         .map(|s| &s.resolution)

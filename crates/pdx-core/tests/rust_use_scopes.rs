@@ -258,7 +258,7 @@ fn sites<'r>(report: &'r ResolveReport, path: &str, callee: &str) -> Vec<&'r Res
         .filter(|s| {
             s.site_ref.rel_path == path
                 && reg
-                    .text(path, &s.site.callee_text)
+                    .text(path, &s.call(reg).expect("a call").callee_text)
                     .is_some_and(|t| t == callee)
         })
         .map(|s| &s.resolution)
@@ -273,7 +273,7 @@ fn from<'r>(report: &'r ResolveReport, path: &str, caller: &str) -> Vec<&'r Reso
         .iter()
         .filter(|s| {
             s.site_ref.rel_path == path
-                && s.site.caller.is_some_and(|index| {
+                && s.call(reg).and_then(|c| c.caller).is_some_and(|index| {
                     reg.definition(&DefinitionRef {
                         path: path.into(),
                         index,

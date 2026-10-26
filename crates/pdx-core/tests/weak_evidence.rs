@@ -144,9 +144,11 @@ fn at(path: &str, callee: &str, line: u32) -> &'static Resolution {
         .iter()
         .filter(|s| {
             s.site_ref.rel_path == path
-                && s.site.span.is_some_and(|span| span.start_line == line)
+                && s.call(&f.reg)
+                    .and_then(|c| c.span)
+                    .is_some_and(|span| span.start_line == line)
                 && f.reg
-                    .text(path, &s.site.callee_text)
+                    .text(path, &s.call(&f.reg).expect("a call").callee_text)
                     .is_some_and(|t| t == callee)
         })
         .map(|s| &s.resolution)

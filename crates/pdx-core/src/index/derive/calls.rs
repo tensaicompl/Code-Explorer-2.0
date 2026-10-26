@@ -211,30 +211,30 @@ pub(crate) fn materialise(
     for resolved in &input.resolution.resolutions {
         let resolution = &resolved.resolution;
         let band = resolution.band();
-        let reference = resolved.site.is_reference;
+        let call = resolved
+            .call(registry)
+            .ok_or_else(|| DeriveError::Missing {
+                path: resolved.site_ref.rel_path.to_string(),
+                detail: "a resolved site its file's extraction does not have",
+            })?;
+        let reference = call.is_reference;
         let kind = if reference {
             SiteKind::Reference
         } else {
             SiteKind::Call
         };
-        let (site, caller) = match call_site(
-            graph,
-            registry,
-            &ordinals,
-            &resolved.site_ref,
-            &resolved.site,
-            kind,
-        )? {
-            Ok(found) => found,
-            Err(missing) => {
-                graph.diagnostics.unmaterialized.push(Unmaterialized {
-                    site_ref: resolved.site_ref.clone(),
-                    band,
-                    missing,
-                });
-                continue;
-            }
-        };
+        let (site, caller) =
+            match call_site(graph, registry, &ordinals, &resolved.site_ref, call, kind)? {
+                Ok(found) => found,
+                Err(missing) => {
+                    graph.diagnostics.unmaterialized.push(Unmaterialized {
+                        site_ref: resolved.site_ref.clone(),
+                        band,
+                        missing,
+                    });
+                    continue;
+                }
+            };
         let path = resolved.site_ref.rel_path.as_str();
         let src = match &caller {
             Some(r) => graph.definition_node(r)?.clone(),
