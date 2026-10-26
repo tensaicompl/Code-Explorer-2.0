@@ -37,18 +37,21 @@ TASK_RE = re.compile(
 )
 PHASE_RE = re.compile(r"^### Phase (?P<id>P\d) — (?P<name>.+)$")
 TASK_START_RE = re.compile(r"^\*\*P\d-\d{2}\s+—")
-GATE_ROW_RE = re.compile(r"^\|\s*\*\*(?P<id>G\d+a?)\*\*\s*\|\s*(?P<after>.*?)\s*\|\s*(?P<crit>.*?)\s*\|\s*$")
+GATE_ROW_RE = re.compile(r"^\|\s*\*\*(?P<id>G\d+[ab]?)\*\*\s*\|\s*(?P<after>.*?)\s*\|\s*(?P<crit>.*?)\s*\|\s*$")
 
-# Normative cross-phase execution order (Part 6 preamble).
+# Normative cross-phase execution order (Part 6 preamble, v1.4): the local UI slice and
+# the local-tier preview come before the server; the rest of P9 is in document order,
+# which puts P9-07 last.
 ORDER_SPEC = [
-    ("P0", None), ("P1", None), ("P2", None), ("P3", None), ("P4", None),
-    ("P5", None), ("P6", None),
-    ("P7", (1, 6)), ("P8", (1, 10)), ("P7", (7, 12)), ("P7", (14, 14)),
+    ("P0", None), ("P1", None), ("P2", None), ("P3", None),
+    ("P7", (1, 6)), ("P9", (2, 3)), ("P9", (9, 9)),
+    ("P4", None), ("P5", None), ("P6", None),
+    ("P7", (15, 15)), ("P8", (1, 10)), ("P7", (7, 12)), ("P7", (14, 14)),
     ("P8", (11, 11)), ("P9", None),
 ]
 
 GATE_AFTER = {
-    "G0": "P0-06", "G1a": "P1-07", "G1": "P2-16", "G2": "P3-09", "G3": "P4-14",
+    "G0": "P0-06", "G1a": "P1-07", "G1": "P2-20", "G1b": "P2-22", "G2": "P3-10", "G3": "P4-14",
     "G4": "P6-08", "G5": "P7-14", "G6": "P8-11", "G7": "P9-07",
 }
 
@@ -159,7 +162,7 @@ def expand_depends(raw: str) -> list[str]:
             out.append(f"{phase}-{n:02d}")
     stripped = re.sub(r"P\d-\d{2}\.\.P\d-\d{2}", "", raw)
     out += re.findall(r"P\d-\d{2}", stripped)
-    out += re.findall(r"\bG\d+a?\b", stripped)
+    out += re.findall(r"\bG\d+[ab]?\b", stripped)
     seen: list[str] = []
     for item in out:
         if item not in seen:

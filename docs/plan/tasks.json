@@ -1,7 +1,7 @@
 {
-  "source_document": "PDX-2.0-PLAN-v1.3.3.md",
+  "source_document": "PDX-2.0-PLAN-v1.4.md",
   "source_committed": false,
-  "task_count": 98,
+  "task_count": 110,
   "phases": [
     {
       "id": "P0",
@@ -70,22 +70,38 @@
     },
     {
       "id": "G1",
-      "after": "P2-16",
-      "after_raw": "P2-16",
+      "after": "P2-20",
+      "after_raw": "P2-20",
       "criteria": [
         "`pdx index` succeeds on all 10 golden repos with `status \u2208 {ready}` (no `degraded`)",
         "determinism 100%",
         "golden snapshots committed",
-        "performance baseline recorded: \u2265 400 files/s single-node for the structural profile (extraction plus typed resolution) on `kubernetes` (nightly), peak RSS \u2264 4 GiB on `kubernetes`",
+        "local scale on the local reference profile (decision 80): \u2265 400 files/s for the structural profile (extraction plus typed resolution) on `kubernetes` (nightly), peak RSS \u2264 4 GiB on `kubernetes`",
+        "issue 131's data repository under 1 GiB peak",
         "coverage rows sum to call sites",
-        "`bench/results/legacy-compare.md` exists"
+        "`bench/results/legacy-compare.md` exists",
+        "engine differential identical or ratified",
+        "sanitizer corpus run clean"
+      ]
+    },
+    {
+      "id": "G1b",
+      "after": "P2-22",
+      "after_raw": "P2-22",
+      "criteria": [
+        "On every golden with an oracle: `typed` precision \u2265 97% and drawn-union precision \u2265 95%",
+        "recall at or above the language's floor (decision 73, recorded in `GATES.md` by P2-21)",
+        "product-level structural recall published",
+        "every miss classified by cause"
       ]
     },
     {
       "id": "G2",
-      "after": "P3-09",
-      "after_raw": "P3-09",
+      "after": "P3-10",
+      "after_raw": "P3-10",
       "criteria": [
+        "G1 and G1b passed (decision 72)",
+        "agent-outcome benchmark recorded with the PDX arm at least as correct as the baseline arm on every task class",
         "MCP conformance suite green for all 18 tools locally",
         "`pdx install`/`uninstall` idempotent for the 6 clients",
         "hook fail-open verified",
@@ -103,7 +119,8 @@
         "permission filtering tests green",
         "remote MCP e2e green with OIDC mock and PAT",
         "Helm lint/template/kubeconform green",
-        "p95 `pdx_callers` latency < 300 ms at 100 concurrent sessions on the compose stack (k6 script `bench/load/mcp.js` against a 20-repo synthetic manifest)"
+        "p95 `pdx_callers` latency < 300 ms at 100 concurrent sessions on the compose stack (k6 script `bench/load/mcp.js` against a 20-repo synthetic manifest)",
+        "server scale on the server reference profile: the `linux` scale repository indexed by one index-job worker at \u2265 400 files/s with peak RSS \u2264 8 GiB (decision 78, the review's B10)"
       ]
     },
     {
@@ -112,7 +129,8 @@
       "after_raw": "P6-08 (+P5-06)",
       "criteria": [
         "Structural accuracy published for all golden repos (4.13.1): `typed` precision \u2265 97% and union of drawn bands precision \u2265 95% on oracle-verifiable sites, oracle-verifiable fraction reported",
-        "recall \u2265 85% for Java/TS/Python/Go/C#/Rust/Kotlin, \u2265 80% Ada (on the subset), \u2265 70% C/C++",
+        "recall at or above each language's floor (decision 73: \u2265 85% for Java/TS/Python/Go/C#/Rust/Kotlin, \u2265 80% Ada on the subset, \u2265 70% C/C++, or the measured structural ceiling less 5 points where that is lower, never below the recall at v1.4)",
+        "product-level structural recall not below G1b's",
         "ingestion fidelity reported",
         "precise sample review \u2265 99% where `truth.jsonl` exists (otherwise reported as `unreviewed`)",
         "three-repo link fixture green including the collision fixtures (`/health` in three repos not linked without identity)",
@@ -138,7 +156,7 @@
       "after_raw": "P8-11",
       "criteria": [
         "All analytics fixtures green",
-        "trust page generated",
+        "trust page generated, with the agent-outcome results (4.13.4)",
         "freshness and agent-usage metrics visible in `/api/v2/trust`",
         "`docs/trust` published in a dry-run release"
       ]
@@ -158,7 +176,10 @@
         "`STATUS.md` complete",
         "vendor refresh reproducible",
         "`bench/precise-sample/<lang>/truth.jsonl` present and \u2265 99% for every precise-capable language",
-        "**all G1, G3 and G4 correctness and security floors meet their stated values \u2014 no small-miss waiver at release**"
+        "comparative benchmark (P9-10) published",
+        "agent-outcome PDX arm at least as correct as the baseline on every task class",
+        "the shipped dependency closure audited (decision 83)",
+        "**all G1, G1b, G3 and G4 correctness and security floors meet their stated values \u2014 no small-miss waiver at release**"
       ]
     }
   ],
@@ -169,6 +190,7 @@
     "P0-04",
     "P0-05",
     "P0-06",
+    "P0-07",
     "P1-01",
     "P1-02",
     "P1-03",
@@ -191,6 +213,12 @@
     "P2-13",
     "P2-14",
     "P2-16",
+    "P2-17",
+    "P2-18",
+    "P2-19",
+    "P2-20",
+    "P2-21",
+    "P2-22",
     "P3-01",
     "P3-02",
     "P3-03",
@@ -200,6 +228,16 @@
     "P3-07",
     "P3-08",
     "P3-09",
+    "P3-10",
+    "P7-01",
+    "P7-02",
+    "P7-03",
+    "P7-04",
+    "P7-05",
+    "P7-06",
+    "P9-02",
+    "P9-03",
+    "P9-09",
     "P4-01",
     "P4-02",
     "P4-03",
@@ -230,12 +268,7 @@
     "P6-06",
     "P6-07",
     "P6-08",
-    "P7-01",
-    "P7-02",
-    "P7-03",
-    "P7-04",
-    "P7-05",
-    "P7-06",
+    "P7-15",
     "P8-01",
     "P8-02",
     "P8-03",
@@ -255,11 +288,11 @@
     "P7-14",
     "P8-11",
     "P9-01",
-    "P9-02",
-    "P9-03",
     "P9-04",
     "P9-05",
     "P9-06",
+    "P9-08",
+    "P9-10",
     "P9-07"
   ],
   "tasks": [
@@ -370,6 +403,26 @@
       "gate_after": "G0"
     },
     {
+      "id": "P0-07",
+      "phase": "P0",
+      "title": "Supply-chain and CI hardening",
+      "size": "M",
+      "depends_raw": "P0-04",
+      "depends": [
+        "P0-04"
+      ],
+      "deliverables": "issue 100's remaining gaps and the review's B15: every workflow action pinned by commit digest, with a check that refuses a tag; static analysis (CodeQL on the languages it supports in the tree) on pull requests and nightly; the UI's dependency audit beside `make deny` in the supply-chain job, failing on a known vulnerability without a recorded exception; per-crate test coverage measured (`cargo\u2026",
+      "acceptance": "`actions_pinned_by_digest`, `supply_chain_job_fails_on_advisory`, `coverage_floor_ratchets`; `make vet` reports the shipped closure's audited share.",
+      "acceptance_tests": [
+        "actions_pinned_by_digest",
+        "supply_chain_job_fails_on_advisory",
+        "coverage_floor_ratchets"
+      ],
+      "order": 7,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
       "id": "P1-01",
       "phase": "P1",
       "title": "Vendor scripts",
@@ -381,7 +434,7 @@
       "deliverables": "`scripts/vendor/fetch-engine.sh` (clones `engine-ref` at the locked commit into `/tmp/ref/engine-ref`); `scripts/vendor/copy-engine.sh` (copies only the paths of Appendix I.1 into `engine/src/`, `engine/lsp/`, `engine/grammars/<lang>/` for the Language Matrix languages of Appendix A, `engine/vendored/{ts_runtime,common,...}`, and the upstream `LICENSE` to `engine/LICENSE-ENGINE` and each grammar'\u2026",
       "acceptance": "running the four scripts in sequence on a clean tree produces `engine/` with no file containing a denied string (provenance scan passes); `engine/LICENSE-ENGINE` present; every `engine/grammars/*` has `LICENSE`.",
       "acceptance_tests": [],
-      "order": 7,
+      "order": 8,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -399,7 +452,7 @@
       "acceptance_tests": [
         "engine_symbols_renamed"
       ],
-      "order": 8,
+      "order": 9,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -418,7 +471,7 @@
         "abi_result_build_roundtrip",
         "abi_no_output"
       ],
-      "order": 9,
+      "order": 10,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -436,7 +489,7 @@
       "acceptance_tests": [
         "abi_smoke"
       ],
-      "order": 10,
+      "order": 11,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -455,7 +508,7 @@
         "engine_isolate_recovers",
         "extract_is_deterministic"
       ],
-      "order": 11,
+      "order": 12,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -471,7 +524,7 @@
       "deliverables": "`make check-asan` building the engine with sanitizers and running extraction over `bench/corpus/` (a committed corpus of \u2264 200 small files across the Language Matrix, taken from the golden repos' permissively licensed sources or written by the agent).",
       "acceptance": "nightly CI job green.",
       "acceptance_tests": [],
-      "order": 12,
+      "order": 13,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -491,7 +544,7 @@
         "every_typed_language_has_engine_support",
         "pdxe_language_id"
       ],
-      "order": 13,
+      "order": 14,
       "execution": "single-agent",
       "gate_after": "G1a"
     },
@@ -515,7 +568,7 @@
         "band_order_total",
         "from_engine"
       ],
-      "order": 14,
+      "order": 15,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -536,7 +589,7 @@
         "reader_refuses_wrong_schema_version",
         "fts_finds_qualified_names"
       ],
-      "order": 15,
+      "order": 16,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -557,7 +610,7 @@
         "discover_marks_binary_and_large",
         "pdx_toml_defaults"
       ],
-      "order": 16,
+      "order": 17,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -583,7 +636,7 @@
         "specification 4.5; issue 26",
         "decision 19"
       ],
-      "order": 17,
+      "order": 18,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -601,7 +654,7 @@
       "acceptance_tests": [
         "external_detection_python_stdlib"
       ],
-      "order": 18,
+      "order": 19,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -623,7 +676,7 @@
         "typed_requires_lsp_typed_single_candidate_and_min_score",
         "engine_hints_never_restrict_candidate_universe"
       ],
-      "order": 19,
+      "order": 20,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -645,7 +698,7 @@
         "tests_junit",
         "tests_pytest"
       ],
-      "order": 20,
+      "order": 21,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -672,7 +725,7 @@
       "amended_by": [
         "issue 38"
       ],
-      "order": 21,
+      "order": 22,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -692,7 +745,7 @@
         "cyclomatic_known_values",
         "importance_formula"
       ],
-      "order": 22,
+      "order": 23,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -714,7 +767,7 @@
         "build_segment_end_to_end",
         "degraded_when_failed_over_threshold"
       ],
-      "order": 23,
+      "order": 24,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -734,7 +787,7 @@
         "cli_exit_code_degraded",
         "cli_help_snapshot"
       ],
-      "order": 24,
+      "order": 25,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -752,7 +805,7 @@
       "acceptance_tests": [
         "golden_files_sorted"
       ],
-      "order": 25,
+      "order": 26,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -768,7 +821,7 @@
       "deliverables": "`scripts/compare-legacy.py` that runs `legacy/indexer/graph_pass` on the Python golden repo (`flask`) and diffs drawn `calls` edges against the new segment; report committed to `bench/results/legacy-compare.md` with counts of: same, only-legacy, only-new, and 20 sampled explanations written by the agent after reading the evidence lines. The legacy indexer needs PostgreSQL and its embedding model;\u2026",
       "acceptance": "the report exists (or the task is `blocked` with an issue); no test threshold (this is triage input for tuning `TYPED_MIN_SCORE` through an SCR if warranted).",
       "acceptance_tests": [],
-      "order": 26,
+      "order": 27,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -784,7 +837,7 @@
       "deliverables": "`pdx bench --determinism` and `--perf` producing `bench/results/<version>/`; `criterion` benches for `resolve` and `segment write`.",
       "acceptance": "byte-identical segments on all golden repos; perf numbers recorded (no threshold yet; thresholds are set at G1).",
       "acceptance_tests": [],
-      "order": 27,
+      "order": 28,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -803,9 +856,133 @@
       "acceptance_tests": [
         "engine_differential_identical"
       ],
-      "order": 28,
+      "order": 29,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-17",
+      "phase": "P2",
+      "title": "Streaming Stage 2 and local scale",
+      "size": "L",
+      "depends_raw": "P2-16",
+      "depends": [
+        "P2-16"
+      ],
+      "deliverables": "issue 82: Stage 2 no longer holds every file's extraction until the stage ends. As each extraction completes it is reduced to the facts Stages 3 and 4 read (definitions, imports, call sites with their texts as source ranges, the surface), held compactly; the full extraction stays in the extraction cache, or in a per-build spill file when no cache is configured, and is read back one file at a time\u2026",
+      "acceptance": "`streaming_build_is_byte_identical` (every golden's segment identical to the non-streaming pipeline's); `stage2_holds_no_full_extraction` (never more full extractions resident than workers in flight); `kubernetes_local_scale` (nightly, local reference profile: \u2265 400 files/s, peak RSS \u2264 4 GiB, structural profile).",
+      "acceptance_tests": [
+        "streaming_build_is_byte_identical",
+        "stage2_holds_no_full_extraction",
+        "kubernetes_local_scale"
+      ],
+      "order": 30,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-18",
+      "phase": "P2",
+      "title": "Generated files, data formats and cache retention",
+      "size": "M",
+      "depends_raw": "P2-16",
+      "depends": [
+        "P2-16"
+      ],
+      "deliverables": "decision 85. Discovery reads `.gitattributes`: a file marked `linguist-generated` or `linguist-vendored` is recorded as `skipped` with reason `generated` or `vendored`, never silently absent, unless `[discover] generated = \"index\"` (issue 132). Data formats (JSON, YAML, TOML) emit one `Variable` node per distinct key path in a file, to a depth of `DATA_KEY_MAX_DEPTH` (4), array elements collapsed\u2026",
+      "acceptance": "`discover_skips_linguist_generated`, `discover_generated_index_opt_in`, `data_keys_one_node_per_key_path`, `data_keys_depth_bounded`, `data_keys_have_no_metrics`, `cache_evicts_least_recent_first`, `cache_removes_retired_formats`, `cache_never_evicts_the_running_build`; issue 131's data repository indexed under 1 GiB peak.",
+      "acceptance_tests": [
+        "discover_skips_linguist_generated",
+        "discover_generated_index_opt_in",
+        "data_keys_one_node_per_key_path",
+        "data_keys_depth_bounded",
+        "data_keys_have_no_metrics",
+        "cache_evicts_least_recent_first",
+        "cache_removes_retired_formats",
+        "cache_never_evicts_the_running_build"
+      ],
+      "order": 31,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-19",
+      "phase": "P2",
+      "title": "Extraction bounds closure",
+      "size": "M",
+      "depends_raw": "P2-16",
+      "depends": [
+        "P2-16"
+      ],
+      "deliverables": "decision 74: an engine patch that bounds the parser's error recovery deterministically (issue 93): the work recovery may spend on one error node is held to a bound linear in the source, counted inside the parse, and passing it is lost work once, never cached and degraded, the same on every machine; then issues 86, 87 and 89, whose closure was held on issue 93, re-audited against the 104,730-file\u2026",
+      "acceptance": "`parse_recovery_is_linear` (wide error nodes of 1 and 2 MiB: work at most 2.5 times per doubling), `parse_recovery_bound_is_deterministic`; the census extracts identically below the bound; the engine differential identical or ratified.",
+      "acceptance_tests": [
+        "parse_recovery_is_linear",
+        "parse_recovery_bound_is_deterministic"
+      ],
+      "order": 32,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P2-20",
+      "phase": "P2",
+      "title": "Segment schema 4: declared edges, candidate totals, excluded directories",
+      "size": "M",
+      "depends_raw": "P2-16",
+      "depends": [
+        "P2-16"
+      ],
+      "deliverables": "one schema bump (`SEGMENT_SCHEMA_VERSION` 3 \u2192 4) carrying three rulings. Issue 119 (decision 76): `edges.band` may be NULL for a structural edge that a declaration states rather than a resolution infers; `DEFINES_ROUTE` from a route declared on its handler is such an edge and is drawn, shown as declared, and is no call site in coverage. The review's B1 (decision 68): `candidates.candidates_total`\u2026",
+      "acceptance": "`defines_route_is_unbanded_and_drawn`, `candidates_total_round_trips`, `excluded_directory_is_recorded`, `reader_refuses_schema_3`; `coverage_counts_sum_to_call_sites` still green.",
+      "acceptance_tests": [
+        "defines_route_is_unbanded_and_drawn",
+        "candidates_total_round_trips",
+        "excluded_directory_is_recorded",
+        "reader_refuses_schema_3",
+        "coverage_counts_sum_to_call_sites"
+      ],
+      "order": 33,
       "execution": "single-agent",
       "gate_after": "G1"
+    },
+    {
+      "id": "P2-21",
+      "phase": "P2",
+      "title": "Accuracy baseline: every golden measured, every miss classified",
+      "size": "L",
+      "depends_raw": "P2-16",
+      "depends": [
+        "P2-16"
+      ],
+      "deliverables": "decision 78 moves P5-06's local half here. A0 (decisions 64, 65) runs nightly for every golden language with a semantic oracle (Python, Rust, Java, TypeScript, Go, C#, C, C++ and Kotlin where an indexer exists; Ada is reported unmeasured until P5-05). Every oracle relation the product does not draw is classified by cause (type inference beyond Stage 3's model, dynamic dispatch, reflection or meta\u2026",
+      "acceptance": "`a0_every_golden_measured_or_reported`, `a0_miss_classes_sum_to_misses`, `a0_runs_hermetic`; `bench/results/a0/ceilings.json` committed.",
+      "acceptance_tests": [
+        "a0_every_golden_measured_or_reported",
+        "a0_miss_classes_sum_to_misses",
+        "a0_runs_hermetic"
+      ],
+      "order": 34,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P2-22",
+      "phase": "P2",
+      "title": "Recall to the floors",
+      "size": "L",
+      "depends_raw": "P2-21",
+      "depends": [
+        "P2-21"
+      ],
+      "deliverables": "the recall workstreams of issues 105 to 108, 113 and 130 (Python first, issue 106; C#'s `global using`, 130A; a file's own top-level definition before its imports, 130B under decision 77), split by language under D14. Each change is measured by A0 before it draws and draws only from positive target evidence (decision 65, D36); no correct edge is lost without a recorded reason.",
+      "acceptance": "G1b's floors met; `a0_drawn_precision_holds` on every golden; each workstream's fixtures green.",
+      "acceptance_tests": [
+        "a0_drawn_precision_holds"
+      ],
+      "order": 35,
+      "execution": "fan-out-eligible",
+      "gate_after": "G1b"
     },
     {
       "id": "P3-01",
@@ -825,7 +1002,7 @@
         "view_handle_rejects_changed_permissions",
         "view_handle_expires"
       ],
-      "order": 29,
+      "order": 36,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -845,7 +1022,7 @@
         "trace_paths_are_shortest_first",
         "blast_radius_counts_unresolved_touched"
       ],
-      "order": 30,
+      "order": 37,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -864,7 +1041,7 @@
         "mcp_stdio_roundtrip",
         "mcp_stdout_is_json_rpc_only"
       ],
-      "order": 31,
+      "order": 38,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -883,7 +1060,7 @@
         "overlay_reflects_uncommitted_edit",
         "diff_json_snapshot"
       ],
-      "order": 32,
+      "order": 39,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -902,7 +1079,7 @@
         "lexical_camel_split",
         "search_merges_fts_and_lexical"
       ],
-      "order": 33,
+      "order": 40,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -921,7 +1098,7 @@
         "embeddings_absent_degrades_gracefully",
         "semantic_search_rrf"
       ],
-      "order": 34,
+      "order": 41,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -946,7 +1123,7 @@
         "uninstall_restores_exact_bytes",
         "install_is_idempotent"
       ],
-      "order": 35,
+      "order": 42,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -966,7 +1143,7 @@
         "hook_timeout_is_fail_open",
         "hook_read_adds_coverage_note"
       ],
-      "order": 36,
+      "order": 43,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -985,9 +1162,203 @@
         "serve_binds_loopback_only",
         "serve_api_matches_mcp_outputs"
       ],
-      "order": 37,
+      "order": 44,
       "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P3-10",
+      "phase": "P3",
+      "title": "Agent-outcome benchmark",
+      "size": "M",
+      "depends_raw": "P3-03",
+      "depends": [
+        "P3-03"
+      ],
+      "deliverables": "4.13.4's agent-outcome suite in `bench/agent-eval/`: code-navigation and change-impact tasks over the golden repositories, each with a reference answer from the oracle-verified graph reviewed under decision 84; a runner that gives one agent the same tasks with and without PDX's MCP tools and records correctness, tool calls, tokens and wall time per task class in `bench/results/<version>/agent-eva\u2026",
+      "acceptance": "`agent_eval_tasks_have_reference_answers`, `agent_eval_report_complete`.",
+      "acceptance_tests": [
+        "agent_eval_tasks_have_reference_answers",
+        "agent_eval_report_complete"
+      ],
+      "order": 45,
+      "execution": "mixed",
       "gate_after": "G2"
+    },
+    {
+      "id": "P7-01",
+      "phase": "P7",
+      "title": "UI foundation",
+      "size": "M",
+      "depends_raw": "P0-03, P3-09",
+      "depends": [
+        "P0-03",
+        "P3-09"
+      ],
+      "deliverables": "`ui/` app shell: routing with URL state (4.11.2), auth handling (cookie session or local mode), API client generated from `/api/v2/openapi.json` (`openapi-typescript`), Zustand stores, theme, layout with left navigation, details panel, band legend component, i18n scaffold.",
+      "acceptance": "Vitest `router_state_roundtrip`; Playwright `shell_loads_local_mode`.",
+      "acceptance_tests": [
+        "router_state_roundtrip",
+        "shell_loads_local_mode"
+      ],
+      "order": 46,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P7-02",
+      "phase": "P7",
+      "title": "Layout and tiles (local)",
+      "size": "L",
+      "depends_raw": "P2-02, P3-09",
+      "depends": [
+        "P2-02",
+        "P3-09"
+      ],
+      "deliverables": "`pdx-core/src/layout/{treemap,fa2,aggregate,tiles}.rs` implementing 4.11.5 (Rust ports of the squarified treemap and ForceAtlas2 with Barnes\u2013Hut); `pdx serve` local computation for its repository; tiles writer (MessagePack per 4.11.4); `/api/v2/tiles/...` endpoint with ETag on `pdx serve`; `TILE_FORMAT_VERSION` = 1. The server's `layout` job is P7-15 (decision 78, the review's B11).",
+      "acceptance": "`treemap_areas_sum`, `fa2_converges_fixture`, `layout_is_deterministic`, `layout_anchoring_keeps_positions` (moving one node in the input moves only its subtree), `tiles_roundtrip`, `agg_edges_project_to_visible_level`.",
+      "acceptance_tests": [
+        "treemap_areas_sum",
+        "fa2_converges_fixture",
+        "layout_is_deterministic",
+        "layout_anchoring_keeps_positions",
+        "tiles_roundtrip",
+        "agg_edges_project_to_visible_level"
+      ],
+      "order": 47,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P7-03",
+      "phase": "P7",
+      "title": "Renderer core",
+      "size": "L",
+      "depends_raw": "P7-01, P7-02",
+      "depends": [
+        "P7-01",
+        "P7-02"
+      ],
+      "deliverables": "`ui/src/render/` with `ContainerLayer`, `NodeLayer`, `AggEdgeLayer`, `LabelLayer` (deck.gl custom/instanced layers), tile loader with viewport-driven requests and prefetch of `children`, budget arbitration per 4.11.3, fade transitions, picking; `window.__pdx.stats()`.",
+      "acceptance": "Vitest `budget_arbitration_drops_deepest_first`, `edges_routed_to_visible_ancestor`; Playwright `map_frame_budget` (fixture with 1M nodes, asserts stats within budgets and fps \u2265 55 in headless with `--use-gl=egl`).",
+      "acceptance_tests": [
+        "budget_arbitration_drops_deepest_first",
+        "edges_routed_to_visible_ancestor",
+        "map_frame_budget"
+      ],
+      "order": 48,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P7-04",
+      "phase": "P7",
+      "title": "Architecture map view",
+      "size": "L",
+      "depends_raw": "P7-03",
+      "depends": [
+        "P7-03"
+      ],
+      "deliverables": "default view wired to tiles; click/hover details; fly-to; breadcrumb of containment; band filter; ghost nodes; \"why is this here?\" drill-down via `/api/v2/edges/{id}/evidence` (served by `pdx serve` locally as well as by the server).",
+      "acceptance": "Playwright `map_drilldown_to_symbol`, `map_ghost_nodes_visible`, `map_evidence_panel`.",
+      "acceptance_tests": [
+        "map_drilldown_to_symbol",
+        "map_ghost_nodes_visible",
+        "map_evidence_panel"
+      ],
+      "order": 49,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P7-05",
+      "phase": "P7",
+      "title": "Search and details",
+      "size": "M",
+      "depends_raw": "P7-04",
+      "depends": [
+        "P7-04"
+      ],
+      "deliverables": "search box with chips (FTS/lexical/semantic), results fly-to, details panel with callers/callees (band chips), coverage note, snippet viewer.",
+      "acceptance": "Playwright `search_flies_to_node`, `details_shows_bands`.",
+      "acceptance_tests": [
+        "search_flies_to_node",
+        "details_shows_bands"
+      ],
+      "order": 50,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P7-06",
+      "phase": "P7",
+      "title": "Neighbourhood view",
+      "size": "M",
+      "depends_raw": "P7-05",
+      "depends": [
+        "P7-05"
+      ],
+      "deliverables": "cosmos.gl view for `GET /api/v2/neighbourhood?node=&depth=&bands=` (the server, or `pdx serve` locally, computes the subgraph \u2264 `NEIGHBOURHOOD_MAX_NODES`), band colouring, pin/unpin, back-to-map.",
+      "acceptance": "Playwright `neighbourhood_renders_20k` (fixture) with fps \u2265 30.",
+      "acceptance_tests": [
+        "neighbourhood_renders_20k"
+      ],
+      "order": 51,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P9-02",
+      "phase": "P9",
+      "title": "Installers and packaging",
+      "size": "M",
+      "depends_raw": "P3-07",
+      "depends": [
+        "P3-07"
+      ],
+      "deliverables": "`install.sh`, `install.ps1` (checksum verification), Homebrew formula in `deploy/homebrew/`, npm wrapper package `deploy/npm/`, `cargo install` metadata; macOS ad-hoc signing in the installer; Windows unsigned-binary note in docs.",
+      "acceptance": "installer tests in CI containers (Debian, Alpine musl, macOS), PowerShell test on Windows runner.",
+      "acceptance_tests": [],
+      "order": 52,
+      "execution": "fan-out-eligible",
+      "gate_after": null
+    },
+    {
+      "id": "P9-03",
+      "phase": "P9",
+      "title": "Release pipeline (local tier)",
+      "size": "M",
+      "depends_raw": "P9-02",
+      "depends": [
+        "P9-02"
+      ],
+      "deliverables": "`release.yml`: build matrix, SBOMs, SLSA provenance, cosign signatures, `checksums.txt`, the installers and packages of P9-02, trust page publish; release notes template. Container images and the Helm chart are P9-08 (decision 78, the review's B11).",
+      "acceptance": "dry-run release on a `v0.0.0-test` tag produces all artefacts; `cosign verify` and `gh attestation verify` succeed in a post-release job.",
+      "acceptance_tests": [],
+      "order": 53,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P9-09",
+      "phase": "P9",
+      "title": "Local-tier preview release",
+      "size": "S",
+      "depends_raw": "P9-03, P7-06, P3-10, G2",
+      "depends": [
+        "P9-03",
+        "P7-06",
+        "P3-10",
+        "G2"
+      ],
+      "deliverables": "decision 81: `v2.0.0-preview.N` releases of the local tier only (the CLI, local MCP and hooks, `pdx serve` with the local UI slice) for invited early users; `docs/user/preview.md` stating what is in and out and the accuracy measured so far; a feedback channel recorded in the docs. No enterprise component ships.",
+      "acceptance": "G2 passed; the P9-02 installers verified on every platform; `preview_contains_no_enterprise_code`.",
+      "acceptance_tests": [
+        "preview_contains_no_enterprise_code"
+      ],
+      "order": 54,
+      "execution": "single-agent",
+      "gate_after": null
     },
     {
       "id": "P4-01",
@@ -1004,7 +1375,7 @@
         "server_boots_with_postgres",
         "readyz_reports_migrations_pending"
       ],
-      "order": 38,
+      "order": 55,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1023,7 +1394,7 @@
         "migration_0001_applies_clean",
         "db_roundtrip_all_tables"
       ],
-      "order": 39,
+      "order": 56,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1041,7 +1412,7 @@
       "acceptance_tests": [
         "store_contract_tests"
       ],
-      "order": 40,
+      "order": 57,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1061,7 +1432,7 @@
         "jobs_requeue_on_stale_heartbeat",
         "jobs_dedupe"
       ],
-      "order": 41,
+      "order": 58,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1081,7 +1452,7 @@
         "poll_detects_new_head",
         "repo_url_change_keeps_repo_id"
       ],
-      "order": 42,
+      "order": 59,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1105,7 +1476,7 @@
         "gc_keeps_retention_window",
         "reindex_after_engine_upgrade_does_not_overwrite"
       ],
-      "order": 43,
+      "order": 60,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1127,7 +1498,7 @@
         "fanout_respects_repo_filter",
         "strict_mode_omits_denied_counts"
       ],
-      "order": 44,
+      "order": 61,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1149,7 +1520,7 @@
         "pat_scope_enforced",
         "expired_pat_rejected"
       ],
-      "order": 45,
+      "order": 62,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1171,7 +1542,7 @@
         "link_edge_redacted_when_one_side_denied",
         "admin_manual_grant"
       ],
-      "order": 46,
+      "order": 63,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1193,7 +1564,7 @@
         "mcp_audit_row_written",
         "mcp_stateless_across_two_instances"
       ],
-      "order": 47,
+      "order": 64,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1214,7 +1585,7 @@
         "reader_cannot_admin",
         "audit_export_jsonl"
       ],
-      "order": 48,
+      "order": 65,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1232,7 +1603,7 @@
       "acceptance_tests": [
         "search_uses_zoekt_when_configured"
       ],
-      "order": 49,
+      "order": 66,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1249,7 +1620,7 @@
       "deliverables": "`deploy/helm/pdx` (server, workers, zoekt, optional MinIO/Postgres subcharts, OpenShift-safe defaults per 4.14.1, values documented, including a `ServiceAccount`/`Role`/`RoleBinding` allowing the worker to create and watch `batch/v1 Jobs` in its namespace for `PDX_PRECISE_MODE=k8s`); `deploy/compose/docker-compose.yml`; `docs/ops/install-openshift.md`, `docs/ops/air-gapped.md`, `docs/ops/permissi\u2026",
       "acceptance": "`helm lint`, `helm template` snapshot test, `kubeconform` against Kubernetes 1.29 schemas; compose smoke test in CI (`docker compose up`, index one fixture repo, query MCP).",
       "acceptance_tests": [],
-      "order": 50,
+      "order": 67,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1268,7 +1639,7 @@
         "gc_removes_unreferenced_segments",
         "metrics_endpoint_lists_lag"
       ],
-      "order": 51,
+      "order": 68,
       "execution": "single-agent",
       "gate_after": "G3"
     },
@@ -1286,7 +1657,7 @@
       "acceptance_tests": [
         "precise_java_petclinic"
       ],
-      "order": 52,
+      "order": 69,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1304,7 +1675,7 @@
       "acceptance_tests": [
         "scip_load_fixture"
       ],
-      "order": 53,
+      "order": 70,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1332,7 +1703,7 @@
         "utf16_positions_map_to_bytes",
         "two_providers_conflict_draws_neither"
       ],
-      "order": 54,
+      "order": 71,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1353,7 +1724,7 @@
         "precise_job_publishes_new_manifest",
         "precise_job_timeout_marks_failed"
       ],
-      "order": 55,
+      "order": 72,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1372,7 +1743,7 @@
         "ada_indexer_fixture_scip",
         "ada_merge_end_to_end"
       ],
-      "order": 56,
+      "order": 73,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1381,17 +1752,17 @@
       "phase": "P5",
       "title": "Oracle benchmark",
       "size": "M",
-      "depends_raw": "P5-04, P2-12",
+      "depends_raw": "P5-04, P2-21",
       "depends": [
         "P5-04",
-        "P2-12"
+        "P2-21"
       ],
-      "deliverables": "`pdx bench --oracle` computing per-band precision/recall per 4.13.1; results committed under `bench/results/<version>/`.",
+      "deliverables": "`pdx bench --oracle`: P2-21's A0 measurement (decision 78) extended to the `precise` profile: per-band precision and recall of the structural and precise segments per 4.13.1, each measure's independence from the provider stated, the product-level recall published; results committed under `bench/results/<version>/`.",
       "acceptance": "numbers exist for every golden repo; `oracle_metrics_formula` unit test on a synthetic case.",
       "acceptance_tests": [
         "oracle_metrics_formula"
       ],
-      "order": 57,
+      "order": 74,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1410,7 +1781,7 @@
       "acceptance_tests": [
         "cli_precise_reports_missing_indexers"
       ],
-      "order": 58,
+      "order": 75,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1432,7 +1803,7 @@
         "references_structural_fallback_labelled",
         "definition_fallback_never_labelled_precise"
       ],
-      "order": 59,
+      "order": 76,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1458,7 +1829,7 @@
         "links_health_path_in_three_repos_not_linked_without_identity",
         "links_declared_hostnames_give_import_guided"
       ],
-      "order": 60,
+      "order": 77,
       "execution": "mixed",
       "gate_after": null
     },
@@ -1480,7 +1851,7 @@
         "estate_backstage_import",
         "estate_deployment_by_image"
       ],
-      "order": 61,
+      "order": 78,
       "execution": "mixed",
       "gate_after": null
     },
@@ -1500,7 +1871,7 @@
         "annotation_requires_maintainer_to_approve",
         "estate_applies_only_approved"
       ],
-      "order": 62,
+      "order": 79,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1521,7 +1892,7 @@
         "blast_radius_crosses_repos_via_contract",
         "agg_edge_evidence_lists_l5_edges"
       ],
-      "order": 63,
+      "order": 80,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1541,7 +1912,7 @@
         "pr_manifest_created_and_gced",
         "pr_comment_snapshot"
       ],
-      "order": 64,
+      "order": 81,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1559,7 +1930,7 @@
       "acceptance_tests": [
         "coverage_paths_report_reason"
       ],
-      "order": 65,
+      "order": 82,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1577,7 +1948,7 @@
       "acceptance_tests": [
         "findings_tool_pagination"
       ],
-      "order": 66,
+      "order": 83,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1600,130 +1971,28 @@
         "overlay_offline_falls_back_to_local",
         "nearest_manifest_distance"
       ],
-      "order": 67,
+      "order": 84,
       "execution": "single-agent",
       "gate_after": "G4"
     },
     {
-      "id": "P7-01",
+      "id": "P7-15",
       "phase": "P7",
-      "title": "UI foundation",
+      "title": "Layout job and tiles (server)",
       "size": "M",
-      "depends_raw": "P0-03, P3-09",
+      "depends_raw": "P7-02, P4-06",
       "depends": [
-        "P0-03",
-        "P3-09"
+        "P7-02",
+        "P4-06"
       ],
-      "deliverables": "`ui/` app shell: routing with URL state (4.11.2), auth handling (cookie session or local mode), API client generated from `/api/v2/openapi.json` (`openapi-typescript`), Zustand stores, theme, layout with left navigation, details panel, band legend component, i18n scaffold.",
-      "acceptance": "Vitest `router_state_roundtrip`; Playwright `shell_loads_local_mode`.",
+      "deliverables": "the `layout` server job over a manifest version, incremental per changed repository, P7-02's layout and tiles code reused; tiles in the segment store; `/api/v2/tiles/...` on the server with ETag. Added by v1.4 when P7-02 was split (decision 78).",
+      "acceptance": "`server_layout_matches_local_for_one_repo`, `layout_job_is_incremental`.",
       "acceptance_tests": [
-        "router_state_roundtrip",
-        "shell_loads_local_mode"
+        "server_layout_matches_local_for_one_repo",
+        "layout_job_is_incremental"
       ],
-      "order": 68,
+      "order": 85,
       "execution": "single-agent",
-      "gate_after": null
-    },
-    {
-      "id": "P7-02",
-      "phase": "P7",
-      "title": "Layout job and tiles",
-      "size": "L",
-      "depends_raw": "P4-06, P2-02",
-      "depends": [
-        "P4-06",
-        "P2-02"
-      ],
-      "deliverables": "`pdx-core/src/layout/{treemap,fa2,aggregate,tiles}.rs` implementing 4.11.5 (Rust ports of the squarified treemap and ForceAtlas2 with Barnes\u2013Hut); `layout` job (server) and `pdx serve` local computation; tiles writer (MessagePack per 4.11.4); `/api/v2/tiles/...` endpoint with ETag; `TILE_FORMAT_VERSION` = 1.",
-      "acceptance": "`treemap_areas_sum`, `fa2_converges_fixture`, `layout_is_deterministic`, `layout_anchoring_keeps_positions` (moving one node in the input moves only its subtree), `tiles_roundtrip`, `agg_edges_project_to_visible_level`.",
-      "acceptance_tests": [
-        "treemap_areas_sum",
-        "fa2_converges_fixture",
-        "layout_is_deterministic",
-        "layout_anchoring_keeps_positions",
-        "tiles_roundtrip",
-        "agg_edges_project_to_visible_level"
-      ],
-      "order": 69,
-      "execution": "single-agent",
-      "gate_after": null
-    },
-    {
-      "id": "P7-03",
-      "phase": "P7",
-      "title": "Renderer core",
-      "size": "L",
-      "depends_raw": "P7-01, P7-02",
-      "depends": [
-        "P7-01",
-        "P7-02"
-      ],
-      "deliverables": "`ui/src/render/` with `ContainerLayer`, `NodeLayer`, `AggEdgeLayer`, `LabelLayer` (deck.gl custom/instanced layers), tile loader with viewport-driven requests and prefetch of `children`, budget arbitration per 4.11.3, fade transitions, picking; `window.__pdx.stats()`.",
-      "acceptance": "Vitest `budget_arbitration_drops_deepest_first`, `edges_routed_to_visible_ancestor`; Playwright `map_frame_budget` (fixture with 1M nodes, asserts stats within budgets and fps \u2265 55 in headless with `--use-gl=egl`).",
-      "acceptance_tests": [
-        "budget_arbitration_drops_deepest_first",
-        "edges_routed_to_visible_ancestor",
-        "map_frame_budget"
-      ],
-      "order": 70,
-      "execution": "single-agent",
-      "gate_after": null
-    },
-    {
-      "id": "P7-04",
-      "phase": "P7",
-      "title": "Architecture map view",
-      "size": "L",
-      "depends_raw": "P7-03",
-      "depends": [
-        "P7-03"
-      ],
-      "deliverables": "default view wired to tiles; click/hover details; fly-to; breadcrumb of containment; band filter; ghost nodes; \"why is this here?\" drill-down via `/api/v2/edges/{id}/evidence`.",
-      "acceptance": "Playwright `map_drilldown_to_symbol`, `map_ghost_nodes_visible`, `map_evidence_panel`.",
-      "acceptance_tests": [
-        "map_drilldown_to_symbol",
-        "map_ghost_nodes_visible",
-        "map_evidence_panel"
-      ],
-      "order": 71,
-      "execution": "fan-out-eligible",
-      "gate_after": null
-    },
-    {
-      "id": "P7-05",
-      "phase": "P7",
-      "title": "Search and details",
-      "size": "M",
-      "depends_raw": "P7-04",
-      "depends": [
-        "P7-04"
-      ],
-      "deliverables": "search box with chips (FTS/lexical/semantic), results fly-to, details panel with callers/callees (band chips), coverage note, snippet viewer.",
-      "acceptance": "Playwright `search_flies_to_node`, `details_shows_bands`.",
-      "acceptance_tests": [
-        "search_flies_to_node",
-        "details_shows_bands"
-      ],
-      "order": 72,
-      "execution": "fan-out-eligible",
-      "gate_after": null
-    },
-    {
-      "id": "P7-06",
-      "phase": "P7",
-      "title": "Neighbourhood view",
-      "size": "M",
-      "depends_raw": "P7-05",
-      "depends": [
-        "P7-05"
-      ],
-      "deliverables": "cosmos.gl view for `GET /api/v2/neighbourhood?node=&depth=&bands=` (server computes the subgraph \u2264 `NEIGHBOURHOOD_MAX_NODES`), band colouring, pin/unpin, back-to-map.",
-      "acceptance": "Playwright `neighbourhood_renders_20k` (fixture) with fps \u2265 30.",
-      "acceptance_tests": [
-        "neighbourhood_renders_20k"
-      ],
-      "order": 73,
-      "execution": "fan-out-eligible",
       "gate_after": null
     },
     {
@@ -1741,7 +2010,7 @@
       "acceptance_tests": [
         "analytics_job_writes_metrics_ts"
       ],
-      "order": 74,
+      "order": 86,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1762,7 +2031,7 @@
         "rule_forbid_context_cycle",
         "rule_require"
       ],
-      "order": 75,
+      "order": 87,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1781,7 +2050,7 @@
         "scc_known_graph",
         "feedback_set_breaks_cycle"
       ],
-      "order": 76,
+      "order": 88,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1803,7 +2072,7 @@
         "drift_orphan_consumer",
         "drift_version_skew"
       ],
-      "order": 77,
+      "order": 89,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1825,7 +2094,7 @@
         "hotspot_score_percentiles",
         "cross_repo_cochange_by_issue_key"
       ],
-      "order": 78,
+      "order": 90,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1844,7 +2113,7 @@
         "bus_factor_fixture",
         "codeowners_parse"
       ],
-      "order": 79,
+      "order": 91,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1863,7 +2132,7 @@
         "minhash_jaccard_estimate_within_0_05",
         "lsh_finds_planted_clone"
       ],
-      "order": 80,
+      "order": 92,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1882,7 +2151,7 @@
         "otlp_span_creates_observed_edge",
         "topology_diff_findings"
       ],
-      "order": 81,
+      "order": 93,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1903,7 +2172,7 @@
         "followup_grep_rate",
         "events_endpoint_requires_optin"
       ],
-      "order": 82,
+      "order": 94,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1928,7 +2197,7 @@
       "acceptance_tests": [
         "findings_end_to_end_fixture"
       ],
-      "order": 83,
+      "order": 95,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -1947,7 +2216,7 @@
       "acceptance_tests": [
         "dsm_highlights_cycle"
       ],
-      "order": 84,
+      "order": 96,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1966,7 +2235,7 @@
       "acceptance_tests": [
         "treemap_metric_switch"
       ],
-      "order": 85,
+      "order": 97,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -1986,7 +2255,7 @@
         "sugiyama_no_edge_crossings_on_tree_fixture",
         "contract_flow_drilldown"
       ],
-      "order": 86,
+      "order": 98,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -2006,7 +2275,7 @@
         "findings_filter_and_open_evidence",
         "trust_shows_lag"
       ],
-      "order": 87,
+      "order": 99,
       "execution": "fan-out-eligible",
       "gate_after": null
     },
@@ -2026,7 +2295,7 @@
         "chat_tool_loop_uses_backend",
         "chat_disabled_without_provider"
       ],
-      "order": 88,
+      "order": 100,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -2042,7 +2311,7 @@
       "deliverables": "`ui/e2e/fixtures/` generator (`pdx bench --ui-fixture`) producing manifests of 10k, 100k and 1M nodes; bundle-size check; accessibility pass (axe) on all views.",
       "acceptance": "all Playwright suites green in CI; bundle \u2264 2.5 MB gzipped.",
       "acceptance_tests": [],
-      "order": 89,
+      "order": 101,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -2051,9 +2320,9 @@
       "phase": "P7",
       "title": "Permission-aware tiles and leak test",
       "size": "M",
-      "depends_raw": "P7-02, P4-09",
+      "depends_raw": "P7-15, P4-09",
       "depends": [
-        "P7-02",
+        "P7-15",
         "P4-09"
       ],
       "deliverables": "tile materialisation per `permission_set_hash` (4.11.4), strict-mode omission of denied containers, cache keying and `ETag`; a synthetic estate fixture with three principals of different permissions; `pdx bench --synthetic-manifest` extended to 10M nodes for a nightly server/layout/tile timing report.",
@@ -2062,7 +2331,7 @@
         "tile_bytes_contain_no_denied_repo_strings",
         "tile_cache_separates_permission_sets"
       ],
-      "order": 90,
+      "order": 102,
       "execution": "single-agent",
       "gate_after": "G5"
     },
@@ -2082,7 +2351,7 @@
       "acceptance_tests": [
         "trust_page_generates_from_fixture_results"
       ],
-      "order": 91,
+      "order": 103,
       "execution": "single-agent",
       "gate_after": "G6"
     },
@@ -2099,40 +2368,7 @@
       "deliverables": "remove `legacy/`; update `THIRD_PARTY_NOTICES.md` (the dashboard attribution entry is removed only if no code from it survives; the agent verifies by grepping `ui/` for the original copyright line and distinctive component names from `legacy/frontend`); update `README.md`.",
       "acceptance": "provenance and licence scans pass; `legacy/` absent.",
       "acceptance_tests": [],
-      "order": 92,
-      "execution": "single-agent",
-      "gate_after": null
-    },
-    {
-      "id": "P9-02",
-      "phase": "P9",
-      "title": "Installers and packaging",
-      "size": "M",
-      "depends_raw": "P3-07",
-      "depends": [
-        "P3-07"
-      ],
-      "deliverables": "`install.sh`, `install.ps1` (checksum verification), Homebrew formula in `deploy/homebrew/`, npm wrapper package `deploy/npm/`, `cargo install` metadata; macOS ad-hoc signing in the installer; Windows unsigned-binary note in docs.",
-      "acceptance": "installer tests in CI containers (Debian, Alpine musl, macOS), PowerShell test on Windows runner.",
-      "acceptance_tests": [],
-      "order": 93,
-      "execution": "fan-out-eligible",
-      "gate_after": null
-    },
-    {
-      "id": "P9-03",
-      "phase": "P9",
-      "title": "Release pipeline",
-      "size": "M",
-      "depends_raw": "P9-02, P4-13",
-      "depends": [
-        "P9-02",
-        "P4-13"
-      ],
-      "deliverables": "`release.yml`: build matrix, SBOMs, SLSA provenance, cosign signatures, `checksums.txt`, container images to the configured registry, Helm chart package, trust page publish; release notes template.",
-      "acceptance": "dry-run release on a `v0.0.0-test` tag produces all artefacts; `cosign verify` and `gh attestation verify` succeed in a post-release job.",
-      "acceptance_tests": [],
-      "order": 94,
+      "order": 104,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -2151,7 +2387,7 @@
         "docs_links_valid",
         "cli_reference_matches_help"
       ],
-      "order": 95,
+      "order": 105,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -2170,7 +2406,7 @@
         "team_artifact_roundtrip",
         "migrate_from_v1_fixture"
       ],
-      "order": 96,
+      "order": 106,
       "execution": "single-agent",
       "gate_after": null
     },
@@ -2188,8 +2424,44 @@
       "acceptance_tests": [
         "vendor_refresh_reproducible"
       ],
-      "order": 97,
+      "order": 107,
       "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P9-08",
+      "phase": "P9",
+      "title": "Release pipeline (server artefacts)",
+      "size": "S",
+      "depends_raw": "P9-03, P4-13",
+      "depends": [
+        "P9-03",
+        "P4-13"
+      ],
+      "deliverables": "container images to the configured registry and the Helm chart package, signed and attested in the same release as P9-03's artefacts.",
+      "acceptance": "a dry-run release on a `v0.0.0-test` tag produces the images and the chart; `cosign verify` succeeds on every image.",
+      "acceptance_tests": [],
+      "order": 108,
+      "execution": "single-agent",
+      "gate_after": null
+    },
+    {
+      "id": "P9-10",
+      "phase": "P9",
+      "title": "Comparative benchmark",
+      "size": "M",
+      "depends_raw": "P5-06, P3-10",
+      "depends": [
+        "P5-06",
+        "P3-10"
+      ],
+      "deliverables": "4.13.4's comparative benchmark (`pdx bench --comparative`): the tools chosen at task start, pinned and licence-checked, run over the goldens; results in `bench/results/<version>/comparative.json` and on the trust page with the method.",
+      "acceptance": "`comparative_report_complete`; every number reproducible by `pdx bench --comparative`.",
+      "acceptance_tests": [
+        "comparative_report_complete"
+      ],
+      "order": 109,
+      "execution": "fan-out-eligible",
       "gate_after": null
     },
     {
@@ -2204,7 +2476,7 @@
       "acceptance_tests": [
         "release_scale_report_complete"
       ],
-      "order": 98,
+      "order": 110,
       "execution": "single-agent",
       "gate_after": "G7"
     }

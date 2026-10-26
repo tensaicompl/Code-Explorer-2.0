@@ -23,7 +23,7 @@ VALID = ("todo", "in-progress", "done", "blocked")
 ROW_RE = re.compile(r"^\|\s*(?P<id>P\d-\d{2})\s*\|\s*(?P<status>[a-z-]*)\s*\|(?P<rest>.*)\|\s*$")
 
 
-GATE_ROW = re.compile(r"^\|\s*(?P<id>G\d+a?)\s*\|[^|]*\|\s*(?P<state>[a-z ]+?)\s*\|")
+GATE_ROW = re.compile(r"^\|\s*(?P<id>G\d+[ab]?)\s*\|[^|]*\|\s*(?P<state>[a-z ]+?)\s*\|")
 
 
 def read_gate_verdicts(path: Path) -> set[str]:

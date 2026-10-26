@@ -70,9 +70,18 @@ next task that does not depend on it.
 ## Execution order
 
 `Ord` in `TASKS.md` is the normative cross-phase order, which is **not** phase
-order. P7-01…P7-06 run before P8-01…P8-10, then P7-07…P7-12, then P7-14, then
-P8-11, then P9. Gate G5 is evaluated after P7-14 and G6 after P8-11, in that
-order. There is no P7-13 and no P2-15.
+order. Since plan v1.4 (decision 78): P0 → P1 → P2 → P3 → the local UI slice
+(P7-01…P7-06) → the local-tier preview (P9-02, P9-03, P9-09) → P4 → P5 → P6 →
+P7-15 → P8-01…P8-10 → P7-07…P7-12 → P7-14 → P8-11 → the rest of P9, P9-07 last.
+The recall tasks P2-21 and P2-22 run alongside P3 and the local slice (decision 72),
+but G2 needs G1 and G1b, and the preview needs G2. Gate G5 is evaluated after P7-14
+and G6 after P8-11, in that order. There is no P7-13 and no P2-15.
+
+The plan groups the order into milestones (its Part 6 preamble): M0 consolidate,
+M1 scale and footprint (P2-17…P2-20, G1), M2 accuracy baseline (P2-21), M3 recall
+(P2-22, G1b), M4 local agent surface (P3, G2), M5 local UI slice, R1 local-tier
+preview, M6 server (P4, G3), M7 precise band, contracts and links (P5, P6, G4),
+M8 UI and analytics (G5, G6), M9 release (G7).
 
 Each task is classified by how it may be executed, from the plan's execution
 appendix:

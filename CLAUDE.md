@@ -72,10 +72,17 @@ that cannot work yet because a prerequisite is not built is recorded, not forced
   own index is `degraded` by one generated grammar table; discovery ignores
   `linguist-generated`) and 133 (the local extraction cache has no retention), all
   owner decisions; Kubernetes still passes 6 GiB in Stage 2 (issue 82).
-- **Remaining remediation steps:** R6 (106, Python candidates), R7 (108, overload
-  identity), R8 (107B, macro token trees); R9 (96) and R10 (97) are done; also issues
-  93 (Phase B), 82 (Kubernetes performance, G1), 119 (route band), 130 and 131 to
-  133, and P3 onwards.
+- **Plan v1.4 (2026-10-26, decisions 72 to 85):** the owner accepted the plan review
+  with the instruction that the tool be best in class. The external plan is
+  `! Version 2.0/PDX-2.0-PLAN-v1.4.md` (uncommitted; extract with
+  `scripts/plan/extract-plan.py`): 110 tasks, milestones M0 to M9 in its Part 6
+  preamble. Next, in order: M0 (push this branch, CI green; P0-07 supply chain), M1
+  (P2-17 streaming Stage 2 for issue 82, P2-18 generated/data files and cache
+  retention, P2-19 parser-recovery bound, P2-20 segment schema 4; then G1), M2 (P2-21
+  A0 for every golden, misses classified, per-language floors), M3 (P2-22 recall,
+  then G1b) alongside M4 (P3, now unheld; G2 needs G1 and G1b) and M5 (local UI
+  slice), then R1 (local-tier preview). Best in class is measured: P3-10
+  (agent-outcome benchmark) and P9-10 (comparative benchmark).
 
 ## State: P2 in progress
 

@@ -1,6 +1,7 @@
 # Gate evaluations
 
-Criteria derived from `PDX-2.0-PLAN-v1.3.3.md` Part 7 by `scripts/plan/extract-plan.py`.
+Criteria derived from `PDX-2.0-PLAN-v1.4.md` Part 7 by `scripts/plan/extract-plan.py`
+(v1.3.3 until 2026-10-26; v1.4's additions are marked in each gate, decision 78).
 A gate is evaluated by the driver only, after the task named in *After*.
 Every criterion must hold; a failing gate halts progression to the next phase.
 
@@ -15,9 +16,9 @@ are never redefined — G7 blocks the release until they hold.
 |---|---|---|---|
 | G0 | `P0-06` | passed | 2026-09-28 |
 | G1a | `P1-07` | passed | 2026-10-02 |
-| G1 | `P2-16` | pending | |
-| G1b | before G1's closure | pending | |
-| G2 | `P3-09` | pending | |
+| G1 | `P2-20` | pending | |
+| G1b | `P2-22` | pending | |
+| G2 | `P3-10` | pending | |
 | G3 | `P4-14` | pending | |
 | G4 | `P6-08` | pending | |
 | G5 | `P7-14` | pending | |
@@ -338,7 +339,14 @@ Windows is not a criterion of this gate, and is recorded because the run covers 
 the engine builds there with clang 20.1.8, `abi_smoke` and the warning-policy test pass
 through the bindings, and the binary builds and its tests pass.
 
-## G1 — after `P2-16`
+## G1 — after `P2-20`
+
+Plan v1.4 (decision 78) moves G1 after P2-20: streaming Stage 2 (P2-17, issue 82), generated
+files, data formats and cache retention (P2-18), the extraction bounds' closure (P2-19) and
+segment schema 4 (P2-20) are part of P2 now. It also names the machine of the scale
+criterion (the local reference profile, decision 80) and adds three criteria, below the
+v1.3.3 list. Decision 72 lifts the hold on P3 that the 2026-10-12 verdict placed; G2 is
+evaluated only once G1 and G1b have passed.
 
 Status: **pending**. Evaluated by the driver on 2026-10-12 at `2e6f253`: **fail**, and
 progression to P3 is halted. The gate records no state between `pending` and `passed`
@@ -353,6 +361,10 @@ Criteria:
 - [ ] performance baseline recorded: ≥ 400 files/s single-node for the structural profile (extraction plus typed resolution) on `kubernetes` (nightly), peak RSS ≤ 4 GiB on `kubernetes`: **not met**, issue 82
 - [x] coverage rows sum to call sites: the segment writer refuses rows that do not (P2-10)
 - [x] `bench/results/legacy-compare.md` exists
+- [ ] (v1.4) the scale criterion above measured on the local reference profile (decision 80)
+- [ ] (v1.4) issue 131's data repository indexed under 1 GiB peak
+- [ ] (v1.4) engine differential identical or ratified
+- [ ] (v1.4) sanitizer corpus run clean
 
 Evaluation log:
 
@@ -387,7 +399,34 @@ $ git ls-tree --name-only 2e6f253 bench/results/legacy-compare.md
 bench/results/legacy-compare.md
 ```
 
-## G1b — driver-inserted structural trust checkpoint before G1 closure
+2026-10-25 and 2026-10-26, the stabilisation round's evidence and decision 72. Evidence,
+not an evaluation; the status stays `pending`. At the stabilisation head (engine 14; no product code changed after `f1e406a`): all ten goldens
+`ready` (`make golden`); `make determinism` ten of ten byte-identical across a cold
+single-worker build, a cold 28-worker build and a warm rebuild; `make check-asan` 61 of 61
+with no sanitizer report; the engine differential 32 corpora, 0 unexpected rows. Kubernetes
+still passes a 6 GiB ceiling in Stage 2, after 13.6 s at 6.5 GB (issue 82). Decision 72
+(2026-10-26, the owner) lifts the hold on P3 this gate's verdict placed: P3 proceeds while
+G1 is open, and G2 is evaluated only once G1 and G1b have passed.
+
+## G1b — after `P2-22`
+
+Plan v1.4 (decision 78) makes G1b a plan gate after P2-22, so `tasks.json` and the roll-up
+carry it, and decision 72 replaces the holds it placed (issue 93's Phase B, issue 82 and P3
+now proceed as tasks P2-19, P2-17 and P3). Its floors become per language (decision 73):
+for language L, G4's v1.3.3 floor where P2-21's measured structural ceiling allows it,
+otherwise that ceiling less 5 points, never below the recall measured at v1.4 (Python
+golden 28.82%, Rust golden 81.05%). It now covers every golden with an oracle, each
+judged on its own; a product-level structural recall is published beside it and is not a
+criterion that can average a weak language away. Criteria from v1.4, replacing the six
+golden-specific ones below once P2-21 records the floors:
+
+- [ ] every golden with an oracle: `typed` precision ≥ 97% and drawn-union precision ≥ 95% on oracle-verifiable sites, the oracle-verifiable fraction reported
+- [ ] every golden with an oracle: recall at or above its language's floor (table recorded here by P2-21)
+- [ ] every miss classified by cause; product-level structural recall published
+
+The v1.3.3-era section follows unchanged: the driver-inserted checkpoint of decision 64.
+
+### Before v1.4: the driver-inserted structural trust checkpoint
 
 Status: **pending**. Inserted by the driver on 2026-10-13 (decision 64, issue 95). G1b
 does not replace G1, and is not in the plan's projection (`tasks.json` has no G1b, so
@@ -667,12 +706,14 @@ band is precise in every corpus. Two of the six floors still fail, both recall's
 is 3.95 points short (788 relations classified in issue 105, 296 more in macro token
 trees, issue 107B); Python needs issue 106's recall work.
 
-## G2 — after `P3-09`
+## G2 — after `P3-10`
 
 Status: **pending**
 
 Criteria:
 
+- [ ] (v1.4) G1 and G1b passed (decision 72)
+- [ ] (v1.4) agent-outcome benchmark recorded, the PDX arm at least as correct as the baseline arm on every task class (4.13.4)
 - [ ] MCP conformance suite green for all 18 tools locally
 - [ ] `pdx install`/`uninstall` idempotent for the 6 clients
 - [ ] hook fail-open verified
@@ -695,6 +736,7 @@ Criteria:
 - [ ] remote MCP e2e green with OIDC mock and PAT
 - [ ] Helm lint/template/kubeconform green
 - [ ] p95 `pdx_callers` latency < 300 ms at 100 concurrent sessions on the compose stack (k6 script `bench/load/mcp.js` against a 20-repo synthetic manifest)
+- [ ] (v1.4) server scale on the server reference profile: the `linux` scale repository indexed by one index-job worker at ≥ 400 files/s with peak RSS ≤ 8 GiB (decision 78)
 
 Evaluation log:
 
@@ -707,7 +749,7 @@ Status: **pending**
 Criteria:
 
 - [ ] Structural accuracy published for all golden repos (4.13.1): `typed` precision ≥ 97% and union of drawn bands precision ≥ 95% on oracle-verifiable sites, oracle-verifiable fraction reported
-- [ ] recall ≥ 85% for Java/TS/Python/Go/C#/Rust/Kotlin, ≥ 80% Ada (on the subset), ≥ 70% C/C++
+- [ ] recall at or above each language's floor (v1.4, decision 73: ≥ 85% for Java/TS/Python/Go/C#/Rust/Kotlin, ≥ 80% Ada on the subset, ≥ 70% C/C++, or the measured structural ceiling less 5 points where lower, never below the recall at v1.4); product-level structural recall not below G1b's
 - [ ] ingestion fidelity reported
 - [ ] precise sample review ≥ 99% where `truth.jsonl` exists (otherwise reported as `unreviewed`)
 - [ ] three-repo link fixture green including the collision fixtures (`/health` in three repos not linked without identity)
@@ -741,7 +783,7 @@ Status: **pending**
 Criteria:
 
 - [ ] All analytics fixtures green
-- [ ] trust page generated
+- [ ] trust page generated, with the agent-outcome results (v1.4, 4.13.4)
 - [ ] freshness and agent-usage metrics visible in `/api/v2/trust`
 - [ ] `docs/trust` published in a dry-run release
 
@@ -765,7 +807,10 @@ Criteria:
 - [ ] `STATUS.md` complete
 - [ ] vendor refresh reproducible
 - [ ] `bench/precise-sample/<lang>/truth.jsonl` present and ≥ 99% for every precise-capable language
-- [ ] **all G1, G3 and G4 correctness and security floors meet their stated values — no small-miss waiver at release**
+- [ ] (v1.4) comparative benchmark (P9-10) published
+- [ ] (v1.4) agent-outcome PDX arm at least as correct as the baseline on every task class
+- [ ] (v1.4) the shipped dependency closure audited (decision 83)
+- [ ] **all G1, G1b, G3 and G4 correctness and security floors meet their stated values — no small-miss waiver at release**
 
 Evaluation log:
 
