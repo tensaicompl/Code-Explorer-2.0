@@ -279,8 +279,8 @@ binding with its declaring node's position and path (`routes`, patch 0011); both
 records whose text is ranges of the source (issue 90B, below), a Rust file the members
 its macro invocations may write (issue 110), Rust calls their `use` scope (issue 114)
 and a Rust trait impl's relation and methods its header, the methods their trait
-(issue 117, all below); `ENGINE_VERSION` is 15 (P2-18, patch 0037: data documents' key
-paths). Issue 74 (decision 45, engine 4): the C and C++ expression
+(issue 117, all below); `ENGINE_VERSION` is 16 (P2-18's patch 0037, data documents' key
+paths; P2-19's patch 0038, the parser's recovery bound). Issue 74 (decision 45, engine 4): the C and C++ expression
 evaluator's per-file step budget is 10,000 per started 32 KiB of its source, at least
 10,000 and at most 320,000, from the length alone (patch 0012). Running it out is still
 lost work and still degrades; a budget that starves real code is fixed in the engine,
@@ -444,12 +444,21 @@ the buffer Stage 2 supplies is the whole input.
     field lookups) and can refuse collections (`PDX_ENGINE_TEST_REFUSE_LOOKUP_INDEXES=
     children`). `engine/tests/wide_nodes.c` proves the answers tree-sitter's and the work
     linear in every language's wide shapes.
-- **Open.** Issues 88, 90, 91, 92 and 94 are resolved. Issues 86, 87 and 89 are fixed,
-  and their closure stays held: issue 93 is open. Its extraction side is fixed (patch
-  0026), but the vendored parser's own error recovery is quadratic: JavaScript after an
-  unclosed parenthesis parses in about 94 s at 2 MiB (`ts_parser__recover` rebuilding
-  the error node). Changing the parser is a decision to record. Engine blockers: issues
-  82 and 93.
+- **No unbounded parse recovery (issue 93, decision 74, patch 0038, engine 16).** The
+  vendored parser's recovery rebuilds an error node as wide as the rest of the file for
+  each token (JavaScript after an unclosed parenthesis: 89 s at 2 MiB). The runtime counts
+  that work (`recovery_work`: subtrees retained and summarised again); past 2^24 plus 16
+  a byte read the parse stops, resets itself and says so (`ts_parser_recovery_exhausted`),
+  and the engine refuses the file as one past the depth ceiling (no fact, lost work once,
+  `lsp_skipped`, never cached; the expanded C pass skipped alone). Counted, never timed.
+  The pathological shape stops at the same work whatever its length; the census's
+  98,434 files extract identically, the most work any did an eighth of the allowance.
+  Tests: `engine/tests/parse_recovery.c` (`parse_recovery_is_linear`,
+  `parse_recovery_bound_is_deterministic`), `pdx-engine`'s `parse_recovery`,
+  `wide_nodes` (the issue's JavaScript file refused at 4,000 and 8,000 lines).
+- **Closed.** Issues 86 to 94 are resolved (86, 87 and 89 re-audited against the census
+  by P2-19: 14 of its files lose work, each to a design ceiling). Issue 134 (a generated
+  Go descriptor's 975-operand concatenation past the depth ceiling) is open, for P2-22.
 
 Issue 104 (decision 65's R2, patch 0028; engine 8 since issue 112): Rust typed answers
 need path evidence.
@@ -478,7 +487,8 @@ need path evidence.
   `cache_entries_of_engine_eleven_are_never_served` for 0032 and
   `cache_entries_of_engine_twelve_are_never_served` for 0033 and
   `cache_entries_of_engine_thirteen_are_never_served` for 0034 and
-  `cache_entries_of_engine_fourteen_are_never_served` for 0037 (planted in the current cache
+  `cache_entries_of_engine_fourteen_are_never_served` for 0037 and
+  `cache_entries_of_engine_fifteen_are_never_served` for 0038 (planted in the current cache
   format, so that the engine version alone keeps it out).
 
 Issue 111 (patch 0029, engine 9): a Rust file's `use` declarations are read from its

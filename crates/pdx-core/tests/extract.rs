@@ -735,17 +735,17 @@ fn cache_object_id_fixed_vector() {
     );
     assert_eq!(
         (ENGINE_VERSION, LANGUAGE_MATRIX_VERSION),
-        (15, 3),
-        "the vector below is engine 15's and matrix 3's"
+        (16, 3),
+        "the vector below is engine 16's and matrix 3's"
     );
     assert_eq!(
         SECRET_DETECTOR_VERSION, 5,
         "the vector below is detector 5's, through the policy digest"
     );
-    // Over "pdx-extract-cache" 0x00, u32 BE 10, 15 and 3, the policy digest
+    // Over "pdx-extract-cache" 0x00, u32 BE 10, 16 and 3, the policy digest
     // 6aa1dd65…3b99 of {"detector_version":5,"patterns":["*.key","*.pem","*id_rsa*",
     // ".env*"]}, u64 BE 6 "python", u64 BE 10 "src/app.py" and the blob above. Engines
-    // 3's to 14's are in cache_key_includes_engine_version. Format 9's at engine 14 and
+    // 3's to 15's are in cache_key_includes_engine_version. Format 9's at engine 14 and
     // matrix 2 (before decision 85) was 26d5d2bc…9f3a, format 8's (before issue 117)
     // was d769d391…a28b at engine 12, format 7's (before issue 114)
     // was da5d96b4…0cb3 at engine 10, format 6's (before issue 110) b8e9117f…1d31 at
@@ -756,10 +756,10 @@ fn cache_object_id_fixed_vector() {
     let id = key.object_id().to_string();
     assert_eq!(
         id,
-        "0500dfc6e636d25967fe0424c654911f99504eb23156b9698dce96552c1a4998"
+        "993c76e78ef1303149d9ed5cd14b920576f39ccc1b5d49fda08439be8d59ccd5"
     );
     let path = FsCache::at("cache").object_path(&key);
-    assert_eq!(path, Path::new("cache").join("v10").join("05").join(&id));
+    assert_eq!(path, Path::new("cache").join("v10").join("99").join(&id));
     // Moving a byte between the two strings changes the id: their lengths are part of
     // the encoding.
     let mut shifted = key.clone();
@@ -770,9 +770,9 @@ fn cache_object_id_fixed_vector() {
 
 #[test]
 fn cache_key_includes_engine_version() {
-    // An engine whose output can differ is another key: what engines 3 to 14 cached is
-    // never found by engine 15 (issues 74 to 76, 83, 112, 111, 110, 114, 109, 107A and
-    // 105, and decision 85).
+    // An engine whose output can differ is another key: what engines 3 to 15 cached is
+    // never found by engine 16 (issues 74 to 76, 83, 112, 111, 110, 114, 109, 107A,
+    // 105 and 93, and decision 85).
     // Independently computed, as the vector above, with each engine version, under
     // format 10 and matrix 3 (decision 85) and detector 5 (issue 96); format 9's (matrix
     // 2) were b963f252…89ef, 491bbf84…e9dc, 536f85e7…b809, 7ee801e2…54d7, 2131036f…30f6, 810eca8b…938d, 362c9e58…cb28, 64cf6500…c278, 0b6ee870…717a, 8ffbc45b…5e44, 8d75bfa0…1858, 26d5d2bc…9f3a; detector 4's were
@@ -845,6 +845,10 @@ fn cache_key_includes_engine_version() {
             15,
             "0500dfc6e636d25967fe0424c654911f99504eb23156b9698dce96552c1a4998",
         ),
+        (
+            16,
+            "993c76e78ef1303149d9ed5cd14b920576f39ccc1b5d49fda08439be8d59ccd5",
+        ),
     ] {
         let mut versioned = key.clone();
         versioned.engine_version = engine;
@@ -857,10 +861,10 @@ fn cache_key_includes_engine_version() {
         assert!(path.starts_with(Path::new("cache").join("v10")), "{path:?}");
         ids.push(versioned.object_id());
     }
-    assert_eq!(key.object_id(), ids[12], "the current key is engine 15's");
+    assert_eq!(key.object_id(), ids[13], "the current key is engine 16's");
     ids.sort();
     ids.dedup();
-    assert_eq!(ids.len(), 13, "each engine version is another key");
+    assert_eq!(ids.len(), 14, "each engine version is another key");
 }
 
 #[test]
@@ -2904,6 +2908,56 @@ fn cache_entries_of_engine_twelve_are_never_served() {
     );
     assert_eq!(probe.files(), 0);
     assert_eq!(extract_of(&warm, PATH), cold);
+}
+
+#[test]
+fn cache_entries_of_engine_fifteen_are_never_served() {
+    // Engine 15 parsed a file whose error recovery is quadratic to the end and extracted
+    // what it found; engine 16 stops that parse at its recovery bound and refuses the
+    // file, losing work once (patch 0038, issue 93). What engine 15 cached for these bytes
+    // is planted in the current format, so only the engine version in the key keeps it
+    // from being served; and the refusal itself is never cached.
+    const PATH: &str = "web/open.js";
+    let mut source = String::from("let x = (\n");
+    let mut n = 0;
+    while source.len() < 160 * 1024 {
+        let _ = writeln!(source, "function f{n}() {{ g{n}(); }}");
+        n += 1;
+    }
+    let checkout = Checkout::new();
+    checkout.write(PATH, &source);
+    let config = checkout.config();
+    let fresh = run(&checkout, None, &Probe::new(Twist::None));
+    let fresh = extract_of(&fresh, PATH);
+    assert_eq!(fresh.extraction_lost, 1, "the parse stopped at its bound");
+    assert!(fresh.definitions.is_empty() && fresh.calls.is_empty());
+
+    // What engine 15 cached for these bytes: an extraction it did not refuse.
+    let mut stale = fresh.record().clone();
+    stale.extraction_lost = 0;
+    let mut key = key_for(&checkout, &config, PATH, "javascript");
+    key.engine_version = 15;
+    let cache = Cache::new();
+    let stale_bytes = CacheEnvelope::encode(&key, &stale);
+    plant(&cache, &key, &stale_bytes);
+    let stale_path = cache.cache.object_path(&key);
+
+    for build in ["cold", "warm"] {
+        let probe = Probe::new(Twist::None);
+        let report = run(&checkout, Some(&cache), &probe);
+        assert_eq!(report.stats.cache_hits, 0, "{build}: an entry was served");
+        assert_eq!(probe.files(), 1, "{build}: the file was not extracted");
+        assert_eq!(extract_of(&report, PATH), fresh, "{build}");
+    }
+    assert_eq!(
+        fs::read(&stale_path).unwrap(),
+        stale_bytes,
+        "the engine 15 entry changed"
+    );
+    let current = cache
+        .cache
+        .object_path(&key_for(&checkout, &config, PATH, "javascript"));
+    assert!(!current.exists(), "a refused extraction was cached");
 }
 
 #[test]

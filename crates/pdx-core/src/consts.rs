@@ -78,9 +78,11 @@ pub const LANGUAGE_MATRIX_VERSION: u32 = 3;
 /// return type and a function's `async` (patch 0034, issues 105, 113 and 116); 15 since
 /// a data document (JSON, YAML, TOML) gives one definition per distinct key path to
 /// `DATA_KEY_MAX_DEPTH` keys, its parent the key that holds it and its occurrences
-/// counted, in place of one per key at every depth (patch 0037, decision 85, issue 131).
+/// counted, in place of one per key at every depth (patch 0037, decision 85, issue 131);
+/// 16 since a parse whose error recovery passes its bound, work linear in the bytes read,
+/// stops, and the file is refused, losing work once (patch 0038, decision 74, issue 93).
 /// Equal to the engine's own `pdx_engine::Engine::version()`, which a test checks.
-pub const ENGINE_VERSION: u32 = 15;
+pub const ENGINE_VERSION: u32 = 16;
 
 /// How many keys deep a data document's key paths are read (P2-18, decision 85): a key
 /// below it is no definition. Equal to the engine's `PDXE_DATA_KEY_MAX_DEPTH`, which a

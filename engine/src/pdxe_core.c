@@ -3130,6 +3130,21 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
     t1 += tl_parse_wall_seam_offset_ns; /* the stall seam inflates every wall reading */
 #endif
 
+    /* Issue 93 (decision 74): a parse whose error recovery passed its bound is no parse
+     * failure. As for a tree past the depth ceiling, the result holds no fact, loses work
+     * once and skips cross-file resolution; it is never cached. */
+    if (!tree && ts_parser_recovery_exhausted(parser)) {
+        result->module_qn = pdxe_fqn_module_source_lang(a, project, rel_path, language);
+        result->is_test_file = pdxe_is_test_file(rel_path, language);
+        result->lsp_skipped = true;
+        pdxe_lost_work();
+        pdxe_log_warn("extract.parse.recovery_bound", "reason", "parse_recovery", "path",
+                     rel_path ? rel_path : "");
+        atomic_fetch_add(&total_parse_ns, t1 - t0);
+        atomic_fetch_add(&total_files, 1);
+        pdxe_index_mark_done(rel_path);
+        return result;
+    }
     if (!tree) {
         result->has_error = true;
         /* Only the budget's own callback may call this a timeout. Any other
@@ -3375,6 +3390,11 @@ static PDXEFileResult *extract_file_ex_body(const char *source, int source_len, 
                 TSParseOptions pp_opts = {0};
                 TSTree *pp_tree =
                     ts_parser_parse_with_options(pp_parser, NULL, pp_ts_input, pp_opts);
+                /* Issue 93: the expanded text's parse is held to the same recovery
+                 * bound; past it, the expanded pass is skipped alone, losing work once. */
+                if (!pp_tree && ts_parser_recovery_exhausted(pp_parser)) {
+                    pdxe_lost_work();
+                }
                 /* Issue 89: the expanded tree is held to the same depth; past it, the
                  * expanded pass is skipped alone, losing work once. */
                 if (pp_tree) {

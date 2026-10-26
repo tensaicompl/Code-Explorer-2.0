@@ -150,7 +150,10 @@ Everything goes through `include/pdxe.h`. In outline:
   path or the loop in progress, so a wide node (an error node the parser's recovery
   fills with the rest of the file) costs its width, not its width squared
   (`patches/0026-linear-wide-node-traversal.patch`, issue 93). The parser's own recovery
-  can still be quadratic in such a node (issue 93, open).
+  is quadratic in such a node, so it is bounded: its work (subtrees retained and
+  summarised again) may not pass 2^24 plus 16 a byte read, counted, never timed; past it
+  the parse stops and the file is refused as one past the depth ceiling is
+  (`patches/0038-bounded-parse-recovery.patch`, decision 74).
 - **Data documents.** A JSON, YAML or TOML file gives one definition per distinct key
   path, to `PDXE_DATA_KEY_MAX_DEPTH` (4) keys, in document order, each the child of the
   key that holds it and counting its `occurrences` (an array's elements share one path,

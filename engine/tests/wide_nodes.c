@@ -522,6 +522,9 @@ static void linear_shape(const shape_t *s, bool refused) {
 typedef struct {
     uint32_t errors, widest, span_start, span_end;
     uint64_t nodes;
+    /* The parse stopped at its error recovery's bound (issue 93, patches/0038): no tree. */
+    bool refused;
+    uint64_t recovery_work;
 } error_shape_t;
 
 static error_shape_t error_shape(const char *language, const buf_t *b) {
@@ -529,6 +532,12 @@ static error_shape_t error_shape(const char *language, const buf_t *b) {
     TSParser *parser = ts_parser_new();
     ts_parser_set_language(parser, pdxe_ts_language((PDXELanguage)(pdxe_language_id(language) - 1)));
     TSTree *tree = ts_parser_parse_string(parser, NULL, b->text, (uint32_t)b->len);
+    e.recovery_work = ts_parser_recovery_work(parser);
+    if (!tree) {
+        e.refused = ts_parser_recovery_exhausted(parser);
+        ts_parser_delete(parser);
+        return e;
+    }
     TSTreeCursor cursor = ts_tree_cursor_new(ts_tree_root_node(tree));
     for (;;) {
         TSNode node = ts_tree_cursor_current_node(&cursor);
@@ -562,7 +571,10 @@ static error_shape_t error_shape(const char *language, const buf_t *b) {
 }
 
 /* The issue's two files at 1,000 to 8,000 lines: one error node as wide as the file is
- * long, and the extraction's navigation work proportional to the nodes, at every size. */
+ * long, and the extraction's navigation work proportional to the nodes, at every size.
+ * The JavaScript file's parse is quadratic in its error node (issue 93): past the
+ * recovery bound (patches/0038, 4,000 lines and up here) the parse stops and the file is
+ * refused, losing work once, with no definition. */
 static void issue_files(void) {
     static const shape_t ISSUE[] = {
         {"kotlin", "kt", "nested classes", "", "class O~I~ { class I~I~ { fun m() { I~I~() } } }\n", ""},
@@ -575,6 +587,18 @@ static void issue_files(void) {
             build(&b, &ISSUE[s], SIZES[k]);
             error_shape_t e = error_shape(ISSUE[s].language, &b);
             outcome_t o = extract(ISSUE[s].language, "issue93", &b);
+            if (e.refused) {
+                printf("%s %s %d lines: %zu bytes, refused by the recovery bound after %llu "
+                       "units of recovery\n",
+                       ISSUE[s].language, ISSUE[s].name, SIZES[k], b.len,
+                       (unsigned long long)e.recovery_work);
+                CHECK(strcmp(ISSUE[s].language, "javascript") == 0,
+                      "%s %d: a linear shape was refused", ISSUE[s].language, SIZES[k]);
+                CHECK(o.rc == PDXE_OK && o.lost == 1 && o.defs == 0,
+                      "%s %d: refused, yet extraction %d, lost %u, %u definitions",
+                      ISSUE[s].language, SIZES[k], o.rc, o.lost, o.defs);
+                continue;
+            }
             uint64_t work = 0;
             for (int c = 0; c < NAVIGATION_KINDS; c++) {
                 work += o.work[NAVIGATION[c]];

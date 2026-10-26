@@ -111,7 +111,22 @@ struct TSParser {
   bool has_scanner_error;
   bool canceled_balancing;
   bool has_error;
+  /* Issue 93 (decision 74): the work error recovery has done in this parse, counted in
+   * the subtrees it retains and summarises again when it wraps what it pops into an
+   * error node, and whether that work passed its bound, which stopped the parse. */
+  uint64_t recovery_work;
+  bool recovery_exhausted;
 };
+
+/* Issue 93 (decision 74): recovery may do at most this much work per byte read, past a
+ * fixed allowance; more stops the parse. Recovering into an earlier state wraps every
+ * subtree popped since in a new error node, so one error node a file wide is rebuilt for
+ * each token taken and recovery is quadratic in it. Counted, never timed: the same
+ * bytes stop at the same place on every machine. Over the 98,434 files of the census the
+ * most any did was 2,097,152 (a 5 KB table of bare numbers), an eighth of the allowance,
+ * and no file over 10 KB did 3.2 a byte. */
+static const uint64_t RECOVERY_WORK_PER_BYTE = 16;
+static const uint64_t RECOVERY_WORK_ALLOWANCE = (uint64_t)1 << 24;
 
 typedef struct {
   unsigned cost;
@@ -1218,6 +1233,7 @@ static bool ts_parser__recover_to_state(
       ts_assert(error_trees.size == 1);
       Subtree error_tree = *array_get(&error_trees, 0);
       uint32_t error_child_count = ts_subtree_child_count(error_tree);
+      self->recovery_work += error_child_count;
       if (error_child_count > 0) {
         array_splice(&slice.subtrees, 0, 0, error_child_count, ts_subtree_children(error_tree));
         for (unsigned j = 0; j < error_child_count; j++) {
@@ -1230,6 +1246,7 @@ static bool ts_parser__recover_to_state(
     ts_subtree_array_remove_trailing_extras(&slice.subtrees, &self->trailing_extras);
 
     if (slice.subtrees.size > 0) {
+      self->recovery_work += slice.subtrees.size;
       Subtree error = ts_subtree_new_error_node(&slice.subtrees, true, self->language);
       ts_stack_push(self->stack, slice.version, error, false, goal_state);
     } else {
@@ -2044,6 +2061,14 @@ const TSRange *ts_parser_included_ranges(const TSParser *self, uint32_t *count) 
   return ts_lexer_included_ranges(&self->lexer, count);
 }
 
+bool ts_parser_recovery_exhausted(const TSParser *self) {
+  return self->recovery_exhausted;
+}
+
+uint64_t ts_parser_recovery_work(const TSParser *self) {
+  return self->recovery_work;
+}
+
 void ts_parser_reset(TSParser *self) {
   ts_parser__external_scanner_destroy(self);
   if (self->wasm_store) {
@@ -2094,6 +2119,8 @@ TSTree *ts_parser_parse(
     LOG("resume_parsing");
     if (self->canceled_balancing) goto balance;
   } else {
+    self->recovery_work = 0;
+    self->recovery_exhausted = false;
     ts_parser__external_scanner_create(self);
     if (self->has_scanner_error) goto exit;
 
@@ -2139,6 +2166,20 @@ TSTree *ts_parser_parse(
 
         if (!ts_parser__advance(self, version, allow_node_reuse)) {
           if (self->has_scanner_error) goto exit;
+          return NULL;
+        }
+
+        /* Issue 93: recovery's work is held to a bound linear in what has been read;
+         * past it the parse stops, and is not left to be resumed. */
+        if (
+          self->recovery_work >
+          RECOVERY_WORK_ALLOWANCE + RECOVERY_WORK_PER_BYTE * self->lexer.current_position.bytes
+        ) {
+          LOG("recovery_exhausted");
+          uint64_t work = self->recovery_work;
+          ts_parser_reset(self);
+          self->recovery_work = work;
+          self->recovery_exhausted = true;
           return NULL;
         }
 

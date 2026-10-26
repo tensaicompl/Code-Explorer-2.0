@@ -639,7 +639,7 @@ mod tests {
 
     #[test]
     fn the_version_names_the_four_versions() {
-        assert_eq!(version_text(), "pdx 0.1.0\nengine 15\nschema 3\nmatrix 3\n");
+        assert_eq!(version_text(), "pdx 0.1.0\nengine 16\nschema 3\nmatrix 3\n");
     }
 
     #[test]

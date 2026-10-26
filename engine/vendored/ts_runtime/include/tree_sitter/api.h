@@ -366,6 +366,19 @@ TSTree *ts_parser_parse_string_encoding(
 void ts_parser_reset(TSParser *self);
 
 /**
+ * Whether the last parse stopped because its error recovery passed its bound: work
+ * linear in the bytes read (issue 93, decision 74). The parse returned NULL and is not
+ * left to be resumed. Cleared when a new parse starts.
+ */
+bool ts_parser_recovery_exhausted(const TSParser *self);
+
+/**
+ * The work the last parse's error recovery did: subtrees retained and summarised again
+ * to wrap what it popped in an error node.
+ */
+uint64_t ts_parser_recovery_work(const TSParser *self);
+
+/**
  * Set the logger that a parser should use during parsing.
  *
  * The parser does not take ownership over the logger payload. If a logger was
