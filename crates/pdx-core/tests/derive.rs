@@ -134,7 +134,9 @@ fn projection(graph: &DerivedGraph) -> String {
     writeln!(out, "entry points: {entry_points}").unwrap();
     let mut edges: BTreeMap<(&str, &str), usize> = BTreeMap::new();
     for e in &graph.edges {
-        *edges.entry((e.kind.as_str(), e.band.as_str())).or_default() += 1;
+        *edges
+            .entry((e.kind.as_str(), e.band.map_or("declared", |b| b.as_str())))
+            .or_default() += 1;
     }
     writeln!(out, "edges: {edges:?}").unwrap();
     let mut candidates: BTreeMap<&str, usize> = BTreeMap::new();
@@ -725,8 +727,8 @@ fn routes_express() {
     assert_eq!(edge.src, list.node_id);
     // The handler is the one callable of its name in the file: `scoped` evidence, so the
     // edge is kept and not drawn (issue 102); the route and its entry point stay.
-    assert_eq!(edge.band, pdx_core::bands::Band::Scoped, "{edge:?}");
-    assert!(!edge.band.is_drawn());
+    assert_eq!(edge.band, Some(pdx_core::bands::Band::Scoped), "{edge:?}");
+    assert!(!edge.is_drawn());
     let site_id = edge.site_id.expect("the registration is the site");
     let site = g
         .sites
@@ -792,7 +794,7 @@ fn tests_junit() {
             (&call.dst, call.band, &call.site_id),
             (&test_edge.dst, test_edge.band, &test_edge.site_id)
         );
-        assert!(call.band.is_drawn());
+        assert!(call.is_drawn() && call.band.is_some());
     }
     // The helper in the test class is a method, not a test.
     let check = node(g, NodeKind::Method, "check");
@@ -1727,7 +1729,7 @@ fn drawn_edges_copy_engine_calibration() {
         };
         assert_eq!(
             (edge.kind, edge.band, edge.observed),
-            (expected, r.band(), false)
+            (expected, Some(r.band()), false)
         );
         assert_eq!(
             edge.engine_score.map(f64::to_bits),
@@ -2053,11 +2055,10 @@ fn spring_route_has_real_site() {
         fingerprint,
     );
     assert_eq!(site.site_id, key.site_id().unwrap());
-    // A declared route's edge is labelled `exact`, which draws nothing since issue 102:
-    // the route, its node and its site are kept; which band a declaration deserves is
-    // issue 119's.
-    assert_eq!(edge.band, pdx_core::bands::Band::Exact);
-    assert!(!edge.band.is_drawn());
+    // A declared route's edge has no band: the declaration states it (decision 76), so
+    // it is drawn and shown as declared.
+    assert_eq!(edge.band, None);
+    assert!(edge.is_drawn());
 }
 
 #[test]

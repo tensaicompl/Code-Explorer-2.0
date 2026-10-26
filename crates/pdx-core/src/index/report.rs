@@ -92,6 +92,11 @@ pub struct FileCounts {
     pub skipped_generated: u64,
     /// Of `skipped`, marked `linguist-vendored` (decision 85).
     pub skipped_vendored: u64,
+    /// Directories discovery excluded by name (issue 98, decision 75): no file of theirs
+    /// is in `files`.
+    pub excluded_directories: u64,
+    /// The files below them discovery would otherwise have read.
+    pub excluded_files: u64,
     /// Not text.
     pub binary: u64,
     /// Withheld under the secrets policy.

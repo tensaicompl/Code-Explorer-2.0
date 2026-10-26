@@ -17,8 +17,10 @@
 // Independent integers. A reader refuses data whose major version differs from
 // the one it was built against, and the server re-indexes rather than guessing.
 
-/// Layout of a segment file, the immutable graph of one repository at one commit.
-pub const SEGMENT_SCHEMA_VERSION: u32 = 3;
+/// Layout of a segment file, the immutable graph of one repository at one commit. 4
+/// since declared edges have no band, a candidate row keeps its total, and directories
+/// excluded by name are recorded (P2-20; 4.3's version table).
+pub const SEGMENT_SCHEMA_VERSION: u32 = 4;
 
 /// Layout of the control plane's relational schema.
 pub const CONTROL_SCHEMA_VERSION: u32 = 1;

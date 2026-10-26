@@ -308,8 +308,11 @@ fn golden_from_a_built_segment_holds_its_drawn_edges_only() {
     };
     let mut expected: Vec<GoldenEdge> = edges
         .iter()
-        .filter(|e| drawn.contains(&e.band.as_str()))
-        .map(|e| tuple(&qn(&e.src), &qn(&e.dst), e.kind.as_str(), e.band.as_str()))
+        .filter(|e| e.band.is_none_or(|b| drawn.contains(&b.as_str())))
+        .map(|e| {
+            let band = e.band.map_or("declared", |b| b.as_str());
+            tuple(&qn(&e.src), &qn(&e.dst), e.kind.as_str(), band)
+        })
         .collect();
     expected.sort_by(|x, y| {
         (&x.src_qn, &x.dst_qn, &x.kind, &x.band).cmp(&(&y.src_qn, &y.dst_qn, &y.kind, &y.band))

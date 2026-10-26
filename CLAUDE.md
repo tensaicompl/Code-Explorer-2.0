@@ -841,10 +841,16 @@ and the segment writer refuse one without (`EdgeKind::requires_site`). An entry 
 is Appendix B.2's, decided here (tests, route handlers, each language's conventional
 `main`, the framework bootstraps); the engine's own flag is `props.engine_entry_point`
 and never makes one (issue 55). Segments are
-`SEGMENT_SCHEMA_VERSION` 3: version 2 added `candidates.engine_candidates` and nullable
+`SEGMENT_SCHEMA_VERSION` 4: version 2 added `candidates.engine_candidates` and nullable
 `blob_sha` and `line_count` for files never read (issues 50 and 51); version 3 added the
 required meta key `repo_id_source`, exactly `url` or `registered` (issue 71, decision
-40). With `url`, the writer and reader refuse a `repo_id` that is not
+40); version 4 (P2-20) lets `edges.band` be NULL for an edge a declaration states
+(`DEFINES_ROUTE` declared on its handler: drawn, golden band `declared`, `Edge::declared`,
+`Edge::is_drawn`; the writer refuses it on any other kind; decision 76), adds
+`candidates.candidates_total` (decision 68) and the `excluded_directories` table
+(directories excluded by the names `build`, `target`, `dist`, `vendor`, with their files,
+`discover_with_exclusions`; totalled in both reports; decision 75). A reader's band filter
+never matches a declared edge: ask for every band and keep `Edge::is_drawn`. With `url`, the writer and reader refuse a `repo_id` that is not
 `repo_id_from_url(repo_url)`; a `registered` id is never compared with the URL. Older
 segments are refused and re-indexed, never migrated. The golden fixtures are `insta`
 snapshots in `crates/pdx-core/tests/snapshots/`: review a changed one, never accept it

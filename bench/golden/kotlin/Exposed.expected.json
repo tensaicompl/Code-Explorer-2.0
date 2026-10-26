@@ -1055,6 +1055,24 @@
       "band": "import-guided"
     },
     {
+      "src_qn": "documentation-website.Writerside.snippets.exposed-spring.src.main.kotlin.com.example.exposedspring.MessageController.MessageController.findMessageById",
+      "dst_qn": "{\"handler\":\"documentation-website.Writerside.snippets.exposed-spring.src.main.kotlin.com.example.exposedspring.MessageController.MessageController.findMessageById\",\"method\":\"GET\",\"path\":\"/{id}\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "documentation-website.Writerside.snippets.exposed-spring.src.main.kotlin.com.example.exposedspring.MessageController.MessageController.listMessages",
+      "dst_qn": "{\"handler\":\"documentation-website.Writerside.snippets.exposed-spring.src.main.kotlin.com.example.exposedspring.MessageController.MessageController.listMessages\",\"method\":\"GET\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "documentation-website.Writerside.snippets.exposed-spring.src.main.kotlin.com.example.exposedspring.MessageController.MessageController.post",
+      "dst_qn": "{\"handler\":\"documentation-website.Writerside.snippets.exposed-spring.src.main.kotlin.com.example.exposedspring.MessageController.MessageController.post\",\"method\":\"POST\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "documentation-website.Writerside.snippets.exposed-spring.src.main.kotlin.com.example.exposedspring.MessageService.MessageService.findMessageById",
       "dst_qn": "exposed-core.src.main.kotlin.org.jetbrains.exposed.v1.core.Table.Table.text",
       "kind": "CALL_REFERENCE",
@@ -67169,10 +67187,28 @@
       "band": "import-guided"
     },
     {
+      "src_qn": "samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.create",
+      "dst_qn": "{\"handler\":\"samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.create\",\"method\":\"POST\",\"path\":\"/api/v1/users\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.delete",
       "dst_qn": "samples.exposed-spring.src.main.kotlin.domain.User.UserId",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.delete",
+      "dst_qn": "{\"handler\":\"samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.delete\",\"method\":\"DELETE\",\"path\":\"/api/v1/users/{id}\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.findAllUsers",
+      "dst_qn": "{\"handler\":\"samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.findAllUsers\",\"method\":\"GET\",\"path\":\"/api/v1/users\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.findUserById",
@@ -67181,10 +67217,22 @@
       "band": "import-guided"
     },
     {
+      "src_qn": "samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.findUserById",
+      "dst_qn": "{\"handler\":\"samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.findUserById\",\"method\":\"GET\",\"path\":\"/api/v1/users/{id}\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.update",
       "dst_qn": "samples.exposed-spring.src.main.kotlin.service.UserService.UserUpdateRequest",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.update",
+      "dst_qn": "{\"handler\":\"samples.exposed-spring.src.main.kotlin.controller.UserController.UserController.update\",\"method\":\"PUT\",\"path\":\"/api/v1/users/{id}\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "samples.exposed-spring.src.main.kotlin.service.UserService.UserService.create",
@@ -67227,6 +67275,48 @@
       "dst_qn": "exposed-r2dbc.src.main.kotlin.org.jetbrains.exposed.v1.r2dbc.R2dbcDatabaseConfig.R2dbcDatabaseConfig",
       "kind": "CALLS",
       "band": "import-guided"
+    },
+    {
+      "src_qn": "samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.HelloController.HelloController.download",
+      "dst_qn": "{\"handler\":\"samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.HelloController.HelloController.download\",\"method\":\"GET\",\"path\":\"/hello/download\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.HelloController.HelloController.hello",
+      "dst_qn": "{\"handler\":\"samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.HelloController.HelloController.hello\",\"method\":\"GET\",\"path\":\"/hello/hello\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.findAll",
+      "dst_qn": "{\"handler\":\"samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.findAll\",\"method\":\"GET\",\"path\":\"/user/findAll\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.findUserById",
+      "dst_qn": "{\"handler\":\"samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.findUserById\",\"method\":\"GET\",\"path\":\"/user/findUserById\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.insert",
+      "dst_qn": "{\"handler\":\"samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.insert\",\"method\":\"POST\",\"path\":\"/user/insert\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.update",
+      "dst_qn": "{\"handler\":\"samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.update\",\"method\":\"GET\",\"path\":\"/user/deleteById\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.update",
+      "dst_qn": "{\"handler\":\"samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.controller.UserController.UserController.update\",\"method\":\"PUT\",\"path\":\"/user/update\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "samples.springboot3-exposed-r2dbc.src.main.kotlin.com.example.dao.impl.UserDaoImpl.UserDaoImpl.findAll",

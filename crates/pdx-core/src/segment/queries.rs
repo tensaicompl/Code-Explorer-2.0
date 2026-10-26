@@ -56,8 +56,11 @@ pub(crate) const INSERT_OCCURRENCE: &str = "INSERT INTO semantic_occurrences \
     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)";
 
 pub(crate) const INSERT_CANDIDATE: &str = "INSERT INTO candidates \
-    (site_id, src, callee_name, band, candidate_ids, engine_score, engine_strategy, \
-    engine_candidates, reason) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)";
+    (site_id, src, callee_name, band, candidate_ids, candidates_total, engine_score, \
+    engine_strategy, engine_candidates, reason) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)";
+
+pub(crate) const INSERT_EXCLUDED_DIRECTORY: &str =
+    "INSERT INTO excluded_directories (path, rule, files) VALUES (?1, ?2, ?3)";
 
 pub(crate) const INSERT_CONTRACT: &str = "INSERT INTO contracts \
     (contract_id, kind, key, namespace_key, identity_strength, owner_node_id, direction, props) \
@@ -127,7 +130,8 @@ pub(crate) const EDGES_TO: &str = edge_select!(
 );
 
 pub(crate) const CANDIDATES_FROM: &str = "SELECT site_id, src, callee_name, band, \
-    candidate_ids, engine_score, engine_strategy, engine_candidates, reason FROM candidates \
+    candidate_ids, candidates_total, engine_score, engine_strategy, engine_candidates, reason \
+    FROM candidates \
     WHERE src = ?1 ORDER BY site_id";
 
 /// Contracts of kind `?1` and key `?2`, either NULL for any.
@@ -151,6 +155,9 @@ macro_rules! coverage_select {
 pub(crate) const COVERAGE_FOR: &str = coverage_select!("WHERE language = ?1");
 
 pub(crate) const COVERAGE_ALL: &str = coverage_select!("ORDER BY language");
+
+pub(crate) const EXCLUDED_DIRECTORIES_ALL: &str =
+    "SELECT path, rule, files FROM excluded_directories ORDER BY path";
 
 macro_rules! file_select {
     ($tail:literal) => {
@@ -220,6 +227,8 @@ pub mod testing {
     pub const SET_COVERAGE_BANDS: &str = "UPDATE coverage SET by_band = ?2 WHERE language = ?1";
     /// Every meta row, by key.
     pub const META_ROWS: &str = "SELECT key, value FROM meta ORDER BY key";
+    /// A schema-3 segment has no `excluded_directories` table.
+    pub const DROP_EXCLUDED_DIRECTORIES: &str = "DROP TABLE excluded_directories";
     /// Every schema object: its type and name, by name.
     pub const SCHEMA_OBJECTS: &str =
         "SELECT type, name FROM sqlite_schema WHERE name NOT LIKE 'sqlite_%' ORDER BY name";

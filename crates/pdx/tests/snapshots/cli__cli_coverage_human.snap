@@ -11,3 +11,4 @@ unknown
   files 1: 0 parsed, 0 partial, 0 failed, 1 skipped
   symbols 0, call sites 0, observed links 0
   bands: precise 0, typed 0, import-guided 0, inheritance-guided 0, exact 0, scoped 0, candidate 0, external 0, blocked 0, unresolved 0, contradicted 0
+excluded by name: 0 directories, 0 files below them

@@ -21,6 +21,7 @@ use std::collections::BTreeSet;
 
 use pdx_engine::{Definition, DefinitionKind};
 
+use crate::bands::Band;
 use crate::kinds::EdgeKind;
 use crate::languages::{DirectoryPattern, Language, TestRule};
 use crate::model::Edge;
@@ -192,9 +193,10 @@ pub(crate) fn link(
             test,
             call.edge.dst,
             EdgeKind::Tests,
-            call.edge.band,
+            Band::Exact,
             call.edge.site_id,
         );
+        edge.band = call.edge.band; // a test's edge has its call's band
         edge.engine_score = call.edge.engine_score;
         edge.engine_strategy.clone_from(&call.edge.engine_strategy);
         edge.engine_candidates = call.edge.engine_candidates;

@@ -285,6 +285,7 @@ pub(crate) fn materialise(
                 callee_name: called_name,
                 band: candidate_band,
                 candidate_ids,
+                candidates_total: resolution.candidates_total() as u64,
                 engine_score: engine.map(|e| e.score),
                 engine_strategy: engine.and_then(|e| e.engine_strategy.clone()),
                 engine_candidates: engine.map(|e| e.candidates),

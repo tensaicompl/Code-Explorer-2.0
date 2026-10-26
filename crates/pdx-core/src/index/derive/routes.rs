@@ -29,7 +29,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::bands::Band;
-use crate::ids::{NodeKey, RepoId, SiteKey, ast_fingerprint};
+use crate::ids::{NodeId, NodeKey, RepoId, SiteId, SiteKey, ast_fingerprint};
 use crate::kinds::{EdgeKind, NodeKind, SiteKind};
 use crate::model::{Edge, Node, Site};
 use crate::resolve::registry::{DefinitionRef, NameProvenance, SymbolRegistry};
@@ -81,7 +81,9 @@ struct Binding {
     framework: &'static str,
     /// What evidences it in the source.
     evidence: Evidence,
-    band: Band,
+    /// The handler's band: `None` for a route declared on the handler, which states it
+    /// (decision 76); a call's resolution band for one a call registers.
+    band: Option<Band>,
 }
 
 /// A route binding's evidence.
@@ -152,7 +154,7 @@ fn declared(registry: &SymbolRegistry, out: &mut Vec<Binding>) {
                     route: fact.path.clone(),
                     framework: framework(registry, language.id, path, &fact.callee_text),
                     evidence: Evidence::Declared(k),
-                    band: Band::Exact,
+                    band: None,
                 });
             }
         }
@@ -269,7 +271,7 @@ fn express(
                     route: route.to_owned(),
                     framework: "express",
                     evidence: Evidence::Registration(site_ref, call.clone()),
-                    band,
+                    band: Some(band),
                 }),
                 None => diagnostics.push(RouteDiagnostic {
                     path: path.to_owned(),
@@ -331,6 +333,15 @@ fn express_handler(
     match callables.as_slice() {
         [one] => Some(((*one).clone(), Band::Scoped)),
         _ => None,
+    }
+}
+
+/// A route's edge from its handler: declared when the handler declares it (decision 76),
+/// with the call's band when a call registers it.
+fn route_edge(handler: NodeId, route: NodeId, band: Option<Band>, site: SiteId) -> Edge {
+    match band {
+        None => Edge::declared(handler, route, EdgeKind::DefinesRoute, Some(site)),
+        Some(band) => Edge::new(handler, route, EdgeKind::DefinesRoute, band, Some(site)),
     }
 }
 
@@ -421,13 +432,7 @@ pub(crate) fn build(graph: &mut Builder, input: &DeriveInput<'_>) -> Result<(), 
         graph.add_node(node)?;
         let site_id = site.site_id;
         graph.add_site(site)?;
-        graph.add_edge(Edge::new(
-            handler_node,
-            route_node,
-            EdgeKind::DefinesRoute,
-            binding.band,
-            Some(site_id),
-        ))?;
+        graph.add_edge(route_edge(handler_node, route_node, binding.band, site_id))?;
         graph.set_prop(&handler_node, "is_entry_point", Value::from(true));
     }
     Ok(())

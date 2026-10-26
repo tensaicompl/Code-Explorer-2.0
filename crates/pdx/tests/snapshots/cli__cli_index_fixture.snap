@@ -14,8 +14,8 @@ expression: text
   },
   "segment": {
     "output": ".pdx/segment.db",
-    "content_sha256": "8607164b37d7bba5737c80e46d74a74ae81ed71ded8b91c498af17098cae0d62",
-    "size_bytes": 176128
+    "content_sha256": "76333eccbb2b01f26ae6091357d5836349c28c2da003878e79d5ef99ed0fc621",
+    "size_bytes": 188416
   },
   "files": {
     "files": 5,
@@ -26,6 +26,8 @@ expression: text
     "skipped_size": 0,
     "skipped_generated": 0,
     "skipped_vendored": 0,
+    "excluded_directories": 0,
+    "excluded_files": 0,
     "binary": 0,
     "redacted": 0
   },

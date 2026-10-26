@@ -102,6 +102,15 @@ fn golden_files_sorted() {
             "{key}: drawn_edges not sorted by (src_qn, dst_qn, kind, band)"
         );
         for edge in &golden.drawn_edges {
+            // A declared edge has no band and is drawn (decision 76): only a route's.
+            if edge.band == "declared" {
+                assert_eq!(
+                    edge.kind, "DEFINES_ROUTE",
+                    "{key}: a declared {:?}",
+                    edge.kind
+                );
+                continue;
+            }
             let band = Band::parse(&edge.band)
                 .unwrap_or_else(|| panic!("{key}: {:?} is no band", edge.band));
             assert!(band.is_drawn(), "{key}: band {:?} is not drawn", edge.band);

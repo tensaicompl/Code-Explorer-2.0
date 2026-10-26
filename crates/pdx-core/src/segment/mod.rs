@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
 use crate::consts::{ENGINE_VERSION, LANGUAGE_MATRIX_VERSION, SEGMENT_SCHEMA_VERSION};
 use crate::ids::RepoId;
 use crate::model::{
-    CandidateSite, Contract, Coverage, Edge, Evidence, FileRecord, Metric, Node,
+    CandidateSite, Contract, Coverage, Edge, Evidence, ExcludedDirectory, FileRecord, Metric, Node,
     SemanticOccurrence, Site,
 };
 use crate::vocabulary::vocabulary;
@@ -299,6 +299,8 @@ pub struct SegmentData {
     pub metrics: Vec<Metric>,
     /// The `coverage` table.
     pub coverage: Vec<Coverage>,
+    /// Every directory discovery excluded by name (schema 4).
+    pub excluded_directories: Vec<ExcludedDirectory>,
 }
 
 impl SegmentData {
@@ -316,6 +318,7 @@ impl SegmentData {
             contracts: Vec::new(),
             metrics: Vec::new(),
             coverage: Vec::new(),
+            excluded_directories: Vec::new(),
         }
     }
 }

@@ -44,6 +44,7 @@ use crate::consts::MAX_FILE_BYTES;
 use crate::index::attributes::Attributes;
 use crate::index::derive::containment::is_repository_path;
 use crate::languages::Language;
+use crate::model::{ExcludedDirectory, ExclusionRule};
 
 /// Directory names never indexed, at any depth (4.5). `vendor` is indexed when
 /// `[discover] include_vendor` is set.
@@ -199,6 +200,29 @@ pub fn split_unportable(files: Vec<DiscoveredFile>) -> (Vec<DiscoveredFile>, Vec
 /// that is not UTF-8; an ignore file that is a symlink, too large or malformed; or a
 /// directory or file that cannot be read.
 pub fn discover(root: &Path, config: &PdxConfig) -> Result<Vec<DiscoveredFile>, DiscoverError> {
+    discover_with_exclusions(root, config).map(|d| d.files)
+}
+
+/// What discovery finds: the files [`discover`] returns, and every directory it excluded
+/// by name, with the files below it it would otherwise have read (issue 98, decision 75).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Discovery {
+    /// The files, as [`discover`] gives them.
+    pub files: Vec<DiscoveredFile>,
+    /// The directories excluded by name, by path. A directory an ignore file excludes as
+    /// well is not one: nothing below it would have been read.
+    pub excluded: Vec<ExcludedDirectory>,
+}
+
+/// As [`discover`], with the directories excluded by name.
+///
+/// # Errors
+///
+/// As for [`discover`].
+pub fn discover_with_exclusions(
+    root: &Path,
+    config: &PdxConfig,
+) -> Result<Discovery, DiscoverError> {
     let metadata = match root.symlink_metadata() {
         Ok(metadata) => metadata,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -220,9 +244,18 @@ pub fn discover(root: &Path, config: &PdxConfig) -> Result<Vec<DiscoveredFile>, 
 
     let rules = Rules::new(root, config)?;
     let mut found = Vec::new();
+    let mut excluded = Vec::new();
     let mut gitignores = Vec::new();
-    walk(root, "", &rules, &mut gitignores, &mut found)?;
+    walk(
+        root,
+        "",
+        &rules,
+        &mut gitignores,
+        &mut found,
+        Some(&mut excluded),
+    )?;
     found.sort_by(|a, b| a.path.cmp(&b.path));
+    excluded.sort_by(|a, b| a.path.cmp(&b.path));
 
     let paths: BTreeSet<&str> = found.iter().map(|f| f.path.as_str()).collect();
     let max = config.discover.max_file_bytes;
@@ -280,7 +313,7 @@ pub fn discover(root: &Path, config: &PdxConfig) -> Result<Vec<DiscoveredFile>, 
             size_bytes: file.size,
         });
     }
-    Ok(files)
+    Ok(Discovery { files, excluded })
 }
 
 /// A regular file the walk found and no rule excluded.
@@ -339,11 +372,15 @@ impl Rules {
         })
     }
 
-    fn hard_excluded(&self, name: &str, is_dir: bool) -> bool {
+    /// The name rule that excludes a directory so named, recorded when it applies
+    /// (issue 98): `build`, `target`, `dist`, and `vendor` unless `include_vendor`.
+    fn name_rule(&self, name: &str) -> Option<ExclusionRule> {
         match name {
-            ".git" => true,
-            "vendor" => is_dir && !self.include_vendor,
-            _ => is_dir && HARD_EXCLUDES.contains(&name),
+            "build" => Some(ExclusionRule::Build),
+            "target" => Some(ExclusionRule::Target),
+            "dist" => Some(ExclusionRule::Dist),
+            "vendor" if !self.include_vendor => Some(ExclusionRule::Vendor),
+            _ => None,
         }
     }
 
@@ -427,12 +464,21 @@ fn git_excluded(gitignores: &[Gitignore], absolute: &Path, is_dir: bool) -> bool
     false
 }
 
+/// Excluded whatever else holds: `.git`, and a `node_modules` directory.
+fn always_excluded(name: &str, is_dir: bool) -> bool {
+    name == ".git" || (is_dir && name == "node_modules")
+}
+
+/// Walks `dir`. With `excluded`, a directory a name rule excludes (and nothing else
+/// does) is recorded with the files below it, counted by a walk without the name rules;
+/// without it, the name rules do not apply: that is the count.
 fn walk(
     dir: &Path,
     relative: &str,
     rules: &Rules,
     gitignores: &mut Vec<Gitignore>,
     found: &mut Vec<Found>,
+    mut excluded: Option<&mut Vec<ExcludedDirectory>>,
 ) -> Result<(), DiscoverError> {
     let gitignore_path = dir.join(GITIGNORE);
     // Read as Git reads one: a `.gitignore` that is a symlink, is not UTF-8 or cannot be
@@ -478,11 +524,27 @@ fn walk(
         if !is_dir && !file_type.is_file() {
             continue; // a pipe, socket or device is not a file of the repository
         }
-        if rules.hard_excluded(name, is_dir)
+        let by_name = if is_dir { rules.name_rule(name) } else { None };
+        if always_excluded(name, is_dir)
+            || (by_name.is_some() && excluded.is_some())
             || (is_dir && relative.is_empty() && name == PDX_OUTPUT_DIR)
             || git_excluded(gitignores, &absolute, is_dir)
             || rules.pdx_excluded(&absolute, is_dir)
         {
+            // Recorded only when its name alone excludes it (issue 98).
+            if let (Some(rule), Some(record)) = (by_name, excluded.as_deref_mut())
+                && !git_excluded(gitignores, &absolute, is_dir)
+                && !rules.pdx_excluded(&absolute, is_dir)
+                && absolute.join(".git").symlink_metadata().is_err()
+            {
+                let mut below = Vec::new();
+                walk(&absolute, &path, rules, gitignores, &mut below, None)?;
+                record.push(ExcludedDirectory {
+                    path,
+                    rule,
+                    files: below.len() as u64,
+                });
+            }
             continue;
         }
         // A directory holding a `.git` entry is another repository (a submodule or a
@@ -491,7 +553,14 @@ fn walk(
             continue;
         }
         if is_dir {
-            walk(&absolute, &path, rules, gitignores, found)?;
+            walk(
+                &absolute,
+                &path,
+                rules,
+                gitignores,
+                found,
+                excluded.as_deref_mut(),
+            )?;
         } else {
             found.push(Found {
                 path,

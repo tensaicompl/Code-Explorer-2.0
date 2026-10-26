@@ -228,8 +228,10 @@ pub struct Edge {
     pub dst: NodeId,
     /// Its kind.
     pub kind: EdgeKind,
-    /// How sure the graph is of it.
-    pub band: Band,
+    /// How sure the graph is of it; `None` for an edge a declaration states rather than a
+    /// resolution infers (`DEFINES_ROUTE` from a route declared on its handler: decision
+    /// 76, schema 4), which is drawn and shown as declared.
+    pub band: Option<Band>,
     /// Whether it was seen at run time. Always false in a repository's segment.
     pub observed: bool,
     /// The engine's score, verbatim, when the engine answered for the site.
@@ -261,7 +263,7 @@ impl Edge {
             src,
             dst,
             kind,
-            band,
+            band: Some(band),
             observed: false,
             engine_score: None,
             engine_strategy: None,
@@ -270,6 +272,19 @@ impl Edge {
             weight: 1,
             props: Props::default(),
         }
+    }
+
+    /// An edge a declaration states (decision 76): no band, drawn, shown as declared.
+    pub fn declared(src: NodeId, dst: NodeId, kind: EdgeKind, site_id: Option<SiteId>) -> Self {
+        Self {
+            band: None,
+            ..Self::new(src, dst, kind, Band::Exact, site_id)
+        }
+    }
+
+    /// Whether the graph draws it: a declared edge, or one of a drawn band (4.2.2).
+    pub fn is_drawn(&self) -> bool {
+        self.band.is_none_or(Band::is_drawn)
     }
 
     /// The edge with the engine's answer for its site recorded, verbatim. The band is
@@ -297,8 +312,12 @@ pub struct CandidateSite {
     pub callee_name: String,
     /// Why nothing is drawn.
     pub band: CandidateBand,
-    /// The targets that survived: a set, which a segment stores sorted by id.
+    /// The targets that survived: a set, which a segment stores sorted by id; at most
+    /// `MAX_STORED_CANDIDATES` of them.
     pub candidate_ids: Vec<NodeId>,
+    /// How many candidates survived every stage, however many `candidate_ids` keeps
+    /// (decision 68, schema 4).
+    pub candidates_total: u64,
     /// The engine's score, verbatim.
     pub engine_score: Option<f64>,
     /// The engine's strategy, verbatim.
@@ -307,6 +326,33 @@ pub struct CandidateSite {
     pub engine_candidates: Option<u32>,
     /// Why, in words.
     pub reason: String,
+}
+
+vocabulary! {
+    /// The name by which discovery excludes a directory (4.5).
+    pub enum ExclusionRule {
+        /// `build`.
+        Build => "build",
+        /// `target`.
+        Target => "target",
+        /// `dist`.
+        Dist => "dist",
+        /// `vendor`, unless `[discover] include_vendor`.
+        Vendor => "vendor",
+    }
+}
+
+/// A directory discovery excludes by its name (the `excluded_directories` table: issue
+/// 98, decision 75, schema 4), and the files below it discovery would otherwise have
+/// read, every other rule applied.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExcludedDirectory {
+    /// Its path, repository-relative.
+    pub path: String,
+    /// The name that excludes it.
+    pub rule: ExclusionRule,
+    /// The files below it.
+    pub files: u64,
 }
 
 vocabulary! {

@@ -405,7 +405,7 @@ fn edge_serialised_form() {
     );
     assert_eq!(
         (hinted.band, hinted.engine_strategy.as_deref()),
-        (Band::Exact, Some("unique_name"))
+        (Some(Band::Exact), Some("unique_name"))
     );
     // Observation is orthogonal: it changes neither the band nor the identity.
     let mut observed = hinted.clone();
@@ -433,6 +433,7 @@ fn candidate_site_serialised_form() {
         callee_name: "save".to_owned(),
         band: CandidateBand::Candidate,
         candidate_ids: vec![other, method()],
+        candidates_total: 2,
         engine_score: Some(0.5),
         engine_strategy: Some("suffix_match".to_owned()),
         engine_candidates: Some(2),
@@ -440,7 +441,7 @@ fn candidate_site_serialised_form() {
     };
     assert_eq!(
         json(&candidate),
-        r#"{"site_id":"8Q0S4A5X7HM4PN0YV3FCEAFV2V","src":"FC0C2RXS73G18HY3HRG3C0EX2Z","callee_name":"save","band":"candidate","candidate_ids":["639NYMS5S3YSVEMV5N1G4T7HEQ","FC0C2RXS73G18HY3HRG3C0EX2Z"],"engine_score":0.5,"engine_strategy":"suffix_match","engine_candidates":2,"reason":"two definitions survive the scoped stage"}"#
+        r#"{"site_id":"8Q0S4A5X7HM4PN0YV3FCEAFV2V","src":"FC0C2RXS73G18HY3HRG3C0EX2Z","callee_name":"save","band":"candidate","candidate_ids":["639NYMS5S3YSVEMV5N1G4T7HEQ","FC0C2RXS73G18HY3HRG3C0EX2Z"],"candidates_total":2,"engine_score":0.5,"engine_strategy":"suffix_match","engine_candidates":2,"reason":"two definitions survive the scoped stage"}"#
     );
     assert_eq!(
         serde_json::from_str::<CandidateSite>(&json(&candidate)).expect("json"),

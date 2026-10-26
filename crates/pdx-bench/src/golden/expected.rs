@@ -79,9 +79,9 @@ impl GoldenExpected {
     /// vocabularies decide it.
     ///
     /// Node kinds come from `NodeKind::ALL`, each once whatever the segment holds, so
-    /// a new kind is a reviewed golden change. An edge is kept exactly when its band
-    /// is drawn (`Band::is_drawn`), once per stored row: two rows with one tuple stay
-    /// two entries.
+    /// a new kind is a reviewed golden change. An edge is kept exactly when it is drawn
+    /// (`Edge::is_drawn`: a drawn band, or declared, decision 76, its band written
+    /// `declared`), once per stored row: two rows with one tuple stay two entries.
     ///
     /// # Errors
     ///
@@ -118,12 +118,12 @@ impl GoldenExpected {
                 })
         };
         let mut drawn_edges = Vec::new();
-        for edge in edges.iter().filter(|e| e.band.is_drawn()) {
+        for edge in edges.iter().filter(|e| e.is_drawn()) {
             drawn_edges.push(GoldenEdge {
                 src_qn: name_of(edge, &edge.src)?,
                 dst_qn: name_of(edge, &edge.dst)?,
                 kind: edge.kind.as_str().to_owned(),
-                band: edge.band.as_str().to_owned(),
+                band: edge.band.map_or("declared", |b| b.as_str()).to_owned(),
             });
         }
         drawn_edges.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));

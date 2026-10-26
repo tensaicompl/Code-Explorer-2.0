@@ -94,6 +94,8 @@ pub struct FilesReport {
     skipped_size: u64,
     skipped_generated: u64,
     skipped_vendored: u64,
+    excluded_directories: u64,
+    excluded_files: u64,
     binary: u64,
     redacted: u64,
 }
@@ -254,6 +256,8 @@ impl IndexReport {
                 skipped_size: f.skipped_size,
                 skipped_generated: f.skipped_generated,
                 skipped_vendored: f.skipped_vendored,
+                excluded_directories: f.excluded_directories,
+                excluded_files: f.excluded_files,
                 binary: f.binary,
                 redacted: f.redacted,
             },
@@ -352,6 +356,13 @@ pub fn index_text(report: &IndexReport) -> String {
         "files      {} ({} parsed, {} partial, {} failed, {} skipped, {} binary, {} redacted)",
         f.files, f.parsed, f.partial, f.failed, f.skipped, f.binary, f.redacted
     );
+    if f.excluded_directories > 0 {
+        let _ = writeln!(
+            out,
+            "           {} directories excluded by name, {} files below them",
+            f.excluded_directories, f.excluded_files
+        );
+    }
     if f.skipped_generated + f.skipped_vendored > 0 {
         let _ = writeln!(
             out,
@@ -411,11 +422,26 @@ pub struct CoverageReport {
     pub profile: &'static str,
     /// The coverage rows, by language.
     pub coverage: Vec<Coverage>,
+    /// The directories discovery excluded by name, totalled (issue 98, decision 75).
+    pub excluded: ExcludedTotals,
+}
+
+/// Directories discovery excluded by name: how many, and the files below them.
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+pub struct ExcludedTotals {
+    /// Directories.
+    pub directories: u64,
+    /// Files below them.
+    pub files: u64,
 }
 
 impl CoverageReport {
-    /// The report of a segment with this meta and these rows.
-    pub fn new(meta: &SegmentMeta, coverage: Vec<Coverage>) -> Self {
+    /// The report of a segment with this meta, these rows and these excluded directories.
+    pub fn new(
+        meta: &SegmentMeta,
+        coverage: Vec<Coverage>,
+        excluded: &[pdx_core::model::ExcludedDirectory],
+    ) -> Self {
         Self {
             repo_id: meta.repo_id.as_str().to_owned(),
             repo_id_source: meta.repo_id_source.as_str(),
@@ -423,6 +449,10 @@ impl CoverageReport {
             commit_sha: meta.commit_sha.clone(),
             profile: meta.profile.as_str(),
             coverage,
+            excluded: ExcludedTotals {
+                directories: excluded.len() as u64,
+                files: excluded.iter().map(|d| d.files).sum(),
+            },
         }
     }
 }
@@ -454,6 +484,11 @@ pub fn coverage_text(report: &CoverageReport) -> String {
             .collect();
         let _ = writeln!(out, "  bands: {}", bands.join(", "));
     }
+    let _ = writeln!(
+        out,
+        "excluded by name: {} directories, {} files below them",
+        report.excluded.directories, report.excluded.files
+    );
     out
 }
 
@@ -639,7 +674,7 @@ mod tests {
 
     #[test]
     fn the_version_names_the_four_versions() {
-        assert_eq!(version_text(), "pdx 0.1.0\nengine 16\nschema 3\nmatrix 3\n");
+        assert_eq!(version_text(), "pdx 0.1.0\nengine 16\nschema 4\nmatrix 3\n");
     }
 
     #[test]

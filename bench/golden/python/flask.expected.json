@@ -161,6 +161,48 @@
       "band": "typed"
     },
     {
+      "src_qn": "examples.celery.src.task_app.views.add",
+      "dst_qn": "{\"handler\":\"examples.celery.src.task_app.views.add\",\"method\":\"POST\",\"path\":\"/add\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "examples.celery.src.task_app.views.block",
+      "dst_qn": "{\"handler\":\"examples.celery.src.task_app.views.block\",\"method\":\"POST\",\"path\":\"/block\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "examples.celery.src.task_app.views.process",
+      "dst_qn": "{\"handler\":\"examples.celery.src.task_app.views.process\",\"method\":\"POST\",\"path\":\"/process\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "examples.celery.src.task_app.views.result",
+      "dst_qn": "{\"handler\":\"examples.celery.src.task_app.views.result\",\"method\":\"GET\",\"path\":\"/result/<id>\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "examples.javascript.js_example.views.add",
+      "dst_qn": "{\"handler\":\"examples.javascript.js_example.views.add\",\"method\":\"POST\",\"path\":\"/add\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "examples.javascript.js_example.views.index",
+      "dst_qn": "{\"handler\":\"examples.javascript.js_example.views.index\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "examples.javascript.js_example.views.index",
+      "dst_qn": "{\"handler\":\"examples.javascript.js_example.views.index\",\"method\":\"ANY\",\"path\":\"/<any(xhr, jquery, fetch):js>\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "examples.tutorial.flaskr.auth.load_logged_in_user",
       "dst_qn": "examples.tutorial.flaskr.db.get_db",
       "kind": "CALLS",
@@ -171,6 +213,12 @@
       "dst_qn": "examples.tutorial.flaskr.db.get_db",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.auth.logout",
+      "dst_qn": "{\"handler\":\"examples.tutorial.flaskr.auth.logout\",\"method\":\"ANY\",\"path\":\"/logout\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "examples.tutorial.flaskr.auth.register",
@@ -207,6 +255,12 @@
       "dst_qn": "examples.tutorial.flaskr.db.get_db",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "examples.tutorial.flaskr.blog.index",
+      "dst_qn": "{\"handler\":\"examples.tutorial.flaskr.blog.index\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "examples.tutorial.flaskr.blog.update",
@@ -1631,6 +1685,36 @@
       "band": "import-guided"
     },
     {
+      "src_qn": "tests.test_apps.blueprintapp.apps.admin.index",
+      "dst_qn": "{\"handler\":\"tests.test_apps.blueprintapp.apps.admin.index\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.admin.index2",
+      "dst_qn": "{\"handler\":\"tests.test_apps.blueprintapp.apps.admin.index2\",\"method\":\"ANY\",\"path\":\"/index2\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.frontend.index",
+      "dst_qn": "{\"handler\":\"tests.test_apps.blueprintapp.apps.frontend.index\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.test_apps.blueprintapp.apps.frontend.missing_template",
+      "dst_qn": "{\"handler\":\"tests.test_apps.blueprintapp.apps.frontend.missing_template\",\"method\":\"ANY\",\"path\":\"/missing\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.test_apps.helloworld.hello.hello",
+      "dst_qn": "{\"handler\":\"tests.test_apps.helloworld.hello.hello\",\"method\":\"ANY\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "tests.test_async._async_app",
       "dst_qn": "src.flask.views.View.as_view",
       "kind": "CALLS",
@@ -2777,10 +2861,112 @@
       "band": "typed"
     },
     {
+      "src_qn": "tests.type_check.typing_route.async_route",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.async_route\",\"method\":\"ANY\",\"path\":\"/async\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_bytes",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_bytes\",\"method\":\"ANY\",\"path\":\"/bytes\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_generator",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_generator\",\"method\":\"ANY\",\"path\":\"/generator\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_generator_expression",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_generator_expression\",\"method\":\"ANY\",\"path\":\"/generator-expression\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_iterator",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_iterator\",\"method\":\"ANY\",\"path\":\"/iterator\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_json",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_json\",\"method\":\"ANY\",\"path\":\"/json\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_json_dict",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_json_dict\",\"method\":\"ANY\",\"path\":\"/json/dict\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_json_list",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_json_list\",\"method\":\"ANY\",\"path\":\"/json/dict\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.hello_str",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.hello_str\",\"method\":\"ANY\",\"path\":\"/str\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "tests.type_check.typing_route.return_template",
       "dst_qn": "src.flask.templating.render_template",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.return_template",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.return_template\",\"method\":\"ANY\",\"path\":\"/template\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.return_template",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.return_template\",\"method\":\"ANY\",\"path\":\"/template/<name>\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.return_template_stream",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.return_template_stream\",\"method\":\"ANY\",\"path\":\"/template\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.tuple_headers",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.tuple_headers\",\"method\":\"ANY\",\"path\":\"/headers\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.tuple_status",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.tuple_status\",\"method\":\"ANY\",\"path\":\"/status\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.tuple_status",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.tuple_status\",\"method\":\"ANY\",\"path\":\"/status/<int:code>\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.tuple_status_enum",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.tuple_status_enum\",\"method\":\"ANY\",\"path\":\"/status-enum\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "tests.type_check.typing_route.typed_dict",
+      "dst_qn": "{\"handler\":\"tests.type_check.typing_route.typed_dict\",\"method\":\"ANY\",\"path\":\"/typed-dict\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     }
   ]
 }

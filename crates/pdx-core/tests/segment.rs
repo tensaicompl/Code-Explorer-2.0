@@ -9,8 +9,8 @@ use pdx_core::ids::{self, NodeId, NodeKey, RepoId, SiteKey};
 use pdx_core::kinds::{ContractKind, EdgeKind, LayerRole, NodeKind, SiteKind};
 use pdx_core::model::{
     Authority, BandCounts, CandidateSite, Contract, ContractDirection, Coverage, Edge, Evidence,
-    FactKind, FileRecord, FileStatus, IdentityStrength, Metric, Node, OccurrenceRole, Props,
-    SemanticOccurrence, Site, Span, Verdict,
+    ExcludedDirectory, ExclusionRule, FactKind, FileRecord, FileStatus, IdentityStrength, Metric,
+    Node, OccurrenceRole, Props, SemanticOccurrence, Site, Span, Verdict,
 };
 use pdx_core::segment::queries::testing;
 use pdx_core::segment::{
@@ -328,6 +328,7 @@ fn fixture() -> SegmentData {
         callee_name: "Map.put".to_owned(),
         band: CandidateBand::Candidate,
         candidate_ids: vec![add.node_id, remove.node_id],
+        candidates_total: 2,
         engine_score: Some(0.5),
         engine_strategy: Some("suffix_match".to_owned()),
         engine_candidates: Some(2),
@@ -543,6 +544,7 @@ fn segments_hold_exactly_the_schema() {
             "coverage",
             "edges",
             "evidence",
+            "excluded_directories",
             "files",
             "fts",
             "fts_config",
@@ -806,16 +808,17 @@ fn reader_refuses_wrong_schema_version() {
     let scratch = Scratch::new();
     let segment = write(&fixture(), &scratch, "versions");
     // An earlier segment (version 1, before `candidates.engine_candidates`, issue 50;
-    // version 2, before `repo_id_source`, issue 71) is refused, never read as the
-    // current version; so is a later one.
-    for (name, found) in [("v1.db", 1), ("v2.db", 2), ("v4.db", 4)] {
+    // version 2, before `repo_id_source`, issue 71; version 3, before declared edges,
+    // candidate totals and excluded directories) is refused, never read as the current
+    // version; so is a later one.
+    for (name, found) in [("v1.db", 1), ("v2.db", 2), ("v3.db", 3), ("v5.db", 5)] {
         let (damaged, conn) = damaged_copy(&segment, &scratch, name);
         conn.execute(testing::SET_META, ["schema_version", &found.to_string()])
             .expect("damaged");
         drop(conn);
         match SegmentReader::open(&damaged) {
             Err(SegmentError::WrongSchemaVersion {
-                expected: 3,
+                expected: 4,
                 found: f,
             }) if f == found => {}
             other => panic!("expected a wrong-schema refusal of {found}, got {other:?}"),
@@ -825,7 +828,7 @@ fn reader_refuses_wrong_schema_version() {
             .expect_err("refused")
             .to_string();
         assert!(
-            message.contains('3') && message.contains(&found.to_string()),
+            message.contains('4') && message.contains(&found.to_string()),
             "{message}"
         );
     }
@@ -998,7 +1001,7 @@ fn edge_band_filters() {
             .edges_from(&add, filter)
             .expect("a query")
             .iter()
-            .map(|e| e.band)
+            .filter_map(|e| e.band)
             .collect()
     };
     let mut every = bands(&[]);
@@ -1013,7 +1016,7 @@ fn edge_band_filters() {
     let remove = node_named(&data, "remove").node_id;
     assert_eq!(
         reader.edges_from(&remove, &[]).expect("a query")[0].band,
-        Band::Precise
+        Some(Band::Precise)
     );
 }
 
@@ -1110,6 +1113,67 @@ fn candidate_sets_are_stored_sorted() {
     let mut sorted = data.candidates[0].candidate_ids.clone();
     sorted.sort();
     assert_eq!(stored, sorted);
+}
+
+#[test]
+fn candidates_total_round_trips() {
+    // Schema 4 (decision 68): a row keeps at most 32 candidates and records how many
+    // survived; the total is stored, never inferred from the list.
+    let scratch = Scratch::new();
+    let mut data = fixture();
+    data.candidates[0].candidates_total = 4_000;
+    let segment = write(&data, &scratch, "totals");
+    let reader = SegmentReader::open(&segment.path).expect("opens");
+    let stored = reader
+        .candidates_from(&data.candidates[0].src)
+        .expect("a query")
+        .remove(0);
+    assert_eq!(stored.candidates_total, 4_000);
+    assert_eq!(
+        stored.candidate_ids.len(),
+        data.candidates[0].candidate_ids.len()
+    );
+
+    // Fewer survived than are kept: refused.
+    let mut wrong = fixture();
+    wrong.candidates[0].candidates_total = 1;
+    let error = SegmentWriter::new()
+        .build_in(&scratch.dir("wrong-build"))
+        .write(&wrong, &scratch.dir("wrong").join("segment.db"))
+        .expect_err("refused");
+    assert!(
+        matches!(
+            error,
+            SegmentError::InvalidRow {
+                table: "candidates",
+                ..
+            }
+        ),
+        "{error:?}"
+    );
+}
+
+#[test]
+fn excluded_directories_round_trip() {
+    let scratch = Scratch::new();
+    let mut data = fixture();
+    data.excluded_directories = vec![
+        ExcludedDirectory {
+            path: "web/dist".to_owned(),
+            rule: ExclusionRule::Dist,
+            files: 3,
+        },
+        ExcludedDirectory {
+            path: "build".to_owned(),
+            rule: ExclusionRule::Build,
+            files: 12,
+        },
+    ];
+    let segment = write(&data, &scratch, "excluded");
+    let reader = SegmentReader::open(&segment.path).expect("opens");
+    let mut expected = data.excluded_directories.clone();
+    expected.sort_by(|a, b| a.path.cmp(&b.path));
+    assert_eq!(reader.excluded_directories().expect("a query"), expected);
 }
 
 // --- verification ----------------------------------------------------------------
@@ -1462,6 +1526,28 @@ fn unknown_repo_id_source_is_refused() {
 }
 
 #[test]
+fn reader_refuses_schema_3() {
+    let scratch = Scratch::new();
+    let segment = write(&fixture(), &scratch, "current");
+    // A schema-3 segment, as its writer left it: no `excluded_directories` table, and
+    // `schema_version` 3. Refused for its version before anything else is read: it is
+    // re-indexed, never read as schema 4 (P2-20).
+    let (copy, conn) = damaged_copy(&segment, &scratch, "schema-3.db");
+    conn.execute(testing::DROP_EXCLUDED_DIRECTORIES, [])
+        .expect("schema 3");
+    conn.execute(testing::SET_META, ["schema_version", "3"])
+        .expect("schema 3");
+    drop(conn);
+    match SegmentReader::open(&copy) {
+        Err(SegmentError::WrongSchemaVersion {
+            expected: 4,
+            found: 3,
+        }) => {}
+        other => panic!("a schema-3 segment was not refused for its version: {other:?}"),
+    }
+}
+
+#[test]
 fn schema_two_segment_is_refused() {
     let scratch = Scratch::new();
     let segment = write(&fixture(), &scratch, "current");
@@ -1490,13 +1576,13 @@ fn schema_two_segment_is_refused() {
         ]
     );
     // Refused for its version, before its missing key is looked for: a schema-2
-    // segment is re-indexed, never migrated or read as schema 3.
+    // segment is re-indexed, never migrated or read as the current schema.
     let error = SegmentReader::open(&copy).expect_err("refused");
     assert!(
         matches!(
             error,
             SegmentError::WrongSchemaVersion {
-                expected: 3,
+                expected: 4,
                 found: 2
             }
         ),
@@ -1510,7 +1596,7 @@ fn schema_two_segment_is_refused() {
     assert!(matches!(
         SegmentReader::open(&copy),
         Err(SegmentError::WrongSchemaVersion {
-            expected: 3,
+            expected: 4,
             found: 2
         })
     ));

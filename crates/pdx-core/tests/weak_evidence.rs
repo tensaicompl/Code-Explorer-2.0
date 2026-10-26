@@ -190,8 +190,8 @@ fn edges_into(kind: EdgeKind, qn: &str) -> Vec<Band> {
     fixture()
         .edges
         .iter()
-        .filter(|e| e.kind == kind && e.dst == node.node_id && e.band.is_drawn())
-        .map(|e| e.band)
+        .filter(|e| e.kind == kind && e.dst == node.node_id && e.is_drawn())
+        .filter_map(|e| e.band)
         .collect()
 }
 
@@ -264,7 +264,7 @@ fn r3_4_exact_keeps_its_candidate_and_draws_nothing() {
         fixture()
             .edges
             .iter()
-            .all(|e| e.dst != node.node_id || !e.band.is_weak_evidence())
+            .all(|e| e.dst != node.node_id || !e.band.is_some_and(Band::is_weak_evidence))
     );
     assert!(edges_into(EdgeKind::Calls, "src.kinds.Gauge.reading").is_empty());
     let rows = rows_naming("src.kinds.Gauge.reading");
@@ -330,11 +330,13 @@ fn r3_7_r3_8_exact_and_scoped_still_report_their_bands() {
 fn r3_9_exact_and_scoped_never_enter_calls_or_tests() {
     let f = fixture();
     assert!(
-        f.edges.iter().all(|e| !e.band.is_weak_evidence()),
+        f.edges
+            .iter()
+            .all(|e| !e.band.is_some_and(Band::is_weak_evidence)),
         "{:#?}",
         f.edges
             .iter()
-            .filter(|e| e.band.is_weak_evidence())
+            .filter(|e| e.band.is_some_and(Band::is_weak_evidence))
             .collect::<Vec<_>>()
     );
     // The test calls `reading` on a value too: no `TESTS` edge for it.
@@ -344,7 +346,7 @@ fn r3_9_exact_and_scoped_never_enter_calls_or_tests() {
         assert!(
             matches!(
                 e.band,
-                Band::Typed | Band::ImportGuided | Band::InheritanceGuided
+                Some(Band::Typed | Band::ImportGuided | Band::InheritanceGuided)
             ),
             "{e:?}"
         );

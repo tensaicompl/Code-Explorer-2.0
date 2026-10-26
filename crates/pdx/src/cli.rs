@@ -439,7 +439,10 @@ fn coverage(m: &ArgMatches) -> Result<Outcome, String> {
     let rows = reader
         .coverage_all()
         .map_err(|e| format!("{shown} cannot be read: {e}"))?;
-    let dto = CoverageReport::new(reader.meta(), rows);
+    let excluded = reader
+        .excluded_directories()
+        .map_err(|e| format!("{shown} cannot be read: {e}"))?;
+    let dto = CoverageReport::new(reader.meta(), rows, &excluded);
     if m.get_flag("json") {
         out(&report::json(&dto))?;
     } else {

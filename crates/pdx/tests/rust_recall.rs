@@ -394,7 +394,11 @@ fn served(path: &Path) -> Vec<Served> {
                 line: s.span.start_line,
                 span: (s.span.start_byte, s.span.end_byte),
                 callee: s.callee_text.clone().unwrap_or_default(),
-                outcome: format!("{} -> {}", edge.band.as_str(), qn(&edge.dst)),
+                outcome: format!(
+                    "{} -> {}",
+                    edge.band.map_or("declared", |b| b.as_str()),
+                    qn(&edge.dst)
+                ),
             });
         }
         for row in segment.candidates_from(&node.node_id).expect("candidates") {

@@ -238,7 +238,8 @@ pub fn build_segment(request: IndexRequest<'_>) -> Result<SegmentReport, IndexEr
     let graph = pending.finish();
     let summary = Summary::of(&graph, &coverage, resolution_summary);
     let segment = report.stage(Stage::Write, |span| {
-        let data = write::segment_data(meta.clone(), graph, coverage.clone());
+        let mut data = write::segment_data(meta.clone(), graph, coverage.clone());
+        data.excluded_directories.clone_from(&found.excluded);
         let segment = write::write(&data, &destination, build_dir.as_deref())?;
         span.record("bytes", segment.size_bytes);
         Ok((segment.size_bytes, segment))
@@ -303,7 +304,9 @@ fn derive_graph(
         registry,
         config: &found.config,
     })?;
-    let (files, degraded) = report::assess(registry, &found.unportable);
+    let (mut files, degraded) = report::assess(registry, &found.unportable);
+    files.excluded_directories = found.excluded.len() as u64;
+    files.excluded_files = found.excluded.iter().map(|d| d.files).sum();
     Ok(Derived {
         pending,
         coverage,
@@ -319,6 +322,7 @@ struct Found {
     config: PdxConfig,
     files: Vec<discover::DiscoveredFile>,
     unportable: Vec<discover::DiscoveredFile>,
+    excluded: Vec<crate::model::ExcludedDirectory>,
 }
 
 /// Stage 2 as a build runs it: with the build's surface spill, and the cache and
@@ -363,12 +367,13 @@ fn surface_spill(
 /// Stage 1: the repository's configuration and files.
 fn discovered(root: &Path) -> Result<Found, IndexError> {
     let config = PdxConfig::load(root)?;
-    let all = discover::discover(root, &config)?;
-    let (files, unportable) = discover::split_unportable(all);
+    let discovery = discover::discover_with_exclusions(root, &config)?;
+    let (files, unportable) = discover::split_unportable(discovery.files);
     Ok(Found {
         config,
         files,
         unportable,
+        excluded: discovery.excluded,
     })
 }
 

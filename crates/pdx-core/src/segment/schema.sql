@@ -46,7 +46,7 @@ CREATE TABLE edges (
   edge_id TEXT PRIMARY KEY,
   src TEXT NOT NULL, dst TEXT NOT NULL,
   kind TEXT NOT NULL,
-  band TEXT NOT NULL,                  -- 4.2.2 (11 bands)
+  band TEXT,                           -- 4.2.2 (11 bands); NULL: a declaration states it (DEFINES_ROUTE)
   observed INTEGER NOT NULL DEFAULT 0, -- orthogonal runtime flag (link layer only; always 0 in repo segments)
   engine_score REAL, engine_strategy TEXT, engine_candidates INTEGER,
   site_id TEXT REFERENCES sites(site_id),
@@ -88,11 +88,18 @@ CREATE TABLE candidates (              -- non-drawn call sites, one row per site
   src TEXT NOT NULL,
   callee_name TEXT NOT NULL,
   band TEXT NOT NULL CHECK (band IN ('candidate','external','blocked','unresolved','contradicted')),
-  candidate_ids TEXT NOT NULL DEFAULT '[]',   -- JSON array of node_id
+  candidate_ids TEXT NOT NULL DEFAULT '[]',   -- JSON array of node_id, at most 32 kept
+  candidates_total INTEGER NOT NULL,   -- how many candidates survived every stage
   engine_score REAL, engine_strategy TEXT, engine_candidates INTEGER,
   reason TEXT NOT NULL
 );
 CREATE INDEX candidates_src ON candidates(src);
+
+CREATE TABLE excluded_directories (    -- directories discovery excludes by name (4.5)
+  path TEXT PRIMARY KEY,
+  rule TEXT NOT NULL CHECK (rule IN ('build','target','dist','vendor')),
+  files INTEGER NOT NULL               -- files below it discovery would otherwise have read
+);
 
 CREATE TABLE contracts (               -- 4.7
   contract_id TEXT PRIMARY KEY,        -- node_id with repo_id='estate' over namespace_key (4.2.1)

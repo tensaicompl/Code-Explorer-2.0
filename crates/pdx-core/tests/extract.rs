@@ -875,8 +875,8 @@ fn engine_version_is_the_engines() {
     // An engine change is an engine version, not a segment layout: issues 75 and 76
     // changed the facts the engine supplies to unchanged identity encodings and DDL,
     // and engine_version already enters the cache key and the build key (decisions 47
-    // and 48).
-    assert_eq!(SEGMENT_SCHEMA_VERSION, 3);
+    // and 48). Schema 4 is P2-20's tables, not an engine's facts.
+    assert_eq!(SEGMENT_SCHEMA_VERSION, 4);
 }
 
 #[test]

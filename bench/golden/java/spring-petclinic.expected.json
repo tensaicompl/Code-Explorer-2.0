@@ -233,6 +233,30 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initCreationForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initCreationForm\",\"method\":\"GET\",\"path\":\"/owners/new\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initFindForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initFindForm\",\"method\":\"GET\",\"path\":\"/owners/find\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initUpdateOwnerForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.initUpdateOwnerForm\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}/edit\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processCreationForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processCreationForm\",\"method\":\"POST\",\"path\":\"/owners/new\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processFindForm",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.addPaginationModel",
       "kind": "CALLS",
@@ -245,10 +269,28 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processFindForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processFindForm\",\"method\":\"GET\",\"path\":\"/owners\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processUpdateOwnerForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.processUpdateOwnerForm\",\"method\":\"POST\",\"path\":\"/owners/{ownerId}/edit\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.showOwner",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerController.showOwner",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.OwnerController.showOwner\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.addVisit",
@@ -273,6 +315,18 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Owner.addPet",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.initCreationForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.PetController.initCreationForm\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}/pets/new\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.initUpdateForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.PetController.initUpdateForm\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}/pets/{petId}/edit\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.populatePetTypes",
@@ -305,6 +359,12 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processCreationForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.PetController.processCreationForm\",\"method\":\"POST\",\"path\":\"/owners/{ownerId}/pets/new\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processUpdateForm",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.Pet.getBirthDate",
       "kind": "CALLS",
@@ -327,6 +387,12 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.updatePetDetails",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.processUpdateForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.PetController.processUpdateForm\",\"method\":\"POST\",\"path\":\"/owners/{ownerId}/pets/{petId}/edit\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.PetController.updatePetDetails",
@@ -377,6 +443,12 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.VisitController.initNewVisitForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.VisitController.initNewVisitForm\",\"method\":\"GET\",\"path\":\"/owners/{ownerId}/pets/{petId}/visits/new\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.VisitController.loadPetWithVisit",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.owner.OwnerRepository.findById",
       "kind": "CALLS",
@@ -407,16 +479,34 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.owner.VisitController.processNewVisitForm",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.owner.VisitController.processNewVisitForm\",\"method\":\"POST\",\"path\":\"/owners/{ownerId}/pets/{petId}/visits/new\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.system.CacheConfiguration.petclinicCacheConfigurationCustomizer",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.system.CacheConfiguration.cacheConfiguration",
       "kind": "CALLS",
       "band": "typed"
     },
     {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.system.CrashController.triggerException",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.system.CrashController.triggerException\",\"method\":\"GET\",\"path\":\"/oups\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.system.WebConfiguration.addInterceptors",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.system.WebConfiguration.localeChangeInterceptor",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.system.WelcomeController.welcome",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.system.WelcomeController.welcome\",\"method\":\"GET\",\"path\":\"/\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.Vet.addSpecialty",
@@ -443,6 +533,12 @@
       "band": "typed"
     },
     {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.showResourcesVetList",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.vet.VetController.showResourcesVetList\",\"method\":\"GET\",\"path\":\"/vets\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
+    },
+    {
       "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.showVetList",
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.addPaginationModel",
       "kind": "CALLS",
@@ -453,6 +549,12 @@
       "dst_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.findPaginated",
       "kind": "CALLS",
       "band": "typed"
+    },
+    {
+      "src_qn": "src.main.java.org.springframework.samples.petclinic.vet.VetController.showVetList",
+      "dst_qn": "{\"handler\":\"src.main.java.org.springframework.samples.petclinic.vet.VetController.showVetList\",\"method\":\"GET\",\"path\":\"/vets.html\"}",
+      "kind": "DEFINES_ROUTE",
+      "band": "declared"
     },
     {
       "src_qn": "src.test.java.org.springframework.samples.petclinic.PostgresIntegrationTests.PropertiesLogger.onApplicationEvent",

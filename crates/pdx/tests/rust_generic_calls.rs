@@ -317,7 +317,7 @@ fn served(path: &Path) -> (Vec<Node>, Vec<Served>) {
                 outcome: format!(
                     "{} {} -> {}",
                     edge.kind.as_str(),
-                    edge.band.as_str(),
+                    edge.band.map_or("declared", |b| b.as_str()),
                     qn(&edge.dst)
                 ),
             });

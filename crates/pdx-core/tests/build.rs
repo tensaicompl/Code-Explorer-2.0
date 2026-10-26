@@ -1323,3 +1323,75 @@ fn syntax_depth_refusal_degrades_the_segment() {
     let again = build_segment(checkout.request("again.db")).expect("the build succeeds");
     assert_eq!(again.segment.content_sha256, report.segment.content_sha256);
 }
+
+// --- schema 4 (P2-20) ------------------------------------------------------------------
+
+#[test]
+fn defines_route_is_unbanded_and_drawn() {
+    // Decision 76: a route its handler declares is stated, not inferred: no band, drawn,
+    // and no call site.
+    let checkout = Checkout::new(&[(
+        "app/main.py",
+        "from fastapi import FastAPI\n\napp = FastAPI()\n\n\n@app.get(\"/users\")\ndef list_users():\n    return []\n",
+    )]);
+    let report = checkout.build();
+    let reader = SegmentReader::open(&report.segment.path).expect("the segment opens");
+    let edges = reader.edges_all().expect("edges");
+    let routes: Vec<_> = edges
+        .iter()
+        .filter(|e| e.kind == EdgeKind::DefinesRoute)
+        .collect();
+    assert_eq!(routes.len(), 1, "{edges:#?}");
+    assert_eq!(routes[0].band, None, "a declared route has no band");
+    assert!(routes[0].is_drawn());
+    assert!(routes[0].site_id.is_some(), "its site is the decorator");
+    // Coverage counts Stage 3's call sites, and a declaration is none.
+    let python = reader.coverage("python").expect("a query").expect("a row");
+    assert_eq!(python.by_band.total(), python.call_sites);
+}
+
+#[test]
+fn excluded_directory_is_recorded() {
+    // Decision 75: a directory discovery excludes by name is recorded with the files
+    // below it; one an ignore file excludes anyway is not, nor `node_modules`.
+    let checkout = Checkout::new(&[
+        ("src/app.py", "def run():\n    return 1\n"),
+        ("build/gen.py", "x = 1\n"),
+        ("build/deep/build/more.py", "y = 2\n"),
+        ("lib/target/out.py", "z = 3\n"),
+        ("vendor/dep/v.go", "package dep\n"),
+        ("dist/bundle.js", "var a = 1;\n"),
+        ("node_modules/m/index.js", "module.exports = 1;\n"),
+        (".gitignore", "dist/\n"),
+    ]);
+    let report = checkout.build();
+    let reader = SegmentReader::open(&report.segment.path).expect("the segment opens");
+    let excluded: Vec<(String, &str, u64)> = reader
+        .excluded_directories()
+        .expect("a query")
+        .into_iter()
+        .map(|d| (d.path, d.rule.as_str(), d.files))
+        .collect();
+    assert_eq!(
+        excluded,
+        [
+            ("build".to_owned(), "build", 2),
+            ("lib/target".to_owned(), "target", 1),
+            ("vendor".to_owned(), "vendor", 1),
+        ]
+    );
+    assert_eq!(
+        (
+            report.files.excluded_directories,
+            report.files.excluded_files
+        ),
+        (3, 4)
+    );
+    // Nothing below them is a file of the segment.
+    assert!(
+        reader
+            .file_by_path("build/gen.py")
+            .expect("a query")
+            .is_none()
+    );
+}

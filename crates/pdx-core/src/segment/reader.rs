@@ -15,8 +15,8 @@ use crate::ids::{AstFingerprint, EdgeId, IdError, NodeId, SiteId};
 use crate::kinds::{ContractKind, EdgeKind, LayerRole, NodeKind, SiteKind};
 use crate::model::{
     Authority, BandCounts, CandidateSite, Contract, ContractDirection, Coverage, Edge, Evidence,
-    FactKind, FileRecord, FileStatus, IdentityStrength, Metric, Node, OccurrenceRole, Props,
-    SemanticOccurrence, Site, Span, Verdict,
+    ExcludedDirectory, ExclusionRule, FactKind, FileRecord, FileStatus, IdentityStrength, Metric,
+    Node, OccurrenceRole, Props, SemanticOccurrence, Site, Span, Verdict,
 };
 
 /// An open segment.
@@ -147,7 +147,9 @@ impl SegmentReader {
     }
 
     /// Edges from `src`, by edge id, of the given bands; every band when `bands` is
-    /// empty. No band is left out unless asked: drawing is the caller's policy.
+    /// empty. No band is left out unless asked: drawing is the caller's policy. A
+    /// declared edge has no band (schema 4, decision 76), so only an empty `bands` brings
+    /// it: a caller drawing edges keeps those `Edge::is_drawn` keeps.
     ///
     /// # Errors
     ///
@@ -160,7 +162,8 @@ impl SegmentReader {
         )
     }
 
-    /// Edges to `dst`, by edge id, of the given bands; every band when `bands` is empty.
+    /// Edges to `dst`, by edge id, of the given bands; every band when `bands` is empty
+    /// (the only way a declared edge, which has no band, is returned).
     ///
     /// # Errors
     ///
@@ -224,6 +227,19 @@ impl SegmentReader {
     /// As [`SegmentReader::coverage`].
     pub fn coverage_all(&self) -> Result<Vec<Coverage>, SegmentError> {
         self.all(queries::COVERAGE_ALL, params![], coverage)
+    }
+
+    /// Every directory discovery excluded by name, by path (schema 4).
+    ///
+    /// # Errors
+    ///
+    /// As [`SegmentReader::node`].
+    pub fn excluded_directories(&self) -> Result<Vec<ExcludedDirectory>, SegmentError> {
+        self.all(
+            queries::EXCLUDED_DIRECTORIES_ALL,
+            params![],
+            excluded_directory,
+        )
     }
 
     /// The file with this id.
@@ -412,6 +428,24 @@ fn opt_id_at<T>(
     .transpose()
 }
 
+fn opt_vocab_at<T>(
+    row: &Row<'_>,
+    table: Table,
+    column: &'static str,
+    index: usize,
+    parse: fn(&str) -> Option<T>,
+) -> Result<Option<T>, SegmentError> {
+    let text: Option<String> = row.get(index)?;
+    text.map(|text| {
+        parse(&text).ok_or(SegmentError::InvalidStoredVocabulary {
+            table,
+            column,
+            value: text,
+        })
+    })
+    .transpose()
+}
+
 fn vocab_at<T>(
     row: &Row<'_>,
     table: Table,
@@ -460,6 +494,15 @@ fn u32_at(
     column: &'static str,
     index: usize,
 ) -> Result<u32, SegmentError> {
+    number(table, column, row.get::<_, i64>(index)?)
+}
+
+fn u64_at(
+    row: &Row<'_>,
+    table: Table,
+    column: &'static str,
+    index: usize,
+) -> Result<u64, SegmentError> {
     number(table, column, row.get::<_, i64>(index)?)
 }
 
@@ -526,7 +569,7 @@ fn edge(row: &Row<'_>) -> Result<Edge, SegmentError> {
         src: id_at(row, T, "src", 1, NodeId::parse)?,
         dst: id_at(row, T, "dst", 2, NodeId::parse)?,
         kind: vocab_at(row, T, "kind", 3, EdgeKind::parse)?,
-        band: vocab_at(row, T, "band", 4, Band::parse)?,
+        band: opt_vocab_at(row, T, "band", 4, Band::parse)?,
         observed: match observed {
             0 => false,
             1 => true,
@@ -567,10 +610,20 @@ fn candidate(row: &Row<'_>) -> Result<CandidateSite, SegmentError> {
         callee_name: row.get(2)?,
         band: vocab_at(row, T, "band", 3, CandidateBand::parse)?,
         candidate_ids,
-        engine_score: row.get(5)?,
-        engine_strategy: row.get(6)?,
-        engine_candidates: opt_u32(row, T, "engine_candidates", 7)?,
-        reason: row.get(8)?,
+        candidates_total: u64_at(row, T, "candidates_total", 5)?,
+        engine_score: row.get(6)?,
+        engine_strategy: row.get(7)?,
+        engine_candidates: opt_u32(row, T, "engine_candidates", 8)?,
+        reason: row.get(9)?,
+    })
+}
+
+fn excluded_directory(row: &Row<'_>) -> Result<ExcludedDirectory, SegmentError> {
+    const T: Table = "excluded_directories";
+    Ok(ExcludedDirectory {
+        path: row.get(0)?,
+        rule: vocab_at(row, T, "rule", 1, ExclusionRule::parse)?,
+        files: u64_at(row, T, "files", 2)?,
     })
 }
 

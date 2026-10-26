@@ -12,11 +12,12 @@ use rusqlite::{Connection, OpenFlags, Statement, params};
 use sha2::{Digest, Sha256};
 
 use super::{SCHEMA, SegmentData, SegmentError, queries, verify};
+use crate::bands::Band;
 use crate::ids::{NodeId, NodeKey, RepoId, SiteId};
-use crate::kinds::LayerRole;
+use crate::kinds::{EdgeKind, LayerRole};
 use crate::languages;
 use crate::model::{
-    CandidateSite, Contract, Coverage, Edge, Evidence, FileRecord, Metric, Node,
+    CandidateSite, Contract, Coverage, Edge, Evidence, ExcludedDirectory, FileRecord, Metric, Node,
     SemanticOccurrence, Site,
 };
 
@@ -290,6 +291,7 @@ struct Canonical<'a> {
     contracts: Vec<&'a Contract>,
     metrics: Vec<&'a Metric>,
     coverage: Vec<&'a Coverage>,
+    excluded: Vec<&'a ExcludedDirectory>,
 }
 
 /// `rows` sorted by `key`, refusing two with the same key.
@@ -404,10 +406,31 @@ impl<'a> Canonical<'a> {
                     ),
                 });
             }
+            // Decision 76: only a route declared on its handler is stated, not inferred.
+            if edge.band.is_none() && edge.kind != EdgeKind::DefinesRoute {
+                return Err(SegmentError::InvalidRow {
+                    table: "edges",
+                    reason: format!(
+                        "{} is a {} edge with no band: only DEFINES_ROUTE is declared",
+                        edge.edge_id, edge.kind
+                    ),
+                });
+            }
         }
         for candidate in &data.candidates {
             finite("candidates", "engine_score", candidate.engine_score)?;
             let unique: BTreeSet<_> = candidate.candidate_ids.iter().collect();
+            if (candidate.candidate_ids.len() as u64) > candidate.candidates_total {
+                return Err(SegmentError::InvalidRow {
+                    table: "candidates",
+                    reason: format!(
+                        "site {} keeps {} candidates of {} that survived",
+                        candidate.site_id,
+                        candidate.candidate_ids.len(),
+                        candidate.candidates_total
+                    ),
+                });
+            }
             if unique.len() != candidate.candidate_ids.len() {
                 return Err(SegmentError::InvalidRow {
                     table: "candidates",
@@ -440,6 +463,9 @@ impl<'a> Canonical<'a> {
             contracts: sorted("contracts", &data.contracts, |r| r.contract_id)?,
             metrics: sorted("metrics", &data.metrics, |r| (r.node_id, r.metric.clone()))?,
             coverage: sorted("coverage", &data.coverage, |r| r.language.clone())?,
+            excluded: sorted("excluded_directories", &data.excluded_directories, |r| {
+                r.path.clone()
+            })?,
         })
     }
 }
@@ -473,6 +499,19 @@ fn insert_all(conn: &Connection, rows: &Canonical<'_>) -> Result<(), SegmentErro
     insert_contracts(conn, rows)?;
     insert_metrics(conn, rows)?;
     insert_coverage(conn, rows)?;
+    insert_excluded(conn, rows)?;
+    Ok(())
+}
+
+fn insert_excluded(conn: &Connection, rows: &Canonical<'_>) -> Result<(), SegmentError> {
+    let mut statement = conn.prepare(queries::INSERT_EXCLUDED_DIRECTORY)?;
+    for d in &rows.excluded {
+        statement.execute(params![
+            d.path,
+            d.rule.as_str(),
+            int("excluded_directories", d.files)?
+        ])?;
+    }
     Ok(())
 }
 
@@ -539,7 +578,7 @@ fn insert_edges(conn: &Connection, rows: &Canonical<'_>) -> Result<(), SegmentEr
             e.src.as_str(),
             e.dst.as_str(),
             e.kind.as_str(),
-            e.band.as_str(),
+            e.band.map(Band::as_str),
             i64::from(e.observed),
             e.engine_score,
             e.engine_strategy,
@@ -606,6 +645,7 @@ fn insert_candidates(conn: &Connection, rows: &Canonical<'_>) -> Result<(), Segm
             c.callee_name,
             c.band.as_str(),
             json("candidates", &ids)?,
+            int("candidates", c.candidates_total)?,
             c.engine_score,
             c.engine_strategy,
             c.engine_candidates,
