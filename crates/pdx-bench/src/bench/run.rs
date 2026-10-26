@@ -112,6 +112,9 @@ pub enum BenchError {
     /// The worker's progress file is not one.
     #[error("the benchmark worker's progress file: {0}")]
     Progress(String),
+    /// `--only` names no repository of the plan.
+    #[error("no repository {0} in bench/repos.lock to measure; the plan has: {1}")]
+    UnknownRepository(String, String),
     /// A build is degraded.
     #[error(
         "the {label} build is degraded ({reasons}); baselines are taken from ready builds only"
@@ -443,6 +446,9 @@ pub struct Run<'a> {
     pub area: &'a Area,
     /// `bench/results/`.
     pub results_root: PathBuf,
+    /// The repositories to measure, by key (`kubernetes`, `go/gin`); empty for every one
+    /// the run's modes cover. Every other result is kept as it is.
+    pub only: Vec<String>,
 }
 
 /// The three determinism builds of an entry checked out at `checkout`, in `dir`.
@@ -580,6 +586,27 @@ fn verified(path: &Path, response: &WorkerResponse) -> Result<bool, BenchError> 
     Ok(hash == response.content_sha256 && size == response.size_bytes)
 }
 
+/// What a degraded sample lost, said with the throughput: the first such sample's
+/// reasons (the samples' segments are equal, so their reasons are too).
+fn degraded_note(samples: &[Sample]) -> String {
+    samples
+        .iter()
+        .find(|sample| !sample.degraded.is_empty())
+        .map(|sample| {
+            let reasons: Vec<String> = sample
+                .degraded
+                .iter()
+                .map(|r| format!("{} {} file(s)", r.kind, r.files))
+                .collect();
+            format!(", degraded ({})", reasons.join("; "))
+        })
+        .unwrap_or_default()
+}
+
+/// The degraded reason of work extraction refuses by design: a file past one of its
+/// bounds (issue 89), never cached.
+const LOST_WORK: &str = "extraction_lost";
+
 fn require_ready(label: &str, response: &WorkerResponse) -> Result<(), BenchError> {
     match response.status {
         BuildStatus::Ready => Ok(()),
@@ -683,15 +710,30 @@ pub fn check_determinism(
     }))
 }
 
-/// One completed performance sample's record.
+/// One completed performance sample's record. A scale repository's sample may be
+/// degraded by lost work alone, the refusals extraction makes by design, and records
+/// its reasons (decision 86); a golden's must be ready.
 ///
 /// # Errors
 ///
-/// [`BenchError`] for a degraded, warm or unobserved sample, or one whose segment is
-/// not what it reported.
-pub fn sample_of(n: usize, spec: &BuildSpec, built: &Built) -> Result<Sample, BenchError> {
+/// [`BenchError`] for a degraded sample not admitted so, a warm or unobserved one, or
+/// one whose segment is not what it reported.
+pub fn sample_of(
+    n: usize,
+    spec: &BuildSpec,
+    built: &Built,
+    kind: &Kind,
+) -> Result<Sample, BenchError> {
     let response = &built.response;
-    require_ready(&spec.label, response)?;
+    let admitted = matches!(kind, Kind::Scale)
+        && !response.degraded.is_empty()
+        && response
+            .degraded
+            .iter()
+            .all(|reason| reason.kind == LOST_WORK);
+    if !admitted {
+        require_ready(&spec.label, response)?;
+    }
     if response.cache_hits > 0 {
         return Err(BenchError::WarmSample {
             sample: n,
@@ -708,7 +750,12 @@ pub fn sample_of(n: usize, spec: &BuildSpec, built: &Built) -> Result<Sample, Be
     let stages = &response.stages;
     Ok(Sample {
         sample: n as u64,
-        status: "ready".to_owned(),
+        status: match response.status {
+            BuildStatus::Ready => "ready",
+            BuildStatus::Degraded => "degraded",
+        }
+        .to_owned(),
+        degraded: response.degraded.clone(),
         content_sha256: response.content_sha256.clone(),
         size_bytes: response.size_bytes,
         files_discovered: stages.items(Stage::Discover),
@@ -907,7 +954,9 @@ impl Run<'_> {
                 spec.workers
             );
             match builder.build(&spec)? {
-                BuildOutcome::Built(built) => samples.push(sample_of(n, &spec, &built)?),
+                BuildOutcome::Built(built) => {
+                    samples.push(sample_of(n, &spec, &built, &entry.kind)?);
+                }
                 BuildOutcome::Stopped(stopped) => {
                     return match entry.kind {
                         Kind::Golden { .. } => Err(BenchError::OverCeiling {
@@ -990,6 +1039,14 @@ pub fn run(
     err: &mut dyn Write,
 ) -> Result<(), BenchError> {
     let results_dir = run.results_root.join(PDX_VERSION);
+    for name in &run.only {
+        if !run.plan.all().iter().any(|entry| entry.key() == *name) {
+            let keys: Vec<String> = run.plan.all().iter().map(|e| e.key()).collect();
+            return Err(BenchError::UnknownRepository(name.clone(), keys.join(", ")));
+        }
+    }
+    let measured =
+        |entry: &&BenchEntry| run.only.is_empty() || run.only.iter().any(|n| *n == entry.key());
     // Unsafe result paths stop the run before anything is built.
     cache::ensure_dir(&run.results_root)?;
     cache::ensure_dir(&results_dir)?;
@@ -1006,7 +1063,7 @@ pub fn run(
     let mut determinism = BTreeMap::new();
     if run.modes.determinism {
         let mut failures = 0;
-        for entry in run.plan.determinism() {
+        for entry in run.plan.determinism().into_iter().filter(measured) {
             let dir = checkout(entry, err)?;
             match run
                 .determinism(entry, &dir, builder, err)
@@ -1037,18 +1094,19 @@ pub fn run(
 
     let mut performance = BTreeMap::new();
     if run.modes.performance {
-        for entry in run.plan.performance() {
+        for entry in run.plan.performance().into_iter().filter(measured) {
             let dir = checkout(entry, err)?;
             let result = run
                 .performance(entry, &dir, builder, err)
                 .map_err(in_context(entry))?;
             let line = match &result {
                 Performance::Completed(c) => format!(
-                    "{:.1} files/s (median of {SAMPLES}), {} files, peak RSS {} MiB, median wall {:.2} s",
+                    "{:.1} files/s (median of {SAMPLES}), {} files, peak RSS {} MiB, median wall {:.2} s{}",
                     c.median_files_per_second,
                     c.files,
                     mib(c.peak_rss_bytes),
-                    seconds(c.median_total_wall_ns)
+                    seconds(c.median_total_wall_ns),
+                    degraded_note(&c.samples)
                 ),
                 Performance::OutOfMemory(o) => format!(
                     "out of memory: stopped in the {} stage at {} MiB, above the {} MiB ceiling",

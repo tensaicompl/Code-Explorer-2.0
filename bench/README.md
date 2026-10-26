@@ -96,7 +96,10 @@ How the numbers are taken:
   Stage 2 at the machine's available parallelism and the default 512 MiB memory
   budget, whatever the cgroup or environment says (the harness refuses `PDX_WORKERS`,
   `PDX_MEM_BUDGET_MB`, `PDX_ENGINE_ISOLATE` and the engine's extraction switches). The
-  engine runs in the sampled process. A baseline is ready only.
+  engine runs in the sampled process. A golden's baseline is ready only; a scale
+  repository's may be degraded by lost work alone (`extraction_lost`, the files past
+  extraction's design bounds), and each such sample records its status and reasons
+  (decision 86). Any other reason fails the sample.
 - **Stage times.** From the pipeline's own progress events, in integer nanoseconds:
   every stage must start and finish once, in order. The whole build's wall time is
   measured separately, around the build. Medians are of the three samples.
@@ -118,6 +121,11 @@ How the numbers are taken:
   disable turbo or stop other work: the numbers are those of the machine as it ran,
   recorded beside its operating system, architecture, processors, memory and processor
   name, never its host name, user or paths.
+- **The local profile.** `make local-scale` (P2-17's `kubernetes_local_scale`) runs the
+  harness over Kubernetes alone with the process limited to eight processors, the
+  local reference profile's (decision 80), and checks G1's scale criterion against the
+  result: at least 400 files/s and at most 4 GiB peak resident memory, every sample with
+  eight workers. It rewrites `kubernetes.json`; run it on the reference machine.
 - **Engine residuals.** Issues 77 to 80 (C-family callables only the expanded text
   represents, Kotlin's delegate spans, the walk's frame leak in error-recovered regions,
   C++ parse artefacts) are open and unchanged: the baselines measure the engine as it

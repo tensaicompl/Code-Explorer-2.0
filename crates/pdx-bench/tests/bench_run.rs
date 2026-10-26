@@ -17,7 +17,7 @@ use pdx_bench::bench::run::{
     Run, Settings, Stopped,
 };
 use pdx_bench::bench::timer::{STAGES, StageRecord, StageTimer, StageTimes};
-use pdx_bench::bench::worker::{BuildStatus, WorkerResponse};
+use pdx_bench::bench::worker::{BuildStatus, ReasonCount, WorkerResponse};
 use pdx_bench::golden::run::EXTRACTION_SWITCHES;
 use pdx_bench::lock::BenchRepos;
 use pdx_core::index::{Progress, Stage};
@@ -115,6 +115,7 @@ impl Checkouts for LocalCheckouts {
 struct Answer {
     bytes: Vec<u8>,
     status: BuildStatus,
+    degraded: Vec<ReasonCount>,
     report_hash: Option<String>,
     cache_hits: Option<u64>,
     extract_ns: u64,
@@ -128,6 +129,7 @@ impl Answer {
         Self {
             bytes: bytes.to_vec(),
             status: BuildStatus::Ready,
+            degraded: Vec::new(),
             report_hash: None,
             cache_hits: None,
             extract_ns: 100 * MS,
@@ -238,7 +240,7 @@ impl Builder for Synthetic {
                 cache_hits: answer.cache_hits.unwrap_or(hits),
                 cache_misses: FILES - hits,
                 cache_writes: writes,
-                degraded: Vec::new(),
+                degraded: answer.degraded,
             },
             peak_rss_bytes: answer.rss,
             rss_samples: 3,
@@ -273,6 +275,16 @@ impl Fixture {
         modes: Modes,
         builder: &mut dyn Builder,
     ) -> (Result<(), BenchError>, String, String, Vec<String>) {
+        self.run_only(plan, modes, &[], builder)
+    }
+
+    fn run_only(
+        &self,
+        plan: &BenchPlan,
+        modes: Modes,
+        only: &[&str],
+        builder: &mut dyn Builder,
+    ) -> (Result<(), BenchError>, String, String, Vec<String>) {
         let mut checkouts = LocalCheckouts {
             root: self.dir.path().join("checkouts"),
             asked: Vec::new(),
@@ -284,6 +296,7 @@ impl Fixture {
             host: host(),
             area: &self.area,
             results_root: self.results_root(),
+            only: only.iter().map(|name| (*name).to_owned()).collect(),
         };
         let (mut out, mut err) = (Vec::new(), Vec::new());
         let result = run::run(&run, &mut checkouts, builder, &mut out, &mut err);
@@ -720,6 +733,136 @@ fn a_scale_repository_over_the_ceiling_is_recorded_as_out_of_memory() {
     assert_eq!(p["scale_repositories_completed"], 0);
     assert_eq!(p["all_completed"], false);
     assert_eq!(p["scale"]["kubernetes"]["outcome"], "out_of_memory");
+}
+
+/// A build degraded for `reasons` on the checkouts `degraded` names, ready elsewhere.
+fn degraded_on(degraded: &'static str, reasons: &'static [(&'static str, u64)]) -> Synthetic {
+    Synthetic::new(move |spec, _| {
+        if spec.checkout.ends_with(degraded) {
+            Answer {
+                status: BuildStatus::Degraded,
+                degraded: reasons
+                    .iter()
+                    .map(|&(kind, files)| ReasonCount {
+                        kind: kind.to_owned(),
+                        files,
+                    })
+                    .collect(),
+                ..Answer::ok(b"segment")
+            }
+        } else {
+            Answer::ok(b"segment")
+        }
+    })
+}
+
+#[test]
+fn a_scale_repository_degraded_by_lost_work_is_measured_with_its_reasons() {
+    let fixture = Fixture::new();
+    let mut builder = degraded_on("kubernetes", &[("extraction_lost", 1)]);
+    let (result, out, ..) = fixture.run(&plan(), PERF, &mut builder);
+    result.expect("measured");
+    assert!(
+        out.contains("perf: kubernetes: ")
+            && out.contains(", degraded (extraction_lost 1 file(s))"),
+        "{out}"
+    );
+    let kubernetes = fixture.result("kubernetes.json");
+    let performance = &kubernetes["performance"];
+    assert_eq!(performance["outcome"], "completed");
+    let samples = performance["samples"].as_array().expect("samples");
+    assert_eq!(samples.len(), 3);
+    for sample in samples {
+        assert_eq!(sample["status"], "degraded");
+        assert_eq!(
+            sample["degraded"],
+            serde_json::json!([{"kind": "extraction_lost", "files": 1}])
+        );
+    }
+    // A ready sample records no reasons at all, as before.
+    let flask = fixture.result("flask.json");
+    let ready = &flask["performance"]["samples"][0];
+    assert_eq!(ready["status"], "ready");
+    assert!(ready.get("degraded").is_none(), "{ready}");
+}
+
+#[test]
+fn a_scale_repository_degraded_otherwise_makes_no_baseline() {
+    for reasons in [
+        &[("engine_crash", 1)][..],
+        &[("extraction_lost", 1), ("truncated", 2)],
+        &[],
+    ] {
+        let fixture = Fixture::new();
+        let mut builder = degraded_on("kubernetes", reasons);
+        let (result, ..) = fixture.run(&plan(), PERF, &mut builder);
+        assert!(
+            matches!(failure_of(result), BenchError::Degraded { .. }),
+            "{reasons:?}"
+        );
+        assert!(fixture.snapshot().is_empty());
+    }
+}
+
+#[test]
+fn a_golden_degraded_by_lost_work_makes_no_baseline() {
+    let fixture = Fixture::new();
+    let mut builder = degraded_on("python-flask", &[("extraction_lost", 1)]);
+    let (result, ..) = fixture.run(&golden_only(), PERF, &mut builder);
+    assert!(matches!(failure_of(result), BenchError::Degraded { .. }));
+    assert!(fixture.snapshot().is_empty());
+}
+
+#[test]
+fn only_measures_the_repositories_it_names_and_keeps_every_other_result() {
+    let fixture = Fixture::new();
+    fixture
+        .run(&plan(), BOTH, &mut Synthetic::identical())
+        .0
+        .expect("a first run");
+    let before = fixture.snapshot();
+    let mut builder = Synthetic::new(|_, _| Answer {
+        extract_ns: 50 * MS,
+        ..Answer::ok(b"remeasured")
+    });
+    let (result, _, _, asked) = fixture.run_only(&plan(), PERF, &["kubernetes"], &mut builder);
+    result.expect("measured");
+    assert_eq!(asked, ["kubernetes"]);
+    assert!(
+        builder
+            .specs
+            .iter()
+            .all(|spec| spec.checkout.ends_with("kubernetes")),
+        "only Kubernetes was built"
+    );
+    let after = fixture.snapshot();
+    assert_eq!(
+        after.keys().collect::<Vec<_>>(),
+        before.keys().collect::<Vec<_>>()
+    );
+    for name in ["flask.json", "gin.json"] {
+        assert_eq!(after[name], before[name], "{name} is kept as it was");
+    }
+    assert_ne!(after["kubernetes.json"], before["kubernetes.json"]);
+    let summary = fixture.result("summary.json");
+    assert_eq!(summary["performance"]["repositories_measured"], 3);
+    assert_eq!(summary["determinism"]["repositories_tested"], 2);
+}
+
+#[test]
+fn only_refuses_a_repository_the_plan_does_not_have() {
+    let fixture = Fixture::new();
+    let mut builder = Synthetic::identical();
+    let (result, _, _, asked) = fixture.run_only(&plan(), PERF, &["linux"], &mut builder);
+    match failure_of(result) {
+        BenchError::UnknownRepository(name, plan) => {
+            assert_eq!(name, "linux");
+            assert_eq!(plan, "go/gin, python/flask, kubernetes");
+        }
+        other => panic!("expected an unknown repository, got {other:?}"),
+    }
+    assert!(asked.is_empty());
+    assert!(fixture.snapshot().is_empty());
 }
 
 // --- results ---------------------------------------------------------------------------

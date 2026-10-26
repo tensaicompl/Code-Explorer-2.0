@@ -14,7 +14,7 @@ UI    := ui
         engine-test engine-typed-reference \
         ui-install ui-lint ui-test ui-build bundle-budget \
         licence-scan provenance-scan open-binary-check \
-        golden oracle e2e check-asan asan determinism engine-differential perf \
+        golden oracle e2e check-asan asan determinism engine-differential perf local-scale \
         vet deny bindgen vendor-refresh vendor-verify clean actions-pinned ui-audit \
         coverage coverage-ratchet
 
@@ -201,6 +201,15 @@ engine-differential: engine
 perf:
 	$(CARGO) build --release -p pdx -p pdx-bench
 	$(CARGO) run --release --quiet -p pdx -- bench --perf
+
+# P2-17's acceptance, kubernetes_local_scale (decision 80's local reference profile):
+# the performance harness over Kubernetes alone on eight processors, then G1's scale
+# criterion checked against its result (at least 400 files/s, at most 4 GiB). Run on
+# the reference machine, nightly; it rewrites bench/results/<version>/kubernetes.json.
+local-scale:
+	$(CARGO) build --release -p pdx -p pdx-bench
+	taskset -c 0-7 target/release/pdx-bench bench --perf --only kubernetes
+	$(CARGO) test -p pdx-bench --test local_scale -- --ignored
 
 # --- maintenance -----------------------------------------------------------
 

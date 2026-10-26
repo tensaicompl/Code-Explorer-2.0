@@ -30,6 +30,7 @@ use serde_json::{Map, Value};
 use super::host::Host;
 use super::plan::{BenchEntry, Kind};
 use super::timer::StageRecord;
+use super::worker::ReasonCount;
 use crate::golden::cache::{self, CacheError};
 use crate::golden::plan::check_component;
 
@@ -149,8 +150,13 @@ pub struct Determinism {
 pub struct Sample {
     /// Its number, from 1.
     pub sample: u64,
-    /// `ready`.
+    /// `ready`, or `degraded` for a scale repository's build that lost work extraction
+    /// refuses by design (decision 86).
     pub status: String,
+    /// Why a `degraded` sample is: every reason with the files it concerns. Absent for
+    /// a ready one.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub degraded: Vec<ReasonCount>,
     /// The segment's content hash.
     pub content_sha256: String,
     /// The segment's size.
@@ -790,6 +796,7 @@ mod tests {
         Sample {
             sample: n,
             status: "ready".into(),
+            degraded: Vec::new(),
             content_sha256: "1".repeat(64),
             size_bytes: 4096,
             files_discovered: 12,

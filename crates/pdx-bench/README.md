@@ -19,6 +19,8 @@ pdx bench --perf            # three cold samples per golden and scale repository
 pdx bench --determinism --perf
 make determinism            # builds pdx and pdx-bench (release), then pdx bench --determinism
 make perf                   # the same, then pdx bench --perf
+pdx-bench bench --perf --only kubernetes   # one repository; every other result kept
+make local-scale            # Kubernetes on eight processors, then kubernetes_local_scale
 
 pdx-bench differential-corpora   # the engine differential's corpora, checked, as JSON
 make engine-differential         # the engine against the reference engine (nightly)
@@ -93,7 +95,9 @@ bands only.
 
 ## Determinism and performance (P2-14, decision 49)
 
-`pdx-bench bench --determinism | --perf` (at least one; no positional argument):
+`pdx-bench bench --determinism | --perf` (at least one; no positional argument;
+`--only <key>`, repeatable, measures the named repositories alone and keeps every other
+result as it was; a key the plan does not have stops the run before anything is built):
 
 1. **Preflight.** Refuses to run with any engine extraction switch, `PDX_ENGINE_ISOLATE`,
    `PDX_WORKERS` or `PDX_MEM_BUDGET_MB` set (`bench::run::REFUSED_VARIABLES`), naming
@@ -126,8 +130,10 @@ bands only.
    differing offset.
 6. **Performance**, per golden and scale repository: three samples, each a fresh
    process with a fresh cold cache, Stage 2 at the machine's available parallelism and
-   the default 512 MiB memory budget. Each must be ready, read nothing from its cache
-   and have its resident memory observed; the three must build the same segment. The
+   the default 512 MiB memory budget. Each must be ready (a scale repository's may be
+   degraded by `extraction_lost` alone, recorded as `status` `degraded` with its
+   `degraded` reasons, decision 86), read nothing from its cache and have its resident
+   memory observed; the three must build the same segment. The
    baseline is the median throughput, the median of each stage and of the whole build,
    and the largest peak resident memory; every sample is kept.
 7. **Results.** Staged under `bench/.cache/bench/results/<version>/`, then promoted

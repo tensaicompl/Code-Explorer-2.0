@@ -73,6 +73,16 @@ fn command() -> Command {
                              second and peak resident memory",
                         ),
                 )
+                .arg(
+                    Arg::new("only")
+                        .long("only")
+                        .value_name("REPOSITORY")
+                        .action(ArgAction::Append)
+                        .help(
+                            "Measure only this repository, by its key (kubernetes, go/gin); \
+                             repeatable. Every other result is kept as it is",
+                        ),
+                )
                 .group(
                     ArgGroup::new("modes")
                         .args(["determinism", "perf"])
@@ -159,10 +169,15 @@ fn run_with(args: impl IntoIterator<Item = OsString>) -> ExitCode {
             Mode::Compare
         })
         .map_err(|e| e.to_string()),
-        Some(("bench", m)) => bench(Modes {
-            determinism: m.get_flag("determinism"),
-            performance: m.get_flag("perf"),
-        })
+        Some(("bench", m)) => bench(
+            Modes {
+                determinism: m.get_flag("determinism"),
+                performance: m.get_flag("perf"),
+            },
+            m.get_many::<String>("only")
+                .map(|names| names.cloned().collect())
+                .unwrap_or_default(),
+        )
         .map_err(|e| e.to_string()),
         Some(("differential-corpora", _)) => differential_corpora(),
         Some(("audit-sites", m)) => audit_sites(
@@ -187,7 +202,7 @@ fn run_with(args: impl IntoIterator<Item = OsString>) -> ExitCode {
 }
 
 /// `pdx-bench bench`.
-fn bench(modes: Modes) -> Result<(), BenchError> {
+fn bench(modes: Modes, only: Vec<String>) -> Result<(), BenchError> {
     bench_run::preflight(|name| std::env::var_os(name).is_some())?;
     let here = std::env::current_dir().map_err(|_| BenchError::Workspace(".".into()))?;
     let root = run::workspace_root(&here).map_err(|_| BenchError::Workspace(here.clone()))?;
@@ -209,6 +224,7 @@ fn bench(modes: Modes) -> Result<(), BenchError> {
         host: Host::current(settings.perf_workers, settings.memory_budget_bytes),
         area: &area,
         results_root: root.join("bench/results"),
+        only,
     };
     let mut out = std::io::stdout().lock();
     let mut err = std::io::stderr();
@@ -351,6 +367,30 @@ mod tests {
             assert_eq!(bench.get_flag("determinism"), determinism, "{args:?}");
             assert_eq!(bench.get_flag("perf"), perf, "{args:?}");
         }
+    }
+
+    #[test]
+    fn only_names_repositories_to_measure() {
+        let m = command()
+            .try_get_matches_from([
+                "pdx-bench",
+                "bench",
+                "--perf",
+                "--only",
+                "kubernetes",
+                "--only",
+                "go/gin",
+            ])
+            .expect("parses");
+        let (_, bench) = m.subcommand().expect("a subcommand");
+        let only: Vec<&String> = bench.get_many::<String>("only").expect("names").collect();
+        assert_eq!(only, ["kubernetes", "go/gin"]);
+        assert!(
+            command()
+                .try_get_matches_from(["pdx-bench", "bench", "--only", "kubernetes"])
+                .is_err(),
+            "a mode is still required"
+        );
     }
 
     #[test]

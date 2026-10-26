@@ -92,6 +92,7 @@ fn two_cold_builds_and_a_warm_one_of_a_fixture_are_identical_and_measured() {
         host: Host::current(settings.perf_workers, settings.memory_budget_bytes),
         area: &area,
         results_root: tmp.path().join("results"),
+        only: Vec::new(),
     };
     let mut builder = WorkerBuilder::new(PathBuf::from(HARNESS), MEMORY_CEILING_BYTES);
     let (mut out, mut err) = (Vec::new(), Vec::new());
